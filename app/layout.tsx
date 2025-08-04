@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { redirect } from "next/navigation";
+import NextImage from "next/image";
+import logo from "@/public/logo.png";
 import {
   isAuthenticated,
   getCurrentUser,
@@ -12,8 +14,6 @@ import {
 } from "@/lib/actions/general.action";
 import Sidebar from "@/components/Sidebar";
 import ChatBot from "@/components/ChatBot";
-import NextImage from "next/image";
-import logo from "@/public/logo.png";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,10 +30,12 @@ export const metadata: Metadata = {
   description: "Master your interviews with AI-powered practice sessions",
 };
 
-// Helper function to calculate user stats from real data
+// Helper function to calculate user stats
 const calculateUserStats = async (interviews: any[]) => {
   const totalInterviews = interviews.length;
 
+  // Get feedback for interviews to calculate accurate scores
+  let completedInterviews = [];
   let totalScore = 0;
   let scoredInterviews = 0;
 
@@ -45,20 +47,28 @@ const calculateUserStats = async (interviews: any[]) => {
       });
 
       if (feedback && feedback.totalScore) {
+        completedInterviews.push({ ...interview, feedback });
         totalScore += feedback.totalScore;
         scoredInterviews++;
       }
     } catch (error) {
-      console.error("Error fetching feedback:", error);
+      console.error(
+        "Error fetching feedback for interview:",
+        interview.id,
+        error
+      );
     }
   }
 
-  const averageScore = scoredInterviews > 0 ? Math.round(totalScore / scoredInterviews) : 0;
+  const averageScore =
+    scoredInterviews > 0 ? Math.round(totalScore / scoredInterviews) : 0;
+
+  // Calculate current streak (simplified - based on recent activity)
   const currentStreak = Math.min(totalInterviews, 10);
+
+  // Calculate additional stats for sidebar
   const practiceHours = Math.round((totalInterviews * 45) / 60);
   const improvement = Math.min(Math.max(totalInterviews * 2, 5), 50);
-  
-  // Calculate remaining sessions based on subscription
   const remainingSessions = 20; // Replace with actual subscription logic
 
   return {
@@ -76,15 +86,31 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Check authentication first
+  // Authentication check
   const isUserAuthenticated = await isAuthenticated();
-  
-  // For public routes, don't require auth
-  // You can expand this list as needed
-  const publicRoutes = ['/sign-in', '/sign-up', '/forgot-password'];
-  
-  // Get real user data if authenticated with proper error handling
-  let user = null;
+  if (!isUserAuthenticated) redirect("/sign-in");
+
+  // Force fresh user data fetch
+  const user = await getCurrentUser();
+
+  // If user data is stale, try to refresh it
+  if (!user) {
+    console.log("❌ No user data found, redirecting to sign-in");
+    redirect("/sign-in");
+  }
+
+  // Extract subscription data from user object (since it's nested in Firestore)
+  const userSubscription = user?.subscription || null;
+
+  // Debug logging - remove this after fixing
+  console.log("🔍 Debug - User object:", user);
+  console.log("🔍 Debug - User subscription:", userSubscription);
+  console.log("🔍 Debug - Subscription plan:", userSubscription?.plan);
+  console.log("🔍 Debug - Subscription status:", userSubscription?.status);
+  console.log("🔍 Debug - User ID:", user?.id);
+  console.log("🔍 Debug - Current timestamp:", new Date().toISOString());
+
+  // Fetch user interviews for dynamic stats
   let userStats = {
     totalInterviews: 0,
     averageScore: 0,
@@ -94,58 +120,36 @@ export default async function RootLayout({
     remainingSessions: 8,
   };
 
-  if (isUserAuthenticated) {
-    try {
-      user = await getCurrentUser();
-      
-      if (!user) {
-        redirect("/sign-in");
-      }
-      
-      // Fetch user's interviews and calculate real stats
-      if (user?.id) {
-        try {
-          const interviews = await getInterviewsByUserId(user.id);
-          if (interviews && interviews.length > 0) {
-            const calculatedStats = await calculateUserStats(interviews);
-            // Ensure all required properties exist
-            userStats = {
-              totalInterviews: calculatedStats.totalInterviews || 0,
-              averageScore: calculatedStats.averageScore || 0,
-              currentStreak: calculatedStats.currentStreak || 0,
-              practiceHours: calculatedStats.practiceHours || 0,
-              improvement: calculatedStats.improvement || 0,
-              remainingSessions: calculatedStats.remainingSessions || 8,
-            };
-          }
-        } catch (interviewError) {
-          console.error("Failed to fetch interviews:", interviewError);
-          // Keep default userStats
-        }
-      }
-    } catch (error) {
-      console.error("Failed to fetch user data:", error);
-      // Keep default userStats and user = null
+  try {
+    if (user?.id) {
+      const interviews = await getInterviewsByUserId(user.id);
+      userStats = await calculateUserStats(interviews || []);
     }
-  } else {
-    redirect("/sign-in");
+  } catch (error) {
+    console.error("Failed to fetch user stats:", error);
+    // Keep default stats if fetch fails
   }
+
+  // Get user initials
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((word) => word.charAt(0))
+      .join("")
+      .toUpperCase()
+      .substring(0, 2);
+  };
+
+  const userInitials = user?.name ? getInitials(user.name) : "U";
 
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <div className="min-h-screen bg-black flex">
-          {/* Ensure sidebar always gets valid data */}
+          {/* Pass user with subscription data to sidebar */}
           <Sidebar 
             user={user} 
-            userStats={{
-              totalInterviews: userStats?.totalInterviews || 0,
-              averageScore: userStats?.averageScore || 0,
-              currentStreak: userStats?.currentStreak || 0,
-              practiceHours: userStats?.practiceHours || 0,
-              improvement: userStats?.improvement || 0,
-              remainingSessions: userStats?.remainingSessions || 8,
-            }} 
+            userStats={userStats}
           />
           
           <div className="flex-1 lg:ml-64">
@@ -169,9 +173,7 @@ export default async function RootLayout({
                     </svg>
                   </button>
                   <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                    <span className="text-white font-medium text-sm">
-                      {user?.name ? user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2) : 'U'}
-                    </span>
+                    <span className="text-white font-medium text-sm">{userInitials}</span>
                   </div>
                 </div>
               </div>
@@ -184,7 +186,7 @@ export default async function RootLayout({
           </div>
         </div>
 
-        {/* ChatBot for authenticated users */}
+        {/* Add ChatBot Component - This will appear on all authenticated pages */}
         <ChatBot />
       </body>
     </html>
