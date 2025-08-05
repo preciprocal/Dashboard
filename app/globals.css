@@ -1,8 +1,17 @@
 @import "tailwindcss";
 
+/* Light mode variables (default) */
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  color-scheme: light;
+}
+
+/* Dark mode variables (when .dark class is present) */
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -12,15 +21,311 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
+/* Remove the media query that was conflicting with manual theme switching */
+/* @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
   }
-}
+} */
 
+/* Base body styles */
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+}
+
+/* Ensure HTML background changes with theme */
+html {
+  background: var(--background);
+  transition: background-color 0.2s ease-in-out;
+}
+
+/* Override Tailwind's default background for proper theme switching */
+.bg-gray-50 {
+  background-color: rgb(249 250 251);
+}
+
+.dark .bg-gray-50 {
+  background-color: rgb(17 24 39) !important;
+}
+
+.bg-gray-900 {
+  background-color: rgb(17 24 39);
+}
+
+.bg-white {
+  background-color: rgb(255 255 255);
+}
+
+.dark .bg-white {
+  background-color: rgb(17 24 39) !important;
+}
+
+/* Text color overrides with better contrast */
+.text-gray-900 {
+  color: rgb(17 24 39) !important;
+}
+
+.dark .text-gray-900 {
+  color: rgb(243 244 246) !important;
+}
+
+.text-gray-700 {
+  color: rgb(55 65 81) !important;
+}
+
+.dark .text-gray-700 {
+  color: rgb(209 213 219) !important;
+}
+
+.text-gray-600 {
+  color: rgb(75 85 99) !important;
+}
+
+.dark .text-gray-600 {
+  color: rgb(156 163 175) !important;
+}
+
+.text-gray-500 {
+  color: rgb(107 114 128) !important;
+}
+
+.dark .text-gray-500 {
+  color: rgb(107 114 128) !important;
+}
+
+.text-gray-400 {
+  color: rgb(156 163 175) !important;
+}
+
+.dark .text-gray-400 {
+  color: rgb(107 114 128) !important;
+}
+
+.text-white {
+  color: rgb(255 255 255) !important;
+}
+
+/* Improve heading contrast */
+h1, h2, h3, h4, h5, h6 {
+  color: rgb(17 24 39) !important;
+}
+
+.dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
+  color: rgb(255 255 255) !important;
+}
+
+/* Better button text contrast */
+button {
+  color: rgb(55 65 81) !important;
+}
+
+.dark button {
+  color: rgb(209 213 219) !important;
+}
+
+/* Exception for buttons with specific background colors */
+.bg-blue-600 button,
+.bg-purple-600 button,
+.bg-gradient-to-r button {
+  color: rgb(255 255 255) !important;
+}
+
+/* Link colors */
+a {
+  color: rgb(55 65 81) !important;
+}
+
+.dark a {
+  color: rgb(209 213 219) !important;
+}
+
+/* Input text colors */
+input, textarea, select {
+  color: rgb(17 24 39) !important;
+}
+
+.dark input, .dark textarea, .dark select {
+  color: rgb(243 244 246) !important;
+}
+
+/* Border color overrides */
+.border-gray-200 {
+  border-color: rgb(229 231 235);
+}
+
+.dark .border-gray-200 {
+  border-color: rgb(55 65 81) !important;
+}
+
+.border-gray-700 {
+  border-color: rgb(55 65 81);
+}
+
+/* Scrollbar hiding for horizontal scrolling tabs */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Custom scrollbar for sidebar on desktop */
+.sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+}
+
+.sidebar-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.5);
+  border-radius: 2px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(156, 163, 175, 0.7);
+}
+
+/* Dark mode scrollbar */
+.dark .sidebar-scroll {
+  scrollbar-color: rgba(75, 85, 99, 0.5) transparent;
+}
+
+.dark .sidebar-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(75, 85, 99, 0.5);
+}
+
+.dark .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(75, 85, 99, 0.7);
+}
+
+/* Resize cursor for sidebar */
+.resize-handle {
+  cursor: col-resize;
+}
+
+.resize-handle:hover {
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+/* Smooth transitions for theme changes */
+* {
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}
+
+/* Mobile-specific styles */
+@media (max-width: 1023px) {
+  .sidebar-resize-handle {
+    display: none !important;
+  }
+}
+
+/* Ensure proper spacing on mobile */
+@media (max-width: 640px) {
+  .grid-cols-2 {
+    gap: 0.75rem;
+  }
+  
+  .grid-cols-1 {
+    gap: 1rem;
+  }
+  
+  .space-y-6 > * + * {
+    margin-top: 1rem;
+  }
+  
+  .lg\:space-y-8 > * + * {
+    margin-top: 1rem;
+  }
+}
+
+/* Better touch targets on mobile */
+@media (max-width: 1023px) {
+  button, a {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .sidebar button,
+  .sidebar a {
+    padding: 0.75rem 1rem;
+  }
+}
+
+/* Prevent text selection during resize */
+.select-none {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Loading states */
+.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* Focus styles for accessibility */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .border-gray-200 {
+    border-color: #000;
+  }
+  
+  .dark .border-gray-700 {
+    border-color: #fff;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* Prevent flash of unstyled content */
+html:not(.dark):not([data-theme]) {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+/* Force immediate theme application */
+.dark {
+  --background: #0a0a0a !important;
+  --foreground: #ededed !important;
+}
+
+/* Additional theme support for common elements */
+.dark input {
+  background-color: rgb(31 41 55) !important;
+  border-color: rgb(55 65 81) !important;
+  color: rgb(243 244 246) !important;
+}
+
+.dark input::placeholder {
+  color: rgb(156 163 175) !important;
 }
