@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import {
   Send,
@@ -67,66 +67,12 @@ const ChatBot = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   const chatbotRef = useRef<HTMLDivElement>(null);
 
-  // Pages where chatbot should be hidden
-  const hiddenPages = [
-    "/interview",
-    "/createinterview",
-    "/live-interview",
-    "/ai-interview",
-    "/mock-interview",
-    "/practice-interview",
-    "/interview-session",
-    "/dashboard/interview",
-    "/profile/interview",
-  ];
-
-  // Check if current page should hide chatbot
-  const shouldHideChatbot = hiddenPages.some(
-    (page) => pathname.startsWith(page) || pathname.includes("/interview")
-  );
-
-  // Handle click outside to close chatbot
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        chatbotRef.current &&
-        !chatbotRef.current.contains(event.target as Node)
-      ) {
-        setIsOpen(false);
-      }
-    };
-
-    // Add event listener when chatbot is open
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    // Cleanup event listener
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isOpen]);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  useEffect(() => {
-    if (isOpen && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [isOpen]);
-
-  // ✅ CONDITIONAL RETURN MOVED AFTER ALL HOOKS
-  if (shouldHideChatbot) {
-    return null;
-  }
-
-  const scrollToBottom = () => {
+  // ✅ MOVE FUNCTION DECLARATIONS BEFORE useEffect CALLS
+  const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  }, []);
 
-  const findBestResponse = (
+  const findBestResponse = useCallback((
     userInput: string
   ): { answer: string; category: string; matchedItem?: ChatbotQA } => {
     // Update conversation context
@@ -151,9 +97,9 @@ const ChatBot = () => {
       answer: getRandomFallbackResponse(),
       category: "general",
     };
-  };
+  }, [conversationContext]);
 
-  const handleSendMessage = async () => {
+  const handleSendMessage = useCallback(async () => {
     if (!inputValue.trim()) return;
 
     const userMessage: Message = {
@@ -199,37 +145,37 @@ const ChatBot = () => {
       setMessages((prev) => [...prev, botMessage]);
       setIsTyping(false);
     }, typingDelay);
-  };
+  }, [inputValue, findBestResponse]);
 
-  const handleSuggestionClick = (suggestion: string) => {
+  const handleSuggestionClick = useCallback((suggestion: string) => {
     setInputValue(suggestion);
     setTimeout(() => {
       handleSendMessage();
     }, 100);
-  };
+  }, [handleSendMessage]);
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyPress = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }
-  };
+  }, [handleSendMessage]);
 
-  const handleFeedback = (messageId: number, type: string) => {
+  const handleFeedback = useCallback((messageId: number, type: string) => {
     setShowFeedback({ messageId, type });
     console.log(`Feedback for message ${messageId}: ${type}`);
     setTimeout(() => setShowFeedback(null), 2000);
-  };
+  }, []);
 
-  const copyToClipboard = async (text: string) => {
+  const copyToClipboard = useCallback(async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
     } catch (err) {
       console.error("Failed to copy text: ", err);
     }
-  };
+  }, []);
 
-  const clearChat = () => {
+  const clearChat = useCallback(() => {
     setMessages([
       {
         id: 1,
@@ -247,15 +193,71 @@ const ChatBot = () => {
       },
     ]);
     setConversationContext([]);
-  };
+  }, []);
 
-  const handleContactSupport = () => {
+  const handleContactSupport = useCallback(() => {
     window.open("mailto:support@preciprocal.ai", "_blank");
-  };
+  }, []);
 
-  const handleStartTrial = () => {
+  const handleStartTrial = useCallback(() => {
     window.open("/createinterview", "_blank");
-  };
+  }, []);
+
+  // Pages where chatbot should be hidden
+  const hiddenPages = [
+    "/interview",
+    "/createinterview",
+    "/live-interview",
+    "/ai-interview",
+    "/mock-interview",
+    "/practice-interview",
+    "/interview-session",
+    "/dashboard/interview",
+    "/profile/interview",
+  ];
+
+  // Check if current page should hide chatbot
+  const shouldHideChatbot = hiddenPages.some(
+    (page) => pathname.startsWith(page) || pathname.includes("/interview")
+  );
+
+  // ✅ NOW useEffect CALLS CAN SAFELY USE THE FUNCTIONS
+  // Handle click outside to close chatbot
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        chatbotRef.current &&
+        !chatbotRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    };
+
+    // Add event listener when chatbot is open
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    // Cleanup event listener
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
+
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isOpen]);
+
+  // ✅ CONDITIONAL RETURN MOVED AFTER ALL HOOKS AND FUNCTION DECLARATIONS
+  if (shouldHideChatbot) {
+    return null;
+  }
 
   if (!isOpen) {
     return (

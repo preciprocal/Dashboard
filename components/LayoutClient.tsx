@@ -355,7 +355,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
+    <div className="h-screen bg-gray-50 dark:bg-gray-900 transition-colors flex overflow-hidden">
       {/* Mobile Overlay */}
       {sidebarOpen && (
         <div 
@@ -368,7 +368,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
       <div 
         className={`fixed inset-y-0 left-0 z-50 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transform ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } lg:translate-x-0 transition-all duration-300 ease-in-out flex flex-col h-screen overflow-hidden`}
+        } lg:translate-x-0 transition-all duration-300 ease-in-out flex flex-col h-full overflow-hidden lg:relative lg:z-auto`}
         style={{ 
           width: typeof window !== 'undefined' && window.innerWidth >= 1024 ? `${sidebarWidth}px` : '280px' 
         }}
@@ -407,7 +407,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
         </div>
 
         {/* Main Navigation */}
-        <nav className="flex-1 py-2 overflow-y-auto">
+        <nav className="flex-1 py-2 overflow-y-auto min-h-0">
           {/* Main Items */}
           <div className="px-3 space-y-1">
             {mainNavItems.map((item) => renderNavItem(item, pathname === item.href))}
@@ -493,82 +493,72 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
         </div>
       </div>
 
-      {/* Navbar */}
-      <header 
-        className="fixed top-0 right-0 z-30 h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 transition-all duration-300 ease-in-out"
-        style={{ 
-          left: typeof window !== 'undefined' && window.innerWidth >= 1024 ? `${sidebarWidth}px` : '0'
-        }}
-      >
-        <div className="flex items-center justify-between h-full px-6">
-          {/* Mobile menu button */}
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="lg:hidden p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-
-          {/* Search */}
-          <div className="flex-1 max-w-2xl mx-6">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                placeholder="Search anything"
-                className="w-full pl-12 pr-16 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white dark:focus:bg-gray-700 transition-all"
-              />
-              <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs font-medium">
-                ⌘ F
-              </div>
-            </div>
-          </div>
-
-          {/* Right section */}
-          <div className="flex items-center space-x-3">
-            {/* Theme toggle */}
+      {/* Main Layout - Fixed height structure */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Navbar */}
+        <header className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+          <div className="flex items-center justify-between h-full px-6">
+            {/* Mobile menu button */}
             <button
-              onClick={toggleTheme}
-              className="p-2.5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-              title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="lg:hidden p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
             >
-              {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              <Menu className="w-5 h-5" />
             </button>
 
-            {/* Notifications */}
-            <button className="p-2.5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors relative">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
-            </button>
+            {/* Search */}
+            <div className="flex-1 max-w-2xl mx-6">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Search anything"
+                  className="w-full pl-12 pr-16 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white dark:focus:bg-gray-700 transition-all"
+                />
+                <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs font-medium">
+                  ⌘ F
+                </div>
+              </div>
+            </div>
 
-            {/* Profile */}
-            <div className="flex items-center space-x-3 cursor-pointer group hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg px-3 py-2 transition-colors">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-sm">
-                <span className="text-white text-sm font-semibold">{userInitials}</span>
-              </div>
-              <div className="hidden sm:block">
-                <div className="text-sm font-medium text-gray-900 dark:text-white">
-                  {safeUser?.name || 'User'}
+            {/* Right section */}
+            <div className="flex items-center space-x-3">
+              {/* Theme toggle */}
+              <button
+                onClick={toggleTheme}
+                className="p-2.5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+              >
+                {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              </button>
+
+              {/* Notifications */}
+              <button className="p-2.5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors relative">
+                <Bell className="w-5 h-5" />
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
+              </button>
+
+              {/* Profile */}
+              <div className="flex items-center space-x-3 cursor-pointer group hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg px-3 py-2 transition-colors">
+                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-sm">
+                  <span className="text-white text-sm font-semibold">{userInitials}</span>
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">
-                  {safeUser?.email || 'user@example.com'}
+                <div className="hidden sm:block">
+                  <div className="text-sm font-medium text-gray-900 dark:text-white">
+                    {safeUser?.name || 'User'}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    {safeUser?.email || 'user@example.com'}
+                  </div>
                 </div>
+                <ChevronDown className="w-4 h-4 text-gray-400 hidden sm:block group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors" />
               </div>
-              <ChevronDown className="w-4 h-4 text-gray-400 hidden sm:block group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors" />
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Main Content */}
-      <div 
-        className="transition-all duration-300 ease-in-out"
-        style={{ 
-          marginLeft: typeof window !== 'undefined' && window.innerWidth >= 1024 ? `${sidebarWidth}px` : '0',
-          paddingTop: '64px'
-        }}
-      >
-        <main className="p-6 lg:p-8 min-h-screen bg-gray-50 dark:bg-gray-900">
+        {/* Main Content Area - Takes remaining height */}
+        <main className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900 p-6">
           {children}
         </main>
       </div>
