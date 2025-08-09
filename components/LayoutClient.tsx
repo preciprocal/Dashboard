@@ -30,7 +30,8 @@ import {
   Mic,
   Volume2,
   Gift,
-  GripVertical
+  GripVertical,
+  User
 } from 'lucide-react';
 import { signOut } from "@/lib/actions/auth.action";
 
@@ -107,6 +108,7 @@ const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
 // Sidebar items configuration
 const mainNavItems = [
   { id: 'overview', label: 'Dashboard', icon: Home, href: '/' },
+  { id: 'profile', label: 'Profile', icon: User, href: '/profile' },
   { id: 'documents', label: 'Documents', icon: FileText, href: '/documents' },
 ];
 
