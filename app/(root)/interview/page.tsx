@@ -66,9 +66,6 @@ function calculateNextResetDate(subscription: any): Date {
 export default async function CreateInterviewPage() {
   const user = await getCurrentUser();
 
-  if (!user?.id) {
-    redirect("/sign-in");
-  }
 
   // Get real user subscription data from user object
   const subscription = user.subscription;

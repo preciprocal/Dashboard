@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import AnimatedLoader from "@/components/loader/AnimatedLoader"; // Add this import
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -589,7 +590,10 @@ const ProfilePage = () => {
         console.error("Failed to fetch user data:", error);
         toast.error("Failed to load profile data");
       } finally {
-        setIsLoading(false);
+        // Add a small delay to show the loader animation
+        setTimeout(() => {
+          setIsLoading(false);
+        }, 1500);
       }
     };
 
@@ -608,15 +612,14 @@ const ProfilePage = () => {
     }
   };
 
+  // Show animated loader while loading
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-950 dark:via-gray-900 dark:to-gray-800 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-20 h-20 border-4 border-blue-200 dark:border-blue-800 border-t-blue-600 dark:border-t-blue-400 rounded-full animate-spin mx-auto mb-6"></div>
-          <div className="text-gray-900 dark:text-white text-xl font-semibold mb-2">Loading Your Profile</div>
-          <div className="text-gray-600 dark:text-gray-400">Fetching your latest data...</div>
-        </div>
-      </div>
+      <AnimatedLoader
+        isVisible={true}
+        loadingText="Loading Your Profile"
+        onHide={() => console.log('Profile loaded')}
+      />
     );
   }
 

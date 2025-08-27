@@ -1,6 +1,6 @@
+// app/layout.tsx - Simplified without custom providers for now
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { redirect } from "next/navigation";
 import {
   isAuthenticated,
   getCurrentUser,
@@ -10,7 +10,6 @@ import {
   getFeedbackByInterviewId,
 } from "@/lib/actions/general.action";
 import LayoutClient from "@/components/LayoutClient";
-import ChatBot from "@/components/ChatBot";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -22,7 +21,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// Helper function to calculate user stats
+// Helper function to calculate user stats (interviews only for now)
 const calculateUserStats = async (interviews: any[]) => {
   const totalInterviews = interviews.length;
 
@@ -65,6 +64,11 @@ const calculateUserStats = async (interviews: any[]) => {
     practiceHours,
     improvement,
     remainingSessions,
+    interviewsUsed: totalInterviews,
+    interviewsLimit: 10,
+    // Resume stats will be fetched client-side
+    resumesUsed: 0,
+    resumesLimit: 5,
   };
 };
 
@@ -73,17 +77,7 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Authentication check
-  const isUserAuthenticated = await isAuthenticated();
-  if (!isUserAuthenticated) redirect("/sign-in");
-
-  const user = await getCurrentUser();
-  if (!user) {
-    console.log("❌ No user data found, redirecting to sign-in");
-    redirect("/sign-in");
-  }
-
-  // Fetch user interviews for dynamic stats
+  let user = null;
   let userStats = {
     totalInterviews: 0,
     averageScore: 0,
@@ -91,15 +85,32 @@ export default async function RootLayout({
     practiceHours: 0,
     improvement: 0,
     remainingSessions: 8,
+    interviewsUsed: 5,
+    interviewsLimit: 10,
+    resumesUsed: 0,
+    resumesLimit: 5,
   };
 
   try {
-    if (user?.id) {
-      const interviews = await getInterviewsByUserId(user.id);
-      userStats = await calculateUserStats(interviews || []);
+    // Check authentication without immediate redirect
+    const isUserAuthenticated = await isAuthenticated();
+    
+    if (isUserAuthenticated) {
+      user = await getCurrentUser();
+      
+      // Only fetch interview stats if we have a user
+      if (user?.id) {
+        try {
+          const interviews = await getInterviewsByUserId(user.id);
+          userStats = await calculateUserStats(interviews || []);
+        } catch (error) {
+          console.error("Failed to fetch user stats:", error);
+        }
+      }
     }
   } catch (error) {
-    console.error("Failed to fetch user stats:", error);
+    console.error("Authentication check failed:", error);
+    // Don't redirect here, let individual pages handle auth
   }
 
   return (
@@ -108,7 +119,6 @@ export default async function RootLayout({
         <LayoutClient user={user} userStats={userStats}>
           {children}
         </LayoutClient>
-        <ChatBot />
       </body>
     </html>
   );
