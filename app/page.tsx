@@ -1,588 +1,747 @@
-"use client"
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import AnimatedLoader from "@/components/loader/AnimatedLoader";
-import { 
-  Search, 
-  ArrowRight,
-  Clock,
-  Users,
-  BookOpen,
-  FileText,
-  Star,
+"use client";
+
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import {
+  Activity,
+  Target,
+  BarChart3,
   Brain,
   TrendingUp,
-  Sparkles,
   Calendar,
-  MoreHorizontal,
-  Target,
+  Clock,
   Award,
   Zap,
-  Activity,
-  BarChart3,
-  PieChart,
-  CheckCircle,
-  AlertTriangle,
-  Download,
-  Upload,
-  ExternalLink,
-  Bell,
-  Filter,
-  Video,
-  MessageSquare,
-  Briefcase,
-  Building,
-  Globe,
-  Phone,
-  Mail,
-  Edit3,
-  Share2,
-  Bookmark,
-  Eye,
-  PlayCircle,
-  PauseCircle,
-  ArrowUp,
-  ArrowDown,
   Plus,
-  Minus
-} from 'lucide-react';
+} from "lucide-react";
 
-const ProfessionalDashboard = () => {
-  const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true);
-  const [activeMetric, setActiveMetric] = useState('interviews');
-  const [performanceView, setPerformanceView] = useState('week'); // 'week' or 'month'
+// Import the modular components
+import ProfileOverview from "@/components/profile//Overview";
+import ProfileInterviews from "@/components/profile//Interviews";
+import {ProfileAnalytics} from "@/components/profile//Analytics";
+import ProfileRecommendations from "@/components/profile//Recommendations";
 
-  // Mock data that would come from your Firebase/API
-  const dashboardData = {
-    user: {
-      name: "Alex Johnson",
-      email: "alex.johnson@email.com",
-      title: "Senior Software Engineer",
-      company: "TechCorp Inc.",
-      profileImage: null
-    },
-    metrics: {
-      totalInterviews: 24,
-      averageScore: 87,
-      successRate: 76,
-      totalResumes: 8,
-      activeApplications: 12,
-      responseRate: 23
-    },
-    recentActivity: [
-      { id: 1, type: 'interview', title: 'Technical Interview - Google', score: 92, date: '2 hours ago', status: 'completed' },
-      { id: 2, type: 'resume', title: 'Resume Analysis - Meta', score: 85, date: '5 hours ago', status: 'analyzed' },
-      { id: 3, type: 'application', title: 'Applied to Senior Engineer - Apple', date: '1 day ago', status: 'pending' },
-      { id: 4, type: 'interview', title: 'System Design - Microsoft', score: 88, date: '2 days ago', status: 'completed' }
-    ],
-    upcomingEvents: [
-      { id: 1, title: 'Technical Interview', company: 'Netflix', time: '2:00 PM', date: 'Today', type: 'interview' },
-      { id: 2, title: 'HR Screening', company: 'Amazon', time: '10:30 AM', date: 'Tomorrow', type: 'screening' },
-      { id: 3, title: 'Final Round', company: 'Tesla', time: '3:00 PM', date: 'Friday', type: 'final' }
-    ],
-    weeklyProgress: [
-      { day: 'Mon', interviews: 2, score: 85 },
-      { day: 'Tue', interviews: 1, score: 92 },
-      { day: 'Wed', interviews: 3, score: 78 },
-      { day: 'Thu', interviews: 2, score: 88 },
-      { day: 'Fri', interviews: 1, score: 95 },
-      { day: 'Sat', interviews: 0, score: 0 },
-      { day: 'Sun', interviews: 1, score: 82 }
-    ],
-    monthlyProgress: [
-      { day: 'Week 1', interviews: 8, score: 82 },
-      { day: 'Week 2', interviews: 12, score: 85 },
-      { day: 'Week 3', interviews: 15, score: 88 },
-      { day: 'Week 4', interviews: 18, score: 90 }
-    ],
-    documents: [
-      { id: 1, name: 'Resume_Software_Engineer_2024.pdf', type: 'resume', size: '245 KB', modified: '2 hours ago', score: 92 },
-      { id: 2, name: 'Cover_Letter_Google.pdf', type: 'cover-letter', size: '180 KB', modified: '1 day ago', score: null },
-      { id: 3, name: 'Portfolio_Projects.pdf', type: 'portfolio', size: '1.2 MB', modified: '3 days ago', score: null },
-      { id: 4, name: 'Interview_Notes_Meta.docx', type: 'notes', size: '95 KB', modified: '5 days ago', score: null }
-    ]
+// Interfaces (same as before)
+interface Interview {
+  id: string;
+  userId: string;
+  role: string;
+  type: "technical" | "behavioral" | "system-design" | "coding";
+  techstack: string[];
+  company: string;
+  position: string;
+  createdAt: Date;
+  updatedAt: Date;
+  duration: number;
+  score?: number;
+  status: "completed" | "in-progress" | "scheduled";
+  feedback?: {
+    strengths: string[];
+    weaknesses: string[];
+    overallRating: number;
+    technicalAccuracy: number;
+    communication: number;
+    problemSolving: number;
+    confidence: number;
+    totalScore?: number;
+    finalAssessment?: string;
+    categoryScores?: { [key: string]: number };
+    areasForImprovement?: string[];
   };
+  questions?: {
+    question: string;
+    answer: string;
+    score: number;
+    feedback: string;
+  }[];
+}
 
+interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string;
+  phone?: string;
+  location?: string;
+  linkedIn?: string;
+  github?: string;
+  website?: string;
+  bio?: string;
+  targetRole?: string;
+  experienceLevel?: "junior" | "mid" | "senior" | "lead" | "executive";
+  preferredTech?: string[];
+  careerGoals?: string;
+  createdAt: Date;
+  lastLogin: Date;
+}
+
+interface UserStats {
+  totalInterviews: number;
+  averageScore: number;
+  improvementRate: number;
+  currentStreak: number;
+  longestStreak: number;
+  hoursSpent: number;
+  strengthsMap: { [key: string]: number };
+  weaknessesMap: { [key: string]: number };
+  monthlyProgress: { month: string; score: number; interviews: number }[];
+  companyPreparation: {
+    company: string;
+    interviews: number;
+    avgScore: number;
+  }[];
+  skillProgress: { skill: string; current: number; target: number }[];
+  typeBreakdown?: {
+    type: string;
+    count: number;
+    avgScore: number;
+    percentage: number;
+  }[];
+  bestPerformingType?: string;
+  worstPerformingType?: string;
+  successRate?: number;
+  completionRate?: number;
+}
+
+interface AIRecommendation {
+  category: "technical" | "behavioral" | "system-design" | "coding" | "communication";
+  title: string;
+  description: string;
+  priority: "high" | "medium" | "low";
+  resources: {
+    title: string;
+    url: string;
+    type: "article" | "video" | "course" | "book" | "practice";
+    rating?: number;
+    users?: string;
+  }[];
+  estimatedTime: string;
+  difficulty: "beginner" | "intermediate" | "advanced";
+  impact: string;
+  confidence: number;
+}
+
+const Dashboard = () => {
+  const [activeTab, setActiveTab] = useState<
+    | "overview"
+    | "interviews"
+    | "analytics"
+    | "recommendations"
+  >("overview");
+
+  // User data states
+  const [user, setUser] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [interviews, setInterviews] = useState<Interview[]>([]);
+  const [stats, setStats] = useState<UserStats | null>(null);
+  const [aiRecommendations, setAIRecommendations] = useState<AIRecommendation[]>([]);
+
+  // UI states
+  const [isLoading, setIsLoading] = useState(true);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Update current time every minute
   useEffect(() => {
-    // Simulate loading
-    setTimeout(() => setIsLoading(false), 2000);
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000);
+
+    return () => clearInterval(timer);
   }, []);
 
-  const getInitials = (name) => {
-    return name.split(' ').map(word => word[0]).join('').toUpperCase();
-  };
+  // Fetch Firebase data via API routes (same as before)
+  useEffect(() => {
+    const fetchUserData = async () => {
+      setIsLoading(true);
+      try {
+        const profileResponse = await fetch("/api/profile");
+        if (!profileResponse.ok) {
+          throw new Error("Failed to fetch profile data");
+        }
 
-  const getScoreColor = (score) => {
-    if (score >= 90) return 'text-emerald-600';
-    if (score >= 80) return 'text-blue-600';
-    if (score >= 70) return 'text-yellow-600';
-    return 'text-red-600';
-  };
+        const { user: currentUser, interviews: userInterviews } =
+          await profileResponse.json();
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'completed': return 'bg-green-100 text-green-700';
-      case 'pending': return 'bg-yellow-100 text-yellow-700';
-      case 'analyzed': return 'bg-blue-100 text-blue-700';
-      default: return 'bg-gray-100 text-gray-700';
+        if (!currentUser) {
+          toast.error("Please log in to view your dashboard");
+          return;
+        }
+
+        setUser(currentUser);
+
+        const interviewsWithDates = (userInterviews || []).map((interview: any) => ({
+          ...interview,
+          createdAt: interview.createdAt?.toDate
+            ? interview.createdAt.toDate()
+            : new Date(interview.createdAt),
+          updatedAt: interview.updatedAt?.toDate
+            ? interview.updatedAt.toDate()
+            : new Date(interview.updatedAt || interview.createdAt),
+        }));
+
+        setUserProfile({
+          id: currentUser.id,
+          name: currentUser.name || "User",
+          email: currentUser.email || "",
+          createdAt: new Date(),
+          lastLogin: new Date(),
+          targetRole: "Software Engineer",
+          experienceLevel: "mid",
+          preferredTech: ["JavaScript", "React", "Node.js"],
+        });
+
+        if (interviewsWithDates && interviewsWithDates.length > 0) {
+          const feedbackResponse = await fetch("/api/feedback/batch", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              interviews: interviewsWithDates,
+              userId: currentUser.id,
+            }),
+          });
+
+          if (feedbackResponse.ok) {
+            const { interviews: interviewsWithFeedback } =
+              await feedbackResponse.json();
+
+            setInterviews(interviewsWithFeedback);
+            const calculatedStats = calculateUserStats(interviewsWithFeedback);
+            setStats(calculatedStats);
+
+            const recommendations = generateAIRecommendations(
+              interviewsWithFeedback,
+              calculatedStats
+            );
+            setAIRecommendations(recommendations);
+          } else {
+            setInterviews(interviewsWithDates);
+            const calculatedStats = calculateUserStats(interviewsWithDates);
+            setStats(calculatedStats);
+          }
+        } else {
+          setStats({
+            totalInterviews: 0,
+            averageScore: 0,
+            improvementRate: 0,
+            currentStreak: 0,
+            longestStreak: 0,
+            hoursSpent: 0,
+            strengthsMap: {},
+            weaknessesMap: {},
+            monthlyProgress: [],
+            companyPreparation: [],
+            skillProgress: [],
+            typeBreakdown: [],
+            bestPerformingType: "N/A",
+            worstPerformingType: "N/A",
+            successRate: 0,
+            completionRate: 0,
+          });
+        }
+      } catch (error) {
+        console.error("Failed to fetch user data:", error);
+        toast.error("Failed to load dashboard data");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, []);
+
+  // Generate daily focus function (same as before)
+  const generateDailyFocus = (interviews: Interview[], stats: UserStats) => {
+    const today = new Date();
+    const todayStart = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate()
+    );
+
+    const todayInterviews = interviews.filter((interview) => {
+      const interviewDate =
+        interview.createdAt instanceof Date
+          ? interview.createdAt
+          : new Date(interview.createdAt);
+      return (
+        interviewDate >= todayStart &&
+        (interview.score > 0 ||
+          (interview.feedback && Object.keys(interview.feedback).length > 0))
+      );
+    });
+
+    const focuses = [];
+
+    if (todayInterviews.length === 0) {
+      focuses.push({
+        id: 1,
+        text: "Complete 1 Interview",
+        description: "Start your daily practice",
+        completed: false,
+        type: "basic",
+        icon: "🎯",
+      });
+    } else {
+      focuses.push({
+        id: 1,
+        text: "Complete 1 Interview",
+        description: "Great start!",
+        completed: true,
+        type: "basic",
+        icon: "✅",
+      });
     }
+
+    return focuses.slice(0, 3);
   };
 
-  const handleNewInterview = () => {
-    setIsLoading(true);
-    setTimeout(() => {
-      router.push('/interview');
-    }, 1000);
+  // Calculate user stats function (same as before)
+  const calculateUserStats = (interviews: Interview[]): UserStats => {
+    const completedInterviews = interviews.filter(
+      (i) => i.feedback && i.score && i.score > 0
+    );
+
+    const totalInterviews = interviews.length;
+    const averageScore =
+      completedInterviews.length > 0
+        ? Math.round(
+            completedInterviews.reduce((sum, i) => sum + (i.score || 0), 0) /
+              completedInterviews.length
+          )
+        : 0;
+
+    // Calculate type breakdown
+    const typeMap: { [key: string]: { scores: number[]; count: number } } = {};
+    completedInterviews.forEach((interview) => {
+      const type =
+        interview.type.charAt(0).toUpperCase() +
+        interview.type.slice(1).replace("-", " ");
+      if (!typeMap[type]) {
+        typeMap[type] = { scores: [], count: 0 };
+      }
+      typeMap[type].scores.push(interview.score || 0);
+      typeMap[type].count++;
+    });
+
+    const typeBreakdown = Object.entries(typeMap).map(([type, data]) => ({
+      type,
+      count: data.count,
+      avgScore: Math.round(
+        data.scores.reduce((sum, score) => sum + score, 0) / data.scores.length
+      ),
+      percentage: Math.round((data.count / completedInterviews.length) * 100),
+    }));
+
+    const sortedTypes = typeBreakdown.sort((a, b) => b.avgScore - a.avgScore);
+    const bestPerformingType = sortedTypes[0]?.type || "N/A";
+    const worstPerformingType =
+      sortedTypes[sortedTypes.length - 1]?.type || "N/A";
+
+    const successRate =
+      completedInterviews.filter((i) => (i.score || 0) >= 70).length > 0
+        ? Math.round(
+            (completedInterviews.filter((i) => (i.score || 0) >= 70).length /
+              completedInterviews.length) *
+              100
+          )
+        : 0;
+
+    const completionRate =
+      totalInterviews > 0
+        ? Math.round((completedInterviews.length / totalInterviews) * 100)
+        : 0;
+
+    const monthlyData: { [key: string]: { scores: number[]; count: number } } =
+      {};
+    completedInterviews.forEach((interview) => {
+      const date =
+        interview.createdAt instanceof Date
+          ? interview.createdAt
+          : new Date(interview.createdAt);
+      const month = date.toLocaleDateString("en-US", { month: "short" });
+      if (!monthlyData[month]) {
+        monthlyData[month] = { scores: [], count: 0 };
+      }
+      monthlyData[month].scores.push(interview.score || 0);
+      monthlyData[month].count++;
+    });
+
+    const monthlyProgress = Object.entries(monthlyData).map(
+      ([month, data]) => ({
+        month,
+        score: Math.round(
+          data.scores.reduce((sum, score) => sum + score, 0) /
+            data.scores.length
+        ),
+        interviews: data.count,
+      })
+    );
+
+    const improvementRate =
+      monthlyProgress.length >= 2
+        ? Math.round(
+            ((monthlyProgress[monthlyProgress.length - 1].score -
+              monthlyProgress[0].score) /
+              monthlyProgress[0].score) *
+              100
+          )
+        : Math.max(0, Math.round(Math.random() * 15));
+
+    const currentStreak = Math.min(interviews.length, 7);
+
+    const skillProgress = typeBreakdown.map((type) => ({
+      skill: type.type,
+      current: type.avgScore,
+      target: Math.min(100, type.avgScore + 15),
+    }));
+
+    const strengthsMap: { [key: string]: number } = {};
+    const weaknessesMap: { [key: string]: number } = {};
+
+    skillProgress.forEach((skill) => {
+      if (skill.current >= 80) {
+        strengthsMap[skill.skill] = skill.current;
+      } else if (skill.current < 70) {
+        weaknessesMap[skill.skill] = skill.current;
+      }
+    });
+
+    return {
+      totalInterviews,
+      averageScore,
+      improvementRate,
+      currentStreak,
+      longestStreak: currentStreak + 2,
+      hoursSpent: Math.round(totalInterviews * 0.75),
+      strengthsMap,
+      weaknessesMap,
+      monthlyProgress,
+      companyPreparation: [],
+      skillProgress,
+      typeBreakdown,
+      bestPerformingType,
+      worstPerformingType,
+      successRate,
+      completionRate,
+    };
   };
 
-  const handleUploadResume = () => {
-    setIsLoading(true);
-    setTimeout(() => {
-      router.push('/resume/upload');
-    }, 1000);
+  // Generate AI recommendations (same as before)
+  const generateAIRecommendations = (
+    interviews: Interview[],
+    stats: UserStats
+  ): AIRecommendation[] => {
+    const recommendations: AIRecommendation[] = [];
+
+    if (stats.totalInterviews === 0) {
+      recommendations.push({
+        category: "technical",
+        title: "Start with Technical Interview Practice",
+        description:
+          "Begin your interview preparation journey by practicing fundamental technical questions and coding challenges.",
+        priority: "high",
+        resources: [
+          {
+            title: "LeetCode Easy Problems",
+            url: "https://leetcode.com",
+            type: "practice",
+          },
+        ],
+        estimatedTime: "2-3 weeks",
+        difficulty: "beginner",
+        impact: "High",
+        confidence: 92,
+      });
+      return recommendations;
+    }
+
+    if (stats.averageScore < 70) {
+      recommendations.push({
+        category: "technical",
+        title: "Master Technical Interview Fundamentals",
+        description:
+          "Your current average indicates you need to focus on core computer science concepts.",
+        priority: "high",
+        estimatedTime: "3-4 weeks",
+        difficulty: "intermediate",
+        impact: "High",
+        confidence: 92,
+        resources: [
+          {
+            title: "Cracking the Coding Interview",
+            url: "https://www.crackingthecodinginterview.com/",
+            type: "book",
+            rating: 4.6,
+            users: "45K reviews",
+          },
+        ],
+      });
+    }
+
+    return recommendations;
   };
 
-  const getCurrentProgressData = () => {
-    return performanceView === 'week' ? dashboardData.weeklyProgress : dashboardData.monthlyProgress;
-  };
-
-  const getMaxInterviews = () => {
-    const currentData = getCurrentProgressData();
-    return Math.max(...currentData.map(item => item.interviews));
+  const getGreeting = () => {
+    const hour = currentTime.getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 17) return "Good afternoon";
+    return "Good evening";
   };
 
   if (isLoading) {
     return (
-      <AnimatedLoader
-        isVisible={true}
-        loadingText="Loading Dashboard"
-        onHide={() => console.log('Dashboard loaded')}
-      />
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-gray-300 dark:border-gray-600 border-t-blue-600 dark:border-t-blue-400 rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="text-gray-900 dark:text-white text-lg font-medium">
+            Loading your dashboard...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!userProfile || !stats) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-600 dark:text-red-400 text-lg mb-4 font-medium">
+            Failed to load dashboard data
+          </div>
+          <Button
+            onClick={() => window.location.reload()}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            Retry
+          </Button>
+        </div>
+      </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
-      <div className="max-w-7xl mx-auto p-6 space-y-6">
-        
-        {/* Header Section */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8">
-          <div className="flex items-center space-x-4">
-            <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-blue-600 rounded-xl flex items-center justify-center text-white text-xl font-bold">
-              {dashboardData.user.profileImage ? (
-                <img src={dashboardData.user.profileImage} alt="Profile" className="w-full h-full rounded-xl object-cover" />
-              ) : (
-                getInitials(dashboardData.user.name)
-              )}
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="relative">
+        {/* Dashboard Header */}
+        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+          <div className="container mx-auto px-4 py-6 max-w-7xl">
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+              {/* Welcome Message */}
+              <div className="flex items-center space-x-4">
+                <div className="relative">
+                  <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-xl">
+                    <span className="text-white text-lg font-bold">
+                      {userProfile.name
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")}
+                    </span>
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-400 border-2 border-white dark:border-gray-900 rounded-full"></div>
+                </div>
+
+                <div className="space-y-1">
+                  <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">
+                    {getGreeting()}, {userProfile.name.split(" ")[0]}!
+                  </h1>
+                  <p className="text-gray-600 dark:text-gray-400 text-base">
+                    Ready to ace your next interview?
+                  </p>
+                  <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
+                    <div className="flex items-center">
+                      <Calendar className="h-4 w-4 mr-1" />
+                      {currentTime.toLocaleDateString("en-US", { 
+                        weekday: "long", 
+                        year: "numeric", 
+                        month: "long", 
+                        day: "numeric" 
+                      })}
+                    </div>
+                    <div className="flex items-center">
+                      <Clock className="h-4 w-4 mr-1" />
+                      {currentTime.toLocaleTimeString("en-US", { 
+                        hour: "2-digit", 
+                        minute: "2-digit" 
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center space-x-4">
+                <Link href="/createinterview">
+                  <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium px-6 py-2 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Start Interview
+                  </Button>
+                </Link>
+                <Link href="/profile">
+                  <Button variant="outline" className="px-6 py-2 rounded-lg border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800">
+                    View Profile
+                  </Button>
+                </Link>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-white">Welcome back, {dashboardData.user.name.split(' ')[0]}!</h1>
-              <p className="text-gray-400">{dashboardData.user.title} at {dashboardData.user.company}</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center space-x-4 mt-4 lg:mt-0">
-            <button 
-              onClick={handleNewInterview}
-              className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-all duration-200 transform hover:scale-105"
-            >
-              <Plus className="w-4 h-4" />
-              <span>New Interview</span>
-            </button>
-            <button 
-              onClick={handleUploadResume}
-              className="flex items-center space-x-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg transition-all duration-200 transform hover:scale-105"
-            >
-              <Upload className="w-4 h-4" />
-              <span>Upload Resume</span>
-            </button>
           </div>
         </div>
 
-        {/* Key Metrics Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-2 bg-purple-900/30 rounded-lg">
-                <Target className="w-6 h-6 text-purple-400" />
+        {/* Quick Stats Overview */}
+        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+          <div className="container mx-auto px-4 py-6 max-w-7xl">
+            <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border border-blue-200 dark:border-blue-700 rounded-xl p-4 text-center">
+                <div className="flex items-center justify-center mb-2">
+                  <Target className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400 mb-1">
+                  {stats.totalInterviews}
+                </div>
+                <div className="text-xs text-blue-700 dark:text-blue-300 font-medium">
+                  Total Interviews
+                </div>
               </div>
-              <span className="text-green-400 text-sm flex items-center">
-                <ArrowUp className="w-4 h-4 mr-1" />
-                +12%
-              </span>
-            </div>
-            <h3 className="text-2xl font-bold text-white">{dashboardData.metrics.totalInterviews}</h3>
-            <p className="text-gray-400 text-sm">Total Interviews</p>
-          </div>
 
-          <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-2 bg-blue-900/30 rounded-lg">
-                <BarChart3 className="w-6 h-6 text-blue-400" />
+              <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border border-green-200 dark:border-green-700 rounded-xl p-4 text-center">
+                <div className="flex items-center justify-center mb-2">
+                  <Award className="h-5 w-5 text-green-600 dark:text-green-400" />
+                </div>
+                <div className="text-2xl font-bold text-green-600 dark:text-green-400 mb-1">
+                  {stats.averageScore}
+                </div>
+                <div className="text-xs text-green-700 dark:text-green-300 font-medium">
+                  Average Score
+                </div>
               </div>
-              <span className="text-green-400 text-sm flex items-center">
-                <ArrowUp className="w-4 h-4 mr-1" />
-                +5%
-              </span>
-            </div>
-            <h3 className="text-2xl font-bold text-white">{dashboardData.metrics.averageScore}%</h3>
-            <p className="text-gray-400 text-sm">Average Score</p>
-          </div>
 
-          <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-2 bg-green-900/30 rounded-lg">
-                <CheckCircle className="w-6 h-6 text-green-400" />
+              <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 border border-purple-200 dark:border-purple-700 rounded-xl p-4 text-center">
+                <div className="flex items-center justify-center mb-2">
+                  <Zap className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                </div>
+                <div className="text-2xl font-bold text-purple-600 dark:text-purple-400 mb-1">
+                  {stats.currentStreak}
+                </div>
+                <div className="text-xs text-purple-700 dark:text-purple-300 font-medium">
+                  Current Streak
+                </div>
               </div>
-              <span className="text-green-400 text-sm flex items-center">
-                <ArrowUp className="w-4 h-4 mr-1" />
-                +8%
-              </span>
-            </div>
-            <h3 className="text-2xl font-bold text-white">{dashboardData.metrics.successRate}%</h3>
-            <p className="text-gray-400 text-sm">Success Rate</p>
-          </div>
 
-          <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-2 bg-yellow-900/30 rounded-lg">
-                <FileText className="w-6 h-6 text-yellow-400" />
+              <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 border border-yellow-200 dark:border-yellow-700 rounded-xl p-4 text-center">
+                <div className="flex items-center justify-center mb-2">
+                  <TrendingUp className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+                </div>
+                <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400 mb-1">
+                  {stats.improvementRate}%
+                </div>
+                <div className="text-xs text-yellow-700 dark:text-yellow-300 font-medium">
+                  Improvement
+                </div>
               </div>
-              <span className="text-yellow-400 text-sm flex items-center">
-                <ArrowUp className="w-4 h-4 mr-1" />
-                +3
-              </span>
+
+              <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 border border-indigo-200 dark:border-indigo-700 rounded-xl p-4 text-center">
+                <div className="flex items-center justify-center mb-2">
+                  <Clock className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mb-1">
+                  {stats.hoursSpent}h
+                </div>
+                <div className="text-xs text-indigo-700 dark:text-indigo-300 font-medium">
+                  Time Spent
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-br from-rose-50 to-rose-100 dark:from-rose-900/20 dark:to-rose-800/20 border border-rose-200 dark:border-rose-700 rounded-xl p-4 text-center">
+                <div className="flex items-center justify-center mb-2">
+                  <Activity className="h-5 w-5 text-rose-600 dark:text-rose-400" />
+                </div>
+                <div className="text-2xl font-bold text-rose-600 dark:text-rose-400 mb-1">
+                  {stats.successRate}%
+                </div>
+                <div className="text-xs text-rose-700 dark:text-rose-300 font-medium">
+                  Success Rate
+                </div>
+              </div>
             </div>
-            <h3 className="text-2xl font-bold text-white">{dashboardData.metrics.activeApplications}</h3>
-            <p className="text-gray-400 text-sm">Active Applications</p>
           </div>
         </div>
 
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          {/* Left Column - 2/3 width */}
-          <div className="lg:col-span-2 space-y-6">
-            
-            {/* AI Assistant Card */}
-            <div className="bg-gradient-to-br from-purple-900/30 to-blue-900/30 rounded-xl p-6 border border-purple-700/30">
-              <h2 className="text-xl font-bold text-white mb-4 flex items-center">
-                <Brain className="w-6 h-6 mr-2 text-purple-400" />
-                AI Career Assistant
-              </h2>
-              
-              <div className="relative mb-4">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  type="text"
-                  placeholder="Ask me anything about your career, interviews, or resume..."
-                  className="w-full pl-12 pr-12 py-3 text-sm border-0 rounded-xl bg-gray-800/50 text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                />
-                <button className="absolute right-3 top-1/2 transform -translate-y-1/2 p-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors">
-                  <ArrowRight className="w-4 h-4" />
+        {/* Navigation Tabs - FIXED STICKY POSITIONING */}
+        <div className="sticky top-0 z-50 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 backdrop-blur-sm bg-white/95 dark:bg-gray-900/95">
+          <div className="container mx-auto px-4 max-w-7xl">
+            <div className="flex space-x-8 overflow-x-auto">
+              {[
+                { id: "overview", label: "Overview", icon: Activity },
+                { id: "interviews", label: "Recent Interviews", icon: Target },
+                { id: "analytics", label: "Analytics", icon: BarChart3 },
+                {
+                  id: "recommendations",
+                  label: "AI Recommendations",
+                  icon: Brain,
+                },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`flex items-center py-4 px-2 border-b-2 font-medium text-sm whitespace-nowrap transition-all duration-200 ${
+                    activeTab === tab.id
+                      ? "border-blue-500 text-blue-600 dark:text-blue-400"
+                      : "border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"
+                  }`}
+                >
+                  <tab.icon className="h-4 w-4 mr-2" />
+                  {tab.label}
                 </button>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {['Resume Feedback', 'Interview Tips', 'Salary Negotiation', 'Career Path'].map((suggestion) => (
-                  <button
-                    key={suggestion}
-                    className="px-3 py-2 bg-gray-800/50 text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-700/50 transition-colors border border-gray-700"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Weekly Performance Chart */}
-            <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-bold text-white">
-                  {performanceView === 'week' ? 'Weekly' : 'Monthly'} Performance
-                </h3>
-                <div className="flex items-center space-x-2">
-                  <button 
-                    onClick={() => setPerformanceView('week')}
-                    className={`px-3 py-1 rounded-lg text-sm transition-all duration-200 ${
-                      performanceView === 'week' 
-                        ? 'bg-purple-600 text-white' 
-                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                    }`}
-                  >
-                    Week
-                  </button>
-                  <button 
-                    onClick={() => setPerformanceView('month')}
-                    className={`px-3 py-1 rounded-lg text-sm transition-all duration-200 ${
-                      performanceView === 'month' 
-                        ? 'bg-purple-600 text-white' 
-                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                    }`}
-                  >
-                    Month
-                  </button>
-                </div>
-              </div>
-              
-              <div className="space-y-4">
-                {getCurrentProgressData().map((item) => (
-                  <div key={item.day} className="flex items-center space-x-4">
-                    <div className="w-16 text-sm text-gray-400 font-medium">{item.day}</div>
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-1">
-                        <span className="text-sm text-white">{item.interviews} interviews</span>
-                        {item.score > 0 && (
-                          <span className={`text-sm font-medium ${getScoreColor(item.score)}`}>
-                            {item.score}% avg
-                          </span>
-                        )}
-                      </div>
-                      <div className="w-full bg-gray-700 rounded-full h-2">
-                        <div 
-                          className="bg-gradient-to-r from-purple-600 to-blue-600 h-2 rounded-full transition-all duration-500"
-                          style={{ width: `${(item.interviews / getMaxInterviews()) * 100}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Recent Activity */}
-            <div className="bg-gray-800 rounded-xl p-6 border border-gray-700" style={{ minHeight: '400px' }}>
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-bold text-white">Recent Activity</h3>
-                <button className="text-purple-400 text-sm hover:text-purple-300 transition-colors">View All</button>
-              </div>
-              
-              <div className="space-y-4">
-                {dashboardData.recentActivity.map((activity) => (
-                  <div key={activity.id} className="flex items-center space-x-4 p-4 bg-gray-700/50 rounded-lg hover:bg-gray-700/70 transition-colors">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      activity.type === 'interview' ? 'bg-purple-900/30' :
-                      activity.type === 'resume' ? 'bg-blue-900/30' :
-                      'bg-green-900/30'
-                    }`}>
-                      {activity.type === 'interview' && <Video className="w-5 h-5 text-purple-400" />}
-                      {activity.type === 'resume' && <FileText className="w-5 h-5 text-blue-400" />}
-                      {activity.type === 'application' && <Briefcase className="w-5 h-5 text-green-400" />}
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-white font-medium truncate">{activity.title}</h4>
-                      <p className="text-gray-400 text-sm">{activity.date}</p>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
-                      {activity.score && (
-                        <span className={`px-2 py-1 rounded-lg text-xs font-medium ${getScoreColor(activity.score)} bg-gray-800`}>
-                          {activity.score}%
-                        </span>
-                      )}
-                      <span className={`px-2 py-1 rounded-lg text-xs font-medium ${getStatusColor(activity.status)}`}>
-                        {activity.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column - 1/3 width */}
-          <div className="space-y-6">
-            
-            {/* Upcoming Events */}
-            <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-white">Upcoming Events</h3>
-                <Calendar className="w-5 h-5 text-gray-400" />
-              </div>
-              
-              <div className="space-y-3">
-                {dashboardData.upcomingEvents.map((event) => (
-                  <div key={event.id} className="p-3 bg-gray-700/50 rounded-lg">
-                    <div className="flex items-start justify-between mb-2">
-                      <h4 className="text-white font-medium text-sm">{event.title}</h4>
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        event.type === 'interview' ? 'bg-purple-900/30 text-purple-400' :
-                        event.type === 'screening' ? 'bg-blue-900/30 text-blue-400' :
-                        'bg-green-900/30 text-green-400'
-                      }`}>
-                        {event.type}
-                      </span>
-                    </div>
-                    <p className="text-gray-400 text-sm">{event.company}</p>
-                    <div className="flex items-center space-x-2 mt-2">
-                      <Clock className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-400 text-xs">{event.time} - {event.date}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              <button className="w-full mt-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors">
-                Schedule New Event
-              </button>
-            </div>
-
-            {/* Documents Section */}
-            <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-white">Documents</h3>
-                <button className="text-purple-400 hover:text-purple-300 transition-colors">
-                  <Plus className="w-5 h-5" />
-                </button>
-              </div>
-              
-              <div className="space-y-3">
-                {dashboardData.documents.map((doc) => (
-                  <div key={doc.id} className="flex items-center space-x-3 p-3 bg-gray-700/50 rounded-lg hover:bg-gray-700/70 transition-colors group">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      doc.type === 'resume' ? 'bg-red-900/30' :
-                      doc.type === 'cover-letter' ? 'bg-blue-900/30' :
-                      doc.type === 'portfolio' ? 'bg-purple-900/30' :
-                      'bg-green-900/30'
-                    }`}>
-                      <FileText className={`w-5 h-5 ${
-                        doc.type === 'resume' ? 'text-red-400' :
-                        doc.type === 'cover-letter' ? 'text-blue-400' :
-                        doc.type === 'portfolio' ? 'text-purple-400' :
-                        'text-green-400'
-                      }`} />
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-white font-medium text-sm truncate">{doc.name}</h4>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-gray-400 text-xs">{doc.size}</span>
-                        <span className="text-gray-400 text-xs">•</span>
-                        <span className="text-gray-400 text-xs">{doc.modified}</span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {doc.score && (
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${getScoreColor(doc.score)} bg-gray-800`}>
-                          {doc.score}%
-                        </span>
-                      )}
-                      <button className="p-1.5 hover:bg-gray-600 rounded transition-colors">
-                        <Download className="w-4 h-4 text-gray-400" />
-                      </button>
-                      <button className="p-1.5 hover:bg-gray-600 rounded transition-colors">
-                        <ExternalLink className="w-4 h-4 text-gray-400" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Quick Stats Card */}
-            <div className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 rounded-xl p-6 border border-blue-700/30">
-              <h3 className="text-lg font-bold text-white mb-4">Quick Stats</h3>
-              
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span className="text-gray-300 text-sm">Response Rate</span>
-                  </div>
-                  <span className="text-white font-medium">{dashboardData.metrics.responseRate}%</span>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                    <span className="text-gray-300 text-sm">Resume Score</span>
-                  </div>
-                  <span className="text-white font-medium">92%</span>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                    <span className="text-gray-300 text-sm">Interview Streak</span>
-                  </div>
-                  <span className="text-white font-medium">7 days</span>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                    <span className="text-gray-300 text-sm">Skill Level</span>
-                  </div>
-                  <span className="text-white font-medium">Advanced</span>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         </div>
 
-        {/* Learning & Development Section */}
-        <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-bold text-white">Learning & Development</h3>
-            <button className="text-purple-400 hover:text-purple-300 transition-colors text-sm">View All Courses</button>
+        {/* Content - ADDED PROPER TOP MARGIN TO PREVENT OVERLAP */}
+        <div className="bg-gray-50 dark:bg-gray-900 min-h-screen pt-0">
+          <div className="container mx-auto px-4 py-6 max-w-7xl">
+            {activeTab === "overview" && (
+              <ProfileOverview
+                userProfile={userProfile}
+                stats={stats}
+                interviews={interviews}
+                generateDailyFocus={generateDailyFocus}
+              />
+            )}
+
+            {activeTab === "interviews" && (
+              <ProfileInterviews interviews={interviews} stats={stats} />
+            )}
+
+            {activeTab === "analytics" && (
+              <ProfileAnalytics stats={stats} interviews={interviews} />
+            )}
+
+            {activeTab === "recommendations" && (
+              <ProfileRecommendations
+                stats={stats}
+                interviews={interviews}
+                aiRecommendations={aiRecommendations}
+                generateAIRecommendations={generateAIRecommendations}
+              />
+            )}
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-gray-700/50 rounded-lg p-4">
-              <div className="flex items-center space-x-3 mb-3">
-                <div className="w-10 h-10 bg-purple-900/30 rounded-lg flex items-center justify-center">
-                  <Brain className="w-5 h-5 text-purple-400" />
-                </div>
-                <div>
-                  <h4 className="text-white font-medium">System Design Mastery</h4>
-                  <p className="text-gray-400 text-xs">8 hours • Advanced</p>
-                </div>
-              </div>
-              <div className="w-full bg-gray-700 rounded-full h-2 mb-2">
-                <div className="bg-purple-600 h-2 rounded-full transition-all duration-500" style={{ width: '65%' }}></div>
-              </div>
-              <p className="text-gray-400 text-xs">65% complete</p>
-            </div>
-            
-            <div className="bg-gray-700/50 rounded-lg p-4">
-              <div className="flex items-center space-x-3 mb-3">
-                <div className="w-10 h-10 bg-blue-900/30 rounded-lg flex items-center justify-center">
-                  <MessageSquare className="w-5 h-5 text-blue-400" />
-                </div>
-                <div>
-                  <h4 className="text-white font-medium">Behavioral Interview Prep</h4>
-                  <p className="text-gray-400 text-xs">4 hours • Intermediate</p>
-                </div>
-              </div>
-              <div className="w-full bg-gray-700 rounded-full h-2 mb-2">
-                <div className="bg-blue-600 h-2 rounded-full transition-all duration-500" style={{ width: '90%' }}></div>
-              </div>
-              <p className="text-gray-400 text-xs">90% complete</p>
-            </div>
-            
-            <div className="bg-gray-700/50 rounded-lg p-4">
-              <div className="flex items-center space-x-3 mb-3">
-                <div className="w-10 h-10 bg-green-900/30 rounded-lg flex items-center justify-center">
-                  <Award className="w-5 h-5 text-green-400" />
-                </div>
-                <div>
-                  <h4 className="text-white font-medium">Leadership Skills</h4>
-                  <p className="text-gray-400 text-xs">6 hours • Beginner</p>
-                </div>
-              </div>
-              <div className="w-full bg-gray-700 rounded-full h-2 mb-2">
-                <div className="bg-green-600 h-2 rounded-full transition-all duration-500" style={{ width: '25%' }}></div>
-              </div>
-              <p className="text-gray-400 text-xs">25% complete</p>
-            </div>
-          </div>
+        </div>
+
+        {/* Floating Action Button for Mobile */}
+        <div className="fixed bottom-6 right-6 lg:hidden z-40">
+          <Link href="/createinterview">
+            <Button className="w-14 h-14 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-110">
+              <Plus className="h-6 w-6" />
+            </Button>
+          </Link>
         </div>
       </div>
     </div>
   );
 };
 
-export default ProfessionalDashboard;
+export default Dashboard;

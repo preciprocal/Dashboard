@@ -6,9 +6,10 @@ import { useRouter } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import Link from 'next/link';
 import { auth } from '@/firebase/client';
-import { FirebaseService } from '@/lib/services/firebase-service'; // ✅ Updated path
-import { convertPdfToImage } from '@/lib/resume/pdf2img'; // ✅ Updated path
-import FileUploader from '@/components/resume/FileUploader'; // ✅ Updated path
+import { FirebaseService } from '@/lib/services/firebase-service';
+import { convertPdfToImage } from '@/lib/resume/pdf2img';
+import FileUploader from '@/components/resume/FileUploader';
+import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import { Resume, Feedback } from '@/types/resume';
 
 const PROCESSING_STEPS = [
@@ -55,12 +56,10 @@ export default function UploadResume() {
     setError('');
 
     try {
-      // Generate unique ID
       const resumeId = crypto.randomUUID();
 
-      // Step 1: Convert PDF to image
       updateProgress(0);
-      await new Promise(resolve => setTimeout(resolve, 500)); // Small delay for UX
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       updateProgress(1, 'Converting PDF to image...');
       console.log('🔄 Starting PDF conversion...');
@@ -70,7 +69,6 @@ export default function UploadResume() {
       }
       console.log('✅ PDF converted to image successfully');
 
-      // Step 2: Analyze with AI
       updateProgress(2, 'Analyzing resume with AI...');
       console.log('🤖 Starting AI analysis...');
       
@@ -79,7 +77,7 @@ export default function UploadResume() {
       formData.append('jobTitle', jobTitle);
       formData.append('jobDescription', jobDescription);
 
-      const response = await fetch('/api/analyze-resume', {  // ✅ Corrected back to original path
+      const response = await fetch('/api/analyze-resume', {
         method: 'POST',
         body: formData,
       });
@@ -96,7 +94,6 @@ export default function UploadResume() {
         throw new Error('Invalid response from AI service');
       }
 
-      // Step 3: Save everything to Firestore
       updateProgress(3, 'Saving your results...');
       console.log('💾 Saving resume to database...');
       
@@ -110,7 +107,6 @@ export default function UploadResume() {
         userId: user.uid,
       };
 
-      // Save resume with embedded files (no external storage)
       await FirebaseService.saveResumeWithFiles(resume, file, imageResult.file);
       console.log('✅ Resume saved successfully');
 
@@ -135,8 +131,7 @@ export default function UploadResume() {
       return;
     }
 
-    // Check file size (1MB limit due to Firestore constraints)
-    const maxSize = 1 * 1024 * 1024; // 1MB
+    const maxSize = 1 * 1024 * 1024;
     if (file.size > maxSize) {
       setError('File size must be less than 1MB for optimal processing. Please compress your PDF.');
       return;
@@ -150,12 +145,13 @@ export default function UploadResume() {
     await handleAnalyze({ companyName, jobTitle, jobDescription, file });
   };
 
-  // Redirect if not authenticated
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
+      <AnimatedLoader
+        isVisible={true}
+        loadingText="Loading..."
+        onHide={() => console.log('Loading complete')}
+      />
     );
   }
 
@@ -165,253 +161,221 @@ export default function UploadResume() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Navigation */}
-      <nav className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <Link href="/resume" className="flex items-center text-sm text-gray-600 hover:text-gray-900">
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              Back to Dashboard
-            </Link>
-          </div>
-        </div>
-      </nav>
+    <div className="h-full flex flex-col">
+      {/* AnimatedLoader for Processing */}
+      <AnimatedLoader
+        isVisible={isProcessing}
+        loadingText={statusText}
+        onHide={() => console.log('Processing complete')}
+      />
 
-      <div className="max-w-2xl mx-auto px-4 py-12">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Smart Resume Analysis
-          </h1>
-          {isProcessing ? (
-            <div className="space-y-4">
-              <p className="text-xl text-gray-600">{statusText}</p>
-              
-              {/* Progress bar */}
-              <div className="w-full max-w-md mx-auto">
-                <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
-                  <span>Step {currentStep + 1} of {PROCESSING_STEPS.length}</span>
-                  <span>{Math.round(((currentStep + 1) / PROCESSING_STEPS.length) * 100)}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${((currentStep + 1) / PROCESSING_STEPS.length) * 100}%` }}
-                  ></div>
-                </div>
-              </div>
-
-              {/* Animated icon */}
-              <div className="flex justify-center">
-                <div className="relative">
-                  <div className="animate-spin rounded-full h-16 w-16 border-4 border-gray-200 border-t-blue-600"></div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              {/* Processing tips */}
-              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm text-blue-700">
-                  💡 <strong>Did you know?</strong> Our AI analyzes over 50 different aspects of your resume, 
-                  from ATS compatibility to writing style and keyword optimization.
-                </p>
-              </div>
-            </div>
-          ) : (
-            <p className="text-xl text-gray-600">
-              Upload your resume for AI-powered analysis and improvement tips
-            </p>
-          )}
-        </div>
-
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <div className="flex">
-              <svg className="w-5 h-5 text-red-400 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      {/* Error Display */}
+      {error && (
+        <div className="flex-shrink-0 mb-6 mx-4 p-6 bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 border border-red-200 dark:border-red-800 rounded-2xl shadow-sm">
+          <div className="flex items-start space-x-4">
+            <div className="flex-shrink-0 w-10 h-10 bg-red-100 dark:bg-red-800 rounded-full flex items-center justify-center">
+              <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <div>
-                <h3 className="text-sm font-medium text-red-800">Analysis Failed</h3>
-                <p className="text-sm text-red-700 mt-1">{error}</p>
-                <button
-                  onClick={() => setError('')}
-                  className="mt-2 text-sm text-red-600 underline hover:text-red-800"
-                >
-                  Try again
-                </button>
-              </div>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-red-900 dark:text-red-200 mb-2">Analysis Failed</h3>
+              <p className="text-red-800 dark:text-red-300 mb-4 leading-relaxed">{error}</p>
+              <button
+                onClick={() => setError('')}
+                className="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+              >
+                Try Again
+              </button>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {!isProcessing && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-            <form onSubmit={handleSubmit} className="p-8 space-y-6">
-              {/* Company Name */}
-              <div>
-                <label htmlFor="company-name" className="block text-sm font-medium text-gray-700 mb-2">
-                  Company Name <span className="text-gray-400">(optional)</span>
-                </label>
-                <input
-                  type="text"
-                  name="company-name"
-                  id="company-name"
-                  placeholder="e.g. Google, Microsoft, Apple"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Help us provide targeted feedback for this specific company
-                </p>
+      {/* Main Form - Scrollable Container with Margin */}
+      {!isProcessing && (
+        <div className="flex-1 min-h-0 mx-4">
+          <div className="h-full overflow-y-auto">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+              {/* Form Header */}
+              <div className="bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-800 dark:to-blue-900/20 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">Resume Analysis Form</h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Fill out the details below to get personalized feedback on your resume</p>
               </div>
 
-              {/* Job Title */}
-              <div>
-                <label htmlFor="job-title" className="block text-sm font-medium text-gray-700 mb-2">
-                  Job Title <span className="text-gray-400">(optional)</span>
-                </label>
-                <input
-                  type="text"
-                  name="job-title"
-                  id="job-title"
-                  placeholder="e.g. Senior Software Engineer, Product Manager"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  We'll analyze your resume against this role's requirements
-                </p>
-              </div>
+              <form onSubmit={handleSubmit} className="p-6">
+                {/* 2x2 Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                  {/* Company Name */}
+                  <div className="space-y-3">
+                    <label htmlFor="company-name" className="block text-sm font-semibold text-gray-900 dark:text-white">
+                      Company Name
+                      <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-full">Optional</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="company-name"
+                      id="company-name"
+                      placeholder="e.g. Google, Microsoft, Apple"
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white dark:focus:bg-gray-600 transition-all duration-200 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                      Help us provide targeted feedback specific to this company's culture and requirements
+                    </p>
+                  </div>
 
-              {/* Job Description */}
-              <div>
-                <label htmlFor="job-description" className="block text-sm font-medium text-gray-700 mb-2">
-                  Job Description <span className="text-gray-400">(optional)</span>
-                </label>
-                <textarea
-                  rows={4}
-                  name="job-description"
-                  id="job-description"
-                  placeholder="Paste the full job description here for the most accurate analysis and keyword matching..."
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors resize-none"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Including the job description significantly improves analysis accuracy
-                </p>
-              </div>
+                  {/* Job Title */}
+                  <div className="space-y-3">
+                    <label htmlFor="job-title" className="block text-sm font-semibold text-gray-900 dark:text-white">
+                      Job Title
+                      <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-full">Optional</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="job-title"
+                      id="job-title"
+                      placeholder="e.g. Senior Software Engineer, Product Manager"
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white dark:focus:bg-gray-600 transition-all duration-200 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                      We'll analyze your resume against this specific role's requirements and expectations
+                    </p>
+                  </div>
 
-              {/* File Upload */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Upload Resume <span className="text-red-500">*</span>
-                </label>
-                <FileUploader onFileSelect={handleFileSelect} />
-                <p className="text-xs text-gray-500 mt-2">
-                  📄 <strong>File Requirements:</strong> PDF format, max 1MB for optimal processing
-                </p>
-              </div>
+                  {/* Job Description */}
+                  <div className="space-y-3">
+                    <label htmlFor="job-description" className="block text-sm font-semibold text-gray-900 dark:text-white">
+                      Job Description
+                      <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-full">Optional</span>
+                    </label>
+                    <textarea
+                      rows={6}
+                      name="job-description"
+                      id="job-description"
+                      placeholder="Paste the complete job description here for the most accurate analysis and keyword matching..."
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white dark:focus:bg-gray-600 transition-all duration-200 resize-none text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                      Including the full job description significantly improves analysis accuracy and keyword optimization
+                    </p>
+                  </div>
 
-              {/* File size warning if file is selected */}
-              {file && (
-                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <div className="flex items-start">
-                    <svg className="w-5 h-5 text-yellow-400 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                    </svg>
-                    <div>
-                      <h3 className="text-sm font-medium text-yellow-800">File Size Notice</h3>
-                      <p className="text-sm text-yellow-700 mt-1">
-                        File size: {(file.size / (1024 * 1024)).toFixed(2)}MB. 
-                        {file.size > 1024 * 1024 ? (
-                          <span className="text-red-600 font-medium"> File too large! Please compress to under 1MB.</span>
-                        ) : (
-                          <span className="text-green-600"> Perfect size for processing!</span>
-                        )}
+                  {/* File Upload */}
+                  <div className="space-y-3">
+                    <label className="block text-sm font-semibold text-gray-900 dark:text-white">
+                      Upload Resume
+                      <span className="ml-2 text-xs font-normal text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 px-2 py-1 rounded-full">Required</span>
+                    </label>
+                    <div className="[&>div]:border-0 [&>div>div]:border-2 [&>div>div]:border-dashed [&>div>div]:border-gray-300 [&>div>div]:dark:border-gray-600 [&>div>div]:hover:border-blue-400 [&>div>div]:dark:hover:border-blue-500 [&>div>div]:bg-transparent [&>div>div]:dark:bg-transparent [&>div>div]:rounded-xl [&>div>div]:transition-colors [&>div>div]:min-h-[120px] [&>div>div]:flex [&>div>div]:items-center [&>div>div]:justify-center">
+                      <FileUploader onFileSelect={handleFileSelect} />
+                    </div>
+                    <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
+                      <p className="text-xs text-blue-800 dark:text-blue-200 flex items-center">
+                        <svg className="w-4 h-4 mr-2 text-blue-500 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <strong>Requirements:</strong> PDF format only, maximum file size 1MB for optimal processing
                       </p>
                     </div>
                   </div>
                 </div>
-              )}
 
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={!file || isProcessing || (file && file.size > 1024 * 1024)}
-                className={`w-full py-4 px-6 rounded-lg font-semibold text-white transition-all duration-200 ${
-                  !file || isProcessing || (file && file.size > 1024 * 1024)
-                    ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-blue-600 hover:bg-blue-700 hover:shadow-lg active:scale-[0.98] transform'
-                }`}
-              >
-                {isProcessing ? (
-                  <span className="flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2"></div>
-                    Analyzing Resume...
-                  </span>
-                ) : file && file.size > 1024 * 1024 ? (
-                  <span className="flex items-center justify-center">
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                    </svg>
-                    File Too Large - Please Compress
-                  </span>
-                ) : (
-                  <span className="flex items-center justify-center">
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                    Start AI Analysis
-                  </span>
+                {/* File size warning */}
+                {file && (
+                  <div className={`mb-4 p-4 rounded-xl border-2 ${
+                    file.size > 1024 * 1024 
+                      ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' 
+                      : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                  }`}>
+                    <div className="flex items-start space-x-3">
+                      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                        file.size > 1024 * 1024 
+                          ? 'bg-red-100 dark:bg-red-800' 
+                          : 'bg-green-100 dark:bg-green-800'
+                      }`}>
+                        <svg className={`w-4 h-4 ${
+                          file.size > 1024 * 1024 
+                            ? 'text-red-600 dark:text-red-400' 
+                            : 'text-green-600 dark:text-green-400'
+                        }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                d={file.size > 1024 * 1024 
+                                  ? "M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                  : "M5 13l4 4L19 7"} />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className={`text-sm font-semibold ${
+                          file.size > 1024 * 1024 
+                            ? 'text-red-900 dark:text-red-200' 
+                            : 'text-green-900 dark:text-green-200'
+                        }`}>
+                          File Size: {(file.size / (1024 * 1024)).toFixed(2)}MB
+                        </h3>
+                        <p className={`text-sm mt-1 ${
+                          file.size > 1024 * 1024 
+                            ? 'text-red-800 dark:text-red-300' 
+                            : 'text-green-800 dark:text-green-300'
+                        }`}>
+                          {file.size > 1024 * 1024 ? (
+                            <>File is too large. Please compress your PDF to under 1MB for optimal processing.</>
+                          ) : (
+                            <>Perfect! Your file size is optimal for fast processing.</>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 )}
-              </button>
 
-              {/* Help Text */}
-              <div className="text-center">
-                <p className="text-sm text-gray-500">
-                  🔒 Your resume is processed securely and never shared with third parties
-                </p>
-              </div>
-            </form>
-          </div>
-        )}
+                {/* Submit Button */}
+                <button
+                  type="submit"
+                  disabled={!file || isProcessing || (file && file.size > 1024 * 1024)}
+                  className={`w-full py-3.5 px-6 rounded-xl font-semibold text-base transition-all duration-200 transform ${
+                    !file || isProcessing || (file && file.size > 1024 * 1024)
+                      ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.98] shadow-md'
+                  }`}
+                >
+                  {isProcessing ? (
+                    <span className="flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-3"></div>
+                      Analyzing Resume...
+                    </span>
+                  ) : file && file.size > 1024 * 1024 ? (
+                    <span className="flex items-center justify-center">
+                      <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      File Too Large - Please Compress
+                    </span>
+                  ) : (
+                    <span className="flex items-center justify-center">
+                      <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      Start AI Analysis
+                    </span>
+                  )}
+                </button>
 
-        {/* Feature highlights */}
-        {!isProcessing && (
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="text-center p-4">
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-              </div>
-              <h3 className="font-semibold text-gray-900">ATS Compatible</h3>
-              <p className="text-sm text-gray-600">Check if your resume passes applicant tracking systems</p>
-            </div>
-            <div className="text-center p-4">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
-              </div>
-              <h3 className="font-semibold text-gray-900">AI-Powered</h3>
-              <p className="text-sm text-gray-600">Advanced AI analyzes content, structure, and keywords</p>
-            </div>
-            <div className="text-center p-4">
-              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-              <h3 className="font-semibold text-gray-900">Instant Results</h3>
-              <p className="text-sm text-gray-600">Get detailed feedback and improvement tips in seconds</p>
+                {/* Security Notice */}
+                <div className="text-center mt-4">
+                  <div className="inline-flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 px-4 py-2 rounded-full border border-gray-200 dark:border-gray-700">
+                    <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    <span className="font-medium">Secure Processing</span>
+                    <span className="text-gray-500 dark:text-gray-400">•</span>
+                    <span>Your resume is processed securely and never shared</span>
+                  </div>
+                </div>
+              </form>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

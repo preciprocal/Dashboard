@@ -183,7 +183,7 @@ const useDynamicNavItems = () => {
   ];
 
   const studyToolsItems = [
-    { id: 'interviews', label: 'Interviews', icon: Video, href: '/interviews' },
+    { id: 'interviews', label: 'Interviews', icon: Video, href: '/interview' },
     { id: 'templates', label: 'Templates', icon: BookOpen, href: '/templates' },  
     { id: 'analytics', label: 'Analytics', icon: BarChart3, href: '/analytics' },
     { id: 'achievements', label: 'Achievements', icon: Award, href: '/achievements' },

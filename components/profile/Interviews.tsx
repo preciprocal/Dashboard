@@ -1,326 +1,393 @@
-// components/profile/InterviewsTab.tsx
-"use client";
-
 import React, { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import ProfileInterviewCard from "@/components/ProfileInterviewCard";
 import {
-  Target,
   FileText,
-  Star,
-  CheckCircle,
+  TrendingUp,
+  Calendar,
+  Award,
+  Target,
   BarChart3,
   BookOpen,
-  TrendingUp,
-  Filter,
-  Search,
-  Calendar,
   Clock,
-  Trophy,
-  Eye,
-  RotateCcw,
-  Play
+  Filter,
 } from "lucide-react";
 
-interface Interview {
-  id: string;
-  userId: string;
-  role: string;
-  type: "technical" | "behavioral" | "system-design" | "coding";
-  techstack: string[];
-  company: string;
-  position: string;
-  createdAt: Date;
-  updatedAt: Date;
-  duration: number;
-  score?: number;
-  status: "completed" | "in-progress" | "scheduled";
-  feedback?: any;
+interface ProfileInterviewsProps {
+  interviews: any[];
+  stats: any;
 }
 
-interface UserStats {
-  totalInterviews: number;
-  averageScore: number;
-  currentStreak: number;
-  successRate?: number;
-}
-
-interface InterviewsTabProps {
-  interviews: Interview[];
-  stats: UserStats;
-  onTabChange: (tab: string) => void;
-}
-
-// Professional Interview Card Component
-const InterviewCard: React.FC<{ interview: Interview }> = ({ interview }) => {
-  const getTypeConfig = (type: string) => {
-    const configs = {
-      technical: { icon: '💻', color: 'bg-blue-600', label: 'Technical' },
-      behavioral: { icon: '🤝', color: 'bg-green-600', label: 'Behavioral' },
-      'system-design': { icon: '🏗️', color: 'bg-purple-600', label: 'System Design' },
-      coding: { icon: '⚡', color: 'bg-orange-600', label: 'Coding' },
-      mixed: { icon: '🔀', color: 'bg-pink-600', label: 'Mixed' }
-    };
-    return configs[type as keyof typeof configs] || configs.mixed;
-  };
-
-  const typeConfig = getTypeConfig(interview.type);
-  const isCompleted = interview.score && interview.score > 0;
-  const formattedDate = new Date(interview.createdAt).toLocaleDateString();
-
-  return (
-    <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 hover:border-gray-600 transition-all">
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-start space-x-4">
-          <div className={`w-12 h-12 ${typeConfig.color} rounded-lg flex items-center justify-center text-white text-xl`}>
-            {typeConfig.icon}
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-white mb-1">{interview.role}</h3>
-            <div className="flex items-center space-x-3 text-sm text-gray-400">
-              <span>{typeConfig.label}</span>
-              <span>•</span>
-              <span>{formattedDate}</span>
-              {interview.company && (
-                <>
-                  <span>•</span>
-                  <span>{interview.company}</span>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-        
-        {isCompleted && (
-          <div className="text-right">
-            <div className={`text-xl font-bold ${
-              interview.score >= 80 ? 'text-green-400' :
-              interview.score >= 60 ? 'text-blue-400' :
-              'text-orange-400'
-            }`}>
-              {interview.score}%
-            </div>
-            <div className="text-gray-400 text-xs">Score</div>
-          </div>
-        )}
-      </div>
-
-      {/* Tech Stack */}
-      {interview.techstack && interview.techstack.length > 0 && (
-        <div className="mb-4">
-          <div className="flex flex-wrap gap-2">
-            {interview.techstack.slice(0, 4).map((tech, index) => (
-              <span key={index} className="px-2 py-1 bg-gray-700 text-gray-300 rounded text-xs">
-                {tech}
-              </span>
-            ))}
-            {interview.techstack.length > 4 && (
-              <span className="px-2 py-1 bg-gray-700 text-gray-400 rounded text-xs">
-                +{interview.techstack.length - 4} more
-              </span>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Action Buttons */}
-      <div className="flex space-x-3">
-        {isCompleted ? (
-          <>
-            <Button asChild className="flex-1 bg-blue-600 hover:bg-blue-700">
-              <Link href={`/interview/${interview.id}/feedback`}>
-                <Eye className="w-4 h-4 mr-2" />
-                View Results
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="flex-1 border-gray-600 text-gray-300 hover:bg-gray-700">
-              <Link href={`/interview/${interview.id}`}>
-                <RotateCcw className="w-4 h-4 mr-2" />
-                Practice Again
-              </Link>
-            </Button>
-          </>
-        ) : (
-          <Button asChild className="w-full bg-blue-600 hover:bg-blue-700">
-            <Link href={`/interview/${interview.id}`}>
-              <Play className="w-4 h-4 mr-2" />
-              Start Interview
-            </Link>
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-};
-
-const InterviewsTab: React.FC<InterviewsTabProps> = ({
+const ProfileInterviews: React.FC<ProfileInterviewsProps> = ({
   interviews,
   stats,
-  onTabChange
 }) => {
-  const [filterType, setFilterType] = useState<string>("all");
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const filteredInterviews = interviews.filter(interview => {
-    const matchesType = filterType === "all" || interview.type === filterType;
-    const matchesSearch = interview.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         interview.company.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesType && matchesSearch;
+  const [interviewFilters, setInterviewFilters] = useState({
+    type: "all",
+    status: "all",
+    sortBy: "date",
   });
 
-  const interviewTypes = [
-    { value: "all", label: "All Types" },
-    { value: "technical", label: "Technical" },
-    { value: "behavioral", label: "Behavioral" },
-    { value: "system-design", label: "System Design" },
-    { value: "coding", label: "Coding" }
-  ];
+  // Filter interviews
+  const filteredInterviews = interviews
+    .filter((interview) => {
+      if (
+        interviewFilters.type !== "all" &&
+        interview.type !== interviewFilters.type
+      )
+        return false;
+      if (
+        interviewFilters.status !== "all" &&
+        (interview.status || "completed") !== interviewFilters.status
+      )
+        return false;
+      return true;
+    })
+    .sort((a, b) => {
+      if (interviewFilters.sortBy === "date") {
+        const dateA =
+          a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt);
+        const dateB =
+          b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt);
+        return dateB.getTime() - dateA.getTime();
+      } else if (interviewFilters.sortBy === "score") {
+        return (b.score || 0) - (a.score || 0);
+      }
+      return 0;
+    });
+
+  // Calculate additional stats
+  const hasInterviews = interviews.length > 0;
+  const totalInterviews = interviews.length;
+  const thisMonthInterviews = interviews.filter((interview) => {
+    const interviewDate =
+      interview.createdAt instanceof Date
+        ? interview.createdAt
+        : new Date(interview.createdAt);
+    const currentDate = new Date();
+    return (
+      interviewDate.getMonth() === currentDate.getMonth() &&
+      interviewDate.getFullYear() === currentDate.getFullYear()
+    );
+  }).length;
+  const lastInterviewDate =
+    interviews.length > 0
+      ? interviews[0]?.createdAt instanceof Date
+        ? interviews[0].createdAt
+        : new Date(interviews[0].createdAt)
+      : null;
+  const averageScore = stats?.averageScore || 0;
 
   return (
     <div className="space-y-6">
-      
-      {/* Header */}
-      <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-semibold text-white mb-2">Interview History</h2>
-            <p className="text-gray-400">Track your progress and performance</p>
+      {/* Header Section */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-8">
+        <div>
+          <div className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500/20 to-purple-500/20 dark:from-blue-500/30 dark:to-purple-500/30 border border-blue-500/30 rounded-full text-blue-700 dark:text-blue-300 text-sm font-semibold mb-4 backdrop-blur-sm">
+            <span className="w-2 h-2 bg-blue-600 dark:bg-blue-400 rounded-full mr-3 animate-pulse"></span>
+            Interview Management
           </div>
-          <div className="flex space-x-3">
-            <Button onClick={() => onTabChange('analytics')} variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-700">
-              <BarChart3 className="w-4 h-4 mr-2" />
-              Analytics
-            </Button>
-            <Button asChild className="bg-blue-600 hover:bg-blue-700">
-              <Link href="/createinterview">
-                <Target className="w-4 h-4 mr-2" />
-                New Interview
-              </Link>
-            </Button>
-          </div>
+          <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-2">
+            My Interview History
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400 text-lg">
+            Track your progress and analyze your performance
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Button className="bg-gray-700 hover:bg-gray-600 text-white font-medium py-3 px-6 rounded-xl border border-gray-600 hover:border-gray-500 transition-all duration-300">
+            <BarChart3 className="h-4 w-4 mr-2" />
+            View Analytics
+          </Button>
+          <Button
+            asChild
+            className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-xl"
+          >
+            <Link href="/createinterview">
+              <Target className="h-5 w-5 mr-2" />
+              New Interview
+            </Link>
+          </Button>
         </div>
       </div>
 
-      {interviews.length > 0 ? (
-        <>
-          {/* Stats Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 text-center">
-              <FileText className="w-8 h-8 text-blue-400 mx-auto mb-3" />
-              <div className="text-2xl font-bold text-white mb-1">{stats.totalInterviews}</div>
-              <div className="text-gray-400 text-sm">Total Interviews</div>
-            </div>
-            
-            <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 text-center">
-              <Star className="w-8 h-8 text-green-400 mx-auto mb-3" />
-              <div className="text-2xl font-bold text-white mb-1">{stats.averageScore}%</div>
-              <div className="text-gray-400 text-sm">Average Score</div>
-            </div>
-            
-            <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 text-center">
-              <Trophy className="w-8 h-8 text-purple-400 mx-auto mb-3" />
-              <div className="text-2xl font-bold text-white mb-1">{stats.currentStreak}</div>
-              <div className="text-gray-400 text-sm">Current Streak</div>
-            </div>
-            
-            <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 text-center">
-              <CheckCircle className="w-8 h-8 text-orange-400 mx-auto mb-3" />
-              <div className="text-2xl font-bold text-white mb-1">{stats.successRate || 0}%</div>
-              <div className="text-gray-400 text-sm">Success Rate</div>
-            </div>
-          </div>
-
-          {/* Filters and Search */}
-          <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                  <input
-                    type="text"
-                    placeholder="Search interviews by role or company..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
+      {/* Key Metrics */}
+      {hasInterviews && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[
+            {
+              icon: FileText,
+              value: totalInterviews,
+              label: "Total Interviews",
+              description: "All time",
+              color: "blue",
+            },
+            {
+              icon: TrendingUp,
+              value: thisMonthInterviews,
+              label: "This Month",
+              description: "Current period",
+              color: "green",
+            },
+            {
+              icon: Calendar,
+              value: lastInterviewDate
+                ? lastInterviewDate.toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                  })
+                : "N/A",
+              label: "Last Interview",
+              description: "Most recent",
+              color: "purple",
+            },
+            {
+              icon: Award,
+              value: averageScore,
+              label: "Average Score",
+              description: "Performance",
+              color: "yellow",
+            },
+          ].map((stat, index) => (
+            <div
+              key={index}
+              className="bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl transition-all duration-300"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div
+                  className={`w-10 h-10 bg-gradient-to-br from-${stat.color}-500 to-${stat.color}-600 rounded-lg flex items-center justify-center shadow-md`}
+                >
+                  <stat.icon className="h-5 w-5 text-white" />
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {stat.value}
+                  </div>
+                  <div className={`text-${stat.color}-600 dark:text-${stat.color}-400 text-sm font-medium`}>
+                    {stat.label}
+                  </div>
                 </div>
               </div>
-              
-              <div className="flex items-center space-x-3">
-                <Filter className="w-5 h-5 text-gray-400" />
-                <select
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value)}
-                  className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  {interviewTypes.map((type) => (
-                    <option key={type.value} value={type.value}>
-                      {type.label}
-                    </option>
-                  ))}
-                </select>
+              <div className="text-gray-600 dark:text-gray-400 text-xs">
+                {stat.description}
               </div>
             </div>
-          </div>
+          ))}
+        </div>
+      )}
 
-          {/* Interview List */}
-          <div className="bg-gray-800 rounded-lg border border-gray-700">
-            <div className="p-6 border-b border-gray-700">
-              <h3 className="text-lg font-semibold text-white">
-                {filteredInterviews.length} Interview{filteredInterviews.length !== 1 ? 's' : ''}
-                {filterType !== "all" && ` • ${interviewTypes.find(t => t.value === filterType)?.label}`}
+      {/* Interview Management Section */}
+      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl">
+        <div className="p-6 lg:p-8 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                <Clock className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white mb-1">
+                  Interview Sessions
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400">
+                  {hasInterviews
+                    ? `${interviews.length} interview${
+                        interviews.length !== 1 ? "s" : ""
+                      } completed`
+                    : "No interviews yet"}
+                </p>
+              </div>
+            </div>
+            {hasInterviews && (
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  {filteredInterviews.length} of {interviews.length} shown
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Filters */}
+        {hasInterviews && (
+          <div className="p-6 lg:p-8 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center mb-4">
+              <Filter className="h-5 w-5 text-gray-600 dark:text-gray-400 mr-2" />
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Filter & Sort
               </h3>
             </div>
-            
-            <div className="p-6">
-              {filteredInterviews.length > 0 ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {filteredInterviews.map((interview) => (
-                    <InterviewCard key={interview.id} interview={interview} />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <FileText className="w-12 h-12 text-gray-500 mx-auto mb-4" />
-                  <p className="text-gray-400">No interviews match your current filters</p>
-                  <Button 
-                    onClick={() => {
-                      setFilterType("all");
-                      setSearchQuery("");
-                    }}
-                    variant="outline"
-                    size="sm"
-                    className="mt-3 border-gray-600 text-gray-400 hover:bg-gray-700"
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {[
+                {
+                  label: "Interview Type",
+                  value: interviewFilters.type,
+                  onChange: (value: string) =>
+                    setInterviewFilters({
+                      ...interviewFilters,
+                      type: value,
+                    }),
+                  options: [
+                    { value: "all", label: "All Types" },
+                    { value: "technical", label: "Technical" },
+                    { value: "behavioral", label: "Behavioral" },
+                    { value: "mixed", label: "Mixed" },
+                  ],
+                },
+                {
+                  label: "Status",
+                  value: interviewFilters.status,
+                  onChange: (value: string) =>
+                    setInterviewFilters({
+                      ...interviewFilters,
+                      status: value,
+                    }),
+                  options: [
+                    { value: "all", label: "All Status" },
+                    { value: "completed", label: "Completed" },
+                    { value: "in-progress", label: "In Progress" },
+                    { value: "scheduled", label: "Scheduled" },
+                  ],
+                },
+                {
+                  label: "Sort By",
+                  value: interviewFilters.sortBy,
+                  onChange: (value: string) =>
+                    setInterviewFilters({
+                      ...interviewFilters,
+                      sortBy: value,
+                    }),
+                  options: [
+                    { value: "date", label: "Latest First" },
+                    { value: "score", label: "Highest Score" },
+                  ],
+                },
+              ].map((filter) => (
+                <div key={filter.label}>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {filter.label}
+                  </label>
+                  <select
+                    value={filter.value}
+                    onChange={(e) => filter.onChange(e.target.value)}
+                    className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors"
                   >
-                    Clear Filters
-                  </Button>
+                    {filter.options.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              )}
+              ))}
+            </div>
+            <div className="mt-4 flex items-center justify-between text-sm">
+              <span className="text-gray-600 dark:text-gray-400">
+                Showing {filteredInterviews.length} of {interviews.length}{" "}
+                interviews
+              </span>
+              <button
+                onClick={() =>
+                  setInterviewFilters({
+                    type: "all",
+                    status: "all",
+                    sortBy: "date",
+                  })
+                }
+                className="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 transition-colors font-medium"
+              >
+                Clear Filters
+              </button>
             </div>
           </div>
-        </>
-      ) : (
-        <div className="bg-gray-800 rounded-lg border border-gray-700 p-12 text-center">
-          <div className="w-16 h-16 bg-gray-700 rounded-lg flex items-center justify-center mx-auto mb-6">
-            <FileText className="w-8 h-8 text-gray-400" />
-          </div>
-          <h3 className="text-xl font-semibold text-white mb-4">No Interviews Yet</h3>
-          <p className="text-gray-400 mb-6 max-w-md mx-auto">
-            Start your interview preparation journey with your first mock interview.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Button asChild className="bg-blue-600 hover:bg-blue-700">
-              <Link href="/createinterview">
-                <Target className="w-4 h-4 mr-2" />
-                Start First Interview
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-700">
-              <Link href="/templates">
-                <BookOpen className="w-4 h-4 mr-2" />
-                Browse Templates
-              </Link>
-            </Button>
+        )}
+
+        <div className="p-6 lg:p-8">
+          {hasInterviews ? (
+            <div className="space-y-4">
+              {filteredInterviews.map((interview, index) => (
+                <div key={interview.id} className="relative">
+                  <ProfileInterviewCard interview={interview} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-16">
+              <div className="mb-8">
+                <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-6 border border-gray-200 dark:border-gray-700">
+                  <FileText className="h-10 w-10 text-gray-400" />
+                </div>
+              </div>
+
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                No Interviews Yet
+              </h3>
+
+              <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md mx-auto">
+                Start your interview preparation journey. Practice with
+                AI-powered mock interviews and track your progress.
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Button
+                  asChild
+                  className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg"
+                >
+                  <Link href="/createinterview">
+                    <Target className="h-4 w-4 mr-2" />
+                    Start First Interview
+                  </Link>
+                </Button>
+
+                <Button
+                  asChild
+                  className="bg-gray-700 hover:bg-gray-600 text-white font-medium py-3 px-6 rounded-xl border border-gray-600 hover:border-gray-500 transition-all duration-300"
+                >
+                  <Link href="/templates">
+                    <BookOpen className="h-4 w-4 mr-2" />
+                    Browse Templates
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      {hasInterviews && (
+        <div className="bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
+                <span className="text-white text-xl">🚀</span>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                  Continue Your Progress
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Ready for your next challenge? Start a new interview or review
+                  your analytics.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button className="bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg border border-gray-600 hover:border-gray-500 transition-all duration-300">
+                <BarChart3 className="h-4 w-4 mr-2" />
+                View Analytics
+              </Button>
+              <Button
+                asChild
+                className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white font-medium py-2 px-4 rounded-lg transition-all duration-300"
+              >
+                <Link href="/createinterview">
+                  <Target className="h-4 w-4 mr-2" />
+                  New Interview
+                </Link>
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -328,4 +395,4 @@ const InterviewsTab: React.FC<InterviewsTabProps> = ({
   );
 };
 
-export default InterviewsTab;
+export default ProfileInterviews;
