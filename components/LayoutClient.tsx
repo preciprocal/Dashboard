@@ -31,7 +31,10 @@ import {
   Volume2,
   Gift,
   GripVertical,
-  User
+  User,
+  Star,
+  Zap,
+  Shield
 } from 'lucide-react';
 import { signOut } from "@/lib/actions/auth.action";
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -127,7 +130,6 @@ const useResumeCount = () => {
       const resumes = await FirebaseService.getUserResumes(user.uid);
       setResumeCount(resumes.length);
       setLatestResume(resumes.length > 0 ? resumes[0] : null);
-      console.log('📊 Resume count updated:', resumes.length);
     } catch (error) {
       console.error('Error fetching resume count:', error);
       setResumeCount(0);
@@ -161,42 +163,7 @@ const useResumeCount = () => {
   return { resumeCount, latestResume, loading, refresh: fetchResumeData };
 };
 
-// Dynamic sidebar navigation items
-const useDynamicNavItems = () => {
-  const { resumeCount, loading } = useResumeCount();
-
-  const mainNavItems = [
-    { id: 'overview', label: 'Dashboard', icon: Home, href: '/' },
-    { id: 'profile', label: 'Profile', icon: User, href: '/profile' },
-    { 
-      id: 'resume', 
-      label: 'Resume Analysis', 
-      icon: FileText, 
-      href: '/resume',
-      badge: loading ? '...' : resumeCount > 0 ? resumeCount.toString() : undefined,
-      subtitle: loading ? 'Loading...' : 
-                resumeCount === 0 ? 'No analyses yet' : 
-                resumeCount === 1 ? '1 analysis' : 
-                `${resumeCount} analyses`,
-      isActive: (pathname: string) => pathname.startsWith('/resume')
-    },
-  ];
-
-  const studyToolsItems = [
-    { id: 'interviews', label: 'Interviews', icon: Video, href: '/interview' },
-    { id: 'templates', label: 'Templates', icon: BookOpen, href: '/templates' },  
-    { id: 'analytics', label: 'Analytics', icon: BarChart3, href: '/analytics' },
-    { id: 'achievements', label: 'Achievements', icon: Award, href: '/achievements' },
-  ];
-
-  const aiVoiceToolsItems = [
-    { id: 'settings', label: 'Settings', icon: Settings, href: '/settings' },
-  ];
-
-  return { mainNavItems, studyToolsItems, aiVoiceToolsItems };
-};
-
-// Helper functions (unchanged)
+// Helper functions
 const getPlanInfo = (subscription: any) => {
   if (
     !subscription ||
@@ -206,7 +173,11 @@ const getPlanInfo = (subscription: any) => {
   ) {
     return {
       text: "Free Plan",
-      style: "text-gray-400 dark:text-gray-500",
+      emoji: "⭐",
+      icon: Shield,
+      style: "text-green-400",
+      badgeStyle: "bg-green-500/20 text-green-400 border-green-500/30",
+      buttonStyle: "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700",
       showUpgrade: true
     };
   }
@@ -216,25 +187,41 @@ const getPlanInfo = (subscription: any) => {
       if (subscription.status === "trial") {
         return {
           text: "Pro Trial",
+          emoji: "🎉",
+          icon: Star,
           style: "text-purple-400",
+          badgeStyle: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+          buttonStyle: "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700",
           showUpgrade: false
         };
       }
       return {
         text: "Pro Plan",
+        emoji: "💎",
+        icon: Star,
         style: "text-purple-400",
+        badgeStyle: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+        buttonStyle: "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700",
         showUpgrade: false
       };
     case "premium":
       return {
         text: "Premium Plan",
+        emoji: "👑",
+        icon: Crown,
         style: "text-yellow-400",
+        badgeStyle: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+        buttonStyle: "bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700",
         showUpgrade: false
       };
     default:
       return {
         text: "Free Plan",
-        style: "text-gray-400 dark:text-gray-500",
+        emoji: "⭐",
+        icon: Shield,
+        style: "text-green-400",
+        badgeStyle: "bg-green-500/20 text-green-400 border-green-500/30",
+        buttonStyle: "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700",
         showUpgrade: true
       };
   }
@@ -276,18 +263,18 @@ interface LayoutClientProps {
   userStats: any;
 }
 
-// Progress Bar Component (unchanged)
+// Progress Bar Component with updated colors
 const ProgressBar = ({ used, limit, color = "blue" }: { used: number; limit: number; color?: string }) => {
   const percentage = Math.min((used / limit) * 100, 100);
   
   const colorClasses = {
-    blue: "bg-blue-500",
-    purple: "bg-purple-500",
-    green: "bg-green-500"
+    blue: "bg-blue-500 dark:bg-blue-400",
+    purple: "bg-indigo-500 dark:bg-indigo-400",
+    green: "bg-emerald-500 dark:bg-emerald-400"
   };
 
   return (
-    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+    <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
       <div 
         className={`h-2 rounded-full ${colorClasses[color]} transition-all duration-300`}
         style={{ width: `${percentage}%` }}
@@ -296,25 +283,24 @@ const ProgressBar = ({ used, limit, color = "blue" }: { used: number; limit: num
   );
 };
 
-// Section Header Component (unchanged)
+// Section Header Component
 const SectionHeader = ({ title, showPlus = false }: { title: string; showPlus?: boolean }) => (
   <div className="flex items-center justify-between px-4 py-2 mt-4 mb-2">
-    <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+    <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
       {title}
     </h3>
     {showPlus && (
-      <Plus className="w-4 h-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer transition-colors" />
+      <Plus className="w-4 h-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer transition-colors" />
     )}
   </div>
 );
 
-// Search Dropdown Component with dynamic resume count
+// Search Dropdown Component
 const SearchDropdown = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const { resumeCount } = useResumeCount();
 
-  // Updated search suggestions with dynamic resume count
   const quickActions = [
     { label: 'Start New Interview', href: '/createinterview', icon: Plus, category: 'Actions' },
     { label: 'View Profile', href: '/profile', icon: User, category: 'Actions' },
@@ -377,31 +363,31 @@ const SearchDropdown = () => {
   return (
     <div id="search-container" className="relative">
       <div className="relative">
-        <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+        <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
         <input
           type="text"
           placeholder="Type a command or search..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onFocus={() => setIsOpen(true)}
-          className="w-full pl-12 pr-16 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-0 focus:border-gray-300 dark:focus:border-gray-600 focus:bg-white dark:focus:bg-gray-700 transition-all"
+          className="w-full pl-12 pr-16 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-0 focus:border-slate-300 dark:focus:border-slate-600 focus:bg-white dark:focus:bg-slate-700 transition-all"
         />
-        <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs font-medium">
+        <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 text-xs font-medium">
           ⌘ F
         </div>
       </div>
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-50 max-h-96 overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-50 max-h-96 overflow-y-auto">
           {Object.keys(groupedItems).length === 0 ? (
-            <div className="p-4 text-center text-gray-500 dark:text-gray-400">
+            <div className="p-4 text-center text-slate-500 dark:text-slate-400">
               No results found
             </div>
           ) : (
             Object.entries(groupedItems).map(([category, items]) => (
               <div key={category} className="py-2">
-                <div className="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">
+                <div className="px-4 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-700">
                   {category}
                 </div>
                 <div className="py-1">
@@ -412,9 +398,9 @@ const SearchDropdown = () => {
                         key={`${category}-${index}`}
                         href={item.href}
                         onClick={() => handleItemClick(item.href)}
-                        className="flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                        className="flex items-center space-x-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
                       >
-                        <Icon className="w-4 h-4 text-gray-400" />
+                        <Icon className="w-4 h-4 text-slate-400" />
                         <span className="text-sm">{item.label}</span>
                       </Link>
                     );
@@ -487,6 +473,10 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
   
   const isAuthPage = authPages.some(page => pathname.startsWith(page));
 
+  // Define pages that need full width (no padding)
+  const fullWidthPages = ['/'];
+  const isFullWidthPage = fullWidthPages.includes(pathname);
+
   // For auth pages, render only children without layout
   if (isAuthPage) {
     return (
@@ -500,6 +490,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
   const safeUser = user || {};
   const stats = getSafeUserStats(userStats);
   const userSubscription = safeUser?.subscription || null;
+  const planInfo = getPlanInfo(userSubscription);
 
   // Update resume count in stats
   const updatedStats = {
@@ -525,9 +516,8 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
   };
 
   const userInitials = getInitials(safeUser.name);
-  const planInfo = getPlanInfo(userSubscription);
 
-  // Resize functionality (unchanged)
+  // Resize functionality
   const handleMouseDown = (e: React.MouseEvent) => {
     if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
       setIsResizing(true);
@@ -599,8 +589,8 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
       onClick={handleLinkClick}
       className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg transition-all duration-200 text-sm ${
         isActive
-          ? 'bg-blue-600 text-white shadow-sm'
-          : 'text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800'
+          ? 'bg-blue-600 dark:bg-blue-600 text-white shadow-sm'
+          : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
       }`}
     >
       <div className="flex items-center space-x-3">
@@ -609,7 +599,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
           <span className="font-medium">{item.label}</span>
           {item.subtitle && (
             <span className={`text-xs ${
-              isActive ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
+              isActive ? 'text-blue-100' : 'text-slate-500 dark:text-slate-400'
             }`}>
               {item.subtitle}
             </span>
@@ -620,7 +610,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
         <span className={`inline-flex items-center justify-center px-2 py-1 text-xs font-medium rounded-full ${
           isActive 
             ? 'bg-blue-500 text-white'
-            : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+            : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
         }`}>
           {item.badge}
         </span>
@@ -629,7 +619,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
   );
 
   return (
-    <div className="h-screen bg-gray-50 dark:bg-gray-900 transition-colors flex overflow-hidden">
+    <div className="h-screen bg-slate-50 dark:bg-slate-900 transition-colors flex overflow-hidden">
       {/* Mobile Overlay */}
       {sidebarOpen && (
         <div 
@@ -640,7 +630,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
 
       {/* Sidebar */}
       <div 
-        className={`fixed inset-y-0 left-0 z-50 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transform ${
+        className={`fixed inset-y-0 left-0 z-50 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 transform ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         } lg:translate-x-0 transition-all duration-300 ease-in-out flex flex-col h-full overflow-hidden lg:relative lg:z-auto`}
         style={{ 
@@ -648,7 +638,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
         }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0 h-16">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0 h-16">
           <Link href="/" className="flex items-center space-x-3 group" onClick={handleLinkClick}>
             <NextImage 
               src={logo} 
@@ -658,11 +648,11 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
               className="rounded-lg group-hover:scale-105 transition-transform"
               priority
             />
-            <span className="text-lg font-bold text-gray-900 dark:text-white">Preciprocal</span>
+            <span className="text-lg font-bold text-slate-900 dark:text-white">Preciprocal</span>
           </Link>
           <button 
             onClick={() => setSidebarOpen(false)}
-            className="lg:hidden text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300 p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+            className="lg:hidden text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-300 p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -673,7 +663,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
           <Link 
             href="/createinterview"
             onClick={handleLinkClick}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-3 rounded-lg transition-all duration-200 flex items-center justify-center group shadow-sm hover:shadow-md"
+            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold px-4 py-3 rounded-lg transition-all duration-300 flex items-center justify-center group shadow-lg hover:shadow-xl"
           >
             <Plus className="w-4 h-4 mr-2 group-hover:rotate-90 transition-transform duration-200" />
             Start Interview
@@ -682,7 +672,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
           <Link 
             href="/resume/upload"
             onClick={handleLinkClick}
-            className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-white font-medium px-4 py-3 rounded-lg transition-all duration-200 flex items-center justify-center group"
+            className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold px-4 py-3 rounded-lg transition-all duration-300 flex items-center justify-center group shadow-lg hover:shadow-xl"
           >
             <FileText className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform duration-200" />
             Analyze Resume
@@ -691,7 +681,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
 
         {/* Main Navigation */}
         <nav className="flex-1 py-2 overflow-y-auto min-h-0">
-          {/* Main Items with dynamic resume data */}
+          {/* Main Items */}
           <div className="px-3 space-y-1">
             {mainNavItems.map((item) => {
               const isActive = item.isActive ? item.isActive(pathname) : pathname === item.href;
@@ -713,24 +703,24 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
                 <Link
                   href={`/resume/${latestResume.id}`}
                   onClick={handleLinkClick}
-                  className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200"
+                  className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-all duration-200"
                 >
                   <div className="w-8 h-8 bg-blue-50 dark:bg-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0 border border-blue-200 dark:border-blue-700">
                     <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                    <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
                       {latestResume.companyName || latestResume.jobTitle || 'Resume Analysis'}
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
                       Score: {latestResume.feedback?.overallScore || 'Processing...'}
                     </p>
                   </div>
                   <div className="flex-shrink-0">
                     <div className={`w-3 h-3 rounded-full ${
-                      (latestResume.feedback?.overallScore || 0) >= 80 ? 'bg-green-500' :
-                      (latestResume.feedback?.overallScore || 0) >= 60 ? 'bg-yellow-500' : 
-                      (latestResume.feedback?.overallScore || 0) > 0 ? 'bg-red-500' : 'bg-gray-300'
+                      (latestResume.feedback?.overallScore || 0) >= 80 ? 'bg-emerald-500' :
+                      (latestResume.feedback?.overallScore || 0) >= 60 ? 'bg-amber-500' : 
+                      (latestResume.feedback?.overallScore || 0) > 0 ? 'bg-red-500' : 'bg-slate-300'
                     }`}></div>
                   </div>
                 </Link>
@@ -746,11 +736,11 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
         </nav>
 
         {/* Usage Stats Section */}
-        <div className="px-4 py-4 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
-          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-4 border border-gray-200 dark:border-gray-700">
+        <div className="px-4 py-4 border-t border-slate-200 dark:border-slate-700 flex-shrink-0">
+          <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 space-y-4 border border-slate-200 dark:border-slate-700">
             {/* Plan Info */}
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-900 dark:text-white">Current Plan</span>
+              <span className="text-sm font-medium text-slate-900 dark:text-white">Current Plan</span>
               <span className={`text-sm font-semibold ${planInfo.style}`}>
                 {planInfo.text}
               </span>
@@ -759,25 +749,25 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
             {/* Interviews Usage */}
             <div>
               <div className="flex justify-between items-center mb-2">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Interviews</span>
-                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                <span className="text-sm text-slate-600 dark:text-slate-400">Interviews</span>
+                <span className="text-sm font-medium text-slate-900 dark:text-white">
                   {updatedStats.interviewsUsed}/{updatedStats.interviewsLimit}
                 </span>
               </div>
               <ProgressBar used={updatedStats.interviewsUsed} limit={updatedStats.interviewsLimit} color="purple" />
             </div>
 
-            {/* Dynamic Resume Usage */}
+            {/* Resume Usage */}
             <div>
               <div className="flex justify-between items-center mb-2">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Resume Analysis</span>
-                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                <span className="text-sm text-slate-600 dark:text-slate-400">Resume Analysis</span>
+                <span className="text-sm font-medium text-slate-900 dark:text-white">
                   {resumeLoading ? 'Loading...' : `${resumeCount}/${updatedStats.resumesLimit}`}
                 </span>
               </div>
               <ProgressBar used={resumeCount} limit={updatedStats.resumesLimit} color="blue" />
               {resumeCount > 0 && latestResume && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
                   Latest: {latestResume.companyName || latestResume.jobTitle || 'Recent analysis'}
                 </p>
               )}
@@ -788,7 +778,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
               <Link 
                 href="/subscription"
                 onClick={handleLinkClick}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg transition-all duration-200 flex items-center justify-center text-sm font-medium shadow-sm"
+                className={`w-full text-white font-semibold px-4 py-2.5 rounded-lg transition-all duration-300 flex items-center justify-center text-sm shadow-lg hover:shadow-xl ${planInfo.buttonStyle}`}
               >
                 <Crown className="w-4 h-4 mr-2" />
                 Upgrade Plan
@@ -798,7 +788,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
         </div>
 
         {/* Bottom Navigation */}
-        <div className="px-3 py-3 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
+        <div className="px-3 py-3 border-t border-slate-200 dark:border-slate-700 flex-shrink-0">
           <div className="space-y-1">
             {bottomItems.map((item) => (
               <Link
@@ -807,8 +797,8 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
                 onClick={handleLinkClick}
                 className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-lg transition-all duration-200 text-sm ${
                   pathname === item.href
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800'
+                    ? 'bg-blue-600 dark:bg-blue-600 text-white'
+                    : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
                 <item.icon className="w-4 h-4 flex-shrink-0" />
@@ -835,8 +825,8 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
           className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-blue-500 transition-colors hidden lg:block group"
           onMouseDown={handleMouseDown}
         >
-          <div className="absolute right-0 top-1/2 transform translate-x-1/2 -translate-y-1/2 w-6 h-12 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-sm">
-            <GripVertical className="w-3 h-3 text-gray-400" />
+          <div className="absolute right-0 top-1/2 transform translate-x-1/2 -translate-y-1/2 w-6 h-12 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-sm">
+            <GripVertical className="w-3 h-3 text-slate-400" />
           </div>
         </div>
       </div>
@@ -844,12 +834,12 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
       {/* Main Layout */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Navbar */}
-        <header className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+        <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
           <div className="flex items-center justify-between h-full px-6">
             {/* Mobile menu button */}
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="lg:hidden p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              className="lg:hidden p-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
             >
               <Menu className="w-5 h-5" />
             </button>
@@ -861,37 +851,27 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
 
             {/* Right section */}
             <div className="flex items-center space-x-3">
-              {/* Resume Quick Stats in Navbar */}
-              {resumeCount > 0 && !resumeLoading && (
-                <Link
-                  href="/resume"
-                  className="hidden sm:flex items-center space-x-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200"
-                >
-                  <FileText className="w-4 h-4" />
-                  <span className="text-sm font-medium">{resumeCount} analyses</span>
-                  {latestResume?.feedback?.overallScore && (
-                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                      latestResume.feedback.overallScore >= 80 ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' :
-                      latestResume.feedback.overallScore >= 60 ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300' :
-                      'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
-                    }`}>
-                      {latestResume.feedback.overallScore}
-                    </span>
-                  )}
-                </Link>
-              )}
+              {/* Plan Badge in Navbar */}
+              <Link
+                href={planInfo.showUpgrade ? "/subscription" : "/profile"}
+                className={`hidden sm:flex items-center space-x-2 px-3 py-2 border rounded-lg hover:shadow-lg transition-all duration-300 font-semibold text-sm ${planInfo.badgeStyle}`}
+              >
+                <span>{planInfo.emoji}</span>
+                <span>{planInfo.text}</span>
+                {planInfo.showUpgrade && <Zap className="w-3 h-3 ml-1" />}
+              </Link>
 
               {/* Theme toggle */}
               <button
                 onClick={toggleTheme}
-                className="p-2.5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                className="p-2.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
                 title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
               >
                 {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
               </button>
 
               {/* Notifications */}
-              <button className="p-2.5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors relative">
+              <button className="p-2.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors relative">
                 <Bell className="w-5 h-5" />
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
               </button>
@@ -899,27 +879,27 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
               {/* Profile */}
               <Link
                 href="/profile"
-                className="flex items-center space-x-3 cursor-pointer group hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg px-3 py-2 transition-all duration-200"
+                className="flex items-center space-x-3 cursor-pointer group hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg px-3 py-2 transition-all duration-200"
               >
-                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center shadow-sm">
+                <div className="w-8 h-8 bg-blue-600 dark:bg-blue-600 rounded-full flex items-center justify-center shadow-sm">
                   <span className="text-white text-sm font-semibold">{userInitials}</span>
                 </div>
                 <div className="hidden sm:block">
-                  <div className="text-sm font-medium text-gray-900 dark:text-white">
+                  <div className="text-sm font-medium text-slate-900 dark:text-white">
                     {safeUser?.name || 'User'}
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                  <div className="text-xs text-slate-500 dark:text-slate-400">
                     {safeUser?.email || 'user@example.com'}
                   </div>
                 </div>
-                <ChevronDown className="w-4 h-4 text-gray-400 hidden sm:block group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors duration-200" />
+                <ChevronDown className="w-4 h-4 text-slate-400 hidden sm:block group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors duration-200" />
               </Link>
             </div>
           </div>
         </header>
 
-        {/* Main Content Area */}
-        <main className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900 p-6">
+        {/* Main Content Area with conditional padding */}
+        <main className={`flex-1 overflow-auto bg-slate-50 dark:bg-slate-900 ${isFullWidthPage ? '' : 'p-6'}`}>
           {children}
         </main>
       </div>

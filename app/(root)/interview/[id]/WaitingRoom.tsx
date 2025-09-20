@@ -17,7 +17,8 @@ import {
   VolumeX,
   CheckCircle,
   AlertCircle,
-  Loader2
+  Loader2,
+  ArrowLeft
 } from "lucide-react";
 
 interface WaitingRoomProps {
@@ -26,7 +27,9 @@ interface WaitingRoomProps {
   interviewRole: string;
   interviewType: string;
   totalQuestions: number;
-  onJoinInterview: () => void;
+  interview: any;
+  user: any;
+  feedback?: any;
 }
 
 const WaitingRoom = ({ 
@@ -35,7 +38,9 @@ const WaitingRoom = ({
   interviewRole, 
   interviewType, 
   totalQuestions,
-  onJoinInterview 
+  interview,
+  user,
+  feedback
 }: WaitingRoomProps) => {
   const router = useRouter();
   const [isVideoOn, setIsVideoOn] = useState(true);
@@ -47,18 +52,31 @@ const WaitingRoom = ({
     microphone: 'checking',
     speaker: 'checking'
   });
-  const [timeUntilStart, setTimeUntilStart] = useState(26);
+  const [timeUntilStart, setTimeUntilStart] = useState(15);
 
   // Simulate device checking
   useEffect(() => {
     const checkDevices = async () => {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      setDeviceStatus({
-        camera: 'ready',
-        microphone: 'ready', 
-        speaker: 'ready'
-      });
-      setIsDeviceReady(true);
+      try {
+        // Check microphone permission
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(track => track.stop());
+        
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        setDeviceStatus({
+          camera: 'ready',
+          microphone: 'ready', 
+          speaker: 'ready'
+        });
+        setIsDeviceReady(true);
+      } catch (error) {
+        console.error("Device check failed:", error);
+        setDeviceStatus({
+          camera: 'error',
+          microphone: 'error', 
+          speaker: 'ready'
+        });
+      }
     };
 
     checkDevices();
@@ -66,12 +84,18 @@ const WaitingRoom = ({
 
   // Countdown timer
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeUntilStart(prev => prev > 0 ? prev - 1 : 0);
-    }, 1000);
+    if (timeUntilStart > 0) {
+      const timer = setTimeout(() => {
+        setTimeUntilStart(prev => prev - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [timeUntilStart]);
 
-    return () => clearInterval(timer);
-  }, []);
+  const handleJoinInterview = () => {
+    // Navigate to fullscreen interview page
+    router.push(`/interview/${interviewId}/fullscreen`);
+  };
 
   const getDeviceIcon = (device: string, status: string) => {
     if (status === 'checking') return <Loader2 className="w-5 h-5 animate-spin text-yellow-500" />;
@@ -95,10 +119,10 @@ const WaitingRoom = ({
     },
     {
       id: "tech_lead", 
-      name: "Neha Sharma",
+      name: "Alexandra Chen",
       role: `${interviewRole} Lead`,
       status: "online",
-      avatar: { initials: "NS", gradient: "from-blue-500 to-indigo-600" }
+      avatar: { initials: "AC", gradient: "from-blue-500 to-indigo-600" }
     },
     {
       id: "junior",
@@ -110,132 +134,132 @@ const WaitingRoom = ({
   ];
 
   return (
-    <div className="h-full bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800 flex flex-col overflow-hidden">
+    <div className="h-full min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800 flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700/50 px-4 py-2 flex-shrink-0">
+      <div className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700/50 px-4 py-3 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
+            <button
+              onClick={() => router.back()}
+              className="p-2 hover:bg-slate-700 rounded-lg transition-colors text-slate-400 hover:text-white"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
             <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
               <span className="text-white text-xs font-bold">AI</span>
             </div>
             <div>
               <h1 className="text-white font-semibold">Interview Waiting Room</h1>
-              <p className="text-slate-400 text-xs">{interviewRole} Position • {interviewType} Interview</p>
+              <p className="text-slate-400 text-sm">{interviewRole} Position • {interviewType} Interview</p>
             </div>
           </div>
           
           <div className="flex items-center space-x-3">
-            <div className="flex items-center space-x-2 bg-slate-700/50 px-2 py-1 rounded-full">
-              <Clock className="w-3 h-3 text-yellow-400" />
-              <span className="text-yellow-400 text-xs font-medium">
-                Starts in 0:{formatTime(timeUntilStart).split(':')[1]}
+            <div className="flex items-center space-x-2 bg-slate-700/50 px-3 py-1 rounded-full">
+              <Clock className="w-4 h-4 text-yellow-400" />
+              <span className="text-yellow-400 text-sm font-medium">
+                Ready to start
               </span>
             </div>
-            <button
-              onClick={() => router.push('/interviews')}
-              className="text-slate-400 hover:text-white transition-colors px-3 py-1 rounded-lg hover:bg-slate-700/50 text-sm"
-            >
-              Back to Dashboard
-            </button>
           </div>
         </div>
       </div>
 
       {/* Main Content - Full Width with Equal Heights */}
-      <div className="flex-1 p-3 overflow-hidden">
-        <div className="h-full grid grid-cols-2 gap-3">
+      <div className="flex-1 p-4 overflow-hidden">
+        <div className="h-full grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Left Side - Camera Preview */}
           <div className="h-full flex flex-col">
             <div className="flex-1 bg-slate-800/60 backdrop-blur-sm rounded-2xl border border-slate-700/50 overflow-hidden flex flex-col">
               {/* Header */}
-              <div className="p-4 border-b border-slate-700/50">
-                <h2 className="text-white text-lg font-semibold mb-1">Camera Preview</h2>
-                <p className="text-slate-400 text-sm">Make sure you look great before joining</p>
+              <div className="p-6 border-b border-slate-700/50">
+                <h2 className="text-white text-xl font-semibold mb-2">Camera Preview</h2>
+                <p className="text-slate-400">Make sure you look great before joining the panel</p>
               </div>
               
               {/* Video Preview */}
-              <div className="flex-1 relative bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center">
+              <div className="flex-1 relative bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center min-h-[300px]">
                 {isVideoOn ? (
                   <div className="relative w-full h-full flex items-center justify-center">
                     {/* Simulated video feed */}
-                    <div className="w-24 h-24 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center border-4 border-white/20">
-                      <span className="text-white text-2xl font-bold">
+                    <div className="w-32 h-32 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center border-4 border-white/20 shadow-2xl">
+                      <span className="text-white text-3xl font-bold">
                         {userName?.charAt(0)?.toUpperCase() || "Y"}
                       </span>
                     </div>
-                    <div className="absolute bottom-2 right-2 bg-black/50 text-white px-2 py-1 rounded-full text-xs">
+                    <div className="absolute bottom-4 right-4 bg-black/50 text-white px-3 py-2 rounded-full text-sm font-medium">
                       You
                     </div>
                   </div>
                 ) : (
                   <div className="text-center">
-                    <VideoOff className="w-16 h-16 text-slate-500 mx-auto mb-4" />
-                    <p className="text-slate-400">Camera is off</p>
+                    <VideoOff className="w-20 h-20 text-slate-500 mx-auto mb-4" />
+                    <p className="text-slate-400 text-lg">Camera is off</p>
                   </div>
                 )}
               </div>
 
               {/* Camera Controls */}
-              <div className="p-3 bg-slate-900/50">
-                <div className="flex items-center justify-center space-x-2 mb-3">
+              <div className="p-6 bg-slate-900/50">
+                <div className="flex items-center justify-center space-x-3 mb-6">
                   <button
                     onClick={() => setIsVideoOn(!isVideoOn)}
-                    className={`p-2 rounded-full transition-all ${
+                    className={`p-3 rounded-full transition-all ${
                       isVideoOn 
                         ? 'bg-slate-700 hover:bg-slate-600 text-white' 
                         : 'bg-red-600 hover:bg-red-700 text-white'
                     }`}
                   >
-                    {isVideoOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
+                    {isVideoOn ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
                   </button>
                   
                   <button
                     onClick={() => setIsAudioOn(!isAudioOn)}
-                    className={`p-2 rounded-full transition-all ${
+                    className={`p-3 rounded-full transition-all ${
                       isAudioOn 
                         ? 'bg-slate-700 hover:bg-slate-600 text-white' 
                         : 'bg-red-600 hover:bg-red-700 text-white'
                     }`}
                   >
-                    {isAudioOn ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+                    {isAudioOn ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
                   </button>
 
                   <button
                     onClick={() => setIsSpeakerOn(!isSpeakerOn)}
-                    className={`p-2 rounded-full transition-all ${
+                    className={`p-3 rounded-full transition-all ${
                       isSpeakerOn 
                         ? 'bg-slate-700 hover:bg-slate-600 text-white' 
                         : 'bg-red-600 hover:bg-red-700 text-white'
                     }`}
                   >
-                    {isSpeakerOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                    {isSpeakerOn ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
                   </button>
 
-                  <button className="p-2 rounded-full bg-slate-700 hover:bg-slate-600 text-white transition-all">
-                    <Settings className="w-4 h-4" />
+                  <button className="p-3 rounded-full bg-slate-700 hover:bg-slate-600 text-white transition-all">
+                    <Settings className="w-5 h-5" />
                   </button>
                 </div>
 
                 {/* Join Button */}
                 <button
-                  onClick={onJoinInterview}
+                  onClick={handleJoinInterview}
                   disabled={!isDeviceReady}
-                  className={`w-full py-2.5 rounded-lg font-semibold text-sm transition-all ${
+                  className={`w-full py-4 rounded-xl font-semibold text-lg transition-all ${
                     isDeviceReady
-                      ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white hover:scale-[1.02] shadow-lg'
+                      ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white hover:scale-[1.02] shadow-xl'
                       : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                   }`}
                 >
-                  <div className="flex items-center justify-center space-x-2">
+                  <div className="flex items-center justify-center space-x-3">
                     {!isDeviceReady ? (
                       <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Preparing...</span>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span>Preparing devices...</span>
                       </>
                     ) : (
                       <>
-                        <Phone className="w-4 h-4" />
-                        <span>Join Interview</span>
+                        <Phone className="w-5 h-5" />
+                        <span>Join Interview Panel</span>
                       </>
                     )}
                   </div>
@@ -245,57 +269,60 @@ const WaitingRoom = ({
           </div>
 
           {/* Right Side - Interview Info */}
-          <div className="h-full flex flex-col space-y-4">
+          <div className="h-full flex flex-col space-y-6">
             {/* Interview Panel */}
-            <div className="flex-1 bg-slate-800/60 backdrop-blur-sm rounded-2xl border border-slate-700/50 p-4">
-              <div className="flex items-center space-x-2 mb-4">
-                <Users className="w-5 h-5 text-blue-400" />
-                <h3 className="text-white font-semibold">Interview Panel</h3>
+            <div className="flex-1 bg-slate-800/60 backdrop-blur-sm rounded-2xl border border-slate-700/50 p-6">
+              <div className="flex items-center space-x-3 mb-6">
+                <Users className="w-6 h-6 text-blue-400" />
+                <h3 className="text-white font-semibold text-xl">Interview Panel</h3>
               </div>
               
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {interviewPanel.map((panelist) => (
-                  <div key={panelist.id} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-10 h-10 bg-gradient-to-br ${panelist.avatar.gradient} rounded-full flex items-center justify-center`}>
-                        <span className="text-white text-sm font-semibold">{panelist.avatar.initials}</span>
+                  <div key={panelist.id} className="flex items-center justify-between p-4 bg-slate-700/30 rounded-xl border border-slate-600/30">
+                    <div className="flex items-center space-x-4">
+                      <div className={`w-12 h-12 bg-gradient-to-br ${panelist.avatar.gradient} rounded-full flex items-center justify-center`}>
+                        <span className="text-white font-semibold">{panelist.avatar.initials}</span>
                       </div>
                       <div>
-                        <p className="text-white font-medium text-sm">{panelist.name}</p>
-                        <p className="text-slate-400 text-xs">{panelist.role}</p>
+                        <p className="text-white font-medium">{panelist.name}</p>
+                        <p className="text-slate-400 text-sm">{panelist.role}</p>
                       </div>
                     </div>
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                      <span className="text-green-400 text-sm font-medium">Online</span>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Device Status */}
-            <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl border border-slate-700/50 p-4">
-              <h3 className="text-white font-semibold mb-3">Device Status</h3>
+            <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl border border-slate-700/50 p-6">
+              <h3 className="text-white font-semibold mb-4 text-lg">Device Status</h3>
               
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg">
                   <div className="flex items-center space-x-3">
-                    <Camera className="w-4 h-4 text-slate-400" />
-                    <span className="text-slate-300 text-sm">Camera</span>
+                    <Camera className="w-5 h-5 text-slate-400" />
+                    <span className="text-slate-300">Camera</span>
                   </div>
                   {getDeviceIcon('camera', deviceStatus.camera)}
                 </div>
                 
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg">
                   <div className="flex items-center space-x-3">
-                    <Mic className="w-4 h-4 text-slate-400" />
-                    <span className="text-slate-300 text-sm">Microphone</span>
+                    <Mic className="w-5 h-5 text-slate-400" />
+                    <span className="text-slate-300">Microphone</span>
                   </div>
                   {getDeviceIcon('microphone', deviceStatus.microphone)}
                 </div>
                 
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg">
                   <div className="flex items-center space-x-3">
-                    <Volume2 className="w-4 h-4 text-slate-400" />
-                    <span className="text-slate-300 text-sm">Speaker</span>
+                    <Volume2 className="w-5 h-5 text-slate-400" />
+                    <span className="text-slate-300">Speaker</span>
                   </div>
                   {getDeviceIcon('speaker', deviceStatus.speaker)}
                 </div>
@@ -303,23 +330,23 @@ const WaitingRoom = ({
             </div>
 
             {/* Interview Details */}
-            <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl border border-slate-700/50 p-4">
-              <h3 className="text-white font-semibold mb-3">Interview Details</h3>
+            <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl border border-slate-700/50 p-6">
+              <h3 className="text-white font-semibold mb-4 text-lg">Interview Details</h3>
               
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
+              <div className="space-y-3">
+                <div className="flex justify-between p-2">
                   <span className="text-slate-400">Position:</span>
                   <span className="text-white font-medium">{interviewRole}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between p-2">
                   <span className="text-slate-400">Type:</span>
                   <span className="text-white font-medium capitalize">{interviewType}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between p-2">
                   <span className="text-slate-400">Questions:</span>
                   <span className="text-white font-medium">{totalQuestions}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between p-2">
                   <span className="text-slate-400">Duration:</span>
                   <span className="text-white font-medium">~{Math.ceil(totalQuestions * 3)} min</span>
                 </div>

@@ -6,6 +6,7 @@ import WaitingRoom from "./WaitingRoom";
 import FullScreenInterviewPanel from "./FullScreenInterviewpanel";
 import Agent from "@/components/Agent";
 
+
 interface InterviewPageClientProps {
   interview: any;
   user: any;
@@ -22,10 +23,35 @@ export default function InterviewPageClient({
   const router = useRouter();
   const [viewMode, setViewMode] = useState<ViewMode>("waiting");
 
+  // Debug the received data
+  console.log("InterviewPageClient received data:", {
+    interview: {
+      id: interview?.id,
+      type: interview?.type,
+      role: interview?.role,
+      questionsLength: interview?.questions?.length,
+      hasQuestions: !!interview?.questions
+    },
+    user: {
+      id: user?.id,
+      name: user?.name,
+      hasUser: !!user
+    },
+    feedback: {
+      id: feedback?.id,
+      hasFeedback: !!feedback
+    }
+  });
+
   // Process questions for different types
   const processQuestions = () => {
     const technical: string[] = [];
     const behavioral: string[] = [];
+
+    if (!interview?.questions) {
+      console.error("No questions found in interview object");
+      return { technical: [], behavioral: [] };
+    }
 
     // If interview has specific technical/behavioral splits, use those
     // Otherwise, alternate based on interview type
@@ -44,12 +70,23 @@ export default function InterviewPageClient({
       });
     }
 
+    console.log("Processed questions:", {
+      technical: technical.length,
+      behavioral: behavioral.length,
+      total: technical.length + behavioral.length
+    });
+
     return { technical, behavioral };
   };
 
   const { technical, behavioral } = processQuestions();
 
   const handleJoinInterview = () => {
+    console.log("Switching to fullscreen view with data:", {
+      interviewId: interview?.id,
+      userId: user?.id,
+      userName: user?.name
+    });
     setViewMode("fullscreen");
   };
 
@@ -57,6 +94,21 @@ export default function InterviewPageClient({
     setViewMode("waiting");
   };
 
+  // Add validation checks
+  if (!interview) {
+    console.error("Interview data is missing");
+    return <div>Error: Interview data not found</div>;
+  }
+
+  if (!user) {
+    console.error("User data is missing");
+    return <div>Error: User data not found</div>;
+  }
+
+  if (!interview.id) {
+    console.error("Interview ID is missing from interview object");
+    return <div>Error: Interview ID not found</div>;
+  }
 
   // Render based on view mode
   if (viewMode === "waiting") {
@@ -67,7 +119,7 @@ export default function InterviewPageClient({
           userName={user?.name || "User"}
           interviewRole={interview.role}
           interviewType={interview.type}
-          totalQuestions={interview.questions.length}
+          totalQuestions={interview.questions?.length || 0}
           onJoinInterview={handleJoinInterview}
         />
       </div>
@@ -75,6 +127,18 @@ export default function InterviewPageClient({
   }
 
   if (viewMode === "fullscreen") {
+    console.log("Rendering FullScreenInterviewPanel with props:", {
+      interviewId: interview.id,
+      userName: user.name,
+      userId: user.id,
+      interviewRole: interview.role,
+      interviewType: interview.type,
+      questionsLength: interview.questions?.length,
+      technicalLength: technical.length,
+      behavioralLength: behavioral.length,
+      feedbackId: feedback?.id
+    });
+
     return (
       <FullScreenInterviewPanel
         interviewId={interview.id}
@@ -82,7 +146,7 @@ export default function InterviewPageClient({
         userId={user?.id}
         interviewRole={interview.role}
         interviewType={interview.type}
-        questions={interview.questions}
+        questions={interview.questions || []}
         technicalQuestions={technical}
         behavioralQuestions={behavioral}
         feedbackId={feedback?.id}

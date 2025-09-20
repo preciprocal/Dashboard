@@ -27,8 +27,9 @@ import {
   CheckCircle2
 } from "lucide-react";
 
-// Import your existing VAPI logic and types
+// Import VAPI logic and types from your working Agent component
 import { vapi } from "@/lib/vapi.sdk";
+import { interviewer } from "@/constants"; // Import your working interviewer config
 import { createFeedback } from "@/lib/actions/general.action";
 
 enum CallStatus {
@@ -50,12 +51,6 @@ interface Message {
   transcript: string;
 }
 
-interface InterviewQuestion {
-  question: string;
-  type: "technical" | "behavioral";
-  index: number;
-}
-
 interface FullScreenInterviewPanelProps {
   interviewId: string;
   userName: string;
@@ -66,10 +61,11 @@ interface FullScreenInterviewPanelProps {
   technicalQuestions?: string[];
   behavioralQuestions?: string[];
   feedbackId?: string;
+  type?: "generate" | "interview";
   onExit: () => void;
 }
 
-// Enhanced Video Avatar Component
+// Enhanced Video Avatar Component (kept exactly the same)
 const VideoAvatar = ({
   initials,
   gradient,
@@ -85,49 +81,37 @@ const VideoAvatar = ({
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [showVideo, setShowVideo] = useState(false);
-  const [isVideoReady, setIsVideoReady] = useState(false);
 
-  const sizeClasses = size === "small" ? "w-16 h-16" : "w-28 h-28";
-  const textSize = size === "small" ? "text-xl" : "text-3xl";
+  const sizeClasses = size === "small" ? "w-16 h-16 sm:w-20 sm:h-20" : "w-20 h-20 sm:w-24 sm:h-24";
+  const textSize = size === "small" ? "text-lg sm:text-xl" : "text-xl sm:text-2xl";
 
   const handleVideoLoad = useCallback(() => {
     setShowVideo(true);
-    setIsVideoReady(true);
   }, []);
 
   const handleVideoError = useCallback(() => {
     setShowVideo(false);
-    setIsVideoReady(false);
   }, []);
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !showVideo || !isVideoReady) return;
+    if (!video || !showVideo) return;
 
-    const handleSpeaking = async () => {
-      try {
-        if (isSpeaking) {
-          await video.play();
-        } else {
-          video.pause();
-        }
-      } catch (error) {
-        console.warn("Video playback error:", error);
-        setShowVideo(false);
-      }
-    };
-
-    handleSpeaking();
-  }, [isSpeaking, showVideo, isVideoReady]);
+    if (isSpeaking) {
+      video.play().catch(() => setShowVideo(false));
+    } else {
+      video.pause();
+    }
+  }, [isSpeaking, showVideo]);
 
   return (
-    <div className={`relative ${sizeClasses} mx-auto mb-4`}>
-      {/* Video Element */}
+    <div className={`relative ${sizeClasses} mx-auto mb-3`}>
+      {/* Video Element - Only render if videoSrc exists */}
       {videoSrc && (
         <video
           ref={videoRef}
-          className={`absolute inset-0 w-full h-full object-cover rounded-full border-2 border-slate-600 transition-all duration-500 ${
-            showVideo && isVideoReady ? "opacity-100" : "opacity-0"
+          className={`absolute inset-0 w-full h-full object-cover rounded-full border-2 border-slate-600 transition-opacity duration-300 ${
+            showVideo ? "opacity-100" : "opacity-0"
           }`}
           loop
           muted
@@ -138,17 +122,17 @@ const VideoAvatar = ({
           style={{
             filter: isSpeaking ? "brightness(1.1)" : "brightness(0.9)",
             transform: isSpeaking ? "scale(1.05)" : "scale(1)",
-            transition: "all 0.5s ease",
+            transition: "all 0.3s ease",
           }}
         >
           <source src={videoSrc} type="video/mp4" />
         </video>
       )}
 
-      {/* Fallback Avatar */}
+      {/* Fallback Avatar - Always rendered as fallback */}
       <div
-        className={`w-full h-full bg-gradient-to-br ${gradient} rounded-full flex items-center justify-center border-2 border-slate-600 transition-all duration-500 ${
-          showVideo && videoSrc && isVideoReady ? "opacity-0" : "opacity-100"
+        className={`w-full h-full bg-gradient-to-br ${gradient} rounded-full flex items-center justify-center border-2 border-slate-600 transition-all duration-300 ${
+          showVideo && videoSrc ? "opacity-0" : "opacity-100"
         } ${isSpeaking ? "animate-pulse scale-105" : ""}`}
       >
         <span className={`text-white ${textSize} font-bold`}>
@@ -156,29 +140,25 @@ const VideoAvatar = ({
         </span>
       </div>
 
-      {/* Speaking Effects */}
+      {/* Speaking Effects - Only when speaking */}
       {isSpeaking && (
         <div className="absolute inset-0 rounded-full pointer-events-none">
-          <div className="absolute inset-0 rounded-full border-2 border-blue-400 animate-ping opacity-75"></div>
+          <div className="absolute inset-0 rounded-full border border-blue-400 animate-ping opacity-75"></div>
           <div
-            className="absolute inset-2 rounded-full border border-blue-300 animate-ping opacity-50"
+            className="absolute inset-1 rounded-full border border-blue-300 animate-ping opacity-50"
             style={{ animationDelay: "0.3s" }}
           ></div>
-          <div
-            className="absolute inset-3 rounded-full border border-blue-200 animate-ping opacity-25"
-            style={{ animationDelay: "0.6s" }}
-          ></div>
 
-          {/* Waveform animation */}
-          <div className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 flex space-x-1">
-            {Array.from({ length: 7 }, (_, i) => (
+          {/* Simplified waveform */}
+          <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 flex space-x-1">
+            {Array.from({ length: 5 }, (_, i) => (
               <div
                 key={i}
-                className="w-1 bg-blue-400 rounded-full animate-pulse"
+                className="w-0.5 sm:w-1 bg-blue-400 rounded-full animate-pulse"
                 style={{
-                  height: `${4 + Math.sin(i) * 4}px`,
+                  height: `${3 + (i % 3) * 3}px`,
                   animationDelay: `${i * 0.1}s`,
-                  animationDuration: "0.6s",
+                  animationDuration: "0.5s",
                 }}
               />
             ))}
@@ -196,24 +176,21 @@ const FullScreenInterviewPanel = ({
   interviewRole,
   interviewType,
   questions,
-  technicalQuestions = [],
-  behavioralQuestions = [],
   feedbackId,
+  type = "interview",
   onExit
 }: FullScreenInterviewPanelProps) => {
   const router = useRouter();
   
-  // Video call states from FullScreen UI
+  // Video call UI states (kept for UI consistency)
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [isAudioOn, setIsAudioOn] = useState(true);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [callDuration, setCallDuration] = useState(0);
-  const [showSettings, setShowSettings] = useState(false);
-  const [showParticipants, setShowParticipants] = useState(false);
   const [connectionQuality, setConnectionQuality] = useState<'excellent' | 'good' | 'poor'>('excellent');
 
-  // Core interview states - SIMPLIFIED FOR SINGLE INTERVIEWER
+  // Core states from working Agent component
   const [callStatus, setCallStatus] = useState<CallStatus>(CallStatus.INACTIVE);
   const [messages, setMessages] = useState<SavedMessage[]>([]);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -221,212 +198,171 @@ const FullScreenInterviewPanel = ({
   const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [totalQuestions, setTotalQuestions] = useState(10);
-  const [currentActiveCall, setCurrentActiveCall] = useState<any>(null);
-  const [speechTimeout, setSpeechTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [speakingPersonId, setSpeakingPersonId] = useState<string | null>(null);
 
   const callStartTime = useRef<Date | null>(null);
 
-  // Process all questions into a single sequence for Neha
-  const processedQuestions = useMemo((): InterviewQuestion[] => {
-    const allQuestions: InterviewQuestion[] = [];
+  // Memoized video sources (kept exactly the same)
+  const videoSources = useMemo(
+    () => ({
+      hr: "/videos/hr-female-avatar.mp4",
+      tech_recruiter: "/videos/tech-lead-female-avatar.mp4", 
+      junior: `/videos/junior-${interviewRole.toLowerCase().replace(/\s+/g, "-")}-avatar.mp4`,
+    }),
+    [interviewRole]
+  );
 
-    if (interviewType === "technical") {
-      return technicalQuestions.map((question, index) => ({
-        question,
-        type: "technical" as const,
-        index,
-      }));
-    } 
-    
-    if (interviewType === "behavioural" || interviewType === "behavioral") {
-      return behavioralQuestions.map((question, index) => ({
-        question,
-        type: "behavioral" as const,
-        index,
-      }));
-    } 
-    
-    // Mixed interview - combine all questions
-    if (interviewType === "mixed") {
-      const maxLength = Math.max(technicalQuestions.length, behavioralQuestions.length);
-      
-      for (let i = 0; i < maxLength; i++) {
-        if (i < behavioralQuestions.length) {
-          allQuestions.push({
-            question: behavioralQuestions[i],
-            type: "behavioral",
-            index: allQuestions.length,
-          });
-        }
-        if (i < technicalQuestions.length) {
-          allQuestions.push({
-            question: technicalQuestions[i],
-            type: "technical",
-            index: allQuestions.length,
-          });
-        }
-      }
-      return allQuestions;
-    }
+  // Interview panel data (kept exactly the same)
+  const interviewPanel = useMemo(() => {
+    const generateNames = (id: string) => {
+      const hash = (id || "default").split("").reduce((a, b) => {
+        a = (a << 5) - a + b.charCodeAt(0);
+        return a & a;
+      }, 0);
 
-    // Fallback - use original questions array with alternating types
-    return questions.map((question, index) => ({
-      question,
-      type: (index % 2 === 0 ? "behavioral" : "technical") as const,
-      index,
-    }));
-  }, [technicalQuestions, behavioralQuestions, questions, interviewType]);
+      const hrNames = [
+        { name: "Sarah Mitchell", initials: "SM" },
+        { name: "Jennifer Davis", initials: "JD" },
+        { name: "Lisa Rodriguez", initials: "LR" },
+        { name: "Amanda Wilson", initials: "AW" },
+      ];
 
-  // SINGLE INTERVIEWER FUNCTION - No more switching!
-  const startInterviewWithNeha = useCallback(async () => {
-    try {
-      console.log("Starting complete interview with Neha");
-      
-      if (currentActiveCall) {
-        console.log("Stopping existing call");
-        vapi.stop();
-        setCurrentActiveCall(null);
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      }
+      const leadNames = [
+        { name: "Alexandra Chen", initials: "AC" },
+        { name: "Diana Kumar", initials: "DK" },
+        { name: "Jennifer Anderson", initials: "JA" },
+        { name: "Rebecca Singh", initials: "RS" },
+      ];
 
-      // Create a comprehensive system prompt for Neha to handle all questions
-      const allQuestionsText = processedQuestions.map((q, index) => 
-        `${index + 1}. [${q.type.toUpperCase()}] ${q.question}`
-      ).join('\n');
+      const juniorNames = [
+        { name: "Alex Rodriguez", initials: "AR" },
+        { name: "Emma Thompson", initials: "ET" },
+        { name: "David Park", initials: "DP" },
+        { name: "Jordan Kim", initials: "JK" },
+      ];
 
-      const nehaInterviewer = {
-        name: `Neha - Complete ${interviewRole} Interview`,
-        firstMessage: `Hi there! I'm Neha, and I'll be conducting your complete interview today for the ${interviewRole} position. I'm really excited to get to know you better! How are you doing today? Are you ready to begin our interview?`,
-        model: {
-          provider: "openai",
-          model: "gpt-3.5-turbo",
-          messages: [
-            {
-              role: "system" as const,
-              content: `You are Neha, a senior interviewer conducting a COMPLETE ${interviewType} interview for a ${interviewRole} position.
-
-CRITICAL INSTRUCTIONS:
-- You are the ONLY interviewer - there are no other interviewers
-- You will ask ALL questions in the interview yourself
-- NEVER interrupt the candidate while they are speaking
-- ALWAYS wait for them to completely finish their response before you speak
-- Give them at least 5-10 seconds of complete silence after they seem done
-- Be patient with technical difficulties and thinking time
-
-YOUR COMPLETE QUESTION LIST TO ASK ONE BY ONE:
-${allQuestionsText}
-
-INTERVIEW FLOW:
-1. Start with a warm greeting and brief ice-breaker
-2. Ask each question from the list above in order, one at a time
-3. Wait for complete responses before moving to the next question
-4. Provide encouraging feedback between questions
-5. When you reach the last question, thank them and wrap up the interview
-
-QUESTION GUIDELINES:
-- For BEHAVIORAL questions: Ask for specific examples and stories
-- For TECHNICAL questions: Allow thinking time and ask for step-by-step explanations
-- Always be encouraging and supportive
-- If they struggle with a question, offer to rephrase or move on
-- Give positive reinforcement after good answers
-
-AUDIO GUIDELINES:
-- Always check if they can hear you properly
-- If audio is unclear, ask them to speak louder
-- Be patient with any technical difficulties
-- Make sure communication is clear before proceeding
-
-Remember: You are Neha, the single interviewer conducting the entire interview. Ask all ${processedQuestions.length} questions from the list above, be warm and professional, and provide a complete interview experience.`
-            }
-          ]
-        },
-        voice: {
-          provider: "playht",
-          voiceId: "jennifer", // Using a consistent voice for Neha
-          speed: 0.8,
-          volume: 0.9,
-        },
-        transcriber: {
-          provider: "deepgram",
-          model: "nova-2",
-          language: "en",
-          endpointing: 400,
-          punctuate: true,
-          diarize: false,
-          smart_format: true,
-        }
+      return {
+        hr: hrNames[Math.abs(hash) % hrNames.length],
+        lead: leadNames[Math.abs(hash + 1) % leadNames.length],
+        junior: juniorNames[Math.abs(hash + 2) % juniorNames.length],
       };
+    };
 
-      console.log("Starting VAPI call with Neha:", nehaInterviewer);
-      const call = await vapi.start(nehaInterviewer);
-      console.log("VAPI call started successfully:", call);
-      
-      setCurrentActiveCall(call);
-      setCallStatus(CallStatus.ACTIVE);
+    const names = generateNames(interviewId);
+    const roleNormalized = interviewRole.toLowerCase();
 
-    } catch (error) {
-      console.error("Error starting interview with Neha:", error);
-      setCallStatus(CallStatus.INACTIVE);
-      alert(`Failed to start interview: ${error.message}`);
-    }
-  }, [processedQuestions, interviewRole, interviewType, currentActiveCall]);
+    return [
+      {
+        id: "hr",
+        name: names.hr.name,
+        role: "HR Manager",
+        avatar: {
+          initials: names.hr.initials,
+          gradient: "from-pink-500 to-rose-600",
+        },
+        status: "available",
+        experience: "8+ years",
+        isLead: false,
+        videoSrc: videoSources.hr,
+        isSpeaking: speakingPersonId === "hr",
+      },
+      {
+        id: "tech_recruiter",
+        name: names.lead.name,
+        role: `${interviewRole} Lead`,
+        avatar: {
+          initials: names.lead.initials,
+          gradient: "from-blue-500 to-indigo-600",
+        },
+        status: callStatus === CallStatus.ACTIVE ? "presenting" : "available",
+        experience: "12+ years",
+        isLead: true,
+        videoSrc: videoSources.tech_recruiter,
+        isSpeaking: speakingPersonId === "tech_recruiter",
+      },
+      {
+        id: "junior",
+        name: names.junior.name,
+        role: `Junior ${interviewRole}`,
+        avatar: {
+          initials: names.junior.initials,
+          gradient: roleNormalized.includes("developer")
+            ? "from-green-500 to-emerald-600"
+            : roleNormalized.includes("designer")
+            ? "from-purple-500 to-violet-600"
+            : roleNormalized.includes("analyst")
+            ? "from-orange-500 to-amber-600"
+            : "from-teal-500 to-cyan-600",
+        },
+        status: "attentive",
+        experience: "2 years",
+        isLead: false,
+        videoSrc: videoSources.junior,
+        isSpeaking: speakingPersonId === "junior",
+      },
+      {
+        id: "candidate",
+        name: userName || "Candidate",
+        role: "Interviewee",
+        avatar: {
+          initials: userName?.charAt(0)?.toUpperCase() || "C",
+          gradient: "from-indigo-500 to-purple-600",
+        },
+        status: callStatus === CallStatus.ACTIVE ? "engaged" : "ready",
+        experience: `Applying for: ${interviewRole}`,
+        isCurrentUser: true,
+        isSpeaking: false,
+      },
+    ];
+  }, [interviewId, interviewRole, callStatus, speakingPersonId, videoSources, userName]);
 
-  // Simplified speech handlers - no complex speaker detection
+  // WORKING VAPI EVENT HANDLERS FROM AGENT COMPONENT
   const handleSpeechStart = useCallback(() => {
-    if (speechTimeout) {
-      clearTimeout(speechTimeout);
-      setSpeechTimeout(null);
-    }
     setIsSpeaking(true);
-  }, [speechTimeout]);
-
-  const handleSpeechEnd = useCallback(() => {
-    const timeout = setTimeout(() => {
-      setIsSpeaking(false);
-    }, 500);
-    setSpeechTimeout(timeout);
+    const interviewers = ["tech_recruiter", "hr", "junior"];
+    setSpeakingPersonId(
+      interviewers[Math.floor(Math.random() * interviewers.length)]
+    );
   }, []);
 
-  // Simplified message handler - just track progress
-  const handleMessage = useCallback((message: Message) => {
-    if (message.type === "transcript" && message.transcriptType === "final") {
-      const newMessage = { role: message.role, content: message.transcript };
-      setMessages((prev) => [...prev, newMessage]);
+  const handleSpeechEnd = useCallback(() => {
+    setIsSpeaking(false);
+    setSpeakingPersonId(null);
+  }, []);
 
-      // Simple progress tracking by counting interviewer questions
-      if (message.role === "assistant" && message.transcript.includes("?")) {
-        const questionCount = messages.filter(m => 
-          m.role === "assistant" && m.content.includes("?")
-        ).length + 1;
-        setCurrentQuestionIndex(Math.min(questionCount, totalQuestions));
+  const handleMessage = useCallback(
+    (message: Message) => {
+      if (message.type === "transcript" && message.transcriptType === "final") {
+        const newMessage = { role: message.role, content: message.transcript };
+        setMessages((prev) => [...prev, newMessage]);
+
+        if (message.role === "assistant" && message.transcript.includes("?")) {
+          setTimeout(() => {
+            setCurrentQuestionIndex((prev) =>
+              Math.min(prev + 1, totalQuestions)
+            );
+          }, 3000);
+        }
       }
-    }
-  }, [messages, totalQuestions]);
+    },
+    [totalQuestions]
+  );
 
-  // VAPI event listeners
+  // WORKING VAPI EVENT LISTENERS FROM AGENT COMPONENT
   useEffect(() => {
-    if (processedQuestions?.length) {
-      setTotalQuestions(processedQuestions.length);
+    if (questions?.length) {
+      setTotalQuestions(questions.length);
     }
-
-    console.log("Interview initialization:", {
-      interviewType,
-      totalOriginalQuestions: questions?.length || 0,
-      technicalCount: technicalQuestions?.length || 0,
-      behavioralCount: behavioralQuestions?.length || 0,
-      processedCount: processedQuestions.length,
-    });
 
     const onCallStart = () => {
-      console.log("Call started with Neha");
       setCallStatus(CallStatus.ACTIVE);
+      setCurrentQuestionIndex(1);
+      callStartTime.current = new Date();
     };
 
     const onCallEnd = () => {
-      console.log("Call ended");
-      setCurrentActiveCall(null);
-      setIsSpeaking(false);
       setCallStatus(CallStatus.FINISHED);
+      setSpeakingPersonId(null);
     };
 
     vapi.on("call-start", onCallStart);
@@ -442,7 +378,13 @@ Remember: You are Neha, the single interviewer conducting the entire interview. 
       vapi.off("speech-start", handleSpeechStart);
       vapi.off("speech-end", handleSpeechEnd);
     };
-  }, [processedQuestions, handleMessage, handleSpeechStart, handleSpeechEnd, interviewType, questions, technicalQuestions, behavioralQuestions]);
+  }, [
+    questions,
+    handleMessage,
+    handleSpeechStart,
+    handleSpeechEnd,
+    totalQuestions,
+  ]);
 
   // Time tracking
   useEffect(() => {
@@ -458,7 +400,7 @@ Remember: You are Neha, the single interviewer conducting the entire interview. 
     return () => clearInterval(timer);
   }, []);
 
-  // Connection quality simulation
+  // Connection quality simulation (kept for UI)
   useEffect(() => {
     const qualityCheck = setInterval(() => {
       const qualities = ['excellent', 'good', 'poor'] as const;
@@ -478,16 +420,23 @@ Remember: You are Neha, the single interviewer conducting the entire interview. 
     return () => clearInterval(qualityCheck);
   }, []);
 
-  // Update last message
+  // Update last message (from Agent)
   useEffect(() => {
     if (messages.length > 0) {
       setLastMessage(messages[messages.length - 1].content);
     }
   }, [messages]);
 
-  // Enhanced feedback generation
+  // WORKING FEEDBACK GENERATION LOGIC FROM AGENT COMPONENT
   useEffect(() => {
     const handleGenerateFeedback = async (messages: SavedMessage[]) => {
+      console.log("Starting feedback generation...", {
+        interviewId,
+        userId,
+        messagesCount: messages.length,
+        feedbackId,
+      });
+
       setIsGeneratingFeedback(true);
 
       try {
@@ -498,80 +447,204 @@ Remember: You are Neha, the single interviewer conducting the entire interview. 
           feedbackId,
         });
 
+        console.log("Feedback creation result:", { success, id });
+
         if (success && (id || feedbackId)) {
+          const finalFeedbackId = id || feedbackId;
+          console.log(
+            "Redirecting to feedback page:",
+            `/interview/${interviewId}/feedback`
+          );
+
           setTimeout(() => {
             setIsGeneratingFeedback(false);
             router.push(`/interview/${interviewId}/feedback`);
-          }, 3000);
+          }, 2000);
         } else {
+          console.error("Feedback creation failed:", { success, id });
           setIsGeneratingFeedback(false);
-          onExit();
+          setTimeout(() => {
+            console.log("Redirecting to home due to feedback creation failure");
+            router.push("/");
+          }, 1000);
         }
       } catch (error) {
-        console.error("Error generating feedback:", error);
+        console.error("Error during feedback generation:", error);
         setIsGeneratingFeedback(false);
-        onExit();
+        setTimeout(() => {
+          console.log("Redirecting to home due to error");
+          router.push("/");
+        }, 1000);
       }
     };
 
     if (callStatus === CallStatus.FINISHED) {
-      if (messages.length > 0) {
+      console.log(
+        "Call finished, type:",
+        type,
+        "messages count:",
+        messages.length
+      );
+
+      if (type === "generate") {
+        console.log("Generate type - redirecting to home");
+        router.push("/");
+      } else if (messages.length > 0) {
+        console.log("Interview type - generating feedback");
         handleGenerateFeedback(messages);
       } else {
-        onExit();
+        console.log("No messages to process - redirecting to home");
+        router.push("/");
       }
     }
-  }, [callStatus, messages, feedbackId, interviewId, router, userId, onExit]);
+  }, [callStatus, messages, feedbackId, interviewId, router, type, userId]);
 
-  // Cleanup effect
-  useEffect(() => {
-    return () => {
-      if (speechTimeout) {
-        clearTimeout(speechTimeout);
-      }
-    };
-  }, [speechTimeout]);
-
-  const handleStartCall = useCallback(async () => {
-    setCallStatus(CallStatus.CONNECTING);
-    callStartTime.current = new Date();
+  // Add manual initialization function with comprehensive debugging
+  const initializeInterview = async () => {
+    console.log("🎤 Checking microphone permissions...");
     
     try {
-      console.log("=== STARTING SINGLE INTERVIEWER SESSION ===");
-      console.log("Public Key:", process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY ? "Present" : "Missing");
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(track => track.stop());
       
-      if (!vapi) {
-        throw new Error("VAPI SDK not properly initialized");
+      console.log("✅ Microphone permission granted");
+      return true;
+    } catch (error) {
+      console.error("❌ Microphone permission error:", error);
+      
+      if (error.name === 'NotAllowedError') {
+        alert("🎤 Microphone permission is required for the interview. Please allow microphone access and refresh the page.");
+      } else if (error.name === 'NotFoundError') {
+        alert("🎤 No microphone found. Please connect a microphone and try again.");
+      } else {
+        alert(`🎤 Failed to access microphone: ${error.message}`);
       }
+      
+      return false;
+    }
+  };
 
-      if (processedQuestions.length === 0) {
-        console.error("No questions available");
+  // Enhanced VAPI call handler with detailed logging
+  const handleCall = async () => {
+    console.log("🚀 Starting interview call...");
+    console.log("📋 Props received:", {
+      interviewId,
+      userId, 
+      userName,
+      type,
+      questionsCount: questions?.length,
+      interviewRole,
+      interviewType,
+      hasQuestions: !!questions,
+      hasTechnicalQuestions: !!technicalQuestions,
+      hasBehavioralQuestions: !!behavioralQuestions
+    });
+
+    setCallStatus(CallStatus.CONNECTING);
+
+    try {
+      // Step 1: Initialize devices
+      console.log("🔧 Step 1: Initializing devices...");
+      const deviceReady = await initializeInterview();
+      if (!deviceReady) {
+        console.log("❌ Device initialization failed");
         setCallStatus(CallStatus.INACTIVE);
         return;
       }
 
-      console.log(`Starting interview with ${processedQuestions.length} questions for Neha to ask`);
-      await startInterviewWithNeha();
+      // Step 2: Validate required data
+      console.log("🔍 Step 2: Validating required data...");
+      
+      if (!interviewId) {
+        throw new Error("Interview ID is missing");
+      }
+
+      if (!userId) {
+        throw new Error("User ID is missing");
+      }
+
+      if (!questions || questions.length === 0) {
+        throw new Error("No questions available for the interview");
+      }
+
+      // Step 3: Check VAPI availability
+      console.log("🔌 Step 3: Checking VAPI availability...");
+      
+      if (!vapi) {
+        throw new Error("VAPI SDK is not initialized - check your import");
+      }
+
+      // Step 4: Prepare interview configuration
+      console.log("⚙️ Step 4: Preparing interview configuration...");
+
+      if (type === "generate") {
+        const workflowId = process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID;
+        if (!workflowId) {
+          throw new Error("VAPI_WORKFLOW_ID environment variable is not configured");
+        }
+
+        console.log("🔄 Starting generator workflow with ID:", workflowId);
+        
+        await vapi.start(workflowId, {
+          variableValues: { username: userName, userid: userId },
+        });
+      } else {
+        // Check interviewer configuration
+        if (!interviewer) {
+          throw new Error("Interviewer configuration is not available - check your constants import");
+        }
+
+        console.log("📝 Interviewer config found:", {
+          hasName: !!interviewer.name,
+          hasModel: !!interviewer.model,
+          hasVoice: !!interviewer.voice
+        });
+
+        const formattedQuestions = questions?.map((q) => `- ${q}`).join("\n") || "";
+        
+        console.log("📋 Formatted questions for VAPI:");
+        console.log(formattedQuestions);
+
+        if (!formattedQuestions) {
+          throw new Error("Failed to format questions for VAPI");
+        }
+
+        console.log("🎙️ Starting VAPI call with interviewer config...");
+        
+        await vapi.start(interviewer, {
+          variableValues: { questions: formattedQuestions },
+        });
+      }
+
+      console.log("✅ VAPI call started successfully!");
       
     } catch (error) {
-      console.error("Complete error details:", error);
+      console.error("💥 Call start error:", error);
+      console.error("📊 Error details:", {
+        name: error?.name,
+        message: error?.message,
+        stack: error?.stack
+      });
+      
       setCallStatus(CallStatus.INACTIVE);
-      const errorMessage = error?.message || 'Unknown VAPI error occurred';
-      alert(`Failed to start interview: ${errorMessage}`);
-    }
-  }, [processedQuestions, startInterviewWithNeha]);
+      
+      // Show user-friendly error message with more details
+      let errorMessage = "Unknown error occurred";
+      
+      if (error?.message) {
+        errorMessage = error.message;
+      }
 
-  const handleEndCall = useCallback(async () => {
-    if (speechTimeout) {
-      clearTimeout(speechTimeout);
+      alert(`❌ Failed to start interview: ${errorMessage}\n\nCheck the console for detailed error information.`);
     }
+  };
 
+  const handleDisconnect = () => {
     setCallStatus(CallStatus.FINISHED);
-    setCurrentActiveCall(null);
-    setIsSpeaking(false);
     vapi.stop();
-  }, [speechTimeout]);
+  };
 
+  // UI Helper functions (kept the same)
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -586,353 +659,332 @@ Remember: You are Neha, the single interviewer conducting the entire interview. 
     }
   };
 
-  // Simplified panel - just Neha and candidate
-  const interviewPanel = useMemo(() => {
-    return [
-      {
-        id: "neha",
-        name: "Neha Sharma",
-        role: `${interviewRole} Interviewer`,
-        specialty: "Complete Interview Assessment",
-        experience: "12+ years",
-        avatar: { initials: "NS", gradient: "from-blue-500 to-indigo-600" },
-        status: callStatus === CallStatus.ACTIVE ? "interviewing" : "available",
-        isSpeaking: isSpeaking && callStatus === CallStatus.ACTIVE,
-        videoEnabled: true,
-        audioEnabled: true,
-        isLead: true,
-        videoSrc: "/videos/neha-interviewer-avatar.mp4",
-      },
-      {
-        id: "candidate",
-        name: userName || "Candidate",
-        role: "Interviewee",
-        specialty: `Applying for: ${interviewRole}`,
-        experience: "",
-        avatar: { initials: userName?.charAt(0)?.toUpperCase() || "C", gradient: "from-indigo-500 to-purple-600" },
-        status: callStatus === CallStatus.ACTIVE ? "ready" : "connecting",
-        isSpeaking: false,
-        videoEnabled: isVideoOn,
-        audioEnabled: isAudioOn,
-        isCurrentUser: true,
-      },
-    ];
-  }, [userName, interviewRole, callStatus, isVideoOn, isAudioOn, isSpeaking]);
+  const getStatusInfo = (status: string, isSpeaking?: boolean) => {
+    if (isSpeaking)
+      return { color: "bg-blue-500 animate-pulse", text: "Speaking" };
 
-  // Auto-start interview when component mounts
-  useEffect(() => {
-    const initializeInterview = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        console.log("Microphone permission granted");
-        stream.getTracks().forEach(track => track.stop());
-        
-        setTimeout(() => {
-          handleStartCall();
-        }, 1500);
-      } catch (error) {
-        console.error("Microphone permission denied:", error);
-        alert("Microphone permission is required for the interview. Please refresh and allow microphone access.");
-      }
+    const statusMap = {
+      available: { color: "bg-green-500", text: "Available" },
+      presenting: { color: "bg-blue-500 animate-pulse", text: "Presenting" },
+      attentive: { color: "bg-purple-500", text: "Listening" },
+      engaged: { color: "bg-green-500", text: "Engaged" },
+      ready: { color: "bg-gray-500", text: "Ready" },
+      default: { color: "bg-gray-500", text: "Connected" },
     };
 
-    initializeInterview();
-  }, [handleStartCall]);
+    return statusMap[status as keyof typeof statusMap] || statusMap.default;
+  };
+
+  const currentSpeaker = interviewPanel.find((p) => p.id === speakingPersonId);
 
   return (
-    <div className="fixed inset-0 bg-gray-900 z-50 flex flex-col">
-      {/* Top Header */}
-      <div className="bg-gray-800/95 backdrop-blur-sm border-b border-gray-700 px-6 py-3 flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={onExit}
-            className="p-2 hover:bg-gray-700 rounded-lg transition-colors text-gray-400 hover:text-white"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-              <span className="text-white text-sm font-bold">AI</span>
+    <div className="fixed inset-0 bg-gradient-to-br from-slate-900 to-slate-800 z-50 flex flex-col overflow-hidden">
+      {/* Header Bar - Kept exactly the same */}
+      <div className="bg-slate-800/90 backdrop-blur-sm border-b border-slate-600/50 px-3 sm:px-6 py-2 sm:py-3 flex-shrink-0">
+        <div className="flex items-center justify-between w-full">
+          <div className="flex items-center space-x-2 sm:space-x-4">
+            <button
+              onClick={onExit}
+              className="p-2 hover:bg-slate-700 rounded-lg transition-colors text-slate-400 hover:text-white"
+            >
+              <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
+            
+            <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+              <span className="text-white text-xs sm:text-sm font-bold">AI</span>
             </div>
+            
             <div>
-              <h1 className="text-white font-semibold">Interview with Neha</h1>
-              <p className="text-gray-400 text-sm capitalize">{interviewRole} • {interviewType} Assessment</p>
+              <h1 className="text-white font-semibold text-sm sm:text-base">
+                Interview Conference Room
+              </h1>
+              <p className="text-slate-400 text-xs sm:text-sm">
+                {interviewRole} Position • Panel Interview Session
+              </p>
             </div>
           </div>
-        </div>
 
-        <div className="flex items-center space-x-6 text-sm text-gray-400">
-          {/* Connection Quality */}
-          <div className="flex items-center space-x-2">
+          <div className="hidden sm:flex items-center space-x-4 text-sm text-slate-400">
             {getConnectionIcon()}
             <span className="capitalize">{connectionQuality}</span>
+            
+            <div className="flex items-center space-x-2">
+              <Clock className="w-4 h-4" />
+              <span>{formatDuration(callDuration)}</span>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+              <span className="text-red-400">Recording</span>
+            </div>
           </div>
 
-          {/* Call Duration */}
-          <div className="flex items-center space-x-2">
-            <Clock className="w-4 h-4" />
-            <span>{formatDuration(callDuration)}</span>
-          </div>
-
-          {/* Current Time */}
-          <div className="flex items-center space-x-2">
-            <Calendar className="w-4 h-4" />
-            <span>{currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-          </div>
-
-          {/* Recording Status */}
-          <div className="flex items-center space-x-2 bg-red-500/20 px-3 py-2 rounded-full">
+          <div className="sm:hidden flex items-center space-x-2">
             <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-            <span className="text-red-400">Recording</span>
+            <span className="text-red-400 text-xs">REC</span>
           </div>
         </div>
       </div>
 
-      {/* Main Video Grid - 1x2 Layout for single interviewer */}
-      <div className="flex-1 p-6 min-h-0">
-        <div className="h-full w-full grid grid-cols-2 gap-6 max-w-full">
+      {/* Main Video Grid - 2x2 Layout (kept exactly the same) */}
+      <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex-1 grid grid-cols-2 gap-2 sm:gap-4 lg:gap-6 p-2 sm:p-4 lg:p-6 min-h-0">
           {interviewPanel.map((participant) => {
-            const isCurrentSpeaker = participant.isSpeaking;
+            const statusInfo = getStatusInfo(
+              participant.status,
+              participant.isSpeaking
+            );
+            const isCurrentSpeaker = speakingPersonId === participant.id;
 
             return (
               <div
                 key={participant.id}
-                className={`relative bg-gradient-to-br from-slate-700/80 to-slate-800/80 rounded-2xl border transition-all duration-500 flex flex-col justify-center items-center p-6 min-h-[300px] ${
+                className={`relative bg-gradient-to-br from-slate-700/80 to-slate-800/80 rounded-lg sm:rounded-xl lg:rounded-2xl border transition-all duration-300 flex flex-col justify-center items-center p-2 sm:p-4 lg:p-6 min-h-[180px] sm:min-h-[240px] lg:min-h-[300px] ${
                   participant.isLead
-                    ? "border-blue-500/50"
+                    ? "border-blue-500/50 bg-gradient-to-br from-blue-900/30 to-slate-800/80"
                     : participant.isCurrentUser
-                    ? "border-indigo-500/50"
+                    ? "border-indigo-500/50 bg-gradient-to-br from-indigo-900/30 to-slate-800/80"
                     : "border-slate-600/30"
                 } ${
                   isCurrentSpeaker
-                    ? "ring-2 ring-blue-500/60 scale-[1.02] shadow-2xl shadow-blue-500/30"
+                    ? "ring-1 sm:ring-2 ring-blue-500/50 scale-[1.01] sm:scale-[1.02] shadow-xl sm:shadow-2xl shadow-blue-500/20"
                     : ""
                 }`}
               >
                 {/* Role Badge */}
-                <div className={`absolute top-4 left-4 px-3 py-1 rounded-full text-xs font-medium ${
-                  participant.isLead
-                    ? "bg-blue-500/90 text-white"
-                    : participant.isCurrentUser
-                    ? "bg-indigo-500/90 text-white"
-                    : "bg-gray-500/90 text-white"
-                }`}>
-                  {participant.isLead ? "Interviewer" : "Candidate"}
-                </div>
+                {participant.isLead && (
+                  <div className="absolute top-2 right-2 sm:top-4 sm:right-4 bg-blue-500/90 text-white text-xs sm:text-sm px-2 py-1 sm:px-3 sm:py-1 rounded-full font-medium">
+                    <span className="sm:hidden">Lead</span>
+                    <span className="hidden sm:inline">Lead Interviewer</span>
+                  </div>
+                )}
+
+                {participant.isCurrentUser && (
+                  <div className="absolute top-2 right-2 sm:top-4 sm:right-4 bg-indigo-500/90 text-white text-xs sm:text-sm px-2 py-1 sm:px-3 sm:py-1 rounded-full font-medium">
+                    Candidate
+                  </div>
+                )}
 
                 <div className="text-center">
-                  {participant.videoEnabled ? (
-                    <div className="relative">
-                      <VideoAvatar
-                        initials={participant.avatar.initials}
-                        gradient={participant.avatar.gradient}
-                        isSpeaking={participant.isSpeaking}
-                        videoSrc={participant.isCurrentUser ? undefined : participant.videoSrc}
-                      />
-                      
-                      {/* Connection indicator */}
-                      <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-gray-800 rounded-full border-2 border-slate-600 flex items-center justify-center">
-                        <div className={`w-3 h-3 rounded-full ${
-                          callStatus === CallStatus.ACTIVE ? 'bg-green-500' : 
-                          callStatus === CallStatus.CONNECTING ? 'bg-yellow-500 animate-pulse' : 
-                          'bg-gray-500'
-                        }`}></div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center">
-                      <VideoOff className="w-16 h-16 text-gray-500 mx-auto mb-4" />
-                      <p className="text-gray-400">Camera off</p>
-                    </div>
-                  )}
+                  <VideoAvatar
+                    initials={participant.avatar.initials}
+                    gradient={participant.avatar.gradient}
+                    isSpeaking={isCurrentSpeaker}
+                    videoSrc={participant.isCurrentUser ? undefined : participant.videoSrc}
+                  />
 
-                  <h3 className="text-white font-semibold text-xl mb-1">{participant.name}</h3>
-                  <p className="text-slate-400 text-sm mb-2">{participant.role}</p>
-                  
-                  <p className="text-slate-500 text-xs mb-3">
-                    {participant.specialty}
-                  </p>
-
-                  {/* Status Badge */}
-                  <div
-                    className={`inline-flex items-center space-x-2 px-3 py-2 rounded-full text-sm font-medium transition-all duration-300 ${
-                      participant.isSpeaking
-                        ? "text-blue-400 bg-blue-500/20 animate-pulse"
-                        : participant.isCurrentUser
-                        ? "text-green-400 bg-green-500/20"
-                        : "text-green-400 bg-green-500/20"
+                  <h3
+                    className={`text-white font-semibold text-sm sm:text-lg lg:text-xl mb-1 sm:mb-2 transition-colors duration-300 ${
+                      isCurrentSpeaker ? "text-blue-200" : ""
                     }`}
                   >
-                    <span>
-                      {participant.isSpeaking 
-                        ? "Speaking"
-                        : participant.isCurrentUser
-                        ? callStatus === CallStatus.ACTIVE ? "Ready" : 
-                          callStatus === CallStatus.CONNECTING ? "Connecting" : "Ready"
-                        : callStatus === CallStatus.ACTIVE ? "Interviewing" : "Available"}
-                    </span>
+                    {participant.name}
+                  </h3>
+                  <p className="text-slate-400 text-xs sm:text-sm lg:text-base mb-2 sm:mb-3">
+                    {participant.role}
+                  </p>
+
+                  <div
+                    className={`inline-flex items-center space-x-1 sm:space-x-2 px-2 py-1 sm:px-3 sm:py-2 rounded-full text-xs sm:text-sm ${
+                      statusInfo.color.includes("green")
+                        ? "text-green-400 bg-green-500/20"
+                        : statusInfo.color.includes("blue")
+                        ? "text-blue-400 bg-blue-500/20"
+                        : statusInfo.color.includes("purple")
+                        ? "text-purple-400 bg-purple-500/20"
+                        : "text-gray-400 bg-gray-500/20"
+                    }`}
+                  >
+                    <span>{statusInfo.text}</span>
                   </div>
 
-                  {/* Experience */}
-                  {participant.experience && (
-                    <div className="mt-3 text-sm text-slate-500">
-                      {participant.experience}
-                    </div>
-                  )}
+                  <div className="mt-2 sm:mt-3 text-xs sm:text-sm text-slate-500">
+                    {participant.experience}
+                  </div>
                 </div>
 
-                {/* Participant Controls (only for current user) */}
+                {/* Connection indicator for candidate */}
                 {participant.isCurrentUser && (
-                  <div className="absolute top-4 right-4">
-                    <button className="p-2 bg-black/50 hover:bg-black/70 rounded-lg transition-colors">
-                      <MoreVertical className="w-4 h-4 text-white" />
-                    </button>
+                  <div className="absolute -bottom-1 -right-1 w-6 h-6 sm:w-8 sm:h-8 rounded-full border-2 sm:border-3 border-slate-800 flex items-center justify-center">
+                    <div className={`w-3 h-3 rounded-full ${
+                      callStatus === CallStatus.ACTIVE
+                        ? "bg-green-500 animate-pulse"
+                        : callStatus === CallStatus.CONNECTING
+                        ? "bg-yellow-500 animate-pulse"
+                        : "bg-gray-500"
+                    }`}></div>
                   </div>
                 )}
               </div>
             );
           })}
         </div>
-      </div>
 
-      {/* Bottom Control Bar */}
-      <div className="bg-gray-800/95 backdrop-blur-sm border-t border-gray-700 px-6 py-4 flex-shrink-0">
-        <div className="flex items-center justify-between">
-          {/* Left Side - Call Info */}
-          <div className="flex items-center space-x-4">
-            <div className="text-sm text-gray-400">
-              Question {Math.min(currentQuestionIndex, totalQuestions)} of {totalQuestions}
-            </div>
-            
-            <div className="text-sm text-gray-400">
-              Single Interviewer Mode
-            </div>
-
-            {isSpeaking && (
-              <div className="flex items-center space-x-2 bg-blue-500/20 px-3 py-1 rounded-full">
-                <div className="w-3 h-3 bg-blue-400 rounded-full animate-pulse"></div>
-                <span className="text-blue-400 text-xs">
-                  Neha is speaking
+        {/* Control Panel - Updated to use working VAPI handlers */}
+        <div className="bg-slate-800/95 backdrop-blur-sm border-t border-slate-600/50 px-3 sm:px-6 py-3 sm:py-4 flex-shrink-0">
+          <div className="flex flex-col sm:flex-row items-center justify-between w-full space-y-3 sm:space-y-0">
+            {/* Status Info */}
+            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 sm:gap-6 text-sm">
+              <div className="flex items-center space-x-2 sm:space-x-3">
+                <div
+                  className={`w-3 h-3 sm:w-4 sm:h-4 rounded-full ${
+                    callStatus === CallStatus.ACTIVE
+                      ? "bg-green-500 animate-pulse"
+                      : callStatus === CallStatus.CONNECTING
+                      ? "bg-yellow-500 animate-pulse"
+                      : isGeneratingFeedback
+                      ? "bg-blue-500 animate-pulse"
+                      : "bg-gray-500"
+                  }`}
+                ></div>
+                <span className="text-white font-medium text-xs sm:text-sm">
+                  {isGeneratingFeedback
+                    ? "Generating Feedback..."
+                    : callStatus === CallStatus.ACTIVE
+                    ? "Interview Active"
+                    : callStatus === CallStatus.CONNECTING
+                    ? "Connecting..."
+                    : callStatus === CallStatus.FINISHED
+                    ? "Completed"
+                    : "Ready to Start"}
                 </span>
               </div>
-            )}
-          </div>
 
-          {/* Center - Main Controls */}
-          <div className="flex items-center space-x-4">
-            {callStatus === CallStatus.CONNECTING ? (
-              <button
-                disabled
-                className="px-8 py-3 bg-yellow-600 text-white rounded-lg font-semibold cursor-not-allowed flex items-center space-x-3"
-              >
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Connecting to Neha...</span>
-              </button>
-            ) : callStatus === CallStatus.ACTIVE && !isGeneratingFeedback ? (
-              <>
-                <button
-                  onClick={() => setIsAudioOn(!isAudioOn)}
-                  className={`p-4 rounded-full transition-all ${
-                    isAudioOn 
-                      ? 'bg-gray-700 hover:bg-gray-600 text-white' 
-                      : 'bg-red-600 hover:bg-red-700 text-white'
-                  }`}
-                >
-                  {isAudioOn ? <Mic className="w-6 h-6" /> : <MicOff className="w-6 h-6" />}
-                </button>
-
-                <button
-                  onClick={() => setIsVideoOn(!isVideoOn)}
-                  className={`p-4 rounded-full transition-all ${
-                    isVideoOn 
-                      ? 'bg-gray-700 hover:bg-gray-600 text-white' 
-                      : 'bg-red-600 hover:bg-red-700 text-white'
-                  }`}
-                >
-                  {isVideoOn ? <Video className="w-6 h-6" /> : <VideoOff className="w-6 h-6" />}
-                </button>
-
-                <button
-                  onClick={handleEndCall}
-                  className="p-4 rounded-full bg-red-600 hover:bg-red-700 text-white transition-all"
-                >
-                  <PhoneOff className="w-6 h-6" />
-                </button>
-
-                <button
-                  onClick={() => setIsSpeakerOn(!isSpeakerOn)}
-                  className={`p-4 rounded-full transition-all ${
-                    isSpeakerOn 
-                      ? 'bg-gray-700 hover:bg-gray-600 text-white' 
-                      : 'bg-red-600 hover:bg-red-700 text-white'
-                  }`}
-                >
-                  {isSpeakerOn ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
-                </button>
-              </>
-            ) : isGeneratingFeedback ? (
-              <div className="px-8 py-3 bg-blue-600 text-white rounded-lg font-semibold flex items-center space-x-3">
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Generating Feedback...</span>
+              <div className="text-slate-400 text-xs sm:text-sm">
+                Question{" "}
+                {callStatus === CallStatus.ACTIVE ? currentQuestionIndex : 1} of{" "}
+                {totalQuestions}
               </div>
-            ) : callStatus === CallStatus.FINISHED ? (
-              <div className="px-8 py-3 bg-gray-600 text-white rounded-lg font-semibold">
-                Interview Completed
-              </div>
-            ) : (
-              <div className="px-8 py-3 bg-gray-600 text-white rounded-lg font-semibold">
-                Starting Interview with Neha...
-              </div>
-            )}
-          </div>
 
-          {/* Right Side - Additional Controls */}
-          <div className="flex items-center space-x-4">
-            <button className="p-3 rounded-lg bg-gray-700 hover:bg-gray-600 text-white transition-colors">
-              <MessageSquare className="w-5 h-5" />
-            </button>
-
-            <button 
-              onClick={() => setShowSettings(!showSettings)}
-              className="p-3 rounded-lg bg-gray-700 hover:bg-gray-600 text-white transition-colors"
-            >
-              <Settings className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Live Transcript Bar */}
-      <div className="bg-slate-900/90 backdrop-blur-sm border-b border-slate-700/50 px-6 py-3">
-        <div className="flex items-center space-x-3">
-          <div className="flex items-center space-x-2">
-            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-            <span className="text-slate-400 text-sm font-medium">Live Transcript</span>
-          </div>
-          <div className="flex-1 text-white text-sm line-clamp-1">
-            {lastMessage || "Waiting for Neha to begin the interview..."}
-          </div>
-        </div>
-      </div>
-
-      {/* Feedback Generation Overlay */}
-      {isGeneratingFeedback && (
-        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-10">
-          <div className="bg-gray-800 rounded-2xl p-8 max-w-md w-full mx-4 text-center">
-            <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
+              {currentSpeaker && (
+                <div className="flex items-center space-x-2 bg-blue-500/20 px-2 sm:px-3 py-1 rounded-full">
+                  <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                  <span className="text-blue-300 text-xs sm:text-sm font-medium">
+                    <span className="hidden sm:inline">
+                      {currentSpeaker.name} is speaking
+                    </span>
+                    <span className="sm:hidden">Speaking</span>
+                  </span>
+                </div>
+              )}
             </div>
-            <h3 className="text-white text-xl font-semibold mb-2">Processing Interview</h3>
-            <p className="text-gray-400 mb-4">
-              Analyzing your conversation with Neha and generating detailed feedback...
+
+            {/* Call Controls - Updated to use working handlers */}
+            <div className="flex items-center space-x-4">
+              {callStatus === CallStatus.INACTIVE ||
+              callStatus === CallStatus.FINISHED ? (
+                <button
+                  onClick={handleCall}
+                  className="px-4 sm:px-8 py-2 sm:py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold text-sm sm:text-base transition-all hover:scale-105 shadow-lg"
+                >
+                  Join Call
+                </button>
+              ) : callStatus === CallStatus.CONNECTING ? (
+                <button
+                  disabled
+                  className="px-4 sm:px-8 py-2 sm:py-3 bg-yellow-600 text-white rounded-lg font-semibold text-sm sm:text-base cursor-not-allowed flex items-center space-x-2 sm:space-x-3"
+                >
+                  <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  <span>Connecting...</span>
+                </button>
+              ) : callStatus === CallStatus.ACTIVE && !isGeneratingFeedback ? (
+                <>
+                  <button
+                    onClick={() => setIsAudioOn(!isAudioOn)}
+                    className={`p-3 rounded-full transition-all ${
+                      isAudioOn 
+                        ? 'bg-gray-700 hover:bg-gray-600 text-white' 
+                        : 'bg-red-600 hover:bg-red-700 text-white'
+                    }`}
+                  >
+                    {isAudioOn ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
+                  </button>
+
+                  <button
+                    onClick={() => setIsVideoOn(!isVideoOn)}
+                    className={`p-3 rounded-full transition-all ${
+                      isVideoOn 
+                        ? 'bg-gray-700 hover:bg-gray-600 text-white' 
+                        : 'bg-red-600 hover:bg-red-700 text-white'
+                    }`}
+                  >
+                    {isVideoOn ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
+                  </button>
+
+                  <button
+                    onClick={handleDisconnect}
+                    className="p-3 rounded-full bg-red-600 hover:bg-red-700 text-white transition-all"
+                  >
+                    <PhoneOff className="w-5 h-5" />
+                  </button>
+
+                  <button
+                    onClick={() => setIsSpeakerOn(!isSpeakerOn)}
+                    className={`p-3 rounded-full transition-all ${
+                      isSpeakerOn 
+                        ? 'bg-gray-700 hover:bg-gray-600 text-white' 
+                        : 'bg-red-600 hover:bg-red-700 text-white'
+                    }`}
+                  >
+                    {isSpeakerOn ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+                  </button>
+                </>
+              ) : isGeneratingFeedback ? (
+                <div className="px-4 sm:px-8 py-2 sm:py-3 bg-blue-600 text-white rounded-lg font-semibold text-sm sm:text-base flex items-center space-x-2 sm:space-x-3">
+                  <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  <span className="hidden sm:inline">Generating Feedback...</span>
+                  <span className="sm:hidden">Processing...</span>
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          {/* Feedback Generation Status - Kept exactly the same */}
+          {isGeneratingFeedback && (
+            <div className="mt-3 sm:mt-4 bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 sm:p-4">
+              <div className="flex items-center space-x-3 sm:space-x-4">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                  <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin"></div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-blue-300 font-semibold text-sm sm:text-base">
+                    Processing Your Interview
+                  </h4>
+                  <p className="text-blue-200/70 text-xs sm:text-sm mt-1">
+                    Our AI is analyzing your responses and generating
+                    personalized feedback. You'll be redirected to the feedback
+                    page shortly...
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 sm:mt-4 bg-blue-500/20 rounded-full h-1.5 sm:h-2 overflow-hidden">
+                <div className="bg-blue-400 h-full rounded-full animate-pulse w-3/4"></div>
+              </div>
+
+              {/* Debug info in development */}
+              {process.env.NODE_ENV === "development" && (
+                <div className="mt-2 sm:mt-3 text-xs text-blue-200/50">
+                  Debug: Interview ID: {interviewId} | Messages:{" "}
+                  {messages.length} | User ID: {userId}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Live Transcript - Kept exactly the same */}
+          <div className="mt-3 sm:mt-4 bg-slate-900/50 backdrop-blur-sm rounded-lg border border-slate-600/30 p-3 sm:p-4">
+            <div className="flex items-center space-x-2 mb-2 sm:mb-3">
+              <div className="w-2 h-2 sm:w-3 sm:h-3 bg-blue-500 rounded-full animate-pulse"></div>
+              <span className="text-xs sm:text-sm text-slate-400 font-medium">
+                Live Transcript
+              </span>
+            </div>
+            <p className="text-white text-sm sm:text-base line-clamp-2">
+              {lastMessage || "Waiting for the interview to begin..."}
             </p>
-            <div className="bg-gray-700 rounded-full h-2 overflow-hidden">
-              <div className="bg-blue-500 h-full rounded-full animate-pulse w-3/4 transition-all duration-1000"></div>
-            </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };
