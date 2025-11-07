@@ -17,7 +17,9 @@ import {
   X,
   Menu,
   Plus,
-  Crown
+  Crown,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { signOut } from "@/lib/actions/auth.action";
 
@@ -34,11 +36,10 @@ const bottomItems = [
   { id: 'help', label: 'Help', icon: HelpCircle, href: '/help' }
 ];
 
-// Helper function to get plan info from real subscription data (matching your existing code)
+// Helper function to get plan info from real subscription data
 const getPlanInfo = (subscription: any) => {
   console.log("🔍 getPlanInfo called with:", subscription);
 
-  // Handle free users (no subscription object, null, undefined, or starter plan)
   if (
     !subscription ||
     subscription.plan === "starter" ||
@@ -114,24 +115,19 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ user = null, userStats = null }: SidebarProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // Mobile menu
+  const [isCollapsed, setIsCollapsed] = useState(false); // Desktop collapse
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
 
-  // Safe data handling with proper fallbacks and debug logging (matching your existing structure)
   const safeUser = user || {};
   const stats = getSafeUserStats(userStats);
-
-  // Extract subscription data from user object (since it's nested in Firestore)
   const userSubscription = safeUser?.subscription || null;
   
   console.log("🔍 Debug - User object:", safeUser);
   console.log("🔍 Debug - User subscription:", userSubscription);
-  console.log("🔍 Debug - Subscription plan:", userSubscription?.plan);
-  console.log("🔍 Debug - Subscription status:", userSubscription?.status);
 
-  // Get real user initials with safe handling
   const getInitials = (name?: string | null) => {
     if (!name || typeof name !== 'string' || name.trim() === '') return "U";
     
@@ -151,8 +147,6 @@ export default function Sidebar({ user = null, userStats = null }: SidebarProps)
 
   const userInitials = getInitials(safeUser.name);
   const planInfo = getPlanInfo(userSubscription);
-  
-  console.log("🔍 Final plan info:", planInfo); // Debug log
 
   const handleLogout = async () => {
     try {
@@ -162,7 +156,6 @@ export default function Sidebar({ user = null, userStats = null }: SidebarProps)
     } catch (error) {
       console.error("Logout failed:", error);
       setIsLoggingOut(false);
-      // Optionally show error toast
     }
   };
 
@@ -177,11 +170,19 @@ export default function Sidebar({ user = null, userStats = null }: SidebarProps)
       </button>
 
       {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-gray-900/95 backdrop-blur-sm border-r border-gray-700/50 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 transition-all duration-300 ease-in-out flex flex-col h-screen overflow-hidden`}>
+      <div className={`fixed inset-y-0 left-0 z-50 bg-gray-900/95 backdrop-blur-sm border-r border-gray-700/50 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 transition-all duration-300 ease-in-out flex flex-col h-screen overflow-hidden ${isCollapsed ? 'lg:w-20' : 'lg:w-64'} w-64`}>
         
+        {/* Toggle Button - Desktop Only */}
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="hidden lg:block absolute -right-3 top-8 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-400 hover:text-white p-1.5 rounded-full transition-all z-10"
+        >
+          {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+        </button>
+
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-gray-700/50 flex-shrink-0">
-          <Link href="/" className="flex items-center space-x-3 group">
+          <Link href="/" className={`flex items-center group ${isCollapsed ? 'lg:justify-center lg:w-full' : 'space-x-3'}`}>
             <NextImage 
               src={logo} 
               alt="Preciprocal" 
@@ -190,7 +191,9 @@ export default function Sidebar({ user = null, userStats = null }: SidebarProps)
               className="rounded-lg group-hover:scale-105 transition-transform"
               priority
             />
-            <span className="text-white font-semibold text-lg">Preciprocal</span>
+            {!isCollapsed && (
+              <span className="text-white font-semibold text-lg">Preciprocal</span>
+            )}
           </Link>
           <button 
             onClick={() => setSidebarOpen(false)}
@@ -204,10 +207,11 @@ export default function Sidebar({ user = null, userStats = null }: SidebarProps)
         <div className="p-4 flex-shrink-0">
           <Link 
             href="/createinterview"
-            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium px-4 py-3 rounded-xl transition-all flex items-center justify-center group shadow-lg"
+            className={`w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium px-4 py-3 rounded-xl transition-all flex items-center group shadow-lg ${isCollapsed ? 'lg:justify-center' : 'justify-center'}`}
+            title={isCollapsed ? "Start Interview" : ""}
           >
-            <Plus className="w-4 h-4 mr-2 group-hover:rotate-90 transition-transform duration-200" />
-            Start Interview
+            <Plus className={`w-4 h-4 group-hover:rotate-90 transition-transform duration-200 ${isCollapsed ? '' : 'mr-2'}`} />
+            {!isCollapsed && <span>Start Interview</span>}
           </Link>
         </div>
 
@@ -219,14 +223,15 @@ export default function Sidebar({ user = null, userStats = null }: SidebarProps)
                 key={item.id}
                 href={item.href}
                 onClick={() => setSidebarOpen(false)}
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all group ${
+                title={isCollapsed ? item.label : ""}
+                className={`w-full flex items-center px-4 py-3 rounded-lg transition-all group ${
                   pathname === item.href
                     ? 'bg-blue-600/90 text-white shadow-md'
                     : 'text-gray-300 hover:text-white hover:bg-gray-800/50'
-                }`}
+                } ${isCollapsed ? 'lg:justify-center' : 'space-x-3'}`}
               >
                 <item.icon className="w-5 h-5 flex-shrink-0" />
-                <span className="font-medium">{item.label}</span>
+                {!isCollapsed && <span className="font-medium">{item.label}</span>}
               </Link>
             ))}
           </div>
@@ -240,21 +245,22 @@ export default function Sidebar({ user = null, userStats = null }: SidebarProps)
                 key={item.id}
                 href={item.href}
                 onClick={() => setSidebarOpen(false)}
-                className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-lg transition-all text-sm ${
+                title={isCollapsed ? item.label : ""}
+                className={`w-full flex items-center px-4 py-2.5 rounded-lg transition-all text-sm ${
                   pathname === item.href
                     ? 'bg-gray-800 text-white'
                     : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
-                }`}
+                } ${isCollapsed ? 'lg:justify-center' : 'space-x-3'}`}
               >
                 <item.icon className="w-4 h-4 flex-shrink-0" />
-                <span>{item.label}</span>
+                {!isCollapsed && <span>{item.label}</span>}
               </Link>
             ))}
           </div>
         </div>
 
-        {/* Real-time Stats Card - Only show if user has data */}
-        {(stats.totalInterviews > 0 || stats.averageScore > 0) && (
+        {/* Real-time Stats Card - Hide when collapsed */}
+        {!isCollapsed && (stats.totalInterviews > 0 || stats.averageScore > 0) && (
           <div className="px-4 py-3 border-t border-gray-700/50 flex-shrink-0">
             <div className="bg-gray-800/50 rounded-lg p-3 mb-3">
               <div className="text-center mb-2">
@@ -284,25 +290,27 @@ export default function Sidebar({ user = null, userStats = null }: SidebarProps)
         {/* User Section */}
         <div className="px-4 py-4 border-t border-gray-700/50 flex-shrink-0">
           {/* User Info */}
-          <div className="flex items-center space-x-3 mb-3">
+          <div className={`flex items-center mb-3 ${isCollapsed ? 'lg:justify-center' : 'space-x-3'}`}>
             <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
               <span className="text-white font-semibold text-sm">{userInitials}</span>
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-white font-medium truncate text-sm">
-                {safeUser.name || 'User'}
+            {!isCollapsed && (
+              <div className="flex-1 min-w-0">
+                <div className="text-white font-medium truncate text-sm">
+                  {safeUser.name || 'User'}
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className={`text-xs ${planInfo.style}`}>{planInfo.text}</span>
+                  {!planInfo.showUpgrade && (
+                    <Crown className="w-3 h-3 text-yellow-400 flex-shrink-0" />
+                  )}
+                </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <span className={`text-xs ${planInfo.style}`}>{planInfo.text}</span>
-                {!planInfo.showUpgrade && (
-                  <Crown className="w-3 h-3 text-yellow-400 flex-shrink-0" />
-                )}
-              </div>
-            </div>
+            )}
           </div>
 
-          {/* Upgrade Button for Free Users */}
-          {planInfo.showUpgrade && (
+          {/* Upgrade Button for Free Users - Hide when collapsed */}
+          {!isCollapsed && planInfo.showUpgrade && (
             <Link 
               href="/subscription"
               className="w-full mb-3 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 text-amber-400 hover:bg-amber-500/30 px-3 py-2 rounded-lg transition-all flex items-center justify-center text-sm font-medium"
@@ -311,15 +319,27 @@ export default function Sidebar({ user = null, userStats = null }: SidebarProps)
               Upgrade
             </Link>
           )}
+
+          {/* Collapsed Upgrade Button - Show only icon */}
+          {isCollapsed && planInfo.showUpgrade && (
+            <Link 
+              href="/subscription"
+              title="Upgrade"
+              className="w-full mb-3 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 text-amber-400 hover:bg-amber-500/30 px-3 py-2 rounded-lg transition-all flex items-center justify-center"
+            >
+              <Crown className="w-4 h-4 flex-shrink-0" />
+            </Link>
+          )}
           
           {/* Logout */}
           <button 
             onClick={handleLogout}
             disabled={isLoggingOut}
-            className="w-full flex items-center space-x-3 px-3 py-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            title={isCollapsed ? "Sign Out" : ""}
+            className={`w-full flex items-center px-3 py-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed ${isCollapsed ? 'lg:justify-center' : 'space-x-3'}`}
           >
             <LogOut className="w-4 h-4 flex-shrink-0" />
-            <span>{isLoggingOut ? 'Signing out...' : 'Sign Out'}</span>
+            {!isCollapsed && <span>{isLoggingOut ? 'Signing out...' : 'Sign Out'}</span>}
           </button>
         </div>
       </div>

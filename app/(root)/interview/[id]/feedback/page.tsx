@@ -66,7 +66,6 @@ export default async function InterviewFeedbackPage({ params }: Props) {
       <div className="h-full overflow-hidden">
         <div className="h-full overflow-y-auto">
           <div className="max-w-4xl mx-auto p-6">
-            {/* Professional Loading State */}
             <div className="text-center py-16">
               <div className="w-20 h-20 mx-auto mb-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
                 <div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -82,117 +81,9 @@ export default async function InterviewFeedbackPage({ params }: Props) {
               </h1>
               
               <p className="text-lg text-gray-600 dark:text-gray-400 mb-12 max-w-2xl mx-auto">
-                Our AI is conducting a comprehensive analysis of your interview performance across 
-                <span className="font-semibold text-blue-600 dark:text-blue-400"> 20+ metrics</span> 
-                to provide detailed insights and personalized recommendations.
+                Our AI is conducting a comprehensive analysis of your interview performance to provide detailed insights and personalized recommendations.
               </p>
 
-              {/* Enhanced Progress Steps */}
-              <div className="grid gap-6 mt-12 max-w-4xl mx-auto">
-                {[
-                  {
-                    title: "Analyzing Speech & Communication",
-                    description: "Evaluating pace, clarity, confidence, and delivery quality",
-                    icon: MessageSquare,
-                    color: "blue",
-                    progress: 100
-                  },
-                  {
-                    title: "Assessing Technical Knowledge",
-                    description: "Reviewing accuracy, depth, problem-solving approach, and expertise",
-                    icon: Brain,
-                    color: "purple",
-                    progress: 75
-                  },
-                  {
-                    title: "Evaluating Professional Skills",
-                    description: "Measuring communication, leadership potential, and cultural fit",
-                    icon: Users,
-                    color: "emerald",
-                    progress: 45
-                  },
-                  {
-                    title: "Generating Recommendations",
-                    description: "Creating personalized improvement plan and actionable insights",
-                    icon: Target,
-                    color: "amber",
-                    progress: 15
-                  },
-                ].map((step, index) => {
-                  const Icon = step.icon;
-                  const isActive = step.progress > 0 && step.progress < 100;
-                  const isComplete = step.progress === 100;
-                  
-                  return (
-                    <div
-                      key={index}
-                      className={`bg-white dark:bg-gray-800 rounded-2xl p-6 border transition-all duration-500 ${
-                        isActive 
-                          ? `border-${step.color}-500 shadow-lg scale-105` 
-                          : isComplete
-                          ? `border-${step.color}-200 dark:border-${step.color}-700`
-                          : 'border-gray-200 dark:border-gray-700'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-6">
-                        <div className={`
-                          w-16 h-16 rounded-xl flex items-center justify-center transition-all duration-500
-                          ${isActive 
-                            ? `bg-${step.color}-500 animate-pulse shadow-lg`
-                            : isComplete
-                            ? `bg-${step.color}-500 shadow-md`
-                            : 'bg-gray-200 dark:bg-gray-700'
-                          }
-                        `}>
-                          {isComplete ? (
-                            <CheckCircle className="w-8 h-8 text-white" />
-                          ) : (
-                            <Icon className={`w-8 h-8 ${isActive ? 'text-white' : 'text-gray-500 dark:text-gray-400'}`} />
-                          )}
-                        </div>
-                        
-                        <div className="flex-1 text-left">
-                          <h3 className={`text-xl font-bold mb-2 ${
-                            isActive ? `text-${step.color}-600 dark:text-${step.color}-400` : 
-                            isComplete ? `text-${step.color}-600 dark:text-${step.color}-400` : 
-                            'text-gray-600 dark:text-gray-400'
-                          }`}>
-                            {step.title}
-                          </h3>
-                          <p className="text-gray-600 dark:text-gray-400 leading-relaxed mb-3">
-                            {step.description}
-                          </p>
-                          
-                          {/* Progress Bar */}
-                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
-                            <div 
-                              className={`h-2 bg-gradient-to-r from-${step.color}-500 to-${step.color}-600 rounded-full transition-all duration-1000 ease-out`}
-                              style={{ width: `${step.progress}%` }}
-                            />
-                          </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            {step.progress}% Complete
-                          </div>
-                        </div>
-
-                        <div className="flex-shrink-0">
-                          {isActive ? (
-                            <div className={`w-8 h-8 border-4 border-${step.color}-500 border-t-transparent rounded-full animate-spin`}></div>
-                          ) : isComplete ? (
-                            <div className={`w-8 h-8 bg-${step.color}-500 rounded-full flex items-center justify-center`}>
-                              <CheckCircle className="w-5 h-5 text-white" />
-                            </div>
-                          ) : (
-                            <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-4 justify-center mt-12">
                 <Button
                   asChild
@@ -246,80 +137,27 @@ export default async function InterviewFeedbackPage({ params }: Props) {
 
   const gradeBadge = getGradeBadge(feedback.totalScore);
 
-  // Enhanced mock data
-  const speechAnalysis = {
-    wordsPerMinute: 142,
-    fillerWords: 8,
-    pauseFrequency: "Optimal",
-    clarity: 87,
-    confidenceLevel: 81,
-    articulation: 89,
-    paceConsistency: 76,
-    volumeControl: 92,
-  };
-
+  // Calculate interview statistics from actual data
   const interviewStats = {
-    duration: Math.ceil(interview.questions.length * 2.8),
+    duration: interview.duration || Math.ceil(interview.questions.length * 3),
     questionsAnswered: interview.questions.length,
-    averageResponseLength: "45 words",
-    totalWords: interview.questions.length * 45,
-    difficultyLevel: "Senior Level",
     completionRate: "100%",
   };
 
+  // Calculate average category score for industry benchmark simulation
+  const avgCategoryScore = Math.round(
+    feedback.categoryScores.reduce((sum, cat) => sum + cat.score, 0) / 
+    feedback.categoryScores.length
+  );
+
   const industryBenchmark = {
     yourScore: feedback.totalScore,
-    industryAverage: 73,
-    topPerformers: 88,
-    companyAverage: 76,
+    industryAverage: Math.max(60, avgCategoryScore - 5),
+    topPerformers: Math.min(95, avgCategoryScore + 15),
+    companyAverage: Math.max(65, avgCategoryScore),
   };
 
-  const competencyScores = [
-    {
-      name: "Problem Solving",
-      score: 88,
-      trend: "+7%",
-      icon: "🧩",
-      description: "Analytical thinking and solution approach",
-    },
-    {
-      name: "Technical Communication",
-      score: 84,
-      trend: "+3%",
-      icon: "💬",
-      description: "Explaining complex concepts clearly",
-    },
-    {
-      name: "Domain Knowledge",
-      score: 81,
-      trend: "+12%",
-      icon: "⚡",
-      description: "Technical expertise and understanding",
-    },
-    {
-      name: "Critical Thinking",
-      score: 86,
-      trend: "+5%",
-      icon: "🎯",
-      description: "Analysis and reasoning capabilities",
-    },
-    {
-      name: "Adaptability",
-      score: 79,
-      trend: "+2%",
-      icon: "🔄",
-      description: "Flexibility and learning agility",
-    },
-    {
-      name: "Leadership Potential",
-      score: 74,
-      trend: "+8%",
-      icon: "👑",
-      description: "Initiative and influence",
-    },
-  ];
-
-  // Enhanced metrics with improved colors
+  // Enhanced metrics based on actual data
   const enhancedMetrics = [
     {
       label: "Questions",
@@ -356,9 +194,9 @@ export default async function InterviewFeedbackPage({ params }: Props) {
       statusColor: "emerald"
     },
     {
-      label: "Words/Min",
-      value: speechAnalysis.wordsPerMinute.toString(),
-      icon: MessageSquare,
+      label: "Overall Score",
+      value: feedback.totalScore.toString(),
+      icon: Star,
       color: "emerald",
       bgGradient: "from-emerald-50 to-emerald-100",
       bgGradientDark: "from-emerald-900/20 to-emerald-800/30",
@@ -369,13 +207,13 @@ export default async function InterviewFeedbackPage({ params }: Props) {
       textColorDark: "dark:text-emerald-400",
       valueColor: "text-emerald-700",
       valueColorDark: "dark:text-emerald-300",
-      status: "Good",
-      statusColor: "blue"
+      status: getScoreLabel(feedback.totalScore),
+      statusColor: feedback.totalScore >= 70 ? "green" : "amber"
     },
     {
-      label: "Confidence",
-      value: `${speechAnalysis.confidenceLevel}%`,
-      icon: Zap,
+      label: "Categories",
+      value: feedback.categoryScores.length.toString(),
+      icon: Target,
       color: "amber",
       bgGradient: "from-amber-50 to-amber-100",
       bgGradientDark: "from-amber-900/20 to-amber-800/30",
@@ -386,13 +224,13 @@ export default async function InterviewFeedbackPage({ params }: Props) {
       textColorDark: "dark:text-amber-400",
       valueColor: "text-amber-700",
       valueColorDark: "dark:text-amber-300",
-      status: "Good",
+      status: "Analyzed",
       statusColor: "blue"
     },
     {
-      label: "Clarity",
-      value: `${speechAnalysis.clarity}%`,
-      icon: Volume2,
+      label: "Strengths",
+      value: feedback.strengths.length.toString(),
+      icon: Award,
       color: "indigo",
       bgGradient: "from-indigo-50 to-indigo-100",
       bgGradientDark: "from-indigo-900/20 to-indigo-800/30",
@@ -403,7 +241,7 @@ export default async function InterviewFeedbackPage({ params }: Props) {
       textColorDark: "dark:text-indigo-400",
       valueColor: "text-indigo-700",
       valueColorDark: "dark:text-indigo-300",
-      status: "Great",
+      status: "Identified",
       statusColor: "green"
     },
     {
@@ -443,10 +281,10 @@ export default async function InterviewFeedbackPage({ params }: Props) {
             
             <div className="max-w-3xl mx-auto">
               <p className="text-lg text-gray-600 dark:text-gray-400 mb-2">
-                Comprehensive analysis of your <span className="font-semibold text-blue-600 dark:text-blue-400">{interview.role}</span> interview
+                Comprehensive AI analysis of your <span className="font-semibold text-blue-600 dark:text-blue-400">{interview.role}</span> interview
               </p>
               <p className="text-base text-gray-500 dark:text-gray-500">
-                Evaluated across 20+ metrics with industry benchmarking • {interview.company || "Technical Assessment"}
+                Evaluated across {feedback.categoryScores.length} categories • {interview.company || "Technical Assessment"}
               </p>
             </div>
           </div>
@@ -459,7 +297,6 @@ export default async function InterviewFeedbackPage({ params }: Props) {
               <div className="text-center">
                 <div className="relative inline-block mb-6">
                   <div className="w-40 h-40 rounded-full bg-gray-100 dark:bg-gray-700 border-8 border-gray-200 dark:border-gray-600 flex items-center justify-center relative shadow-inner">
-                    {/* Animated progress ring */}
                     <svg className="absolute inset-0 w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                       <circle
                         cx="50"
@@ -519,7 +356,7 @@ export default async function InterviewFeedbackPage({ params }: Props) {
                 </div>
               </div>
 
-              {/* Enhanced Key Metrics with Professional Design */}
+              {/* Enhanced Key Metrics */}
               <div className="grid grid-cols-2 gap-4">
                 {enhancedMetrics.map((metric, index) => {
                   const Icon = metric.icon;
@@ -536,7 +373,6 @@ export default async function InterviewFeedbackPage({ params }: Props) {
                       `}
                     >
                       <div className="space-y-3">
-                        {/* Header with Status */}
                         <div className="flex items-center justify-between">
                           <div className={`
                             w-10 h-10 ${metric.iconBg} 
@@ -553,7 +389,6 @@ export default async function InterviewFeedbackPage({ params }: Props) {
                           </div>
                         </div>
                         
-                        {/* Value */}
                         <div className="text-center">
                           <div className={`
                             text-2xl font-bold 
@@ -563,7 +398,6 @@ export default async function InterviewFeedbackPage({ params }: Props) {
                             {metric.value}
                           </div>
                           
-                          {/* Label */}
                           <div className={`
                             text-xs font-medium 
                             ${metric.textColor} ${metric.textColorDark}
@@ -653,186 +487,7 @@ export default async function InterviewFeedbackPage({ params }: Props) {
             </div>
           </div>
 
-          {/* Enhanced Core Competencies */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-8 shadow-sm">
-            <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-                <Target className="w-8 h-8 text-white" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                Core Competency Analysis
-              </h2>
-              <p className="text-gray-600 dark:text-gray-400">
-                Detailed assessment of key professional skills with progress tracking
-              </p>
-            </div>
-
-            <div className="grid gap-6">
-              {competencyScores.map((competency, index) => (
-                <div key={index} className="bg-gray-50 dark:bg-gray-700/50 rounded-2xl p-6 hover:shadow-md transition-all duration-300 border border-gray-200 dark:border-gray-600">
-                  <div className="grid lg:grid-cols-12 gap-6 items-center">
-                    
-                    {/* Icon and Title */}
-                    <div className="lg:col-span-5 flex items-center gap-4">
-                      <div className="w-14 h-14 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center text-2xl border-2 border-white dark:border-gray-800 shadow-lg">
-                        {competency.icon}
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
-                          {competency.name}
-                        </h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {competency.description}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Progress Bar */}
-                    <div className="lg:col-span-5 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Performance Level</span>
-                        <span className="text-lg font-bold text-gray-900 dark:text-white">
-                          {competency.score}/100
-                        </span>
-                      </div>
-                      <div className="relative">
-                        <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-3 overflow-hidden">
-                          <div 
-                            className="h-3 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full transition-all duration-1000 ease-out relative overflow-hidden"
-                            style={{ width: `${competency.score}%` }}
-                          >
-                            <div className="absolute inset-0 bg-white opacity-30 animate-pulse"></div>
-                          </div>
-                        </div>
-                        <div className="absolute top-4 left-0 right-0 flex justify-between text-xs text-gray-500 dark:text-gray-400">
-                          <span>Beginner</span>
-                          <span>Intermediate</span>
-                          <span>Advanced</span>
-                          <span>Expert</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Score Label and Trend */}
-                    <div className="lg:col-span-2 text-center space-y-2">
-                      <div className={`inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold border-2 ${getScoreColor(competency.score)}`}>
-                        {getScoreLabel(competency.score)}
-                      </div>
-                      <div className="flex items-center justify-center space-x-1">
-                        <TrendingUp className="w-4 h-4 text-emerald-500" />
-                        <span className="text-emerald-600 dark:text-emerald-400 font-bold text-sm">
-                          {competency.trend}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Enhanced Communication Analysis */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-8 shadow-sm">
-            <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-                <MessageSquare className="w-8 h-8 text-white" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                Communication Analysis
-              </h2>
-              <p className="text-gray-600 dark:text-gray-400">
-                Analysis of your verbal communication patterns and delivery style
-              </p>
-            </div>
-
-            <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6">
-              {[
-                {
-                  title: "Speaking Pace",
-                  value: speechAnalysis.wordsPerMinute,
-                  unit: "WPM",
-                  icon: Zap,
-                  color: "blue",
-                  feedback: speechAnalysis.wordsPerMinute >= 130 && speechAnalysis.wordsPerMinute <= 160 
-                    ? "✅ Optimal pace" 
-                    : speechAnalysis.wordsPerMinute > 160 
-                    ? "⚠️ Consider slowing down" 
-                    : "💡 Try speaking faster",
-                  benchmark: "130-160 WPM ideal",
-                },
-                {
-                  title: "Speech Clarity",
-                  value: speechAnalysis.clarity,
-                  unit: "%",
-                  icon: Volume2,
-                  color: "emerald",
-                  feedback: speechAnalysis.clarity >= 85 
-                    ? "🎉 Crystal clear" 
-                    : speechAnalysis.clarity >= 70 
-                    ? "👌 Good clarity" 
-                    : "🎯 Focus on articulation",
-                  benchmark: "85%+ excellent",
-                },
-                {
-                  title: "Filler Words",
-                  value: speechAnalysis.fillerWords,
-                  unit: "count",
-                  icon: Target,
-                  color: "purple",
-                  feedback: speechAnalysis.fillerWords <= 5 
-                    ? "🌟 Excellent control" 
-                    : speechAnalysis.fillerWords <= 10 
-                    ? "👍 Good control" 
-                    : "💪 Practice reducing",
-                  benchmark: "< 5 optimal",
-                },
-                {
-                  title: "Confidence",
-                  value: speechAnalysis.confidenceLevel,
-                  unit: "%",
-                  icon: Star,
-                  color: "amber",
-                  feedback: speechAnalysis.confidenceLevel >= 80 
-                    ? "🔥 Strong presence" 
-                    : speechAnalysis.confidenceLevel >= 60 
-                    ? "📈 Building confidence" 
-                    : "🎯 Practice for confidence",
-                  benchmark: "80%+ strong",
-                },
-              ].map((metric, index) => (
-                <div key={index} className={`bg-${metric.color}-50 dark:bg-${metric.color}-900/20 rounded-2xl p-6 border border-${metric.color}-200 dark:border-${metric.color}-700 hover:shadow-lg transition-all duration-300 group`}>
-                  <div className="text-center space-y-4">
-                    <div className={`w-14 h-14 bg-${metric.color}-500 rounded-2xl flex items-center justify-center mx-auto shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                      <metric.icon className="w-7 h-7 text-white" />
-                    </div>
-                    
-                    <div>
-                      <h3 className="text-gray-900 dark:text-white font-bold text-lg mb-2">
-                        {metric.title}
-                      </h3>
-                      <div className={`text-3xl font-bold text-${metric.color}-600 dark:text-${metric.color}-400 mb-1`}>
-                        {metric.value}
-                        <span className="text-lg text-gray-500 dark:text-gray-400 ml-1">
-                          {metric.unit}
-                        </span>
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                        {metric.benchmark}
-                      </div>
-                    </div>
-
-                    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-600">
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {metric.feedback}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Enhanced Category Breakdown */}
+          {/* Enhanced Category Breakdown - Fully Dynamic with Advanced Insights */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-8 shadow-sm">
             <div className="text-center mb-8">
               <div className="w-16 h-16 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
@@ -842,189 +497,382 @@ export default async function InterviewFeedbackPage({ params }: Props) {
                 Detailed Performance Analysis
               </h2>
               <p className="text-gray-600 dark:text-gray-400">
-                Comprehensive breakdown across all evaluated categories
+                In-depth breakdown across {feedback.categoryScores.length} evaluated categories with actionable insights
               </p>
             </div>
 
-            <div className="space-y-6">
-              {feedback.categoryScores.map((category, index) => (
-                <div key={index} className="bg-gray-50 dark:bg-gray-700/50 rounded-2xl p-6 hover:shadow-lg transition-all duration-300 border border-gray-200 dark:border-gray-600">
-                  <div className="grid lg:grid-cols-12 gap-6">
-                    
-                    {/* Category Info */}
-                    <div className="lg:col-span-4 space-y-4">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg">
-                          {getScoreLabel(category.score).charAt(0)}
-                        </div>
-                        <div>
-                          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
-                            {category.name}
-                          </h3>
-                          <div className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-bold border ${getScoreColor(category.score)}`}>
-                            {category.score}/100 • {getScoreLabel(category.score)}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600 dark:text-gray-400">Performance Level</span>
-                          <span className="font-semibold text-gray-900 dark:text-white">{category.score}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-3 overflow-hidden">
-                          <div 
-                            className="h-3 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-1000 ease-out relative overflow-hidden"
-                            style={{ width: `${category.score}%` }}
-                          >
-                            <div className="absolute inset-0 bg-white opacity-20 animate-pulse"></div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Feedback */}
-                    <div className="lg:col-span-8">
-                      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-600 h-full">
-                        <div className="flex items-start justify-between mb-4">
-                          <h4 className="font-bold text-gray-900 dark:text-white text-lg flex items-center">
-                            <MessageSquare className="w-5 h-5 mr-2 text-blue-600" />
-                            Detailed Assessment
-                          </h4>
-                          <button className="text-blue-600 hover:text-blue-700 dark:text-blue-400 text-sm flex items-center space-x-1 hover:bg-blue-50 dark:hover:bg-blue-900/20 px-2 py-1 rounded transition-colors">
-                            <Edit3 className="w-4 h-4" />
-                            <span>AI Improve</span>
-                          </button>
-                        </div>
-                        <p className="text-gray-700 dark:text-gray-300 leading-relaxed text-base">
-                          {category.comment}
-                        </p>
-                        
-                        {/* Performance Indicators */}
-                        <div className="grid grid-cols-3 gap-3 mt-4">
-                          <div className="text-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-                            <div className="text-lg mb-1">
-                              {category.score >= 85 ? "🎯" : category.score >= 70 ? "📈" : "💪"}
-                            </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Status</div>
-                            <div className="text-gray-900 dark:text-white font-semibold text-sm">
-                              {category.score >= 85 ? "Mastered" : category.score >= 70 ? "Proficient" : "Developing"}
-                            </div>
-                          </div>
-                          
-                          <div className="text-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-                            <div className="text-lg mb-1">
-                              {category.score >= 80 ? "🔥" : category.score >= 60 ? "⚡" : "🌱"}
-                            </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Priority</div>
-                            <div className="text-gray-900 dark:text-white font-semibold text-sm">
-                              {category.score >= 80 ? "Maintain" : category.score >= 60 ? "Enhance" : "Focus"}
-                            </div>
-                          </div>
-                          
-                          <div className="text-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-                            <div className="text-lg mb-1">📊</div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Trend</div>
-                            <div className="text-emerald-600 dark:text-emerald-400 font-semibold text-sm">
-                              +{Math.floor(Math.random() * 8) + 2}%
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Enhanced Technology Assessment */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-8 shadow-sm">
-            <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-gradient-to-r from-orange-500 to-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-                <Brain className="w-8 h-8 text-white" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                Technology Stack Assessment
-              </h2>
-              <p className="text-gray-600 dark:text-gray-400">
-                Evaluation of knowledge across {interview.techstack.length} technologies
-              </p>
-            </div>
-
-            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {interview.techstack.map((tech, index) => {
-                const proficiency = Math.floor(Math.random() * 30) + 70;
-                const experience = ["Beginner", "Intermediate", "Advanced", "Expert"][Math.floor(Math.random() * 4)];
+            <div className="space-y-8">
+              {feedback.categoryScores.map((category, index) => {
+                // Calculate insights based on score
+                const isStrength = category.score >= 80;
+                const needsWork = category.score < 60;
+                const scoreGap = 100 - category.score;
+                const improvementPotential = scoreGap > 30 ? "High" : scoreGap > 15 ? "Medium" : "Low";
                 
                 return (
-                  <div
-                    key={tech}
-                    className="bg-gray-50 dark:bg-gray-700/50 border-2 border-gray-200 dark:border-gray-600 rounded-2xl p-6 hover:shadow-lg hover:scale-105 transition-all duration-300 group"
-                  >
-                    <div className="space-y-4">
-                      {/* Header */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold shadow-sm group-hover:scale-110 transition-transform duration-300">
-                            {tech.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <h3 className="font-bold text-gray-900 dark:text-white">{tech}</h3>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">{experience}</p>
+                  <div key={index} className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-700/50 dark:to-gray-800/50 rounded-3xl p-8 hover:shadow-xl transition-all duration-300 border-2 border-gray-200 dark:border-gray-600">
+                    
+                    {/* Category Header with Visual Indicator */}
+                    <div className="flex items-start justify-between mb-6">
+                      <div className="flex items-center gap-4">
+                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-white font-bold text-2xl shadow-lg ${
+                          isStrength 
+                            ? 'bg-gradient-to-br from-emerald-500 to-green-600' 
+                            : needsWork 
+                            ? 'bg-gradient-to-br from-amber-500 to-orange-600'
+                            : 'bg-gradient-to-br from-blue-500 to-purple-600'
+                        }`}>
+                          {isStrength ? '🏆' : needsWork ? '🎯' : '📊'}
+                        </div>
+                        <div>
+                          <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                            {category.name}
+                          </h3>
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <div className={`inline-flex items-center px-4 py-2 rounded-xl text-base font-bold border-2 ${getScoreColor(category.score)} shadow-sm`}>
+                              {category.score}/100 • {getScoreLabel(category.score)}
+                            </div>
+                            {isStrength && (
+                              <span className="px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-lg text-sm font-semibold">
+                                ✓ Key Strength
+                              </span>
+                            )}
+                            {needsWork && (
+                              <span className="px-3 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-lg text-sm font-semibold">
+                                ⚡ Priority Focus
+                              </span>
+                            )}
                           </div>
                         </div>
-                        <span className={`px-3 py-1 rounded-lg text-sm font-bold border ${getScoreColor(proficiency)}`}>
-                          {proficiency}%
-                        </span>
                       </div>
                       
-                      {/* Progress */}
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600 dark:text-gray-400">Proficiency</span>
-                          <span className="font-semibold text-gray-900 dark:text-white">{proficiency}%</span>
+                      {/* Score Circle */}
+                      <div className="relative w-24 h-24 flex-shrink-0">
+                        <svg className="transform -rotate-90 w-24 h-24">
+                          <circle
+                            cx="48"
+                            cy="48"
+                            r="40"
+                            stroke="currentColor"
+                            strokeWidth="6"
+                            fill="none"
+                            className="text-gray-200 dark:text-gray-600"
+                          />
+                          <circle
+                            cx="48"
+                            cy="48"
+                            r="40"
+                            stroke={isStrength ? '#10b981' : needsWork ? '#f59e0b' : '#3b82f6'}
+                            strokeWidth="6"
+                            fill="none"
+                            strokeDasharray={`${(category.score / 100) * 251.2} 251.2`}
+                            className="transition-all duration-1000"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-xl font-bold text-gray-900 dark:text-white">
+                            {category.score}
+                          </span>
                         </div>
-                        <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 overflow-hidden">
+                      </div>
+                    </div>
+
+                    {/* AI Assessment */}
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border-2 border-gray-200 dark:border-gray-600 mb-6">
+                      <div className="flex items-start gap-3 mb-4">
+                        <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                          <Brain className="w-5 h-5 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-bold text-gray-900 dark:text-white text-lg mb-2">
+                            AI-Powered Assessment
+                          </h4>
+                          <p className="text-gray-700 dark:text-gray-300 leading-relaxed text-base">
+                            {category.comment}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Performance Metrics Grid */}
+                    <div className="grid md:grid-cols-4 gap-4 mb-6">
+                      <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/30 rounded-xl p-4 border border-blue-200 dark:border-blue-700">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-blue-700 dark:text-blue-400 font-semibold text-sm">Performance</span>
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                            category.score >= 85 ? 'bg-emerald-500' : 
+                            category.score >= 70 ? 'bg-blue-500' : 
+                            category.score >= 55 ? 'bg-amber-500' : 'bg-red-500'
+                          }`}>
+                            {category.score >= 85 ? '🎯' : category.score >= 70 ? '📈' : category.score >= 55 ? '⚡' : '💪'}
+                          </div>
+                        </div>
+                        <p className="text-gray-900 dark:text-white font-bold text-lg">
+                          {category.score >= 85 ? 'Mastered' : 
+                           category.score >= 70 ? 'Proficient' : 
+                           category.score >= 55 ? 'Developing' : 'Needs Focus'}
+                        </p>
+                        <div className="w-full bg-blue-200 dark:bg-blue-700 rounded-full h-1.5 mt-2">
                           <div 
-                            className="h-2 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-1000"
-                            style={{ width: `${proficiency}%` }}
+                            className="bg-blue-600 dark:bg-blue-400 h-1.5 rounded-full transition-all duration-500"
+                            style={{ width: `${category.score}%` }}
                           />
                         </div>
                       </div>
-                      
-                      {/* Assessment */}
-                      <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
-                        <div className="text-2xl mb-1">
-                          {proficiency >= 90 ? "🌟" : proficiency >= 80 ? "🎯" : proficiency >= 70 ? "📈" : "💪"}
+
+                      <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/30 rounded-xl p-4 border border-purple-200 dark:border-purple-700">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-purple-700 dark:text-purple-400 font-semibold text-sm">Growth Potential</span>
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                            improvementPotential === 'High' ? 'bg-purple-500' : 
+                            improvementPotential === 'Medium' ? 'bg-indigo-500' : 'bg-blue-500'
+                          }`}>
+                            {improvementPotential === 'High' ? '🚀' : improvementPotential === 'Medium' ? '📊' : '✨'}
+                          </div>
                         </div>
-                        <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                          {proficiency >= 90 ? "Expert Level" : 
-                           proficiency >= 80 ? "Advanced" : 
-                           proficiency >= 70 ? "Proficient" : "Learning"}
+                        <p className="text-gray-900 dark:text-white font-bold text-lg">
+                          {improvementPotential}
+                        </p>
+                        <p className="text-purple-600 dark:text-purple-400 text-xs mt-1">
+                          {scoreGap} points to perfect
+                        </p>
+                      </div>
+
+                      <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/20 dark:to-emerald-800/30 rounded-xl p-4 border border-emerald-200 dark:border-emerald-700">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-emerald-700 dark:text-emerald-400 font-semibold text-sm">Priority Level</span>
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                            category.score >= 80 ? 'bg-emerald-500' : 
+                            category.score >= 60 ? 'bg-blue-500' : 'bg-orange-500'
+                          }`}>
+                            {category.score >= 80 ? '🔥' : category.score >= 60 ? '⚡' : '🌱'}
+                          </div>
+                        </div>
+                        <p className="text-gray-900 dark:text-white font-bold text-lg">
+                          {category.score >= 80 ? 'Maintain' : 
+                           category.score >= 60 ? 'Enhance' : 'High Priority'}
+                        </p>
+                        <p className="text-emerald-600 dark:text-emerald-400 text-xs mt-1">
+                          {category.score >= 80 ? 'Keep improving' : 
+                           category.score >= 60 ? 'Build on foundation' : 'Focus here first'}
+                        </p>
+                      </div>
+
+                      <div className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/30 rounded-xl p-4 border border-amber-200 dark:border-amber-700">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-amber-700 dark:text-amber-400 font-semibold text-sm">Impact Rating</span>
+                          <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center">
+                            {index < 3 ? '⭐' : '📌'}
+                          </div>
+                        </div>
+                        <p className="text-gray-900 dark:text-white font-bold text-lg">
+                          {index < 3 ? 'High' : index < 6 ? 'Medium' : 'Standard'}
+                        </p>
+                        <p className="text-amber-600 dark:text-amber-400 text-xs mt-1">
+                          {index < 3 ? 'Critical for success' : 'Important skill'}
                         </p>
                       </div>
                     </div>
+
+                    {/* Actionable Insights */}
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {/* What Went Well */}
+                      {category.score >= 60 && (
+                        <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-5 border-2 border-emerald-200 dark:border-emerald-700">
+                          <div className="flex items-center gap-2 mb-3">
+                            <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                            <h5 className="font-bold text-emerald-900 dark:text-emerald-300">
+                              What's Working
+                            </h5>
+                          </div>
+                          <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                            {category.score >= 80 
+                              ? `Excellent performance in ${category.name}! You demonstrated strong understanding and effective application of concepts. Continue leveraging this strength in future interviews.`
+                              : `You showed solid foundational knowledge in ${category.name}. Your responses indicate good grasp of core principles. Build on this foundation to reach expert level.`
+                            }
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Areas to Develop */}
+                      <div className={`${category.score >= 60 ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700' : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700'} rounded-xl p-5 border-2`}>
+                        <div className="flex items-center gap-2 mb-3">
+                          <Target className={`w-5 h-5 ${category.score >= 60 ? 'text-blue-600 dark:text-blue-400' : 'text-amber-600 dark:text-amber-400'}`} />
+                          <h5 className={`font-bold ${category.score >= 60 ? 'text-blue-900 dark:text-blue-300' : 'text-amber-900 dark:text-amber-300'}`}>
+                            {category.score >= 60 ? 'Next Level Goals' : 'Immediate Focus Areas'}
+                          </h5>
+                        </div>
+                        <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                          {category.score >= 80 
+                            ? `To reach mastery: Study advanced concepts, practice complex scenarios, and mentor others in ${category.name} to deepen your expertise.`
+                            : category.score >= 60
+                            ? `Enhance your ${category.name} skills by studying real-world applications, practicing with varied examples, and seeking feedback from experts.`
+                            : `Priority development area: Focus on strengthening fundamentals in ${category.name}. Consider structured learning, hands-on practice, and regular mock interviews.`
+                          }
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Quick Action Steps */}
+                    {category.score < 80 && (
+                      <div className="mt-6 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl p-5 border-2 border-indigo-200 dark:border-indigo-700">
+                        <div className="flex items-start gap-3">
+                          <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <Lightbulb className="w-5 h-5 text-white" />
+                          </div>
+                          <div className="flex-1">
+                            <h5 className="font-bold text-indigo-900 dark:text-indigo-300 mb-3">
+                              Recommended Action Plan
+                            </h5>
+                            <div className="space-y-2">
+                              {category.score < 60 ? (
+                                <>
+                                  <div className="flex items-start gap-2">
+                                    <span className="text-indigo-600 dark:text-indigo-400 mt-0.5">1.</span>
+                                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                                      <strong>Foundation Building:</strong> Review core concepts and fundamentals in {category.name}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-start gap-2">
+                                    <span className="text-indigo-600 dark:text-indigo-400 mt-0.5">2.</span>
+                                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                                      <strong>Hands-on Practice:</strong> Complete 5-10 practical exercises or mini-projects
+                                    </p>
+                                  </div>
+                                  <div className="flex items-start gap-2">
+                                    <span className="text-indigo-600 dark:text-indigo-400 mt-0.5">3.</span>
+                                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                                      <strong>Mock Practice:</strong> Schedule 2-3 focused practice sessions specifically on this topic
+                                    </p>
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="flex items-start gap-2">
+                                    <span className="text-indigo-600 dark:text-indigo-400 mt-0.5">1.</span>
+                                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                                      <strong>Deepen Knowledge:</strong> Study advanced patterns and edge cases in {category.name}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-start gap-2">
+                                    <span className="text-indigo-600 dark:text-indigo-400 mt-0.5">2.</span>
+                                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                                      <strong>Real-world Application:</strong> Apply concepts to complex, production-level scenarios
+                                    </p>
+                                  </div>
+                                  <div className="flex items-start gap-2">
+                                    <span className="text-indigo-600 dark:text-indigo-400 mt-0.5">3.</span>
+                                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                                      <strong>Expert Level:</strong> Study system design patterns and best practices from industry leaders
+                                    </p>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
           </div>
 
-          {/* Enhanced Strengths & Areas for Improvement */}
+          {/* Technology Stack Assessment - Dynamic */}
+          {interview.techstack && interview.techstack.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-8 shadow-sm">
+              <div className="text-center mb-8">
+                <div className="w-16 h-16 bg-gradient-to-r from-orange-500 to-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                  <Brain className="w-8 h-8 text-white" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                  Technology Stack Assessment
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Interview covered {interview.techstack.length} technologies
+                </p>
+              </div>
+
+              <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {interview.techstack.map((tech, index) => {
+                  // Calculate score based on category scores related to this tech
+                  const relevantScores = feedback.categoryScores.filter(cat => 
+                    cat.name.toLowerCase().includes(tech.toLowerCase()) ||
+                    cat.comment.toLowerCase().includes(tech.toLowerCase())
+                  );
+                  const techScore = relevantScores.length > 0
+                    ? Math.round(relevantScores.reduce((sum, cat) => sum + cat.score, 0) / relevantScores.length)
+                    : avgCategoryScore;
+                  
+                  return (
+                    <div
+                      key={tech}
+                      className="bg-gray-50 dark:bg-gray-700/50 border-2 border-gray-200 dark:border-gray-600 rounded-2xl p-6 hover:shadow-lg hover:scale-105 transition-all duration-300 group"
+                    >
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold shadow-sm group-hover:scale-110 transition-transform duration-300">
+                              {tech.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <h3 className="font-bold text-gray-900 dark:text-white">{tech}</h3>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {getScoreLabel(techScore)}
+                              </p>
+                            </div>
+                          </div>
+                          <span className={`px-3 py-1 rounded-lg text-sm font-bold border ${getScoreColor(techScore)}`}>
+                            {techScore}%
+                          </span>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600 dark:text-gray-400">Proficiency</span>
+                            <span className="font-semibold text-gray-900 dark:text-white">{techScore}%</span>
+                          </div>
+                          <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 overflow-hidden">
+                            <div 
+                              className="h-2 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-1000"
+                              style={{ width: `${techScore}%` }}
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
+                          <div className="text-2xl mb-1">
+                            {techScore >= 85 ? "🌟" : techScore >= 70 ? "🎯" : "📈"}
+                          </div>
+                          <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                            {techScore >= 85 ? "Strong Knowledge" : 
+                             techScore >= 70 ? "Good Understanding" : "Room to Grow"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Enhanced Strengths & Growth Analysis */}
           <div className="grid lg:grid-cols-2 gap-8">
             
-            {/* Strengths */}
+            {/* Strengths - Enhanced */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-8 shadow-sm">
               <div className="text-center mb-8">
                 <div className="w-16 h-16 bg-gradient-to-r from-emerald-500 to-green-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
                   <Award className="w-8 h-8 text-white" />
                 </div>
                 <h3 className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mb-2">
-                  Key Strengths
+                  Key Strengths Identified
                 </h3>
                 <p className="text-gray-600 dark:text-gray-400">
-                  Areas where you demonstrated excellence
+                  {feedback.strengths.length} validated areas of excellence • Build on these
                 </p>
               </div>
 
@@ -1032,152 +880,416 @@ export default async function InterviewFeedbackPage({ params }: Props) {
                 {feedback.strengths.map((strength, index) => (
                   <div
                     key={index}
-                    className="flex items-start gap-4 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl border-2 border-emerald-200 dark:border-emerald-700 hover:shadow-md transition-all duration-200 group"
+                    className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 rounded-2xl p-5 border-2 border-emerald-200 dark:border-emerald-700 hover:shadow-lg transition-all duration-200 group"
                   >
-                    <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm group-hover:scale-110 transition-transform duration-300">
-                      <CheckCircle className="w-5 h-5 text-white" />
+                    <div className="flex items-start gap-4 mb-4">
+                      <div className="w-12 h-12 bg-emerald-500 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm group-hover:scale-110 transition-transform duration-300">
+                        <CheckCircle className="w-6 h-6 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-emerald-700 dark:text-emerald-400 font-bold text-sm">
+                            STRENGTH #{index + 1}
+                          </span>
+                          <div className="flex-1 h-px bg-emerald-300 dark:bg-emerald-700"></div>
+                        </div>
+                        <p className="text-gray-800 dark:text-gray-200 leading-relaxed font-medium text-base">
+                          {strength}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <p className="text-gray-800 dark:text-gray-200 leading-relaxed font-medium">
-                        {strength}
-                      </p>
-                      <div className="mt-2 flex items-center space-x-2">
-                        <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                        <span className="text-emerald-600 dark:text-emerald-400 text-sm font-semibold">
-                          Validated Strength
+                    
+                    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-emerald-200 dark:border-emerald-700">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Lightbulb className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                        <span className="text-emerald-700 dark:text-emerald-400 font-semibold text-sm">
+                          How to Leverage This Strength
                         </span>
                       </div>
+                      <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">
+                        {index === 0 
+                          ? "Highlight this strength prominently in your interviews and resume. Use specific examples that demonstrate this capability. This is a key differentiator."
+                          : index === 1
+                          ? "Incorporate this strength into your responses across different question types. Show how this ability contributes to problem-solving and team success."
+                          : "Continue developing this area to expert level. Consider mentoring others or leading projects that showcase this strength to hiring managers."
+                        }
+                      </p>
                     </div>
                   </div>
                 ))}
               </div>
+              
+              <div className="mt-6 p-5 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border border-emerald-200 dark:border-emerald-700">
+                <div className="flex items-center gap-2 mb-2">
+                  <Star className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                  <h4 className="font-bold text-emerald-900 dark:text-emerald-300">
+                    Strength Strategy
+                  </h4>
+                </div>
+                <p className="text-gray-700 dark:text-gray-300 text-sm">
+                  Your {feedback.strengths.length} key strengths should be the foundation of your interview strategy. 
+                  Lead with these when answering behavioral questions and use them to compensate for development areas.
+                </p>
+              </div>
             </div>
 
-            {/* Areas for Improvement */}
+            {/* Areas for Improvement - Enhanced with Action Plans */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-8 shadow-sm">
               <div className="text-center mb-8">
                 <div className="w-16 h-16 bg-gradient-to-r from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
                   <Target className="w-8 h-8 text-white" />
                 </div>
                 <h3 className="text-2xl font-bold text-amber-600 dark:text-amber-400 mb-2">
-                  Growth Opportunities
+                  Strategic Growth Areas
                 </h3>
                 <p className="text-gray-600 dark:text-gray-400">
-                  Strategic areas for development
+                  {feedback.areasForImprovement.length} focused development opportunities • Action required
                 </p>
               </div>
 
               <div className="space-y-4">
-                {feedback.areasForImprovement.map((area, index) => (
-                  <div
-                    key={index}
-                    className="flex items-start gap-4 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-2xl border-2 border-amber-200 dark:border-amber-700 hover:shadow-md transition-all duration-200 group"
-                  >
-                    <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm group-hover:scale-110 transition-transform duration-300">
-                      <ArrowRight className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-gray-800 dark:text-gray-200 leading-relaxed font-medium">
-                        {area}
-                      </p>
-                      <div className="mt-2 flex items-center space-x-2">
-                        <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
-                        <span className="text-amber-600 dark:text-amber-400 text-sm font-semibold">
-                          Development Focus
-                        </span>
+                {feedback.areasForImprovement.map((area, index) => {
+                  const priority = index < 2 ? "High" : index < 4 ? "Medium" : "Low";
+                  const priorityColor = priority === "High" ? "red" : priority === "Medium" ? "amber" : "blue";
+                  
+                  return (
+                    <div
+                      key={index}
+                      className={`bg-gradient-to-br from-${priorityColor}-50 to-orange-50 dark:from-${priorityColor}-900/20 dark:to-orange-900/20 rounded-2xl p-5 border-2 border-${priorityColor}-200 dark:border-${priorityColor}-700 hover:shadow-lg transition-all duration-200 group`}
+                    >
+                      <div className="flex items-start gap-4 mb-4">
+                        <div className={`w-12 h-12 bg-${priorityColor}-500 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm group-hover:scale-110 transition-transform duration-300`}>
+                          <ArrowRight className="w-6 h-6 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className={`text-${priorityColor}-700 dark:text-${priorityColor}-400 font-bold text-sm`}>
+                              {priority.toUpperCase()} PRIORITY #{index + 1}
+                            </span>
+                            <div className="flex-1 h-px bg-amber-300 dark:bg-amber-700"></div>
+                          </div>
+                          <p className="text-gray-800 dark:text-gray-200 leading-relaxed font-medium text-base">
+                            {area}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-amber-200 dark:border-amber-700">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Target className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                            <span className="text-amber-700 dark:text-amber-400 font-semibold text-sm">
+                              Immediate Action Steps
+                            </span>
+                          </div>
+                          <ul className="space-y-1.5">
+                            <li className="text-gray-700 dark:text-gray-300 text-sm flex items-start gap-2">
+                              <span className="text-amber-600 dark:text-amber-400 mt-0.5">•</span>
+                              <span>
+                                {priority === "High" 
+                                  ? "Schedule 2-3 focused practice sessions this week"
+                                  : priority === "Medium"
+                                  ? "Dedicate 30-45 minutes daily to study this area"
+                                  : "Review fundamentals and practice weekly"
+                                }
+                              </span>
+                            </li>
+                            <li className="text-gray-700 dark:text-gray-300 text-sm flex items-start gap-2">
+                              <span className="text-amber-600 dark:text-amber-400 mt-0.5">•</span>
+                              <span>
+                                {priority === "High"
+                                  ? "Seek expert feedback and mentorship"
+                                  : "Complete hands-on projects to build confidence"
+                                }
+                              </span>
+                            </li>
+                          </ul>
+                        </div>
+                        
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-gray-600 dark:text-gray-400">
+                            Timeline: {priority === "High" ? "1-2 weeks" : priority === "Medium" ? "2-4 weeks" : "4-8 weeks"}
+                          </span>
+                          <span className={`px-2 py-1 bg-${priorityColor}-100 dark:bg-${priorityColor}-900/30 text-${priorityColor}-700 dark:text-${priorityColor}-400 rounded-md font-semibold`}>
+                            {priority} Priority
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
+              </div>
+
+              <div className="mt-6 p-5 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-700">
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                  <h4 className="font-bold text-amber-900 dark:text-amber-300">
+                    Growth Roadmap
+                  </h4>
+                </div>
+                <p className="text-gray-700 dark:text-gray-300 text-sm">
+                  Focus on high-priority items first. These areas had the most significant impact on your overall score. 
+                  Improvement here will yield the best results in your next interview. Track your progress weekly.
+                </p>
               </div>
             </div>
           </div>
 
-          {/* Enhanced AI Assessment Summary */}
+          {/* Enhanced AI Assessment Summary with Personalized Insights */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-8 shadow-sm">
             <div className="text-center mb-8">
               <div className="w-20 h-20 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
                 <Brain className="w-10 h-10 text-white" />
               </div>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                AI Assessment Summary
+                Comprehensive AI Assessment
               </h2>
               <p className="text-gray-600 dark:text-gray-400">
-                Comprehensive evaluation and strategic recommendations
+                Expert analysis with personalized recommendations and strategic next steps
               </p>
             </div>
 
-            <div className="bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-700/50 dark:to-blue-900/20 rounded-2xl p-8 mb-8 border border-gray-200 dark:border-gray-600">
-              <div className="flex items-start space-x-4">
+            {/* Overall Assessment */}
+            <div className="bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-700/50 dark:to-blue-900/20 rounded-2xl p-8 mb-8 border-2 border-gray-200 dark:border-gray-600">
+              <div className="flex items-start space-x-4 mb-6">
                 <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
                   <Eye className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3">
-                    Overall Assessment
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                    Overall Performance Summary
+                    <span className={`px-3 py-1 rounded-lg text-sm ${getScoreColor(feedback.totalScore)}`}>
+                      {getScoreLabel(feedback.totalScore)}
+                    </span>
                   </h3>
-                  <p className="text-gray-700 dark:text-gray-300 leading-relaxed text-lg">
+                  <p className="text-gray-700 dark:text-gray-300 leading-relaxed text-base">
                     {feedback.finalAssessment}
+                  </p>
+                </div>
+              </div>
+
+              {/* Key Performance Indicators */}
+              <div className="grid md:grid-cols-3 gap-4">
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-600">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-gray-600 dark:text-gray-400 text-sm font-medium">Interview Readiness</span>
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                      feedback.totalScore >= 80 ? 'bg-emerald-500' : 
+                      feedback.totalScore >= 65 ? 'bg-blue-500' : 'bg-amber-500'
+                    }`}>
+                      {feedback.totalScore >= 80 ? '✓' : feedback.totalScore >= 65 ? '→' : '↗'}
+                    </div>
+                  </div>
+                  <p className="text-lg font-bold text-gray-900 dark:text-white">
+                    {feedback.totalScore >= 80 ? 'Interview Ready' : 
+                     feedback.totalScore >= 65 ? 'Nearly Ready' : 'Needs Preparation'}
+                  </p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    {feedback.totalScore >= 80 ? 'Ready for senior roles' : 
+                     feedback.totalScore >= 65 ? 'Ready with focused practice' : 'Continue building foundations'}
+                  </p>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-600">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-gray-600 dark:text-gray-400 text-sm font-medium">Competitive Edge</span>
+                    <div className="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center">
+                      {feedback.totalScore > industryBenchmark.industryAverage ? '⭐' : '📊'}
+                    </div>
+                  </div>
+                  <p className="text-lg font-bold text-gray-900 dark:text-white">
+                    {feedback.totalScore > industryBenchmark.topPerformers ? 'Top Tier' :
+                     feedback.totalScore > industryBenchmark.industryAverage ? 'Above Average' : 'Developing'}
+                  </p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    {feedback.totalScore > industryBenchmark.industryAverage 
+                      ? `${feedback.totalScore - industryBenchmark.industryAverage}pts above industry avg` 
+                      : `${industryBenchmark.industryAverage - feedback.totalScore}pts to industry avg`}
+                  </p>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-600">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-gray-600 dark:text-gray-400 text-sm font-medium">Growth Trajectory</span>
+                    <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center">
+                      📈
+                    </div>
+                  </div>
+                  <p className="text-lg font-bold text-gray-900 dark:text-white">
+                    {feedback.areasForImprovement.length < 3 ? 'Excellent' : 
+                     feedback.areasForImprovement.length < 5 ? 'Strong' : 'Moderate'}
+                  </p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    {feedback.areasForImprovement.length} areas to optimize
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Enhanced Action Items */}
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-2xl p-6 border-2 border-blue-200 dark:border-blue-700">
+            {/* Strategic Recommendations */}
+            <div className="grid md:grid-cols-2 gap-6 mb-8">
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl p-6 border-2 border-blue-200 dark:border-blue-700">
                 <div className="flex items-center mb-6">
                   <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center mr-3 shadow-lg">
                     <Target className="w-5 h-5 text-white" />
                   </div>
-                  <h4 className="text-blue-600 dark:text-blue-400 font-bold text-lg">
-                    Immediate Actions
+                  <h4 className="text-blue-700 dark:text-blue-400 font-bold text-lg">
+                    Immediate Focus (Next 1-2 Weeks)
                   </h4>
                 </div>
-                <ul className="space-y-4 text-gray-700 dark:text-gray-300">
-                  <li className="flex items-start gap-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-blue-200 dark:border-blue-600">
-                    <span className="text-blue-500 mt-1 text-lg">🎯</span>
-                    <span>Practice structured answering with STAR method</span>
-                  </li>
-                  <li className="flex items-start gap-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-blue-200 dark:border-blue-600">
-                    <span className="text-blue-500 mt-1 text-lg">💪</span>
-                    <span>Focus on reducing filler words through deliberate practice</span>
-                  </li>
-                  <li className="flex items-start gap-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-blue-200 dark:border-blue-600">
-                    <span className="text-blue-500 mt-1 text-lg">📚</span>
-                    <span>Review and strengthen knowledge in identified weak areas</span>
+                <ul className="space-y-4">
+                  {feedback.areasForImprovement.slice(0, 2).map((area, idx) => (
+                    <li key={idx} className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-blue-200 dark:border-blue-600">
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="text-white text-xs font-bold">{idx + 1}</span>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-gray-800 dark:text-gray-200 font-semibold text-sm mb-2">
+                            Address: {area.split('.')[0]}
+                          </p>
+                          <p className="text-gray-600 dark:text-gray-400 text-xs leading-relaxed">
+                            Schedule 2-3 focused practice sessions. Review fundamentals and work through 5-10 practical examples. Track improvement daily.
+                          </p>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                  <li className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-blue-200 dark:border-blue-600">
+                    <div className="flex items-start gap-3">
+                      <div className="w-6 h-6 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span className="text-white text-xs font-bold">3</span>
+                      </div>
+                      <div>
+                        <p className="text-gray-800 dark:text-gray-200 font-semibold text-sm mb-1">
+                          Practice Communication Skills
+                        </p>
+                        <p className="text-gray-600 dark:text-gray-400 text-xs">
+                          Record yourself answering questions. Focus on clarity, structure (STAR method), and reducing filler words.
+                        </p>
+                      </div>
+                    </div>
                   </li>
                 </ul>
               </div>
 
-              <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl p-6 border-2 border-emerald-200 dark:border-emerald-700">
+              <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 rounded-2xl p-6 border-2 border-emerald-200 dark:border-emerald-700">
                 <div className="flex items-center mb-6">
                   <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center mr-3 shadow-lg">
                     <TrendingUp className="w-5 h-5 text-white" />
                   </div>
-                  <h4 className="text-emerald-600 dark:text-emerald-400 font-bold text-lg">
-                    Long-term Growth
+                  <h4 className="text-emerald-700 dark:text-emerald-400 font-bold text-lg">
+                    Long-term Strategy (Next 4-8 Weeks)
                   </h4>
                 </div>
-                <ul className="space-y-4 text-gray-700 dark:text-gray-300">
-                  <li className="flex items-start gap-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-emerald-200 dark:border-emerald-600">
-                    <span className="text-emerald-500 mt-1 text-lg">🚀</span>
-                    <span>Develop deeper expertise in core technologies</span>
+                <ul className="space-y-4">
+                  <li className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-emerald-200 dark:border-emerald-600">
+                    <div className="flex items-start gap-3">
+                      <span className="text-emerald-500 mt-1 text-lg">🚀</span>
+                      <div>
+                        <p className="text-gray-800 dark:text-gray-200 font-semibold text-sm mb-1">
+                          Deepen Technical Expertise
+                        </p>
+                        <p className="text-gray-600 dark:text-gray-400 text-xs">
+                          Build 2-3 portfolio projects in {interview.techstack.slice(0, 2).join(' and ')}. Focus on production-quality code with best practices.
+                        </p>
+                      </div>
+                    </div>
                   </li>
-                  <li className="flex items-start gap-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-emerald-200 dark:border-emerald-600">
-                    <span className="text-emerald-500 mt-1 text-lg">💼</span>
-                    <span>Build portfolio projects demonstrating key skills</span>
+                  <li className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-emerald-200 dark:border-emerald-600">
+                    <div className="flex items-start gap-3">
+                      <span className="text-emerald-500 mt-1 text-lg">💼</span>
+                      <div>
+                        <p className="text-gray-800 dark:text-gray-200 font-semibold text-sm mb-1">
+                          Strengthen Your Strengths
+                        </p>
+                        <p className="text-gray-600 dark:text-gray-400 text-xs">
+                          Your {feedback.strengths.length} key strengths are marketable. Create concrete examples and metrics demonstrating these capabilities.
+                        </p>
+                      </div>
+                    </div>
                   </li>
-                  <li className="flex items-start gap-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-emerald-200 dark:border-emerald-600">
-                    <span className="text-emerald-500 mt-1 text-lg">🎙️</span>
-                    <span>Regular mock interviews to track improvement</span>
+                  <li className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-emerald-200 dark:border-emerald-600">
+                    <div className="flex items-start gap-3">
+                      <span className="text-emerald-500 mt-1 text-lg">🎙️</span>
+                      <div>
+                        <p className="text-gray-800 dark:text-gray-200 font-semibold text-sm mb-1">
+                          Regular Mock Interview Practice
+                        </p>
+                        <p className="text-gray-600 dark:text-gray-400 text-xs">
+                          Schedule weekly practice sessions. Track score improvements. Aim for +5-10 points across weak categories each week.
+                        </p>
+                      </div>
+                    </div>
                   </li>
                 </ul>
               </div>
             </div>
+
+            {/* Personalized Interview Strategy */}
+            <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-2xl p-8 border-2 border-purple-200 dark:border-purple-700">
+              <div className="flex items-start gap-4 mb-6">
+                <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
+                  <Briefcase className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h4 className="text-xl font-bold text-purple-900 dark:text-purple-300 mb-2">
+                    Your Personalized Interview Strategy for {interview.role}
+                  </h4>
+                  <p className="text-gray-700 dark:text-gray-300 text-sm mb-4">
+                    Based on your performance analysis, here's how to position yourself for {interview.role} interviews:
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-3 gap-4">
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-purple-200 dark:border-purple-600">
+                  <div className="text-3xl mb-3">🎯</div>
+                  <h5 className="font-bold text-gray-900 dark:text-white mb-2">Lead With</h5>
+                  <ul className="space-y-1">
+                    {feedback.strengths.slice(0, 2).map((strength, idx) => (
+                      <li key={idx} className="text-gray-700 dark:text-gray-300 text-xs flex items-start gap-1">
+                        <span className="text-purple-500">•</span>
+                        <span>{strength.split('.')[0].substring(0, 40)}...</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-purple-200 dark:border-purple-600">
+                  <div className="text-3xl mb-3">⚠️</div>
+                  <h5 className="font-bold text-gray-900 dark:text-white mb-2">Watch Out For</h5>
+                  <ul className="space-y-1">
+                    {feedback.categoryScores
+                      .filter(cat => cat.score < 70)
+                      .slice(0, 2)
+                      .map((cat, idx) => (
+                        <li key={idx} className="text-gray-700 dark:text-gray-300 text-xs flex items-start gap-1">
+                          <span className="text-purple-500">•</span>
+                          <span>{cat.name} questions</span>
+                        </li>
+                      ))}
+                    {feedback.categoryScores.filter(cat => cat.score < 70).length === 0 && (
+                      <li className="text-gray-700 dark:text-gray-300 text-xs">
+                        No major weak areas - maintain balance across all topics
+                      </li>
+                    )}
+                  </ul>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-purple-200 dark:border-purple-600">
+                  <div className="text-3xl mb-3">💡</div>
+                  <h5 className="font-bold text-gray-900 dark:text-white mb-2">Key Talking Points</h5>
+                  <p className="text-gray-700 dark:text-gray-300 text-xs">
+                    Emphasize your {interview.techstack.slice(0, 2).join(' and ')} experience. 
+                    Use STAR method for behavioral questions. Prepare 3-5 detailed project stories.
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Enhanced Action Center */}
+          {/* Action Center */}
           <div className="text-center py-12 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/10 dark:to-purple-900/10 rounded-2xl border border-gray-200 dark:border-gray-700">
             <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
               <Lightbulb className="w-8 h-8 text-white" />
@@ -1187,10 +1299,10 @@ export default async function InterviewFeedbackPage({ params }: Props) {
               Ready for Your Next Challenge?
             </h2>
             <p className="text-lg text-gray-600 dark:text-gray-400 mb-8 max-w-2xl mx-auto">
-              Continue your interview preparation journey with our comprehensive practice system
+              Continue your interview preparation journey with AI-powered practice
             </p>
 
-            <div className="flex flex-wrap justify-center gap-4 mb-8">
+            <div className="flex flex-wrap justify-center gap-4">
               <Button
                 asChild
                 className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white font-bold px-8 py-4 rounded-2xl transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 text-lg"
@@ -1220,82 +1332,6 @@ export default async function InterviewFeedbackPage({ params }: Props) {
                   <span>Return to Dashboard</span>
                 </Link>
               </Button>
-            </div>
-
-            {/* Additional Resources */}
-            <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto mt-12">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all duration-300 group">
-                <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
-                  <Download className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="font-bold text-gray-900 dark:text-white mb-2">Download Report</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  Get a PDF version of your detailed performance analysis
-                </p>
-                <button className="w-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-medium py-2 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
-                  Download PDF
-                </button>
-              </div>
-
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all duration-300 group">
-                <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
-                  <Save className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="font-bold text-gray-900 dark:text-white mb-2">Save Progress</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  Track your improvement over multiple interview sessions
-                </p>
-                <button className="w-full bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 font-medium py-2 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors">
-                  Save to Profile
-                </button>
-              </div>
-
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all duration-300 group">
-                <div className="w-12 h-12 bg-emerald-500 rounded-xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
-                  <Calendar className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="font-bold text-gray-900 dark:text-white mb-2">Schedule Follow-up</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  Set reminders to practice identified improvement areas
-                </p>
-                <button className="w-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 font-medium py-2 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors">
-                  Set Reminder
-                </button>
-              </div>
-            </div>
-
-            {/* Pro Tips */}
-            <div className="mt-12 bg-white dark:bg-gray-800 rounded-2xl p-8 border border-gray-200 dark:border-gray-700 max-w-4xl mx-auto">
-              <div className="flex items-center justify-center mb-6">
-                <div className="w-12 h-12 bg-gradient-to-r from-amber-500 to-orange-600 rounded-xl flex items-center justify-center mr-4">
-                  <Star className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  Expert Tips for Continuous Improvement
-                </h3>
-              </div>
-              
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-6 border border-amber-200 dark:border-amber-700">
-                  <h4 className="text-amber-600 dark:text-amber-400 font-bold mb-3 flex items-center">
-                    <Target className="w-5 h-5 mr-2" />
-                    Practice Strategy
-                  </h4>
-                  <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">
-                    Focus on one improvement area per week. Regular practice with varied question types will significantly boost your confidence and performance metrics.
-                  </p>
-                </div>
-                
-                <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-6 border border-amber-200 dark:border-amber-700">
-                  <h4 className="text-amber-600 dark:text-amber-400 font-bold mb-3 flex items-center">
-                    <BarChart3 className="w-5 h-5 mr-2" />
-                    Progress Tracking
-                  </h4>
-                  <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">
-                    Review this feedback regularly and track your progress over time. Compare scores across multiple interview sessions to identify trends and improvements.
-                  </p>
-                </div>
-              </div>
             </div>
           </div>
 

@@ -65,7 +65,7 @@ interface FullScreenInterviewPanelProps {
   onExit: () => void;
 }
 
-// Enhanced Video Avatar Component (kept exactly the same)
+// Enhanced Video Avatar Component
 const VideoAvatar = ({
   initials,
   gradient,
@@ -182,7 +182,7 @@ const FullScreenInterviewPanel = ({
 }: FullScreenInterviewPanelProps) => {
   const router = useRouter();
   
-  // Video call UI states (kept for UI consistency)
+  // Video call UI states
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [isAudioOn, setIsAudioOn] = useState(true);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
@@ -199,10 +199,11 @@ const FullScreenInterviewPanel = ({
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [totalQuestions, setTotalQuestions] = useState(10);
   const [speakingPersonId, setSpeakingPersonId] = useState<string | null>(null);
+  const [autoStartAttempted, setAutoStartAttempted] = useState(false);
 
   const callStartTime = useRef<Date | null>(null);
 
-  // Memoized video sources (kept exactly the same)
+  // Memoized video sources
   const videoSources = useMemo(
     () => ({
       hr: "/videos/hr-female-avatar.mp4",
@@ -212,7 +213,7 @@ const FullScreenInterviewPanel = ({
     [interviewRole]
   );
 
-  // Interview panel data (kept exactly the same)
+  // Interview panel data
   const interviewPanel = useMemo(() => {
     const generateNames = (id: string) => {
       const hash = (id || "default").split("").reduce((a, b) => {
@@ -316,7 +317,7 @@ const FullScreenInterviewPanel = ({
     ];
   }, [interviewId, interviewRole, callStatus, speakingPersonId, videoSources, userName]);
 
-  // WORKING VAPI EVENT HANDLERS FROM AGENT COMPONENT
+  // VAPI event handlers
   const handleSpeechStart = useCallback(() => {
     setIsSpeaking(true);
     const interviewers = ["tech_recruiter", "hr", "junior"];
@@ -348,7 +349,86 @@ const FullScreenInterviewPanel = ({
     [totalQuestions]
   );
 
-  // WORKING VAPI EVENT LISTENERS FROM AGENT COMPONENT
+  // Initialize microphone permissions silently
+  const initializeInterview = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(track => track.stop());
+      return true;
+    } catch (error) {
+      console.error("Microphone permission error:", error);
+      return false;
+    }
+  };
+
+  // Start interview function
+  const startInterview = async () => {
+    setCallStatus(CallStatus.CONNECTING);
+
+    try {
+      // Initialize devices
+      const deviceReady = await initializeInterview();
+      if (!deviceReady) {
+        setCallStatus(CallStatus.INACTIVE);
+        return;
+      }
+
+      // Validate required data
+      if (!interviewId || !userId || !questions || questions.length === 0) {
+        throw new Error("Missing required interview data");
+      }
+
+      // Check VAPI availability
+      if (!vapi) {
+        throw new Error("VAPI SDK is not initialized");
+      }
+
+      // Start interview
+      if (type === "generate") {
+        const workflowId = process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID;
+        if (!workflowId) {
+          throw new Error("VAPI workflow ID not configured");
+        }
+        
+        await vapi.start(workflowId, {
+          variableValues: { username: userName, userid: userId },
+        });
+      } else {
+        if (!interviewer) {
+          throw new Error("Interviewer configuration not available");
+        }
+
+        const formattedQuestions = questions?.map((q) => `- ${q}`).join("\n") || "";
+        
+        if (!formattedQuestions) {
+          throw new Error("Failed to format questions");
+        }
+        
+        await vapi.start(interviewer, {
+          variableValues: { questions: formattedQuestions },
+        });
+      }
+      
+    } catch (error) {
+      console.error("Interview start error:", error);
+      setCallStatus(CallStatus.INACTIVE);
+    }
+  };
+
+  // AUTO-START LOGIC
+  useEffect(() => {
+    // Auto-start the interview when component mounts and all required props are available
+    if (!autoStartAttempted && questions && questions.length > 0 && userId && interviewId) {
+      const timer = setTimeout(() => {
+        setAutoStartAttempted(true);
+        startInterview();
+      }, 2000); // 2 second delay to show the UI first
+
+      return () => clearTimeout(timer);
+    }
+  }, [questions, userId, interviewId, autoStartAttempted]);
+
+  // VAPI event listeners
   useEffect(() => {
     if (questions?.length) {
       setTotalQuestions(questions.length);
@@ -400,7 +480,7 @@ const FullScreenInterviewPanel = ({
     return () => clearInterval(timer);
   }, []);
 
-  // Connection quality simulation (kept for UI)
+  // Connection quality simulation
   useEffect(() => {
     const qualityCheck = setInterval(() => {
       const qualities = ['excellent', 'good', 'poor'] as const;
@@ -420,14 +500,14 @@ const FullScreenInterviewPanel = ({
     return () => clearInterval(qualityCheck);
   }, []);
 
-  // Update last message (from Agent)
+  // Update last message
   useEffect(() => {
     if (messages.length > 0) {
       setLastMessage(messages[messages.length - 1].content);
     }
   }, [messages]);
 
-  // WORKING FEEDBACK GENERATION LOGIC FROM AGENT COMPONENT
+  // Feedback generation logic
   useEffect(() => {
     const handleGenerateFeedback = async (messages: SavedMessage[]) => {
       console.log("Starting feedback generation...", {
@@ -499,152 +579,18 @@ const FullScreenInterviewPanel = ({
     }
   }, [callStatus, messages, feedbackId, interviewId, router, type, userId]);
 
-  // Add manual initialization function with comprehensive debugging
-  const initializeInterview = async () => {
-    console.log("🎤 Checking microphone permissions...");
-    
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(track => track.stop());
-      
-      console.log("✅ Microphone permission granted");
-      return true;
-    } catch (error) {
-      console.error("❌ Microphone permission error:", error);
-      
-      if (error.name === 'NotAllowedError') {
-        alert("🎤 Microphone permission is required for the interview. Please allow microphone access and refresh the page.");
-      } else if (error.name === 'NotFoundError') {
-        alert("🎤 No microphone found. Please connect a microphone and try again.");
-      } else {
-        alert(`🎤 Failed to access microphone: ${error.message}`);
-      }
-      
-      return false;
-    }
-  };
-
-  // Enhanced VAPI call handler with detailed logging
-  const handleCall = async () => {
-    console.log("🚀 Starting interview call...");
-    console.log("📋 Props received:", {
-      interviewId,
-      userId, 
-      userName,
-      type,
-      questionsCount: questions?.length,
-      interviewRole,
-      interviewType,
-      hasQuestions: !!questions,
-      hasTechnicalQuestions: !!technicalQuestions,
-      hasBehavioralQuestions: !!behavioralQuestions
-    });
-
-    setCallStatus(CallStatus.CONNECTING);
-
-    try {
-      // Step 1: Initialize devices
-      console.log("🔧 Step 1: Initializing devices...");
-      const deviceReady = await initializeInterview();
-      if (!deviceReady) {
-        console.log("❌ Device initialization failed");
-        setCallStatus(CallStatus.INACTIVE);
-        return;
-      }
-
-      // Step 2: Validate required data
-      console.log("🔍 Step 2: Validating required data...");
-      
-      if (!interviewId) {
-        throw new Error("Interview ID is missing");
-      }
-
-      if (!userId) {
-        throw new Error("User ID is missing");
-      }
-
-      if (!questions || questions.length === 0) {
-        throw new Error("No questions available for the interview");
-      }
-
-      // Step 3: Check VAPI availability
-      console.log("🔌 Step 3: Checking VAPI availability...");
-      
-      if (!vapi) {
-        throw new Error("VAPI SDK is not initialized - check your import");
-      }
-
-      // Step 4: Prepare interview configuration
-      console.log("⚙️ Step 4: Preparing interview configuration...");
-
-      if (type === "generate") {
-        const workflowId = process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID;
-        if (!workflowId) {
-          throw new Error("VAPI_WORKFLOW_ID environment variable is not configured");
-        }
-
-        console.log("🔄 Starting generator workflow with ID:", workflowId);
-        
-        await vapi.start(workflowId, {
-          variableValues: { username: userName, userid: userId },
-        });
-      } else {
-        // Check interviewer configuration
-        if (!interviewer) {
-          throw new Error("Interviewer configuration is not available - check your constants import");
-        }
-
-        console.log("📝 Interviewer config found:", {
-          hasName: !!interviewer.name,
-          hasModel: !!interviewer.model,
-          hasVoice: !!interviewer.voice
-        });
-
-        const formattedQuestions = questions?.map((q) => `- ${q}`).join("\n") || "";
-        
-        console.log("📋 Formatted questions for VAPI:");
-        console.log(formattedQuestions);
-
-        if (!formattedQuestions) {
-          throw new Error("Failed to format questions for VAPI");
-        }
-
-        console.log("🎙️ Starting VAPI call with interviewer config...");
-        
-        await vapi.start(interviewer, {
-          variableValues: { questions: formattedQuestions },
-        });
-      }
-
-      console.log("✅ VAPI call started successfully!");
-      
-    } catch (error) {
-      console.error("💥 Call start error:", error);
-      console.error("📊 Error details:", {
-        name: error?.name,
-        message: error?.message,
-        stack: error?.stack
-      });
-      
-      setCallStatus(CallStatus.INACTIVE);
-      
-      // Show user-friendly error message with more details
-      let errorMessage = "Unknown error occurred";
-      
-      if (error?.message) {
-        errorMessage = error.message;
-      }
-
-      alert(`❌ Failed to start interview: ${errorMessage}\n\nCheck the console for detailed error information.`);
-    }
-  };
-
   const handleDisconnect = () => {
     setCallStatus(CallStatus.FINISHED);
     vapi.stop();
   };
 
-  // UI Helper functions (kept the same)
+  // Manual restart function (in case auto-start fails)
+  const handleManualStart = () => {
+    setAutoStartAttempted(true);
+    startInterview();
+  };
+
+  // UI Helper functions
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -679,7 +625,7 @@ const FullScreenInterviewPanel = ({
 
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-slate-900 to-slate-800 z-50 flex flex-col overflow-hidden">
-      {/* Header Bar - Kept exactly the same */}
+      {/* Header Bar */}
       <div className="bg-slate-800/90 backdrop-blur-sm border-b border-slate-600/50 px-3 sm:px-6 py-2 sm:py-3 flex-shrink-0">
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center space-x-2 sm:space-x-4">
@@ -726,7 +672,7 @@ const FullScreenInterviewPanel = ({
         </div>
       </div>
 
-      {/* Main Video Grid - 2x2 Layout (kept exactly the same) */}
+      {/* Main Video Grid - 2x2 Layout */}
       <div className="flex-1 flex flex-col min-h-0">
         <div className="flex-1 grid grid-cols-2 gap-2 sm:gap-4 lg:gap-6 p-2 sm:p-4 lg:p-6 min-h-0">
           {interviewPanel.map((participant) => {
@@ -820,7 +766,7 @@ const FullScreenInterviewPanel = ({
           })}
         </div>
 
-        {/* Control Panel - Updated to use working VAPI handlers */}
+        {/* Control Panel */}
         <div className="bg-slate-800/95 backdrop-blur-sm border-t border-slate-600/50 px-3 sm:px-6 py-3 sm:py-4 flex-shrink-0">
           <div className="flex flex-col sm:flex-row items-center justify-between w-full space-y-3 sm:space-y-0">
             {/* Status Info */}
@@ -843,9 +789,11 @@ const FullScreenInterviewPanel = ({
                     : callStatus === CallStatus.ACTIVE
                     ? "Interview Active"
                     : callStatus === CallStatus.CONNECTING
-                    ? "Connecting..."
+                    ? "Starting Interview..."
                     : callStatus === CallStatus.FINISHED
                     ? "Completed"
+                    : !autoStartAttempted
+                    ? "Auto-starting in 2s..."
                     : "Ready to Start"}
                 </span>
               </div>
@@ -869,24 +817,20 @@ const FullScreenInterviewPanel = ({
               )}
             </div>
 
-            {/* Call Controls - Updated to use working handlers */}
+            {/* Call Controls */}
             <div className="flex items-center space-x-4">
-              {callStatus === CallStatus.INACTIVE ||
-              callStatus === CallStatus.FINISHED ? (
+              {callStatus === CallStatus.INACTIVE && autoStartAttempted ? (
                 <button
-                  onClick={handleCall}
+                  onClick={handleManualStart}
                   className="px-4 sm:px-8 py-2 sm:py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold text-sm sm:text-base transition-all hover:scale-105 shadow-lg"
                 >
-                  Join Call
+                  Start Interview
                 </button>
-              ) : callStatus === CallStatus.CONNECTING ? (
-                <button
-                  disabled
-                  className="px-4 sm:px-8 py-2 sm:py-3 bg-yellow-600 text-white rounded-lg font-semibold text-sm sm:text-base cursor-not-allowed flex items-center space-x-2 sm:space-x-3"
-                >
+              ) : (callStatus === CallStatus.INACTIVE && !autoStartAttempted) || callStatus === CallStatus.CONNECTING ? (
+                <div className="px-4 sm:px-8 py-2 sm:py-3 bg-blue-600 text-white rounded-lg font-semibold text-sm sm:text-base flex items-center space-x-2 sm:space-x-3">
                   <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  <span>Connecting...</span>
-                </button>
+                  <span>Please Wait</span>
+                </div>
               ) : callStatus === CallStatus.ACTIVE && !isGeneratingFeedback ? (
                 <>
                   <button
@@ -932,14 +876,33 @@ const FullScreenInterviewPanel = ({
               ) : isGeneratingFeedback ? (
                 <div className="px-4 sm:px-8 py-2 sm:py-3 bg-blue-600 text-white rounded-lg font-semibold text-sm sm:text-base flex items-center space-x-2 sm:space-x-3">
                   <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  <span className="hidden sm:inline">Generating Feedback...</span>
-                  <span className="sm:hidden">Processing...</span>
+                  <span className="hidden sm:inline">Processing Results</span>
+                  <span className="sm:hidden">Processing</span>
                 </div>
               ) : null}
             </div>
           </div>
 
-          {/* Feedback Generation Status - Kept exactly the same */}
+          {/* Auto-start notification */}
+          {!autoStartAttempted && callStatus === CallStatus.INACTIVE && (
+            <div className="mt-3 sm:mt-4 bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 sm:p-4">
+              <div className="flex items-center space-x-3 sm:space-x-4">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                  <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin"></div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-blue-300 font-semibold text-sm sm:text-base">
+                    Preparing Interview
+                  </h4>
+                  <p className="text-blue-200/70 text-xs sm:text-sm mt-1">
+                    Setting up your interview session...
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Feedback Generation Status */}
           {isGeneratingFeedback && (
             <div className="mt-3 sm:mt-4 bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 sm:p-4">
               <div className="flex items-center space-x-3 sm:space-x-4">
@@ -948,12 +911,10 @@ const FullScreenInterviewPanel = ({
                 </div>
                 <div className="flex-1 min-w-0">
                   <h4 className="text-blue-300 font-semibold text-sm sm:text-base">
-                    Processing Your Interview
+                    Finalizing Interview
                   </h4>
                   <p className="text-blue-200/70 text-xs sm:text-sm mt-1">
-                    Our AI is analyzing your responses and generating
-                    personalized feedback. You'll be redirected to the feedback
-                    page shortly...
+                    Preparing your personalized feedback and results...
                   </p>
                 </div>
               </div>
@@ -971,7 +932,7 @@ const FullScreenInterviewPanel = ({
             </div>
           )}
 
-          {/* Live Transcript - Kept exactly the same */}
+          {/* Live Transcript */}
           <div className="mt-3 sm:mt-4 bg-slate-900/50 backdrop-blur-sm rounded-lg border border-slate-600/30 p-3 sm:p-4">
             <div className="flex items-center space-x-2 mb-2 sm:mb-3">
               <div className="w-2 h-2 sm:w-3 sm:h-3 bg-blue-500 rounded-full animate-pulse"></div>
@@ -980,7 +941,7 @@ const FullScreenInterviewPanel = ({
               </span>
             </div>
             <p className="text-white text-sm sm:text-base line-clamp-2">
-              {lastMessage || "Waiting for the interview to begin..."}
+              {lastMessage || "Interview session ready..."}
             </p>
           </div>
         </div>

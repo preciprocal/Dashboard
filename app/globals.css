@@ -329,3 +329,7 @@ html:not(.dark):not([data-theme]) {
 .dark input::placeholder {
   color: rgb(156 163 175) !important;
 }
+
+body::-webkit-scrollbar{
+  display: none;
+}

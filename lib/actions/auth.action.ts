@@ -6,6 +6,38 @@ import { cookies } from "next/headers";
 // Session duration (1 week)
 const SESSION_DURATION = 60 * 60 * 24 * 7;
 
+/**
+ * Helper function to convert Firestore Timestamp to ISO string
+ */
+function convertTimestampToISO(timestamp: any): string {
+  if (!timestamp) {
+    return new Date().toISOString();
+  }
+
+  // Handle Firestore Timestamp object
+  if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+    return timestamp.toDate().toISOString();
+  }
+
+  // Handle raw timestamp object with _seconds
+  if (timestamp._seconds !== undefined) {
+    return new Date(timestamp._seconds * 1000).toISOString();
+  }
+
+  // Handle Date object
+  if (timestamp instanceof Date) {
+    return timestamp.toISOString();
+  }
+
+  // Handle ISO string
+  if (typeof timestamp === 'string') {
+    return new Date(timestamp).toISOString();
+  }
+
+  // Fallback to current date
+  return new Date().toISOString();
+}
+
 // Set session cookie
 export async function setSessionCookie(idToken: string) {
   const cookieStore = await cookies();
@@ -226,6 +258,7 @@ export async function signOut() {
 }
 
 // Get current user from session cookie
+// ✅ FIXED: Now properly serializes all Timestamp fields
 export async function getCurrentUser(): Promise<User | null> {
   const cookieStore = await cookies();
 
@@ -240,11 +273,31 @@ export async function getCurrentUser(): Promise<User | null> {
       .collection("users")
       .doc(decodedClaims.uid)
       .get();
+    
     if (!userRecord.exists) return null;
 
+    const userData = userRecord.data();
+
+    // ✅ Serialize all timestamp fields to ISO strings
     return {
-      ...userRecord.data(),
+      ...userData,
       id: userRecord.id,
+      // Convert all possible timestamp fields
+      createdAt: convertTimestampToISO(userData?.createdAt),
+      updatedAt: convertTimestampToISO(userData?.updatedAt),
+      lastLogin: convertTimestampToISO(userData?.lastLogin),
+      // Handle subscription timestamps if they exist
+      subscription: userData?.subscription ? {
+        ...userData.subscription,
+        createdAt: convertTimestampToISO(userData.subscription.createdAt),
+        updatedAt: convertTimestampToISO(userData.subscription.updatedAt),
+        trialEndsAt: userData.subscription.trialEndsAt ? convertTimestampToISO(userData.subscription.trialEndsAt) : null,
+        subscriptionEndsAt: userData.subscription.subscriptionEndsAt ? convertTimestampToISO(userData.subscription.subscriptionEndsAt) : null,
+        currentPeriodStart: userData.subscription.currentPeriodStart ? convertTimestampToISO(userData.subscription.currentPeriodStart) : null,
+        currentPeriodEnd: userData.subscription.currentPeriodEnd ? convertTimestampToISO(userData.subscription.currentPeriodEnd) : null,
+        canceledAt: userData.subscription.canceledAt ? convertTimestampToISO(userData.subscription.canceledAt) : null,
+        lastPaymentAt: userData.subscription.lastPaymentAt ? convertTimestampToISO(userData.subscription.lastPaymentAt) : null,
+      } : undefined,
     } as User;
   } catch (error) {
     console.log("Error verifying session:", error);
@@ -289,6 +342,7 @@ export async function updateUserProfile(
 }
 
 // Get user profile by ID
+// ✅ FIXED: Now properly serializes all Timestamp fields
 export async function getUserProfile(userId: string): Promise<User | null> {
   try {
     const userDoc = await db.collection("users").doc(userId).get();
@@ -297,9 +351,26 @@ export async function getUserProfile(userId: string): Promise<User | null> {
       return null;
     }
 
+    const userData = userDoc.data();
+
+    // ✅ Serialize all timestamp fields to ISO strings
     return {
-      ...userDoc.data(),
+      ...userData,
       id: userDoc.id,
+      createdAt: convertTimestampToISO(userData?.createdAt),
+      updatedAt: convertTimestampToISO(userData?.updatedAt),
+      lastLogin: convertTimestampToISO(userData?.lastLogin),
+      subscription: userData?.subscription ? {
+        ...userData.subscription,
+        createdAt: convertTimestampToISO(userData.subscription.createdAt),
+        updatedAt: convertTimestampToISO(userData.subscription.updatedAt),
+        trialEndsAt: userData.subscription.trialEndsAt ? convertTimestampToISO(userData.subscription.trialEndsAt) : null,
+        subscriptionEndsAt: userData.subscription.subscriptionEndsAt ? convertTimestampToISO(userData.subscription.subscriptionEndsAt) : null,
+        currentPeriodStart: userData.subscription.currentPeriodStart ? convertTimestampToISO(userData.subscription.currentPeriodStart) : null,
+        currentPeriodEnd: userData.subscription.currentPeriodEnd ? convertTimestampToISO(userData.subscription.currentPeriodEnd) : null,
+        canceledAt: userData.subscription.canceledAt ? convertTimestampToISO(userData.subscription.canceledAt) : null,
+        lastPaymentAt: userData.subscription.lastPaymentAt ? convertTimestampToISO(userData.subscription.lastPaymentAt) : null,
+      } : undefined,
     } as User;
   } catch (error) {
     console.error("Error getting user profile:", error);
@@ -389,9 +460,6 @@ export async function deleteUserAccount(userId: string) {
       batch.delete(doc.ref);
     });
 
-    // Add any other collections that belong to the user
-    // For example: user settings, preferences, etc.
-
     // Commit the batch operation to delete all Firestore data
     await batch.commit();
 
@@ -400,8 +468,6 @@ export async function deleteUserAccount(userId: string) {
       await auth.deleteUser(userId);
     } catch (authError) {
       console.error("Error deleting user from Firebase Auth:", authError);
-      // Continue even if auth deletion fails as the Firestore data is already deleted
-      // In some cases, the user might have already been deleted from Auth
     }
 
     // Clear the session cookie
@@ -448,96 +514,5 @@ export async function updateUserSubscription(
       success: false,
       message: "Failed to update subscription.",
     };
-  }
-}
-
-// Increment interview usage count
-export async function incrementInterviewUsage(userId: string) {
-  try {
-    const userDoc = await db.collection("users").doc(userId).get();
-    if (!userDoc.exists) {
-      throw new Error("User not found");
-    }
-
-    const userData = userDoc.data();
-    const currentUsage = userData?.subscription?.interviewsUsed || 0;
-    const limit = userData?.subscription?.interviewsLimit || 10;
-
-    // Check if user has reached their limit (only for starter plan)
-    if (userData?.subscription?.plan === "starter" && currentUsage >= limit) {
-      return {
-        success: false,
-        message: "Interview limit reached. Please upgrade your plan.",
-      };
-    }
-
-    // Increment usage count
-    await db
-      .collection("users")
-      .doc(userId)
-      .update({
-        "subscription.interviewsUsed": currentUsage + 1,
-        "subscription.updatedAt": new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
-
-    return {
-      success: true,
-      message: "Interview usage updated.",
-    };
-  } catch (error) {
-    console.error("Error incrementing interview usage:", error);
-    return {
-      success: false,
-      message: "Failed to update interview usage.",
-    };
-  }
-}
-
-// Reset monthly interview usage (call this monthly for starter plan users)
-export async function resetMonthlyInterviewUsage(userId: string) {
-  try {
-    await db.collection("users").doc(userId).update({
-      "subscription.interviewsUsed": 0,
-      "subscription.updatedAt": new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-
-    return {
-      success: true,
-      message: "Monthly interview usage reset.",
-    };
-  } catch (error) {
-    console.error("Error resetting interview usage:", error);
-    return {
-      success: false,
-      message: "Failed to reset interview usage.",
-    };
-  }
-}
-
-// Check if user can start a new interview
-export async function canStartInterview(userId: string): Promise<boolean> {
-  try {
-    const userDoc = await db.collection("users").doc(userId).get();
-    if (!userDoc.exists) {
-      return false;
-    }
-
-    const userData = userDoc.data();
-    const plan = userData?.subscription?.plan;
-    const currentUsage = userData?.subscription?.interviewsUsed || 0;
-    const limit = userData?.subscription?.interviewsLimit || 10;
-
-    // Pro and Premium plans have unlimited interviews
-    if (plan === "pro" || plan === "premium") {
-      return true;
-    }
-
-    // Starter plan has a limit
-    return currentUsage < limit;
-  } catch (error) {
-    console.error("Error checking interview availability:", error);
-    return false;
   }
 }

@@ -34,14 +34,15 @@ import {
   User,
   Star,
   Zap,
-  Shield
+  Shield,
+  Pen
 } from 'lucide-react';
 import { signOut } from "@/lib/actions/auth.action";
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/firebase/client';
 import { FirebaseService } from '@/lib/services/firebase-service';
 
-// Theme Context (unchanged)
+// Theme Context
 const ThemeContext = createContext<{
   darkMode: boolean;
   toggleTheme: () => void;
@@ -105,65 +106,49 @@ const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <ThemeContext.Provider value={{ darkMode, toggleTheme }}>
-      {mounted ? children : null}
+      {mounted ? children : <div className="min-h-screen bg-white dark:bg-slate-900" />}
     </ThemeContext.Provider>
   );
 };
 
-// Simple hook to fetch resume count
+// Custom hook for resume count
 const useResumeCount = () => {
   const [user] = useAuthState(auth);
   const [resumeCount, setResumeCount] = useState(0);
   const [latestResume, setLatestResume] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const pathname = usePathname();
 
-  const fetchResumeData = async () => {
-    if (!user) {
-      setResumeCount(0);
-      setLatestResume(null);
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const resumes = await FirebaseService.getUserResumes(user.uid);
-      setResumeCount(resumes.length);
-      setLatestResume(resumes.length > 0 ? resumes[0] : null);
-    } catch (error) {
-      console.error('Error fetching resume count:', error);
-      setResumeCount(0);
-      setLatestResume(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fetch on mount and when user changes
   useEffect(() => {
+    const fetchResumeData = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const resumes = await FirebaseService.getUserResumes(user.uid);
+        setResumeCount(resumes.length);
+        
+        if (resumes.length > 0) {
+          const sorted = resumes.sort((a, b) => 
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+          setLatestResume(sorted[0]);
+        }
+      } catch (error) {
+        console.error('Error fetching resume data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchResumeData();
   }, [user]);
 
-  // Refresh when navigating to/from resume pages
-  useEffect(() => {
-    if (pathname.includes('/resume')) {
-      const timer = setTimeout(fetchResumeData, 1000); // Small delay for data consistency
-      return () => clearTimeout(timer);
-    }
-  }, [pathname]);
-
-  // Refresh periodically when on resume pages
-  useEffect(() => {
-    if (pathname.includes('/resume')) {
-      const interval = setInterval(fetchResumeData, 30000); // Every 30 seconds
-      return () => clearInterval(interval);
-    }
-  }, [pathname]);
-
-  return { resumeCount, latestResume, loading, refresh: fetchResumeData };
+  return { resumeCount, latestResume, loading };
 };
 
-// Helper functions
+// Helper Functions
 const getPlanInfo = (subscription: any) => {
   if (
     !subscription ||
@@ -263,8 +248,8 @@ interface LayoutClientProps {
   userStats: any;
 }
 
-// Progress Bar Component with updated colors
-const ProgressBar = ({ used, limit, color = "blue" }: { used: number; limit: number; color?: string }) => {
+// Progress Bar Component
+const ProgressBar = ({ used, limit, color = "blue" }: { used: number; limit: number; color?: "blue" | "purple" | "green" }) => {
   const percentage = Math.min((used / limit) * 100, 100);
   
   const colorClasses = {
@@ -306,12 +291,14 @@ const SearchDropdown = () => {
     { label: 'View Profile', href: '/profile', icon: User, category: 'Actions' },
     { label: 'Upload Resume', href: '/resume/upload', icon: FileText, category: 'Actions' },
     { label: `View ${resumeCount} Resume Analyses`, href: '/resume', icon: FileText, category: 'Actions' },
+    { label: 'Generate Cover Letter', href: '/cover-letter', icon: Pen, category: 'Actions' },
   ];
 
   const navigationItems = [
     { label: 'Dashboard', href: '/', icon: Home, category: 'Navigation' },
     { label: 'Interviews', href: '/interviews', icon: Video, category: 'Navigation' },
     { label: `Resume Analysis (${resumeCount})`, href: '/resume', icon: FileText, category: 'Navigation' },
+    { label: 'Cover Letter', href: '/cover-letter', icon: Pen, category: 'Navigation' },
     { label: 'Analytics', href: '/analytics', icon: BarChart3, category: 'Navigation' },
     { label: 'Settings', href: '/settings', icon: Settings, category: 'Navigation' },
   ];
@@ -415,11 +402,6 @@ const SearchDropdown = () => {
   );
 };
 
-// Bottom navigation items
-const bottomItems = [
-  { id: 'help', label: 'Help & Support', icon: HelpCircle, href: '/help' }
-];
-
 // Main Layout Content Component
 function LayoutContent({ children, user, userStats }: LayoutClientProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -433,32 +415,47 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
   // Get dynamic resume data
   const { resumeCount, latestResume, loading: resumeLoading } = useResumeCount();
 
-  // Dynamic navigation items with resume count
+  // Dynamic navigation items with resume, cover letter, interviews, and planner
   const mainNavItems = [
     { id: 'overview', label: 'Dashboard', icon: Home, href: '/' },
     { id: 'profile', label: 'Profile', icon: User, href: '/profile' },
     { 
       id: 'resume', 
-      label: 'Resume Analysis', 
+      label: 'Resume', 
       icon: FileText, 
-      href: '/resume',
-      badge: resumeLoading ? '...' : resumeCount > 0 ? resumeCount.toString() : undefined,
-      subtitle: resumeLoading ? 'Loading...' : 
-                resumeCount === 0 ? 'No analyses yet' : 
-                resumeCount === 1 ? '1 analysis' : 
-                `${resumeCount} analyses`
+      href: '/resume'
+    },
+    { 
+      id: 'cover-letter', 
+      label: 'Cover Letter', 
+      icon: Pen,
+      href: '/cover-letter' 
+    },
+    { 
+      id: 'interviews', 
+      label: 'Interview', 
+      icon: Video, 
+      href: '/interviews' 
+    },
+    { 
+      id: 'planner', 
+      label: 'Planner', 
+      icon: Calendar, 
+      href: '/planner' 
     },
   ];
 
   const studyToolsItems = [
-    { id: 'interviews', label: 'Interviews', icon: Video, href: '/interviews' },
     { id: 'templates', label: 'Templates', icon: BookOpen, href: '/templates' },  
-    { id: 'analytics', label: 'Analytics', icon: BarChart3, href: '/analytics' },
-    { id: 'achievements', label: 'Achievements', icon: Award, href: '/achievements' },
   ];
 
   const aiVoiceToolsItems = [
     { id: 'settings', label: 'Settings', icon: Settings, href: '/settings' },
+  ];
+
+  // Bottom navigation items
+  const bottomItems = [
+    { id: 'help', label: 'Help & Support', icon: HelpCircle, href: '/help' }
   ];
 
   // Define pages where navbar/sidebar should be hidden
@@ -595,26 +592,8 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
     >
       <div className="flex items-center space-x-3">
         <item.icon className="w-4 h-4 flex-shrink-0" />
-        <div className="flex flex-col">
-          <span className="font-medium">{item.label}</span>
-          {item.subtitle && (
-            <span className={`text-xs ${
-              isActive ? 'text-blue-100' : 'text-slate-500 dark:text-slate-400'
-            }`}>
-              {item.subtitle}
-            </span>
-          )}
-        </div>
+        <span className="font-medium">{item.label}</span>
       </div>
-      {item.badge && (
-        <span className={`inline-flex items-center justify-center px-2 py-1 text-xs font-medium rounded-full ${
-          isActive 
-            ? 'bg-blue-500 text-white'
-            : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
-        }`}>
-          {item.badge}
-        </span>
-      )}
     </Link>
   );
 
@@ -684,7 +663,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
           {/* Main Items */}
           <div className="px-3 space-y-1">
             {mainNavItems.map((item) => {
-              const isActive = item.isActive ? item.isActive(pathname) : pathname === item.href;
+              const isActive = pathname === item.href;
               return renderNavItem(item, isActive);
             })}
           </div>
@@ -762,106 +741,78 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
               <div className="flex justify-between items-center mb-2">
                 <span className="text-sm text-slate-600 dark:text-slate-400">Resume Analysis</span>
                 <span className="text-sm font-medium text-slate-900 dark:text-white">
-                  {resumeLoading ? 'Loading...' : `${resumeCount}/${updatedStats.resumesLimit}`}
+                  {resumeLoading ? '...' : `${updatedStats.resumesUsed}/${updatedStats.resumesLimit}`}
                 </span>
               </div>
-              <ProgressBar used={resumeCount} limit={updatedStats.resumesLimit} color="blue" />
-              {resumeCount > 0 && latestResume && (
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                  Latest: {latestResume.companyName || latestResume.jobTitle || 'Recent analysis'}
-                </p>
-              )}
+              <ProgressBar used={updatedStats.resumesUsed} limit={updatedStats.resumesLimit} color="green" />
             </div>
 
             {/* Upgrade Button */}
             {planInfo.showUpgrade && (
               <Link 
-                href="/subscription"
-                onClick={handleLinkClick}
-                className={`w-full text-white font-semibold px-4 py-2.5 rounded-lg transition-all duration-300 flex items-center justify-center text-sm shadow-lg hover:shadow-xl ${planInfo.buttonStyle}`}
+                href="/pricing"
+                className={`w-full flex items-center justify-center space-x-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-all shadow-sm hover:shadow-md ${planInfo.buttonStyle} text-white`}
               >
-                <Crown className="w-4 h-4 mr-2" />
-                Upgrade Plan
+                <Crown className="w-4 h-4" />
+                <span>Upgrade Plan</span>
               </Link>
             )}
           </div>
         </div>
 
-        {/* Bottom Navigation */}
-        <div className="px-3 py-3 border-t border-slate-200 dark:border-slate-700 flex-shrink-0">
-          <div className="space-y-1">
-            {bottomItems.map((item) => (
-              <Link
-                key={item.id}
-                href={item.href}
-                onClick={handleLinkClick}
-                className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-lg transition-all duration-200 text-sm ${
-                  pathname === item.href
-                    ? 'bg-blue-600 dark:bg-blue-600 text-white'
-                    : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
-              >
-                <item.icon className="w-4 h-4 flex-shrink-0" />
-                <span className="font-medium">{item.label}</span>
-              </Link>
-            ))}
-            
-            {/* Logout Button */}
-            <button
-              onClick={handleLogout}
-              disabled={isLoggingOut}
-              className="w-full flex items-center space-x-3 px-4 py-2.5 rounded-lg transition-all duration-200 text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
+        {/* Bottom Navigation - Help & Logout */}
+        <div className="px-4 pb-4 border-t border-slate-200 dark:border-slate-700 flex-shrink-0 space-y-2 pt-3">
+          {bottomItems.map((item) => (
+            <Link
+              key={item.id}
+              href={item.href}
+              onClick={handleLinkClick}
+              className="w-full flex items-center space-x-3 px-4 py-2.5 rounded-lg text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200 text-sm"
             >
-              <LogOut className="w-4 h-4 flex-shrink-0" />
-              <span className="font-medium">
-                {isLoggingOut ? 'Signing out...' : 'Sign out'}
-              </span>
-            </button>
-          </div>
+              <item.icon className="w-4 h-4 flex-shrink-0" />
+              <span className="font-medium">{item.label}</span>
+            </Link>
+          ))}
+          
+          <button
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className="w-full flex items-center space-x-3 px-4 py-2.5 rounded-lg text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <LogOut className="w-4 h-4 flex-shrink-0" />
+            <span className="font-medium">{isLoggingOut ? 'Logging out...' : 'Log Out'}</span>
+          </button>
         </div>
 
-        {/* Resize Handle - Desktop only */}
-        <div 
-          className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-blue-500 transition-colors hidden lg:block group"
+        {/* Resize Handle */}
+        <div
           onMouseDown={handleMouseDown}
-        >
-          <div className="absolute right-0 top-1/2 transform translate-x-1/2 -translate-y-1/2 w-6 h-12 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-sm">
-            <GripVertical className="w-3 h-3 text-slate-400" />
-          </div>
-        </div>
+          className="hidden lg:block absolute top-0 right-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500 transition-colors"
+        />
       </div>
 
-      {/* Main Layout */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Navbar */}
-        <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
-          <div className="flex items-center justify-between h-full px-6">
-            {/* Mobile menu button */}
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="lg:hidden p-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-
-            {/* Search */}
-            <div className="flex-1 max-w-2xl mx-6">
-              <SearchDropdown />
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Top Navigation Bar */}
+        <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex-shrink-0 h-16">
+          <div className="h-full px-4 lg:px-6 flex items-center justify-between">
+            {/* Left Section */}
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="lg:hidden p-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+              
+              <div className="hidden lg:block flex-1 max-w-2xl">
+                <SearchDropdown />
+              </div>
             </div>
 
-            {/* Right section */}
+            {/* Right Section */}
             <div className="flex items-center space-x-3">
-              {/* Plan Badge in Navbar */}
-              <Link
-                href={planInfo.showUpgrade ? "/subscription" : "/profile"}
-                className={`hidden sm:flex items-center space-x-2 px-3 py-2 border rounded-lg hover:shadow-lg transition-all duration-300 font-semibold text-sm ${planInfo.badgeStyle}`}
-              >
-                <span>{planInfo.emoji}</span>
-                <span>{planInfo.text}</span>
-                {planInfo.showUpgrade && <Zap className="w-3 h-3 ml-1" />}
-              </Link>
-
-              {/* Theme toggle */}
+              {/* Theme Toggle */}
               <button
                 onClick={toggleTheme}
                 className="p-2.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"

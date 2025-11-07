@@ -20,6 +20,9 @@ import {
   AlertCircle,
   Calendar,
   Users,
+  Clock,
+  Sparkles,
+  ArrowRight
 } from "lucide-react";
 
 interface Resume {
@@ -74,6 +77,7 @@ interface ProfileOverviewProps {
   interviews: any[];
   resumes?: Resume[];
   generateDailyFocus: (interviews: any[], resumes: any[], stats: any) => any[];
+  loading?: boolean;
 }
 
 const ProfileOverview: React.FC<ProfileOverviewProps> = ({
@@ -82,18 +86,27 @@ const ProfileOverview: React.FC<ProfileOverviewProps> = ({
   interviews,
   resumes = [],
   generateDailyFocus,
+  loading = false,
 }) => {
   const hasResumes = resumes && resumes.length > 0;
   const hasInterviews = interviews && interviews.length > 0;
 
+  // Safely access stats properties with defaults
+  const averageScore = stats?.averageScore || 0;
+  const totalInterviews = stats?.totalInterviews || 0;
+  const totalResumes = stats?.totalResumes || 0;
+  const averageResumeScore = stats?.averageResumeScore || 0;
+  const plannerStats = stats?.plannerStats;
+
   // Calculate completion status for job readiness
   const getJobReadinessStatus = () => {
-    const interviewReady = stats.averageScore >= 70;
-    const resumeReady = hasResumes && stats.averageResumeScore >= 70;
+    const interviewReady = averageScore >= 70;
+    const resumeReady = hasResumes && averageResumeScore >= 70;
+    const plannerActive = plannerStats?.activePlans > 0;
     
-    if (interviewReady && resumeReady) {
+    if (interviewReady && resumeReady && plannerActive) {
       return { status: "ready", message: "Job Ready", color: "green" };
-    } else if (interviewReady || resumeReady) {
+    } else if (interviewReady || resumeReady || plannerActive) {
       return { status: "improving", message: "Making Progress", color: "yellow" };
     } else {
       return { status: "starting", message: "Getting Started", color: "blue" };
@@ -101,6 +114,9 @@ const ProfileOverview: React.FC<ProfileOverviewProps> = ({
   };
 
   const jobReadiness = getJobReadinessStatus();
+
+  // Generate daily focus with safety checks
+  const dailyFocus = generateDailyFocus(interviews || [], resumes || [], stats || {});
 
   return (
     <div className="space-y-6">
@@ -135,61 +151,36 @@ const ProfileOverview: React.FC<ProfileOverviewProps> = ({
               </h3>
               <p className="text-indigo-200 dark:text-indigo-300 text-lg">
                 {hasInterviews && hasResumes
-                  ? `${stats.totalInterviews} interview${stats.totalInterviews !== 1 ? "s" : ""} (${stats.averageScore}%) • ${stats.totalResumes} resume${stats.totalResumes !== 1 ? "s" : ""} (${stats.averageResumeScore}%)`
-                  : hasInterviews && !hasResumes
-                  ? `${stats.totalInterviews} interview${stats.totalInterviews !== 1 ? "s" : ""} completed • Upload resume to complete profile`
-                  : !hasInterviews && hasResumes
-                  ? `${stats.totalResumes} resume${stats.totalResumes !== 1 ? "s" : ""} uploaded • Practice interviews to boost confidence`
-                  : "Ready to start your career preparation journey"}
+                  ? `${totalInterviews} interview${totalInterviews !== 1 ? "s" : ""} (${averageScore}%) • ${totalResumes} resume${totalResumes !== 1 ? "s" : ""} (${averageResumeScore}%)`
+                  : hasInterviews
+                  ? `${totalInterviews} interview${totalInterviews !== 1 ? "s" : ""} completed`
+                  : hasResumes
+                  ? `${totalResumes} resume${totalResumes !== 1 ? "s" : ""} analyzed`
+                  : "Begin your preparation journey"}
               </p>
-              <div className="flex items-center mt-2 space-x-4">
-                {stats.improvementRate > 0 && (
-                  <div className="flex items-center text-purple-300 dark:text-purple-400">
-                    <TrendingUp className="w-4 h-4 mr-1" />+
-                    {stats.improvementRate}% interview growth
-                  </div>
-                )}
-                {stats.resumeImprovementRate > 0 && (
-                  <div className="flex items-center text-purple-300 dark:text-purple-400">
-                    <FileText className="w-4 h-4 mr-1" />+
-                    {stats.resumeImprovementRate}% resume improvement
-                  </div>
-                )}
-              </div>
             </div>
           </div>
-          <div className="flex flex-col sm:flex-row gap-3">
-            {!hasResumes ? (
+
+          <div className="flex gap-3">
+            <Button
+              asChild
+              className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold shadow-lg hover:shadow-xl transition-all duration-300"
+            >
+              <Link href="/createinterview">
+                <Target className="h-4 w-4 mr-2" />
+                New Interview
+              </Link>
+            </Button>
+            
+            {!hasResumes && (
               <Button
                 asChild
-                className="bg-gradient-to-r from-purple-600 via-pink-600 to-rose-600 hover:from-purple-700 hover:via-pink-700 hover:to-rose-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-[1.02] shadow-lg"
+                variant="outline"
+                className="border-indigo-500/30 hover:bg-indigo-500/10 transition-all duration-300"
               >
                 <Link href="/resume/upload">
-                  <Upload className="h-5 w-5 mr-2" />
+                  <Upload className="h-4 w-4 mr-2" />
                   Upload Resume
-                  <ChevronRight className="h-4 w-4 ml-2" />
-                </Link>
-              </Button>
-            ) : !hasInterviews ? (
-              <Button
-                asChild
-                className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-[1.02] shadow-lg"
-              >
-                <Link href="/createinterview">
-                  <Target className="h-5 w-5 mr-2" />
-                  Start Interview Practice
-                  <ChevronRight className="h-4 w-4 ml-2" />
-                </Link>
-              </Button>
-            ) : (
-              <Button
-                asChild
-                className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-[1.02] shadow-lg"
-              >
-                <Link href="/createinterview">
-                  <Target className="h-5 w-5 mr-2" />
-                  Continue Practice
-                  <ChevronRight className="h-4 w-4 ml-2" />
                 </Link>
               </Button>
             )}
@@ -197,540 +188,312 @@ const ProfileOverview: React.FC<ProfileOverviewProps> = ({
         </div>
       </div>
 
-      {/* Enhanced Performance Intelligence with Resume Data */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-8 bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
+      {/* Planner Section - NEW */}
+      {plannerStats && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center">
-              <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-3 rounded-xl mr-4 shadow-lg">
-                <Brain className="h-6 w-6 text-white" />
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-teal-400 to-cyan-500 rounded-lg flex items-center justify-center">
+                <Calendar className="h-5 w-5 text-white" />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
-                  Career Intelligence Center
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                  Interview Preparation Plans
                 </h3>
                 <p className="text-gray-600 dark:text-gray-400 text-sm">
-                  AI-powered insights from your interview and resume data
+                  {plannerStats.totalPlans > 0 
+                    ? `${plannerStats.completedPlans} of ${plannerStats.totalPlans} plans completed`
+                    : "Structure your interview preparation"}
                 </p>
               </div>
             </div>
-            <div className="px-3 py-1 bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-full text-xs font-semibold border border-indigo-500/30">
-              Smart Analysis
-            </div>
+            <Link href="/planner">
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-teal-500/30 hover:bg-teal-500/10 text-teal-700 dark:text-teal-300"
+              >
+                View All
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </Link>
           </div>
 
-          {hasInterviews || hasResumes ? (
-            <div className="space-y-6">
-              {/* Dual Performance Trajectory */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Interview Performance */}
-                {hasInterviews && (
-                  <div className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 dark:from-blue-500/20 dark:to-cyan-500/20 rounded-xl p-5 border border-blue-500/20">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 bg-blue-500/20 dark:bg-blue-500/30 rounded-lg flex items-center justify-center mr-3">
-                          <Target className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                        </div>
-                        <div>
-                          <h4 className="text-gray-900 dark:text-white font-semibold">
-                            Interview Skills
-                          </h4>
-                          <p className="text-blue-600 dark:text-blue-400 text-sm">
-                            {stats.improvementRate > 0
-                              ? "Upward trend detected"
-                              : stats.improvementRate === 0
-                              ? "Stable performance"
-                              : "Building foundation"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                          {stats.averageScore}%
-                        </div>
-                        <div className="text-blue-600 dark:text-blue-400 text-sm">
-                          Current Score
-                        </div>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="text-center">
-                        <div className="text-lg font-bold text-gray-900 dark:text-white">
-                          {stats.totalInterviews}
-                        </div>
-                        <div className="text-gray-600 dark:text-gray-400 text-xs">
-                          Sessions
-                        </div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-lg font-bold text-gray-900 dark:text-white">
-                          {Math.max(...interviews.map((i) => i.score || 0), 0)}%
-                        </div>
-                        <div className="text-gray-600 dark:text-gray-400 text-xs">
-                          Peak Score
-                        </div>
-                      </div>
-                    </div>
+          {plannerStats.currentPlan ? (
+            // Active Plan Display
+            <div className="bg-gradient-to-r from-teal-50 to-cyan-50 dark:from-teal-900/20 dark:to-cyan-900/20 border-2 border-teal-200 dark:border-teal-800 rounded-xl p-6 hover:shadow-lg transition-all duration-300 cursor-pointer"
+              onClick={() => window.location.href = `/planner/${plannerStats.currentPlan?.id}`}>
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <span className="inline-flex items-center px-3 py-1 bg-teal-500/20 text-teal-700 dark:text-teal-300 rounded-full text-xs font-bold">
+                      ACTIVE PLAN
+                    </span>
+                    <span className="inline-flex items-center px-3 py-1 bg-orange-500/20 text-orange-700 dark:text-orange-300 rounded-full text-xs font-semibold">
+                      <Clock className="w-3 h-3 mr-1" />
+                      {plannerStats.currentPlan.daysRemaining}d left
+                    </span>
                   </div>
-                )}
-
-                {/* Resume Performance */}
-                {hasResumes && (
-                  <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 dark:from-purple-500/20 dark:to-pink-500/20 rounded-xl p-5 border border-purple-500/20">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 bg-purple-500/20 dark:bg-purple-500/30 rounded-lg flex items-center justify-center mr-3">
-                          <FileText className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                        </div>
-                        <div>
-                          <h4 className="text-gray-900 dark:text-white font-semibold">
-                            Resume Quality
-                          </h4>
-                          <p className="text-purple-600 dark:text-purple-400 text-sm">
-                            {stats.averageResumeScore >= 80
-                              ? "Excellent optimization"
-                              : stats.averageResumeScore >= 60
-                              ? "Good foundation"
-                              : "Needs improvement"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                          {stats.averageResumeScore}%
-                        </div>
-                        <div className="text-purple-600 dark:text-purple-400 text-sm">
-                          ATS Score
-                        </div>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="text-center">
-                        <div className="text-lg font-bold text-gray-900 dark:text-white">
-                          {stats.totalResumes}
-                        </div>
-                        <div className="text-gray-600 dark:text-gray-400 text-xs">
-                          Versions
-                        </div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-lg font-bold text-gray-900 dark:text-white">
-                          {stats.resumeIssuesResolved}
-                        </div>
-                        <div className="text-gray-600 dark:text-gray-400 text-xs">
-                          Issues Fixed
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Smart Recommendations with Resume Context */}
-              <div className="bg-gradient-to-r from-emerald-500/10 to-green-500/10 dark:from-emerald-500/20 dark:to-green-500/20 rounded-xl p-5 border border-emerald-500/20">
-                <div className="flex items-center mb-4">
-                  <div className="w-10 h-10 bg-emerald-500/20 dark:bg-emerald-500/30 rounded-lg flex items-center justify-center mr-3">
-                    <Lightbulb className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                  <div>
-                    <h4 className="text-gray-900 dark:text-white font-semibold">
-                      Smart Recommendations
-                    </h4>
-                    <p className="text-emerald-600 dark:text-emerald-400 text-sm">
-                      Based on your comprehensive performance data
+                  <h4 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
+                    {plannerStats.currentPlan.role}
+                  </h4>
+                  {plannerStats.currentPlan.company && (
+                    <p className="text-gray-600 dark:text-gray-400 flex items-center">
+                      <Award className="w-4 h-4 mr-1 text-yellow-500" />
+                      {plannerStats.currentPlan.company}
                     </p>
-                  </div>
+                  )}
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                    Interview Date: {new Date(plannerStats.currentPlan.interviewDate).toLocaleDateString('en-US', { 
+                      month: 'long', 
+                      day: 'numeric', 
+                      year: 'numeric' 
+                    })}
+                  </p>
                 </div>
-                <div className="space-y-3">
-                  {!hasResumes && (
-                    <div className="flex items-center p-3 bg-purple-500/10 dark:bg-purple-500/20 rounded-lg border border-purple-500/20">
-                      <div className="w-2 h-2 bg-purple-500 dark:bg-purple-400 rounded-full mr-3"></div>
-                      <span className="text-purple-700 dark:text-purple-300 text-sm">
-                        Upload your resume to get ATS optimization feedback and complete your profile
-                      </span>
-                    </div>
-                  )}
-                  {!hasInterviews && (
-                    <div className="flex items-center p-3 bg-blue-500/10 dark:bg-blue-500/20 rounded-lg border border-blue-500/20">
-                      <div className="w-2 h-2 bg-blue-500 dark:bg-blue-400 rounded-full mr-3"></div>
-                      <span className="text-blue-700 dark:text-blue-300 text-sm">
-                        Start practicing interviews to build confidence and identify improvement areas
-                      </span>
-                    </div>
-                  )}
-                  {hasResumes && stats.averageResumeScore < 70 && (
-                    <div className="flex items-center p-3 bg-orange-500/10 dark:bg-orange-500/20 rounded-lg border border-orange-500/20">
-                      <div className="w-2 h-2 bg-orange-500 dark:bg-orange-400 rounded-full mr-3"></div>
-                      <span className="text-orange-700 dark:text-orange-300 text-sm">
-                        Focus on improving {stats.resumeWeaknesses.join(", ").toLowerCase()} in your resume
-                      </span>
-                    </div>
-                  )}
-                  {hasInterviews && stats.averageScore < 70 && (
-                    <div className="flex items-center p-3 bg-orange-500/10 dark:bg-orange-500/20 rounded-lg border border-orange-500/20">
-                      <div className="w-2 h-2 bg-orange-500 dark:bg-orange-400 rounded-full mr-3"></div>
-                      <span className="text-orange-700 dark:text-orange-300 text-sm">
-                        Focus on {stats.worstPerformingType || "core interview skills"} to improve your interview performance
-                      </span>
-                    </div>
-                  )}
-                  {hasInterviews && hasResumes && stats.averageScore >= 75 && stats.averageResumeScore >= 75 && (
-                    <div className="flex items-center p-3 bg-green-500/10 dark:bg-green-500/20 rounded-lg border border-green-500/20">
-                      <div className="w-2 h-2 bg-green-500 dark:bg-green-400 rounded-full mr-3"></div>
-                      <span className="text-green-700 dark:text-green-300 text-sm">
-                        Excellent progress! You're ready to target senior-level positions
-                      </span>
-                    </div>
-                  )}
-                  {stats.currentStreak >= 5 && (
-                    <div className="flex items-center p-3 bg-yellow-500/10 dark:bg-yellow-500/20 rounded-lg border border-yellow-500/20">
-                      <div className="w-2 h-2 bg-yellow-500 dark:bg-yellow-400 rounded-full mr-3"></div>
-                      <span className="text-yellow-700 dark:text-yellow-300 text-sm">
-                        Amazing consistency! Your {stats.currentStreak}-day streak shows great dedication
-                      </span>
-                    </div>
-                  )}
+                
+                <div className="text-right">
+                  <div className="text-5xl font-bold text-teal-600 dark:text-teal-400">
+                    {plannerStats.currentPlan.progress}%
+                  </div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Complete</p>
                 </div>
               </div>
 
-              {/* Career Readiness Status */}
-              <div className="bg-gradient-to-r from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 rounded-xl p-5 border border-indigo-500/20">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="w-10 h-10 bg-indigo-500/20 dark:bg-indigo-500/30 rounded-lg flex items-center justify-center mr-3">
-                      <Award className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-                    </div>
-                    <div>
-                      <h4 className="text-gray-900 dark:text-white font-semibold">
-                        Career Readiness Assessment
-                      </h4>
-                      <p className="text-indigo-600 dark:text-indigo-400 text-sm">
-                        {hasInterviews && hasResumes
-                          ? "Complete profile analysis"
-                          : hasInterviews
-                          ? "Missing resume analysis"
-                          : hasResumes
-                          ? "Missing interview practice"
-                          : "Ready to begin assessment"}
-                      </p>
-                    </div>
+              {/* Progress Bar */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-700 dark:text-gray-300 font-medium">Progress</span>
+                  <span className="text-gray-600 dark:text-gray-400">{plannerStats.currentPlan.progress}%</span>
+                </div>
+                <div className="relative h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div 
+                    className="absolute inset-y-0 left-0 bg-gradient-to-r from-teal-500 to-cyan-500 transition-all duration-500 rounded-full"
+                    style={{ width: `${plannerStats.currentPlan.progress}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between mt-4 pt-4 border-t border-teal-200 dark:border-teal-800">
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  Click to view full plan
+                </span>
+                <ArrowRight className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+              </div>
+            </div>
+          ) : plannerStats.totalPlans > 0 ? (
+            // Completed Plans Display
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-200 dark:border-green-800 rounded-xl p-6">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Trophy className="w-8 h-8 text-white" />
+                </div>
+                <h4 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                  🎉 All Plans Completed!
+                </h4>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  You've successfully completed <strong>{plannerStats.completedPlans}</strong> preparation plan{plannerStats.completedPlans !== 1 ? 's' : ''}
+                </p>
+                <div className="flex items-center justify-center space-x-6 text-sm mb-4">
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                    <span className="text-gray-700 dark:text-gray-300">
+                      <strong>{plannerStats.totalTasksCompleted}</strong> tasks completed
+                    </span>
                   </div>
-                  <div className="text-right">
-                    <div className={`text-2xl font-bold ${
-                      jobReadiness.status === "ready"
-                        ? "text-green-600 dark:text-green-400"
-                        : jobReadiness.status === "improving"
-                        ? "text-yellow-600 dark:text-yellow-400"
-                        : "text-blue-600 dark:text-blue-400"
-                    }`}>
-                      {hasInterviews && hasResumes
-                        ? Math.round((stats.averageScore + stats.averageResumeScore) / 2)
-                        : hasInterviews
-                        ? stats.averageScore
-                        : hasResumes
-                        ? stats.averageResumeScore
-                        : 0}%
-                    </div>
-                    <div className="text-gray-500 dark:text-gray-400 text-sm">
-                      Overall Score
-                    </div>
+                  <div className="flex items-center space-x-2">
+                    <Award className="w-4 h-4 text-yellow-600" />
+                    <span className="text-gray-700 dark:text-gray-300">
+                      <strong>{plannerStats.totalPlans}</strong> total plans
+                    </span>
                   </div>
                 </div>
+                <Link href="/planner/create">
+                  <Button className="bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create New Plan
+                  </Button>
+                </Link>
               </div>
             </div>
           ) : (
-            /* Getting Started State */
-            <div className="text-center py-12">
-              <div className="w-20 h-20 bg-indigo-500/20 dark:bg-indigo-500/30 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Brain className="h-10 w-10 text-indigo-600 dark:text-indigo-400" />
-              </div>
-              <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-                Career Intelligence Ready
-              </h4>
-              <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
-                Upload your resume and complete your first interview to unlock intelligent career insights and personalized recommendations
-              </p>
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <Button
-                  asChild
-                  className="bg-purple-600 hover:bg-purple-700 text-white"
-                >
-                  <Link href="/resume/upload">
-                    <Upload className="h-4 w-4 mr-2" />
-                    Upload Resume
-                  </Link>
-                </Button>
-                <Button
-                  asChild
-                  variant="outline"
-                  className="border-indigo-600 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-400 dark:text-indigo-400 dark:hover:bg-indigo-900/20"
-                >
-                  <Link href="/createinterview">
-                    <Target className="h-4 w-4 mr-2" />
-                    Start Interview
-                  </Link>
-                </Button>
+            // No Plans - Onboarding
+            <div className="bg-gradient-to-r from-teal-50 to-cyan-50 dark:from-teal-900/20 dark:to-cyan-900/20 border-2 border-dashed border-teal-300 dark:border-teal-700 rounded-xl p-8">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-xl flex items-center justify-center mx-auto mb-4">
+                  <BookOpen className="w-8 h-8 text-white" />
+                </div>
+                <h4 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                  Create Your First Study Plan
+                </h4>
+                <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
+                  Get a personalized, AI-generated day-by-day preparation plan for your upcoming interview
+                </p>
+                <ul className="text-left max-w-md mx-auto mb-6 space-y-2">
+                  <li className="flex items-start space-x-2 text-sm text-gray-700 dark:text-gray-300">
+                    <Sparkles className="w-4 h-4 text-teal-600 mt-0.5 flex-shrink-0" />
+                    <span>Daily study schedule with curated resources</span>
+                  </li>
+                  <li className="flex items-start space-x-2 text-sm text-gray-700 dark:text-gray-300">
+                    <Sparkles className="w-4 h-4 text-teal-600 mt-0.5 flex-shrink-0" />
+                    <span>Practice problems and behavioral questions</span>
+                  </li>
+                  <li className="flex items-start space-x-2 text-sm text-gray-700 dark:text-gray-300">
+                    <Sparkles className="w-4 h-4 text-teal-600 mt-0.5 flex-shrink-0" />
+                    <span>Progress tracking and AI coaching</span>
+                  </li>
+                </ul>
+                <Link href="/planner/create">
+                  <Button className="bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white font-bold shadow-lg">
+                    <Plus className="w-5 h-5 mr-2" />
+                    Create Study Plan
+                  </Button>
+                </Link>
               </div>
             </div>
           )}
         </div>
+      )}
 
-        {/* Enhanced Activity Summary with Resume Data */}
-        <div className="lg:col-span-4 space-y-6">
-          {/* Today's Focus with Resume Tasks */}
-          <div className="bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
-            <div className="flex items-center mb-4">
-              <div className="bg-yellow-500/20 dark:bg-yellow-500/30 p-2 rounded-lg mr-3">
-                <Star className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+      {/* Today's Focus Section */}
+      <div className="bg-gradient-to-br from-white to-slate-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl p-6 shadow-xl border border-slate-200 dark:border-gray-700">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-4">
+            <div className="relative">
+              <div className="w-14 h-14 bg-gradient-to-br from-yellow-400 via-orange-500 to-red-500 rounded-2xl flex items-center justify-center shadow-lg">
+                <Target className="h-7 w-7 text-white" />
               </div>
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                  Today's Focus
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400 text-sm">
-                  Your daily career goals
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              {generateDailyFocus(interviews, resumes, stats).map((focus, index) => {
-                const getColorScheme = (type: string, completed: boolean) => {
-                  if (completed) {
-                    return {
-                      bg: "bg-green-500/10 dark:bg-green-500/20",
-                      border: "border-green-500/20",
-                      text: "text-green-700 dark:text-green-300",
-                      icon: "text-green-600 dark:text-green-400",
-                    };
-                  }
-
-                  switch (type) {
-                    case "resume":
-                      return {
-                        bg: "bg-purple-500/10 dark:bg-purple-500/20",
-                        border: "border-purple-500/20",
-                        text: "text-purple-700 dark:text-purple-300",
-                        icon: "text-purple-600 dark:text-purple-400",
-                      };
-                    case "challenge":
-                      return {
-                        bg: "bg-pink-500/10 dark:bg-pink-500/20",
-                        border: "border-pink-500/20",
-                        text: "text-pink-700 dark:text-pink-300",
-                        icon: "text-pink-600 dark:text-pink-400",
-                      };
-                    case "improvement":
-                      return {
-                        bg: "bg-blue-500/10 dark:bg-blue-500/20",
-                        border: "border-blue-500/20",
-                        text: "text-blue-700 dark:text-blue-300",
-                        icon: "text-blue-600 dark:text-blue-400",
-                      };
-                    default:
-                      return {
-                        bg: "bg-yellow-500/10 dark:bg-yellow-500/20",
-                        border: "border-yellow-500/20",
-                        text: "text-yellow-700 dark:text-yellow-300",
-                        icon: "text-yellow-600 dark:text-yellow-400",
-                      };
-                  }
-                };
-
-                const colors = getColorScheme(focus.type, focus.completed);
-
-                return (
-                  <div
-                    key={focus.id}
-                    className={`flex items-center justify-between p-3 ${colors.bg} rounded-lg border ${colors.border} hover:scale-[1.02] transition-all duration-200`}
-                  >
-                    <div className="flex items-center">
-                      <div
-                        className={`w-8 h-8 bg-gradient-to-br from-current to-current opacity-20 rounded-full flex items-center justify-center text-gray-900 dark:text-white text-sm font-bold mr-3 ${colors.icon}`}
-                      >
-                        <span className="opacity-100">{focus.icon}</span>
-                      </div>
-                      <div>
-                        <span className={`${colors.text} font-medium text-sm`}>
-                          {focus.text}
-                        </span>
-                        <div
-                          className={`${colors.text} opacity-70 text-xs mt-0.5`}
-                        >
-                          {focus.description}
-                        </div>
-                      </div>
-                    </div>
-                    <div
-                      className={`w-6 h-6 border-2 ${
-                        focus.completed
-                          ? "bg-green-500 border-green-500"
-                          : `border-current ${colors.text}`
-                      } rounded-full flex items-center justify-center`}
-                    >
-                      {focus.completed && (
-                        <CheckCircle className="w-3 h-3 text-white" />
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="text-center pt-4 border-t border-gray-200 dark:border-gray-700 mt-4">
-              <div className="flex gap-2 justify-center">
-                {!hasInterviews && (
-                  <Button
-                    asChild
-                    size="sm"
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    <Link href="/createinterview">Start Practice</Link>
-                  </Button>
-                )}
-                {!hasResumes && (
-                  <Button
-                    asChild
-                    size="sm"
-                    variant="outline"
-                    className="border-purple-600 text-purple-600 hover:bg-purple-50 dark:border-purple-400 dark:text-purple-400"
-                  >
-                    <Link href="/resume/upload">Upload Resume</Link>
-                  </Button>
-                )}
-                {hasInterviews && hasResumes && (
-                  <Button
-                    asChild
-                    size="sm"
-                    className="bg-yellow-600 hover:bg-yellow-700 text-white"
-                  >
-                    <Link href="/createinterview">Continue Progress</Link>
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Enhanced Quick Stats with Resume Data */}
-          <div className="bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
-            <div className="flex items-center mb-4">
-              <div className="bg-green-500/20 dark:bg-green-500/30 p-2 rounded-lg mr-3">
-                <Activity className="h-5 w-5 text-green-600 dark:text-green-400" />
-              </div>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                Career Progress
-              </h3>
-            </div>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600 dark:text-gray-400 text-sm">
-                  This Week
-                </span>
-                <span className="text-gray-900 dark:text-white font-semibold">
-                  {
-                    interviews.filter((i) => {
-                      const date =
-                        i.createdAt instanceof Date
-                          ? i.createdAt
-                          : new Date(i.createdAt);
-                      const weekAgo = new Date();
-                      weekAgo.setDate(weekAgo.getDate() - 7);
-                      return date >= weekAgo;
-                    }).length
-                  }{" "}
-                  interviews
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600 dark:text-gray-400 text-sm">
-                  Resume Score
-                </span>
-                <span className="text-gray-900 dark:text-white font-semibold">
-                  {hasResumes ? `${stats.averageResumeScore}%` : "No data"}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600 dark:text-gray-400 text-sm">
-                  Interview Success
-                </span>
-                <span className="text-gray-900 dark:text-white font-semibold">
-                  {stats.successRate || 0}%
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600 dark:text-gray-400 text-sm">
-                  Issues Resolved
-                </span>
-                <span className="text-gray-900 dark:text-white font-semibold">
-                  {stats.resumeIssuesResolved || 0}
-                </span>
-              </div>
-              {hasResumes && stats.lastResumeUpdate && (
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600 dark:text-gray-400 text-sm">
-                    Last Resume Update
-                  </span>
-                  <span className="text-gray-900 dark:text-white font-semibold">
-                    {new Date(stats.lastResumeUpdate).toLocaleDateString()}
-                  </span>
+              {dailyFocus.filter((f: any) => f.completed).length === dailyFocus.length && (
+                <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center border-2 border-white dark:border-gray-800">
+                  <CheckCircle className="w-4 h-4 text-white" />
                 </div>
               )}
             </div>
-          </div>
-
-          {/* Enhanced Motivational Widget */}
-          <div className="bg-gradient-to-br from-pink-500/20 to-purple-500/20 dark:from-pink-500/30 dark:to-purple-500/30 rounded-xl p-6 border border-pink-500/30 shadow-lg">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-gradient-to-br from-pink-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
-                <span className="text-white text-2xl">
-                  {hasInterviews && hasResumes && stats.averageScore >= 75 && stats.averageResumeScore >= 75
-                    ? "🏆"
-                    : (hasInterviews && stats.totalInterviews >= 10) || (hasResumes && stats.totalResumes >= 3)
-                    ? "🌟"
-                    : hasInterviews || hasResumes
-                    ? "📈"
-                    : "🎯"}
-                </span>
-              </div>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
-                {hasInterviews && hasResumes && stats.averageScore >= 75 && stats.averageResumeScore >= 75
-                  ? "Career Ready!"
-                  : (hasInterviews && stats.totalInterviews >= 10) || (hasResumes && stats.totalResumes >= 3)
-                  ? "Making Great Progress!"
-                  : hasInterviews || hasResumes
-                  ? "Building Your Foundation!"
-                  : "Ready to Start!"}
+            <div>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                Today's Focus
               </h3>
-              <p className="text-pink-700 dark:text-pink-200 text-sm mb-4">
-                {hasInterviews && hasResumes && stats.averageScore >= 75 && stats.averageResumeScore >= 75
-                  ? "Your interview skills and resume are both optimized for success!"
-                  : hasInterviews && hasResumes
-                  ? "You're building both technical skills and professional presence."
-                  : hasInterviews
-                  ? "Interview practice is building your confidence. Add your resume for complete preparation."
-                  : hasResumes
-                  ? "Your resume is being optimized. Add interview practice to build confidence."
-                  : "Your comprehensive career preparation journey starts here."}
-              </p>
-              <div className="flex items-center justify-center text-pink-600 dark:text-pink-300 text-xs space-x-4">
-                <div className="flex items-center">
-                  <Trophy className="w-3 h-3 mr-1" />
-                  Level {Math.floor((stats.totalInterviews + stats.totalResumes) / 3) + 1}
+              <div className="flex items-center space-x-2 mt-1">
+                <div className="flex items-center space-x-1">
+                  {[...Array(dailyFocus.length)].map((_, i) => (
+                    <div 
+                      key={i}
+                      className={`w-2 h-2 rounded-full transition-all ${
+                        i < dailyFocus.filter((f: any) => f.completed).length
+                          ? 'bg-green-500'
+                          : 'bg-gray-300 dark:bg-gray-600'
+                      }`}
+                    />
+                  ))}
                 </div>
-                {hasInterviews && hasResumes && (
-                  <div className="flex items-center">
-                    <Users className="w-3 h-3 mr-1" />
-                    Full Profile
-                  </div>
-                )}
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  {dailyFocus.filter((f: any) => f.completed).length} of {dailyFocus.length} completed
+                </span>
               </div>
             </div>
           </div>
+          
+          {dailyFocus.filter((f: any) => f.completed).length === dailyFocus.length ? (
+            <div className="flex items-center space-x-2 px-4 py-2 bg-green-500/20 rounded-xl border border-green-500/30">
+              <Trophy className="w-5 h-5 text-green-600 dark:text-green-400" />
+              <span className="text-sm font-bold text-green-700 dark:text-green-300">All Done!</span>
+            </div>
+          ) : (
+            <div className="flex items-center space-x-2 px-4 py-2 bg-blue-500/20 rounded-xl border border-blue-500/30">
+              <Sparkles className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <span className="text-sm font-bold text-blue-700 dark:text-blue-300">In Progress</span>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-3">
+          {dailyFocus.map((focus: any) => {
+            const getColors = (type: string, completed: boolean) => {
+              if (completed) {
+                return {
+                  bg: "bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20",
+                  border: "border-green-300 dark:border-green-700",
+                  text: "text-green-800 dark:text-green-200",
+                  icon: "text-green-600 dark:text-green-400",
+                  iconBg: "bg-green-100 dark:bg-green-900/40",
+                };
+              }
+
+              switch (type) {
+                case "resume":
+                  return {
+                    bg: "bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20",
+                    border: "border-purple-300 dark:border-purple-700",
+                    text: "text-purple-800 dark:text-purple-200",
+                    icon: "text-purple-600 dark:text-purple-400",
+                    iconBg: "bg-purple-100 dark:bg-purple-900/40",
+                  };
+                case "challenge":
+                  return {
+                    bg: "bg-gradient-to-r from-pink-50 to-rose-50 dark:from-pink-900/20 dark:to-rose-900/20",
+                    border: "border-pink-300 dark:border-pink-700",
+                    text: "text-pink-800 dark:text-pink-200",
+                    icon: "text-pink-600 dark:text-pink-400",
+                    iconBg: "bg-pink-100 dark:bg-pink-900/40",
+                  };
+                case "improvement":
+                  return {
+                    bg: "bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20",
+                    border: "border-blue-300 dark:border-blue-700",
+                    text: "text-blue-800 dark:text-blue-200",
+                    icon: "text-blue-600 dark:text-blue-400",
+                    iconBg: "bg-blue-100 dark:bg-blue-900/40",
+                  };
+                default:
+                  return {
+                    bg: "bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20",
+                    border: "border-amber-300 dark:border-amber-700",
+                    text: "text-amber-800 dark:text-amber-200",
+                    icon: "text-amber-600 dark:text-amber-400",
+                    iconBg: "bg-amber-100 dark:bg-amber-900/40",
+                  };
+              }
+            };
+
+            const colors = getColors(focus.type, focus.completed);
+
+            return (
+              <div
+                key={focus.id}
+                className={`group relative ${colors.bg} rounded-xl p-5 border-2 ${colors.border} transition-all duration-300 hover:shadow-lg hover:scale-[1.01]`}
+              >
+                <div className="flex items-center space-x-4">
+                  <div className={`w-12 h-12 ${colors.iconBg} rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform`}>
+                    <span className="text-2xl">{focus.icon}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className={`font-bold ${colors.text} text-base mb-1`}>
+                      {focus.text}
+                    </h4>
+                    <p className={`text-sm ${colors.text} opacity-75`}>
+                      {focus.description}
+                    </p>
+                  </div>
+                  {focus.completed ? (
+                    <div className="flex-shrink-0">
+                      <div className={`w-10 h-10 ${colors.iconBg} rounded-xl flex items-center justify-center`}>
+                        <CheckCircle className={`w-6 h-6 ${colors.icon}`} />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <ChevronRight className={`w-5 h-5 ${colors.icon}`} />
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* Enhanced Action Center with Resume Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Quick Actions Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-gradient-to-br from-blue-500/20 to-cyan-500/20 dark:from-blue-500/30 dark:to-cyan-500/30 rounded-xl p-6 border border-blue-500/30 hover:from-blue-500/30 hover:to-cyan-500/30 transition-all duration-300 group cursor-pointer">
           <Link href="/createinterview" className="block">
             <div className="flex items-center mb-4">
@@ -739,7 +502,7 @@ const ProfileOverview: React.FC<ProfileOverviewProps> = ({
               </div>
               <div>
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                  Practice Interviews
+                  Mock Interviews
                 </h3>
                 <p className="text-blue-600 dark:text-blue-400 text-sm">
                   {hasInterviews ? "Continue practice" : "Start your journey"}
@@ -773,25 +536,25 @@ const ProfileOverview: React.FC<ProfileOverviewProps> = ({
           </Link>
         </div>
 
-        <div className="bg-gradient-to-br from-green-500/20 to-emerald-500/20 dark:from-green-500/30 dark:to-emerald-500/30 rounded-xl p-6 border border-green-500/30 hover:from-green-500/30 hover:to-emerald-500/30 transition-all duration-300 group cursor-pointer">
-          <div className="cursor-pointer">
+        <div className="bg-gradient-to-br from-teal-500/20 to-cyan-500/20 dark:from-teal-500/30 dark:to-cyan-500/30 rounded-xl p-6 border border-teal-500/30 hover:from-teal-500/30 hover:to-cyan-500/30 transition-all duration-300 group cursor-pointer">
+          <Link href="/planner" className="block">
             <div className="flex items-center mb-4">
-              <div className="w-12 h-12 bg-green-500/30 dark:bg-green-500/40 rounded-xl flex items-center justify-center mr-4 group-hover:scale-110 transition-transform">
-                <BarChart3 className="h-6 w-6 text-green-600 dark:text-green-400" />
+              <div className="w-12 h-12 bg-teal-500/30 dark:bg-teal-500/40 rounded-xl flex items-center justify-center mr-4 group-hover:scale-110 transition-transform">
+                <Calendar className="h-6 w-6 text-teal-600 dark:text-teal-400" />
               </div>
               <div>
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                  Career Analytics
+                  Study Planner
                 </h3>
-                <p className="text-green-600 dark:text-green-400 text-sm">
-                  Deep insights
+                <p className="text-teal-600 dark:text-teal-400 text-sm">
+                  {plannerStats && plannerStats.totalPlans > 0 ? "Manage plans" : "Get started"}
                 </p>
               </div>
             </div>
-            <p className="text-green-700 dark:text-green-200 text-sm">
-              Analyze your interview and resume performance trends to accelerate career growth
+            <p className="text-teal-700 dark:text-teal-200 text-sm">
+              Create AI-powered day-by-day preparation plans with curated resources and practice problems
             </p>
-          </div>
+          </Link>
         </div>
       </div>
     </div>

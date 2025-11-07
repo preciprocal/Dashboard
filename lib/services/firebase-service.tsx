@@ -133,7 +133,12 @@ export class FirebaseService {
         console.log('✅ Resume found');
         return {
           ...data,
-          createdAt: data.createdAt.toDate(),
+          // Handle both Timestamp and Date objects
+          createdAt: data.createdAt instanceof Timestamp 
+            ? data.createdAt.toDate() 
+            : data.createdAt instanceof Date 
+              ? data.createdAt 
+              : new Date(data.createdAt),
         } as Resume;
       } else {
         console.log('❌ Resume not found');
@@ -166,7 +171,12 @@ export class FirebaseService {
         const data = doc.data();
         return {
           ...data,
-          createdAt: data.createdAt.toDate(),
+          // Handle both Timestamp and Date objects
+          createdAt: data.createdAt instanceof Timestamp 
+            ? data.createdAt.toDate() 
+            : data.createdAt instanceof Date 
+              ? data.createdAt 
+              : new Date(data.createdAt),
         };
       }) as Resume[];
 

@@ -2,14 +2,14 @@ import InterviewGeneratorForm from "@/components/InterviewGeneratorForm";
 import { getCurrentUser } from "@/lib/actions/auth.action";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Target, Star, BarChart3, Lock } from "lucide-react";
+import { Target, Star, BarChart3, Shield, ArrowRight, Calendar } from "lucide-react";
 
 // Helper function to get plan display info
 function getPlanDisplayInfo(subscription: any) {
   if (!subscription) {
     return {
       name: "Free",
-      color: "gray",
+      color: "slate",
       isUnlimited: false,
     };
   }
@@ -18,7 +18,7 @@ function getPlanDisplayInfo(subscription: any) {
     case "starter":
       return {
         name: "Free",
-        color: "gray",
+        color: "slate",
         isUnlimited: false,
       };
     case "pro":
@@ -36,7 +36,7 @@ function getPlanDisplayInfo(subscription: any) {
     default:
       return {
         name: "Free",
-        color: "gray",
+        color: "slate",
         isUnlimited: false,
       };
   }
@@ -66,6 +66,9 @@ function calculateNextResetDate(subscription: any): Date {
 export default async function CreateInterviewPage() {
   const user = await getCurrentUser();
 
+  if (!user?.id) {
+    redirect("/sign-in");
+  }
 
   // Get real user subscription data from user object
   const subscription = user.subscription;
@@ -92,60 +95,107 @@ export default async function CreateInterviewPage() {
     : null;
 
   return (
-    <div className="h-full max-w-5xl mx-auto">
-      {/* Content that works within the layout */}
+    <div className="h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col overflow-hidden">
       {hasSessionsRemaining ? (
-        <div className="h-full">
-          <InterviewGeneratorForm userId={user.id} />
+        <div className="flex-1 flex flex-col min-h-0">
+          {/* Header Section - Professional */}
+          <div className="flex-shrink-0 text-center py-6 px-4 border-b border-slate-700/50">
+            <div className="inline-flex items-center px-4 py-2 bg-blue-500/10 text-blue-300 border border-blue-500/20 rounded-full text-sm font-medium mb-4">
+              <Target className="w-4 h-4 mr-2" />
+              Interview Practice Platform
+            </div>
+            <h1 className="text-3xl font-bold text-white mb-3">
+              Create Interview Session
+            </h1>
+            <p className="text-slate-300 max-w-2xl mx-auto text-base">
+              Generate AI-powered interview questions tailored to your career goals
+            </p>
+          </div>
+
+          {/* Plan Status */}
+          <div className="flex-shrink-0 flex justify-center py-4 bg-slate-800/30">
+            <div className={`inline-flex items-center px-4 py-2 rounded-lg border text-sm ${
+              planInfo.color === 'blue' 
+                ? 'bg-blue-500/20 border-blue-400/30 text-blue-300'
+                : planInfo.color === 'purple'
+                ? 'bg-purple-500/20 border-purple-400/30 text-purple-300'
+                : 'bg-slate-500/20 border-slate-400/30 text-slate-300'
+            }`}>
+              <Shield className="w-4 h-4 mr-2" />
+              <span className="font-medium">{planInfo.name} Plan</span>
+              {!planInfo.isUnlimited && (
+                <span className="ml-2 text-sm opacity-90">
+                  • {remainingSessionsCount} sessions remaining
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Main Form */}
+          <div className="flex-1 min-h-0 px-6 pb-6">
+            <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl shadow-xl border border-slate-700/50 h-full overflow-hidden">
+              <InterviewGeneratorForm userId={user.id} />
+            </div>
+          </div>
         </div>
       ) : (
-        <div className="h-full flex items-center justify-center">
-          <div className="bg-gray-800 rounded-lg border border-gray-700 p-8 max-w-lg w-full text-center">
-            <div className="w-16 h-16 bg-red-900/30 border border-red-700 rounded-lg flex items-center justify-center mx-auto mb-6">
-              <Lock className="w-8 h-8 text-red-400" />
+        <div className="h-full flex items-center justify-center p-6">
+          <div className="bg-slate-800/80 backdrop-blur-sm rounded-xl shadow-xl border border-slate-700/50 p-8 max-w-lg w-full mx-auto">
+            <div className="w-16 h-16 bg-slate-700/50 rounded-xl flex items-center justify-center mx-auto mb-6">
+              <Shield className="w-8 h-8 text-slate-300" />
             </div>
             
-            <h3 className="text-xl font-semibold text-white mb-4">
-              Interview Limit Reached
-            </h3>
-            
-            <p className="text-gray-400 mb-6">
-              You've completed all available interviews for this month. 
-              Upgrade to Pro for unlimited access.
-            </p>
-            
-            <div className="space-y-3">
-              <Link
-                href="/subscription"
-                className="inline-flex items-center justify-center w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all"
-              >
-                <Star className="w-4 h-4 mr-2" />
-                Upgrade to Pro
-              </Link>
-              
-              <Link
-                href="/profile"
-                className="inline-flex items-center justify-center w-full px-6 py-3 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg font-medium border border-gray-600 transition-all"
-              >
-                <BarChart3 className="w-4 h-4 mr-2" />
-                View Your Progress
-              </Link>
-            </div>
-
-            {nextResetDate && (
-              <div className="mt-6 p-4 bg-gray-700 border border-gray-600 rounded-lg">
-                <div className="text-sm text-gray-300">
-                  <strong>Next Reset:</strong> {nextResetDate.toLocaleDateString('en-US', { 
-                    month: 'long', 
-                    day: 'numeric',
-                    year: 'numeric'
-                  })}
-                </div>
-                <div className="text-xs text-gray-400 mt-1">
-                  ({Math.max(0, Math.ceil((nextResetDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))} days remaining)
-                </div>
+            <div className="text-center space-y-6">
+              <div>
+                <h2 className="text-2xl font-semibold text-white mb-3">
+                  Session Limit Reached
+                </h2>
+                <p className="text-slate-300 leading-relaxed">
+                  You have used all available interview sessions for this billing period. 
+                  Upgrade your plan to continue practicing or wait for your next reset.
+                </p>
               </div>
-            )}
+
+              <div className="space-y-3">
+                <Link
+                  href="/subscription"
+                  className="w-full inline-flex items-center justify-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl"
+                >
+                  <Star className="w-5 h-5 mr-2" />
+                  Upgrade Plan
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Link>
+                
+                <Link
+                  href="/profile"
+                  className="w-full inline-flex items-center justify-center px-6 py-3 bg-slate-700/50 hover:bg-slate-700 text-slate-200 rounded-lg font-medium transition-all duration-200 border border-slate-600/50"
+                >
+                  <BarChart3 className="w-5 h-5 mr-2" />
+                  View Progress
+                </Link>
+              </div>
+
+              {nextResetDate && (
+                <div className="p-4 bg-slate-700/30 border border-slate-600/30 rounded-lg">
+                  <div className="flex items-center justify-center mb-2">
+                    <Calendar className="w-5 h-5 text-slate-300 mr-2" />
+                    <span className="font-medium text-slate-200">
+                      Next Reset
+                    </span>
+                  </div>
+                  <div className="text-white font-semibold">
+                    {nextResetDate.toLocaleDateString('en-US', { 
+                      month: 'long', 
+                      day: 'numeric',
+                      year: 'numeric'
+                    })}
+                  </div>
+                  <div className="text-slate-400 text-sm mt-1">
+                    {Math.max(0, Math.ceil((nextResetDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))} days remaining
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

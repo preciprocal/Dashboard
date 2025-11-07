@@ -27,6 +27,7 @@ import {
   Shield,
   Timer,
   Trophy,
+  CheckCircle2
 } from "lucide-react";
 
 // Import the modular components
@@ -36,13 +37,25 @@ import { ProfileAnalytics } from "@/components/profile/Analytics";
 import ProfileRecommendations from "@/components/profile/Recommendations";
 import Resumes from "@/components/profile/Resumes";
 
-// Enhanced interfaces to include resume data
+// Import the new dynamic recommendations engine
+import { 
+  generateDynamicAIRecommendations,
+  analyzeInterviewPerformance,
+  analyzeResumeData,
+  AIRecommendation
+} from "@/lib/ai/ai-recommendations-engine";
+
+// ============ INTERFACES ============
+
 interface Resume {
   id: string;
   userId: string;
   filename: string;
   originalName: string;
   uploadedAt: Date;
+  jobTitle?: string;
+  companyName?: string;
+  createdAt: Date;
   feedback: {
     overallScore: number;
     ATS: {
@@ -129,11 +142,27 @@ interface UserProfile {
   website?: string;
   bio?: string;
   targetRole?: string;
-  experienceLevel?: "junior" | "mid" | "senior" | "lead" | "executive";
+  experienceLevel?: "entry" | "mid" | "senior" | "lead" | "executive";
   preferredTech?: string[];
-  careerGoals?: string;
   createdAt: Date;
   lastLogin: Date;
+}
+
+interface PlannerStats {
+  totalPlans: number;
+  activePlans: number;
+  completedPlans: number;
+  averageProgress: number;
+  currentPlan?: {
+    id: string;
+    role: string;
+    company?: string;
+    progress: number;
+    daysRemaining: number;
+    interviewDate: string;
+  };
+  totalTasksCompleted: number;
+  currentStreak: number;
 }
 
 interface UserStats {
@@ -145,14 +174,10 @@ interface UserStats {
   hoursSpent: number;
   strengthsMap: { [key: string]: number };
   weaknessesMap: { [key: string]: number };
-  monthlyProgress: { month: string; score: number; interviews: number }[];
-  companyPreparation: {
-    company: string;
-    interviews: number;
-    avgScore: number;
-  }[];
-  skillProgress: { skill: string; current: number; target: number }[];
-  typeBreakdown?: {
+  monthlyProgress: { month: string; score: number; count: number }[];
+  companyPreparation: { company: string; interviews: number; avgScore: number }[];
+  skillProgress: { skill: string; progress: number; interviews: number }[];
+  typeBreakdown: {
     type: string;
     count: number;
     avgScore: number;
@@ -162,56 +187,37 @@ interface UserStats {
   worstPerformingType?: string;
   successRate?: number;
   completionRate?: number;
-  // Resume-related stats
-  totalResumes: number;
-  averageResumeScore: number;
-  resumeImprovementRate: number;
-  resumeIssuesResolved: number;
-  lastResumeUpdate?: Date;
-  bestResumeScore: number;
-  resumeStrengths: string[];
-  resumeWeaknesses: string[];
+  totalResumes?: number;
+  averageResumeScore?: number;
+  bestResumeScore?: number;
+  resumeImprovementRate?: number;
+  resumeIssuesResolved?: number;
+  resumeStrengths?: string[];
+  resumeWeaknesses?: string[];
+  interviewReadinessScore?: number;
+  weeklyVelocity?: number;
+  weeklyTarget?: number;
+  technicalDepth?: number;
+  communicationScore?: number;
+  careerMomentum?: number;
+  plannerStats?: PlannerStats;
 }
 
-interface AIRecommendation {
-  category: "technical" | "behavioral" | "system-design" | "coding" | "communication" | "resume";
-  title: string;
-  description: string;
-  priority: "high" | "medium" | "low";
-  resources: {
-    title: string;
-    url: string;
-    type: "article" | "video" | "course" | "book" | "practice";
-    rating?: number;
-    users?: string;
-  }[];
-  estimatedTime: string;
-  difficulty: "beginner" | "intermediate" | "advanced";
-  impact: string;
-  confidence: number;
-}
+// ============ MAIN COMPONENT ============
 
-const Dashboard = () => {
+export default function Dashboard() {
+  const [currentTime, setCurrentTime] = useState(new Date());
   const [activeTab, setActiveTab] = useState<
-    | "overview"
-    | "interviews"
-    | "analytics"
-    | "recommendations"
-    | "resumes"
+    "overview" | "interviews" | "resumes" | "analytics" | "recommendations"
   >("overview");
 
-  // User data states
-  const [user, setUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [interviews, setInterviews] = useState<Interview[]>([]);
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [aiRecommendations, setAIRecommendations] = useState<AIRecommendation[]>([]);
-
-  // UI states
   const [isLoading, setIsLoading] = useState(true);
   const [tabLoading, setTabLoading] = useState(false);
-  const [currentTime, setCurrentTime] = useState(new Date());
 
   // Update current time every minute
   useEffect(() => {
@@ -229,46 +235,159 @@ const Dashboard = () => {
     setTabLoading(true);
     setActiveTab(newTab);
     
-    // Simulate tab loading time
     setTimeout(() => {
       setTabLoading(false);
     }, 500);
   };
 
-  // Enhanced Firebase data fetching to include resumes
+  // ============ PLANNER STATS FUNCTION ============
+
+  const fetchPlannerStats = async (userId: string): Promise<PlannerStats> => {
+    try {
+      const { PlannerService } = await import('@/lib/services/planner-services');
+      
+      // Fetch user's plans
+      const plans = await PlannerService.getUserPlans(userId);
+      const stats = await PlannerService.getUserPlanStats(userId);
+      
+      const totalPlans = plans.length;
+      const activePlans = plans.filter((p: any) => p.status === 'active').length;
+      const completedPlans = plans.filter((p: any) => p.status === 'completed' || p.progress.percentage === 100).length;
+      
+      const averageProgress = plans.length > 0
+        ? Math.round(plans.reduce((sum: number, p: any) => sum + p.progress.percentage, 0) / plans.length)
+        : 0;
+
+      // Find most recent active plan
+      const activePlansList = plans
+        .filter((p: any) => p.status === 'active' && p.progress.percentage < 100)
+        .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      
+      let currentPlan = undefined;
+      if (activePlansList.length > 0) {
+        const plan = activePlansList[0];
+        const interviewDate = new Date(plan.interviewDate);
+        const today = new Date();
+        const daysRemaining = Math.max(0, Math.ceil((interviewDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+        
+        currentPlan = {
+          id: plan.id,
+          role: plan.role,
+          company: plan.company,
+          progress: plan.progress.percentage,
+          daysRemaining,
+          interviewDate: plan.interviewDate
+        };
+      }
+
+      const totalTasksCompleted = plans.reduce((sum: number, p: any) => sum + p.progress.completedTasks, 0);
+      const currentStreak = stats?.currentStreak || 0;
+
+      return {
+        totalPlans,
+        activePlans,
+        completedPlans,
+        averageProgress,
+        currentPlan,
+        totalTasksCompleted,
+        currentStreak
+      };
+    } catch (error) {
+      console.error('Error fetching planner stats:', error);
+      return {
+        totalPlans: 0,
+        activePlans: 0,
+        completedPlans: 0,
+        averageProgress: 0,
+        totalTasksCompleted: 0,
+        currentStreak: 0
+      };
+    }
+  };
+
+  // ============ DATA FETCHING ============
+
   useEffect(() => {
     const fetchUserData = async () => {
-      setIsLoading(true);
       try {
-        const profileResponse = await fetch("/api/profile");
-        if (!profileResponse.ok) {
-          throw new Error("Failed to fetch profile data");
-        }
+        setIsLoading(true);
 
-        const { user: currentUser, interviews: userInterviews } =
-          await profileResponse.json();
+        // Import Firebase auth
+        const { auth } = await import('@/firebase/client');
+        const { onAuthStateChanged } = await import('firebase/auth');
+        const { FirebaseService } = await import('@/lib/services/firebase-service');
+        const { getInterviewsByUserId } = await import('@/lib/actions/general.action');
+        const { getFeedbackByInterviewId } = await import('@/lib/actions/general.action');
+
+        // Wait for auth state
+        const currentUser = await new Promise<any>((resolve) => {
+          const unsubscribe = onAuthStateChanged(auth, (user) => {
+            unsubscribe();
+            resolve(user);
+          });
+        });
 
         if (!currentUser) {
           toast.error("Please log in to view your dashboard");
+          setIsLoading(false);
           return;
         }
 
-        setUser(currentUser);
-
-        // Fetch resumes data
+        // Fetch user resumes using Firebase service
         let userResumes: Resume[] = [];
         try {
-          const resumesResponse = await fetch(`/api/resumes?userId=${currentUser.uid}`);
-          if (resumesResponse.ok) {
-            const resumesData = await resumesResponse.json();
-            userResumes = resumesData.resumes || [];
-            setResumes(userResumes);
-          }
+          userResumes = await FirebaseService.getUserResumes(currentUser.uid);
+          setResumes(userResumes);
+          console.log('📄 Loaded resumes:', userResumes.length);
         } catch (error) {
-          console.error("Failed to fetch resumes:", error);
+          console.error('Error fetching resumes:', error);
         }
 
-        const interviewsWithDates = (userInterviews || []).map((interview: any) => ({
+        // Fetch planner stats
+        let plannerStats: PlannerStats | undefined;
+        try {
+          plannerStats = await fetchPlannerStats(currentUser.uid);
+          console.log('📅 Loaded planner stats:', plannerStats);
+        } catch (error) {
+          console.error('Error fetching planner stats:', error);
+        }
+
+        // Fetch user interviews using server action
+        const userInterviews = await getInterviewsByUserId(currentUser.uid);
+        if (!userInterviews) {
+          console.log('No interviews found for user');
+          setInterviews([]);
+          const calculatedStats = calculateEnhancedUserStats([], userResumes, plannerStats);
+          setStats(calculatedStats);
+          
+          const dynamicRecommendations = generateDynamicAIRecommendations(
+            [],
+            userResumes,
+            calculatedStats
+          );
+          setAIRecommendations(dynamicRecommendations);
+          
+          setUserProfile({
+            id: currentUser.uid,
+            name: currentUser.displayName || "User",
+            email: currentUser.email || "",
+            createdAt: new Date(),
+            lastLogin: new Date(),
+            targetRole: "Software Engineer",
+            experienceLevel: "mid",
+            preferredTech: ["JavaScript", "React", "Node.js"],
+            avatar: currentUser.photoURL || undefined,
+            bio: "",
+            location: "",
+          });
+          
+          setIsLoading(false);
+          return;
+        }
+
+        console.log('🎯 Loaded interviews:', userInterviews.length);
+
+        const interviewsWithDates = userInterviews.map((interview: any) => ({
           ...interview,
           createdAt: interview.createdAt?.toDate
             ? interview.createdAt.toDate()
@@ -279,51 +398,81 @@ const Dashboard = () => {
         }));
 
         setUserProfile({
-          id: currentUser.id,
-          name: currentUser.name || "User",
+          id: currentUser.uid,
+          name: currentUser.displayName || "User",
           email: currentUser.email || "",
           createdAt: new Date(),
           lastLogin: new Date(),
           targetRole: "Software Engineer",
           experienceLevel: "mid",
           preferredTech: ["JavaScript", "React", "Node.js"],
+          avatar: currentUser.photoURL || undefined,
+          bio: "",
+          location: "",
         });
 
         if (interviewsWithDates && interviewsWithDates.length > 0) {
-          const feedbackResponse = await fetch("/api/feedback/batch", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              interviews: interviewsWithDates,
-              userId: currentUser.id,
-            }),
-          });
+          // Fetch feedback for each interview
+          console.log('🔍 Fetching feedback for interviews...');
+          const interviewsWithFeedback = await Promise.all(
+            interviewsWithDates.map(async (interview: any) => {
+              try {
+                const feedback = await getFeedbackByInterviewId({
+                  interviewId: interview.id,
+                  userId: currentUser.uid,
+                });
 
-          if (feedbackResponse.ok) {
-            const { interviews: interviewsWithFeedback } =
-              await feedbackResponse.json();
+                if (feedback) {
+                  return {
+                    ...interview,
+                    feedback: feedback,
+                    score: feedback.totalScore || 0,
+                  };
+                }
+                return interview;
+              } catch (error) {
+                console.error('Error fetching feedback for interview:', interview.id, error);
+                return interview;
+              }
+            })
+          );
 
-            setInterviews(interviewsWithFeedback);
-            const calculatedStats = calculateEnhancedUserStats(interviewsWithFeedback, userResumes);
-            setStats(calculatedStats);
+          console.log('✅ Interviews with feedback loaded');
+          setInterviews(interviewsWithFeedback);
+          
+          // Calculate enhanced stats with planner stats
+          const calculatedStats = calculateEnhancedUserStats(interviewsWithFeedback, userResumes, plannerStats);
+          setStats(calculatedStats);
+          console.log('📊 Stats calculated:', calculatedStats);
 
-            const recommendations = generateEnhancedAIRecommendations(
-              interviewsWithFeedback,
-              userResumes,
-              calculatedStats
-            );
-            setAIRecommendations(recommendations);
-          } else {
-            setInterviews(interviewsWithDates);
-            const calculatedStats = calculateEnhancedUserStats(interviewsWithDates, userResumes);
-            setStats(calculatedStats);
-          }
+          // Generate dynamic AI recommendations
+          const dynamicRecommendations = generateDynamicAIRecommendations(
+            interviewsWithFeedback,
+            userResumes,
+            calculatedStats
+          );
+          
+          console.log('🤖 Generated Dynamic Recommendations:', dynamicRecommendations);
+          setAIRecommendations(dynamicRecommendations);
+
+          // Log analysis for debugging
+          const interviewAnalysis = analyzeInterviewPerformance(interviewsWithFeedback);
+          const resumeAnalysis = analyzeResumeData(userResumes);
+          
+          console.log('📊 Interview Analysis:', interviewAnalysis);
+          console.log('📄 Resume Analysis:', resumeAnalysis);
+
         } else {
           setInterviews([]);
-          const calculatedStats = calculateEnhancedUserStats([], userResumes);
+          const calculatedStats = calculateEnhancedUserStats([], userResumes, plannerStats);
           setStats(calculatedStats);
+          
+          const dynamicRecommendations = generateDynamicAIRecommendations(
+            [],
+            userResumes,
+            calculatedStats
+          );
+          setAIRecommendations(dynamicRecommendations);
         }
       } catch (error) {
         console.error("Failed to fetch user data:", error);
@@ -335,6 +484,204 @@ const Dashboard = () => {
 
     fetchUserData();
   }, []);
+
+  // ============ HELPER FUNCTIONS ============
+
+  // Enhanced stats calculation including resume stats, new KPIs, and planner stats
+  const calculateEnhancedUserStats = (
+    interviews: Interview[], 
+    resumes: Resume[],
+    plannerStats?: PlannerStats
+  ): UserStats => {
+    const completedInterviews = interviews.filter(
+      (i) => i.feedback && i.score && i.score > 0
+    );
+
+    // Basic Interview Stats
+    const totalInterviews = interviews.length;
+    const averageScore =
+      completedInterviews.length > 0
+        ? Math.round(
+            completedInterviews.reduce((sum, i) => sum + (i.score || 0), 0) /
+              completedInterviews.length
+          )
+        : 0;
+
+    // Resume Stats
+    const totalResumes = resumes.length;
+    const averageResumeScore = totalResumes > 0
+      ? Math.round(
+          resumes.reduce((sum, r) => sum + (r.feedback?.overallScore || 0), 0) / totalResumes
+        )
+      : 0;
+
+    const resumeScores = resumes.map(r => r.feedback?.overallScore || 0);
+    const bestResumeScore = resumeScores.length > 0 ? Math.max(...resumeScores) : 0;
+    
+    const resumeImprovementRate = resumes.length >= 2
+      ? Math.round(((resumes[resumes.length - 1].feedback?.overallScore || 0) - (resumes[0].feedback?.overallScore || 0)) 
+          / (resumes[0].feedback?.overallScore || 1) * 100)
+      : 0;
+
+    const resumeIssuesResolved = resumes.reduce((total, resume) => {
+      return total + Object.values(resume.feedback || {}).reduce((sum: number, section: any) => {
+        if (section?.tips && Array.isArray(section.tips)) {
+          return sum + section.tips.filter((tip: any) => tip.type === 'good').length;
+        }
+        return sum;
+      }, 0);
+    }, 0);
+
+    // NEW KPI: Interview Readiness Score (0-100)
+    const interviewReadinessScore = Math.round(
+      (averageScore * 0.4) +
+      (averageResumeScore * 0.3) +
+      (Math.min(totalInterviews * 5, 30))
+    );
+
+    // NEW KPI: Weekly Practice Velocity
+    const currentWeek = new Date();
+    const weekStart = new Date(currentWeek.setDate(currentWeek.getDate() - currentWeek.getDay()));
+    
+    const weeklyVelocity = interviews.filter(interview => {
+      const interviewDate = interview.createdAt instanceof Date 
+        ? interview.createdAt 
+        : new Date(interview.createdAt);
+      return interviewDate >= weekStart;
+    }).length;
+
+    const weeklyTarget = Math.max(3, Math.min(7, Math.round(totalInterviews / 4)));
+
+    // NEW KPI: Technical Depth Score (1-5 stars)
+    const technicalInterviews = completedInterviews.filter(i => 
+      i.type === 'technical' || i.type === 'coding' || i.type === 'system-design'
+    );
+    
+    const technicalDepth = technicalInterviews.length > 0 
+      ? Math.round(
+          (technicalInterviews.reduce((sum, i) => {
+            const score = i.score || 0;
+            let depthPoints = score / 20;
+            
+            if (i.type === 'system-design') depthPoints *= 1.2;
+            if (i.type === 'coding') depthPoints *= 1.1;
+            
+            return sum + Math.min(5, depthPoints);
+          }, 0) / technicalInterviews.length) * 10
+        ) / 10
+      : 0;
+
+    // NEW KPI: Communication Score
+    const communicationScore = completedInterviews.length > 0
+      ? Math.round(
+          completedInterviews.reduce((sum, i) => {
+            const feedback = i.feedback;
+            if (feedback?.communication) {
+              return sum + feedback.communication;
+            }
+            const behavioralBonus = i.type === 'behavioral' ? 5 : 0;
+            return sum + (i.score || 0) * 0.3 + behavioralBonus;
+          }, 0) / completedInterviews.length
+        )
+      : 0;
+
+    // Calculate strengths and weaknesses
+    const strengthsMap: { [key: string]: number } = {};
+    const weaknessesMap: { [key: string]: number } = {};
+
+    completedInterviews.forEach((interview) => {
+      if (interview.feedback) {
+        interview.feedback.strengths?.forEach((strength) => {
+          strengthsMap[strength] = (strengthsMap[strength] || 0) + 1;
+        });
+        interview.feedback.weaknesses?.forEach((weakness) => {
+          weaknessesMap[weakness] = (weaknessesMap[weakness] || 0) + 1;
+        });
+      }
+    });
+
+    // Calculate improvement rate
+    const sortedInterviews = [...completedInterviews].sort(
+      (a, b) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+    const recentAvg =
+      sortedInterviews.slice(-5).reduce((sum, i) => sum + (i.score || 0), 0) /
+      Math.min(5, sortedInterviews.length);
+    const oldAvg =
+      sortedInterviews.slice(0, 5).reduce((sum, i) => sum + (i.score || 0), 0) /
+      Math.min(5, sortedInterviews.length);
+    const improvementRate = oldAvg > 0 ? Math.round(((recentAvg - oldAvg) / oldAvg) * 100) : 0;
+
+    // Calculate monthly progress
+    const monthlyProgress: { month: string; score: number; count: number }[] = [];
+    const monthMap = new Map<string, { totalScore: number; count: number }>();
+
+    completedInterviews.forEach((interview) => {
+      const date = new Date(interview.createdAt);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      const existing = monthMap.get(monthKey) || { totalScore: 0, count: 0 };
+      monthMap.set(monthKey, {
+        totalScore: existing.totalScore + (interview.score || 0),
+        count: existing.count + 1,
+      });
+    });
+
+    monthMap.forEach((data, month) => {
+      monthlyProgress.push({
+        month,
+        score: Math.round(data.totalScore / data.count),
+        count: data.count,
+      });
+    });
+
+    // Calculate type breakdown
+    const typeMap = new Map<string, { total: number; count: number }>();
+    completedInterviews.forEach((interview) => {
+      const existing = typeMap.get(interview.type) || { total: 0, count: 0 };
+      typeMap.set(interview.type, {
+        total: existing.total + (interview.score || 0),
+        count: existing.count + 1,
+      });
+    });
+
+    const typeBreakdown = Array.from(typeMap.entries()).map(([type, data]) => ({
+      type,
+      count: data.count,
+      avgScore: Math.round(data.total / data.count),
+      percentage: Math.round((data.count / totalInterviews) * 100),
+    }));
+
+    return {
+      totalInterviews,
+      averageScore,
+      improvementRate,
+      currentStreak: Math.min(totalInterviews, 7),
+      longestStreak: Math.min(totalInterviews, 7) + 2,
+      hoursSpent: Math.round(totalInterviews * 0.75),
+      strengthsMap,
+      weaknessesMap,
+      monthlyProgress,
+      companyPreparation: [],
+      skillProgress: [],
+      typeBreakdown,
+      bestPerformingType: typeBreakdown[0]?.type || "Technical",
+      worstPerformingType: typeBreakdown[typeBreakdown.length - 1]?.type || "Behavioral",
+      successRate: Math.min(95, 70 + totalInterviews * 2),
+      completionRate: Math.min(98, 85 + totalInterviews),
+      totalResumes,
+      averageResumeScore,
+      bestResumeScore,
+      resumeImprovementRate,
+      resumeIssuesResolved,
+      interviewReadinessScore,
+      weeklyVelocity,
+      weeklyTarget,
+      technicalDepth,
+      communicationScore,
+      plannerStats
+    };
+  };
 
   // Generate enhanced daily focus including resume tasks
   const generateEnhancedDailyFocus = (interviews: Interview[], resumes: Resume[], stats: UserStats) => {
@@ -352,14 +699,13 @@ const Dashboard = () => {
           : new Date(interview.createdAt);
       return (
         interviewDate >= todayStart &&
-        (interview.score > 0 ||
+        (interview.score! > 0 ||
           (interview.feedback && Object.keys(interview.feedback).length > 0))
       );
     });
 
     const focuses = [];
 
-    // Interview-related focuses
     if (todayInterviews.length === 0) {
       focuses.push({
         id: 1,
@@ -380,7 +726,6 @@ const Dashboard = () => {
       });
     }
 
-    // Resume-related focuses
     if (resumes.length === 0) {
       focuses.push({
         id: 2,
@@ -390,7 +735,7 @@ const Dashboard = () => {
         type: "resume",
         icon: "📄",
       });
-    } else if (stats.averageResumeScore < 70) {
+    } else if (stats.averageResumeScore! < 70) {
       focuses.push({
         id: 2,
         text: "Improve Resume Score",
@@ -410,8 +755,7 @@ const Dashboard = () => {
       });
     }
 
-    // Combination focus
-    if (interviews.length > 0 && resumes.length > 0 && stats.averageScore > 70 && stats.averageResumeScore > 70) {
+    if (interviews.length > 0 && resumes.length > 0 && stats.averageScore > 70 && stats.averageResumeScore! > 70) {
       focuses.push({
         id: 3,
         text: "Ready for Applications!",
@@ -425,318 +769,6 @@ const Dashboard = () => {
     return focuses.slice(0, 3);
   };
 
-  // Enhanced stats calculation including resume data
-  const calculateEnhancedUserStats = (interviews: Interview[], resumes: Resume[]): UserStats => {
-    const completedInterviews = interviews.filter(
-      (i) => i.feedback && i.score && i.score > 0
-    );
-
-    // Interview stats (existing logic)
-    const totalInterviews = interviews.length;
-    const averageScore =
-      completedInterviews.length > 0
-        ? Math.round(
-            completedInterviews.reduce((sum, i) => sum + (i.score || 0), 0) /
-              completedInterviews.length
-          )
-        : 0;
-
-    // Resume stats (new)
-    const totalResumes = resumes.length;
-    const averageResumeScore = totalResumes > 0
-      ? Math.round(
-          resumes.reduce((sum, r) => sum + r.feedback.overallScore, 0) / totalResumes
-        )
-      : 0;
-
-    const resumeScores = resumes.map(r => r.feedback.overallScore);
-    const bestResumeScore = resumeScores.length > 0 ? Math.max(...resumeScores) : 0;
-    
-    // Calculate resume improvement rate
-    const resumeImprovementRate = resumes.length >= 2
-      ? Math.round(((resumes[resumes.length - 1].feedback.overallScore - resumes[0].feedback.overallScore) 
-          / resumes[0].feedback.overallScore) * 100)
-      : 0;
-
-    // Count total improvement tips resolved
-    const resumeIssuesResolved = resumes.reduce((total, resume) => {
-      return total + Object.values(resume.feedback).reduce((sum: number, section: any) => {
-        if (section.tips && Array.isArray(section.tips)) {
-          return sum + section.tips.filter((tip: any) => tip.type === 'good').length;
-        }
-        return sum;
-      }, 0);
-    }, 0);
-
-    // Identify resume strengths and weaknesses
-    const resumeStrengths: string[] = [];
-    const resumeWeaknesses: string[] = [];
-
-    if (resumes.length > 0) {
-      const latestResume = resumes[resumes.length - 1];
-      const feedback = latestResume.feedback;
-
-      Object.entries(feedback).forEach(([category, data]: [string, any]) => {
-        if (data.score && category !== 'overallScore') {
-          if (data.score >= 80) {
-            resumeStrengths.push(category.charAt(0).toUpperCase() + category.slice(1));
-          } else if (data.score < 60) {
-            resumeWeaknesses.push(category.charAt(0).toUpperCase() + category.slice(1));
-          }
-        }
-      });
-    }
-
-    // Calculate type breakdown (existing logic)
-    const typeMap: { [key: string]: { scores: number[]; count: number } } = {};
-    completedInterviews.forEach((interview) => {
-      const type =
-        interview.type.charAt(0).toUpperCase() +
-        interview.type.slice(1).replace("-", " ");
-      if (!typeMap[type]) {
-        typeMap[type] = { scores: [], count: 0 };
-      }
-      typeMap[type].scores.push(interview.score || 0);
-      typeMap[type].count++;
-    });
-
-    const typeBreakdown = Object.entries(typeMap).map(([type, data]) => ({
-      type,
-      count: data.count,
-      avgScore: Math.round(
-        data.scores.reduce((sum, score) => sum + score, 0) / data.scores.length
-      ),
-      percentage: Math.round((data.count / completedInterviews.length) * 100),
-    }));
-
-    const sortedTypes = typeBreakdown.sort((a, b) => b.avgScore - a.avgScore);
-    const bestPerformingType = sortedTypes[0]?.type || "N/A";
-    const worstPerformingType =
-      sortedTypes[sortedTypes.length - 1]?.type || "N/A";
-
-    const successRate =
-      completedInterviews.filter((i) => (i.score || 0) >= 70).length > 0
-        ? Math.round(
-            (completedInterviews.filter((i) => (i.score || 0) >= 70).length /
-              completedInterviews.length) *
-              100
-          )
-        : 0;
-
-    const completionRate =
-      totalInterviews > 0
-        ? Math.round((completedInterviews.length / totalInterviews) * 100)
-        : 0;
-
-    const monthlyData: { [key: string]: { scores: number[]; count: number } } =
-      {};
-    completedInterviews.forEach((interview) => {
-      const date =
-        interview.createdAt instanceof Date
-          ? interview.createdAt
-          : new Date(interview.createdAt);
-      const month = date.toLocaleDateString("en-US", { month: "short" });
-      if (!monthlyData[month]) {
-        monthlyData[month] = { scores: [], count: 0 };
-      }
-      monthlyData[month].scores.push(interview.score || 0);
-      monthlyData[month].count++;
-    });
-
-    const monthlyProgress = Object.entries(monthlyData).map(
-      ([month, data]) => ({
-        month,
-        score: Math.round(
-          data.scores.reduce((sum, score) => sum + score, 0) /
-            data.scores.length
-        ),
-        interviews: data.count,
-      })
-    );
-
-    const improvementRate =
-      monthlyProgress.length >= 2
-        ? Math.round(
-            ((monthlyProgress[monthlyProgress.length - 1].score -
-              monthlyProgress[0].score) /
-              monthlyProgress[0].score) *
-              100
-          )
-        : Math.max(0, Math.round(Math.random() * 15));
-
-    const currentStreak = Math.min(interviews.length, 7);
-
-    const skillProgress = typeBreakdown.map((type) => ({
-      skill: type.type,
-      current: type.avgScore,
-      target: Math.min(100, type.avgScore + 15),
-    }));
-
-    const strengthsMap: { [key: string]: number } = {};
-    const weaknessesMap: { [key: string]: number } = {};
-
-    skillProgress.forEach((skill) => {
-      if (skill.current >= 80) {
-        strengthsMap[skill.skill] = skill.current;
-      } else if (skill.current < 70) {
-        weaknessesMap[skill.skill] = skill.current;
-      }
-    });
-
-    const lastResumeUpdate = resumes.length > 0 
-      ? new Date(Math.max(...resumes.map(r => new Date(r.uploadedAt).getTime())))
-      : undefined;
-
-    return {
-      // Interview stats
-      totalInterviews,
-      averageScore,
-      improvementRate,
-      currentStreak,
-      longestStreak: currentStreak + 2,
-      hoursSpent: Math.round(totalInterviews * 0.75),
-      strengthsMap,
-      weaknessesMap,
-      monthlyProgress,
-      companyPreparation: [],
-      skillProgress,
-      typeBreakdown,
-      bestPerformingType,
-      worstPerformingType,
-      successRate,
-      completionRate,
-      // Resume stats
-      totalResumes,
-      averageResumeScore,
-      resumeImprovementRate,
-      resumeIssuesResolved,
-      lastResumeUpdate,
-      bestResumeScore,
-      resumeStrengths,
-      resumeWeaknesses,
-    };
-  };
-
-  // Enhanced AI recommendations including resume recommendations
-  const generateEnhancedAIRecommendations = (
-    interviews: Interview[],
-    resumes: Resume[],
-    stats: UserStats
-  ): AIRecommendation[] => {
-    const recommendations: AIRecommendation[] = [];
-
-    // Resume-specific recommendations
-    if (resumes.length === 0) {
-      recommendations.push({
-        category: "resume",
-        title: "Upload Your Resume for AI Analysis",
-        description:
-          "Get comprehensive feedback on your resume's ATS compatibility, structure, and content to increase your job application success rate.",
-        priority: "high",
-        resources: [
-          {
-            title: "Resume Best Practices Guide",
-            url: "/templates",
-            type: "article",
-          },
-        ],
-        estimatedTime: "10 minutes",
-        difficulty: "beginner",
-        impact: "High - Essential for job applications",
-        confidence: 95,
-      });
-    } else if (stats.averageResumeScore < 70) {
-      const weaknesses = stats.resumeWeaknesses;
-      recommendations.push({
-        category: "resume",
-        title: `Improve Your Resume Score (Currently ${stats.averageResumeScore}%)`,
-        description: `Focus on improving: ${weaknesses.join(", ")}. Your resume needs optimization to pass ATS systems and impress recruiters.`,
-        priority: "high",
-        resources: [
-          {
-            title: "ATS Optimization Guide",
-            url: "/resume-guide",
-            type: "article",
-          },
-        ],
-        estimatedTime: "2-3 hours",
-        difficulty: "intermediate",
-        impact: "High - Better application success rate",
-        confidence: 88,
-      });
-    }
-
-    // Combined recommendations for users with both interviews and resumes
-    if (interviews.length > 0 && resumes.length > 0) {
-      if (stats.averageScore > 75 && stats.averageResumeScore > 75) {
-        recommendations.push({
-          category: "technical",
-          title: "Ready for Senior-Level Opportunities",
-          description: "Your interview performance and resume are both strong. Consider targeting senior roles and challenging technical interviews.",
-          priority: "medium",
-          resources: [
-            {
-              title: "Senior Engineer Interview Guide",
-              url: "/advanced-interviews",
-              type: "course",
-            },
-          ],
-          estimatedTime: "1-2 weeks",
-          difficulty: "advanced",
-          impact: "Career advancement",
-          confidence: 85,
-        });
-      }
-    }
-
-    // Existing interview recommendations
-    if (stats.totalInterviews === 0) {
-      recommendations.push({
-        category: "technical",
-        title: "Start with Technical Interview Practice",
-        description:
-          "Begin your interview preparation journey by practicing fundamental technical questions and coding challenges.",
-        priority: "high",
-        resources: [
-          {
-            title: "LeetCode Easy Problems",
-            url: "https://leetcode.com",
-            type: "practice",
-          },
-        ],
-        estimatedTime: "2-3 weeks",
-        difficulty: "beginner",
-        impact: "High",
-        confidence: 92,
-      });
-    }
-
-    if (stats.averageScore < 70 && interviews.length > 0) {
-      recommendations.push({
-        category: "technical",
-        title: "Master Technical Interview Fundamentals",
-        description:
-          "Your current average indicates you need to focus on core computer science concepts.",
-        priority: "high",
-        estimatedTime: "3-4 weeks",
-        difficulty: "intermediate",
-        impact: "High",
-        confidence: 92,
-        resources: [
-          {
-            title: "Cracking the Coding Interview",
-            url: "https://www.crackingthecodinginterview.com/",
-            type: "book",
-            rating: 4.6,
-            users: "45K reviews",
-          },
-        ],
-      });
-    }
-
-    return recommendations.slice(0, 5); // Limit to top 5 recommendations
-  };
-
   const getGreeting = () => {
     const hour = currentTime.getHours();
     if (hour < 12) return "Good morning";
@@ -744,7 +776,9 @@ const Dashboard = () => {
     return "Good evening";
   };
 
-  // Main loading screen for initial data fetch
+  // ============ RENDER ============
+
+  // Main loading screen
   if (isLoading) {
     return (
       <AnimatedLoader
@@ -774,243 +808,336 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-black">
       <div className="w-full px-8 py-6">
         
         {/* Professional Header */}
-        <div className="bg-slate-800/60 backdrop-blur-xl rounded-3xl shadow-2xl border border-slate-700/50 mb-4">
+        <div className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-slate-200/50 dark:border-gray-700/50 mb-4">
           <div className="px-6 py-4">
             <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
               
               {/* User Profile Section */}
               <div className="flex items-center space-x-3">
                 <div className="relative">
-                  <div className="w-14 h-14 bg-gradient-to-br from-blue-500 via-purple-600 to-pink-500 rounded-2xl flex items-center justify-center shadow-xl border-2 border-white/10">
-                    <span className="text-white text-base font-bold">
-                      {userProfile.name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")}
-                    </span>
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white text-xl font-bold shadow-lg">
+                    {userProfile.name.charAt(0)}
                   </div>
-                  <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-400 border-2 border-slate-800 rounded-full animate-pulse"></div>
+                  <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white dark:border-gray-800"></div>
                 </div>
-
-                <div className="space-y-0.5">
-                  <h1 className="text-xl xl:text-2xl font-bold text-white">
-                    {getGreeting()}, {userProfile.name.split(" ")[0]}
-                  </h1>
-                  <p className="text-sm text-slate-300 font-medium">
-                    Ready to dominate your next interview?
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                    {getGreeting()}, {userProfile.name}
+                  </h2>
+                  <p className="text-slate-600 dark:text-gray-400 text-sm">
+                    {currentTime.toLocaleDateString("en-US", {
+                      weekday: "long",
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
                   </p>
                 </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center space-x-3">
-                <Link href="/resume/upload">
-                  <Button className="group relative overflow-hidden bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-4 py-2 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200">
-                    <Upload className="h-4 w-4 mr-2" />
-                    Upload Resume
-                  </Button>
-                </Link>
-                <Link href="/createinterview">
-                  <Button className="group relative overflow-hidden bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium px-5 py-2 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Start Interview
-                  </Button>
-                </Link>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Professional KPI Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-          
-          {/* Total Interviews */}
-          <div className="bg-slate-700/40 backdrop-blur-sm rounded-xl shadow-lg border border-slate-600/30 p-4 hover:bg-slate-700/60 transition-all duration-300">
-            <div className="flex items-center justify-between mb-2">
-              <div className="p-2 bg-blue-500 rounded-lg">
-                <Target className="h-4 w-4 text-white" />
+        {/* 8 Enhanced KPI Cards with Planner */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4 mb-6">
+          {/* Interview Readiness Score */}
+          <div className="bg-gradient-to-br from-purple-500/10 to-indigo-500/10 dark:from-purple-500/20 dark:to-indigo-500/20 rounded-2xl p-5 border border-purple-500/30 hover:shadow-xl transition-all duration-300 group">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-12 h-12 bg-purple-500/20 dark:bg-purple-500/30 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Target className="w-6 h-6 text-purple-600 dark:text-purple-400" />
               </div>
-              <ArrowUpRight className="h-3 w-3 text-blue-400" />
+              <div className="text-right">
+                <div className="text-3xl font-bold text-purple-600 dark:text-purple-400 mb-1 leading-none">
+                  {stats.interviewReadinessScore || 0}
+                </div>
+                <div className="text-purple-500 dark:text-purple-300 text-xs font-medium">
+                  /100
+                </div>
+              </div>
             </div>
             <div className="space-y-1">
-              <div className="text-2xl font-bold text-white">
-                {stats.totalInterviews}
+              <div className="text-purple-700 dark:text-purple-300 font-semibold text-sm">
+                Interview Readiness
               </div>
-              <div className="text-xs font-medium text-blue-400">
-                Total Interviews
+              <div className="text-purple-600/70 dark:text-purple-400/70 text-xs">
+                Overall preparation level
               </div>
-              <div className="text-xs text-slate-400">
-                +1 this month
+            </div>
+          </div>
+
+          {/* Planner Progress - DYNAMIC CARD */}
+          {stats.plannerStats && stats.plannerStats.currentPlan ? (
+            // Active Plan Card
+            <div 
+              className="bg-gradient-to-br from-teal-500/10 to-cyan-500/10 dark:from-teal-500/20 dark:to-cyan-500/20 rounded-2xl p-5 border border-teal-500/30 hover:shadow-xl transition-all duration-300 group cursor-pointer"
+              onClick={() => window.location.href = `/planner/${stats.plannerStats?.currentPlan?.id}`}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-12 h-12 bg-teal-500/20 dark:bg-teal-500/30 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Calendar className="w-6 h-6 text-teal-600 dark:text-teal-400" />
+                </div>
+                <div className="text-right">
+                  <div className="text-3xl font-bold text-teal-600 dark:text-teal-400 mb-1 leading-none">
+                    {stats.plannerStats.currentPlan.progress}%
+                  </div>
+                  <div className="text-teal-500 dark:text-teal-300 text-xs font-medium">
+                    {stats.plannerStats.currentPlan.daysRemaining}d left
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-teal-700 dark:text-teal-300 font-semibold text-sm truncate" title={stats.plannerStats.currentPlan.role}>
+                  {stats.plannerStats.currentPlan.role}
+                </div>
+                <div className="text-teal-600/70 dark:text-teal-400/70 text-xs">
+                  Active preparation plan
+                </div>
+              </div>
+              <div className="mt-3 h-2 bg-teal-200 dark:bg-teal-900/30 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-teal-500 to-cyan-500 transition-all duration-500"
+                  style={{ width: `${stats.plannerStats.currentPlan.progress}%` }}
+                />
+              </div>
+            </div>
+          ) : stats.plannerStats && stats.plannerStats.totalPlans > 0 ? (
+            // Completed Plans Card
+            <div 
+              className="bg-gradient-to-br from-teal-500/10 to-cyan-500/10 dark:from-teal-500/20 dark:to-cyan-500/20 rounded-2xl p-5 border border-teal-500/30 hover:shadow-xl transition-all duration-300 group cursor-pointer"
+              onClick={() => window.location.href = '/planner'}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-12 h-12 bg-teal-500/20 dark:bg-teal-500/30 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <CheckCircle2 className="w-6 h-6 text-teal-600 dark:text-teal-400" />
+                </div>
+                <div className="text-right">
+                  <div className="text-3xl font-bold text-teal-600 dark:text-teal-400 mb-1 leading-none">
+                    {stats.plannerStats.completedPlans}
+                  </div>
+                  <div className="text-teal-500 dark:text-teal-300 text-xs font-medium">
+                    of {stats.plannerStats.totalPlans}
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-teal-700 dark:text-teal-300 font-semibold text-sm">
+                  Plans Completed
+                </div>
+                <div className="text-teal-600/70 dark:text-teal-400/70 text-xs">
+                  {stats.plannerStats.totalTasksCompleted} tasks done
+                </div>
+              </div>
+            </div>
+          ) : (
+            // No Plans - Create One Card
+            <div 
+              className="bg-gradient-to-br from-teal-500/10 to-cyan-500/10 dark:from-teal-500/20 dark:to-cyan-500/20 rounded-2xl p-5 border border-teal-500/30 hover:shadow-xl transition-all duration-300 group cursor-pointer"
+              onClick={() => window.location.href = '/planner/create'}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-12 h-12 bg-teal-500/20 dark:bg-teal-500/30 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <BookOpen className="w-6 h-6 text-teal-600 dark:text-teal-400" />
+                </div>
+                <div className="text-right">
+                  <div className="text-3xl font-bold text-teal-600 dark:text-teal-400 mb-1 leading-none">
+                    0
+                  </div>
+                  <div className="text-teal-500 dark:text-teal-300 text-xs font-medium">
+                    plans
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-teal-700 dark:text-teal-300 font-semibold text-sm">
+                  Study Planner
+                </div>
+                <div className="text-teal-600/70 dark:text-teal-400/70 text-xs">
+                  Click to create your first plan
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Weekly Velocity */}
+          <div className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 dark:from-blue-500/20 dark:to-cyan-500/20 rounded-2xl p-5 border border-blue-500/30 hover:shadow-xl transition-all duration-300 group">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-12 h-12 bg-blue-500/20 dark:bg-blue-500/30 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Zap className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div className="text-right">
+                <div className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-1 leading-none">
+                  {stats.weeklyVelocity || 0}
+                </div>
+                <div className="text-blue-500 dark:text-blue-300 text-xs font-medium">
+                  of {stats.weeklyTarget || 3}
+                </div>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <div className="text-blue-700 dark:text-blue-300 font-semibold text-sm">
+                Weekly Velocity
+              </div>
+              <div className="text-blue-600/70 dark:text-blue-400/70 text-xs">
+                This week's practice count
+              </div>
+            </div>
+          </div>
+
+          {/* Technical Depth */}
+          <div className="bg-gradient-to-br from-emerald-500/10 to-green-500/10 dark:from-emerald-500/20 dark:to-green-500/20 rounded-2xl p-5 border border-emerald-500/30 hover:shadow-xl transition-all duration-300 group">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-12 h-12 bg-emerald-500/20 dark:bg-emerald-500/30 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Brain className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div className="text-right">
+                <div className="flex items-center justify-end gap-0.5 mb-1">
+                  {[1, 2, 3, 4, 5].map((starNumber) => {
+                    const depth = stats.technicalDepth || 0;
+                    const filledStars = Math.floor(depth / 10);
+                    
+                    return (
+                      <Star
+                        key={starNumber}
+                        className={`w-5 h-5 transition-all ${
+                          starNumber <= filledStars
+                            ? "text-emerald-500 fill-emerald-500"
+                            : "text-emerald-300 dark:text-emerald-700"
+                        }`}
+                        fill={starNumber <= filledStars ? "currentColor" : "none"}
+                      />
+                    );
+                  })}
+                </div>
+                <div className="text-emerald-500 dark:text-emerald-300 text-xs font-medium">
+                  {stats.technicalDepth || 0}/50
+                </div>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <div className="text-emerald-700 dark:text-emerald-300 font-semibold text-sm">
+                Technical Depth
+              </div>
+              <div className="text-emerald-600/70 dark:text-emerald-400/70 text-xs">
+                Expertise level rating
+              </div>
+            </div>
+          </div>
+
+          {/* Communication Score */}
+          <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 dark:from-amber-500/20 dark:to-orange-500/20 rounded-2xl p-5 border border-amber-500/30 hover:shadow-xl transition-all duration-300 group">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-12 h-12 bg-amber-500/20 dark:bg-amber-500/30 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Users className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div className="text-right">
+                <div className="text-3xl font-bold text-amber-600 dark:text-amber-400 mb-1 leading-none">
+                  {stats.communicationScore || 0}
+                </div>
+                <div className="text-amber-500 dark:text-amber-300 text-xs font-medium">
+                  /100
+                </div>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <div className="text-amber-700 dark:text-amber-300 font-semibold text-sm">
+                Communication
+              </div>
+              <div className="text-amber-600/70 dark:text-amber-400/70 text-xs">
+                Articulation & clarity
               </div>
             </div>
           </div>
 
           {/* Average Score */}
-          <div className="bg-slate-700/40 backdrop-blur-sm rounded-xl shadow-lg border border-slate-600/30 p-4 hover:bg-slate-700/60 transition-all duration-300">
-            <div className="flex items-center justify-between mb-2">
-              <div className="p-2 bg-emerald-500 rounded-lg">
-                <Award className="h-4 w-4 text-white" />
+          <div className="bg-gradient-to-br from-indigo-500/10 to-blue-500/10 dark:from-indigo-500/20 dark:to-blue-500/20 rounded-2xl p-5 border border-indigo-500/30 hover:shadow-xl transition-all duration-300 group">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-12 h-12 bg-indigo-500/20 dark:bg-indigo-500/30 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                <TrendingUp className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
               </div>
-              {stats.improvementRate < 0 ? 
-                <ArrowDownRight className="h-3 w-3 text-red-400" /> : 
-                <ArrowUpRight className="h-3 w-3 text-emerald-400" />
-              }
+              <div className="text-right">
+                <div className="text-3xl font-bold text-indigo-600 dark:text-indigo-400 mb-1 leading-none">
+                  {stats.averageScore}%
+                </div>
+                <div className="text-indigo-500 dark:text-indigo-300 text-xs font-medium">
+                  {stats.improvementRate > 0 ? `+${stats.improvementRate}%` : `${stats.improvementRate}%`}
+                </div>
+              </div>
             </div>
             <div className="space-y-1">
-              <div className="text-2xl font-bold text-white">
-                {stats.averageScore}%
+              <div className="text-indigo-700 dark:text-indigo-300 font-semibold text-sm">
+                Average Score
               </div>
-              <div className="text-xs font-medium text-emerald-400">
-                Interview Score
-              </div>
-              <div className="text-xs text-slate-400">
-                {stats.improvementRate < 0 ? '' : '+'}{stats.improvementRate}% vs last month
-              </div>
-            </div>
-          </div>
-
-          {/* Success Rate */}
-          <div className="bg-slate-700/40 backdrop-blur-sm rounded-xl shadow-lg border border-slate-600/30 p-4 hover:bg-slate-700/60 transition-all duration-300 relative overflow-hidden">
-            <div className="absolute inset-0 border-2 border-purple-500/30 rounded-xl"></div>
-            <div className="flex items-center justify-between mb-2">
-              <div className="p-2 bg-purple-500 rounded-lg">
-                <Trophy className="h-4 w-4 text-white" />
-              </div>
-              <ArrowDownRight className="h-3 w-3 text-red-400" />
-            </div>
-            <div className="space-y-1">
-              <div className="text-2xl font-bold text-white">
-                {stats.successRate}%
-              </div>
-              <div className="text-xs font-medium text-purple-400">
-                Success Rate
-              </div>
-              <div className="text-xs text-slate-500">
-                Interviews ≥70% score
-              </div>
-            </div>
-          </div>
-
-          {/* Current Streak */}
-          <div className="bg-slate-700/40 backdrop-blur-sm rounded-xl shadow-lg border border-slate-600/30 p-4 hover:bg-slate-700/60 transition-all duration-300">
-            <div className="flex items-center justify-between mb-2">
-              <div className="p-2 bg-amber-500 rounded-lg">
-                <Zap className="h-4 w-4 text-white" />
-              </div>
-              <ArrowUpRight className="h-3 w-3 text-amber-400" />
-            </div>
-            <div className="space-y-1">
-              <div className="text-2xl font-bold text-white">
-                {stats.currentStreak}
-              </div>
-              <div className="text-xs font-medium text-amber-400">
-                Day Streak
-              </div>
-              <div className="text-xs text-slate-400">
-                Best: {stats.longestStreak} days
+              <div className="text-indigo-600/70 dark:text-indigo-400/70 text-xs">
+                Overall performance
               </div>
             </div>
           </div>
 
           {/* Resume Score */}
-          <div className="bg-slate-700/40 backdrop-blur-sm rounded-xl shadow-lg border border-slate-600/30 p-4 hover:bg-slate-700/60 transition-all duration-300">
-            <div className="flex items-center justify-between mb-2">
-              <div className="p-2 bg-indigo-500 rounded-lg">
-                <FileText className="h-4 w-4 text-white" />
+          <div className="bg-gradient-to-br from-pink-500/10 to-rose-500/10 dark:from-pink-500/20 dark:to-rose-500/20 rounded-2xl p-5 border border-pink-500/30 hover:shadow-xl transition-all duration-300 group">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-12 h-12 bg-pink-500/20 dark:bg-pink-500/30 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                <FileText className="w-6 h-6 text-pink-600 dark:text-pink-400" />
               </div>
-              <ArrowDownRight className="h-3 w-3 text-red-400" />
+              <div className="text-right">
+                <div className="text-3xl font-bold text-pink-600 dark:text-pink-400 mb-1 leading-none">
+                  {stats.averageResumeScore || 0}%
+                </div>
+                <div className="text-pink-500 dark:text-pink-300 text-xs font-medium">
+                  {stats.totalResumes || 0} resumes
+                </div>
+              </div>
             </div>
             <div className="space-y-1">
-              <div className="text-2xl font-bold text-white">
-                {stats.averageResumeScore}%
+              <div className="text-pink-700 dark:text-pink-300 font-semibold text-sm">
+                Resume Quality
               </div>
-              <div className="text-xs font-medium text-indigo-400">
-                Resume Score
-              </div>
-              <div className="text-xs text-slate-500">
-                {stats.totalResumes} resume{stats.totalResumes !== 1 ? 's' : ''} analyzed
+              <div className="text-pink-600/70 dark:text-pink-400/70 text-xs">
+                ATS & content score
               </div>
             </div>
           </div>
 
-          {/* Time Invested */}
-          <div className="bg-slate-700/40 backdrop-blur-sm rounded-xl shadow-lg border border-slate-600/30 p-4 hover:bg-slate-700/60 transition-all duration-300">
-            <div className="flex items-center justify-between mb-2">
-              <div className="p-2 bg-cyan-500 rounded-lg">
-                <Timer className="h-4 w-4 text-white" />
+          {/* Total Interviews */}
+          <div className="bg-gradient-to-br from-violet-500/10 to-purple-500/10 dark:from-violet-500/20 dark:to-purple-500/20 rounded-2xl p-5 border border-violet-500/30 hover:shadow-xl transition-all duration-300 group">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-12 h-12 bg-violet-500/20 dark:bg-violet-500/30 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Activity className="w-6 h-6 text-violet-600 dark:text-violet-400" />
               </div>
-              <ArrowUpRight className="h-3 w-3 text-cyan-400" />
+              <div className="text-right">
+                <div className="text-3xl font-bold text-violet-600 dark:text-violet-400 mb-1 leading-none">
+                  {stats.totalInterviews}
+                </div>
+                <div className="text-violet-500 dark:text-violet-300 text-xs font-medium">
+                  {stats.hoursSpent}h practiced
+                </div>
+              </div>
             </div>
             <div className="space-y-1">
-              <div className="text-2xl font-bold text-white">
-                {stats.hoursSpent}h
+              <div className="text-violet-700 dark:text-violet-300 font-semibold text-sm">
+                Total Interviews
               </div>
-              <div className="text-xs font-medium text-cyan-400">
-                Practice Time
-              </div>
-              <div className="text-xs text-slate-400">
-                This month
-              </div>
-            </div>
-          </div>
-
-          {/* Completion Rate */}
-          <div className="bg-slate-700/40 backdrop-blur-sm rounded-xl shadow-lg border border-slate-600/30 p-4 hover:bg-slate-700/60 transition-all duration-300">
-            <div className="flex items-center justify-between mb-2">
-              <div className="p-2 bg-rose-500 rounded-lg">
-                <CheckCircle className="h-4 w-4 text-white" />
-              </div>
-              <ArrowUpRight className="h-3 w-3 text-rose-400" />
-            </div>
-            <div className="space-y-1">
-              <div className="text-2xl font-bold text-white">
-                {stats.completionRate}%
-              </div>
-              <div className="text-xs font-medium text-rose-400">
-                Completion Rate
-              </div>
-              <div className="text-xs text-slate-400">
-                Interviews finished
-              </div>
-            </div>
-          </div>
-
-          {/* Issues Resolved */}
-          <div className="bg-slate-700/40 backdrop-blur-sm rounded-xl shadow-lg border border-slate-600/30 p-4 hover:bg-slate-700/60 transition-all duration-300">
-            <div className="flex items-center justify-between mb-2">
-              <div className="p-2 bg-teal-500 rounded-lg">
-                <Shield className="h-4 w-4 text-white" />
-              </div>
-              <ArrowUpRight className="h-3 w-3 text-teal-400" />
-            </div>
-            <div className="space-y-1">
-              <div className="text-2xl font-bold text-white">
-                {stats.resumeIssuesResolved}
-              </div>
-              <div className="text-xs font-medium text-teal-400">
-                Issues Resolved
-              </div>
-              <div className="text-xs text-slate-500">
-                Resume improvements
+              <div className="text-violet-600/70 dark:text-violet-400/70 text-xs">
+                Practice sessions
               </div>
             </div>
           </div>
         </div>
 
-        {/* Navigation Tabs - Dark Theme */}
+        {/* Navigation Tabs */}
         <div className="relative mb-6">
-          <div className="bg-slate-800/60 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-700/50">
+          <div className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-200/50 dark:border-gray-700/50">
             <div className="flex space-x-2 overflow-x-auto p-2">
               {[
                 { id: "overview", label: "Executive Overview", icon: Activity },
                 { id: "interviews", label: "Interview Mastery", icon: Target },
+                { id: "resumes", label: "Resume Intelligence", icon: FileText },
                 { id: "analytics", label: "Performance Analytics", icon: BarChart3 },
                 { id: "recommendations", label: "AI Insights", icon: Brain },
-                { id: "resumes", label: "Resume Intelligence", icon: FileText },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -1019,7 +1146,7 @@ const Dashboard = () => {
                   className={`group relative flex items-center px-4 py-3 rounded-xl font-medium text-sm whitespace-nowrap transition-all duration-300 disabled:opacity-50 ${
                     activeTab === tab.id
                       ? "bg-purple-600 text-white shadow-lg"
-                      : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
+                      : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200 hover:bg-slate-100/50 dark:hover:bg-gray-700/50"
                   }`}
                 >
                   <tab.icon className="h-4 w-4 mr-2" />
@@ -1035,17 +1162,17 @@ const Dashboard = () => {
           {tabLoading ? (
             <div className="flex items-center justify-center py-32">
               <div className="text-center">
-                <div className="w-16 h-16 border-4 border-slate-600 border-t-purple-500 rounded-full animate-spin mx-auto mb-6"></div>
-                <div className="text-slate-300 text-lg font-medium">
-                  Loading {activeTab} analytics...
+                <div className="w-16 h-16 border-4 border-slate-200 dark:border-gray-600 border-t-purple-500 rounded-full animate-spin mx-auto mb-6"></div>
+                <div className="text-slate-700 dark:text-gray-300 text-lg font-medium">
+                  Loading {activeTab} data...
                 </div>
-                <div className="text-slate-500 text-sm mt-2">
+                <div className="text-slate-500 dark:text-gray-500 text-sm mt-2">
                   Please wait while we prepare your insights
                 </div>
               </div>
             </div>
           ) : (
-            <div className="bg-slate-800/40 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-700/50 p-8">
+            <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-200/50 dark:border-gray-700/50 p-8">
               {activeTab === "overview" && (
                 <ProfileOverview
                   userProfile={userProfile}
@@ -1065,6 +1192,10 @@ const Dashboard = () => {
                 />
               )}
 
+              {activeTab === "resumes" && (
+                <Resumes user={userProfile} loading={false} />
+              )}
+
               {activeTab === "analytics" && (
                 <ProfileAnalytics 
                   stats={stats} 
@@ -1080,34 +1211,14 @@ const Dashboard = () => {
                   interviews={interviews}
                   resumes={resumes}
                   aiRecommendations={aiRecommendations}
-                  generateAIRecommendations={generateEnhancedAIRecommendations}
+                  generateAIRecommendations={() => aiRecommendations}
                   loading={false}
                 />
-              )}
-
-              {activeTab === "resumes" && (
-                <Resumes user={user} loading={false} />
               )}
             </div>
           )}
         </div>
-
-        {/* Professional Floating Actions - Dark Theme */}
-        <div className="fixed bottom-8 right-8 lg:hidden z-30 flex flex-col space-y-4">
-          <Link href="/resume/upload">
-            <Button className="group w-14 h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-110">
-              <FileText className="h-6 w-6" />
-            </Button>
-          </Link>
-          <Link href="/createinterview">
-            <Button className="group w-16 h-16 rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-110">
-              <Plus className="h-7 w-7" />
-            </Button>
-          </Link>
-        </div>
       </div>
     </div>
   );
-};
-
-export default Dashboard;
+}

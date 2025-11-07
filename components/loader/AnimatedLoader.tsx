@@ -5,13 +5,19 @@ interface AnimatedLoaderProps {
   onHide?: () => void;
   loadingText?: string;
   duration?: number;
+  onDashboard?: () => void;
+  onBack?: () => void;
+  showNavigation?: boolean;
 }
 
 const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
   isVisible,
   onHide,
   loadingText = "Loading",
-  duration
+  duration,
+  onDashboard,
+  onBack,
+  showNavigation = true
 }) => {
   const [shouldRender, setShouldRender] = useState(isVisible);
   const [fadeOut, setFadeOut] = useState(false);
@@ -59,6 +65,47 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
           font-family: 'Arial', sans-serif;
           overflow: hidden;
           z-index: 9999;
+        }
+
+        .nav-buttons {
+          position: absolute;
+          top: 20px;
+          right: 20px;
+          display: flex;
+          gap: 12px;
+          z-index: 10000;
+        }
+
+        .nav-button {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 20px;
+          background: rgba(79, 70, 229, 0.2);
+          border: 1px solid rgba(79, 70, 229, 0.4);
+          border-radius: 8px;
+          color: #e2e8f0;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          backdrop-filter: blur(10px);
+        }
+
+        .nav-button:hover {
+          background: rgba(79, 70, 229, 0.4);
+          border-color: rgba(79, 70, 229, 0.6);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        }
+
+        .nav-button:active {
+          transform: translateY(0px);
+        }
+
+        .button-icon {
+          width: 16px;
+          height: 16px;
         }
 
         .logo-wrapper {
@@ -289,10 +336,51 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
           .progress-bar {
             width: 150px;
           }
+
+          .nav-buttons {
+            top: 10px;
+            right: 10px;
+            gap: 8px;
+          }
+
+          .nav-button {
+            padding: 8px 16px;
+            font-size: 12px;
+          }
+
+          .button-icon {
+            width: 14px;
+            height: 14px;
+          }
         }
       `}</style>
 
       <div className={`loader-container ${fadeOut ? 'fade-out' : ''}`}>
+        {/* Navigation Buttons */}
+        {showNavigation && (
+          <div className="nav-buttons">
+            {onBack && (
+              <button className="nav-button" onClick={onBack}>
+                <svg className="button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M19 12H5M12 19l-7-7 7-7" />
+                </svg>
+                Back
+              </button>
+            )}
+            {onDashboard && (
+              <button className="nav-button" onClick={onDashboard}>
+                <svg className="button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="7" height="7" />
+                  <rect x="14" y="3" width="7" height="7" />
+                  <rect x="14" y="14" width="7" height="7" />
+                  <rect x="3" y="14" width="7" height="7" />
+                </svg>
+                Dashboard
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Floating Particles */}
         <div className="particles">
           {[...Array(5)].map((_, i) => (
