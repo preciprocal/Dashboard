@@ -24,7 +24,6 @@ import {
 } from "lucide-react";
 import FullScreenInterviewPanel from "./FullScreenInterviewpanel";
 
-// Simple client-side tech icons component as fallback
 const TechStackDisplay = ({ techStack }: { techStack: string[] }) => {
   if (!techStack || techStack.length === 0) {
     return <span className="text-slate-400 text-sm">No technologies specified</span>;
@@ -35,7 +34,7 @@ const TechStackDisplay = ({ techStack }: { techStack: string[] }) => {
       {techStack.map((tech, index) => (
         <span
           key={index}
-          className="px-2 py-1 bg-slate-700/50 text-slate-300 rounded-md text-xs border border-slate-600/30"
+          className="px-2 py-1 bg-blue-500/10 text-blue-400 rounded text-xs border border-blue-500/20"
         >
           {tech}
         </span>
@@ -69,16 +68,11 @@ const InterviewDetailsClient = ({
 }: InterviewDetailsClientProps) => {
   const router = useRouter();
 
-  // Main state to control view
   const [currentView, setCurrentView] = useState<"waiting" | "interview">("waiting");
-
-  // Device states
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [isAudioOn, setIsAudioOn] = useState(true);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
-
-  // Setup states
   const [isDeviceReady, setIsDeviceReady] = useState(false);
   const [deviceStatus, setDeviceStatus] = useState({
     camera: "checking",
@@ -91,7 +85,6 @@ const InterviewDetailsClient = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Time update
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
@@ -99,7 +92,6 @@ const InterviewDetailsClient = ({
     return () => clearInterval(timer);
   }, []);
 
-  // Cleanup camera stream when component unmounts or view changes
   useEffect(() => {
     return () => {
       if (streamRef.current) {
@@ -111,22 +103,18 @@ const InterviewDetailsClient = ({
     };
   }, [currentView]);
 
-  // Device checking and camera management
   useEffect(() => {
     const checkDevices = async () => {
       try {
-        // Check microphone
         setDeviceStatus(prev => ({ ...prev, microphone: "checking" }));
         const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         setDeviceStatus(prev => ({ ...prev, microphone: "ready" }));
         audioStream.getTracks().forEach(track => track.stop());
 
-        // Check camera
         setDeviceStatus(prev => ({ ...prev, camera: "checking" }));
         await startVideoStream();
         setDeviceStatus(prev => ({ ...prev, camera: "ready" }));
 
-        // Speaker check (simulated)
         setDeviceStatus(prev => ({ ...prev, speaker: "ready" }));
         setIsDeviceReady(true);
 
@@ -153,10 +141,8 @@ const InterviewDetailsClient = ({
     }
   }, [currentView]);
 
-  // Function to start video stream
   const startVideoStream = async () => {
     try {
-      // Stop existing stream first
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
@@ -177,7 +163,6 @@ const InterviewDetailsClient = ({
     }
   };
 
-  // Function to stop video stream
   const stopVideoStream = () => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => {
@@ -191,14 +176,11 @@ const InterviewDetailsClient = ({
     }
   };
 
-  // Handle video toggle
   const toggleVideo = async () => {
     if (isVideoOn) {
-      // Turning video off
       stopVideoStream();
       setIsVideoOn(false);
     } else {
-      // Turning video on
       try {
         await startVideoStream();
         setIsVideoOn(true);
@@ -209,7 +191,6 @@ const InterviewDetailsClient = ({
     }
   };
 
-  // Generate interview panel data
   const getInterviewPanel = () => {
     const generateNames = (id: string) => {
       const hash = (id || "default").split("").reduce((a, b) => {
@@ -299,41 +280,41 @@ const InterviewDetailsClient = ({
   const getTypeColor = (type: string) => {
     switch (type.toLowerCase()) {
       case "technical":
-        return "bg-blue-500/20 text-blue-300 border-blue-500/30";
+        return "bg-blue-500/10 text-blue-400 border-blue-500/20";
       case "behavioural":
       case "behavioral":
-        return "bg-green-500/20 text-green-300 border-green-500/30";
+        return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
       case "mixed":
-        return "bg-purple-500/20 text-purple-300 border-purple-500/30";
+        return "bg-purple-500/10 text-purple-400 border-purple-500/20";
       default:
-        return "bg-gray-500/20 text-gray-300 border-gray-500/30";
+        return "bg-slate-500/10 text-slate-400 border-slate-500/20";
     }
   };
 
   const getLevelColor = (level: string) => {
     switch (level.toLowerCase()) {
       case "entry":
-        return "bg-emerald-500/20 text-emerald-300 border-emerald-500/30";
+        return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
       case "mid":
-        return "bg-amber-500/20 text-amber-300 border-amber-500/30";
+        return "bg-amber-500/10 text-amber-400 border-amber-500/20";
       case "senior":
-        return "bg-red-500/20 text-red-300 border-red-500/30";
+        return "bg-red-500/10 text-red-400 border-red-500/20";
       default:
-        return "bg-gray-500/20 text-gray-300 border-gray-500/30";
+        return "bg-slate-500/10 text-slate-400 border-slate-500/20";
     }
   };
 
   const getDeviceStatusIcon = (status: string) => {
     switch (status) {
       case "ready":
-        return <CheckCircle2 className="w-4 h-4 text-green-500" />;
+        return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
       case "checking":
         return <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />;
       case "denied":
       case "error":
         return <AlertCircle className="w-4 h-4 text-red-500" />;
       default:
-        return <AlertCircle className="w-4 h-4 text-gray-500" />;
+        return <AlertCircle className="w-4 h-4 text-slate-500" />;
     }
   };
 
@@ -342,7 +323,6 @@ const InterviewDetailsClient = ({
     
     setIsJoining(true);
     
-    // 4-second delay before navigating to full screen panel
     setTimeout(() => {
       setCurrentView("interview");
       setIsJoining(false);
@@ -350,14 +330,11 @@ const InterviewDetailsClient = ({
   };
 
   const handleExitInterview = () => {
-    // Clean up camera stream when exiting interview
     stopVideoStream();
     setCurrentView("waiting");
-    // Reset video state for next time
     setIsVideoOn(true);
   };
 
-  // Show full screen interview panel
   if (currentView === "interview") {
     return (
       <FullScreenInterviewPanel
@@ -374,199 +351,204 @@ const InterviewDetailsClient = ({
     );
   }
 
-  // Show waiting room
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800">
-      {/* Navigation Bar */}
-      <div className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700/50">
+    <div className="min-h-screen">
+      {/* Navigation */}
+      <div className="glass-card border-b border-white/5">
         <div className="px-6 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 text-sm text-slate-400">
+            <div className="flex items-center gap-2 text-sm text-slate-400">
               <Link href="/" className="hover:text-white transition-colors">
                 Dashboard
-              </Link>
-              <span>/</span>
-              <Link href="/interviews" className="hover:text-white transition-colors">
-                Interviews
               </Link>
               <span>/</span>
               <span className="text-white">Waiting Room</span>
             </div>
 
-            <div className="flex items-center space-x-4 text-sm text-slate-400">
-              <div className="bg-slate-700/50 px-3 py-1 rounded-full">
-                {currentTime.toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </div>
+            <div className="text-sm text-slate-400">
+              {currentTime.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
             </div>
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Main Panel - Device Setup & Preview */}
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Main Panel */}
           <div className="lg:col-span-2 space-y-6">
             {/* Header */}
-            <div className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 rounded-xl p-6 border border-slate-600">
-              <div className="flex items-center space-x-4 mb-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-700 rounded-xl flex items-center justify-center shadow-xl border-2 border-slate-500">
-                  <Users className="w-8 h-8 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-white mb-1">
-                    {interview.role} Interview
-                  </h1>
-                  <p className="text-slate-300">
-                    Panel Interview • {interview.questions.length} Questions • {Math.ceil(interview.questions.length * 3)} min
-                  </p>
-                </div>
-              </div>
+            <div className="glass-card hover-lift">
+              <div className="p-6">
+                <Link
+                  href="/dashboard"
+                  className="inline-flex items-center text-sm text-slate-400 hover:text-white mb-4 transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Dashboard
+                </Link>
 
-              <div className="flex flex-wrap gap-3">
-                <div className={`px-4 py-2 rounded-full border font-medium backdrop-blur-sm text-sm ${getTypeColor(interview.type)}`}>
-                  {interview.type.toLowerCase() === "technical" ? "💻" : interview.type.toLowerCase() === "behavioural" || interview.type.toLowerCase() === "behavioral" ? "🗣️" : "🎯"} {interview.type}
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
+                    <Users className="w-7 h-7 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-semibold text-white mb-1">
+                      {interview.role}
+                    </h1>
+                    <p className="text-slate-400 text-sm">
+                      Panel Interview • {interview.questions.length} Questions • {Math.ceil(interview.questions.length * 3)} min
+                    </p>
+                  </div>
                 </div>
-                <div className={`px-4 py-2 rounded-full border font-medium backdrop-blur-sm text-sm ${getLevelColor(interview.level)}`}>
-                  {interview.level.toLowerCase() === "entry" ? "🌱" : interview.level.toLowerCase() === "mid" ? "🚀" : "👑"} {interview.level.charAt(0).toUpperCase() + interview.level.slice(1)}
-                </div>
-              </div>
 
-              <div className="mt-4 p-4 bg-slate-800/60 backdrop-blur-sm rounded-lg border border-slate-600/50">
-                <div className="flex items-center gap-3">
-                  <span className="text-slate-300 font-medium text-sm">Technologies:</span>
-                  <TechStackDisplay techStack={interview.techstack} />
+                <div className="flex flex-wrap gap-3">
+                  <div className={`px-3 py-1.5 rounded-lg border font-medium text-sm ${getTypeColor(interview.type)}`}>
+                    {interview.type}
+                  </div>
+                  <div className={`px-3 py-1.5 rounded-lg border font-medium text-sm ${getLevelColor(interview.level)}`}>
+                    {interview.level.charAt(0).toUpperCase() + interview.level.slice(1)}
+                  </div>
+                </div>
+
+                <div className="mt-4 glass-card p-4 border border-white/5">
+                  <div className="flex items-center gap-3">
+                    <span className="text-slate-400 text-sm">Technologies:</span>
+                    <TechStackDisplay techStack={interview.techstack} />
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Video Preview */}
-            <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700/50 p-6">
-              <h3 className="text-white font-semibold mb-4 flex items-center space-x-2">
-                <Camera className="w-5 h-5 text-blue-400" />
-                <span>Camera Preview</span>
-              </h3>
+            <div className="glass-card">
+              <div className="p-6">
+                <h3 className="text-white font-medium mb-4 flex items-center gap-2">
+                  <Camera className="w-5 h-5 text-blue-400" />
+                  <span>Camera Preview</span>
+                </h3>
 
-              <div className="relative aspect-video bg-slate-900 rounded-lg overflow-hidden border border-slate-600">
-                {isVideoOn && deviceStatus.camera === "ready" ? (
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    muted
-                    playsInline
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <div className="text-center">
-                      <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <span className="text-white text-2xl font-bold">
-                          {userName?.charAt(0)?.toUpperCase() || "C"}
-                        </span>
-                      </div>
-                      <p className="text-slate-400">
-                        {!isVideoOn ? "Camera is off" : "Camera not available"}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Control overlay */}
-                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-3">
-                  <button
-                    onClick={toggleVideo}
-                    className={`p-3 rounded-full transition-all ${
-                      isVideoOn
-                        ? 'bg-slate-700/80 hover:bg-slate-600/80 text-white'
-                        : 'bg-red-600/80 hover:bg-red-700/80 text-white'
-                    }`}
-                  >
-                    {isVideoOn ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
-                  </button>
-
-                  <button
-                    onClick={() => setIsAudioOn(!isAudioOn)}
-                    className={`p-3 rounded-full transition-all ${
-                      isAudioOn
-                        ? 'bg-slate-700/80 hover:bg-slate-600/80 text-white'
-                        : 'bg-red-600/80 hover:bg-red-700/80 text-white'
-                    }`}
-                  >
-                    {isAudioOn ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
-                  </button>
-
-                  <button
-                    onClick={() => setIsSpeakerOn(!isSpeakerOn)}
-                    className={`p-3 rounded-full transition-all ${
-                      isSpeakerOn
-                        ? 'bg-slate-700/80 hover:bg-slate-600/80 text-white'
-                        : 'bg-red-600/80 hover:bg-red-700/80 text-white'
-                    }`}
-                  >
-                    {isSpeakerOn ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-                  </button>
-
-                  <button
-                    onClick={() => setShowDeviceSettings(!showDeviceSettings)}
-                    className="p-3 rounded-full bg-slate-700/80 hover:bg-slate-600/80 text-white transition-all"
-                  >
-                    <Settings className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Device Status */}
-              <div className="mt-4 grid grid-cols-3 gap-4">
-                <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-600/30">
-                  <div className="flex items-center space-x-2 mb-2">
-                    {getDeviceStatusIcon(deviceStatus.camera)}
-                    <span className="text-sm font-medium text-white">Camera</span>
-                  </div>
-                  <p className="text-xs text-slate-400 capitalize">{deviceStatus.camera}</p>
-                </div>
-
-                <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-600/30">
-                  <div className="flex items-center space-x-2 mb-2">
-                    {getDeviceStatusIcon(deviceStatus.microphone)}
-                    <span className="text-sm font-medium text-white">Microphone</span>
-                  </div>
-                  <p className="text-xs text-slate-400 capitalize">{deviceStatus.microphone}</p>
-                </div>
-
-                <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-600/30">
-                  <div className="flex items-center space-x-2 mb-2">
-                    {getDeviceStatusIcon(deviceStatus.speaker)}
-                    <span className="text-sm font-medium text-white">Speaker</span>
-                  </div>
-                  <p className="text-xs text-slate-400 capitalize">{deviceStatus.speaker}</p>
-                </div>
-              </div>
-
-              {/* Join Button */}
-              <div className="mt-6">
-                <button
-                  onClick={handleJoinInterview}
-                  disabled={!isDeviceReady || isJoining}
-                  className={`w-full py-4 rounded-lg font-semibold text-lg transition-all duration-200 flex items-center justify-center space-x-3 ${
-                    isDeviceReady && !isJoining
-                      ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl hover:scale-[1.02]'
-                      : 'bg-slate-600 text-slate-400 cursor-not-allowed'
-                  }`}
-                >
-                  {isJoining ? (
-                    <>
-                      <Loader2 className="w-6 h-6 animate-spin" />
-                      <span>Connecting...</span>
-                    </>
+                <div className="relative aspect-video bg-slate-900 rounded-lg overflow-hidden border border-white/5">
+                  {isVideoOn && deviceStatus.camera === "ready" ? (
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      muted
+                      playsInline
+                      className="w-full h-full object-cover"
+                    />
                   ) : (
-                    <>
-                      <ArrowRight className="w-6 h-6" />
-                      <span>Join Interview</span>
-                    </>
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-center">
+                        <div className="w-20 h-20 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <span className="text-white text-2xl font-semibold">
+                            {userName?.charAt(0)?.toUpperCase() || "C"}
+                          </span>
+                        </div>
+                        <p className="text-slate-400">
+                          {!isVideoOn ? "Camera is off" : "Camera not available"}
+                        </p>
+                      </div>
+                    </div>
                   )}
-                </button>
+
+                  {/* Controls */}
+                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-3">
+                    <button
+                      onClick={toggleVideo}
+                      className={`p-3 rounded-full transition-all ${
+                        isVideoOn
+                          ? 'bg-slate-800/80 hover:bg-slate-700/80 text-white'
+                          : 'bg-red-600/80 hover:bg-red-700/80 text-white'
+                      }`}
+                    >
+                      {isVideoOn ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
+                    </button>
+
+                    <button
+                      onClick={() => setIsAudioOn(!isAudioOn)}
+                      className={`p-3 rounded-full transition-all ${
+                        isAudioOn
+                          ? 'bg-slate-800/80 hover:bg-slate-700/80 text-white'
+                          : 'bg-red-600/80 hover:bg-red-700/80 text-white'
+                      }`}
+                    >
+                      {isAudioOn ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
+                    </button>
+
+                    <button
+                      onClick={() => setIsSpeakerOn(!isSpeakerOn)}
+                      className={`p-3 rounded-full transition-all ${
+                        isSpeakerOn
+                          ? 'bg-slate-800/80 hover:bg-slate-700/80 text-white'
+                          : 'bg-red-600/80 hover:bg-red-700/80 text-white'
+                      }`}
+                    >
+                      {isSpeakerOn ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+                    </button>
+
+                    <button
+                      onClick={() => setShowDeviceSettings(!showDeviceSettings)}
+                      className="p-3 rounded-full bg-slate-800/80 hover:bg-slate-700/80 text-white transition-all"
+                    >
+                      <Settings className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Device Status */}
+                <div className="mt-4 grid grid-cols-3 gap-4">
+                  <div className="glass-card p-3 border border-white/5">
+                    <div className="flex items-center gap-2 mb-2">
+                      {getDeviceStatusIcon(deviceStatus.camera)}
+                      <span className="text-sm text-white">Camera</span>
+                    </div>
+                    <p className="text-xs text-slate-400 capitalize">{deviceStatus.camera}</p>
+                  </div>
+
+                  <div className="glass-card p-3 border border-white/5">
+                    <div className="flex items-center gap-2 mb-2">
+                      {getDeviceStatusIcon(deviceStatus.microphone)}
+                      <span className="text-sm text-white">Microphone</span>
+                    </div>
+                    <p className="text-xs text-slate-400 capitalize">{deviceStatus.microphone}</p>
+                  </div>
+
+                  <div className="glass-card p-3 border border-white/5">
+                    <div className="flex items-center gap-2 mb-2">
+                      {getDeviceStatusIcon(deviceStatus.speaker)}
+                      <span className="text-sm text-white">Speaker</span>
+                    </div>
+                    <p className="text-xs text-slate-400 capitalize">{deviceStatus.speaker}</p>
+                  </div>
+                </div>
+
+                {/* Join Button */}
+                <div className="mt-6">
+                  <button
+                    onClick={handleJoinInterview}
+                    disabled={!isDeviceReady || isJoining}
+                    className={`w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-3 ${
+                      isDeviceReady && !isJoining
+                        ? 'bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white'
+                        : 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                    }`}
+                  >
+                    {isJoining ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span>Connecting...</span>
+                      </>
+                    ) : (
+                      <>
+                        <ArrowRight className="w-5 h-5" />
+                        <span>Join Interview</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -574,105 +556,98 @@ const InterviewDetailsClient = ({
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Interview Panel */}
-            <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700/50 p-6">
-              <h3 className="text-white font-semibold mb-4 flex items-center space-x-2">
-                <Users className="w-5 h-5 text-purple-400" />
-                <span>Interview Panel</span>
-              </h3>
+            <div className="glass-card">
+              <div className="p-6">
+                <h3 className="text-white font-medium mb-4 flex items-center gap-2">
+                  <Users className="w-5 h-5 text-purple-400" />
+                  <span>Interview Panel</span>
+                </h3>
 
-              <div className="space-y-4">
-                {interviewPanel.map((panelist) => (
-                  <div key={panelist.id} className="flex items-center space-x-3">
-                    <div className={`w-10 h-10 bg-gradient-to-br ${panelist.avatar.gradient} rounded-full flex items-center justify-center`}>
-                      <span className="text-white text-sm font-bold">
-                        {panelist.avatar.initials}
-                      </span>
-                    </div>
-
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2">
-                        <p className="text-white font-medium text-sm">{panelist.name}</p>
-                        {panelist.isLead && (
-                          <Crown className="w-4 h-4 text-yellow-500" />
-                        )}
+                <div className="space-y-4">
+                  {interviewPanel.map((panelist) => (
+                    <div key={panelist.id} className="flex items-center gap-3">
+                      <div className={`w-10 h-10 bg-gradient-to-br ${panelist.avatar.gradient} rounded-full flex items-center justify-center`}>
+                        <span className="text-white text-sm font-semibold">
+                          {panelist.avatar.initials}
+                        </span>
                       </div>
-                      <p className="text-slate-400 text-xs">{panelist.role}</p>
-                    </div>
 
-                    <div className="flex items-center space-x-1">
-                      <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-                      <span className="text-yellow-400 text-xs">Waiting</span>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-white font-medium text-sm">{panelist.name}</p>
+                          {panelist.isLead && (
+                            <Crown className="w-4 h-4 text-amber-500" />
+                          )}
+                        </div>
+                        <p className="text-slate-400 text-xs">{panelist.role}</p>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+                        <span className="text-amber-400 text-xs">Waiting</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
 
-            {/* Pre-Interview Tips */}
-            <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700/50 p-6">
-              <h3 className="text-white font-semibold mb-4 flex items-center space-x-2">
-                <Headphones className="w-5 h-5 text-green-400" />
-                <span>Interview Tips</span>
-              </h3>
+            {/* Tips */}
+            <div className="glass-card">
+              <div className="p-6">
+                <h3 className="text-white font-medium mb-4 flex items-center gap-2">
+                  <Headphones className="w-5 h-5 text-emerald-400" />
+                  <span>Interview Tips</span>
+                </h3>
 
-              <ul className="space-y-3 text-sm text-slate-300">
-                <li className="flex items-start space-x-2">
-                  <div className="w-1.5 h-1.5 bg-green-400 rounded-full mt-2 flex-shrink-0"></div>
-                  <span>Ensure you're in a quiet, well-lit environment</span>
-                </li>
-                <li className="flex items-start space-x-2">
-                  <div className="w-1.5 h-1.5 bg-green-400 rounded-full mt-2 flex-shrink-0"></div>
-                  <span>Test your audio and video before joining</span>
-                </li>
-                <li className="flex items-start space-x-2">
-                  <div className="w-1.5 h-1.5 bg-green-400 rounded-full mt-2 flex-shrink-0"></div>
-                  <span>Have your resume and portfolio ready</span>
-                </li>
-                <li className="flex items-start space-x-2">
-                  <div className="w-1.5 h-1.5 bg-green-400 rounded-full mt-2 flex-shrink-0"></div>
-                  <span>Make eye contact with the camera</span>
-                </li>
-                <li className="flex items-start space-x-2">
-                  <div className="w-1.5 h-1.5 bg-green-400 rounded-full mt-2 flex-shrink-0"></div>
-                  <span>Prepare thoughtful questions for the panel</span>
-                </li>
-              </ul>
+                <ul className="space-y-3 text-sm text-slate-300">
+                  {[
+                    "Ensure you're in a quiet, well-lit environment",
+                    "Test your audio and video before joining",
+                    "Have your resume and portfolio ready",
+                    "Make eye contact with the camera",
+                    "Prepare thoughtful questions for the panel"
+                  ].map((tip, index) => (
+                    <li key={index} className="flex items-start gap-2">
+                      <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full mt-2 flex-shrink-0"></div>
+                      <span>{tip}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
 
             {/* Session Info */}
-            <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700/50 p-6">
-              <h3 className="text-white font-semibold mb-4 flex items-center space-x-2">
-                <Clock className="w-5 h-5 text-blue-400" />
-                <span>Session Details</span>
-              </h3>
+            <div className="glass-card">
+              <div className="p-6">
+                <h3 className="text-white font-medium mb-4 flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-blue-400" />
+                  <span>Session Details</span>
+                </h3>
 
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between text-slate-300">
-                  <span>Duration:</span>
-                  <span className="text-white">{Math.ceil(interview.questions.length * 3)} min</span>
+                <div className="space-y-3 text-sm">
+                  {[
+                    { label: "Duration", value: `${Math.ceil(interview.questions.length * 3)} min` },
+                    { label: "Questions", value: interview.questions.length.toString() },
+                    { label: "Panel Size", value: (interviewPanel.length + 1).toString() },
+                    { label: "Format", value: "Panel Interview" }
+                  ].map((item, index) => (
+                    <div key={index} className="flex justify-between text-slate-300">
+                      <span>{item.label}:</span>
+                      <span className="text-white font-medium">{item.value}</span>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex justify-between text-slate-300">
-                  <span>Questions:</span>
-                  <span className="text-white">{interview.questions.length}</span>
-                </div>
-                <div className="flex justify-between text-slate-300">
-                  <span>Panel Size:</span>
-                  <span className="text-white">{interviewPanel.length + 1}</span>
-                </div>
-                <div className="flex justify-between text-slate-300">
-                  <span>Format:</span>
-                  <span className="text-white">Panel Interview</span>
-                </div>
+
+                {feedbackId && (
+                  <Link
+                    href={`/feedback/${interviewId}`}
+                    className="mt-4 block w-full px-4 py-2 glass-button hover-lift text-white text-center rounded-lg text-sm"
+                  >
+                    View Previous Results
+                  </Link>
+                )}
               </div>
-
-              {feedbackId && (
-                <Link
-                  href={`/feedback/${interviewId}`}
-                  className="mt-4 block w-full px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-center rounded-lg border border-blue-500/30 transition-all duration-200 text-sm"
-                >
-                  View Previous Results
-                </Link>
-              )}
             </div>
           </div>
         </div>

@@ -44,7 +44,6 @@ const SUGGESTED_PROMPTS = [
   }
 ];
 
-// Component to format AI messages with code blocks, lists, and proper styling
 function FormattedMessage({ content }: { content: string }) {
   const [copiedBlocks, setCopiedBlocks] = useState<Set<number>>(new Set());
 
@@ -60,17 +59,14 @@ function FormattedMessage({ content }: { content: string }) {
     }, 2000);
   };
 
-  // Split content into segments (text, code blocks, etc.)
   const segments = [];
   let currentIndex = 0;
   let blockIndex = 0;
 
-  // Regex to match code blocks with optional language
   const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
   let match;
 
   while ((match = codeBlockRegex.exec(content)) !== null) {
-    // Add text before code block
     if (match.index > currentIndex) {
       segments.push({
         type: 'text',
@@ -78,7 +74,6 @@ function FormattedMessage({ content }: { content: string }) {
       });
     }
 
-    // Add code block
     segments.push({
       type: 'code',
       language: match[1] || 'plaintext',
@@ -89,7 +84,6 @@ function FormattedMessage({ content }: { content: string }) {
     currentIndex = match.index + match[0].length;
   }
 
-  // Add remaining text
   if (currentIndex < content.length) {
     segments.push({
       type: 'text',
@@ -97,7 +91,6 @@ function FormattedMessage({ content }: { content: string }) {
     });
   }
 
-  // If no code blocks found, treat entire content as text
   if (segments.length === 0) {
     segments.push({ type: 'text', content });
   }
@@ -109,30 +102,28 @@ function FormattedMessage({ content }: { content: string }) {
           const isCopied = copiedBlocks.has(segment.blockIndex);
           return (
             <div key={idx} className="relative group">
-              {/* Language badge */}
-              <div className="flex items-center justify-between px-4 py-2 bg-slate-800 dark:bg-slate-950 rounded-t-lg border border-slate-700">
-                <span className="text-xs font-mono text-slate-400 uppercase tracking-wider">
+              <div className="flex items-center justify-between px-4 py-2 bg-slate-800 rounded-t-lg border border-slate-700">
+                <span className="text-xs font-mono text-slate-400 uppercase">
                   {segment.language}
                 </span>
                 <button
                   onClick={() => copyToClipboard(segment.content, segment.blockIndex)}
-                  className="flex items-center space-x-1 px-2 py-1 text-xs text-slate-400 hover:text-white transition-colors rounded"
+                  className="flex items-center gap-1 px-2 py-1 text-xs text-slate-400 hover:text-white transition-colors rounded"
                 >
                   {isCopied ? (
                     <>
                       <Check className="w-3 h-3" />
-                      <span>Copied!</span>
+                      Copied
                     </>
                   ) : (
                     <>
                       <Copy className="w-3 h-3" />
-                      <span>Copy</span>
+                      Copy
                     </>
                   )}
                 </button>
               </div>
-              {/* Code content */}
-              <pre className="bg-slate-900 dark:bg-black rounded-b-lg border border-t-0 border-slate-700 p-4 overflow-x-auto">
+              <pre className="bg-slate-900 rounded-b-lg border border-t-0 border-slate-700 p-4 overflow-x-auto">
                 <code className="text-sm font-mono text-slate-100 leading-relaxed">
                   {segment.content}
                 </code>
@@ -140,7 +131,6 @@ function FormattedMessage({ content }: { content: string }) {
             </div>
           );
         } else {
-          // Format text content with bullets, bold, etc.
           return <FormattedText key={idx} content={segment.content} />;
         }
       })}
@@ -148,32 +138,28 @@ function FormattedMessage({ content }: { content: string }) {
   );
 }
 
-// Component to format regular text with markdown-like features
 function FormattedText({ content }: { content: string }) {
   const lines = content.split('\n');
   
   return (
     <div className="space-y-2">
       {lines.map((line, idx) => {
-        // Skip empty lines
         if (!line.trim()) return <div key={idx} className="h-2" />;
 
-        // Bullet points (• or - or *)
         if (line.match(/^[•\-\*]\s/)) {
           return (
-            <div key={idx} className="flex items-start space-x-2 ml-2">
-              <span className="text-purple-600 dark:text-purple-400 mt-1">•</span>
+            <div key={idx} className="flex items-start gap-2 ml-2">
+              <span className="text-purple-400 mt-1">•</span>
               <span className="flex-1">{line.replace(/^[•\-\*]\s/, '')}</span>
             </div>
           );
         }
 
-        // Numbered lists
         if (line.match(/^\d+\.\s/)) {
           const [num, ...rest] = line.split(/\.\s/);
           return (
-            <div key={idx} className="flex items-start space-x-2 ml-2">
-              <span className="text-purple-600 dark:text-purple-400 font-semibold min-w-[20px]">
+            <div key={idx} className="flex items-start gap-2 ml-2">
+              <span className="text-purple-400 font-medium min-w-[20px]">
                 {num}.
               </span>
               <span className="flex-1">{rest.join('. ')}</span>
@@ -181,20 +167,18 @@ function FormattedText({ content }: { content: string }) {
           );
         }
 
-        // Headers (## or **text**)
         if (line.match(/^##\s/)) {
           return (
-            <h3 key={idx} className="text-base font-semibold text-slate-900 dark:text-white mt-4 mb-2">
+            <h3 key={idx} className="text-base font-semibold text-white mt-4 mb-2">
               {line.replace(/^##\s/, '')}
             </h3>
           );
         }
 
-        // Bold text **text**
         const boldFormatted = line.split(/(\*\*.*?\*\*)/).map((part, i) => {
           if (part.startsWith('**') && part.endsWith('**')) {
             return (
-              <strong key={i} className="font-semibold text-slate-900 dark:text-white">
+              <strong key={i} className="font-medium text-white">
                 {part.slice(2, -2)}
               </strong>
             );
@@ -202,7 +186,6 @@ function FormattedText({ content }: { content: string }) {
           return part;
         });
 
-        // Inline code `code`
         const withInlineCode = boldFormatted.map((part, i) => {
           if (typeof part === 'string') {
             return part.split(/(`.*?`)/).map((subpart, j) => {
@@ -210,7 +193,7 @@ function FormattedText({ content }: { content: string }) {
                 return (
                   <code
                     key={`${i}-${j}`}
-                    className="px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded text-sm font-mono"
+                    className="px-1.5 py-0.5 bg-purple-500/10 text-purple-400 rounded text-sm font-mono"
                   >
                     {subpart.slice(1, -1)}
                   </code>
@@ -247,12 +230,10 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Auto-resize textarea
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
@@ -264,7 +245,6 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
     const textToSend = messageText || input.trim();
     if (!textToSend || isLoading) return;
 
-    // Add user message
     const userMessage: ChatMessage = {
       id: `user_${Date.now()}`,
       role: 'user',
@@ -277,7 +257,6 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
     setIsLoading(true);
 
     try {
-      // Call API endpoint
       const response = await fetch('/api/planner/chat', {
         method: 'POST',
         headers: {
@@ -299,7 +278,6 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
 
       const data = await response.json();
 
-      // Add assistant message
       const assistantMessage: ChatMessage = {
         id: `assistant_${Date.now()}`,
         role: 'assistant',
@@ -310,7 +288,7 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
 
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('Error:', error);
       
       const errorMessage: ChatMessage = {
         id: `error_${Date.now()}`,
@@ -333,17 +311,17 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
   };
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col" style={{ height: 'calc(100vh - 300px)', minHeight: '500px' }}>
+    <div className="glass-card flex flex-col overflow-hidden" style={{ height: 'calc(100vh - 300px)', minHeight: '500px' }}>
       
       {/* Header */}
-      <div className="p-4 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20">
-        <div className="flex items-center space-x-3">
-          <div className="p-2 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg">
+      <div className="p-4 border-b border-white/5">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
             <Sparkles className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h3 className="font-semibold text-slate-900 dark:text-white">AI Interview Coach</h3>
-            <p className="text-xs text-slate-600 dark:text-slate-400">
+            <h3 className="font-medium text-white">AI Interview Coach</h3>
+            <p className="text-xs text-slate-400">
               Powered by Gemini 2.0 Flash
             </p>
           </div>
@@ -358,18 +336,18 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
             className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
-              className={`max-w-[85%] rounded-xl ${
+              className={`max-w-[85%] rounded-lg ${
                 message.role === 'user'
                   ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4'
-                  : 'bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-slate-300 border border-slate-200 dark:border-slate-700 p-5'
+                  : 'glass-card text-slate-300 border border-white/5 p-5'
               }`}
             >
               {message.role === 'assistant' && (
-                <div className="flex items-center space-x-2 mb-3 pb-3 border-b border-slate-200 dark:border-slate-700">
-                  <div className="p-1.5 bg-gradient-to-r from-purple-500 to-blue-500 rounded-md">
+                <div className="flex items-center gap-2 mb-3 pb-3 border-b border-white/5">
+                  <div className="w-6 h-6 bg-gradient-to-r from-purple-600 to-blue-600 rounded flex items-center justify-center">
                     <Sparkles className="w-3.5 h-3.5 text-white" />
                   </div>
-                  <span className="text-xs font-semibold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-blue-600 dark:from-purple-400 dark:to-blue-400">
+                  <span className="text-xs font-medium text-purple-400">
                     AI COACH
                   </span>
                 </div>
@@ -384,10 +362,10 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
               </div>
               
               {message.metadata?.responseTime && (
-                <div className="flex items-center space-x-2 mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
-                  <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Generated in {(message.metadata.responseTime / 1000).toFixed(2)}s
+                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/5">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                  <p className="text-xs text-slate-500">
+                    {(message.metadata.responseTime / 1000).toFixed(2)}s
                   </p>
                 </div>
               )}
@@ -397,21 +375,16 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
 
         {isLoading && (
           <div className="flex justify-start">
-            <div className="max-w-[85%] rounded-xl p-5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700">
-              <div className="flex items-center space-x-3">
-                <div className="relative">
-                  <Loader2 className="w-5 h-5 animate-spin text-purple-600" />
-                  <div className="absolute inset-0 w-5 h-5 animate-ping text-purple-600 opacity-20">
-                    <Loader2 className="w-5 h-5" />
-                  </div>
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    AI Coach is analyzing...
+            <div className="max-w-[85%] rounded-lg p-5 glass-card border border-white/5">
+              <div className="flex items-center gap-3">
+                <Loader2 className="w-5 h-5 animate-spin text-purple-400" />
+                <div>
+                  <span className="text-sm font-medium text-white">
+                    Analyzing...
                   </span>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                  <p className="text-xs text-slate-400">
                     This may take a few seconds
-                  </span>
+                  </p>
                 </div>
               </div>
             </div>
@@ -421,10 +394,10 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Suggested Prompts (show when no messages yet) */}
+      {/* Suggested Prompts */}
       {messages.length === 1 && (
-        <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
-          <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-3 uppercase tracking-wider">
+        <div className="p-4 border-t border-white/5 bg-white/5">
+          <p className="text-xs font-medium text-slate-400 mb-3 uppercase tracking-wider">
             Quick Start
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -434,17 +407,17 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
                 <button
                   key={index}
                   onClick={() => handleSend(prompt.text)}
-                  className="text-left p-3 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-purple-600 dark:hover:border-purple-600 hover:shadow-md transition-all group"
+                  className="text-left p-3 rounded-lg glass-card border border-white/5 hover:border-purple-500/30 transition-all group"
                 >
-                  <div className="flex items-start space-x-3">
-                    <div className="p-2 rounded-md bg-purple-50 dark:bg-purple-900/20 group-hover:bg-purple-100 dark:group-hover:bg-purple-900/40 transition-colors">
-                      <Icon className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded bg-purple-500/10 flex items-center justify-center">
+                      <Icon className="w-4 h-4 text-purple-400" />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-purple-600 dark:text-purple-400 mb-1">
+                    <div className="flex-1">
+                      <p className="text-xs text-purple-400 mb-1">
                         {prompt.category}
                       </p>
-                      <p className="text-sm text-slate-700 dark:text-slate-300 leading-snug">
+                      <p className="text-sm text-slate-300">
                         {prompt.text}
                       </p>
                     </div>
@@ -457,8 +430,8 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
       )}
 
       {/* Input */}
-      <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-        <div className="flex items-end space-x-3">
+      <div className="p-4 border-t border-white/5">
+        <div className="flex items-end gap-3">
           <div className="flex-1 relative">
             <textarea
               ref={textareaRef}
@@ -467,14 +440,14 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
               onKeyPress={handleKeyPress}
               placeholder="Ask your AI coach anything..."
               rows={1}
-              className="w-full px-4 py-3 pr-12 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-purple-600 focus:border-transparent resize-none max-h-32 transition-shadow"
+              className="w-full px-4 py-2.5 rounded-lg glass-input text-white placeholder-slate-500 resize-none max-h-32 text-sm"
               disabled={isLoading}
             />
           </div>
           <button
             onClick={() => handleSend()}
             disabled={!input.trim() || isLoading}
-            className="p-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 shadow-lg shadow-purple-500/20 hover:shadow-xl hover:shadow-purple-500/30"
+            className="p-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
           >
             {isLoading ? (
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -483,11 +456,11 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
             )}
           </button>
         </div>
-        <p className="text-xs text-slate-500 dark:text-slate-500 mt-2 flex items-center space-x-1">
+        <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
           <span>Press</span>
-          <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-xs font-mono">Enter</kbd>
+          <kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-xs font-mono">Enter</kbd>
           <span>to send,</span>
-          <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-xs font-mono">Shift+Enter</kbd>
+          <kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-xs font-mono">Shift+Enter</kbd>
           <span>for new line</span>
         </p>
       </div>

@@ -10,7 +10,6 @@ import {
   Filter,
   Search,
   Calendar,
-  Sparkles,
   ListTodo
 } from 'lucide-react';
 
@@ -44,42 +43,42 @@ export default function TaskList({ plan, onTaskUpdate }: TaskListProps) {
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case 'technical': return 'bg-blue-500/20 border-blue-400/50 text-blue-300';
-      case 'behavioral': return 'bg-purple-500/20 border-purple-400/50 text-purple-300';
-      case 'communication': return 'bg-green-500/20 border-green-400/50 text-green-300';
-      case 'mock': return 'bg-orange-500/20 border-orange-400/50 text-orange-300';
-      default: return 'bg-slate-500/20 border-slate-400/50 text-slate-300';
+      case 'technical': return 'bg-blue-500/10 border-blue-500/20 text-blue-400';
+      case 'behavioral': return 'bg-purple-500/10 border-purple-500/20 text-purple-400';
+      case 'communication': return 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400';
+      case 'mock': return 'bg-orange-500/10 border-orange-500/20 text-orange-400';
+      default: return 'bg-slate-500/10 border-slate-500/20 text-slate-400';
     }
   };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'bg-red-500/20 border-red-400/50 text-red-300';
-      case 'medium': return 'bg-yellow-500/20 border-yellow-400/50 text-yellow-300';
-      default: return 'bg-slate-500/20 border-slate-400/50 text-slate-300';
+      case 'high': return 'bg-red-500/10 border-red-500/20 text-red-400';
+      case 'medium': return 'bg-amber-500/10 border-amber-500/20 text-amber-400';
+      default: return 'bg-slate-500/10 border-slate-500/20 text-slate-400';
     }
   };
 
   const TaskCard = ({ task }: { task: PlanTask & { day: number } }) => (
-    <div className="bg-white/5 backdrop-blur-xl rounded-xl p-5 border border-white/10 hover:border-white/20 transition-all">
-      <div className="flex items-start space-x-4">
+    <div className="glass-card hover-lift p-5 border border-white/5">
+      <div className="flex items-start gap-4">
         <button
           onClick={() => {
             const newStatus = task.status === 'done' ? 'todo' : task.status === 'in-progress' ? 'done' : 'in-progress';
             onTaskUpdate(task.id, newStatus);
           }}
-          className="flex-shrink-0 mt-1 transition-transform hover:scale-110"
+          className="flex-shrink-0 mt-1"
         >
           {task.status === 'done' ? (
-            <CheckCircle2 className="w-7 h-7 text-green-400" />
+            <CheckCircle2 className="w-6 h-6 text-emerald-400" />
           ) : (
-            <Circle className="w-7 h-7 text-slate-500 hover:text-blue-400 transition-colors" />
+            <Circle className="w-6 h-6 text-slate-500 hover:text-blue-400 transition-colors" />
           )}
         </button>
 
-        <div className="flex-1 min-w-0">
+        <div className="flex-1">
           <div className="flex items-start justify-between mb-2">
-            <h3 className={`font-bold text-lg ${
+            <h3 className={`font-medium text-base ${
               task.status === 'done'
                 ? 'line-through text-slate-500'
                 : 'text-white'
@@ -87,29 +86,29 @@ export default function TaskList({ plan, onTaskUpdate }: TaskListProps) {
               {task.title}
             </h3>
             {task.day > 0 && (
-              <span className="ml-3 px-3 py-1 bg-blue-500/20 border border-blue-400/50 text-blue-300 rounded-full text-xs font-bold flex-shrink-0">
+              <span className="ml-3 px-2 py-1 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded text-xs font-medium flex-shrink-0">
                 Day {task.day}
               </span>
             )}
           </div>
 
-          <p className="text-sm text-slate-400 mb-4 leading-relaxed">
+          <p className="text-sm text-slate-400 mb-3">
             {task.description}
           </p>
 
           <div className="flex flex-wrap gap-2">
-            <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getTypeColor(task.type)}`}>
+            <span className={`px-2 py-1 rounded text-xs font-medium border ${getTypeColor(task.type)}`}>
               {task.type}
             </span>
-            <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getPriorityColor(task.priority)}`}>
-              {task.priority} priority
+            <span className={`px-2 py-1 rounded text-xs font-medium border ${getPriorityColor(task.priority)}`}>
+              {task.priority}
             </span>
-            <span className="px-3 py-1 bg-white/10 border border-white/20 text-slate-300 rounded-full text-xs font-medium flex items-center">
+            <span className="px-2 py-1 bg-white/10 border border-white/5 text-slate-300 rounded text-xs flex items-center">
               <Clock className="w-3 h-3 mr-1" />
-              {task.estimatedMinutes} min
+              {task.estimatedMinutes}m
             </span>
             {task.dueDate && (
-              <span className="px-3 py-1 bg-white/10 border border-white/20 text-slate-300 rounded-full text-xs font-medium flex items-center">
+              <span className="px-2 py-1 bg-white/10 border border-white/5 text-slate-300 rounded text-xs flex items-center">
                 <Calendar className="w-3 h-3 mr-1" />
                 {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
               </span>
@@ -117,7 +116,7 @@ export default function TaskList({ plan, onTaskUpdate }: TaskListProps) {
           </div>
 
           {task.completedAt && (
-            <p className="text-xs text-green-400 mt-3 flex items-center">
+            <p className="text-xs text-emerald-400 mt-3 flex items-center">
               <CheckCircle2 className="w-3 h-3 mr-1" />
               Completed {new Date(task.completedAt).toLocaleDateString()}
             </p>
@@ -127,88 +126,78 @@ export default function TaskList({ plan, onTaskUpdate }: TaskListProps) {
     </div>
   );
 
-  const filterButtons: { value: FilterType; label: string; count: number; gradient: string }[] = [
-    { value: 'all', label: 'All Tasks', count: allTasks.length, gradient: 'from-slate-500 to-slate-600' },
-    { value: 'todo', label: 'To Do', count: todoTasks.length, gradient: 'from-blue-500 to-cyan-500' },
-    { value: 'in-progress', label: 'In Progress', count: inProgressTasks.length, gradient: 'from-purple-500 to-pink-500' },
-    { value: 'done', label: 'Completed', count: doneTasks.length, gradient: 'from-green-500 to-emerald-500' }
+  const filterButtons: { value: FilterType; label: string; count: number }[] = [
+    { value: 'all', label: 'All', count: allTasks.length },
+    { value: 'todo', label: 'To Do', count: todoTasks.length },
+    { value: 'in-progress', label: 'In Progress', count: inProgressTasks.length },
+    { value: 'done', label: 'Done', count: doneTasks.length }
   ];
 
   return (
     <div className="space-y-6">
       {/* Header with Search and Filters */}
-      <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-          {/* Search */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search tasks..."
-              className="w-full pl-12 pr-4 py-3 rounded-xl border border-white/20 bg-white/10 backdrop-blur-sm text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            />
-          </div>
+      <div className="glass-card">
+        <div className="p-5">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            {/* Search */}
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search tasks..."
+                className="w-full pl-10 pr-4 py-2.5 glass-input rounded-lg text-white placeholder-slate-500 text-sm"
+              />
+            </div>
 
-          {/* Filters */}
-          <div className="flex items-center space-x-3 overflow-x-auto pb-2">
-            <Filter className="w-5 h-5 text-slate-400 flex-shrink-0" />
-            {filterButtons.map((btn) => (
-              <button
-                key={btn.value}
-                onClick={() => setFilter(btn.value)}
-                className={`relative px-5 py-2.5 rounded-xl text-sm font-semibold transition-all whitespace-nowrap ${
-                  filter === btn.value
-                    ? 'text-white shadow-lg'
-                    : 'text-slate-400 hover:text-white bg-white/5 hover:bg-white/10'
-                }`}
-              >
-                {filter === btn.value && (
-                  <div className={`absolute inset-0 bg-gradient-to-r ${btn.gradient} rounded-xl`} />
-                )}
-                <span className="relative z-10 flex items-center space-x-2">
-                  <span>{btn.label}</span>
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                    filter === btn.value ? 'bg-white/20' : 'bg-white/10'
-                  }`}>
-                    {btn.count}
-                  </span>
-                </span>
-              </button>
-            ))}
+            {/* Filters */}
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-slate-400 flex-shrink-0" />
+              {filterButtons.map((btn) => (
+                <button
+                  key={btn.value}
+                  onClick={() => setFilter(btn.value)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    filter === btn.value
+                      ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
+                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  {btn.label} ({btn.count})
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
       {/* Task Lists */}
       {filteredTasks.length === 0 ? (
-        <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-16 border border-white/10 text-center">
-          <div className="max-w-md mx-auto">
-            <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-6 opacity-50">
-              <ListTodo className="w-10 h-10 text-white" />
+        <div className="glass-card">
+          <div className="text-center py-16 px-6">
+            <div className="w-16 h-16 bg-slate-800/50 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <ListTodo className="w-8 h-8 text-slate-400" />
             </div>
-            <h3 className="text-2xl font-bold text-white mb-3">
+            <h3 className="text-xl font-semibold text-white mb-2">
               No tasks found
             </h3>
             <p className="text-slate-400">
-              {searchQuery ? 'Try adjusting your search query' : 'No tasks match the selected filter'}
+              {searchQuery ? 'Try adjusting your search' : 'No tasks match the selected filter'}
             </p>
           </div>
         </div>
       ) : (
-        <div className="space-y-8">
+        <div className="space-y-6">
           {/* To Do Section */}
           {(filter === 'all' || filter === 'todo') && todoTasks.length > 0 && (
             <div>
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="p-2 bg-blue-500/20 rounded-lg">
-                  <Circle className="w-5 h-5 text-blue-400" />
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-8 h-8 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                  <Circle className="w-4 h-4 text-blue-400" />
                 </div>
-                <h3 className="text-xl font-bold text-white">
-                  To Do
-                </h3>
-                <span className="px-3 py-1 bg-blue-500/20 border border-blue-400/50 text-blue-300 rounded-full text-sm font-bold">
+                <h3 className="text-lg font-semibold text-white">To Do</h3>
+                <span className="px-2 py-1 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded text-sm font-medium">
                   {todoTasks.length}
                 </span>
               </div>
@@ -221,14 +210,12 @@ export default function TaskList({ plan, onTaskUpdate }: TaskListProps) {
           {/* In Progress Section */}
           {(filter === 'all' || filter === 'in-progress') && inProgressTasks.length > 0 && (
             <div>
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="p-2 bg-purple-500/20 rounded-lg">
-                  <Clock className="w-5 h-5 text-purple-400" />
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-8 h-8 bg-purple-500/10 rounded-lg flex items-center justify-center">
+                  <Clock className="w-4 h-4 text-purple-400" />
                 </div>
-                <h3 className="text-xl font-bold text-white">
-                  In Progress
-                </h3>
-                <span className="px-3 py-1 bg-purple-500/20 border border-purple-400/50 text-purple-300 rounded-full text-sm font-bold">
+                <h3 className="text-lg font-semibold text-white">In Progress</h3>
+                <span className="px-2 py-1 bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded text-sm font-medium">
                   {inProgressTasks.length}
                 </span>
               </div>
@@ -241,15 +228,12 @@ export default function TaskList({ plan, onTaskUpdate }: TaskListProps) {
           {/* Done Section */}
           {(filter === 'all' || filter === 'done') && doneTasks.length > 0 && (
             <div>
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="p-2 bg-green-500/20 rounded-lg">
-                  <CheckCircle2 className="w-5 h-5 text-green-400" />
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-8 h-8 bg-emerald-500/10 rounded-lg flex items-center justify-center">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                 </div>
-                <h3 className="text-xl font-bold text-white">
-                  Completed
-                </h3>
-                <span className="px-3 py-1 bg-green-500/20 border border-green-400/50 text-green-300 rounded-full text-sm font-bold flex items-center">
-                  <Sparkles className="w-3 h-3 mr-1" />
+                <h3 className="text-lg font-semibold text-white">Completed</h3>
+                <span className="px-2 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded text-sm font-medium">
                   {doneTasks.length}
                 </span>
               </div>

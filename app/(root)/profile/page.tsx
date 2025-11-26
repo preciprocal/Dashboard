@@ -5,44 +5,53 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { auth } from '@/firebase/client';
+import AnimatedLoader from '@/components/loader/AnimatedLoader';
+import ErrorPage from '@/components/Error';
 import {
   ArrowLeft,
   MapPin,
   User,
   Bookmark,
   Settings,
-  Calendar,
   Mail,
   Phone,
   Edit,
   Save,
   X,
-  ExternalLink,
   Github,
   Linkedin,
   Globe,
   Briefcase,
-  Award,
   Target,
   TrendingUp,
   Clock,
-  Activity,
   FileText,
   Zap,
+  AlertCircle,
+  RefreshCw,
+  CheckCircle,
+  Calendar,
 } from "lucide-react";
 
 // Import the modular components
 import ProfileSaved from "@/components/profile/Saved";
 import ProfileSettings from "@/components/profile/Settings";
 
-// Interfaces
+// UPDATED Interfaces with separate address fields
 interface UserProfile {
   id: string;
   name: string;
   email: string;
   avatar?: string;
   phone?: string;
-  location?: string;
+  
+  // UPDATED: Separate address fields instead of single location
+  streetAddress?: string;
+  city?: string;
+  state?: string;
+  
   linkedIn?: string;
   github?: string;
   website?: string;
@@ -75,12 +84,19 @@ interface UserStats {
   completionRate?: number;
 }
 
-const ProfilePage = () => {
+interface CriticalError {
+  code: string;
+  title: string;
+  message: string;
+  details?: string;
+}
+
+const ProfilePage = (): JSX.Element => {
   const router = useRouter();
+  const [user, authLoading] = useAuthState(auth);
   const [activeTab, setActiveTab] = useState<"profile" | "saved" | "settings">("profile");
 
   // User data states
-  const [user, setUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [stats, setStats] = useState<UserStats | null>(null);
 
@@ -94,15 +110,26 @@ const ProfilePage = () => {
   });
 
   // UI states
-  const [isLoading, setIsLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
   const [editedProfile, setEditedProfile] = useState<Partial<UserProfile>>({});
+
+  // Error states
+  const [criticalError, setCriticalError] = useState<CriticalError | null>(null);
+  const [profileError, setProfileError] = useState<string>("");
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/sign-in');
+    }
+  }, [authLoading, user, router]);
 
   // Load saved data from localStorage
   useEffect(() => {
-    const loadSavedContent = () => {
+    const loadSavedContent = (): void => {
       try {
         const savedTemplatesData = localStorage.getItem("bookmarkedTemplates");
         if (savedTemplatesData) {
@@ -135,41 +162,66 @@ const ProfilePage = () => {
           templates: userTemplates ? JSON.parse(userTemplates) : [],
           customInterviews: customInterviews ? JSON.parse(customInterviews) : [],
         });
-      } catch (error) {
-        console.error("Failed to load saved content:", error);
+      } catch (err) {
+        console.error("Failed to load saved content:", err);
       }
     };
 
     loadSavedContent();
   }, []);
 
-  // Fetch user data from Firebase
+  // Fetch user data from Firebase - UPDATED to use new address fields
   useEffect(() => {
-    const fetchUserData = async () => {
+    const fetchUserData = async (): Promise<void> => {
+      if (!user) return;
+
       setIsLoading(true);
+      setProfileError("");
+
       try {
         const profileResponse = await fetch("/api/profile");
+        
         if (!profileResponse.ok) {
+          if (profileResponse.status === 401) {
+            setCriticalError({
+              code: '401',
+              title: 'Authentication Required',
+              message: 'Your session has expired. Please log in again.',
+            });
+            return;
+          }
+          
+          if (profileResponse.status === 403) {
+            setCriticalError({
+              code: '403',
+              title: 'Access Denied',
+              message: 'You do not have permission to view this profile.',
+            });
+            return;
+          }
+          
           throw new Error("Failed to fetch profile data");
         }
 
         const { user: currentUser, interviews: userInterviews } = await profileResponse.json();
 
         if (!currentUser) {
-          toast.error("Please log in to view your profile");
-          router.push("/auth/login");
+          router.push("/sign-in");
           return;
         }
 
-        setUser(currentUser);
-
-        // Build profile from Firebase user data
+        // UPDATED: Build profile from Firebase user data with new address fields
         const profile: UserProfile = {
           id: currentUser.id,
           name: currentUser.name || "User",
           email: currentUser.email || "",
           phone: currentUser.phone || "",
-          location: currentUser.location || "",
+          
+          // UPDATED: Use separate address fields
+          streetAddress: currentUser.streetAddress || "",
+          city: currentUser.city || "",
+          state: currentUser.state || "",
+          
           bio: currentUser.bio || "",
           targetRole: currentUser.targetRole || "",
           experienceLevel: currentUser.experienceLevel || "mid",
@@ -195,74 +247,75 @@ const ProfilePage = () => {
             : new Date(interview.createdAt),
         }));
 
+        const totalInterviews = interviewsWithDates.length;
         const completedInterviews = interviewsWithDates.filter(
-          (i: any) => i.feedback && i.score && i.score > 0
+          (i: any) => i.status === "completed"
         );
 
-        const totalInterviews = interviewsWithDates.length;
         const averageScore = completedInterviews.length > 0
-          ? Math.round(
-              completedInterviews.reduce((sum: number, i: any) => sum + (i.score || 0), 0) /
-                completedInterviews.length
-            )
+          ? completedInterviews.reduce((sum: number, i: any) => sum + (i.feedback?.overallRating || 0), 0) / completedInterviews.length
           : 0;
 
-        // Calculate streak
-        const sortedInterviews = interviewsWithDates.sort(
-          (a: any, b: any) => b.createdAt.getTime() - a.createdAt.getTime()
-        );
-        let currentStreak = 0;
-        let lastDate = new Date();
-        lastDate.setHours(0, 0, 0, 0);
-
-        for (const interview of sortedInterviews) {
-          const interviewDate = new Date(interview.createdAt);
-          interviewDate.setHours(0, 0, 0, 0);
-          const diffDays = Math.floor(
-            (lastDate.getTime() - interviewDate.getTime()) / (1000 * 60 * 60 * 24)
-          );
-
-          if (diffDays === 0 || diffDays === 1) {
-            currentStreak++;
-            lastDate = interviewDate;
-          } else {
-            break;
-          }
-        }
+        const hoursSpent = completedInterviews.reduce(
+          (sum: number, i: any) => sum + (i.duration || 0),
+          0
+        ) / 60;
 
         setStats({
           totalInterviews,
-          averageScore,
-          improvementRate: 15,
-          currentStreak,
-          longestStreak: currentStreak + 2,
-          hoursSpent: Math.round(totalInterviews * 0.75),
-          successRate: completedInterviews.length > 0 
-            ? Math.round((completedInterviews.filter((i: any) => i.score >= 70).length / completedInterviews.length) * 100)
+          averageScore: Math.round(averageScore),
+          improvementRate: 0,
+          currentStreak: 0,
+          longestStreak: 0,
+          hoursSpent: Math.round(hoursSpent),
+          totalResumes: 0,
+          averageResumeScore: 0,
+          successRate: totalInterviews > 0
+            ? Math.round((completedInterviews.length / totalInterviews) * 100)
             : 0,
           completionRate: totalInterviews > 0
             ? Math.round((completedInterviews.length / totalInterviews) * 100)
             : 0,
         });
 
-      } catch (error) {
-        console.error("Failed to fetch user data:", error);
-        toast.error("Failed to load profile data");
+      } catch (err: unknown) {
+        console.error("Failed to fetch user data:", err);
+        const error = err as Error;
+        
+        if (error.message.includes('Firebase') || error.message.includes('firestore')) {
+          setCriticalError({
+            code: 'DATABASE',
+            title: 'Database Connection Error',
+            message: 'Unable to load your profile data. Please check your internet connection.',
+            details: error.message
+          });
+        } else if (error.message.includes('fetch') || error.message.includes('network')) {
+          setCriticalError({
+            code: 'NETWORK',
+            title: 'Network Error',
+            message: 'Unable to connect to the server. Please check your internet connection.',
+            details: error.message
+          });
+        } else {
+          setProfileError('Failed to load profile data. Please try again.');
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchUserData();
-  }, [router]);
+    if (user) {
+      fetchUserData();
+    }
+  }, [user, router]);
 
-  const handleUpdateProfile = async (updatedProfile: Partial<UserProfile>) => {
-    if (!user?.id) return;
+  const handleUpdateProfile = async (updatedProfile: Partial<UserProfile>): Promise<void> => {
+    if (!user?.uid) return;
     
     setIsSaving(true);
     try {
       const { updateUserProfile } = await import("@/lib/actions/auth.action");
-      const result = await updateUserProfile(user.id, updatedProfile);
+      const result = await updateUserProfile(user.uid, updatedProfile);
       
       if (result.success) {
         setUserProfile((prev) => (prev ? { ...prev, ...updatedProfile } : null));
@@ -271,585 +324,505 @@ const ProfilePage = () => {
       } else {
         toast.error(result.message || "Failed to update profile");
       }
-    } catch (error) {
-      console.error("Failed to update profile:", error);
+    } catch (err: unknown) {
+      console.error("Failed to update profile:", err);
       toast.error("Failed to update profile");
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleLogout = async () => {
+  const handleLogout = async (): Promise<void> => {
     try {
       setIsLoggingOut(true);
       const { signOut } = await import("@/lib/actions/auth.action");
       await signOut();
       toast.success("Logged out successfully");
-      router.push("/auth/login");
-    } catch (error) {
-      console.error("Logout failed:", error);
+      router.push("/sign-in");
+    } catch (err) {
+      console.error("Logout failed:", err);
       toast.error("Failed to logout");
       setIsLoggingOut(false);
     }
   };
 
-  const handleEditToggle = () => {
+  const handleEditToggle = (): void => {
     if (isEditing) {
       setEditedProfile(userProfile || {});
     }
     setIsEditing(!isEditing);
   };
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = (): void => {
     handleUpdateProfile(editedProfile);
   };
 
-  if (isLoading) {
+  const handleRetryError = (): void => {
+    setCriticalError(null);
+    setProfileError("");
+    setIsLoading(true);
+  };
+
+  // Show critical error page
+  if (criticalError) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-slate-200 dark:border-slate-800 border-t-indigo-600 rounded-full animate-spin mx-auto mb-4"></div>
-          <div className="text-slate-900 dark:text-white text-lg font-medium">
-            Loading your profile...
+      <ErrorPage
+        errorCode={criticalError.code}
+        errorTitle={criticalError.title}
+        errorMessage={criticalError.message}
+        errorDetails={criticalError.details}
+        showBackButton={true}
+        showHomeButton={true}
+        showRefreshButton={true}
+        onRetry={handleRetryError}
+      />
+    );
+  }
+
+  // Show loader during auth check or data loading
+  if (authLoading || isLoading) {
+    return (
+      <AnimatedLoader
+        isVisible={true}
+        loadingText="Loading your profile..."
+        showNavigation={true}
+      />
+    );
+  }
+
+  // Show authentication required message
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="glass-card hover-lift">
+          <div className="text-center p-12">
+            <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-white mb-2">Authentication Required</h2>
+            <p className="text-slate-400 mb-6">Please log in to view your profile</p>
+            <Link 
+              href="/sign-in"
+              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 py-3 rounded-lg"
+            >
+              Go to Login
+            </Link>
           </div>
         </div>
       </div>
     );
   }
 
+  // Show profile error with retry
+  if (profileError) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="glass-card hover-lift max-w-md">
+          <div className="text-center p-12">
+            <AlertCircle className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-white mb-2">Profile Load Error</h2>
+            <p className="text-slate-400 mb-6">{profileError}</p>
+            <button
+              onClick={handleRetryError}
+              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 py-3 rounded-lg"
+            >
+              <RefreshCw className="w-5 h-5" />
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show data not found
   if (!userProfile || !stats) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-red-600 dark:text-red-400 text-lg mb-4 font-medium">
-            Failed to load profile data
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="glass-card hover-lift max-w-md">
+          <div className="text-center p-12">
+            <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-white mb-2">Profile Not Found</h2>
+            <p className="text-slate-400 mb-6">Unable to load your profile data</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 py-3 rounded-lg"
+            >
+              <RefreshCw className="w-5 h-5" />
+              Reload Page
+            </button>
           </div>
-          <Button onClick={() => window.location.reload()} className="bg-indigo-600 hover:bg-indigo-700">
-            Retry
-          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-20 backdrop-blur-sm bg-white/95 dark:bg-slate-900/95">
-        <div className="container mx-auto px-6 py-4 max-w-7xl">
+      <div className="glass-card hover-lift">
+        <div className="p-6">
           <div className="flex items-center justify-between">
             <Link href="/dashboard">
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="text-slate-300 hover:text-white hover:bg-white/5"
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Dashboard
+                Back
               </Button>
             </Link>
-            <h1 className="text-xl font-semibold text-slate-900 dark:text-white">Profile</h1>
-            <div className="w-32"></div>
+            <h1 className="text-2xl font-semibold text-white">Profile</h1>
+            <div className="w-20"></div>
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="container mx-auto px-6 py-8 max-w-7xl">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          {/* Left Sidebar - Profile Card */}
-          <div className="lg:col-span-1">
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden sticky top-24">
-              {/* Profile Header with Gradient */}
-              <div className="relative h-32 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500">
-                <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS1vcGFjaXR5PSIwLjEiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] opacity-30"></div>
-              </div>
-              
-              {/* Avatar & Basic Info */}
-              <div className="relative px-6 pb-6">
-                <div className="flex justify-center -mt-16 mb-4">
-                  <div className="relative">
-                    <div className="w-32 h-32 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-xl border-4 border-white dark:border-slate-900">
-                      <span className="text-white text-4xl font-bold">
-                        {userProfile.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
-                      </span>
-                    </div>
-                    <div className="absolute bottom-2 right-2 w-6 h-6 bg-green-500 border-4 border-white dark:border-slate-900 rounded-full"></div>
+      {/* Tab Navigation */}
+      <div className="glass-card">
+        <div className="p-2">
+          <div className="flex gap-2">
+            <button
+              onClick={() => setActiveTab("profile")}
+              className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                activeTab === "profile"
+                  ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white"
+                  : "text-slate-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <User className="w-4 h-4 inline mr-2" />
+              Profile
+            </button>
+            <button
+              onClick={() => setActiveTab("saved")}
+              className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                activeTab === "saved"
+                  ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white"
+                  : "text-slate-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <Bookmark className="w-4 h-4 inline mr-2" />
+              Saved
+            </button>
+            <button
+              onClick={() => setActiveTab("settings")}
+              className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                activeTab === "settings"
+                  ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white"
+                  : "text-slate-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <Settings className="w-4 h-4 inline mr-2" />
+              Settings
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      {activeTab === "profile" && (
+        <>
+          {/* Profile Header Card */}
+          <div className="glass-card hover-lift">
+            <div className="p-6">
+              <div className="flex items-start justify-between mb-6">
+                <div className="flex items-center gap-4">
+                  <div className="w-20 h-20 bg-gradient-to-br from-purple-600 to-blue-600 rounded-2xl flex items-center justify-center text-white text-2xl font-bold">
+                    {userProfile.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-semibold text-white mb-1">
+                      {userProfile.name}
+                    </h2>
+                    <p className="text-slate-400 text-sm mb-2">{userProfile.email}</p>
+                    {userProfile.targetRole && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Briefcase className="w-4 h-4 text-blue-400" />
+                        <span className="text-slate-300">{userProfile.targetRole}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
-
-                {/* Name & Role */}
-                <div className="text-center mb-6">
-                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
-                    {userProfile.name}
-                  </h2>
-                  <p className="text-slate-600 dark:text-slate-400 font-medium mb-2">
-                    {userProfile.targetRole || "Professional"}
-                  </p>
-                  {userProfile.location && (
-                    <div className="flex items-center justify-center text-sm text-slate-500 dark:text-slate-500 mb-3">
-                      <MapPin className="h-4 w-4 mr-1" />
-                      {userProfile.location}
-                    </div>
-                  )}
-                  
-                  {/* Subscription Badge */}
-                  {userProfile.subscription && (
-                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-full text-xs font-medium">
-                      <Zap className="h-3 w-3" />
-                      {userProfile.subscription.plan.charAt(0).toUpperCase() + userProfile.subscription.plan.slice(1)} Plan
-                    </div>
-                  )}
-                </div>
-
-                {/* Stats Grid */}
-                <div className="grid grid-cols-2 gap-3 mb-6">
-                  <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-950/30 dark:to-indigo-900/20 rounded-xl p-4 text-center border border-indigo-200 dark:border-indigo-800/30">
-                    <div className="flex items-center justify-center mb-1">
-                      <Activity className="h-4 w-4 text-indigo-600 dark:text-indigo-400 mr-1" />
-                    </div>
-                    <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-                      {stats.totalInterviews}
-                    </div>
-                    <div className="text-xs text-indigo-700 dark:text-indigo-300 font-medium mt-1">
-                      Interviews
-                    </div>
-                  </div>
-
-                  <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950/30 dark:to-green-900/20 rounded-xl p-4 text-center border border-green-200 dark:border-green-800/30">
-                    <div className="flex items-center justify-center mb-1">
-                      <Award className="h-4 w-4 text-green-600 dark:text-green-400 mr-1" />
-                    </div>
-                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                      {stats.averageScore}
-                    </div>
-                    <div className="text-xs text-green-700 dark:text-green-300 font-medium mt-1">
-                      Avg Score
-                    </div>
-                  </div>
-
-                  <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950/30 dark:to-purple-900/20 rounded-xl p-4 text-center border border-purple-200 dark:border-purple-800/30">
-                    <div className="flex items-center justify-center mb-1">
-                      <Target className="h-4 w-4 text-purple-600 dark:text-purple-400 mr-1" />
-                    </div>
-                    <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                      {stats.currentStreak}
-                    </div>
-                    <div className="text-xs text-purple-700 dark:text-purple-300 font-medium mt-1">
-                      Day Streak
-                    </div>
-                  </div>
-
-                  <div className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950/30 dark:to-amber-900/20 rounded-xl p-4 text-center border border-amber-200 dark:border-amber-800/30">
-                    <div className="flex items-center justify-center mb-1">
-                      <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400 mr-1" />
-                    </div>
-                    <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
-                      {stats.hoursSpent}h
-                    </div>
-                    <div className="text-xs text-amber-700 dark:text-amber-300 font-medium mt-1">
-                      Practice Time
-                    </div>
-                  </div>
-                </div>
-
-                {/* Social Links */}
-                {(userProfile.linkedIn || userProfile.github || userProfile.website) && (
-                  <div className="space-y-2">
-                    {userProfile.linkedIn && (
-                      <a
-                        href={userProfile.linkedIn}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/50 transition-all group"
-                      >
-                        <Linkedin className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                        <span className="text-sm text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white flex-1">
-                          LinkedIn Profile
-                        </span>
-                        <ExternalLink className="h-4 w-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </a>
-                    )}
-
-                    {userProfile.github && (
-                      <a
-                        href={userProfile.github}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/50 transition-all group"
-                      >
-                        <Github className="h-5 w-5 text-slate-700 dark:text-slate-300" />
-                        <span className="text-sm text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white flex-1">
-                          GitHub Profile
-                        </span>
-                        <ExternalLink className="h-4 w-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </a>
-                    )}
-
-                    {userProfile.website && (
-                      <a
-                        href={userProfile.website}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/50 transition-all group"
-                      >
-                        <Globe className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-                        <span className="text-sm text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white flex-1">
-                          Personal Website
-                        </span>
-                        <ExternalLink className="h-4 w-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </a>
-                    )}
+                
+                {!isEditing ? (
+                  <button
+                    onClick={handleEditToggle}
+                    className="glass-button hover-lift flex items-center gap-2 px-4 py-2 rounded-lg"
+                  >
+                    <Edit className="w-4 h-4" />
+                    <span className="text-sm">Edit</span>
+                  </button>
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleSaveProfile}
+                      disabled={isSaving}
+                      className="glass-button-primary hover-lift flex items-center gap-2 px-4 py-2 rounded-lg"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span className="text-sm">{isSaving ? 'Saving...' : 'Save'}</span>
+                    </button>
+                    <button
+                      onClick={handleEditToggle}
+                      disabled={isSaving}
+                      className="glass-button hover-lift flex items-center gap-2 px-4 py-2 rounded-lg"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
                 )}
               </div>
-            </div>
-          </div>
 
-          {/* Right Content Area */}
-          <div className="lg:col-span-2 space-y-6">
-            
-            {/* Navigation Tabs */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-2">
-              <div className="flex gap-2">
-                {[
-                  { id: "profile", label: "Overview", icon: User },
-                  { id: "saved", label: "Saved", icon: Bookmark },
-                  { id: "settings", label: "Settings", icon: Settings },
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium text-sm transition-all ${
-                      activeTab === tab.id
-                        ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/25"
-                        : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-                    }`}
-                  >
-                    <tab.icon className="h-4 w-4" />
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {activeTab === "profile" && (
-              <>
-                {/* Edit Button */}
-                <div className="flex justify-end">
-                  {isEditing ? (
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={handleSaveProfile}
-                        disabled={isSaving}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-6"
-                      >
-                        {isSaving ? (
-                          <>
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                            Saving...
-                          </>
-                        ) : (
-                          <>
-                            <Save className="h-4 w-4 mr-2" />
-                            Save Changes
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        onClick={handleEditToggle}
-                        disabled={isSaving}
-                        variant="outline"
-                        className="border-slate-300 dark:border-slate-700"
-                      >
-                        <X className="h-4 w-4 mr-2" />
-                        Cancel
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button
-                      onClick={handleEditToggle}
-                      variant="outline"
-                      className="border-slate-300 dark:border-slate-700"
-                    >
-                      <Edit className="h-4 w-4 mr-2" />
-                      Edit Profile
-                    </Button>
-                  )}
-                </div>
-
-                {/* About Section */}
-                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <User className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white">About</h3>
-                  </div>
-                  {isEditing ? (
+              {/* Bio Section */}
+              {isEditing ? (
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm text-slate-400 mb-2 block">Bio</label>
                     <textarea
                       value={editedProfile.bio || ""}
                       onChange={(e) => setEditedProfile({ ...editedProfile, bio: e.target.value })}
-                      rows={4}
-                      className="w-full px-4 py-3 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-slate-800 dark:text-white resize-none"
                       placeholder="Tell us about yourself..."
+                      rows={3}
+                      className="w-full glass-input rounded-lg text-white placeholder-slate-500 text-sm p-3"
                     />
-                  ) : (
-                    <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
-                      {userProfile.bio || "No bio provided yet."}
-                    </p>
-                  )}
-                </div>
-
-                {/* Contact Information */}
-                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Mail className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Contact Information</h3>
                   </div>
-
-                  <div className="space-y-4">
-                    <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center flex-shrink-0">
-                        <Mail className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Email</div>
-                        <div className="text-slate-900 dark:text-white truncate">{userProfile.email}</div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
-                        <Phone className="h-5 w-5 text-green-600 dark:text-green-400" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Phone</div>
-                        {isEditing ? (
-                          <input
-                            type="tel"
-                            value={editedProfile.phone || ""}
-                            onChange={(e) => setEditedProfile({ ...editedProfile, phone: e.target.value })}
-                            className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-slate-800 dark:text-white"
-                            placeholder="+1 (555) 000-0000"
-                          />
-                        ) : (
-                          <div className="text-slate-900 dark:text-white">
-                            {userProfile.phone || "Not provided"}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0">
-                        <MapPin className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Location</div>
-                        {isEditing ? (
-                          <input
-                            type="text"
-                            value={editedProfile.location || ""}
-                            onChange={(e) => setEditedProfile({ ...editedProfile, location: e.target.value })}
-                            className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-slate-800 dark:text-white"
-                            placeholder="City, Country"
-                          />
-                        ) : (
-                          <div className="text-slate-900 dark:text-white">
-                            {userProfile.location || "Not provided"}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Professional Details */}
-                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Briefcase className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Professional Details</h3>
-                  </div>
-
-                  <div className="space-y-6">
+                  
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                        Target Role
-                      </label>
-                      {isEditing ? (
+                      <label className="text-sm text-slate-400 mb-2 block">Phone</label>
+                      <input
+                        type="tel"
+                        value={editedProfile.phone || ""}
+                        onChange={(e) => setEditedProfile({ ...editedProfile, phone: e.target.value })}
+                        placeholder="Your phone number"
+                        className="w-full glass-input rounded-lg text-white placeholder-slate-500 text-sm p-2.5"
+                      />
+                    </div>
+                  </div>
+
+                  {/* UPDATED: New separate address fields */}
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm text-slate-400 mb-2 block">Street Address</label>
+                      <input
+                        type="text"
+                        value={editedProfile.streetAddress || ""}
+                        onChange={(e) => setEditedProfile({ ...editedProfile, streetAddress: e.target.value })}
+                        placeholder="123 Main Street"
+                        className="w-full glass-input rounded-lg text-white placeholder-slate-500 text-sm p-2.5"
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm text-slate-400 mb-2 block">City</label>
                         <input
                           type="text"
-                          value={editedProfile.targetRole || ""}
-                          onChange={(e) => setEditedProfile({ ...editedProfile, targetRole: e.target.value })}
-                          className="w-full px-4 py-3 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-slate-800 dark:text-white"
-                          placeholder="e.g., Senior Software Engineer"
+                          value={editedProfile.city || ""}
+                          onChange={(e) => setEditedProfile({ ...editedProfile, city: e.target.value })}
+                          placeholder="Boston"
+                          className="w-full glass-input rounded-lg text-white placeholder-slate-500 text-sm p-2.5"
                         />
-                      ) : (
-                        <div className="text-slate-900 dark:text-white font-medium">
-                          {userProfile.targetRole || "Not specified"}
-                        </div>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                        Experience Level
-                      </label>
-                      {isEditing ? (
-                        <select
-                          value={editedProfile.experienceLevel || ""}
-                          onChange={(e) => setEditedProfile({ ...editedProfile, experienceLevel: e.target.value as any })}
-                          className="w-full px-4 py-3 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-slate-800 dark:text-white"
-                        >
-                          <option value="junior">Junior</option>
-                          <option value="mid">Mid-level</option>
-                          <option value="senior">Senior</option>
-                          <option value="lead">Lead</option>
-                          <option value="executive">Executive</option>
-                        </select>
-                      ) : (
-                        <div className="inline-flex px-4 py-2 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300 rounded-lg text-sm font-medium capitalize">
-                          {userProfile.experienceLevel || "Not specified"}
-                        </div>
-                      )}
-                    </div>
-
-                    {userProfile.preferredTech && userProfile.preferredTech.length > 0 && (
+                      </div>
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
-                          Skills & Technologies
-                        </label>
-                        <div className="flex flex-wrap gap-2">
-                          {userProfile.preferredTech.map((tech, index) => (
-                            <span
-                              key={index}
-                              className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium border border-slate-200 dark:border-slate-700"
-                            >
-                              {tech}
-                            </span>
-                          ))}
+                        <label className="text-sm text-slate-400 mb-2 block">State</label>
+                        <input
+                          type="text"
+                          value={editedProfile.state || ""}
+                          onChange={(e) => setEditedProfile({ ...editedProfile, state: e.target.value })}
+                          placeholder="Massachusetts"
+                          className="w-full glass-input rounded-lg text-white placeholder-slate-500 text-sm p-2.5"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-sm text-slate-400 mb-2 block">LinkedIn</label>
+                      <input
+                        type="url"
+                        value={editedProfile.linkedIn || ""}
+                        onChange={(e) => setEditedProfile({ ...editedProfile, linkedIn: e.target.value })}
+                        placeholder="LinkedIn URL"
+                        className="w-full glass-input rounded-lg text-white placeholder-slate-500 text-sm p-2.5"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-slate-400 mb-2 block">GitHub</label>
+                      <input
+                        type="url"
+                        value={editedProfile.github || ""}
+                        onChange={(e) => setEditedProfile({ ...editedProfile, github: e.target.value })}
+                        placeholder="GitHub URL"
+                        className="w-full glass-input rounded-lg text-white placeholder-slate-500 text-sm p-2.5"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-slate-400 mb-2 block">Website</label>
+                      <input
+                        type="url"
+                        value={editedProfile.website || ""}
+                        onChange={(e) => setEditedProfile({ ...editedProfile, website: e.target.value })}
+                        placeholder="Website URL"
+                        className="w-full glass-input rounded-lg text-white placeholder-slate-500 text-sm p-2.5"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {userProfile.bio && (
+                    <p className="text-slate-300 text-sm leading-relaxed">
+                      {userProfile.bio}
+                    </p>
+                  )}
+                  
+                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
+                    {userProfile.phone && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Phone className="w-4 h-4 text-slate-400" />
+                        <span className="text-slate-300">{userProfile.phone}</span>
+                      </div>
+                    )}
+                    
+                    {/* UPDATED: Display separate address fields */}
+                    {(userProfile.streetAddress || userProfile.city || userProfile.state) && (
+                      <div className="flex items-start gap-2 text-sm">
+                        <MapPin className="w-4 h-4 text-slate-400 mt-0.5" />
+                        <div className="text-slate-300">
+                          {userProfile.streetAddress && <div>{userProfile.streetAddress}</div>}
+                          {(userProfile.city || userProfile.state) && (
+                            <div>{userProfile.city}{userProfile.city && userProfile.state ? ', ' : ''}{userProfile.state}</div>
+                          )}
                         </div>
                       </div>
                     )}
-
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                        Career Goals
-                      </label>
-                      {isEditing ? (
-                        <textarea
-                          value={editedProfile.careerGoals || ""}
-                          onChange={(e) => setEditedProfile({ ...editedProfile, careerGoals: e.target.value })}
-                          rows={3}
-                          className="w-full px-4 py-3 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-slate-800 dark:text-white resize-none"
-                          placeholder="Describe your career goals..."
-                        />
-                      ) : (
-                        <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
-                          {userProfile.careerGoals || "No career goals specified"}
-                        </p>
-                      )}
-                    </div>
+                    
+                    {userProfile.linkedIn && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Linkedin className="w-4 h-4 text-slate-400" />
+                        <a href={userProfile.linkedIn} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">
+                          LinkedIn
+                        </a>
+                      </div>
+                    )}
+                    {userProfile.github && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Github className="w-4 h-4 text-slate-400" />
+                        <a href={userProfile.github} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">
+                          GitHub
+                        </a>
+                      </div>
+                    )}
+                    {userProfile.website && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Globe className="w-4 h-4 text-slate-400" />
+                        <a href={userProfile.website} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">
+                          Website
+                        </a>
+                      </div>
+                    )}
                   </div>
                 </div>
-
-                {/* Links & Social */}
-                {isEditing && (
-                  <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6">
-                    <div className="flex items-center gap-2 mb-4">
-                      <Globe className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-                      <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Links & Social</h3>
-                    </div>
-
-                    <div className="space-y-4">
-                      {[
-                        { key: "website", label: "Website", placeholder: "https://yourwebsite.com", icon: Globe },
-                        { key: "linkedIn", label: "LinkedIn", placeholder: "https://linkedin.com/in/yourprofile", icon: Linkedin },
-                        { key: "github", label: "GitHub", placeholder: "https://github.com/yourusername", icon: Github },
-                      ].map((link) => (
-                        <div key={link.key}>
-                          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                            {link.label}
-                          </label>
-                          <div className="flex items-center gap-2">
-                            <link.icon className="h-5 w-5 text-slate-400" />
-                            <input
-                              type="url"
-                              value={(editedProfile as any)[link.key] || ""}
-                              onChange={(e) => setEditedProfile({ ...editedProfile, [link.key]: e.target.value })}
-                              className="flex-1 px-4 py-3 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-slate-800 dark:text-white"
-                              placeholder={link.placeholder}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Account Info */}
-                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Settings className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Account Information</h3>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between py-3 border-b border-slate-200 dark:border-slate-800">
-                      <div className="flex items-center gap-3">
-                        <Calendar className="h-5 w-5 text-slate-400" />
-                        <span className="text-sm text-slate-600 dark:text-slate-400">Member since</span>
-                      </div>
-                      <span className="text-sm font-medium text-slate-900 dark:text-white">
-                        {userProfile.createdAt.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between py-3 border-b border-slate-200 dark:border-slate-800">
-                      <div className="flex items-center gap-3">
-                        <User className="h-5 w-5 text-slate-400" />
-                        <span className="text-sm text-slate-600 dark:text-slate-400">Login method</span>
-                      </div>
-                      <span className="text-sm font-medium text-slate-900 dark:text-white capitalize">
-                        {userProfile.provider || "Email"}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between py-3">
-                      <div className="flex items-center gap-3">
-                        <Activity className="h-5 w-5 text-slate-400" />
-                        <span className="text-sm text-slate-600 dark:text-slate-400">Last active</span>
-                      </div>
-                      <span className="text-sm font-medium text-green-600 dark:text-green-400">
-                        Online now
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {activeTab === "saved" && (
-              <ProfileSaved
-                savedTemplates={savedTemplates}
-                bookmarkedBlogs={bookmarkedBlogs}
-                userCreatedContent={userCreatedContent}
-              />
-            )}
-
-            {activeTab === "settings" && (
-              <ProfileSettings
-                userProfile={userProfile}
-                isEditing={isEditing}
-                setIsEditing={setIsEditing}
-                handleUpdateProfile={handleUpdateProfile}
-                handleLogout={handleLogout}
-                isLoggingOut={isLoggingOut}
-              />
-            )}
+              )}
+            </div>
           </div>
-        </div>
-      </div>
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="glass-card">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <span className="text-2xl font-semibold text-white">{stats.totalInterviews}</span>
+                </div>
+                <p className="text-sm text-slate-400">Total Interviews</p>
+              </div>
+            </div>
+
+            <div className="glass-card">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center">
+                    <TrendingUp className="w-5 h-5 text-emerald-400" />
+                  </div>
+                  <span className="text-2xl font-semibold text-white">{stats.averageScore}</span>
+                </div>
+                <p className="text-sm text-slate-400">Average Score</p>
+              </div>
+            </div>
+
+            <div className="glass-card">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 bg-amber-500/10 rounded-lg flex items-center justify-center">
+                    <Zap className="w-5 h-5 text-amber-400" />
+                  </div>
+                  <span className="text-2xl font-semibold text-white">{stats.currentStreak}</span>
+                </div>
+                <p className="text-sm text-slate-400">Current Streak</p>
+              </div>
+            </div>
+
+            <div className="glass-card">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
+                    <Clock className="w-5 h-5 text-purple-400" />
+                  </div>
+                  <span className="text-2xl font-semibold text-white">{stats.hoursSpent}h</span>
+                </div>
+                <p className="text-sm text-slate-400">Hours Spent</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Additional Stats */}
+          <div className="glass-card">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-white mb-4">Performance Metrics</h3>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-semibold text-emerald-400 mb-1">
+                    {stats.successRate}%
+                  </div>
+                  <p className="text-xs text-slate-400">Success Rate</p>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-semibold text-blue-400 mb-1">
+                    {stats.completionRate}%
+                  </div>
+                  <p className="text-xs text-slate-400">Completion Rate</p>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-semibold text-purple-400 mb-1">
+                    {stats.longestStreak}
+                  </div>
+                  <p className="text-xs text-slate-400">Longest Streak</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {activeTab === "saved" && (
+        <ProfileSaved
+          savedTemplates={savedTemplates}
+          bookmarkedBlogs={bookmarkedBlogs}
+          userCreatedContent={userCreatedContent}
+        />
+      )}
+
+      {activeTab === "settings" && (
+        <ProfileSettings
+          userProfile={userProfile}
+          onLogout={handleLogout}
+          isLoggingOut={isLoggingOut}
+        />
+      )}
     </div>
   );
 };

@@ -29,7 +29,6 @@ const ProfileInterviews: React.FC<ProfileInterviewsProps> = ({
     sortBy: "date",
   });
 
-  // Filter interviews
   const filteredInterviews = interviews
     .filter((interview) => {
       if (
@@ -57,7 +56,6 @@ const ProfileInterviews: React.FC<ProfileInterviewsProps> = ({
       return 0;
     });
 
-  // Calculate additional stats
   const hasInterviews = interviews.length > 0;
   const totalInterviews = interviews.length;
   const thisMonthInterviews = interviews.filter((interview) => {
@@ -81,54 +79,52 @@ const ProfileInterviews: React.FC<ProfileInterviewsProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Header Section */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-8">
-        <div>
-          <div className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500/20 to-purple-500/20 dark:from-blue-500/30 dark:to-purple-500/30 border border-blue-500/30 rounded-full text-blue-700 dark:text-blue-300 text-sm font-semibold mb-4 backdrop-blur-sm">
-            <span className="w-2 h-2 bg-blue-600 dark:bg-blue-400 rounded-full mr-3 animate-pulse"></span>
-            Interview Management
+      {/* Header */}
+      <div className="glass-card hover-lift">
+        <div className="p-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+            <div>
+              <h1 className="text-3xl font-semibold text-white mb-2">
+                Interview History
+              </h1>
+              <p className="text-slate-400">
+                Track your progress and analyze performance
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <Button className="bg-white/5 hover:bg-white/10 text-white border border-white/10">
+                <BarChart3 className="h-4 w-4 mr-2" />
+                Analytics
+              </Button>
+              <Button
+                asChild
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+              >
+                <Link href="/createinterview">
+                  <Target className="h-4 w-4 mr-2" />
+                  New Interview
+                </Link>
+              </Button>
+            </div>
           </div>
-          <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-2">
-            My Interview History
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 text-lg">
-            Track your progress and analyze your performance
-          </p>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <Button className="bg-gray-700 hover:bg-gray-600 text-white font-medium py-3 px-6 rounded-xl border border-gray-600 hover:border-gray-500 transition-all duration-300">
-            <BarChart3 className="h-4 w-4 mr-2" />
-            View Analytics
-          </Button>
-          <Button
-            asChild
-            className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-xl"
-          >
-            <Link href="/createinterview">
-              <Target className="h-5 w-5 mr-2" />
-              New Interview
-            </Link>
-          </Button>
         </div>
       </div>
 
       {/* Key Metrics */}
       {hasInterviews && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             {
               icon: FileText,
               value: totalInterviews,
               label: "Total Interviews",
-              description: "All time",
               color: "blue",
             },
             {
               icon: TrendingUp,
               value: thisMonthInterviews,
               label: "This Month",
-              description: "Current period",
-              color: "green",
+              color: "emerald",
             },
             {
               icon: Calendar,
@@ -139,57 +135,47 @@ const ProfileInterviews: React.FC<ProfileInterviewsProps> = ({
                   })
                 : "N/A",
               label: "Last Interview",
-              description: "Most recent",
               color: "purple",
             },
             {
               icon: Award,
               value: averageScore,
               label: "Average Score",
-              description: "Performance",
-              color: "yellow",
+              color: "amber",
             },
           ].map((stat, index) => (
-            <div
-              key={index}
-              className="bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl transition-all duration-300"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div
-                  className={`w-10 h-10 bg-gradient-to-br from-${stat.color}-500 to-${stat.color}-600 rounded-lg flex items-center justify-center shadow-md`}
-                >
-                  <stat.icon className="h-5 w-5 text-white" />
-                </div>
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {stat.value}
+            <div key={index} className="glass-card hover-lift">
+              <div className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className={`w-10 h-10 bg-${stat.color}-500/10 rounded-lg flex items-center justify-center`}>
+                    <stat.icon className={`h-5 w-5 text-${stat.color}-400`} />
                   </div>
-                  <div className={`text-${stat.color}-600 dark:text-${stat.color}-400 text-sm font-medium`}>
-                    {stat.label}
+                  <div className="text-right">
+                    <div className="text-2xl font-semibold text-white">
+                      {stat.value}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="text-gray-600 dark:text-gray-400 text-xs">
-                {stat.description}
+                <div className="text-sm text-slate-400">{stat.label}</div>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Interview Management Section */}
-      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl">
-        <div className="p-6 lg:p-8 border-b border-gray-200 dark:border-gray-700">
+      {/* Interview Management */}
+      <div className="glass-card">
+        <div className="p-6 border-b border-white/5">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                <Clock className="h-6 w-6 text-white" />
+              <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                <Clock className="h-5 w-5 text-blue-400" />
               </div>
               <div>
-                <h2 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white mb-1">
+                <h2 className="text-lg font-semibold text-white mb-1">
                   Interview Sessions
                 </h2>
-                <p className="text-gray-600 dark:text-gray-400">
+                <p className="text-slate-400 text-sm">
                   {hasInterviews
                     ? `${interviews.length} interview${
                         interviews.length !== 1 ? "s" : ""
@@ -199,21 +185,19 @@ const ProfileInterviews: React.FC<ProfileInterviewsProps> = ({
               </div>
             </div>
             {hasInterviews && (
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {filteredInterviews.length} of {interviews.length} shown
-                </span>
-              </div>
+              <span className="text-sm text-slate-400">
+                {filteredInterviews.length} of {interviews.length} shown
+              </span>
             )}
           </div>
         </div>
 
         {/* Filters */}
         {hasInterviews && (
-          <div className="p-6 lg:p-8 border-b border-gray-200 dark:border-gray-700">
+          <div className="p-6 border-b border-white/5">
             <div className="flex items-center mb-4">
-              <Filter className="h-5 w-5 text-gray-600 dark:text-gray-400 mr-2" />
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              <Filter className="h-5 w-5 text-slate-400 mr-2" />
+              <h3 className="text-base font-semibold text-white">
                 Filter & Sort
               </h3>
             </div>
@@ -264,13 +248,13 @@ const ProfileInterviews: React.FC<ProfileInterviewsProps> = ({
                 },
               ].map((filter) => (
                 <div key={filter.label}>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="block text-sm text-slate-400 mb-2">
                     {filter.label}
                   </label>
                   <select
                     value={filter.value}
                     onChange={(e) => filter.onChange(e.target.value)}
-                    className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors"
+                    className="w-full px-3 py-2 glass-input rounded-lg text-white text-sm"
                   >
                     {filter.options.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -282,9 +266,8 @@ const ProfileInterviews: React.FC<ProfileInterviewsProps> = ({
               ))}
             </div>
             <div className="mt-4 flex items-center justify-between text-sm">
-              <span className="text-gray-600 dark:text-gray-400">
-                Showing {filteredInterviews.length} of {interviews.length}{" "}
-                interviews
+              <span className="text-slate-400">
+                Showing {filteredInterviews.length} of {interviews.length} interviews
               </span>
               <button
                 onClick={() =>
@@ -294,7 +277,7 @@ const ProfileInterviews: React.FC<ProfileInterviewsProps> = ({
                     sortBy: "date",
                   })
                 }
-                className="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 transition-colors font-medium"
+                className="text-blue-400 hover:text-blue-300"
               >
                 Clear Filters
               </button>
@@ -302,36 +285,31 @@ const ProfileInterviews: React.FC<ProfileInterviewsProps> = ({
           </div>
         )}
 
-        <div className="p-6 lg:p-8">
+        <div className="p-6">
           {hasInterviews ? (
             <div className="space-y-4">
-              {filteredInterviews.map((interview, index) => (
-                <div key={interview.id} className="relative">
-                  <ProfileInterviewCard interview={interview} />
-                </div>
+              {filteredInterviews.map((interview) => (
+                <ProfileInterviewCard key={interview.id} interview={interview} />
               ))}
             </div>
           ) : (
             <div className="text-center py-16">
-              <div className="mb-8">
-                <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-6 border border-gray-200 dark:border-gray-700">
-                  <FileText className="h-10 w-10 text-gray-400" />
-                </div>
+              <div className="w-16 h-16 bg-slate-800/50 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <FileText className="h-8 w-8 text-slate-400" />
               </div>
 
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+              <h3 className="text-2xl font-semibold text-white mb-3">
                 No Interviews Yet
               </h3>
 
-              <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md mx-auto">
-                Start your interview preparation journey. Practice with
-                AI-powered mock interviews and track your progress.
+              <p className="text-slate-400 mb-8 max-w-md mx-auto">
+                Start your interview preparation journey with AI-powered mock interviews
               </p>
 
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <Button
                   asChild
-                  className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg"
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
                 >
                   <Link href="/createinterview">
                     <Target className="h-4 w-4 mr-2" />
@@ -341,7 +319,7 @@ const ProfileInterviews: React.FC<ProfileInterviewsProps> = ({
 
                 <Button
                   asChild
-                  className="bg-gray-700 hover:bg-gray-600 text-white font-medium py-3 px-6 rounded-xl border border-gray-600 hover:border-gray-500 transition-all duration-300"
+                  className="bg-white/5 hover:bg-white/10 text-white border border-white/10"
                 >
                   <Link href="/templates">
                     <BookOpen className="h-4 w-4 mr-2" />
@@ -356,37 +334,38 @@ const ProfileInterviews: React.FC<ProfileInterviewsProps> = ({
 
       {/* Quick Actions */}
       {hasInterviews && (
-        <div className="bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
-                <span className="text-white text-xl">🚀</span>
+        <div className="glass-card hover-lift">
+          <div className="p-6">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center">
+                  <Target className="w-5 h-5 text-emerald-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-1">
+                    Continue Your Progress
+                  </h3>
+                  <p className="text-slate-400 text-sm">
+                    Ready for your next challenge?
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
-                  Continue Your Progress
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Ready for your next challenge? Start a new interview or review
-                  your analytics.
-                </p>
-              </div>
-            </div>
 
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Button className="bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg border border-gray-600 hover:border-gray-500 transition-all duration-300">
-                <BarChart3 className="h-4 w-4 mr-2" />
-                View Analytics
-              </Button>
-              <Button
-                asChild
-                className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white font-medium py-2 px-4 rounded-lg transition-all duration-300"
-              >
-                <Link href="/createinterview">
-                  <Target className="h-4 w-4 mr-2" />
-                  New Interview
-                </Link>
-              </Button>
+              <div className="flex gap-3">
+                <Button className="bg-white/5 hover:bg-white/10 text-white border border-white/10">
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  Analytics
+                </Button>
+                <Button
+                  asChild
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+                >
+                  <Link href="/createinterview">
+                    <Target className="h-4 w-4 mr-2" />
+                    New Interview
+                  </Link>
+                </Button>
+              </div>
             </div>
           </div>
         </div>

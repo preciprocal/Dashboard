@@ -20,11 +20,11 @@ import {
 import Link from 'next/link';
 
 const PROCESSING_STEPS = [
-  { step: 0, message: 'Analyzing your requirements...', progress: 20 },
-  { step: 1, message: 'Generating personalized study plan...', progress: 50 },
-  { step: 2, message: 'Curating resources and practice problems...', progress: 75 },
-  { step: 3, message: 'Finalizing your preparation roadmap...', progress: 90 },
-  { step: 4, message: 'Complete! Redirecting...', progress: 100 },
+  { step: 0, message: 'Analyzing requirements...', progress: 20 },
+  { step: 1, message: 'Generating study plan...', progress: 50 },
+  { step: 2, message: 'Curating resources...', progress: 75 },
+  { step: 3, message: 'Finalizing roadmap...', progress: 90 },
+  { step: 4, message: 'Complete!', progress: 100 },
 ];
 
 export default function CreatePlanPage() {
@@ -45,7 +45,6 @@ export default function CreatePlanPage() {
     weakAreas: '',
   });
 
-  // Predefined focus areas
   const commonFocusAreas = [
     'Data Structures & Algorithms',
     'System Design',
@@ -84,7 +83,6 @@ export default function CreatePlanPage() {
     e.preventDefault();
     setError('');
 
-    // Validation
     if (!formData.role.trim()) {
       setError('Please enter the job role');
       return;
@@ -102,7 +100,7 @@ export default function CreatePlanPage() {
     }
 
     if (daysUntilInterview > 90) {
-      setError('Please select an interview date within 90 days');
+      setError('Please select a date within 90 days');
       return;
     }
 
@@ -110,7 +108,6 @@ export default function CreatePlanPage() {
       setIsGenerating(true);
       setCurrentStep(0);
 
-      // Call API endpoint
       const response = await fetch('/api/planner/generate', {
         method: 'POST',
         headers: {
@@ -134,17 +131,15 @@ export default function CreatePlanPage() {
 
       const data = await response.json();
 
-      // Simulate progress for better UX
       for (let i = 0; i <= 4; i++) {
         setCurrentStep(i);
         await new Promise(resolve => setTimeout(resolve, 800));
       }
 
-      // Redirect to the new plan
       router.push(`/planner/${data.planId}`);
       
     } catch (error: any) {
-      console.error('Error generating plan:', error);
+      console.error('Error:', error);
       setError(error.message || 'Failed to generate plan. Please try again.');
       setIsGenerating(false);
     }
@@ -153,7 +148,7 @@ export default function CreatePlanPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
       </div>
     );
   }
@@ -165,46 +160,46 @@ export default function CreatePlanPage() {
 
   if (isGenerating) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900 flex items-center justify-center">
-        <div className="max-w-md w-full mx-4">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-8 shadow-xl border border-slate-200 dark:border-slate-700">
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="max-w-md w-full">
+          <div className="glass-card p-8">
             <div className="text-center mb-6">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 mb-4">
                 <Sparkles className="w-8 h-8 text-white animate-pulse" />
               </div>
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+              <h2 className="text-2xl font-semibold text-white mb-2">
                 Creating Your Plan
               </h2>
-              <p className="text-slate-600 dark:text-slate-400">
+              <p className="text-slate-400">
                 {PROCESSING_STEPS[currentStep]?.message}
               </p>
             </div>
 
             {/* Progress Bar */}
-            <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mb-6">
+            <div className="w-full h-2 bg-slate-800/50 rounded-full overflow-hidden mb-6">
               <div
                 className="h-full bg-gradient-to-r from-blue-600 to-purple-600 transition-all duration-500"
                 style={{ width: `${PROCESSING_STEPS[currentStep]?.progress}%` }}
               />
             </div>
 
-            {/* Steps List */}
+            {/* Steps */}
             <div className="space-y-3">
               {PROCESSING_STEPS.map((step, index) => (
                 <div
                   key={index}
-                  className={`flex items-center space-x-3 ${
+                  className={`flex items-center gap-3 ${
                     index <= currentStep ? 'opacity-100' : 'opacity-30'
                   }`}
                 >
                   {index < currentStep ? (
-                    <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
+                    <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
                   ) : index === currentStep ? (
-                    <Loader2 className="w-5 h-5 text-blue-600 animate-spin flex-shrink-0" />
+                    <Loader2 className="w-5 h-5 text-blue-400 animate-spin flex-shrink-0" />
                   ) : (
-                    <div className="w-5 h-5 rounded-full border-2 border-slate-300 dark:border-slate-600 flex-shrink-0" />
+                    <div className="w-5 h-5 rounded-full border-2 border-slate-600 flex-shrink-0" />
                   )}
-                  <span className="text-sm text-slate-600 dark:text-slate-400">
+                  <span className="text-sm text-slate-400">
                     {step.message}
                   </span>
                 </div>
@@ -217,68 +212,71 @@ export default function CreatePlanPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        
-        {/* Header */}
-        <div className="mb-8">
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="glass-card hover-lift">
+        <div className="p-6">
           <Link
             href="/planner"
-            className="inline-flex items-center text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white mb-4"
+            className="inline-flex items-center text-sm text-slate-400 hover:text-white mb-4"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Plans
           </Link>
           
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
-            Create Interview Preparation Plan
+          <h1 className="text-2xl font-semibold text-white mb-1">
+            Create Preparation Plan
           </h1>
-          <p className="text-slate-600 dark:text-slate-400">
-            Let AI create a personalized study plan tailored to your interview goals
+          <p className="text-slate-400 text-sm">
+            AI-powered personalized study plan for your interview
           </p>
         </div>
+      </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
-          
-          {/* Basic Information */}
-          <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
-            <h2 className="text-xl font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
-              <Briefcase className="w-5 h-5 mr-2 text-blue-600" />
+      {/* Form */}
+      <form onSubmit={handleSubmit} className="space-y-6">
+        
+        {/* Basic Information */}
+        <div className="glass-card">
+          <div className="p-6">
+            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <div className="w-8 h-8 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                <Briefcase className="w-4 h-4 text-blue-400" />
+              </div>
               Basic Information
             </h2>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                  Job Role / Position <span className="text-red-500">*</span>
+                <label className="block text-sm text-slate-400 mb-2">
+                  Job Role <span className="text-red-400">*</span>
                 </label>
                 <input
                   type="text"
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  placeholder="e.g., Senior Frontend Engineer, Data Scientist"
-                  className="w-full px-4 py-3 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                  placeholder="e.g., Senior Frontend Engineer"
+                  className="w-full px-4 py-2.5 glass-input rounded-lg text-white placeholder-slate-500 text-sm"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                  Company Name (Optional)
+                <label className="block text-sm text-slate-400 mb-2">
+                  Company Name <span className="text-slate-500">(Optional)</span>
                 </label>
                 <input
                   type="text"
                   value={formData.company}
                   onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                  placeholder="e.g., Google, Microsoft, Amazon"
-                  className="w-full px-4 py-3 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                  placeholder="e.g., Google, Microsoft"
+                  className="w-full px-4 py-2.5 glass-input rounded-lg text-white placeholder-slate-500 text-sm"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                  Interview Date <span className="text-red-500">*</span>
+                <label className="block text-sm text-slate-400 mb-2">
+                  Interview Date <span className="text-red-400">*</span>
                 </label>
                 <input
                   type="date"
@@ -286,11 +284,11 @@ export default function CreatePlanPage() {
                   onChange={(e) => setFormData({ ...formData, interviewDate: e.target.value })}
                   min={new Date().toISOString().split('T')[0]}
                   max={new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
-                  className="w-full px-4 py-3 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                  className="w-full px-4 py-2.5 glass-input rounded-lg text-white text-sm"
                   required
                 />
                 {formData.interviewDate && (
-                  <p className="mt-2 text-sm text-slate-600 dark:text-slate-400 flex items-center">
+                  <p className="mt-2 text-sm text-slate-400 flex items-center">
                     <Calendar className="w-4 h-4 mr-1" />
                     {calculateDaysUntilInterview()} days until interview
                   </p>
@@ -298,8 +296,8 @@ export default function CreatePlanPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                  Your Skill Level <span className="text-red-500">*</span>
+                <label className="block text-sm text-slate-400 mb-2">
+                  Skill Level <span className="text-red-400">*</span>
                 </label>
                 <div className="grid grid-cols-3 gap-3">
                   {(['beginner', 'intermediate', 'advanced'] as SkillLevel[]).map((level) => (
@@ -307,10 +305,10 @@ export default function CreatePlanPage() {
                       key={level}
                       type="button"
                       onClick={() => setFormData({ ...formData, skillLevel: level })}
-                      className={`px-4 py-3 rounded-lg font-medium text-sm transition-all ${
+                      className={`px-4 py-2.5 rounded-lg font-medium text-sm transition-all ${
                         formData.skillLevel === level
-                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
-                          : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'
+                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
+                          : 'bg-white/5 text-slate-300 hover:bg-white/10 border border-white/10'
                       }`}
                     >
                       <span className="capitalize">{level}</span>
@@ -320,15 +318,19 @@ export default function CreatePlanPage() {
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Focus Areas */}
-          <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
-            <h2 className="text-xl font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
-              <Target className="w-5 h-5 mr-2 text-purple-600" />
+        {/* Focus Areas */}
+        <div className="glass-card">
+          <div className="p-6">
+            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <div className="w-8 h-8 bg-purple-500/10 rounded-lg flex items-center justify-center">
+                <Target className="w-4 h-4 text-purple-400" />
+              </div>
               Focus Areas
             </h2>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-              Select the areas you want to focus on (leave empty for a balanced plan)
+            <p className="text-sm text-slate-400 mb-4">
+              Select areas to focus on (optional)
             </p>
 
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -339,8 +341,8 @@ export default function CreatePlanPage() {
                   onClick={() => toggleFocusArea(area)}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                     formData.focusAreas.includes(area)
-                      ? 'bg-blue-600 text-white shadow-md'
-                      : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white/5 text-slate-300 hover:bg-white/10 border border-white/10'
                   }`}
                 >
                   {area}
@@ -348,78 +350,88 @@ export default function CreatePlanPage() {
               ))}
             </div>
           </div>
+        </div>
 
-          {/* Additional Details */}
-          <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
-            <h2 className="text-xl font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
-              <TrendingUp className="w-5 h-5 mr-2 text-green-600" />
+        {/* Additional Details */}
+        <div className="glass-card">
+          <div className="p-6">
+            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <div className="w-8 h-8 bg-emerald-500/10 rounded-lg flex items-center justify-center">
+                <TrendingUp className="w-4 h-4 text-emerald-400" />
+              </div>
               Additional Details
             </h2>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                  Existing Skills (Optional)
+                <label className="block text-sm text-slate-400 mb-2">
+                  Existing Skills <span className="text-slate-500">(Optional)</span>
                 </label>
                 <input
                   type="text"
                   value={formData.existingSkills}
                   onChange={(e) => setFormData({ ...formData, existingSkills: e.target.value })}
                   placeholder="e.g., React, Python, AWS (comma separated)"
-                  className="w-full px-4 py-3 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                  className="w-full px-4 py-2.5 glass-input rounded-lg text-white placeholder-slate-500 text-sm"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                  Areas Needing Improvement (Optional)
+                <label className="block text-sm text-slate-400 mb-2">
+                  Areas to Improve <span className="text-slate-500">(Optional)</span>
                 </label>
                 <input
                   type="text"
                   value={formData.weakAreas}
                   onChange={(e) => setFormData({ ...formData, weakAreas: e.target.value })}
-                  placeholder="e.g., System design, Dynamic programming (comma separated)"
-                  className="w-full px-4 py-3 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                  placeholder="e.g., System design, Dynamic programming"
+                  className="w-full px-4 py-2.5 glass-input rounded-lg text-white placeholder-slate-500 text-sm"
                 />
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Info Box */}
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-            <div className="flex items-start space-x-3">
-              <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-blue-900 dark:text-blue-200">
-                <p className="font-semibold mb-1">AI will generate:</p>
-                <ul className="list-disc list-inside space-y-1 text-blue-800 dark:text-blue-300">
-                  <li>Day-by-day study schedule</li>
-                  <li>Curated resources (YouTube, LeetCode, articles)</li>
-                  <li>Behavioral questions with STAR framework</li>
-                  <li>Technical topics and practice problems</li>
-                  <li>Communication tips and mock interview guidance</li>
+        {/* Info Box */}
+        <div className="glass-card border border-blue-500/20">
+          <div className="p-4">
+            <div className="flex items-start gap-3">
+              <Info className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-slate-300">
+                <p className="font-medium mb-2 text-white">AI will generate:</p>
+                <ul className="space-y-1 text-slate-400">
+                  <li>• Day-by-day study schedule</li>
+                  <li>• Curated resources and practice problems</li>
+                  <li>• Behavioral questions with STAR framework</li>
+                  <li>• Technical topics and guidance</li>
                 </ul>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Error Message */}
-          {error && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 text-red-900 dark:text-red-200">
-              {error}
+        {/* Error */}
+        {error && (
+          <div className="glass-card border border-red-500/20">
+            <div className="p-4">
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                <p className="text-red-400 text-sm">{error}</p>
+              </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={isGenerating}
-            className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-4 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Sparkles className="w-5 h-5" />
-            <span>Generate My Interview Plan</span>
-          </button>
-        </form>
-      </div>
+        {/* Submit */}
+        <button
+          type="submit"
+          disabled={isGenerating}
+          className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Sparkles className="w-5 h-5" />
+          <span>Generate Plan</span>
+        </button>
+      </form>
     </div>
   );
 }

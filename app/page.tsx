@@ -27,7 +27,8 @@ import {
   Shield,
   Timer,
   Trophy,
-  CheckCircle2
+  CheckCircle2,
+  Sparkles
 } from "lucide-react";
 
 // Import the modular components
@@ -45,56 +46,10 @@ import {
   AIRecommendation
 } from "@/lib/ai/ai-recommendations-engine";
 
-// ============ INTERFACES ============
+// Import shared Resume type
+import type { Resume } from "@/types/resume";
 
-interface Resume {
-  id: string;
-  userId: string;
-  filename: string;
-  originalName: string;
-  uploadedAt: Date;
-  jobTitle?: string;
-  companyName?: string;
-  createdAt: Date;
-  feedback: {
-    overallScore: number;
-    ATS: {
-      score: number;
-      tips: Array<{
-        type: 'good' | 'improve';
-        message: string;
-      }>;
-    };
-    content: {
-      score: number;
-      tips: Array<{
-        type: 'good' | 'improve';
-        message: string;
-      }>;
-    };
-    structure: {
-      score: number;
-      tips: Array<{
-        type: 'good' | 'improve';
-        message: string;
-      }>;
-    };
-    skills: {
-      score: number;
-      tips: Array<{
-        type: 'good' | 'improve';
-        message: string;
-      }>;
-    };
-    toneAndStyle: {
-      score: number;
-      tips: Array<{
-        type: 'good' | 'improve';
-        message: string;
-      }>;
-    };
-  };
-}
+// ============ INTERFACES ============
 
 interface Interview {
   id: string;
@@ -175,7 +130,11 @@ interface UserStats {
   strengthsMap: { [key: string]: number };
   weaknessesMap: { [key: string]: number };
   monthlyProgress: { month: string; score: number; count: number }[];
-  companyPreparation: { company: string; interviews: number; avgScore: number }[];
+  companyPreparation: {
+    company: string;
+    interviews: number;
+    avgScore: number;
+  }[];
   skillProgress: { skill: string; progress: number; interviews: number }[];
   typeBreakdown: {
     type: string;
@@ -792,13 +751,13 @@ export default function Dashboard() {
   if (!userProfile || !stats) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <div className="text-red-600 dark:text-red-400 text-lg mb-4 font-medium">
+        <div className="text-center glass-card p-8">
+          <div className="text-red-400 text-lg mb-4 font-medium">
             Failed to load dashboard data
           </div>
           <Button
             onClick={() => window.location.reload()}
-            className="bg-blue-600 hover:bg-blue-700"
+            className="glass-button-primary"
           >
             Retry
           </Button>
@@ -808,417 +767,303 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-black">
-      <div className="w-full px-8 py-6">
-        
-        {/* Professional Header */}
-        <div className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-slate-200/50 dark:border-gray-700/50 mb-4">
-          <div className="px-6 py-4">
-            <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
-              
-              {/* User Profile Section */}
-              <div className="flex items-center space-x-3">
-                <div className="relative">
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white text-xl font-bold shadow-lg">
-                    {userProfile.name.charAt(0)}
-                  </div>
-                  <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white dark:border-gray-800"></div>
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                    {getGreeting()}, {userProfile.name}
-                  </h2>
-                  <p className="text-slate-600 dark:text-gray-400 text-sm">
-                    {currentTime.toLocaleDateString("en-US", {
-                      weekday: "long",
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </p>
-                </div>
+    <div className="space-y-6">
+      {/* Glass Header Card */}
+      <div className="glass-card p-6 hover-lift animate-fade-in-up">
+        <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
+          <div className="flex items-center space-x-4">
+            <div className="relative">
+              <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center text-white text-2xl font-bold shadow-glass">
+                {userProfile.name.charAt(0)}
               </div>
+              <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-3 border-slate-900 flex items-center justify-center">
+                <Sparkles className="w-3 h-3 text-white" />
+              </div>
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-1">
+                {getGreeting()}, {userProfile.name} 👋
+              </h2>
+              <p className="text-slate-400 text-sm">
+                {currentTime.toLocaleDateString("en-US", {
+                  weekday: "long",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 8 Enhanced KPI Cards with Planner */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in-up">
+        {/* Interview Readiness Score */}
+        <div className="glass-card p-5 hover-lift group">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 gradient-primary rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-glass">
+              <Target className="w-6 h-6 text-white" />
+            </div>
+            <div className="text-right">
+              <div className="text-3xl font-bold text-purple-400 mb-1 leading-none">
+                {stats.interviewReadinessScore || 0}
+              </div>
+              <div className="text-purple-300 text-xs font-medium">/100</div>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <div className="text-white font-semibold text-sm">
+              Interview Readiness
+            </div>
+            <div className="text-slate-400 text-xs">
+              Overall preparation level
             </div>
           </div>
         </div>
 
-        {/* 8 Enhanced KPI Cards with Planner */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4 mb-6">
-          {/* Interview Readiness Score */}
-          <div className="bg-gradient-to-br from-purple-500/10 to-indigo-500/10 dark:from-purple-500/20 dark:to-indigo-500/20 rounded-2xl p-5 border border-purple-500/30 hover:shadow-xl transition-all duration-300 group">
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-12 h-12 bg-purple-500/20 dark:bg-purple-500/30 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Target className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+        {/* Planner Progress - DYNAMIC CARD */}
+        {stats.plannerStats && stats.plannerStats.currentPlan ? (
+          <div 
+            className="glass-card p-5 hover-lift group cursor-pointer"
+            onClick={() => window.location.href = `/planner/${stats.plannerStats?.currentPlan?.id}`}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 gradient-success rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-glass">
+                <Calendar className="w-6 h-6 text-white" />
               </div>
               <div className="text-right">
-                <div className="text-3xl font-bold text-purple-600 dark:text-purple-400 mb-1 leading-none">
-                  {stats.interviewReadinessScore || 0}
+                <div className="text-3xl font-bold text-emerald-400 mb-1 leading-none">
+                  {stats.plannerStats.currentPlan.progress}%
                 </div>
-                <div className="text-purple-500 dark:text-purple-300 text-xs font-medium">
-                  /100
+                <div className="text-emerald-300 text-xs font-medium">
+                  {stats.plannerStats.currentPlan.daysRemaining}d left
                 </div>
               </div>
             </div>
-            <div className="space-y-1">
-              <div className="text-purple-700 dark:text-purple-300 font-semibold text-sm">
-                Interview Readiness
+            <div className="space-y-2">
+              <div className="text-white font-semibold text-sm truncate" title={stats.plannerStats.currentPlan.role}>
+                {stats.plannerStats.currentPlan.role}
               </div>
-              <div className="text-purple-600/70 dark:text-purple-400/70 text-xs">
-                Overall preparation level
-              </div>
-            </div>
-          </div>
-
-          {/* Planner Progress - DYNAMIC CARD */}
-          {stats.plannerStats && stats.plannerStats.currentPlan ? (
-            // Active Plan Card
-            <div 
-              className="bg-gradient-to-br from-teal-500/10 to-cyan-500/10 dark:from-teal-500/20 dark:to-cyan-500/20 rounded-2xl p-5 border border-teal-500/30 hover:shadow-xl transition-all duration-300 group cursor-pointer"
-              onClick={() => window.location.href = `/planner/${stats.plannerStats?.currentPlan?.id}`}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-12 h-12 bg-teal-500/20 dark:bg-teal-500/30 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Calendar className="w-6 h-6 text-teal-600 dark:text-teal-400" />
-                </div>
-                <div className="text-right">
-                  <div className="text-3xl font-bold text-teal-600 dark:text-teal-400 mb-1 leading-none">
-                    {stats.plannerStats.currentPlan.progress}%
-                  </div>
-                  <div className="text-teal-500 dark:text-teal-300 text-xs font-medium">
-                    {stats.plannerStats.currentPlan.daysRemaining}d left
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-teal-700 dark:text-teal-300 font-semibold text-sm truncate" title={stats.plannerStats.currentPlan.role}>
-                  {stats.plannerStats.currentPlan.role}
-                </div>
-                <div className="text-teal-600/70 dark:text-teal-400/70 text-xs">
-                  Active preparation plan
-                </div>
-              </div>
-              <div className="mt-3 h-2 bg-teal-200 dark:bg-teal-900/30 rounded-full overflow-hidden">
+              <div className="text-slate-400 text-xs">Active preparation plan</div>
+              <div className="h-2 bg-slate-700/50 rounded-full overflow-hidden">
                 <div 
-                  className="h-full bg-gradient-to-r from-teal-500 to-cyan-500 transition-all duration-500"
+                  className="h-full gradient-success transition-all duration-500"
                   style={{ width: `${stats.plannerStats.currentPlan.progress}%` }}
                 />
               </div>
             </div>
-          ) : stats.plannerStats && stats.plannerStats.totalPlans > 0 ? (
-            // Completed Plans Card
-            <div 
-              className="bg-gradient-to-br from-teal-500/10 to-cyan-500/10 dark:from-teal-500/20 dark:to-cyan-500/20 rounded-2xl p-5 border border-teal-500/30 hover:shadow-xl transition-all duration-300 group cursor-pointer"
-              onClick={() => window.location.href = '/planner'}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-12 h-12 bg-teal-500/20 dark:bg-teal-500/30 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <CheckCircle2 className="w-6 h-6 text-teal-600 dark:text-teal-400" />
-                </div>
-                <div className="text-right">
-                  <div className="text-3xl font-bold text-teal-600 dark:text-teal-400 mb-1 leading-none">
-                    {stats.plannerStats.completedPlans}
-                  </div>
-                  <div className="text-teal-500 dark:text-teal-300 text-xs font-medium">
-                    of {stats.plannerStats.totalPlans}
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-teal-700 dark:text-teal-300 font-semibold text-sm">
-                  Plans Completed
-                </div>
-                <div className="text-teal-600/70 dark:text-teal-400/70 text-xs">
-                  {stats.plannerStats.totalTasksCompleted} tasks done
-                </div>
-              </div>
-            </div>
-          ) : (
-            // No Plans - Create One Card
-            <div 
-              className="bg-gradient-to-br from-teal-500/10 to-cyan-500/10 dark:from-teal-500/20 dark:to-cyan-500/20 rounded-2xl p-5 border border-teal-500/30 hover:shadow-xl transition-all duration-300 group cursor-pointer"
-              onClick={() => window.location.href = '/planner/create'}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-12 h-12 bg-teal-500/20 dark:bg-teal-500/30 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <BookOpen className="w-6 h-6 text-teal-600 dark:text-teal-400" />
-                </div>
-                <div className="text-right">
-                  <div className="text-3xl font-bold text-teal-600 dark:text-teal-400 mb-1 leading-none">
-                    0
-                  </div>
-                  <div className="text-teal-500 dark:text-teal-300 text-xs font-medium">
-                    plans
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-teal-700 dark:text-teal-300 font-semibold text-sm">
-                  Study Planner
-                </div>
-                <div className="text-teal-600/70 dark:text-teal-400/70 text-xs">
-                  Click to create your first plan
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Weekly Velocity */}
-          <div className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 dark:from-blue-500/20 dark:to-cyan-500/20 rounded-2xl p-5 border border-blue-500/30 hover:shadow-xl transition-all duration-300 group">
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-12 h-12 bg-blue-500/20 dark:bg-blue-500/30 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Zap className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+          </div>
+        ) : stats.plannerStats && stats.plannerStats.totalPlans > 0 ? (
+          <div 
+            className="glass-card p-5 hover-lift group cursor-pointer"
+            onClick={() => window.location.href = '/planner'}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 gradient-success rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-glass">
+                <CheckCircle2 className="w-6 h-6 text-white" />
               </div>
               <div className="text-right">
-                <div className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-1 leading-none">
-                  {stats.weeklyVelocity || 0}
+                <div className="text-3xl font-bold text-emerald-400 mb-1 leading-none">
+                  {stats.plannerStats.completedPlans}
                 </div>
-                <div className="text-blue-500 dark:text-blue-300 text-xs font-medium">
-                  of {stats.weeklyTarget || 3}
-                </div>
+                <div className="text-emerald-300 text-xs font-medium">of {stats.plannerStats.totalPlans}</div>
               </div>
             </div>
             <div className="space-y-1">
-              <div className="text-blue-700 dark:text-blue-300 font-semibold text-sm">
-                Weekly Velocity
+              <div className="text-white font-semibold text-sm">
+                Plans Completed
               </div>
-              <div className="text-blue-600/70 dark:text-blue-400/70 text-xs">
-                This week's practice count
+              <div className="text-slate-400 text-xs">
+                {stats.plannerStats.totalTasksCompleted} tasks done
               </div>
             </div>
           </div>
-
-          {/* Technical Depth */}
-          <div className="bg-gradient-to-br from-emerald-500/10 to-green-500/10 dark:from-emerald-500/20 dark:to-green-500/20 rounded-2xl p-5 border border-emerald-500/30 hover:shadow-xl transition-all duration-300 group">
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-12 h-12 bg-emerald-500/20 dark:bg-emerald-500/30 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Brain className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+        ) : (
+          <div 
+            className="glass-card p-5 hover-lift group cursor-pointer"
+            onClick={() => window.location.href = '/planner/create'}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 gradient-accent rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-glass">
+                <BookOpen className="w-6 h-6 text-white" />
               </div>
               <div className="text-right">
-                <div className="flex items-center justify-end gap-0.5 mb-1">
-                  {[1, 2, 3, 4, 5].map((starNumber) => {
-                    const depth = stats.technicalDepth || 0;
-                    const filledStars = Math.floor(depth / 10);
-                    
-                    return (
-                      <Star
-                        key={starNumber}
-                        className={`w-5 h-5 transition-all ${
-                          starNumber <= filledStars
-                            ? "text-emerald-500 fill-emerald-500"
-                            : "text-emerald-300 dark:text-emerald-700"
-                        }`}
-                        fill={starNumber <= filledStars ? "currentColor" : "none"}
-                      />
-                    );
-                  })}
-                </div>
-                <div className="text-emerald-500 dark:text-emerald-300 text-xs font-medium">
-                  {stats.technicalDepth || 0}/50
-                </div>
+                <div className="text-3xl font-bold text-cyan-400 mb-1 leading-none">0</div>
+                <div className="text-cyan-300 text-xs font-medium">plans</div>
               </div>
             </div>
             <div className="space-y-1">
-              <div className="text-emerald-700 dark:text-emerald-300 font-semibold text-sm">
-                Technical Depth
+              <div className="text-white font-semibold text-sm">
+                Study Planner
               </div>
-              <div className="text-emerald-600/70 dark:text-emerald-400/70 text-xs">
-                Expertise level rating
+              <div className="text-slate-400 text-xs">
+                Click to create your first plan
               </div>
             </div>
           </div>
+        )}
 
-          {/* Communication Score */}
-          <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 dark:from-amber-500/20 dark:to-orange-500/20 rounded-2xl p-5 border border-amber-500/30 hover:shadow-xl transition-all duration-300 group">
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-12 h-12 bg-amber-500/20 dark:bg-amber-500/30 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Users className="w-6 h-6 text-amber-600 dark:text-amber-400" />
-              </div>
-              <div className="text-right">
-                <div className="text-3xl font-bold text-amber-600 dark:text-amber-400 mb-1 leading-none">
-                  {stats.communicationScore || 0}
-                </div>
-                <div className="text-amber-500 dark:text-amber-300 text-xs font-medium">
-                  /100
-                </div>
-              </div>
+        {/* Weekly Velocity */}
+        <div className="glass-card p-5 hover-lift group">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 gradient-accent rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-glass">
+              <Zap className="w-6 h-6 text-white" />
             </div>
-            <div className="space-y-1">
-              <div className="text-amber-700 dark:text-amber-300 font-semibold text-sm">
-                Communication
+            <div className="text-right">
+              <div className="text-3xl font-bold text-blue-400 mb-1 leading-none">
+                {stats.weeklyVelocity || 0}
               </div>
-              <div className="text-amber-600/70 dark:text-amber-400/70 text-xs">
-                Articulation & clarity
-              </div>
+              <div className="text-blue-300 text-xs font-medium">of {stats.weeklyTarget || 3}</div>
             </div>
           </div>
-
-          {/* Average Score */}
-          <div className="bg-gradient-to-br from-indigo-500/10 to-blue-500/10 dark:from-indigo-500/20 dark:to-blue-500/20 rounded-2xl p-5 border border-indigo-500/30 hover:shadow-xl transition-all duration-300 group">
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-12 h-12 bg-indigo-500/20 dark:bg-indigo-500/30 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                <TrendingUp className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-              </div>
-              <div className="text-right">
-                <div className="text-3xl font-bold text-indigo-600 dark:text-indigo-400 mb-1 leading-none">
-                  {stats.averageScore}%
-                </div>
-                <div className="text-indigo-500 dark:text-indigo-300 text-xs font-medium">
-                  {stats.improvementRate > 0 ? `+${stats.improvementRate}%` : `${stats.improvementRate}%`}
-                </div>
-              </div>
+          <div className="space-y-1">
+            <div className="text-white font-semibold text-sm">
+              Weekly Velocity
             </div>
-            <div className="space-y-1">
-              <div className="text-indigo-700 dark:text-indigo-300 font-semibold text-sm">
-                Average Score
-              </div>
-              <div className="text-indigo-600/70 dark:text-indigo-400/70 text-xs">
-                Overall performance
-              </div>
-            </div>
-          </div>
-
-          {/* Resume Score */}
-          <div className="bg-gradient-to-br from-pink-500/10 to-rose-500/10 dark:from-pink-500/20 dark:to-rose-500/20 rounded-2xl p-5 border border-pink-500/30 hover:shadow-xl transition-all duration-300 group">
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-12 h-12 bg-pink-500/20 dark:bg-pink-500/30 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                <FileText className="w-6 h-6 text-pink-600 dark:text-pink-400" />
-              </div>
-              <div className="text-right">
-                <div className="text-3xl font-bold text-pink-600 dark:text-pink-400 mb-1 leading-none">
-                  {stats.averageResumeScore || 0}%
-                </div>
-                <div className="text-pink-500 dark:text-pink-300 text-xs font-medium">
-                  {stats.totalResumes || 0} resumes
-                </div>
-              </div>
-            </div>
-            <div className="space-y-1">
-              <div className="text-pink-700 dark:text-pink-300 font-semibold text-sm">
-                Resume Quality
-              </div>
-              <div className="text-pink-600/70 dark:text-pink-400/70 text-xs">
-                ATS & content score
-              </div>
-            </div>
-          </div>
-
-          {/* Total Interviews */}
-          <div className="bg-gradient-to-br from-violet-500/10 to-purple-500/10 dark:from-violet-500/20 dark:to-purple-500/20 rounded-2xl p-5 border border-violet-500/30 hover:shadow-xl transition-all duration-300 group">
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-12 h-12 bg-violet-500/20 dark:bg-violet-500/30 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Activity className="w-6 h-6 text-violet-600 dark:text-violet-400" />
-              </div>
-              <div className="text-right">
-                <div className="text-3xl font-bold text-violet-600 dark:text-violet-400 mb-1 leading-none">
-                  {stats.totalInterviews}
-                </div>
-                <div className="text-violet-500 dark:text-violet-300 text-xs font-medium">
-                  {stats.hoursSpent}h practiced
-                </div>
-              </div>
-            </div>
-            <div className="space-y-1">
-              <div className="text-violet-700 dark:text-violet-300 font-semibold text-sm">
-                Total Interviews
-              </div>
-              <div className="text-violet-600/70 dark:text-violet-400/70 text-xs">
-                Practice sessions
-              </div>
+            <div className="text-slate-400 text-xs">
+              This week's practice count
             </div>
           </div>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="relative mb-6">
-          <div className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-200/50 dark:border-gray-700/50">
-            <div className="flex space-x-2 overflow-x-auto p-2">
-              {[
-                { id: "overview", label: "Executive Overview", icon: Activity },
-                { id: "interviews", label: "Interview Mastery", icon: Target },
-                { id: "resumes", label: "Resume Intelligence", icon: FileText },
-                { id: "analytics", label: "Performance Analytics", icon: BarChart3 },
-                { id: "recommendations", label: "AI Insights", icon: Brain },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => handleTabChange(tab.id as any)}
-                  disabled={tabLoading}
-                  className={`group relative flex items-center px-4 py-3 rounded-xl font-medium text-sm whitespace-nowrap transition-all duration-300 disabled:opacity-50 ${
-                    activeTab === tab.id
-                      ? "bg-purple-600 text-white shadow-lg"
-                      : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200 hover:bg-slate-100/50 dark:hover:bg-gray-700/50"
-                  }`}
-                >
-                  <tab.icon className="h-4 w-4 mr-2" />
-                  {tab.label}
-                </button>
-              ))}
+        {/* Technical Depth */}
+        <div className="glass-card p-5 hover-lift group">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 gradient-success rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-glass">
+              <Brain className="w-6 h-6 text-white" />
+            </div>
+            <div className="text-right">
+              <div className="flex items-center justify-end gap-0.5 mb-1">
+                {[1, 2, 3, 4, 5].map((starNumber) => {
+                  const depth = stats.technicalDepth || 0;
+                  const filledStars = Math.floor(depth / 10);
+                  
+                  return (
+                    <Star
+                      key={starNumber}
+                      className={`w-4 h-4 transition-all ${
+                        starNumber <= filledStars
+                          ? "text-emerald-400 fill-emerald-400"
+                          : "text-slate-600"
+                      }`}
+                    />
+                  );
+                })}
+              </div>
+              <div className="text-emerald-300 text-xs font-medium">{stats.technicalDepth || 0}/50</div>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <div className="text-white font-semibold text-sm">
+              Technical Depth
+            </div>
+            <div className="text-slate-400 text-xs">
+              Expertise level rating
             </div>
           </div>
         </div>
 
-        {/* Content Area */}
-        <div className="min-h-[500px]">
-          {tabLoading ? (
-            <div className="flex items-center justify-center py-32">
-              <div className="text-center">
-                <div className="w-16 h-16 border-4 border-slate-200 dark:border-gray-600 border-t-purple-500 rounded-full animate-spin mx-auto mb-6"></div>
-                <div className="text-slate-700 dark:text-gray-300 text-lg font-medium">
-                  Loading {activeTab} data...
-                </div>
-                <div className="text-slate-500 dark:text-gray-500 text-sm mt-2">
-                  Please wait while we prepare your insights
-                </div>
+        {/* Communication Score */}
+        <div className="glass-card p-5 hover-lift group">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 gradient-warning rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-glass">
+              <Users className="w-6 h-6 text-white" />
+            </div>
+            <div className="text-right">
+              <div className="text-3xl font-bold text-amber-400 mb-1 leading-none">
+                {stats.communicationScore || 0}
+              </div>
+              <div className="text-amber-300 text-xs font-medium">/100</div>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <div className="text-white font-semibold text-sm">
+              Communication
+            </div>
+            <div className="text-slate-400 text-xs">
+              Articulation & clarity
+            </div>
+          </div>
+        </div>
+
+        {/* Average Score */}
+        <div className="glass-card p-5 hover-lift group">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 gradient-primary rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-glass">
+              <TrendingUp className="w-6 h-6 text-white" />
+            </div>
+            <div className="text-right">
+              <div className="text-3xl font-bold text-indigo-400 mb-1 leading-none">{stats.averageScore}%</div>
+              <div className="text-indigo-300 text-xs font-medium">
+                {stats.improvementRate > 0 ? `+${stats.improvementRate}%` : `${stats.improvementRate}%`}
               </div>
             </div>
-          ) : (
-            <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-200/50 dark:border-gray-700/50 p-8">
-              {activeTab === "overview" && (
-                <ProfileOverview
-                  userProfile={userProfile}
-                  stats={stats}
-                  interviews={interviews}
-                  resumes={resumes}
-                  generateDailyFocus={generateEnhancedDailyFocus}
-                  loading={false}
-                />
-              )}
-
-              {activeTab === "interviews" && (
-                <ProfileInterviews 
-                  interviews={interviews} 
-                  stats={stats}
-                  loading={false}
-                />
-              )}
-
-              {activeTab === "resumes" && (
-                <Resumes user={userProfile} loading={false} />
-              )}
-
-              {activeTab === "analytics" && (
-                <ProfileAnalytics 
-                  stats={stats} 
-                  interviews={interviews}
-                  resumes={resumes}
-                  loading={false}
-                />
-              )}
-
-              {activeTab === "recommendations" && (
-                <ProfileRecommendations
-                  stats={stats}
-                  interviews={interviews}
-                  resumes={resumes}
-                  aiRecommendations={aiRecommendations}
-                  generateAIRecommendations={() => aiRecommendations}
-                  loading={false}
-                />
-              )}
+          </div>
+          <div className="space-y-1">
+            <div className="text-white font-semibold text-sm">
+              Average Score
             </div>
-          )}
+            <div className="text-slate-400 text-xs">
+              Overall performance
+            </div>
+          </div>
+        </div>
+
+        {/* Resume Score */}
+        <div className="glass-card p-5 hover-lift group">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 gradient-secondary rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-glass">
+              <FileText className="w-6 h-6 text-white" />
+            </div>
+            <div className="text-right">
+              <div className="text-3xl font-bold text-pink-400 mb-1 leading-none">
+                {stats.averageResumeScore || 0}%
+              </div>
+              <div className="text-pink-300 text-xs font-medium">{stats.totalResumes || 0} resumes</div>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <div className="text-white font-semibold text-sm">
+              Resume Quality
+            </div>
+            <div className="text-slate-400 text-xs">
+              ATS & content score
+            </div>
+          </div>
+        </div>
+
+        {/* Total Interviews */}
+        <div className="glass-card p-5 hover-lift group">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 gradient-accent rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-glass">
+              <Activity className="w-6 h-6 text-white" />
+            </div>
+            <div className="text-right">
+              <div className="text-3xl font-bold text-violet-400 mb-1 leading-none">{stats.totalInterviews}</div>
+              <div className="text-violet-300 text-xs font-medium">{stats.hoursSpent}h practiced</div>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <div className="text-white font-semibold text-sm">
+              Total Interviews
+            </div>
+            <div className="text-slate-400 text-xs">
+              Practice sessions
+            </div>
+          </div>
         </div>
       </div>
+
+      {/* Profile Overview Component */}
+      <ProfileOverview
+        userProfile={userProfile}
+        stats={stats}
+        interviews={interviews}
+        resumes={resumes}
+        generateDailyFocus={generateEnhancedDailyFocus}
+        loading={false}
+      />
     </div>
   );
 }

@@ -81,6 +81,17 @@ If you cannot find specific information, say "Company information not available"
   }
 }
 
+// Helper function to format current date
+function getCurrentDate(): string {
+  const now = new Date();
+  const options: Intl.DateTimeFormatOptions = { 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  };
+  return now.toLocaleDateString('en-US', options);
+}
+
 export async function POST(request: NextRequest) {
   const requestStartTime = Date.now();
 
@@ -214,12 +225,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ==================== BUILD USER CONTEXT ====================
+    // ==================== BUILD USER CONTEXT (UPDATED WITH SEPARATE ADDRESS FIELDS) ====================
     const userContext = {
       name: userProfile.name || 'Candidate',
       email: userProfile.email,
       phone: userProfile.phone || '',
-      location: userProfile.location || '',
+      
+      // UPDATED: Use separate address fields
+      streetAddress: userProfile.streetAddress || '',
+      city: userProfile.city || '',
+      state: userProfile.state || '',
+      
       linkedin: userProfile.linkedIn || '',
       github: userProfile.github || '',
       website: userProfile.website || '',
@@ -249,6 +265,9 @@ export async function POST(request: NextRequest) {
         maxOutputTokens: 2048,
       },
     });
+
+    // Get current date dynamically
+    const currentDate = getCurrentDate();
 
     const userPrompt = `Generate a compelling cover letter in the EXACT format of the example below:
 
@@ -294,7 +313,9 @@ CANDIDATE PROFILE:
 Name: ${userContext.name}
 Email: ${userContext.email}
 ${userContext.phone ? `Phone: ${userContext.phone}` : ''}
-${userContext.location ? `Location: ${userContext.location}` : ''}
+${userContext.streetAddress ? `Street Address: ${userContext.streetAddress}` : ''}
+${userContext.city ? `City: ${userContext.city}` : ''}
+${userContext.state ? `State: ${userContext.state}` : ''}
 Experience Level: ${userContext.experienceLevel}
 ${userContext.targetRole ? `Target Role: ${userContext.targetRole}` : ''}
 ${userContext.preferredTech.length > 0 ? `Technical Skills: ${userContext.preferredTech.join(', ')}` : ''}
@@ -306,8 +327,13 @@ ${hasResume ? `RESUME SUMMARY (Extract specific projects, metrics, and achieveme
 TONE: ${tone}
 
 CRITICAL REQUIREMENTS:
-1. START with candidate's contact info block (name, address, email, phone)
-2. Add current date (use format like "11/3/25")
+1. START with candidate's contact info block:
+   - Name on first line
+   - Street address on second line (if provided, use: "${userContext.streetAddress}")
+   - City, State on third line (if provided, format as: "${userContext.city}${userContext.city && userContext.state ? ', ' : ''}${userContext.state}")
+   - Email
+   - Phone
+2. Add current date: ${currentDate}
 3. Include recipient block (Hiring Manager, Company Name, City/State)
 4. Use conversational, natural tone with contractions ("I'm", "I've", "you're")
 5. Reference SPECIFIC projects from the resume with actual names

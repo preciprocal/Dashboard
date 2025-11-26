@@ -16,26 +16,18 @@ import {
   Video,
   BookOpen,
   BarChart3,
-  Award,
   Settings,
   HelpCircle,
   LogOut,
   Plus,
   Crown,
-  GraduationCap,
   FileText,
-  Users,
-  Brain,
-  Calendar,
-  Mic,
-  Volume2,
-  Gift,
-  GripVertical,
   User,
-  Star,
-  Zap,
   Shield,
-  Pen
+  Star,
+  Calendar,
+  Pen,
+  CheckSquare
 } from 'lucide-react';
 import { signOut } from "@/lib/actions/auth.action";
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -50,45 +42,25 @@ const ThemeContext = createContext<{
 
 const useTheme = () => {
   const context = useContext(ThemeContext);
-  if (!context) {
-    throw new Error('useTheme must be used within a ThemeProvider');
-  }
+  if (!context) throw new Error('useTheme must be used within a ThemeProvider');
   return context;
 };
 
 const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(true); // Default to dark mode for glass effect
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     const savedTheme = localStorage.getItem('theme');
-    if (savedTheme) {
-      const isDark = savedTheme === 'dark';
-      setDarkMode(isDark);
-      if (isDark) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-    } else {
-      const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setDarkMode(systemPrefersDark);
-      if (systemPrefersDark) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-    }
+    const isDark = savedTheme ? savedTheme === 'dark' : true;
+    setDarkMode(isDark);
+    document.documentElement.classList.toggle('dark', isDark);
   }, []);
 
   useEffect(() => {
     if (mounted) {
-      if (darkMode) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
+      document.documentElement.classList.toggle('dark', darkMode);
     }
   }, [darkMode, mounted]);
 
@@ -96,17 +68,12 @@ const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     const newMode = !darkMode;
     setDarkMode(newMode);
     localStorage.setItem('theme', newMode ? 'dark' : 'light');
-    
-    if (newMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    document.documentElement.classList.toggle('dark', newMode);
   };
 
   return (
     <ThemeContext.Provider value={{ darkMode, toggleTheme }}>
-      {mounted ? children : <div className="min-h-screen bg-white dark:bg-slate-900" />}
+      {mounted ? children : <div className="min-h-screen bg-slate-900" />}
     </ThemeContext.Provider>
   );
 };
@@ -150,63 +117,39 @@ const useResumeCount = () => {
 
 // Helper Functions
 const getPlanInfo = (subscription: any) => {
-  if (
-    !subscription ||
-    subscription.plan === "starter" ||
-    subscription.plan === null ||
-    subscription.plan === undefined
-  ) {
+  if (!subscription || subscription.plan === "starter" || !subscription.plan) {
     return {
       text: "Free Plan",
-      emoji: "⭐",
       icon: Shield,
       style: "text-green-400",
-      badgeStyle: "bg-green-500/20 text-green-400 border-green-500/30",
-      buttonStyle: "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700",
+      badgeClass: "status-badge-done",
       showUpgrade: true
     };
   }
 
   switch (subscription.plan) {
     case "pro":
-      if (subscription.status === "trial") {
-        return {
-          text: "Pro Trial",
-          emoji: "🎉",
-          icon: Star,
-          style: "text-purple-400",
-          badgeStyle: "bg-purple-500/20 text-purple-400 border-purple-500/30",
-          buttonStyle: "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700",
-          showUpgrade: false
-        };
-      }
       return {
-        text: "Pro Plan",
-        emoji: "💎",
+        text: subscription.status === "trial" ? "Pro Trial" : "Pro Plan",
         icon: Star,
         style: "text-purple-400",
-        badgeStyle: "bg-purple-500/20 text-purple-400 border-purple-500/30",
-        buttonStyle: "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700",
+        badgeClass: "status-badge-progress",
         showUpgrade: false
       };
     case "premium":
       return {
         text: "Premium Plan",
-        emoji: "👑",
         icon: Crown,
         style: "text-yellow-400",
-        badgeStyle: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-        buttonStyle: "bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700",
+        badgeClass: "status-badge-todo",
         showUpgrade: false
       };
     default:
       return {
         text: "Free Plan",
-        emoji: "⭐",
         icon: Shield,
         style: "text-green-400",
-        badgeStyle: "bg-green-500/20 text-green-400 border-green-500/30",
-        buttonStyle: "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700",
+        badgeClass: "status-badge-done",
         showUpgrade: true
       };
   }
@@ -217,10 +160,6 @@ const getSafeUserStats = (userStats: any) => {
     return {
       totalInterviews: 0,
       averageScore: 0,
-      currentStreak: 0,
-      practiceHours: 0,
-      improvement: 0,
-      remainingSessions: 8,
       interviewsUsed: 5,
       interviewsLimit: 10,
       resumesUsed: 3,
@@ -231,10 +170,6 @@ const getSafeUserStats = (userStats: any) => {
   return {
     totalInterviews: userStats.totalInterviews || 0,
     averageScore: userStats.averageScore || 0,
-    currentStreak: userStats.currentStreak || 0,
-    practiceHours: userStats.practiceHours || 0,
-    improvement: userStats.improvement || 0,
-    remainingSessions: userStats.remainingSessions || 8,
     interviewsUsed: userStats.interviewsUsed || 5,
     interviewsLimit: userStats.interviewsLimit || 10,
     resumesUsed: userStats.resumesUsed || 3,
@@ -249,36 +184,18 @@ interface LayoutClientProps {
 }
 
 // Progress Bar Component
-const ProgressBar = ({ used, limit, color = "blue" }: { used: number; limit: number; color?: "blue" | "purple" | "green" }) => {
+const ProgressBar = ({ used, limit, color = "blue" }: { used: number; limit: number; color?: string }) => {
   const percentage = Math.min((used / limit) * 100, 100);
   
-  const colorClasses = {
-    blue: "bg-blue-500 dark:bg-blue-400",
-    purple: "bg-indigo-500 dark:bg-indigo-400",
-    green: "bg-emerald-500 dark:bg-emerald-400"
-  };
-
   return (
-    <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+    <div className="w-full bg-slate-700/50 rounded-full h-2 overflow-hidden">
       <div 
-        className={`h-2 rounded-full ${colorClasses[color]} transition-all duration-300`}
+        className="h-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all duration-300"
         style={{ width: `${percentage}%` }}
       />
     </div>
   );
 };
-
-// Section Header Component
-const SectionHeader = ({ title, showPlus = false }: { title: string; showPlus?: boolean }) => (
-  <div className="flex items-center justify-between px-4 py-2 mt-4 mb-2">
-    <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-      {title}
-    </h3>
-    {showPlus && (
-      <Plus className="w-4 h-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer transition-colors" />
-    )}
-  </div>
-);
 
 // Search Dropdown Component
 const SearchDropdown = () => {
@@ -286,30 +203,16 @@ const SearchDropdown = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const { resumeCount } = useResumeCount();
 
-  const quickActions = [
-    { label: 'Start New Interview', href: '/createinterview', icon: Plus, category: 'Actions' },
-    { label: 'View Profile', href: '/profile', icon: User, category: 'Actions' },
-    { label: 'Upload Resume', href: '/resume/upload', icon: FileText, category: 'Actions' },
-    { label: `View ${resumeCount} Resume Analyses`, href: '/resume', icon: FileText, category: 'Actions' },
-    { label: 'Generate Cover Letter', href: '/cover-letter', icon: Pen, category: 'Actions' },
-  ];
-
-  const navigationItems = [
+  const allItems = [
     { label: 'Dashboard', href: '/', icon: Home, category: 'Navigation' },
-    { label: 'Interviews', href: '/interviews', icon: Video, category: 'Navigation' },
-    { label: `Resume Analysis (${resumeCount})`, href: '/resume', icon: FileText, category: 'Navigation' },
+    { label: 'Profile', href: '/profile', icon: User, category: 'Navigation' },
+    { label: 'Resume Analysis', href: '/resume', icon: FileText, category: 'Navigation' },
     { label: 'Cover Letter', href: '/cover-letter', icon: Pen, category: 'Navigation' },
-    { label: 'Analytics', href: '/analytics', icon: BarChart3, category: 'Navigation' },
-    { label: 'Settings', href: '/settings', icon: Settings, category: 'Navigation' },
+    { label: 'Interviews', href: '/interviews', icon: Video, category: 'Navigation' },
+    { label: 'Planner', href: '/planner', icon: Calendar, category: 'Navigation' },
+    { label: 'Start New Interview', href: '/createinterview', icon: Plus, category: 'Actions' },
+    { label: 'Upload Resume', href: '/resume/upload', icon: FileText, category: 'Actions' },
   ];
-
-  const helpItems = [
-    { label: 'How to prepare for interviews', href: '/help/interview-prep', icon: HelpCircle, category: 'Help' },
-    { label: 'Resume writing tips', href: '/help/resume-tips', icon: BookOpen, category: 'Help' },
-    { label: 'Contact Support', href: '/help/contact', icon: HelpCircle, category: 'Help' },
-  ];
-
-  const allItems = [...quickActions, ...navigationItems, ...helpItems];
 
   const filteredItems = searchQuery
     ? allItems.filter(item =>
@@ -318,17 +221,10 @@ const SearchDropdown = () => {
     : allItems;
 
   const groupedItems = filteredItems.reduce((acc, item) => {
-    if (!acc[item.category]) {
-      acc[item.category] = [];
-    }
+    if (!acc[item.category]) acc[item.category] = [];
     acc[item.category].push(item);
     return acc;
   }, {} as Record<string, typeof allItems>);
-
-  const handleItemClick = (href: string) => {
-    setIsOpen(false);
-    setSearchQuery('');
-  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -342,9 +238,7 @@ const SearchDropdown = () => {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
   return (
@@ -353,28 +247,22 @@ const SearchDropdown = () => {
         <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
         <input
           type="text"
-          placeholder="Type a command or search..."
+          placeholder="Search or jump to..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onFocus={() => setIsOpen(true)}
-          className="w-full pl-12 pr-16 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-0 focus:border-slate-300 dark:focus:border-slate-600 focus:bg-white dark:focus:bg-slate-700 transition-all"
+          className="w-full pl-12 pr-4 py-2.5 text-sm glass-input rounded-xl text-white placeholder-slate-400 focus:outline-none"
         />
-        <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 text-xs font-medium">
-          ⌘ F
-        </div>
       </div>
 
-      {/* Dropdown */}
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-50 max-h-96 overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 mt-2 glass-card max-h-96 overflow-y-auto glass-scrollbar z-50 animate-fade-in-up">
           {Object.keys(groupedItems).length === 0 ? (
-            <div className="p-4 text-center text-slate-500 dark:text-slate-400">
-              No results found
-            </div>
+            <div className="p-4 text-center text-slate-400">No results found</div>
           ) : (
             Object.entries(groupedItems).map(([category, items]) => (
               <div key={category} className="py-2">
-                <div className="px-4 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-700">
+                <div className="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                   {category}
                 </div>
                 <div className="py-1">
@@ -384,8 +272,11 @@ const SearchDropdown = () => {
                       <Link
                         key={`${category}-${index}`}
                         href={item.href}
-                        onClick={() => handleItemClick(item.href)}
-                        className="flex items-center space-x-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+                        onClick={() => {
+                          setIsOpen(false);
+                          setSearchQuery('');
+                        }}
+                        className="flex items-center space-x-3 px-4 py-3 hover:bg-white/5 transition-colors text-slate-300 hover:text-white"
                       >
                         <Icon className="w-4 h-4 text-slate-400" />
                         <span className="text-sm">{item.label}</span>
@@ -405,151 +296,65 @@ const SearchDropdown = () => {
 // Main Layout Content Component
 function LayoutContent({ children, user, userStats }: LayoutClientProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarWidth, setSidebarWidth] = useState(280);
-  const [isResizing, setIsResizing] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const { darkMode, toggleTheme } = useTheme();
   const pathname = usePathname();
   const router = useRouter();
 
-  // Get dynamic resume data
   const { resumeCount, latestResume, loading: resumeLoading } = useResumeCount();
 
-  // Dynamic navigation items with resume, cover letter, interviews, and planner
+  // Scroll detection for navbar
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 10);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   const mainNavItems = [
-    { id: 'overview', label: 'Dashboard', icon: Home, href: '/' },
-    { id: 'profile', label: 'Profile', icon: User, href: '/profile' },
-    { 
-      id: 'resume', 
-      label: 'Resume', 
-      icon: FileText, 
-      href: '/resume'
-    },
-    { 
-      id: 'cover-letter', 
-      label: 'Cover Letter', 
-      icon: Pen,
-      href: '/cover-letter' 
-    },
-    { 
-      id: 'interviews', 
-      label: 'Interview', 
-      icon: Video, 
-      href: '/interviews' 
-    },
-    { 
-      id: 'planner', 
-      label: 'Planner', 
-      icon: Calendar, 
-      href: '/planner' 
-    },
+    { id: 'overview', label: 'Overview', icon: Home, href: '/' },
+    { id: 'resume', label: 'Resume', icon: FileText, href: '/resume' },
+    { id: 'cover-letter', label: 'Cover Letter', icon: Pen, href: '/cover-letter' },
+    { id: 'interviews', label: 'Interviews', icon: Video, href: '/interview' },
+    { id: 'planner', label: 'Planner', icon: Calendar, href: '/planner' },
   ];
 
-  const studyToolsItems = [
-    { id: 'templates', label: 'Templates', icon: BookOpen, href: '/templates' },  
+  const teamSpaces = [
+    { id: 'templates', label: 'Templates', icon: BookOpen, href: '/templates' },
   ];
 
-  const aiVoiceToolsItems = [
+  const otherItems = [
     { id: 'settings', label: 'Settings', icon: Settings, href: '/settings' },
+    { id: 'help', label: 'Support', icon: HelpCircle, href: '/help' },
   ];
 
-  // Bottom navigation items
-  const bottomItems = [
-    { id: 'help', label: 'Help & Support', icon: HelpCircle, href: '/help' }
-  ];
-
-  // Define pages where navbar/sidebar should be hidden
-  const authPages = [
-    '/sign-in', 
-    '/sign-up', 
-    '/forgot-password', 
-    '/reset-password',
-    '/verify-email',
-    '/onboarding'
-  ];
-  
+  const authPages = ['/sign-in', '/sign-up', '/forgot-password', '/reset-password', '/verify-email', '/onboarding'];
   const isAuthPage = authPages.some(page => pathname.startsWith(page));
 
-  // Define pages that need full width (no padding)
-  const fullWidthPages = ['/'];
-  const isFullWidthPage = fullWidthPages.includes(pathname);
-
-  // For auth pages, render only children without layout
   if (isAuthPage) {
-    return (
-      <div className="min-h-screen">
-        {children}
-      </div>
-    );
+    return <div className="min-h-screen">{children}</div>;
   }
 
-  // Safe data handling
   const safeUser = user || {};
   const stats = getSafeUserStats(userStats);
   const userSubscription = safeUser?.subscription || null;
   const planInfo = getPlanInfo(userSubscription);
 
-  // Update resume count in stats
-  const updatedStats = {
-    ...stats,
-    resumesUsed: resumeCount,
-  };
+  const updatedStats = { ...stats, resumesUsed: resumeCount };
 
-  // Get user initials
   const getInitials = (name?: string | null) => {
     if (!name || typeof name !== 'string' || name.trim() === '') return "U";
-    
     try {
-      return name
-        .trim()
-        .split(" ")
-        .map((word) => word.charAt(0))
-        .join("")
-        .toUpperCase()
-        .substring(0, 2);
+      return name.trim().split(" ").map((word) => word.charAt(0)).join("").toUpperCase().substring(0, 2);
     } catch (error) {
       return "U";
     }
   };
 
   const userInitials = getInitials(safeUser.name);
-
-  // Resize functionality
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
-      setIsResizing(true);
-      e.preventDefault();
-    }
-  };
-
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!isResizing || (typeof window !== 'undefined' && window.innerWidth < 1024)) return;
-    const newWidth = Math.max(240, Math.min(400, e.clientX));
-    setSidebarWidth(newWidth);
-  };
-
-  const handleMouseUp = () => {
-    setIsResizing(false);
-  };
-
-  useEffect(() => {
-    if (isResizing) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-      document.body.style.cursor = 'col-resize';
-      document.body.style.userSelect = 'none';
-    } else {
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    }
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
-  }, [isResizing]);
 
   const handleLogout = async () => {
     try {
@@ -568,241 +373,244 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
     }
   };
 
-  useEffect(() => {
-    const handleResize = () => {
-      if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
-        setSidebarOpen(false);
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  const renderNavItem = (item: any, isActive: boolean) => (
-    <Link
-      key={item.id}
-      href={item.href}
-      onClick={handleLinkClick}
-      className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg transition-all duration-200 text-sm ${
-        isActive
-          ? 'bg-blue-600 dark:bg-blue-600 text-white shadow-sm'
-          : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
-      }`}
-    >
-      <div className="flex items-center space-x-3">
-        <item.icon className="w-4 h-4 flex-shrink-0" />
-        <span className="font-medium">{item.label}</span>
-      </div>
-    </Link>
-  );
+  const isActive = (href: string) => pathname === href;
 
   return (
-    <div className="h-screen bg-slate-50 dark:bg-slate-900 transition-colors flex overflow-hidden">
+    <div className="min-h-screen relative overflow-hidden">
+      {/* Animated Background with Gradient Mesh */}
+      <div className="fixed inset-0 gradient-mesh -z-10" />
+      <div className="fixed inset-0 bg-gradient-to-br from-slate-900/95 via-purple-900/90 to-slate-900/95 -z-10" />
+      
       {/* Mobile Overlay */}
       {sidebarOpen && (
         <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      {/* Sidebar */}
-      <div 
-        className={`fixed inset-y-0 left-0 z-50 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 transform ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } lg:translate-x-0 transition-all duration-300 ease-in-out flex flex-col h-full overflow-hidden lg:relative lg:z-auto`}
-        style={{ 
-          width: typeof window !== 'undefined' && window.innerWidth >= 1024 ? `${sidebarWidth}px` : '280px' 
-        }}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0 h-16">
-          <Link href="/" className="flex items-center space-x-3 group" onClick={handleLinkClick}>
-            <NextImage 
-              src={logo} 
-              alt="Preciprocal" 
-              width={24} 
-              height={24}
-              className="rounded-lg group-hover:scale-105 transition-transform"
-              priority
-            />
-            <span className="text-lg font-bold text-slate-900 dark:text-white">Preciprocal</span>
-          </Link>
-          <button 
-            onClick={() => setSidebarOpen(false)}
-            className="lg:hidden text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-300 p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+      {/* Glass Sidebar */}
+      <aside className={`fixed left-0 top-0 h-full w-64 glass-sidebar z-50 transition-transform duration-300 glass-scrollbar overflow-y-auto ${
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+      }`}>
+        {/* Logo & User Profile */}
+        <div className="p-4 border-b border-white/10">
+          <div className="flex items-center justify-between mb-4">
+            <Link href="/" className="flex items-center space-x-3 group" onClick={handleLinkClick}>
+              <NextImage src={logo} alt="Preciprocal" width={28} height={28} className="rounded-lg" priority />
+              <span className="text-lg font-bold text-white">Preciprocal</span>
+            </Link>
+            <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-slate-400 hover:text-white">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="flex items-center space-x-3 glass-morphism p-3 rounded-xl">
+            <div className="relative">
+              <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center text-white font-semibold">
+                {userInitials}
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-slate-900" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-white font-medium text-sm truncate">{safeUser?.name || 'User'}</p>
+              <button className="flex items-center space-x-1 text-slate-400 text-xs hover:text-white transition-colors">
+                <span className="truncate">{safeUser?.email || 'user@example.com'}</span>
+                <ChevronDown className="w-3 h-3 flex-shrink-0" />
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Quick Actions */}
-        <div className="p-4 flex-shrink-0 space-y-3">
+        <div className="p-3 space-y-2">
           <Link 
             href="/createinterview"
             onClick={handleLinkClick}
-            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold px-4 py-3 rounded-lg transition-all duration-300 flex items-center justify-center group shadow-lg hover:shadow-xl"
+            className="glass-button-primary w-full px-4 py-3 rounded-xl hover-lift flex items-center justify-center group"
           >
             <Plus className="w-4 h-4 mr-2 group-hover:rotate-90 transition-transform duration-200" />
-            Start Interview
+            <span className="font-medium text-white">Start Interview</span>
           </Link>
           
           <Link 
             href="/resume/upload"
             onClick={handleLinkClick}
-            className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold px-4 py-3 rounded-lg transition-all duration-300 flex items-center justify-center group shadow-lg hover:shadow-xl"
+            className="glass-button w-full px-4 py-3 rounded-xl hover-lift flex items-center justify-center group text-white"
           >
             <FileText className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform duration-200" />
-            Analyze Resume
+            <span className="font-medium">Analyze Resume</span>
           </Link>
         </div>
 
-        {/* Main Navigation */}
-        <nav className="flex-1 py-2 overflow-y-auto min-h-0">
-          {/* Main Items */}
-          <div className="px-3 space-y-1">
-            {mainNavItems.map((item) => {
-              const isActive = pathname === item.href;
-              return renderNavItem(item, isActive);
-            })}
+        {/* Navigation Menu */}
+        <nav className="p-3 space-y-1">
+          <div className="px-3 py-2">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Menu</p>
           </div>
+          
+          {mainNavItems.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.href);
+            return (
+              <Link
+                key={item.id}
+                href={item.href}
+                onClick={handleLinkClick}
+                className={`group flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                  active ? 'bg-white/10 text-white shadow-glass' : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                }`}
+              >
+                <div className="flex items-center space-x-3">
+                  <Icon className={`w-5 h-5 ${active ? 'text-purple-400' : 'text-slate-400'}`} />
+                  <span className="font-medium text-sm">{item.label}</span>
+                </div>
+              </Link>
+            );
+          })}
 
-          {/* Study Tools Section */}
-          <SectionHeader title="Study Tools" showPlus={true} />
-          <div className="px-3 space-y-1">
-            {studyToolsItems.map((item) => renderNavItem(item, pathname === item.href))}
+          {/* Team Spaces Section */}
+          <div className="pt-6">
+            <div className="flex items-center justify-between px-3 py-2">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Resources</p>
+            </div>
+            {teamSpaces.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  onClick={handleLinkClick}
+                  className="group flex items-center space-x-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-white/5 hover:text-white transition-all duration-200"
+                >
+                  <Icon className="w-5 h-5 text-slate-400" />
+                  <span className="font-medium text-sm">{item.label}</span>
+                </Link>
+              );
+            })}
           </div>
 
           {/* Recent Resume Activity */}
           {resumeCount > 0 && latestResume && !resumeLoading && (
-            <>
-              <SectionHeader title="Recent Activity" />
-              <div className="px-3">
-                <Link
-                  href={`/resume/${latestResume.id}`}
-                  onClick={handleLinkClick}
-                  className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-all duration-200"
-                >
-                  <div className="w-8 h-8 bg-blue-50 dark:bg-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0 border border-blue-200 dark:border-blue-700">
-                    <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            <div className="pt-4">
+              <div className="px-3 py-2">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Recent</p>
+              </div>
+              <Link
+                href={`/resume/${latestResume.id}`}
+                onClick={handleLinkClick}
+                className="glass-card mx-2 p-3 hover-lift"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 gradient-accent rounded-lg flex items-center justify-center">
+                    <FileText className="w-4 h-4 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
-                      {latestResume.companyName || latestResume.jobTitle || 'Resume Analysis'}
+                    <p className="text-sm font-medium text-white truncate">
+                      {latestResume.companyName || latestResume.jobTitle || 'Resume'}
                     </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Score: {latestResume.feedback?.overallScore || 'Processing...'}
+                    <p className="text-xs text-slate-400">
+                      Score: {latestResume.feedback?.overallScore || '...'}%
                     </p>
                   </div>
-                  <div className="flex-shrink-0">
-                    <div className={`w-3 h-3 rounded-full ${
-                      (latestResume.feedback?.overallScore || 0) >= 80 ? 'bg-emerald-500' :
-                      (latestResume.feedback?.overallScore || 0) >= 60 ? 'bg-amber-500' : 
-                      (latestResume.feedback?.overallScore || 0) > 0 ? 'bg-red-500' : 'bg-slate-300'
-                    }`}></div>
-                  </div>
-                </Link>
-              </div>
-            </>
+                </div>
+              </Link>
+            </div>
           )}
 
           {/* Other Section */}
-          <SectionHeader title="Other" showPlus={false} />
-          <div className="px-3 space-y-1">
-            {aiVoiceToolsItems.map((item) => renderNavItem(item, pathname === item.href))}
+          <div className="pt-6">
+            <div className="px-3 py-2">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Other</p>
+            </div>
+            {otherItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  onClick={handleLinkClick}
+                  className="group flex items-center space-x-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-white/5 hover:text-white transition-all duration-200"
+                >
+                  <Icon className="w-5 h-5 text-slate-400" />
+                  <span className="font-medium text-sm">{item.label}</span>
+                </Link>
+              );
+            })}
           </div>
         </nav>
 
-        {/* Usage Stats Section */}
-        <div className="px-4 py-4 border-t border-slate-200 dark:border-slate-700 flex-shrink-0">
-          <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 space-y-4 border border-slate-200 dark:border-slate-700">
-            {/* Plan Info */}
+        {/* Usage Stats */}
+        <div className="p-4 mt-4 border-t border-white/10">
+          <div className="glass-card p-4 space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-slate-900 dark:text-white">Current Plan</span>
-              <span className={`text-sm font-semibold ${planInfo.style}`}>
+              <span className="text-sm font-medium text-white">Plan</span>
+              <span className={`glass-badge ${planInfo.badgeClass} text-xs px-2 py-1`}>
                 {planInfo.text}
               </span>
             </div>
 
-            {/* Interviews Usage */}
             <div>
               <div className="flex justify-between items-center mb-2">
-                <span className="text-sm text-slate-600 dark:text-slate-400">Interviews</span>
-                <span className="text-sm font-medium text-slate-900 dark:text-white">
+                <span className="text-sm text-slate-400">Interviews</span>
+                <span className="text-sm font-medium text-white">
                   {updatedStats.interviewsUsed}/{updatedStats.interviewsLimit}
                 </span>
               </div>
-              <ProgressBar used={updatedStats.interviewsUsed} limit={updatedStats.interviewsLimit} color="purple" />
+              <ProgressBar used={updatedStats.interviewsUsed} limit={updatedStats.interviewsLimit} />
             </div>
 
-            {/* Resume Usage */}
             <div>
               <div className="flex justify-between items-center mb-2">
-                <span className="text-sm text-slate-600 dark:text-slate-400">Resume Analysis</span>
-                <span className="text-sm font-medium text-slate-900 dark:text-white">
+                <span className="text-sm text-slate-400">Resumes</span>
+                <span className="text-sm font-medium text-white">
                   {resumeLoading ? '...' : `${updatedStats.resumesUsed}/${updatedStats.resumesLimit}`}
                 </span>
               </div>
-              <ProgressBar used={updatedStats.resumesUsed} limit={updatedStats.resumesLimit} color="green" />
+              <ProgressBar used={updatedStats.resumesUsed} limit={updatedStats.resumesLimit} />
             </div>
 
-            {/* Upgrade Button */}
             {planInfo.showUpgrade && (
               <Link 
-                href="/pricing"
-                className={`w-full flex items-center justify-center space-x-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-all shadow-sm hover:shadow-md ${planInfo.buttonStyle} text-white`}
+                href="/subscription"
+                onClick={handleLinkClick}
+                className="glass-button-primary w-full px-4 py-2.5 rounded-lg hover-lift flex items-center justify-center text-white text-sm font-medium"
               >
-                <Crown className="w-4 h-4" />
-                <span>Upgrade Plan</span>
+                <Crown className="w-4 h-4 mr-2" />
+                Upgrade Plan
               </Link>
             )}
           </div>
         </div>
 
-        {/* Bottom Navigation - Help & Logout */}
-        <div className="px-4 pb-4 border-t border-slate-200 dark:border-slate-700 flex-shrink-0 space-y-2 pt-3">
-          {bottomItems.map((item) => (
-            <Link
-              key={item.id}
-              href={item.href}
-              onClick={handleLinkClick}
-              className="w-full flex items-center space-x-3 px-4 py-2.5 rounded-lg text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200 text-sm"
-            >
-              <item.icon className="w-4 h-4 flex-shrink-0" />
-              <span className="font-medium">{item.label}</span>
-            </Link>
-          ))}
-          
+        {/* Logout Button */}
+        <div className="p-4 border-t border-white/10">
           <button
             onClick={handleLogout}
             disabled={isLoggingOut}
-            className="w-full flex items-center space-x-3 px-4 py-2.5 rounded-lg text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-200 text-sm disabled:opacity-50"
           >
-            <LogOut className="w-4 h-4 flex-shrink-0" />
-            <span className="font-medium">{isLoggingOut ? 'Logging out...' : 'Log Out'}</span>
+            <LogOut className="w-5 h-5" />
+            <span className="font-medium">{isLoggingOut ? 'Logging out...' : 'Logout'}</span>
           </button>
         </div>
+      </aside>
 
-        {/* Resize Handle */}
-        <div
-          onMouseDown={handleMouseDown}
-          className="hidden lg:block absolute top-0 right-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500 transition-colors"
-        />
-      </div>
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Top Navigation Bar */}
-        <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex-shrink-0 h-16">
-          <div className="h-full px-4 lg:px-6 flex items-center justify-between">
-            {/* Left Section */}
-            <div className="flex items-center space-x-4">
+      {/* Main Content */}
+      <div className="lg:pl-64 min-h-screen flex flex-col">
+        {/* Fixed Sticky Top Navigation Bar */}
+        <header className={`fixed top-0 right-0 left-0 lg:left-64 z-40 border-b border-white/10 backdrop-blur-xl transition-all duration-300 ${
+          scrolled 
+            ? 'bg-slate-900/95 dark:bg-slate-900/95 shadow-2xl' 
+            : 'bg-slate-900/80 dark:bg-slate-900/80 shadow-lg'
+        }`}>
+          <div className="flex items-center justify-between px-6 py-4">
+            <div className="flex items-center space-x-4 flex-1">
               <button
-                onClick={() => setSidebarOpen(true)}
-                className="lg:hidden p-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="lg:hidden glass-button p-2 rounded-lg hover-lift"
               >
-                <Menu className="w-5 h-5" />
+                <Menu className="w-6 h-6 text-white" />
               </button>
               
               <div className="hidden lg:block flex-1 max-w-2xl">
@@ -810,47 +618,31 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
               </div>
             </div>
 
-            {/* Right Section */}
             <div className="flex items-center space-x-3">
-              {/* Theme Toggle */}
               <button
                 onClick={toggleTheme}
-                className="p-2.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                className="glass-button p-2 rounded-lg hover-lift"
                 title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
               >
-                {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                {darkMode ? <Sun className="w-5 h-5 text-slate-300" /> : <Moon className="w-5 h-5 text-slate-300" />}
               </button>
 
-              {/* Notifications */}
-              <button className="p-2.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors relative">
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
+              <button className="glass-button p-2 rounded-lg hover-lift relative">
+                <Bell className="w-5 h-5 text-slate-300" />
+                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
               </button>
 
-              {/* Profile */}
-              <Link
-                href="/profile"
-                className="flex items-center space-x-3 cursor-pointer group hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg px-3 py-2 transition-all duration-200"
-              >
-                <div className="w-8 h-8 bg-blue-600 dark:bg-blue-600 rounded-full flex items-center justify-center shadow-sm">
-                  <span className="text-white text-sm font-semibold">{userInitials}</span>
+              <Link href="/profile" className="glass-button p-1 rounded-lg hover-lift">
+                <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center text-white text-sm font-semibold">
+                  {userInitials}
                 </div>
-                <div className="hidden sm:block">
-                  <div className="text-sm font-medium text-slate-900 dark:text-white">
-                    {safeUser?.name || 'User'}
-                  </div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400">
-                    {safeUser?.email || 'user@example.com'}
-                  </div>
-                </div>
-                <ChevronDown className="w-4 h-4 text-slate-400 hidden sm:block group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors duration-200" />
               </Link>
             </div>
           </div>
         </header>
 
-        {/* Main Content Area with conditional padding */}
-        <main className={`flex-1 overflow-auto bg-slate-50 dark:bg-slate-900 ${isFullWidthPage ? '' : 'p-6'}`}>
+        {/* Page Content with top padding to account for fixed header */}
+        <main className="p-6 mt-[73px] flex-1">
           {children}
         </main>
       </div>
@@ -858,27 +650,13 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
   );
 }
 
-// Main component
 export default function LayoutClient({ children, user, userStats }: LayoutClientProps) {
   const pathname = usePathname();
-  
-  const authPages = [
-    '/sign-in', 
-    '/sign-up', 
-    '/forgot-password', 
-    '/reset-password',
-    '/verify-email',
-    '/onboarding'
-  ];
-  
+  const authPages = ['/sign-in', '/sign-up', '/forgot-password', '/reset-password', '/verify-email', '/onboarding'];
   const isAuthPage = authPages.some(page => pathname.startsWith(page));
 
   if (isAuthPage) {
-    return (
-      <div className="min-h-screen">
-        {children}
-      </div>
-    );
+    return <div className="min-h-screen">{children}</div>;
   }
 
   return (

@@ -12,20 +12,24 @@ import {
   Plus,
   Calendar,
   Target,
-  TrendingUp,
   Clock,
   CheckCircle2,
   Flame,
-  BookOpen,
-  Award,
-  ArrowRight,
-  Sparkles,
-  Loader2,
-  Filter,
-  Search
+  AlertCircle,
+  RefreshCw,
+  Search,
+  Filter
 } from 'lucide-react';
 import PlanCard from '@/components/planner/PlanCard';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
+import ErrorPage from '@/components/Error';
+
+interface CriticalError {
+  code: string;
+  title: string;
+  message: string;
+  details?: string;
+}
 
 export default function PlannerPage() {
   const [user, loading] = useAuthState(auth);
@@ -33,10 +37,16 @@ export default function PlannerPage() {
   
   const [plans, setPlans] = useState<InterviewPlan[]>([]);
   const [stats, setStats] = useState<PlanStats | null>(null);
-  const [loadingPlans, setLoadingPlans] = useState(true);
+  const [loadingPlans, setLoadingPlans] = useState<boolean>(true);
+  const [loadingStats, setLoadingStats] = useState<boolean>(true);
   const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [sortBy, setSortBy] = useState<'date' | 'progress' | 'name'>('date');
+  
+  // Error states
+  const [criticalError, setCriticalError] = useState<CriticalError | null>(null);
+  const [plansError, setPlansError] = useState<string>('');
+  const [statsError, setStatsError] = useState<string>('');
 
   useEffect(() => {
     if (!loading && !user) {
@@ -48,40 +58,81 @@ export default function PlannerPage() {
       loadUserPlans();
       loadUserStats();
     }
-  }, [user, loading]);
+  }, [user, loading, router]);
 
-  const loadUserPlans = async () => {
+  const loadUserPlans = async (): Promise<void> => {
     if (!user) return;
     
     try {
       setLoadingPlans(true);
+      setPlansError('');
       const userPlans = await PlannerService.getUserPlans(user.uid);
       setPlans(userPlans);
-    } catch (error) {
-      console.error('Error loading plans:', error);
+    } catch (err: unknown) {
+      console.error('Error loading plans:', err);
+      const error = err as Error;
+      
+      if (error.message.includes('Firebase') || error.message.includes('firestore')) {
+        setCriticalError({
+          code: 'DATABASE',
+          title: 'Database Connection Error',
+          message: 'Unable to load your preparation plans. Please check your internet connection.',
+          details: error.message
+        });
+      } else if (error.message.includes('fetch') || error.message.includes('network')) {
+        setCriticalError({
+          code: 'NETWORK',
+          title: 'Network Error',
+          message: 'Unable to connect to the server. Please check your internet connection.',
+          details: error.message
+        });
+      } else if (error.message.includes('permission') || error.message.includes('denied')) {
+        setPlansError('You do not have permission to view plans. Please contact support.');
+      } else {
+        setPlansError('Failed to load plans. Please try again.');
+      }
     } finally {
       setLoadingPlans(false);
     }
   };
 
-  const loadUserStats = async () => {
+  const loadUserStats = async (): Promise<void> => {
     if (!user) return;
     
     try {
+      setLoadingStats(true);
+      setStatsError('');
       const userStats = await PlannerService.getUserPlanStats(user.uid);
       setStats(userStats);
-    } catch (error) {
-      console.error('Error loading stats:', error);
+    } catch (err: unknown) {
+      console.error('Error loading stats:', err);
+      const error = err as Error;
+      
+      if (error.message.includes('Firebase') || error.message.includes('firestore')) {
+        setStatsError('Unable to load statistics');
+      } else {
+        setStatsError('Failed to load statistics');
+      }
+    } finally {
+      setLoadingStats(false);
     }
   };
 
-  // Filter and search plans
+  const handleRetryError = (): void => {
+    setCriticalError(null);
+    setPlansError('');
+    setStatsError('');
+    
+    if (user) {
+      loadUserPlans();
+      loadUserStats();
+    }
+  };
+
   const filteredPlans = plans
     .filter(plan => {
-      // Filter by status
       if (filter !== 'all' && plan.status !== filter) return false;
       
-      // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         return (
@@ -93,7 +144,6 @@ export default function PlannerPage() {
       return true;
     })
     .sort((a, b) => {
-      // Sort logic
       switch (sortBy) {
         case 'progress':
           return b.progress.percentage - a.progress.percentage;
@@ -105,237 +155,350 @@ export default function PlannerPage() {
       }
     });
 
-  if (loading || loadingPlans) {
-    return <AnimatedLoader />;
+  if (criticalError) {
+    return (
+      <ErrorPage
+        errorCode={criticalError.code}
+        errorTitle={criticalError.title}
+        errorMessage={criticalError.message}
+        errorDetails={criticalError.details}
+        showBackButton={true}
+        showHomeButton={true}
+        showRefreshButton={true}
+        onRetry={handleRetryError}
+      />
+    );
+  }
+
+  if (loading) {
+    return (
+      <AnimatedLoader 
+        isVisible={true}
+        loadingText="Loading your preparation plans..."
+        showNavigation={true}
+      />
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="glass-card-gradient hover-lift">
+          <div className="glass-card-gradient-inner text-center p-12">
+            <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-white mb-2">Authentication Required</h2>
+            <p className="text-slate-400 mb-6">Please log in to access your preparation plans</p>
+            <Link 
+              href="/sign-in"
+              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 py-3 rounded-xl"
+            >
+              Go to Login
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div className="space-y-6">
+      {/* Clean Header */}
+      <div className="glass-card hover-lift">
+        <div className="p-6">
+          <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
-                Interview Preparation Planner
+              <h1 className="text-2xl font-semibold text-white mb-1">
+                Interview Planner
               </h1>
-              <p className="text-slate-600 dark:text-slate-400">
-                AI-powered interview preparation plans tailored to your goals
+              <p className="text-slate-400 text-sm">
+                Manage your preparation plans
               </p>
             </div>
             <Link
               href="/planner/create"
-              className="flex items-center justify-center space-x-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl group w-full md:w-auto"
+              className="glass-button-primary hover-lift flex items-center gap-2 px-4 py-2.5 rounded-lg"
             >
-              <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
-              <span>Create New Plan</span>
+              <Plus className="w-4 h-4" />
+              <span>New Plan</span>
             </Link>
           </div>
-
-          {/* Stats Overview */}
-          {stats && plans.length > 0 && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between mb-2">
-                  <Calendar className="w-5 h-5 text-blue-600" />
-                  <span className="text-2xl font-bold text-slate-900 dark:text-white">
-                    {stats.activePlans}
-                  </span>
-                </div>
-                <p className="text-sm text-slate-600 dark:text-slate-400">Active Plans</p>
-              </div>
-
-              <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between mb-2">
-                  <Flame className="w-5 h-5 text-orange-500" />
-                  <span className="text-2xl font-bold text-slate-900 dark:text-white">
-                    {stats.currentStreak}
-                  </span>
-                </div>
-                <p className="text-sm text-slate-600 dark:text-slate-400">Day Streak</p>
-              </div>
-
-              <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between mb-2">
-                  <CheckCircle2 className="w-5 h-5 text-green-600" />
-                  <span className="text-2xl font-bold text-slate-900 dark:text-white">
-                    {stats.tasksCompleted}
-                  </span>
-                </div>
-                <p className="text-sm text-slate-600 dark:text-slate-400">Tasks Done</p>
-              </div>
-
-              <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between mb-2">
-                  <Clock className="w-5 h-5 text-purple-600" />
-                  <span className="text-2xl font-bold text-slate-900 dark:text-white">
-                    {stats.totalStudyHours}h
-                  </span>
-                </div>
-                <p className="text-sm text-slate-600 dark:text-slate-400">Study Time</p>
-              </div>
-            </div>
-          )}
-
-          {/* Search and Filters */}
-          {plans.length > 0 && (
-            <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 mb-6">
-              <div className="flex flex-col md:flex-row gap-4">
-                {/* Search */}
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search by role or company..."
-                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                  />
-                </div>
-
-                {/* Sort */}
-                <div className="flex items-center space-x-2">
-                  <Filter className="w-5 h-5 text-slate-400" />
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as any)}
-                    className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                  >
-                    <option value="date">Latest First</option>
-                    <option value="progress">By Progress</option>
-                    <option value="name">By Name</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Filter Tabs */}
-              <div className="flex items-center space-x-2 mt-4">
-                <button
-                  onClick={() => setFilter('all')}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                    filter === 'all'
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700'
-                  }`}
-                >
-                  All ({plans.length})
-                </button>
-                <button
-                  onClick={() => setFilter('active')}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                    filter === 'active'
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700'
-                  }`}
-                >
-                  Active ({plans.filter(p => p.status === 'active').length})
-                </button>
-                <button
-                  onClick={() => setFilter('completed')}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                    filter === 'completed'
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700'
-                  }`}
-                >
-                  Completed ({plans.filter(p => p.status === 'completed').length})
-                </button>
-              </div>
-            </div>
-          )}
         </div>
+      </div>
 
-        {/* Plans Grid */}
-        {filteredPlans.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/30 mb-4">
-              <Sparkles className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-            </div>
-            <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
-              {searchQuery 
-                ? 'No plans match your search' 
-                : filter === 'all' 
-                  ? 'No interview plans yet' 
-                  : `No ${filter} plans`}
-            </h3>
-            <p className="text-slate-600 dark:text-slate-400 mb-6 max-w-md mx-auto">
-              {searchQuery 
-                ? 'Try adjusting your search query or filters'
-                : filter === 'all' 
-                  ? 'Create your first AI-powered interview preparation plan to get started on your journey to success.'
-                  : `You don't have any ${filter} plans at the moment.`}
-            </p>
-            {filter === 'all' && !searchQuery && (
-              <Link
-                href="/planner/create"
-                className="inline-flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl"
-              >
-                <Plus className="w-5 h-5" />
-                <span>Create Your First Plan</span>
-              </Link>
-            )}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredPlans.map(plan => (
-              <PlanCard 
-                key={plan.id} 
-                plan={plan}
-                onUpdate={loadUserPlans}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Quick Tips Section */}
-        {filteredPlans.length > 0 && (
-          <div className="mt-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-white">
-            <div className="flex items-start justify-between">
+      {/* Plans Error */}
+      {plansError && (
+        <div className="glass-card hover-lift">
+          <div className="p-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <h3 className="text-2xl font-bold mb-2">💡 Pro Tips for Success</h3>
-                <ul className="space-y-2 text-blue-50">
-                  <li className="flex items-start">
-                    <CheckCircle2 className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0" />
-                    <span>Study consistently - even 30 minutes daily is better than cramming</span>
-                  </li>
-                  <li className="flex items-start">
-                    <CheckCircle2 className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0" />
-                    <span>Practice explaining solutions out loud to improve communication</span>
-                  </li>
-                  <li className="flex items-start">
-                    <CheckCircle2 className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0" />
-                    <span>Use the STAR method for all behavioral questions</span>
-                  </li>
-                  <li className="flex items-start">
-                    <CheckCircle2 className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0" />
-                    <span>Take mock interviews seriously - they build confidence</span>
-                  </li>
-                </ul>
+                <p className="text-red-400 text-sm mb-2">{plansError}</p>
+                <button
+                  onClick={() => {
+                    setPlansError('');
+                    loadUserPlans();
+                  }}
+                  className="text-red-400 hover:text-red-300 text-sm font-medium inline-flex items-center gap-2"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Try Again
+                </button>
               </div>
-              <Award className="w-24 h-24 opacity-20 flex-shrink-0 ml-4 hidden lg:block" />
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Upcoming Interviews Alert */}
-        {stats && stats.upcomingInterviews > 0 && (
-          <div className="mt-6 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl p-6">
-            <div className="flex items-start space-x-3">
-              <Calendar className="w-6 h-6 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
+      {/* Stats Grid */}
+      {!statsError && stats && plans.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="glass-card hover-lift">
+            <div className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                  <Calendar className="w-5 h-5 text-blue-400" />
+                </div>
+                <span className="text-2xl font-semibold text-white">
+                  {stats.activePlans}
+                </span>
+              </div>
+              <p className="text-sm text-slate-400">Active Plans</p>
+            </div>
+          </div>
+
+          <div className="glass-card hover-lift">
+            <div className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 bg-orange-500/10 rounded-lg flex items-center justify-center">
+                  <Flame className="w-5 h-5 text-orange-400" />
+                </div>
+                <span className="text-2xl font-semibold text-white">
+                  {stats.currentStreak}
+                </span>
+              </div>
+              <p className="text-sm text-slate-400">Day Streak</p>
+            </div>
+          </div>
+
+          <div className="glass-card hover-lift">
+            <div className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                </div>
+                <span className="text-2xl font-semibold text-white">
+                  {stats.tasksCompleted}
+                </span>
+              </div>
+              <p className="text-sm text-slate-400">Completed</p>
+            </div>
+          </div>
+
+          <div className="glass-card hover-lift">
+            <div className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
+                  <Clock className="w-5 h-5 text-purple-400" />
+                </div>
+                <span className="text-2xl font-semibold text-white">
+                  {stats.totalStudyHours}h
+                </span>
+              </div>
+              <p className="text-sm text-slate-400">Study Hours</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stats Error */}
+      {statsError && plans.length > 0 && (
+        <div className="glass-card hover-lift">
+          <div className="p-4">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-yellow-400" />
+              <p className="text-yellow-400 text-sm">{statsError}</p>
+              <button
+                onClick={() => {
+                  setStatsError('');
+                  loadUserStats();
+                }}
+                className="text-yellow-400 hover:text-yellow-300 text-sm ml-auto"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Loading State */}
+      {loadingPlans ? (
+        <div className="glass-card">
+          <div className="text-center py-16">
+            <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-slate-400">Loading plans...</p>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Search & Filter */}
+          {plans.length > 0 && (
+            <div className="glass-card">
+              <div className="p-5">
+                <div className="flex flex-col md:flex-row gap-3 mb-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search by role or company..."
+                      className="glass-input w-full pl-10 pr-4 py-2.5 rounded-lg text-white placeholder-slate-500 text-sm"
+                    />
+                  </div>
+
+                  <div className="relative">
+                    <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value as 'date' | 'progress' | 'name')}
+                      className="glass-input pl-10 pr-4 py-2.5 rounded-lg text-white text-sm appearance-none cursor-pointer min-w-[160px]"
+                    >
+                      <option value="date">Latest First</option>
+                      <option value="progress">By Progress</option>
+                      <option value="name">Alphabetical</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Filter Tabs */}
+                <div className="flex gap-2">
+                  {[
+                    { value: 'all' as const, label: 'All', count: plans.length },
+                    { value: 'active' as const, label: 'Active', count: plans.filter(p => p.status === 'active').length },
+                    { value: 'completed' as const, label: 'Completed', count: plans.filter(p => p.status === 'completed').length }
+                  ].map((tab) => (
+                    <button
+                      key={tab.value}
+                      onClick={() => setFilter(tab.value)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        filter === tab.value
+                          ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
+                          : 'text-slate-400 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      {tab.label} <span className="opacity-60">({tab.count})</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Plans Grid or Empty State */}
+          {filteredPlans.length === 0 ? (
+            <div className="glass-card">
+              <div className="text-center py-16 px-6">
+                <div className="w-16 h-16 bg-slate-800/50 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  {searchQuery ? <Search className="w-8 h-8 text-slate-400" /> : <Calendar className="w-8 h-8 text-slate-400" />}
+                </div>
+                <h3 className="text-xl font-semibold text-white mb-2">
+                  {searchQuery 
+                    ? 'No matching plans' 
+                    : filter === 'all' 
+                      ? 'No plans yet' 
+                      : `No ${filter} plans`}
+                </h3>
+                <p className="text-slate-400 mb-8 max-w-md mx-auto">
+                  {searchQuery 
+                    ? 'Try adjusting your search criteria'
+                    : filter === 'all' 
+                      ? 'Create your first preparation plan to get started'
+                      : `You have no ${filter} plans at the moment`}
+                </p>
+                {filter === 'all' && !searchQuery && (
+                  <Link
+                    href="/planner/create"
+                    className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 py-3 rounded-lg"
+                  >
+                    <Plus className="w-5 h-5" />
+                    <span>Create Plan</span>
+                  </Link>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredPlans.map(plan => (
+                <PlanCard 
+                  key={plan.id} 
+                  plan={plan}
+                  onUpdate={loadUserPlans}
+                />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Upcoming Interviews Alert */}
+      {stats && stats.upcomingInterviews > 0 && (
+        <div className="glass-card hover-lift">
+          <div className="p-5">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 bg-amber-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Calendar className="w-5 h-5 text-amber-400" />
+              </div>
               <div>
-                <h4 className="font-semibold text-orange-900 dark:text-orange-200 mb-1">
+                <h4 className="font-medium text-white mb-1">
                   Upcoming Interviews
                 </h4>
-                <p className="text-sm text-orange-800 dark:text-orange-300">
-                  You have {stats.upcomingInterviews} interview{stats.upcomingInterviews > 1 ? 's' : ''} coming up. 
-                  Keep practicing and stay consistent with your preparation!
+                <p className="text-slate-400 text-sm">
+                  You have {stats.upcomingInterviews} interview{stats.upcomingInterviews > 1 ? 's' : ''} scheduled. Stay consistent with your preparation.
                 </p>
               </div>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Feature Overview for Empty State */}
+      {plans.length === 0 && !loadingPlans && (
+        <div className="glass-card">
+          <div className="p-6">
+            <h3 className="text-lg font-semibold text-white mb-6 text-center">
+              What you can do with Interview Planner
+            </h3>
+            <div className="grid md:grid-cols-3 gap-5">
+              {[
+                {
+                  icon: Target,
+                  title: "Custom Plans",
+                  description: "AI-generated study schedules tailored to your interview timeline"
+                },
+                {
+                  icon: CheckCircle2,
+                  title: "Track Progress",
+                  description: "Monitor completion and maintain study streaks"
+                },
+                {
+                  icon: Clock,
+                  title: "Time Management",
+                  description: "Optimize preparation with structured daily tasks"
+                }
+              ].map((feature, index) => (
+                <div key={index} className="text-center">
+                  <div className="w-12 h-12 bg-slate-800/50 rounded-lg flex items-center justify-center mx-auto mb-3">
+                    <feature.icon className="w-6 h-6 text-slate-400" />
+                  </div>
+                  <h4 className="font-medium text-white text-sm mb-2">{feature.title}</h4>
+                  <p className="text-slate-400 text-xs">{feature.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

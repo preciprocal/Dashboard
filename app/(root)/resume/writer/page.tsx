@@ -29,12 +29,8 @@ export default function ResumeWriterPage() {
 
   useEffect(() => {
     const loadResume = async () => {
-      // Wait for auth to complete
-      if (loading) {
-        return;
-      }
+      if (loading) return;
 
-      // Check auth after loading completes
       if (!user) {
         setIsLoadingResume(false);
         setIsInitialLoad(false);
@@ -50,7 +46,7 @@ export default function ResumeWriterPage() {
       try {
         console.log('📄 Loading resume:', resumeId);
         
-        setLoadingMessage('Fetching resume from database...');
+        setLoadingMessage('Fetching resume...');
         setExtractionProgress(10);
         
         const resumeRef = doc(db, 'resumes', resumeId);
@@ -59,8 +55,8 @@ export default function ResumeWriterPage() {
         setExtractionProgress(30);
         
         if (!resumeSnap.exists()) {
-          console.error('❌ Resume document not found in Firestore');
-          setError('Resume not found in database');
+          console.error('❌ Resume not found');
+          setError('Resume not found');
           setIsLoadingResume(false);
           setIsInitialLoad(false);
           return;
@@ -70,19 +66,11 @@ export default function ResumeWriterPage() {
         setResumeData(data);
         setExtractionProgress(40);
 
-        console.log('✅ Resume data loaded:', {
-          id: data.id,
-          hasResumeHtml: !!data.resumeHtml,
-          resumeHtmlLength: data.resumeHtml?.length || 0,
-          hasResumeText: !!data.resumeText,
-          resumeTextLength: data.resumeText?.length || 0,
-          hasImagePath: !!data.imagePath,
-          imagePathPreview: data.imagePath?.substring(0, 50)
-        });
+        console.log('✅ Resume loaded');
 
-        // Strategy 1: Use cached HTML
+        // Use cached HTML
         if (data.resumeHtml && data.resumeHtml.length > 100) {
-          console.log('✅ Using cached resumeHtml');
+          console.log('✅ Using cached HTML');
           setResumeContent(data.resumeHtml);
           setLoadingMessage('Resume loaded!');
           setExtractionProgress(100);
@@ -91,10 +79,10 @@ export default function ResumeWriterPage() {
           return;
         }
 
-        // Strategy 2: Use Gemini Vision to format from image
+        // Use Gemini Vision
         if (data.imagePath && data.imagePath.startsWith('data:image/')) {
-          console.log('🎨 Using Gemini Vision to analyze resume format...');
-          setLoadingMessage('Analyzing resume format with AI Vision...');
+          console.log('🎨 Analyzing with AI Vision...');
+          setLoadingMessage('Analyzing format with AI...');
           setExtractionProgress(50);
 
           try {
@@ -110,49 +98,43 @@ export default function ResumeWriterPage() {
             setExtractionProgress(80);
 
             const resultText = await response.text();
-            console.log('📥 API Response status:', response.status);
-            console.log('📥 API Response text:', resultText.substring(0, 300));
+            console.log('📥 API Response:', response.status);
             
             if (response.ok && resultText) {
               try {
                 const result = JSON.parse(resultText);
                 
                 if (result && result.html && result.html.length > 100) {
-                  console.log('✅ Vision generated HTML:', result.html.length, 'chars');
+                  console.log('✅ HTML generated');
                   setResumeContent(result.html);
                   
                   setExtractionProgress(95);
                   
-                  // Save to Firestore
                   await updateDoc(resumeRef, {
                     resumeText: result.text,
                     resumeHtml: result.html,
                     updatedAt: new Date().toISOString()
                   });
                   
-                  console.log('💾 Saved formatted HTML');
-                  setLoadingMessage('Resume formatted successfully!');
+                  console.log('💾 Saved');
+                  setLoadingMessage('Complete!');
                   setExtractionProgress(100);
                   setIsLoadingResume(false);
                   setIsInitialLoad(false);
                   return;
                 }
               } catch (parseError) {
-                console.error('❌ JSON parse error:', parseError);
-                console.error('Response text was:', resultText);
+                console.error('❌ Parse error:', parseError);
               }
-            } else {
-              console.warn('❌ Vision API failed with status:', response.status);
-              console.warn('Response:', resultText);
             }
           } catch (visionError) {
-            console.error('❌ Vision API error:', visionError);
+            console.error('❌ Vision error:', visionError);
           }
         }
 
-        // Strategy 3: Use resumeText with basic formatting
-        if (data.resumeText && data.resumeText.length > 100 && !data.resumeText.match(/^[v]+olleh/)) {
-          console.log('✅ Using resumeText, converting to HTML');
+        // Use text with formatting
+        if (data.resumeText && data.resumeText.length > 100) {
+          console.log('✅ Converting text to HTML');
           const html = convertTextToHtml(data.resumeText);
           setResumeContent(html);
           setExtractionProgress(100);
@@ -161,8 +143,8 @@ export default function ResumeWriterPage() {
           return;
         }
 
-        // Strategy 4: Template
-        console.log('⚠️ No content available, using template');
+        // Template
+        console.log('⚠️ Using template');
         setResumeContent(getTemplate());
         setError('Paste your resume content to get started');
         setExtractionProgress(100);
@@ -170,7 +152,7 @@ export default function ResumeWriterPage() {
         setIsInitialLoad(false);
 
       } catch (error) {
-        console.error('❌ Fatal error:', error);
+        console.error('❌ Error:', error);
         setError('Failed to load resume');
         setResumeContent(getTemplate());
         setIsLoadingResume(false);
@@ -218,34 +200,25 @@ export default function ResumeWriterPage() {
   // Loading state
   if (loading || (isLoadingResume && isInitialLoad)) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center max-w-lg px-6">
           <div className="relative mb-6">
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-20 h-20 border-4 border-purple-500/20 rounded-full"></div>
-            </div>
-            <Loader2 className="w-20 h-20 animate-spin text-purple-500 mx-auto" />
+            <Loader2 className="w-16 h-16 animate-spin text-purple-500 mx-auto" />
           </div>
-          <p className="text-slate-300 text-xl font-semibold mb-2">{loadingMessage}</p>
-          <p className="text-slate-500 text-sm mb-6">Setting up your workspace...</p>
+          <p className="text-slate-300 text-lg font-medium mb-2">{loadingMessage}</p>
+          <p className="text-slate-500 text-sm mb-6">Setting up workspace...</p>
           
           {extractionProgress > 0 && (
             <div className="w-full max-w-md mx-auto">
               <div className="w-full bg-slate-800 rounded-full h-2 mb-2">
                 <div 
-                  className="bg-gradient-to-r from-purple-500 to-indigo-500 h-2 rounded-full transition-all duration-500"
+                  className="bg-gradient-to-r from-purple-600 to-blue-600 h-2 rounded-full transition-all duration-500"
                   style={{ width: `${extractionProgress}%` }}
                 />
               </div>
-              <p className="text-slate-500 text-xs">{extractionProgress}% complete</p>
+              <p className="text-slate-500 text-xs">{extractionProgress}%</p>
             </div>
           )}
-          
-          <div className="mt-8 flex items-center justify-center space-x-2">
-            <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-            <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-            <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-          </div>
         </div>
       </div>
     );
@@ -253,7 +226,7 @@ export default function ResumeWriterPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <FileText className="w-16 h-16 text-slate-600 mx-auto mb-4" />
           <p className="text-slate-300 text-lg mb-4">Please sign in to continue</p>
@@ -264,13 +237,13 @@ export default function ResumeWriterPage() {
 
   if (!resumeId) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <AlertCircle className="w-16 h-16 text-amber-500 mx-auto mb-4" />
+          <AlertCircle className="w-16 h-16 text-amber-400 mx-auto mb-4" />
           <p className="text-slate-300 text-lg mb-4">No resume selected</p>
           <Link href="/resume">
-            <button className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold">
-              View My Resumes
+            <button className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium">
+              View Resumes
             </button>
           </Link>
         </div>
@@ -278,21 +251,23 @@ export default function ResumeWriterPage() {
     );
   }
 
-  // Only show error AFTER loading completes
   if (!isLoadingResume && !isInitialLoad && (error || !resumeData)) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center max-w-md mx-auto px-6">
-          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-white mb-3">Resume Not Found</h2>
+          <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+          <h2 className="text-2xl font-semibold text-white mb-3">Resume Not Found</h2>
           <p className="text-slate-400 mb-8">{error || 'Could not load resume'}</p>
           <div className="flex gap-4 justify-center">
-            <button onClick={() => window.location.reload()} className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold">
+            <button 
+              onClick={() => window.location.reload()} 
+              className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium"
+            >
               Try Again
             </button>
             <Link href="/resume">
-              <button className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold">
-                Back to Resumes
+              <button className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium">
+                Back
               </button>
             </Link>
           </div>
@@ -302,52 +277,55 @@ export default function ResumeWriterPage() {
   }
 
   return (
-    <div className="h-screen bg-slate-950 flex flex-col overflow-hidden">
-      <div className="bg-slate-900 border-b border-slate-800 px-6 py-4 flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center space-x-4">
+    <div className="h-screen flex flex-col overflow-hidden">
+      {/* Header */}
+      <div className="glass-card border-b border-white/5 px-6 py-4 flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-4">
           <Link href={`/resume/${resumeId}`}>
-            <button className="p-2 hover:bg-slate-800 rounded-lg transition-colors">
+            <button className="p-2 hover:bg-white/5 rounded-lg transition-colors">
               <ArrowLeft className="w-5 h-5 text-slate-400" />
             </button>
           </Link>
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-purple-600/20 rounded-lg">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
               <Sparkles className="w-5 h-5 text-purple-400" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-white">Resume AI Writer</h1>
-              <p className="text-sm text-slate-400 mt-1">
-                {resumeData?.fileName || resumeData?.originalFileName || 'AI-powered resume editor'}
+              <h1 className="text-xl font-semibold text-white">Resume AI Writer</h1>
+              <p className="text-sm text-slate-400">
+                {resumeData?.fileName || 'AI-powered editor'}
               </p>
             </div>
           </div>
         </div>
         
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center gap-3">
           {resumeData?.imagePath && (
             <a href={resumeData.imagePath} target="_blank" rel="noopener noreferrer">
-              <button className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-medium transition-colors flex items-center space-x-2">
+              <button className="px-4 py-2 glass-button hover-lift text-white rounded-lg flex items-center gap-2 text-sm">
                 <Eye className="w-4 h-4" />
-                <span>View Original</span>
+                View Original
               </button>
             </a>
           )}
           <Link href={`/resume/${resumeId}`}>
-            <button className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-medium transition-colors flex items-center space-x-2">
+            <button className="px-4 py-2 glass-button hover-lift text-white rounded-lg flex items-center gap-2 text-sm">
               <FileText className="w-4 h-4" />
-              <span>Analysis</span>
+              Analysis
             </button>
           </Link>
         </div>
       </div>
 
-      <div className="bg-gradient-to-r from-emerald-900/30 to-blue-900/30 border-b border-emerald-800/30 px-6 py-3 flex items-center space-x-3 flex-shrink-0">
+      {/* Info Banner */}
+      <div className="glass-card border-b border-emerald-500/20 px-6 py-3 flex items-center gap-3 flex-shrink-0">
         <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-        <p className="text-sm text-emerald-200">
-          ✏️ <strong>Edit your resume</strong> with Word-like features • <strong>Copy text</strong> to AI panel for improvements
+        <p className="text-sm text-emerald-300">
+          Edit your resume with Word-like features • Copy text to AI panel for improvements
         </p>
       </div>
 
+      {/* Editor Panels */}
       <div className="flex-1 flex overflow-hidden">
         <TinyMCEEditorPanel
           initialContent={resumeContent}
