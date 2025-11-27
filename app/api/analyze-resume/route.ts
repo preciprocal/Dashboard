@@ -1,4 +1,4 @@
-// api/analyze-resume/route.ts
+// app/api/analyze-resume/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { generateObject, generateText } from "ai";
 import { google } from "@ai-sdk/google";
@@ -806,7 +806,7 @@ ACHIEVEMENTS
 - Volunteer tutor for introductory programming courses`;
 }
 
-function generateMockFixes(resumeContent: string): Array<{
+interface MockFix {
   id: string;
   category: string;
   issue: string;
@@ -816,19 +816,11 @@ function generateMockFixes(resumeContent: string): Array<{
   priority: string;
   impact: string;
   location?: string;
-}> {
+}
+
+function generateMockFixes(resumeContent: string): MockFix[] {
   // Generate realistic mock fixes based on the content
-  const fixes: Array<{
-    id: string;
-    category: string;
-    issue: string;
-    originalText: string;
-    improvedText: string;
-    explanation: string;
-    priority: string;
-    impact: string;
-    location?: string;
-  }> = [];
+  const fixes: MockFix[] = [];
   
   if (resumeContent.includes('responsible for')) {
     fixes.push({
@@ -886,5 +878,3 @@ function generateMockFixes(resumeContent: string): Array<{
 
   return fixes.slice(0, 8); // Limit mock fixes
 }
-
-export { handleResumeAnalysis, handleGenerateResumeFixes, handleRegenerateSpecificFix };
