@@ -1,4 +1,4 @@
-// app/help/page.tsx
+// app/(root)/help/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -22,6 +22,7 @@ import {
   ChevronRight,
   Loader2
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import ErrorPage from '@/components/Error';
 
@@ -42,6 +43,13 @@ interface CriticalError {
   title: string;
   message: string;
   details?: string;
+}
+
+interface TabItem {
+  id: 'faq' | 'contact' | 'tickets';
+  label: string;
+  icon: LucideIcon;
+  badge?: number;
 }
 
 export default function HelpSupportPage() {
@@ -135,6 +143,14 @@ export default function HelpSupportPage() {
     { value: 'billing', label: 'Billing' },
     { value: 'feature', label: 'Feature Request' },
     { value: 'bug', label: 'Bug Report' }
+  ];
+
+  const openTicketsCount = userTickets.filter(t => t.status !== 'resolved').length;
+
+  const tabs: TabItem[] = [
+    { id: 'faq', label: 'FAQs', icon: BookOpen },
+    { id: 'contact', label: 'Contact', icon: MessageSquare },
+    { id: 'tickets', label: 'Tickets', icon: FileText, badge: openTicketsCount }
   ];
 
   useEffect(() => {
@@ -279,11 +295,7 @@ export default function HelpSupportPage() {
       {/* Clean Tabs */}
       <div className="glass-morphism rounded-xl p-1.5 animate-fade-in-up">
         <div className="flex gap-1">
-          {[
-            { id: 'faq' as const, label: 'FAQs', icon: BookOpen },
-            { id: 'contact' as const, label: 'Contact', icon: MessageSquare },
-            { id: 'tickets' as const, label: 'Tickets', icon: FileText, badge: userTickets.filter(t => t.status !== 'resolved').length }
-          ].map((tab) => (
+          {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveSection(tab.id)}
@@ -295,7 +307,7 @@ export default function HelpSupportPage() {
             >
               <tab.icon className="w-4 h-4" />
               <span>{tab.label}</span>
-              {tab.badge > 0 && (
+              {tab.badge !== undefined && tab.badge > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
                   {tab.badge}
                 </span>
