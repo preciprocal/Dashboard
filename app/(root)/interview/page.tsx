@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -27,6 +27,27 @@ import {
 type SortOption = 'all' | 'high-scores' | 'needs-improvement' | 'recent' | 'technical' | 'behavioral';
 type ViewMode = 'grid' | 'list';
 
+interface InterviewFeedback {
+  strengths: string[];
+  weaknesses: string[];
+  overallRating: number;
+  technicalAccuracy: number;
+  communication: number;
+  problemSolving: number;
+  confidence: number;
+  totalScore?: number;
+  finalAssessment?: string;
+  categoryScores?: { [key: string]: number };
+  areasForImprovement?: string[];
+}
+
+interface InterviewQuestion {
+  question: string;
+  answer: string;
+  score: number;
+  feedback: string;
+}
+
 interface Interview {
   id: string;
   userId: string;
@@ -40,25 +61,8 @@ interface Interview {
   duration: number;
   score?: number;
   status: "completed" | "in-progress" | "scheduled";
-  feedback?: {
-    strengths: string[];
-    weaknesses: string[];
-    overallRating: number;
-    technicalAccuracy: number;
-    communication: number;
-    problemSolving: number;
-    confidence: number;
-    totalScore?: number;
-    finalAssessment?: string;
-    categoryScores?: { [key: string]: number };
-    areasForImprovement?: string[];
-  };
-  questions?: {
-    question: string;
-    answer: string;
-    score: number;
-    feedback: string;
-  }[];
+  feedback?: InterviewFeedback;
+  questions?: InterviewQuestion[];
 }
 
 interface InterviewStats {
@@ -75,6 +79,23 @@ interface CriticalError {
   details?: string;
 }
 
+interface RawInterview {
+  id: string;
+  userId: string;
+  role: string;
+  type: "technical" | "behavioral" | "system-design" | "coding";
+  techstack: string[];
+  company: string;
+  position: string;
+  createdAt: { toDate: () => Date } | string | Date;
+  updatedAt?: { toDate: () => Date } | string | Date;
+  duration: number;
+  score?: number;
+  status: "completed" | "in-progress" | "scheduled";
+  feedback?: InterviewFeedback;
+  questions?: InterviewQuestion[];
+}
+
 export default function InterviewsDashboard() {
   const [user, loading] = useAuthState(auth);
   const router = useRouter();
@@ -89,7 +110,6 @@ export default function InterviewsDashboard() {
     completionRate: 0
   });
 
-  // Error states
   const [criticalError, setCriticalError] = useState<CriticalError | null>(null);
   const [interviewsError, setInterviewsError] = useState<string>('');
 
@@ -99,23 +119,15 @@ export default function InterviewsDashboard() {
     }
   }, [loading, user, router]);
 
-  useEffect(() => {
-    if (user) {
-      loadInterviews();
-    }
-  }, [user]);
-
-  const loadInterviews = async (): Promise<void> => {
+  const loadInterviews = useCallback(async (): Promise<void> => {
     if (!user) return;
 
     try {
       setLoadingInterviews(true);
       setInterviewsError('');
       
-      // Import actions
       const { getInterviewsByUserId, getFeedbackByInterviewId } = await import('@/lib/actions/general.action');
       
-      // Fetch user interviews
       const userInterviews = await getInterviewsByUserId(user.uid);
       
       if (!userInterviews || userInterviews.length === 0) {
@@ -124,20 +136,24 @@ export default function InterviewsDashboard() {
         return;
       }
 
-      // Convert dates and fetch feedback
-      const interviewsWithDates = userInterviews.map((interview: any) => ({
-        ...interview,
-        createdAt: interview.createdAt?.toDate
+      const interviewsWithDates = userInterviews.map((interview: RawInterview) => {
+        const createdAtDate = interview.createdAt && typeof interview.createdAt === 'object' && 'toDate' in interview.createdAt
           ? interview.createdAt.toDate()
-          : new Date(interview.createdAt),
-        updatedAt: interview.updatedAt?.toDate
+          : new Date(interview.createdAt as string | Date);
+        
+        const updatedAtDate = interview.updatedAt && typeof interview.updatedAt === 'object' && 'toDate' in interview.updatedAt
           ? interview.updatedAt.toDate()
-          : new Date(interview.updatedAt || interview.createdAt),
-      }));
+          : new Date((interview.updatedAt || interview.createdAt) as string | Date);
+        
+        return {
+          ...interview,
+          createdAt: createdAtDate,
+          updatedAt: updatedAtDate,
+        };
+      });
 
-      // Fetch feedback for each interview
       const interviewsWithFeedback = await Promise.all(
-        interviewsWithDates.map(async (interview: any) => {
+        interviewsWithDates.map(async (interview) => {
           try {
             const feedback = await getFeedbackByInterviewId({
               interviewId: interview.id,
@@ -147,8 +163,8 @@ export default function InterviewsDashboard() {
             if (feedback) {
               return {
                 ...interview,
-                feedback: feedback,
-                score: feedback.totalScore || 0,
+                feedback: feedback as InterviewFeedback,
+                score: (feedback as InterviewFeedback).totalScore || 0,
               };
             }
             return interview;
@@ -159,9 +175,8 @@ export default function InterviewsDashboard() {
         })
       );
 
-      setInterviews(interviewsWithFeedback);
+      setInterviews(interviewsWithFeedback as Interview[]);
       
-      // Calculate stats
       if (interviewsWithFeedback.length > 0) {
         const completedInterviews = interviewsWithFeedback.filter(
           (i) => i.feedback && i.score && i.score > 0
@@ -188,7 +203,6 @@ export default function InterviewsDashboard() {
       console.error('Error loading interviews:', err);
       const error = err as Error;
       
-      // Check for critical errors
       if (error.message.includes('Firebase') || error.message.includes('firestore')) {
         setCriticalError({
           code: 'DATABASE',
@@ -211,7 +225,13 @@ export default function InterviewsDashboard() {
     } finally {
       setLoadingInterviews(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      loadInterviews();
+    }
+  }, [user, loadInterviews]);
 
   const handleRetryError = (): void => {
     setCriticalError(null);
@@ -257,8 +277,8 @@ export default function InterviewsDashboard() {
     return filtered;
   }, [interviews, sortFilter]);
 
-  const getFilterCount = (option: SortOption): number => {
-    switch (option) {
+  const getFilterCount = (filterOption: SortOption): number => {
+    switch (filterOption) {
       case 'high-scores':
         return interviews.filter(interview => (interview.score || 0) >= 80).length;
       case 'needs-improvement':
@@ -276,7 +296,6 @@ export default function InterviewsDashboard() {
     }
   };
 
-  // Show critical error page
   if (criticalError) {
     return (
       <ErrorPage
@@ -292,7 +311,6 @@ export default function InterviewsDashboard() {
     );
   }
 
-  // Show loader during initial auth check or interview loading
   if (loading || loadingInterviews) {
     return (
       <AnimatedLoader
@@ -303,7 +321,6 @@ export default function InterviewsDashboard() {
     );
   }
 
-  // Show auth required message
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">

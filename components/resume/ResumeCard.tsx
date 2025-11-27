@@ -1,13 +1,13 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { Resume } from '@/types/resume';
 import { 
   Calendar, 
   TrendingUp, 
   CheckCircle, 
   AlertTriangle,
-  FileText,
   Zap,
   ArrowUpRight,
   BarChart3
@@ -19,27 +19,38 @@ interface ResumeCardProps {
   className?: string;
 }
 
+interface FirestoreTimestamp {
+  seconds: number;
+  nanoseconds?: number;
+  toDate?: () => Date;
+}
+
+interface FeedbackCategory {
+  score?: number;
+  tips?: Array<{ type: string; message: string }>;
+}
+
 export default function ResumeCard({ resume, viewMode = 'grid', className = '' }: ResumeCardProps) {
-  const formatDate = (date: any) => {
+  const formatDate = (date: Date | string | number | FirestoreTimestamp | null | undefined): string => {
     try {
-      // Handle various date formats
       let dateObj: Date;
+      
+      if (!date) {
+        return 'Recent';
+      }
       
       if (date instanceof Date) {
         dateObj = date;
       } else if (typeof date === 'string' || typeof date === 'number') {
         dateObj = new Date(date);
-      } else if (date && typeof date === 'object' && 'seconds' in date) {
-        // Firestore Timestamp
+      } else if (typeof date === 'object' && 'seconds' in date) {
         dateObj = new Date(date.seconds * 1000);
-      } else if (date && typeof date === 'object' && 'toDate' in date) {
-        // Firestore Timestamp with toDate method
+      } else if (typeof date === 'object' && 'toDate' in date && typeof date.toDate === 'function') {
         dateObj = date.toDate();
       } else {
         return 'Recent';
       }
       
-      // Check if date is valid
       if (isNaN(dateObj.getTime())) {
         return 'Recent';
       }
@@ -55,37 +66,36 @@ export default function ResumeCard({ resume, viewMode = 'grid', className = '' }
     }
   };
 
-  const getScoreColor = (score: number) => {
+  const getScoreColor = (score: number): string => {
     if (score >= 85) return 'text-emerald-600 dark:text-emerald-400';
     if (score >= 70) return 'text-amber-600 dark:text-amber-400';
     return 'text-red-600 dark:text-red-400';
   };
 
-  const getScoreBadgeColor = (score: number) => {
+  const getScoreBadgeColor = (score: number): string => {
     if (score >= 85) return 'bg-emerald-100 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-700';
     if (score >= 70) return 'bg-amber-100 dark:bg-amber-900/30 border-amber-200 dark:border-amber-700';
     return 'bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-700';
   };
 
-  // Safe function to get tips from a category
-  const getTips = (category: any, type?: 'improve' | 'good') => {
+  const getTips = (category: FeedbackCategory | undefined, type?: 'improve' | 'good'): Array<{ type: string; message: string }> => {
     if (!category || !category.tips || !Array.isArray(category.tips)) {
       return [];
     }
     if (type) {
-      return category.tips.filter((tip: any) => tip && tip.type === type);
+      return category.tips.filter((tip) => tip && tip.type === type);
     }
     return category.tips;
   };
 
-  const getImprovementCount = () => {
+  const getImprovementCount = (): number => {
     if (!resume.feedback) return 0;
     
     let count = 0;
     const categories = ['ATS', 'ats', 'content', 'structure', 'skills', 'toneAndStyle', 'impact', 'grammar'];
     
     categories.forEach(key => {
-      const category = resume.feedback[key as keyof typeof resume.feedback];
+      const category = resume.feedback[key as keyof typeof resume.feedback] as FeedbackCategory | undefined;
       if (category && typeof category === 'object') {
         count += getTips(category, 'improve').length;
       }
@@ -94,14 +104,14 @@ export default function ResumeCard({ resume, viewMode = 'grid', className = '' }
     return count;
   };
 
-  const getStrengthCount = () => {
+  const getStrengthCount = (): number => {
     if (!resume.feedback) return 0;
     
     let count = 0;
     const categories = ['ATS', 'ats', 'content', 'structure', 'skills', 'toneAndStyle', 'impact', 'grammar'];
     
     categories.forEach(key => {
-      const category = resume.feedback[key as keyof typeof resume.feedback];
+      const category = resume.feedback[key as keyof typeof resume.feedback] as FeedbackCategory | undefined;
       if (category && typeof category === 'object') {
         count += getTips(category, 'good').length;
       }
@@ -110,17 +120,15 @@ export default function ResumeCard({ resume, viewMode = 'grid', className = '' }
     return count;
   };
 
-  // Safe function to get overall score
-  const getOverallScore = () => {
+  const getOverallScore = (): number => {
     return resume.feedback?.overallScore || resume.score || 0;
   };
 
-  // Safe function to get category score
-  const getCategoryScore = (categoryName: string) => {
+  const getCategoryScore = (categoryName: string): number => {
     if (!resume.feedback) return 0;
-    const category = resume.feedback[categoryName as keyof typeof resume.feedback];
+    const category = resume.feedback[categoryName as keyof typeof resume.feedback] as FeedbackCategory | undefined;
     if (category && typeof category === 'object' && 'score' in category) {
-      return (category as any).score || 0;
+      return category.score || 0;
     }
     return 0;
   };
@@ -137,9 +145,11 @@ export default function ResumeCard({ resume, viewMode = 'grid', className = '' }
             <div className="flex items-center space-x-4 flex-1">
               <div className="w-16 h-20 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden flex-shrink-0">
                 {resume.imagePath && (
-                  <img
+                  <Image
                     src={resume.imagePath}
                     alt="Resume preview"
+                    width={64}
+                    height={80}
                     className="w-full h-full object-cover object-top"
                     loading="lazy"
                   />
@@ -224,10 +234,11 @@ export default function ResumeCard({ resume, viewMode = 'grid', className = '' }
         <div className="px-5 pb-3">
           <div className="aspect-[3/4] bg-gray-50 dark:bg-gray-700 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 group-hover:border-blue-200 dark:group-hover:border-blue-500 transition-all duration-700 ease-out relative">
             {resume.imagePath && (
-              <img
+              <Image
                 src={resume.imagePath}
                 alt="Resume preview"
-                className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-700 ease-out"
+                fill
+                className="object-cover object-top group-hover:scale-105 transition-transform duration-700 ease-out"
                 loading="lazy"
               />
             )}

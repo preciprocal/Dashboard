@@ -4,6 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Editor } from '@tinymce/tinymce-react';
 import { Save, Download, Check, Loader2, FileText } from 'lucide-react';
+import type { Editor as TinyMCEEditor } from 'tinymce';
 
 interface TinyMCEEditorPanelProps {
   initialContent: string;
@@ -22,7 +23,7 @@ export default function TinyMCEEditorPanel({
   const [content, setContent] = useState(initialContent);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
-  const [editorRef, setEditorRef] = useState<any>(null);
+  const [editorRef, setEditorRef] = useState<TinyMCEEditor | null>(null);
 
   const handleSave = useCallback(async () => {
     if (!resumeId || !userId || !editorRef) return;
@@ -166,6 +167,12 @@ export default function TinyMCEEditorPanel({
       console.error('Download error:', error);
       alert('Failed to download. Please try again.');
     }
+  };
+
+  const getCharacterCount = (): number => {
+    if (!editorRef) return 0;
+    const wordcountPlugin = editorRef.plugins.wordcount as { body?: { getCharacterCount?: () => number } } | undefined;
+    return wordcountPlugin?.body?.getCharacterCount?.() || 0;
   };
 
   return (
@@ -329,7 +336,7 @@ export default function TinyMCEEditorPanel({
       {/* Status Bar */}
       <div className="bg-slate-900 border-t border-slate-700 px-4 py-2 text-xs text-slate-400 flex items-center justify-between flex-shrink-0">
         <span>✏️ Microsoft Word-like editor • Auto-saves every 3 seconds</span>
-        <span>{editorRef?.plugins.wordcount?.body.getCharacterCount() || 0} characters</span>
+        <span>{getCharacterCount()} characters</span>
       </div>
     </div>
   );

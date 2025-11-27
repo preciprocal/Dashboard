@@ -17,13 +17,10 @@ import {
   AlertCircle,
   Info,
   TrendingUp,
-  Loader2,
-  Upload,
-  Zap
+  Loader2
 } from 'lucide-react';
 import { compressPDF, validatePDF } from '@/lib/resume/pdf-compression';
 import { convertPdfToImage } from '@/lib/resume/pdf2img';
-import Link from 'next/link';
 
 const PROCESSING_STEPS = [
   { step: 0, message: 'Compressing file...', progress: 10 },
@@ -74,11 +71,9 @@ export default function UploadResume() {
     setIsProcessing(true);
     setError('');
     
-    let resumeId: string | null = null;
+    const resumeId: string = crypto.randomUUID();
 
     try {
-      resumeId = crypto.randomUUID();
-      
       console.log('🚀 Starting resume analysis');
       console.log('Resume ID:', resumeId);
       console.log('File:', file.name, '-', (file.size / 1024).toFixed(2), 'KB');
@@ -115,7 +110,7 @@ export default function UploadResume() {
       updateProgress(2);
       console.log('Calling API...');
 
-      const apiFormData = new FormData();
+      const apiFormData = new window.FormData();
       apiFormData.append('file', imageResult.file);
       apiFormData.append('jobTitle', formData.jobTitle);
       apiFormData.append('jobDescription', formData.jobDescription);

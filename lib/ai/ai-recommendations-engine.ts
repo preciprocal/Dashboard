@@ -1,4 +1,4 @@
-// lib/ai-recommendations-engine.ts
+// lib/ai/ai-recommendations-engine.ts
 /**
  * Dynamic AI Recommendations Engine
  * Analyzes interview performance and resume data to generate personalized recommendations
@@ -22,19 +22,33 @@ export interface AIRecommendation {
   }[];
 }
 
+interface InterviewFeedback {
+  categoryScores?: Record<string, number>;
+  totalScore?: number;
+}
+
 interface Interview {
-  feedback?: {
-    categoryScores?: Record<string, number>;
-    totalScore?: number;
-  };
+  feedback?: InterviewFeedback;
   score?: number;
 }
 
+interface ResumeFeedbackTip {
+  type: string;
+  message?: string;
+}
+
+interface ResumeFeedbackSection {
+  score?: number;
+  tips?: ResumeFeedbackTip[];
+}
+
+interface ResumeFeedback {
+  overallScore?: number;
+  [key: string]: number | ResumeFeedbackSection | undefined;
+}
+
 interface Resume {
-  feedback?: {
-    overallScore?: number;
-    [key: string]: any;
-  };
+  feedback?: ResumeFeedback;
 }
 
 interface InterviewAnalysis {
@@ -68,6 +82,8 @@ interface CategoryRecommendation {
     users?: string;
   }>;
 }
+
+type RecommendationCategory = "technical" | "behavioral" | "system-design" | "coding" | "communication" | "resume" | "career";
 
 /**
  * Analyze interview performance patterns
@@ -104,15 +120,15 @@ export function analyzeInterviewPerformance(interviews: Interview[]): InterviewA
         
         // Map various category names to standard categories
         if (normalizedCategory.includes('communication')) {
-          categoryScores.communication.push(score as number);
+          categoryScores.communication.push(score);
         } else if (normalizedCategory.includes('technical') || normalizedCategory.includes('knowledge')) {
-          categoryScores.technical.push(score as number);
+          categoryScores.technical.push(score);
         } else if (normalizedCategory.includes('problem') || normalizedCategory.includes('solving')) {
-          categoryScores.problemSolving.push(score as number);
+          categoryScores.problemSolving.push(score);
         } else if (normalizedCategory.includes('cultural') || normalizedCategory.includes('fit')) {
-          categoryScores.cultural.push(score as number);
+          categoryScores.cultural.push(score);
         } else if (normalizedCategory.includes('confidence') || normalizedCategory.includes('clarity')) {
-          categoryScores.confidence.push(score as number);
+          categoryScores.confidence.push(score);
         }
       });
     }
@@ -206,20 +222,24 @@ export function analyzeResumeData(resumes: Resume[]): ResumeAnalysis {
   // Collect section scores and issues
   resumes.forEach(resume => {
     if (resume.feedback) {
-      Object.entries(resume.feedback).forEach(([section, data]: [string, any]) => {
+      Object.entries(resume.feedback).forEach(([section, data]) => {
         if (section === 'overallScore') return;
         
-        if (data?.score !== undefined && sectionScores[section]) {
-          sectionScores[section].push(data.score);
-        }
+        // Type guard to check if data is a section object with score
+        if (data && typeof data === 'object' && 'score' in data) {
+          const sectionData = data as ResumeFeedbackSection;
+          if (sectionData.score !== undefined && sectionScores[section]) {
+            sectionScores[section].push(sectionData.score);
+          }
 
-        // Collect improvement tips
-        if (data?.tips && Array.isArray(data.tips)) {
-          data.tips.forEach((tip: any) => {
-            if (tip.type === 'improve' && tip.message) {
-              allIssues.push(tip.message);
-            }
-          });
+          // Collect improvement tips
+          if (sectionData.tips && Array.isArray(sectionData.tips)) {
+            sectionData.tips.forEach((tip: ResumeFeedbackTip) => {
+              if (tip.type === 'improve' && tip.message) {
+                allIssues.push(tip.message);
+              }
+            });
+          }
         }
       });
     }
@@ -395,7 +415,7 @@ export function generateDynamicAIRecommendations(
       const recommendation = categoryMap[interviewAnalysis.weakestCategory];
       if (recommendation) {
         recommendations.push({
-          category: interviewAnalysis.weakestCategory as any,
+          category: interviewAnalysis.weakestCategory as RecommendationCategory,
           title: recommendation.title,
           description: recommendation.description,
           priority: "high",
@@ -434,7 +454,7 @@ export function generateDynamicAIRecommendations(
     // 3. Build on strengths
     if (interviewAnalysis.strongestScore >= 75 && interviewAnalysis.totalInterviews >= 3) {
       recommendations.push({
-        category: interviewAnalysis.strongestCategory as any,
+        category: interviewAnalysis.strongestCategory as RecommendationCategory,
         title: `Leverage Your ${interviewAnalysis.strongestCategory} Strength`,
         description: `Your ${interviewAnalysis.strongestCategory} skills score ${interviewAnalysis.strongestScore}/100! Use this as your foundation and lead with these strengths in interviews.`,
         priority: "low",

@@ -4,6 +4,11 @@
 import React, { useState } from 'react';
 import { Wand2, Copy, Check, Loader2, RefreshCw, Sparkles, AlertCircle, Target, Zap, Info, Brain, FileText, Award } from 'lucide-react';
 
+interface MissingSkill {
+  skill: string;
+  [key: string]: unknown;
+}
+
 interface RewriteSuggestion {
   id: string;
   original: string;
@@ -24,8 +29,10 @@ interface ResumeRewriterProps {
   companyName?: string;
   jobDescription?: string;
   missingKeywords?: string[];
-  missingSkills?: any[];
+  missingSkills?: (string | MissingSkill)[];
 }
+
+type ToneType = 'professional' | 'creative' | 'technical' | 'executive';
 
 export default function ResumeRewriter({ 
   resumeId, 
@@ -41,11 +48,11 @@ export default function ResumeRewriter({
   const [suggestions, setSuggestions] = useState<RewriteSuggestion[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [appliedSuggestions, setAppliedSuggestions] = useState<Set<string>>(new Set());
-  const [tone, setTone] = useState<'professional' | 'creative' | 'technical' | 'executive'>('professional');
-  const [error, setError] = useState<string>('');
+  const [tone, setTone] = useState<ToneType>('professional');
+  const [errorMessage, setErrorMessage] = useState<string>('');
   const [useJobContext, setUseJobContext] = useState(true);
   const [optimizationMode, setOptimizationMode] = useState<string>('');
-  const [modeDescription, setModeDescription] = useState<string>('');
+  const [_modeDescription, setModeDescription] = useState<string>('');
 
   // Determine mode
   const hasFullDescription = !!(jobDescription && jobDescription.trim().length > 50);
@@ -61,20 +68,20 @@ export default function ResumeRewriter({
   ];
 
   const tones = [
-    { value: 'professional', label: 'Professional', icon: '💼', desc: 'Corporate' },
-    { value: 'creative', label: 'Creative', icon: '🎨', desc: 'Unique' },
-    { value: 'technical', label: 'Technical', icon: '⚙️', desc: 'Detailed' },
-    { value: 'executive', label: 'Executive', icon: '👔', desc: 'Strategic' },
+    { value: 'professional' as ToneType, label: 'Professional', icon: '💼', desc: 'Corporate' },
+    { value: 'creative' as ToneType, label: 'Creative', icon: '🎨', desc: 'Unique' },
+    { value: 'technical' as ToneType, label: 'Technical', icon: '⚙️', desc: 'Detailed' },
+    { value: 'executive' as ToneType, label: 'Executive', icon: '👔', desc: 'Strategic' },
   ];
 
   const handleRewrite = async () => {
     if (!selectedText.trim() || !section) {
-      setError('Please enter text and select a section');
+      setErrorMessage('Please enter text and select a section');
       return;
     }
 
     setIsAnalyzing(true);
-    setError('');
+    setErrorMessage('');
     
     try {
       console.log('🔄 Starting intelligent rewrite...');
@@ -123,10 +130,11 @@ export default function ResumeRewriter({
       setSuggestions(data.suggestions);
       setOptimizationMode(data.optimizationMode || 'general');
       setModeDescription(data.modeDescription || 'General optimization');
-      setError('');
-    } catch (error: any) {
-      console.error('❌ Error:', error);
-      setError(error.message || 'Failed to generate suggestions');
+      setErrorMessage('');
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to generate suggestions';
+      console.error('❌ Error:', err);
+      setErrorMessage(errorMsg);
       setSuggestions([]);
     } finally {
       setIsAnalyzing(false);
@@ -144,7 +152,7 @@ export default function ResumeRewriter({
           return newSet;
         });
       }, 3000);
-    } catch (error) {
+    } catch {
       alert('Failed to copy. Please copy manually.');
     }
   };
@@ -251,7 +259,7 @@ export default function ResumeRewriter({
                   <span className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 rounded-full">88% Accuracy</span>
                 </h4>
                 <p className="text-sm text-blue-800 dark:text-blue-300 mb-3">
-                  Using <strong>AI's knowledge base</strong> about {jobTitle}
+                  Using <strong>AI&apos;s knowledge base</strong> about {jobTitle}
                   {companyName && ` at ${companyName}`}. AI will research typical requirements and incorporate relevant skills for this role.
                 </p>
                 
@@ -263,7 +271,7 @@ export default function ResumeRewriter({
                     <li>• Common technical skills for {jobTitle}</li>
                     <li>• Industry-standard technologies</li>
                     <li>• Typical role requirements</li>
-                    {companyName && <li>• {companyName}'s known tech stack & culture</li>}
+                    {companyName && <li>• {companyName}&apos;s known tech stack & culture</li>}
                   </ul>
                 </div>
                 
@@ -300,15 +308,15 @@ export default function ResumeRewriter({
         )}
 
         {/* Error Display */}
-        {error && (
+        {errorMessage && (
           <div className="p-4 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 rounded-lg animate-shake">
             <div className="flex items-start">
               <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5 mr-3 flex-shrink-0" />
               <div className="flex-1">
                 <h3 className="font-semibold text-red-900 dark:text-red-200 mb-1">Error</h3>
-                <p className="text-sm text-red-800 dark:text-red-300">{error}</p>
+                <p className="text-sm text-red-800 dark:text-red-300">{errorMessage}</p>
                 <button
-                  onClick={() => setError('')}
+                  onClick={() => setErrorMessage('')}
                   className="text-sm font-medium text-red-700 dark:text-red-400 hover:underline mt-2"
                 >
                   Dismiss
@@ -352,7 +360,7 @@ export default function ResumeRewriter({
             {tones.map((t) => (
               <button
                 key={t.value}
-                onClick={() => setTone(t.value as any)}
+                onClick={() => setTone(t.value)}
                 className={`px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                   tone === t.value
                     ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg'
@@ -473,7 +481,7 @@ export default function ResumeRewriter({
               </button>
             </div>
 
-            {suggestions.map((suggestion, index) => (
+            {suggestions.map((suggestion) => (
               <div
                 key={suggestion.id}
                 className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-xl p-5 border border-slate-200 dark:border-slate-700 hover:shadow-lg transition-all"
@@ -604,7 +612,7 @@ export default function ResumeRewriter({
         )}
 
         {/* Empty State */}
-        {suggestions.length === 0 && !isAnalyzing && !error && (
+        {suggestions.length === 0 && !isAnalyzing && !errorMessage && (
           <div className="text-center py-12 bg-slate-50 dark:bg-slate-900 rounded-xl">
             <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-purple-100 to-indigo-100 dark:from-purple-900/30 dark:to-indigo-900/30 rounded-full mb-4">
               <Wand2 className="w-10 h-10 text-purple-600 dark:text-purple-400" />

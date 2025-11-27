@@ -5,7 +5,6 @@ import { auth } from '@/firebase/admin';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 
-// Use the SAME environment variable as your generate route
 const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
 if (!apiKey) {
@@ -32,7 +31,6 @@ interface UsageMetadata {
   candidatesTokenCount?: number;
 }
 
-// System prompt for the AI coach
 const COACH_SYSTEM_PROMPT = `You are an expert interview preparation coach and technical mentor. Your role is to:
 
 1. **Answer technical questions** clearly and concisely with examples
@@ -67,7 +65,6 @@ export async function POST(request: NextRequest) {
     console.log('🚀 Chat API request received');
     console.log('   API Key Available:', !!apiKey);
 
-    // Check API configuration
     if (!genAI || !apiKey) {
       console.error('❌ Gemini API not configured');
       return NextResponse.json(
@@ -80,7 +77,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ==================== AUTHENTICATION ====================
     const cookieStore = await cookies();
     const session = cookieStore.get('session');
 
@@ -96,13 +92,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify Firebase session
     let decodedClaims;
     try {
       decodedClaims = await auth.verifySessionCookie(session.value, true);
       console.log('✅ Session verified for user:', decodedClaims.uid);
-    } catch (_error) {
-      console.error('❌ Session verification failed:', _error);
+    } catch (verifyError) {
+      console.error('❌ Session verification failed:', verifyError);
       return NextResponse.json(
         { 
           success: false,
@@ -115,12 +110,11 @@ export async function POST(request: NextRequest) {
 
     const userId = decodedClaims.uid;
 
-    // ==================== INPUT VALIDATION ====================
     let body: ChatRequest;
     try {
       body = await request.json() as ChatRequest;
-    } catch (_error) {
-      console.error('❌ Invalid JSON body:', _error);
+    } catch (parseError) {
+      console.error('❌ Invalid JSON body:', parseError);
       return NextResponse.json(
         { 
           success: false,
@@ -133,7 +127,6 @@ export async function POST(request: NextRequest) {
 
     const { message, planId, conversationHistory } = body;
 
-    // Validate message
     if (!message || typeof message !== 'string') {
       return NextResponse.json(
         { 
@@ -172,13 +165,9 @@ export async function POST(request: NextRequest) {
     console.log('📝 Message validated - Length:', trimmedMessage.length);
     console.log('📚 Conversation history:', conversationHistory?.length || 0, 'messages');
 
-    // ==================== PREPARE PROMPT ====================
     const messages = conversationHistory || [];
-    
-    // Limit to last 10 messages to avoid token limits
     const recentMessages = messages.slice(-10);
     
-    // Build the conversation prompt
     const formattedPrompt = [
       `SYSTEM: ${COACH_SYSTEM_PROMPT}`,
       ...recentMessages.map((msg: ConversationMessage) => 
@@ -190,17 +179,15 @@ export async function POST(request: NextRequest) {
     console.log('🤖 Preparing to call Gemini 2.0 Flash API...');
     console.log('📊 Total prompt length:', formattedPrompt.length, 'characters');
 
-    // ==================== CALL GEMINI API ====================
     const aiStartTime = Date.now();
 
-    // Use the SAME model as your generate route
     const model = genAI.getGenerativeModel({ 
       model: 'gemini-2.0-flash-001',
       generationConfig: {
-        temperature: 0.7,        // Balanced creativity
-        topP: 0.9,              // Nucleus sampling
-        topK: 40,               // Vocabulary diversity
-        maxOutputTokens: 2048,  // Max response length
+        temperature: 0.7,
+        topP: 0.9,
+        topK: 40,
+        maxOutputTokens: 2048,
       },
       safetySettings: [
         {
@@ -230,7 +217,6 @@ export async function POST(request: NextRequest) {
       const response = result.response;
       assistantResponse = response.text();
       
-      // Get token usage if available
       const metadata = response.usageMetadata as UsageMetadata | undefined;
       if (metadata) {
         tokensUsed = metadata.totalTokenCount || 0;
@@ -255,7 +241,6 @@ export async function POST(request: NextRequest) {
         stack: error.stack
       });
       
-      // Handle specific Gemini errors
       if (error.message?.includes('quota')) {
         return NextResponse.json(
           { 
@@ -282,12 +267,10 @@ export async function POST(request: NextRequest) {
         assistantResponse = "I apologize, but I cannot respond to that message due to content safety guidelines. Please rephrase your question in a professional manner, and I'll be happy to help with your interview preparation.";
         console.log('⚠️  Safety filter triggered, using default response');
       } else {
-        // Unknown error - re-throw
         throw geminiError;
       }
     }
 
-    // ==================== PREPARE RESPONSE ====================
     const totalResponseTime = Date.now() - requestStartTime;
     const aiResponseTime = Date.now() - aiStartTime;
     
@@ -340,9 +323,8 @@ export async function POST(request: NextRequest) {
  * GET handler for health check
  * Endpoint: GET /api/planner/chat
  */
-export async function GET(_request: NextRequest) {
+export async function GET() {
   try {
-    // Check if Gemini API key is configured
     if (!apiKey) {
       return NextResponse.json(
         { 
@@ -354,7 +336,6 @@ export async function GET(_request: NextRequest) {
       );
     }
 
-    // Basic health check response
     return NextResponse.json({
       status: 'ok',
       service: 'planner-ai-coach-chat',
@@ -375,7 +356,7 @@ export async function GET(_request: NextRequest) {
       timestamp: new Date().toISOString()
     });
     
-  } catch (_error) {
+  } catch {
     return NextResponse.json(
       { 
         status: 'error',

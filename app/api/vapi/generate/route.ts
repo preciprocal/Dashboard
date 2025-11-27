@@ -47,7 +47,7 @@ interface InterviewData {
 function parseQuestionsFromResponse(response: string): string[] {
   try {
     // Remove markdown code blocks and clean the response
-    let cleanedResponse = response
+    const cleanedResponse = response
       .replace(/```json\s*/g, "")
       .replace(/```\s*/g, "")
       .replace(/^\s*\[/, "[")
@@ -56,8 +56,8 @@ function parseQuestionsFromResponse(response: string): string[] {
 
     // Try to parse as JSON first
     return JSON.parse(cleanedResponse) as string[];
-  } catch (_parseError) {
-    console.error("JSON parsing failed, trying fallback method:", _parseError);
+  } catch (parseError) {
+    console.error("JSON parsing failed, trying fallback method:", parseError);
 
     // Fallback: extract questions manually
     const lines = response
@@ -204,7 +204,7 @@ export async function POST(req: NextRequest) {
     const { name, parameters } = function_call;
 
     switch (name) {
-      case "generate_interview":
+      case "generate_interview": {
         const genParams = parameters as GenerateInterviewParams;
         const { role, level, type, techstack, amount, userid } = genParams;
 
@@ -400,8 +400,9 @@ export async function POST(req: NextRequest) {
             },
           },
         });
+      }
 
-      case "save_interview":
+      case "save_interview": {
         const saveParams = parameters as SaveInterviewParams;
         const { interview_data } = saveParams;
 
@@ -427,6 +428,7 @@ export async function POST(req: NextRequest) {
             interviewId: saveDocRef.id,
           },
         });
+      }
 
       default:
         return NextResponse.json(

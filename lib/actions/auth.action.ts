@@ -47,21 +47,30 @@ interface User {
   subscription?: Subscription;
 }
 
+interface FirebaseTimestamp {
+  toDate?: () => Date;
+  _seconds?: number;
+}
+
+interface FirebaseError extends Error {
+  code?: string;
+}
+
 /**
  * Helper function to convert Firestore Timestamp to ISO string
  */
-function convertTimestampToISO(timestamp: any): string {
+function convertTimestampToISO(timestamp: FirebaseTimestamp | Date | string | null | undefined): string {
   if (!timestamp) {
     return new Date().toISOString();
   }
 
   // Handle Firestore Timestamp object
-  if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+  if (typeof timestamp === 'object' && 'toDate' in timestamp && typeof timestamp.toDate === 'function') {
     return timestamp.toDate().toISOString();
   }
 
   // Handle raw timestamp object with _seconds
-  if (timestamp._seconds !== undefined) {
+  if (typeof timestamp === 'object' && '_seconds' in timestamp && timestamp._seconds !== undefined) {
     return new Date(timestamp._seconds * 1000).toISOString();
   }
 
@@ -149,11 +158,12 @@ export async function signUp(params: SignUpParams) {
       success: true,
       message: "Account created successfully. Please sign in.",
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error creating user:", error);
 
     // Handle Firebase specific errors
-    if (error.code === "auth/email-already-exists") {
+    const firebaseError = error as FirebaseError;
+    if (firebaseError.code === "auth/email-already-exists") {
       return {
         success: false,
         message: "This email is already in use",
@@ -267,18 +277,19 @@ export async function signIn(params: SignInParams) {
       success: true,
       message: "Successfully signed in.",
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error during sign in:", error);
 
     // Handle specific Firebase auth errors
-    if (error.code === "auth/id-token-expired") {
+    const firebaseError = error as FirebaseError;
+    if (firebaseError.code === "auth/id-token-expired") {
       return {
         success: false,
         message: "Authentication token expired. Please try again.",
       };
     }
 
-    if (error.code === "auth/invalid-id-token") {
+    if (firebaseError.code === "auth/invalid-id-token") {
       return {
         success: false,
         message: "Invalid authentication token. Please try again.",
@@ -355,8 +366,8 @@ export async function updateUserProfile(
   profileData: Partial<User>
 ) {
   try {
-    // Remove fields that shouldn't be updated
-    const { id, createdAt, subscription, ...updateData } = profileData;
+    // Remove fields that shouldn't be updated - prefix with underscore to indicate intentionally unused
+    const { id: _id, createdAt: _createdAt, subscription: _subscription, ...updateData } = profileData;
 
     // Add updatedAt timestamp
     const dataToUpdate = {
@@ -418,7 +429,7 @@ export async function getUserProfile(userId: string): Promise<User | null> {
 // Reset user password
 export async function resetUserPassword(
   email: string,
-  currentPassword: string,
+  _currentPassword: string,
   newPassword: string
 ) {
   try {
@@ -442,17 +453,18 @@ export async function resetUserPassword(
       success: true,
       message: "Password updated successfully.",
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error resetting password:", error);
 
-    if (error.code === "auth/user-not-found") {
+    const firebaseError = error as FirebaseError;
+    if (firebaseError.code === "auth/user-not-found") {
       return {
         success: false,
         message: "User not found.",
       };
     }
 
-    if (error.code === "auth/weak-password") {
+    if (firebaseError.code === "auth/weak-password") {
       return {
         success: false,
         message:

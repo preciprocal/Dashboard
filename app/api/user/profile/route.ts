@@ -1,10 +1,9 @@
 // app/api/user/profile/route.ts
-import { NextRequest, NextResponse } from "next/server";
-// Adjust path to your auth file
+import { NextResponse } from "next/server";
 import { db } from "@/firebase/admin";
 import { getCurrentUser } from "@/lib/actions/auth.action";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const user = await getCurrentUser();
 

@@ -18,6 +18,11 @@ interface BatchFeedbackRequest {
   userId: string;
 }
 
+interface FeedbackResponse {
+  totalScore?: number;
+  [key: string]: unknown;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json() as BatchFeedbackRequest;
@@ -40,9 +45,9 @@ export async function POST(request: NextRequest) {
         return {
           ...interview,
           feedback: feedback,
-          score: (feedback as { totalScore?: number })?.totalScore || 0,
+          score: (feedback as FeedbackResponse)?.totalScore || 0,
         };
-      } catch (_error) {
+      } catch {
         return { ...interview, score: 0 };
       }
     });
@@ -50,8 +55,8 @@ export async function POST(request: NextRequest) {
     const interviewsWithFeedback = await Promise.all(feedbackPromises);
 
     return NextResponse.json({ interviews: interviewsWithFeedback });
-  } catch (_error) {
-    console.error("Error fetching batch feedback:", _error);
+  } catch (error) {
+    console.error("Error fetching batch feedback:", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 }

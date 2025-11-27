@@ -1,8 +1,12 @@
 // lib/resume/pdf-text-extractor.ts
 
+interface PDFPage {
+  getTextContent: () => Promise<TextContent>;
+}
+
 interface PDFDocumentProxy {
   numPages: number;
-  getPage: (pageNum: number) => Promise<any>;
+  getPage: (pageNum: number) => Promise<PDFPage>;
 }
 
 interface TextItem {
@@ -24,7 +28,7 @@ export async function extractTextFromPDF(pdfUrl: string): Promise<string> {
     console.log('📄 Loading PDF from URL:', pdfUrl.substring(0, 50) + '...');
 
     const loadingTask = pdfjsLib.getDocument(pdfUrl);
-    const pdf: PDFDocumentProxy = await loadingTask.promise;
+    const pdf = await loadingTask.promise as unknown as PDFDocumentProxy;
 
     console.log('📄 PDF loaded, total pages:', pdf.numPages);
 
@@ -93,7 +97,7 @@ export async function extractTextFromBase64PDF(base64Data: string): Promise<stri
       data: bytes,
     });
     
-    const pdf: PDFDocumentProxy = await loadingTask.promise;
+    const pdf = await loadingTask.promise as unknown as PDFDocumentProxy;
 
     console.log('📄 PDF loaded successfully, total pages:', pdf.numPages);
 

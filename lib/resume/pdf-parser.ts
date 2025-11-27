@@ -1,8 +1,21 @@
 // lib/resume/pdf-parser.ts
 
+interface TextContentItem {
+  str: string;
+  [key: string]: unknown;
+}
+
+interface TextContent {
+  items: TextContentItem[];
+}
+
+interface PDFPage {
+  getTextContent: () => Promise<TextContent>;
+}
+
 interface PDFDocumentProxy {
   numPages: number;
-  getPage: (pageNum: number) => Promise<any>;
+  getPage: (pageNum: number) => Promise<PDFPage>;
 }
 
 /**
@@ -24,7 +37,7 @@ export async function extractTextFromPDF(file: File): Promise<string> {
       useSystemFonts: true,
     });
     
-    const pdf: PDFDocumentProxy = await loadingTask.promise;
+    const pdf = await loadingTask.promise as unknown as PDFDocumentProxy;
 
     console.log(`📄 PDF loaded: ${pdf.numPages} pages`);
 
@@ -55,7 +68,7 @@ async function extractPageText(pdf: PDFDocumentProxy, pageNumber: number): Promi
     const textContent = await page.getTextContent();
 
     const text = textContent.items
-      .map((item: any) => item.str)
+      .map((item: TextContentItem) => item.str)
       .join(' ')
       .trim();
 

@@ -32,7 +32,6 @@ import { auth } from '@/firebase/client';
 import { FirebaseService } from '@/lib/services/firebase-service';
 import type { LucideIcon } from 'lucide-react';
 
-// Define interfaces
 interface ThemeContextType {
   darkMode: boolean;
   toggleTheme: () => void;
@@ -98,7 +97,6 @@ interface PlanInfo {
   showUpgrade: boolean;
 }
 
-// Theme Context
 const ThemeContext = createContext<ThemeContextType | null>(null);
 
 const useTheme = () => {
@@ -139,7 +137,6 @@ const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
-// Custom hook for resume count
 const useResumeCount = () => {
   const [user] = useAuthState(auth);
   const [resumeCount, setResumeCount] = useState(0);
@@ -176,7 +173,6 @@ const useResumeCount = () => {
   return { resumeCount, latestResume, loading };
 };
 
-// Helper Functions
 const getPlanInfo = (subscription: UserData['subscription']): PlanInfo => {
   if (!subscription || subscription.plan === "starter" || !subscription.plan) {
     return {
@@ -238,7 +234,6 @@ const getSafeUserStats = (userStats: UserStats): SafeUserStats => {
   };
 };
 
-// Progress Bar Component
 const ProgressBar = ({ used, limit }: { used: number; limit: number }) => {
   const percentage = Math.min((used / limit) * 100, 100);
   
@@ -252,7 +247,6 @@ const ProgressBar = ({ used, limit }: { used: number; limit: number }) => {
   );
 };
 
-// Search Dropdown Component
 const SearchDropdown = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -347,7 +341,6 @@ const SearchDropdown = () => {
   );
 };
 
-// Main Layout Content Component
 function LayoutContent({ children, user, userStats }: LayoutClientProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -358,7 +351,6 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
 
   const { resumeCount, latestResume, loading: resumeLoading } = useResumeCount();
 
-  // Scroll detection for navbar
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 10);
@@ -403,7 +395,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
     if (!name || typeof name !== 'string' || name.trim() === '') return "U";
     try {
       return name.trim().split(" ").map((word) => word.charAt(0)).join("").toUpperCase().substring(0, 2);
-    } catch (_error) {
+    } catch {
       return "U";
     }
   };
@@ -431,11 +423,9 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* Animated Background with Gradient Mesh */}
       <div className="fixed inset-0 gradient-mesh -z-10" />
       <div className="fixed inset-0 bg-gradient-to-br from-slate-900/95 via-purple-900/90 to-slate-900/95 -z-10" />
       
-      {/* Mobile Overlay */}
       {sidebarOpen && (
         <div 
           className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
@@ -443,11 +433,9 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
         />
       )}
 
-      {/* Glass Sidebar */}
       <aside className={`fixed left-0 top-0 h-full w-64 glass-sidebar z-50 transition-transform duration-300 glass-scrollbar overflow-y-auto ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
       }`}>
-        {/* Logo & User Profile */}
         <div className="p-4 border-b border-white/10">
           <div className="flex items-center justify-between mb-4">
             <Link href="/" className="flex items-center space-x-3 group" onClick={handleLinkClick}>
@@ -476,7 +464,6 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
           </div>
         </div>
 
-        {/* Quick Actions */}
         <div className="p-3 space-y-2">
           <Link 
             href="/createinterview"
@@ -497,7 +484,6 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
           </Link>
         </div>
 
-        {/* Navigation Menu */}
         <nav className="p-3 space-y-1">
           <div className="px-3 py-2">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Menu</p>
@@ -523,7 +509,6 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
             );
           })}
 
-          {/* Team Spaces Section */}
           <div className="pt-6">
             <div className="flex items-center justify-between px-3 py-2">
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Resources</p>
@@ -544,7 +529,6 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
             })}
           </div>
 
-          {/* Recent Resume Activity */}
           {resumeCount > 0 && latestResume && !resumeLoading && (
             <div className="pt-4">
               <div className="px-3 py-2">
@@ -572,7 +556,6 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
             </div>
           )}
 
-          {/* Other Section */}
           <div className="pt-6">
             <div className="px-3 py-2">
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Other</p>
@@ -594,7 +577,6 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
           </div>
         </nav>
 
-        {/* Usage Stats */}
         <div className="p-4 mt-4 border-t border-white/10">
           <div className="glass-card p-4 space-y-4">
             <div className="flex items-center justify-between">
@@ -637,7 +619,6 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
           </div>
         </div>
 
-        {/* Logout Button */}
         <div className="p-4 border-t border-white/10">
           <button
             onClick={handleLogout}
@@ -650,9 +631,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
         </div>
       </aside>
 
-      {/* Main Content */}
       <div className="lg:pl-64 min-h-screen flex flex-col">
-        {/* Fixed Sticky Top Navigation Bar */}
         <header className={`fixed top-0 right-0 left-0 lg:left-64 z-40 border-b border-white/10 backdrop-blur-xl transition-all duration-300 ${
           scrolled 
             ? 'bg-slate-900/95 dark:bg-slate-900/95 shadow-2xl' 
@@ -695,7 +674,6 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
           </div>
         </header>
 
-        {/* Page Content with top padding to account for fixed header */}
         <main className="p-6 mt-[73px] flex-1">
           {children}
         </main>

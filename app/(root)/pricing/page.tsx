@@ -415,7 +415,7 @@ export default function SubscriptionPage() {
       } else {
         setTimeout(() => window.location.reload(), 2000);
       }
-    } catch (err) {
+    } catch {
       setTimeout(() => window.location.reload(), 2000);
     }
 
@@ -447,7 +447,7 @@ export default function SubscriptionPage() {
       const { url } = await response.json();
       if (url) window.location.href = url;
       else throw new Error("No portal URL returned");
-    } catch (err) {
+    } catch {
       alert("Failed to open billing portal");
     }
   };

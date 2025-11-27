@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { Loader2, AlertCircle, ExternalLink, FileText, Download } from 'lucide-react';
+import Image from 'next/image';
 
 interface WordEmbedPanelProps {
   resumePath: string;
@@ -111,12 +112,15 @@ export default function WordEmbedPanel({
             />
           </div>
         ) : isImage ? (
-          <div className="max-w-4xl mx-auto">
-            <img
+          <div className="max-w-4xl mx-auto relative">
+            <Image
               src={resumePath}
               alt="Resume preview"
+              width={800}
+              height={1100}
               className="w-full h-auto border border-slate-800 rounded-lg shadow-2xl"
               style={{ maxWidth: '100%', height: 'auto' }}
+              unoptimized
             />
           </div>
         ) : (

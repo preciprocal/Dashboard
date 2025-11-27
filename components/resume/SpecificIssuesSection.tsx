@@ -3,8 +3,19 @@
 
 import { AlertTriangle, Target, CheckCircle2 } from 'lucide-react';
 
+interface Issue {
+  description?: string;
+  issue?: string;
+  problem?: string;
+  location?: string;
+  example?: string;
+  fix?: string;
+  suggestion?: string;
+  severity?: 'critical' | 'major' | 'minor';
+}
+
 interface SpecificIssuesSectionProps {
-  issues: any[];
+  issues: Issue[];
   title: string;
 }
 

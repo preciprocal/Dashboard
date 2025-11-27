@@ -1,10 +1,18 @@
 // lib/resume/pdf-parser-server.ts
 import pdf from 'pdf-parse';
 
+interface PDFInfo {
+  Title?: string;
+  Author?: string;
+  Subject?: string;
+  Keywords?: string;
+  [key: string]: string | undefined;
+}
+
 interface ParsedPDF {
   text: string;
   numPages: number;
-  metadata: any;
+  metadata: PDFInfo;
 }
 
 /**
@@ -17,7 +25,7 @@ export async function parsePDFServer(buffer: Buffer): Promise<ParsedPDF> {
     return {
       text: data.text,
       numPages: data.numpages,
-      metadata: data.info
+      metadata: data.info as PDFInfo
     };
   } catch (err) {
     console.error('PDF parsing error:', err);
@@ -28,7 +36,7 @@ export async function parsePDFServer(buffer: Buffer): Promise<ParsedPDF> {
 /**
  * Extract text from PDF file (Server-side only)
  */
-export async function extractTextFromPDF(file: File): Promise<string> {
+export async function extractTextFromPDFServer(file: File): Promise<string> {
   try {
     console.log('📄 Starting PDF text extraction...');
 
@@ -79,12 +87,14 @@ export async function getPDFMetadata(file: File): Promise<{
     const buffer = Buffer.from(arrayBuffer);
     const data = await pdf(buffer);
 
+    const info = data.info as PDFInfo;
+
     return {
       pages: data.numpages,
-      title: data.info?.Title,
-      author: data.info?.Author,
-      subject: data.info?.Subject,
-      keywords: data.info?.Keywords,
+      title: info?.Title,
+      author: info?.Author,
+      subject: info?.Subject,
+      keywords: info?.Keywords,
     };
   } catch (err) {
     console.error('PDF metadata error:', err);
@@ -95,7 +105,7 @@ export async function getPDFMetadata(file: File): Promise<{
 /**
  * Validate PDF file
  */
-export function validatePDFFile(file: File): {
+export function validatePDFFileServer(file: File): {
   valid: boolean;
   error?: string;
 } {
@@ -129,7 +139,7 @@ export function validatePDFFile(file: File): {
  */
 export async function isPDFTextBased(file: File): Promise<boolean> {
   try {
-    const text = await extractTextFromPDF(file);
+    const text = await extractTextFromPDFServer(file);
     return text.length > 50;
   } catch {
     return false;

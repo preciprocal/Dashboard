@@ -41,7 +41,7 @@ interface PanelistAvatar {
   gradient: string;
 }
 
-interface Panelist {
+interface PanelistData {
   id: string;
   name: string;
   role: string;
@@ -68,7 +68,6 @@ const VideoAvatar = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [showVideo, setShowVideo] = useState(false);
 
-  // Optimized video load handler
   const handleVideoLoad = useCallback(() => {
     setShowVideo(true);
   }, []);
@@ -77,7 +76,6 @@ const VideoAvatar = ({
     setShowVideo(false);
   }, []);
 
-  // Control video playback
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !showVideo) return;
@@ -91,7 +89,6 @@ const VideoAvatar = ({
 
   return (
     <div className="relative w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 mx-auto mb-3 sm:mb-4">
-      {/* Video Element - Only render if videoSrc exists */}
       {videoSrc && (
         <video
           ref={videoRef}
@@ -114,7 +111,6 @@ const VideoAvatar = ({
         </video>
       )}
 
-      {/* Fallback Avatar - Always rendered as fallback */}
       <div
         className={`w-full h-full bg-gradient-to-br ${gradient} rounded-full flex items-center justify-center border-2 sm:border-3 border-slate-600 transition-all duration-300 ${
           showVideo && videoSrc ? "opacity-0" : "opacity-100"
@@ -125,7 +121,6 @@ const VideoAvatar = ({
         </span>
       </div>
 
-      {/* Speaking Effects - Only when speaking */}
       {isSpeaking && (
         <div className="absolute inset-0 rounded-full pointer-events-none">
           <div className="absolute inset-0 rounded-full border border-blue-400 animate-ping opacity-75"></div>
@@ -134,7 +129,6 @@ const VideoAvatar = ({
             style={{ animationDelay: "0.3s" }}
           ></div>
 
-          {/* Simplified waveform */}
           <div className="absolute -bottom-1 sm:-bottom-2 left-1/2 transform -translate-x-1/2 flex space-x-1">
             {Array.from({ length: 5 }, (_, i) => (
               <div
@@ -166,14 +160,12 @@ const Agent = ({
   const router = useRouter();
   const [callStatus, setCallStatus] = useState<CallStatus>(CallStatus.INACTIVE);
   const [messages, setMessages] = useState<SavedMessage[]>([]);
-  const [isSpeaking, setIsSpeaking] = useState(false);
   const [lastMessage, setLastMessage] = useState<string>("");
   const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [totalQuestions, setTotalQuestions] = useState(10);
   const [speakingPersonId, setSpeakingPersonId] = useState<string | null>(null);
 
-  // Memoized video sources
   const videoSources = useMemo(
     () => ({
       hr: "/videos/hr-female-avatar.mp4",
@@ -185,8 +177,7 @@ const Agent = ({
     [interviewRole]
   );
 
-  // Memoized panel data
-  const interviewPanel = useMemo(() => {
+  const interviewPanel: PanelistData[] = useMemo(() => {
     const generateNames = (id: string) => {
       const hash = (id || "default").split("").reduce((a, b) => {
         a = (a << 5) - a + b.charCodeAt(0);
@@ -274,9 +265,7 @@ const Agent = ({
     ];
   }, [interviewId, interviewRole, callStatus, speakingPersonId, videoSources]);
 
-  // Optimized event handlers
   const handleSpeechStart = useCallback(() => {
-    setIsSpeaking(true);
     const interviewers = ["tech_recruiter", "hr", "junior"];
     setSpeakingPersonId(
       interviewers[Math.floor(Math.random() * interviewers.length)]
@@ -284,7 +273,6 @@ const Agent = ({
   }, []);
 
   const handleSpeechEnd = useCallback(() => {
-    setIsSpeaking(false);
     setSpeakingPersonId(null);
   }, []);
 
@@ -306,7 +294,6 @@ const Agent = ({
     [totalQuestions]
   );
 
-  // VAPI event listeners
   useEffect(() => {
     if (questions?.length) {
       setTotalQuestions(questions.length);
@@ -335,93 +322,52 @@ const Agent = ({
       vapi.off("speech-start", handleSpeechStart);
       vapi.off("speech-end", handleSpeechEnd);
     };
-  }, [
-    questions,
-    handleMessage,
-    handleSpeechStart,
-    handleSpeechEnd,
-    totalQuestions,
-  ]);
+  }, [questions, handleMessage, handleSpeechStart, handleSpeechEnd]);
 
-  // Handle messages and feedback
   useEffect(() => {
     if (messages.length > 0) {
       setLastMessage(messages[messages.length - 1].content);
     }
   }, [messages]);
 
-  // Separate effect for handling call completion
   useEffect(() => {
-    const handleGenerateFeedback = async (messages: SavedMessage[]) => {
-      console.log("Starting feedback generation...", {
-        interviewId,
-        userId,
-        messagesCount: messages.length,
-        feedbackId,
-      });
-
+    const handleGenerateFeedback = async (msgs: SavedMessage[]) => {
       setIsGeneratingFeedback(true);
 
       try {
         const { success, feedbackId: id } = await createFeedback({
           interviewId: interviewId,
           userId: userId,
-          transcript: messages,
+          transcript: msgs,
           feedbackId,
         });
 
-        console.log("Feedback creation result:", { success, id });
-
         if (success && (id || feedbackId)) {
-          // Use the returned id or fallback to the existing feedbackId
-          const _finalFeedbackId = id || feedbackId;
-          console.log(
-            "Redirecting to feedback page:",
-            `/interview/${interviewId}/feedback`
-          );
-
           setTimeout(() => {
             setIsGeneratingFeedback(false);
             router.push(`/interview/${interviewId}/feedback`);
           }, 2000);
         } else {
-          console.error("Feedback creation failed:", { success, id });
           setIsGeneratingFeedback(false);
-
-          // Show error message before redirecting
           setTimeout(() => {
-            console.log("Redirecting to home due to feedback creation failure");
             router.push("/");
           }, 1000);
         }
       } catch (error) {
         console.error("Error during feedback generation:", error);
         setIsGeneratingFeedback(false);
-
-        // Show error message before redirecting
         setTimeout(() => {
-          console.log("Redirecting to home due to error");
           router.push("/");
         }, 1000);
       }
     };
 
     if (callStatus === CallStatus.FINISHED) {
-      console.log(
-        "Call finished, type:",
-        type,
-        "messages count:",
-        messages.length
-      );
-
       if (type === "generate") {
-        console.log("Generate type - redirecting to home");
         router.push("/");
       } else if (messages.length > 0) {
-        console.log("Interview type - generating feedback");
         handleGenerateFeedback(messages);
       } else {
-        console.log("No messages to process - redirecting to home");
         router.push("/");
       }
     }
@@ -453,8 +399,8 @@ const Agent = ({
     vapi.stop();
   };
 
-  const getStatusInfo = (status: string, isSpeaking?: boolean) => {
-    if (isSpeaking)
+  const getStatusInfo = (status: string, speaking?: boolean) => {
+    if (speaking)
       return { color: "bg-blue-500 animate-pulse", text: "Speaking" };
 
     const statusMap = {
@@ -476,9 +422,7 @@ const Agent = ({
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center space-x-2 sm:space-x-4">
             <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-              <span className="text-white text-xs sm:text-sm font-bold">
-                AI
-              </span>
+              <span className="text-white text-xs sm:text-sm font-bold">AI</span>
             </div>
             <div>
               <h1 className="text-white font-semibold text-sm sm:text-base">
@@ -500,7 +444,6 @@ const Agent = ({
             </div>
             <span>SECURE</span>
           </div>
-          {/* Mobile status indicator */}
           <div className="sm:hidden flex items-center space-x-2">
             <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
             <span className="text-red-400 text-xs">REC</span>
@@ -511,12 +454,8 @@ const Agent = ({
       {/* Main Video Grid */}
       <div className="flex-1 flex flex-col min-h-0">
         <div className="flex-1 grid grid-cols-2 gap-2 sm:gap-4 lg:gap-6 p-2 sm:p-4 lg:p-6 min-h-0">
-          {/* Interview Panel */}
           {interviewPanel.map((panelist) => {
-            const statusInfo = getStatusInfo(
-              panelist.status,
-              panelist.isSpeaking
-            );
+            const statusInfo = getStatusInfo(panelist.status, panelist.isSpeaking);
             const isCurrentSpeaker = speakingPersonId === panelist.id;
 
             return (
@@ -534,7 +473,6 @@ const Agent = ({
               >
                 {panelist.isLead && (
                   <div className="absolute top-2 right-2 sm:top-4 sm:right-4 bg-blue-500/90 text-white text-xs sm:text-sm px-2 py-1 sm:px-3 sm:py-1 rounded-full font-medium">
-                    {/* Hide "Lead Interviewer" text on mobile, show "Lead" */}
                     <span className="sm:hidden">Lead</span>
                     <span className="hidden sm:inline">Lead Interviewer</span>
                   </div>
@@ -644,7 +582,6 @@ const Agent = ({
         {/* Control Panel */}
         <div className="bg-slate-800/95 backdrop-blur-sm border-t border-slate-600/50 px-3 sm:px-6 py-3 sm:py-4 flex-shrink-0">
           <div className="flex flex-col sm:flex-row items-center justify-between w-full space-y-3 sm:space-y-0">
-            {/* Status Info */}
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 sm:gap-6 text-sm">
               <div className="flex items-center space-x-2 sm:space-x-3">
                 <div
@@ -672,9 +609,7 @@ const Agent = ({
               </div>
 
               <div className="text-slate-400 text-xs sm:text-sm">
-                Question{" "}
-                {callStatus === CallStatus.ACTIVE ? currentQuestionIndex : 1} of{" "}
-                {totalQuestions}
+                Question {callStatus === CallStatus.ACTIVE ? currentQuestionIndex : 1} of {totalQuestions}
               </div>
 
               <div className="hidden sm:block text-slate-400 text-sm">
@@ -685,19 +620,15 @@ const Agent = ({
                 <div className="flex items-center space-x-2 bg-blue-500/20 px-2 sm:px-3 py-1 rounded-full">
                   <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-400 rounded-full animate-pulse"></div>
                   <span className="text-blue-300 text-xs sm:text-sm font-medium">
-                    <span className="hidden sm:inline">
-                      {currentSpeaker.name} is speaking
-                    </span>
+                    <span className="hidden sm:inline">{currentSpeaker.name} is speaking</span>
                     <span className="sm:hidden">Speaking</span>
                   </span>
                 </div>
               )}
             </div>
 
-            {/* Call Controls */}
             <div className="flex items-center space-x-4">
-              {callStatus === CallStatus.INACTIVE ||
-              callStatus === CallStatus.FINISHED ? (
+              {callStatus === CallStatus.INACTIVE || callStatus === CallStatus.FINISHED ? (
                 <button
                   onClick={handleCall}
                   className="px-4 sm:px-8 py-2 sm:py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold text-sm sm:text-base transition-all hover:scale-105 shadow-lg"
@@ -722,16 +653,13 @@ const Agent = ({
               ) : isGeneratingFeedback ? (
                 <div className="px-4 sm:px-8 py-2 sm:py-3 bg-blue-600 text-white rounded-lg font-semibold text-sm sm:text-base flex items-center space-x-2 sm:space-x-3">
                   <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  <span className="hidden sm:inline">
-                    Generating Feedback...
-                  </span>
+                  <span className="hidden sm:inline">Generating Feedback...</span>
                   <span className="sm:hidden">Processing...</span>
                 </div>
               ) : null}
             </div>
           </div>
 
-          {/* Feedback Generation Status */}
           {isGeneratingFeedback && (
             <div className="mt-3 sm:mt-4 bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 sm:p-4">
               <div className="flex items-center space-x-3 sm:space-x-4">
@@ -743,9 +671,7 @@ const Agent = ({
                     Processing Your Interview
                   </h4>
                   <p className="text-blue-200/70 text-xs sm:text-sm mt-1">
-                    Our AI is analyzing your responses and generating
-                    personalized feedback. You&apos;ll be redirected to the feedback
-                    page shortly...
+                    Our AI is analyzing your responses and generating personalized feedback. You&apos;ll be redirected to the feedback page shortly...
                   </p>
                 </div>
               </div>
@@ -753,27 +679,20 @@ const Agent = ({
                 <div className="bg-blue-400 h-full rounded-full animate-pulse w-3/4"></div>
               </div>
 
-              {/* Debug info in development */}
               {process.env.NODE_ENV === "development" && (
                 <div className="mt-2 sm:mt-3 text-xs text-blue-200/50">
-                  Debug: Interview ID: {interviewId} | Messages:{" "}
-                  {messages.length} | User ID: {userId}
+                  Debug: Interview ID: {interviewId} | Messages: {messages.length} | User ID: {userId}
                 </div>
               )}
             </div>
           )}
 
-          {/* Live Transcript */}
           <div className="mt-3 sm:mt-4 bg-slate-900/50 backdrop-blur-sm rounded-lg border border-slate-600/30 p-3 sm:p-4">
             <div className="flex items-center space-x-2 mb-2 sm:mb-3">
               <div className="w-2 h-2 sm:w-3 sm:h-3 bg-blue-500 rounded-full animate-pulse"></div>
-              <span className="text-xs sm:text-sm text-slate-400 font-medium">
-                Live Transcript
-              </span>
+              <span className="text-xs sm:text-sm text-slate-400 font-medium">Live Transcript</span>
             </div>
-            <p className="text-white text-sm sm:text-base line-clamp-2">
-              {lastMessage}
-            </p>
+            <p className="text-white text-sm sm:text-base line-clamp-2">{lastMessage}</p>
           </div>
         </div>
       </div>

@@ -1,11 +1,6 @@
-// ============================================
-// FILE 2: app/cover-letter/page.tsx
-// Cover Letter Dashboard
-// ============================================
-
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -78,7 +73,6 @@ export default function CoverLetterDashboard() {
     thisMonth: 0
   });
 
-  // Error states
   const [criticalError, setCriticalError] = useState<CriticalError | null>(null);
   const [lettersError, setLettersError] = useState<string>('');
   const [selectedLetter, setSelectedLetter] = useState<CoverLetter | null>(null);
@@ -90,40 +84,31 @@ export default function CoverLetterDashboard() {
     }
   }, [loading, user, router]);
 
-  useEffect(() => {
-    if (user) {
-      loadCoverLetters();
-    }
-  }, [user]);
-
-  const loadCoverLetters = async (): Promise<void> => {
+  const loadCoverLetters = useCallback(async (): Promise<void> => {
     if (!user) return;
 
     try {
       setLoadingLetters(true);
       setLettersError('');
       
-      // Query without orderBy to avoid index requirement
       const lettersQuery = query(
         collection(db, 'coverLetters'),
         where('userId', '==', user.uid)
       );
       
       const snapshot = await getDocs(lettersQuery);
-      let letters = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate() || new Date(),
+      let letters = snapshot.docs.map(docSnapshot => ({
+        id: docSnapshot.id,
+        ...docSnapshot.data(),
+        createdAt: docSnapshot.data().createdAt?.toDate() || new Date(),
       })) as CoverLetter[];
 
-      // Sort in JavaScript instead of Firestore
       letters = letters.sort((a, b) => 
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
 
       setCoverLetters(letters);
       
-      // Calculate stats
       if (letters.length > 0) {
         const avgWords = Math.round(
           letters.reduce((sum, letter) => sum + (letter.wordCount || 0), 0) / letters.length
@@ -173,7 +158,13 @@ export default function CoverLetterDashboard() {
     } finally {
       setLoadingLetters(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      loadCoverLetters();
+    }
+  }, [user, loadCoverLetters]);
 
   const handleRetryError = (): void => {
     setCriticalError(null);
@@ -191,7 +182,6 @@ export default function CoverLetterDashboard() {
       setCoverLetters(prev => prev.filter(l => l.id !== letterId));
       toast.success('Cover letter deleted');
       
-      // Recalculate stats
       const updatedLetters = coverLetters.filter(l => l.id !== letterId);
       if (updatedLetters.length > 0) {
         const avgWords = Math.round(
@@ -249,40 +239,33 @@ export default function CoverLetterDashboard() {
   };
 
   const filteredLetters = useMemo(() => {
-    let filtered = [...coverLetters];
+    const filtered = [...coverLetters];
 
     switch (sortFilter) {
       case 'recent':
-        filtered = filtered.sort((a, b) => 
+        return filtered.sort((a, b) => 
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
-        break;
       case 'by-company':
-        filtered = filtered.sort((a, b) => 
+        return filtered.sort((a, b) => 
           (a.companyName || '').localeCompare(b.companyName || '')
         );
-        break;
       case 'by-role':
-        filtered = filtered.sort((a, b) => 
+        return filtered.sort((a, b) => 
           a.jobRole.localeCompare(b.jobRole)
         );
-        break;
       case 'all':
       default:
-        filtered = filtered.sort((a, b) => 
+        return filtered.sort((a, b) => 
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
-        break;
     }
-
-    return filtered;
   }, [coverLetters, sortFilter]);
 
-  const getFilterCount = (option: SortOption): number => {
+  const getFilterCount = (): number => {
     return coverLetters.length;
   };
 
-  // Show critical error page
   if (criticalError) {
     return (
       <ErrorPage
@@ -298,7 +281,6 @@ export default function CoverLetterDashboard() {
     );
   }
 
-  // Show loader
   if (loading || loadingLetters) {
     return (
       <AnimatedLoader
@@ -309,7 +291,6 @@ export default function CoverLetterDashboard() {
     );
   }
 
-  // Auth required
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -455,7 +436,7 @@ export default function CoverLetterDashboard() {
                       onChange={(e) => setSortFilter(e.target.value as SortOption)}
                       className="glass-input pl-10 pr-4 py-2.5 rounded-lg text-white text-sm appearance-none cursor-pointer min-w-[200px]"
                     >
-                      <option value="all">All ({getFilterCount('all')})</option>
+                      <option value="all">All ({getFilterCount()})</option>
                       <option value="recent">Recent First</option>
                       <option value="by-company">By Company</option>
                       <option value="by-role">By Role</option>

@@ -483,6 +483,24 @@ export interface AnalyzeResumeParams {
   resumeText: string;
 }
 
+interface ResumeData {
+  id: string;
+  userId: string;
+  companyName?: string;
+  jobTitle?: string;
+  jobDescription?: string;
+  fileName?: string;
+  fileSize?: number;
+  fileUrl?: string;
+  resumeText?: string;
+  createdAt: string;
+  updatedAt: string;
+  status: string;
+  feedback?: unknown;
+  score?: number | null;
+  [key: string]: unknown;
+}
+
 export async function createResumeRecord(params: CreateResumeParams) {
   try {
     const resumeRef = db.collection("resumes").doc();
@@ -576,7 +594,7 @@ export async function getResumeById(resumeId: string, userId: string) {
       return { success: false, error: 'Resume not found' };
     }
 
-    const resume = doc.data();
+    const resume = doc.data() as ResumeData | undefined;
     
     if (resume?.userId !== userId) {
       return { success: false, error: 'Access denied' };
@@ -596,9 +614,9 @@ export async function getResumesByUserId(userId: string) {
       .where('userId', '==', userId)
       .get();
 
-    const resumes: any[] = [];
+    const resumes: ResumeData[] = [];
     snapshot.forEach(doc => {
-      resumes.push({ id: doc.id, ...doc.data() });
+      resumes.push({ id: doc.id, ...doc.data() } as ResumeData);
     });
 
     const sortedResumes = resumes.sort((a, b) => 

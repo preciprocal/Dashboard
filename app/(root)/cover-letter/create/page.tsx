@@ -9,7 +9,6 @@ import {
   History
 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/firebase/client';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -21,8 +20,15 @@ interface CoverLetterMetadata {
   responseTime: number;
 }
 
+interface ProfileStatus {
+  hasProfile: boolean;
+  hasResume: boolean;
+  loading: boolean;
+  userName: string;
+  resumeCount: number;
+}
+
 export default function CoverLetterGeneratorPage() {
-  const router = useRouter();
   const [user, loading] = useAuthState(auth);
   const [jobRole, setJobRole] = useState('');
   const [jobDescription, setJobDescription] = useState('');
@@ -33,7 +39,7 @@ export default function CoverLetterGeneratorPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
-  const [profileStatus, setProfileStatus] = useState({
+  const [profileStatus, setProfileStatus] = useState<ProfileStatus>({
     hasProfile: false,
     hasResume: false,
     loading: true,
@@ -43,7 +49,6 @@ export default function CoverLetterGeneratorPage() {
   const [metadata, setMetadata] = useState<CoverLetterMetadata | null>(null);
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
-  const [savedLetterId, setSavedLetterId] = useState<string | null>(null);
 
   const checkProfileStatus = useCallback(async () => {
     if (!user) return;
@@ -58,18 +63,22 @@ export default function CoverLetterGeneratorPage() {
         throw new Error('Failed to fetch profile');
       }
 
-      const { collection, query, where, getDocs, orderBy } = await import('firebase/firestore');
-      const { db } = await import('@/firebase/client');
+      const { collection: firestoreCollection, query, where, getDocs, orderBy } = await import('firebase/firestore');
+      const { db: firebaseDb } = await import('@/firebase/client');
       
       const resumesQuery = query(
-        collection(db, 'resumes'),
+        firestoreCollection(firebaseDb, 'resumes'),
         where('userId', '==', user?.uid),
         orderBy('createdAt', 'desc')
       );
       
       const resumesSnapshot = await getDocs(resumesQuery);
+      interface ResumeData {
+        deleted?: boolean;
+        [key: string]: unknown;
+      }
       const resumes = resumesSnapshot.docs
-        .map(doc => doc.data())
+        .map(doc => doc.data() as ResumeData)
         .filter(resume => !resume.deleted);
 
       setProfileStatus({
@@ -111,7 +120,6 @@ export default function CoverLetterGeneratorPage() {
     setGeneratedLetter('');
     setMetadata(null);
     setIsSaved(false);
-    setSavedLetterId(null);
 
     try {
       const response = await fetch('/api/cover-letter', {
@@ -159,11 +167,9 @@ export default function CoverLetterGeneratorPage() {
     setIsSaving(true);
 
     try {
-      // Calculate word count
       const wordCount = generatedLetter.split(/\s+/).filter(word => word.length > 0).length;
 
-      // Save to Firestore
-      const docRef = await addDoc(collection(db, 'coverLetters'), {
+      await addDoc(collection(db, 'coverLetters'), {
         userId: user.uid,
         jobRole: jobRole.trim(),
         companyName: companyName.trim() || null,
@@ -176,10 +182,7 @@ export default function CoverLetterGeneratorPage() {
       });
 
       setIsSaved(true);
-      setSavedLetterId(docRef.id);
       toast.success('Cover letter saved successfully!');
-      
-      console.log('Cover letter saved with ID:', docRef.id);
     } catch (err) {
       console.error('Error saving cover letter:', err);
       toast.error('Failed to save cover letter');
@@ -304,7 +307,6 @@ export default function CoverLetterGeneratorPage() {
     setError('');
     setMetadata(null);
     setIsSaved(false);
-    setSavedLetterId(null);
   };
 
   if (loading || profileStatus.loading) {

@@ -21,6 +21,20 @@ function getErrorMessage(error: unknown): string {
   return 'Unknown error';
 }
 
+interface FileMetadata {
+  pdfSize: number;
+  pdfName: string;
+  pdfType: string;
+  imageSize: number;
+  imageName: string;
+  imageType: string;
+}
+
+interface ResumeData extends Omit<Resume, 'createdAt'> {
+  createdAt: Timestamp;
+  fileMetadata?: FileMetadata;
+}
+
 export class FirebaseService {
   // Convert file to base64 data URL (similar to your interview form approach)
   static async fileToBase64(file: File): Promise<string> {
@@ -59,7 +73,7 @@ export class FirebaseService {
       const imageBase64 = await this.fileToBase64(imageFile);
 
       const resumeRef = doc(db, 'resumes', resume.id);
-      const resumeData = {
+      const resumeData: ResumeData = {
         ...resume,
         // Store files as base64 data URLs
         imagePath: imageBase64, // data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...
@@ -83,8 +97,8 @@ export class FirebaseService {
         jobTitle: resumeData.jobTitle,
         hasPdfData: resumeData.resumePath.startsWith('data:'),
         hasImageData: resumeData.imagePath.startsWith('data:'),
-        pdfSize: resumeData.fileMetadata.pdfSize,
-        imageSize: resumeData.fileMetadata.imageSize,
+        pdfSize: resumeData.fileMetadata?.pdfSize,
+        imageSize: resumeData.fileMetadata?.imageSize,
       });
       
       await setDoc(resumeRef, resumeData);
@@ -175,8 +189,8 @@ export class FirebaseService {
       );
       
       const querySnapshot = await getDocs(q);
-      const resumes = querySnapshot.docs.map(doc => {
-        const data = doc.data();
+      const resumes = querySnapshot.docs.map(docSnapshot => {
+        const data = docSnapshot.data();
         return {
           ...data,
           // Handle both Timestamp and Date objects
@@ -197,7 +211,7 @@ export class FirebaseService {
   }
 
   // Create downloadable URL from base64 (for viewing PDFs)
-  static createDownloadableUrl(base64Data: string, _filename: string): string {
+  static createDownloadableUrl(base64Data: string): string {
     try {
       // Convert base64 data URL back to blob
       const [header, data] = base64Data.split(',');

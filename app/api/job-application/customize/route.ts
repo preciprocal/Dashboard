@@ -37,8 +37,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const decodedClaims = await auth.verifySessionCookie(session.value, true);
-    const _userId = decodedClaims.uid;
+    // Verify session but don't need to use the result
+    await auth.verifySessionCookie(session.value, true);
 
     // Check API
     if (!genAI || !apiKey) {

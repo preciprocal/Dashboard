@@ -1,8 +1,8 @@
 // components/resume/RecruiterEyeSimulation.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Eye, Clock, TrendingUp, AlertTriangle, CheckCircle2, Zap, Info, Loader2, Brain, Users, Briefcase, UserCheck } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Eye, Clock, TrendingUp, AlertTriangle, CheckCircle2, Zap, Info, Loader2, Brain, Users, UserCheck } from 'lucide-react';
 
 interface HeatmapPoint {
   section: string;
@@ -63,18 +63,7 @@ export default function RecruiterEyeSimulation({
   const hasJobDescription = !!(jobDescription && jobDescription.trim().length > 50);
   const hasJobTitleOnly = !!(jobTitle && !hasJobDescription);
 
-  useEffect(() => {
-    if (!autoSimulated && !preloadedData && resumeId) {
-      console.log('🤖 Auto-running intelligent recruiter simulation');
-      runSimulation();
-      setAutoSimulated(true);
-    } else if (preloadedData) {
-      console.log('✅ Using pre-loaded recruiter simulation data');
-      setSimulationData(preloadedData);
-    }
-  }, [resumeId, autoSimulated, preloadedData]);
-
-  const runSimulation = async () => {
+  const runSimulation = useCallback(async () => {
     setIsSimulating(true);
     try {
       console.log('👁️ Running recruiter simulation...');
@@ -105,24 +94,23 @@ export default function RecruiterEyeSimulation({
     } finally {
       setIsSimulating(false);
     }
-  };
+  }, [resumeId, jobTitle, companyName, jobDescription, hasJobDescription, hasJobTitleOnly, autoSimulated]);
+
+  useEffect(() => {
+    if (!autoSimulated && !preloadedData && resumeId) {
+      console.log('🤖 Auto-running intelligent recruiter simulation');
+      runSimulation();
+      setAutoSimulated(true);
+    } else if (preloadedData) {
+      console.log('✅ Using pre-loaded recruiter simulation data');
+      setSimulationData(preloadedData);
+    }
+  }, [resumeId, autoSimulated, preloadedData, runSimulation]);
 
   const getAttentionColor = (score: number): string => {
     if (score >= 80) return 'bg-emerald-500';
     if (score >= 60) return 'bg-amber-500';
     return 'bg-red-500';
-  };
-
-  const getPerspectiveIcon = (role: string): React.ReactNode => {
-    const roleLower = role.toLowerCase();
-    if (roleLower.includes('technical') || roleLower.includes('engineering')) {
-      return <Briefcase className="w-5 h-5" />;
-    } else if (roleLower.includes('hr') || roleLower.includes('recruiter')) {
-      return <Users className="w-5 h-5" />;
-    } else if (roleLower.includes('manager') || roleLower.includes('director')) {
-      return <UserCheck className="w-5 h-5" />;
-    }
-    return <Eye className="w-5 h-5" />;
   };
 
   return (

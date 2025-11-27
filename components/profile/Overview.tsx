@@ -259,7 +259,7 @@ const ProfileOverview: React.FC<ProfileOverviewProps> = ({
                   All Plans Completed!
                 </h4>
                 <p className="text-slate-400 mb-4">
-                  You've successfully completed {plannerStats.completedPlans} preparation plan{plannerStats.completedPlans !== 1 ? 's' : ''}
+                  You&apos;ve successfully completed {plannerStats.completedPlans} preparation plan{plannerStats.completedPlans !== 1 ? 's' : ''}
                 </p>
                 <Link href="/planner/create">
                   <Button className="glass-button-primary hover-lift">
@@ -291,7 +291,7 @@ const ProfileOverview: React.FC<ProfileOverviewProps> = ({
         </div>
       )}
 
-      {/* Today's Focus */}
+      {/* Today&apos;s Focus */}
       <div className="glass-card hover-lift">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
@@ -307,7 +307,7 @@ const ProfileOverview: React.FC<ProfileOverviewProps> = ({
                 )}
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-white">Today's Focus</h3>
+                <h3 className="text-lg font-semibold text-white">Today&apos;s Focus</h3>
                 <div className="flex items-center gap-2 mt-1">
                   <div className="flex items-center gap-1">
                     {[...Array(dailyFocus.length)].map((_, i) => (

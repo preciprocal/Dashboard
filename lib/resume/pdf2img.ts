@@ -1,28 +1,46 @@
 // lib/pdf2img.ts
 import { PdfConversionResult } from '@/types/resume';
 
-let pdfjsLib: any = null;
-let isLoading = false;
-let loadPromise: Promise<any> | null = null;
+interface PDFJSLib {
+  GlobalWorkerOptions: {
+    workerSrc: string;
+  };
+  getDocument: (params: { data: ArrayBuffer }) => {
+    promise: Promise<PDFDocument>;
+  };
+}
 
-async function loadPdfJs(): Promise<any> {
+interface PDFDocument {
+  numPages: number;
+  getPage: (pageNum: number) => Promise<PDFPage>;
+}
+
+interface PDFPage {
+  getViewport: (params: { scale: number }) => PDFViewport;
+  render: (params: { canvasContext: CanvasRenderingContext2D; viewport: PDFViewport }) => {
+    promise: Promise<void>;
+  };
+}
+
+interface PDFViewport {
+  width: number;
+  height: number;
+}
+
+let pdfjsLib: PDFJSLib | null = null;
+let loadPromise: Promise<PDFJSLib> | null = null;
+
+async function loadPdfJs(): Promise<PDFJSLib> {
   if (pdfjsLib) return pdfjsLib;
   if (loadPromise) return loadPromise;
 
-  isLoading = true;
-  try {
-    loadPromise = import("pdfjs-dist").then((lib) => {
-      lib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.8.69/pdf.worker.min.mjs';
-      pdfjsLib = lib;
-      isLoading = false;
-      return lib;
-    });
-    return await loadPromise;
-  } catch (error) {
-    isLoading = false;
-    loadPromise = null;
-    throw error;
-  }
+  loadPromise = import("pdfjs-dist").then((lib) => {
+    lib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.8.69/pdf.worker.min.mjs';
+    pdfjsLib = lib as unknown as PDFJSLib;
+    return pdfjsLib;
+  });
+  
+  return await loadPromise;
 }
 
 export async function convertPdfToImage(file: File): Promise<PdfConversionResult> {

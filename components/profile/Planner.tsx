@@ -1,7 +1,7 @@
 // components/profile/PlannerTab.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
   Calendar,
@@ -61,17 +61,12 @@ export default function PlannerTab({ plannerStats, userId }: PlannerTabProps) {
   const [recentPlans, setRecentPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchRecentPlans();
-  }, [userId]);
-
-  const fetchRecentPlans = async () => {
+  const fetchRecentPlans = useCallback(async () => {
     try {
       setLoading(true);
       const { PlannerService } = await import('@/lib/services/planner-services');
       const plans = await PlannerService.getUserPlans(userId);
       
-      // Get 3 most recent plans
       const sorted = plans
         .sort((a: Plan, b: Plan) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         .slice(0, 3);
@@ -82,7 +77,11 @@ export default function PlannerTab({ plannerStats, userId }: PlannerTabProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
+
+  useEffect(() => {
+    fetchRecentPlans();
+  }, [fetchRecentPlans]);
 
   const getUrgencyLevel = (daysRemaining: number) => {
     if (daysRemaining <= 3) return { color: 'red', label: 'Urgent' };
@@ -90,7 +89,6 @@ export default function PlannerTab({ plannerStats, userId }: PlannerTabProps) {
     return { color: 'green', label: 'On Track' };
   };
 
-  // No plans state
   if (!loading && (!plannerStats || plannerStats.totalPlans === 0)) {
     return (
       <div className="max-w-4xl mx-auto">
@@ -253,7 +251,6 @@ export default function PlannerTab({ plannerStats, userId }: PlannerTabProps) {
             </div>
           </div>
 
-          {/* Progress Bar */}
           <div className="space-y-2 mb-6">
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-700 dark:text-gray-300 font-medium">Overall Progress</span>
@@ -317,7 +314,6 @@ export default function PlannerTab({ plannerStats, userId }: PlannerTabProps) {
                   className="group bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 hover:border-purple-400 dark:hover:border-purple-600 rounded-2xl overflow-hidden hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:-translate-y-1"
                   onClick={() => window.location.href = `/planner/${plan.id}`}
                 >
-                  {/* Header with Status */}
                   <div className={`p-4 ${
                     isComplete
                       ? 'bg-gradient-to-r from-green-500 to-emerald-500'
@@ -338,9 +334,7 @@ export default function PlannerTab({ plannerStats, userId }: PlannerTabProps) {
                     </div>
                   </div>
 
-                  {/* Content */}
                   <div className="p-6">
-                    {/* Title & Company */}
                     <div className="mb-4">
                       <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-2 line-clamp-2 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
                         {plan.role}
@@ -353,7 +347,6 @@ export default function PlannerTab({ plannerStats, userId }: PlannerTabProps) {
                       )}
                     </div>
 
-                    {/* Interview Details */}
                     <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-3 mb-4 space-y-2">
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-600 dark:text-gray-400 flex items-center">
@@ -384,7 +377,6 @@ export default function PlannerTab({ plannerStats, userId }: PlannerTabProps) {
                       </div>
                     </div>
 
-                    {/* Progress Section */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
@@ -405,16 +397,8 @@ export default function PlannerTab({ plannerStats, userId }: PlannerTabProps) {
                           }`}
                           style={{ width: `${plan.progress.percentage}%` }}
                         />
-                        {plan.progress.percentage >= 25 && (
-                          <div className="absolute inset-0 flex items-center px-2">
-                            <span className="text-[10px] font-bold text-white drop-shadow">
-                              {plan.progress.percentage}%
-                            </span>
-                          </div>
-                        )}
                       </div>
                       
-                      {/* Progress Milestones */}
                       <div className="flex items-center justify-between text-xs pt-2">
                         <span className={`flex items-center ${plan.progress.percentage >= 25 ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}`}>
                           <div className={`w-2 h-2 rounded-full mr-1 ${plan.progress.percentage >= 25 ? 'bg-green-500' : 'bg-gray-300'}`}></div>
@@ -435,7 +419,6 @@ export default function PlannerTab({ plannerStats, userId }: PlannerTabProps) {
                       </div>
                     </div>
 
-                    {/* Footer with Actions */}
                     <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                       <div className="flex items-center justify-between">
                         <div className="flex flex-col space-y-1">

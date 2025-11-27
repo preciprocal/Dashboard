@@ -1,5 +1,5 @@
 // components/loader/AnimatedLoader.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { ArrowLeft, HelpCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -27,8 +27,8 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
   const [currentQuoteIndex, setCurrentQuoteIndex] = useState(0);
   const [randomizedMessages, setRandomizedMessages] = useState<string[]>([]);
 
-  // Fun loading messages
-  const funnyMessages = [
+  // Fun loading messages - memoized to prevent recreation
+  const funnyMessages = useMemo(() => [
     "Convincing AI it's not a robot 🤖",
     "Teaching algorithms to dance 💃",
     "Brewing the perfect code ☕",
@@ -59,22 +59,22 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
     "Asking Stack Overflow for life advice 💬",
     "Converting Monday blues to Friday vibes 🎉",
     "Blockchain-ing your success (whatever that means) ⛓️",
-  ];
+  ], []);
 
   // Fisher-Yates shuffle algorithm to randomize messages
-  const shuffleArray = (array: string[]) => {
+  const shuffleArray = useCallback((array: string[]) => {
     const shuffled = [...array];
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
     return shuffled;
-  };
+  }, []);
 
   // Initialize randomized messages on mount
   useEffect(() => {
     setRandomizedMessages(shuffleArray(funnyMessages));
-  }, []);
+  }, [shuffleArray, funnyMessages]);
 
   useEffect(() => {
     if (isVisible) {
@@ -106,7 +106,7 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
       }, 600);
       return () => clearTimeout(timer);
     }
-  }, [isVisible, onHide, randomizedMessages.length]);
+  }, [isVisible, onHide, randomizedMessages.length, shuffleArray, funnyMessages]);
 
   const handleBack = () => {
     router.back();

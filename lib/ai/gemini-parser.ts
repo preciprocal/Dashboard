@@ -2,12 +2,70 @@
 
 import type { ResumeFeedback, CategoryScore } from '@/types/resume';
 
+interface RawCategoryScore {
+  score?: number;
+  weight?: number;
+  tips?: unknown[];
+  issues?: unknown[];
+  metrics?: Record<string, unknown>;
+}
+
+interface RawATSKeywords {
+  matched?: string[];
+  missing?: string[];
+  score?: number;
+}
+
+interface RawRoadmap {
+  quickWins?: unknown[];
+  mediumTerm?: unknown[];
+  longTerm?: unknown[];
+}
+
+interface RawSkills {
+  matchedSkills?: string[];
+  missingSkills?: string[];
+}
+
+interface RawJobMatch {
+  score?: number;
+}
+
+interface RawAnalysisResponse {
+  overallScore?: number;
+  ats?: RawCategoryScore;
+  content?: RawCategoryScore;
+  structure?: RawCategoryScore;
+  skills?: RawCategoryScore & RawSkills;
+  impact?: RawCategoryScore;
+  grammar?: RawCategoryScore;
+  strengths?: unknown[];
+  weaknesses?: unknown[];
+  criticalIssues?: unknown[];
+  suggestions?: unknown[];
+  atsKeywords?: RawATSKeywords;
+  roadmap?: RawRoadmap;
+  jobMatch?: RawJobMatch;
+  recommendations?: string[];
+}
+
+interface RawRewriteSuggestion {
+  version?: number;
+  text?: string;
+  improvements?: unknown[];
+  score?: number;
+}
+
+interface RawRewriteResponse {
+  suggestions?: RawRewriteSuggestion[];
+}
+
 /**
  * Parse and validate Gemini analysis response
  */
 export function parseAnalysisResponse(
   responseText: string,
-  resumeText: string,
+  _resumeText: string,
   jobDescription?: string
 ): ResumeFeedback {
   try {
@@ -17,7 +75,7 @@ export function parseAnalysisResponse(
       throw new Error('No JSON found in response');
     }
 
-    const raw = JSON.parse(jsonMatch[0]);
+    const raw: RawAnalysisResponse = JSON.parse(jsonMatch[0]);
 
     // Validate and build feedback object
     const feedback: ResumeFeedback = {
@@ -32,10 +90,10 @@ export function parseAnalysisResponse(
       grammar: parseCategoryScore(raw.grammar),
 
       // Lists
-      strengths: Array.isArray(raw.strengths) ? raw.strengths : [],
-      weaknesses: Array.isArray(raw.weaknesses) ? raw.weaknesses : [],
-      criticalIssues: Array.isArray(raw.criticalIssues) ? raw.criticalIssues : [],
-      suggestions: Array.isArray(raw.suggestions) ? raw.suggestions : [],
+      strengths: Array.isArray(raw.strengths) ? raw.strengths as string[] : [],
+      weaknesses: Array.isArray(raw.weaknesses) ? raw.weaknesses as string[] : [],
+      criticalIssues: Array.isArray(raw.criticalIssues) ? raw.criticalIssues as string[] : [],
+      suggestions: Array.isArray(raw.suggestions) ? raw.suggestions as string[] : [],
 
       // ATS Keywords
       atsKeywords: {
@@ -46,9 +104,9 @@ export function parseAnalysisResponse(
 
       // Roadmap
       roadmap: {
-        quickWins: raw.roadmap?.quickWins || [],
-        mediumTerm: raw.roadmap?.mediumTerm || [],
-        longTerm: raw.roadmap?.longTerm || [],
+        quickWins: raw.roadmap?.quickWins as string[] || [],
+        mediumTerm: raw.roadmap?.mediumTerm as string[] || [],
+        longTerm: raw.roadmap?.longTerm as string[] || [],
       },
 
       // Job match (if JD provided)
@@ -72,12 +130,12 @@ export function parseAnalysisResponse(
 /**
  * Parse category score with validation
  */
-function parseCategoryScore(raw: any): CategoryScore {
+function parseCategoryScore(raw: RawCategoryScore | undefined): CategoryScore {
   return {
     score: validateScore(raw?.score || 0),
     weight: raw?.weight || 0,
-    tips: Array.isArray(raw?.tips) ? raw.tips : [],
-    issues: Array.isArray(raw?.issues) ? raw.issues : [],
+    tips: Array.isArray(raw?.tips) ? raw.tips as string[] : [],
+    issues: Array.isArray(raw?.issues) ? raw.issues as string[] : [],
     metrics: raw?.metrics || {},
   };
 }
@@ -85,7 +143,7 @@ function parseCategoryScore(raw: any): CategoryScore {
 /**
  * Validate score is between 0-100
  */
-function validateScore(score: number): number {
+function validateScore(score: number | undefined): number {
   const num = Number(score);
   if (isNaN(num)) return 0;
   return Math.max(0, Math.min(100, Math.round(num)));
@@ -111,13 +169,13 @@ export function parseRewriteResponse(
       throw new Error('No JSON in response');
     }
 
-    const raw = JSON.parse(jsonMatch[0]);
+    const raw: RawRewriteResponse = JSON.parse(jsonMatch[0]);
 
     return {
-      suggestions: (raw.suggestions || []).map((s: any, idx: number) => ({
+      suggestions: (raw.suggestions || []).map((s: RawRewriteSuggestion, idx: number) => ({
         version: s.version || idx + 1,
         text: s.text || '',
-        improvements: Array.isArray(s.improvements) ? s.improvements : [],
+        improvements: Array.isArray(s.improvements) ? s.improvements as string[] : [],
         score: validateScore(s.score || 0),
       })),
     };

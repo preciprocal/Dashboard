@@ -188,7 +188,7 @@ async function performResumeAnalysisWithTextExtraction(dataUrl: string, jobTitle
     const mockFeedback = createDetailedMockAnalysis(jobTitle, jobDescription);
     return NextResponse.json({ 
       feedback: mockFeedback,
-      extractedText: generateMockExtractedText(jobTitle, jobDescription),
+      extractedText: generateMockExtractedText(),
       meta: {
         timestamp: new Date().toISOString(),
         model: 'professional-comprehensive-mock-with-text',
@@ -310,7 +310,7 @@ Provide exactly 4-5 tips per category with honest scoring. Be specific and actio
     
     // Fallback with realistic extracted text
     const fallbackAnalysis = createDetailedMockAnalysis(jobTitle, jobDescription);
-    const mockText = generateMockExtractedText(jobTitle, jobDescription);
+    const mockText = generateMockExtractedText();
     
     return NextResponse.json({ 
       feedback: fallbackAnalysis,
@@ -344,7 +344,7 @@ async function handleGenerateResumeFixes(requestData: GenerateFixesRequest) {
   if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
     // Return mock fixes when no API key
     return NextResponse.json({
-      fixes: generateMockFixes(resumeContent, jobDescription),
+      fixes: generateMockFixes(resumeContent),
       meta: {
         timestamp: new Date().toISOString(),
         model: 'mock-fixes-with-content',
@@ -461,7 +461,7 @@ Analyze the resume content and provide 10-15 of the most impactful fixes.
     console.error('❌ Fix generation failed:', error);
     
     // Fallback to mock fixes with content
-    const mockFixes = generateMockFixes(resumeContent, jobDescription);
+    const mockFixes = generateMockFixes(resumeContent);
     return NextResponse.json({
       fixes: mockFixes,
       meta: {
@@ -745,7 +745,7 @@ function createDetailedMockAnalysis(jobTitle: string, jobDescription: string) {
   };
 }
 
-function generateMockExtractedText(jobTitle: string, _jobDescription: string): string {
+function generateMockExtractedText(): string {
   return `NEERAJ KOLANER
 Software Engineer | neeraj.k@gmail.com | (617) 555-0123 | LinkedIn: linkedin.com/in/neerajkolaner
 
@@ -806,7 +806,7 @@ ACHIEVEMENTS
 - Volunteer tutor for introductory programming courses`;
 }
 
-function generateMockFixes(resumeContent: string, jobDescription?: string): Array<{
+function generateMockFixes(resumeContent: string): Array<{
   id: string;
   category: string;
   issue: string;
