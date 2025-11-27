@@ -10,16 +10,11 @@ import {
   Clock,
   CheckCircle,
   HelpCircle,
-  Zap,
-  TrendingUp,
   Star,
-  AlertCircle,
-  Briefcase,
   Target,
   Brain,
   RefreshCw,
   ArrowRight,
-  Eye,
   BarChart3,
   Award,
   Lightbulb,
@@ -450,7 +445,7 @@ export default async function InterviewFeedbackPage({ params }: Props) {
                       <div className="flex items-center gap-2 mb-2">
                         <CheckCircle className="w-4 h-4 text-emerald-400" />
                         <h5 className="font-medium text-emerald-400 text-sm">
-                          What's Working
+                          What&apos;s Working
                         </h5>
                       </div>
                       <p className="text-slate-300 text-xs leading-relaxed">

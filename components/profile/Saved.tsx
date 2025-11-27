@@ -10,18 +10,51 @@ import {
   Eye,
   Clock,
   Users,
-  Plus,
-  X,
 } from "lucide-react";
 
+interface Template {
+  id: string;
+  role?: string;
+  title?: string;
+  type?: string;
+  category?: string;
+  difficulty?: string;
+  duration?: string;
+  description?: string;
+  uses?: number;
+  author?: string;
+  readTime?: string;
+  estimatedTime?: string;
+}
+
+interface Blog {
+  id: string;
+  title: string;
+  author?: string;
+  excerpt: string;
+  tags: string[];
+  readTime: string;
+  publishDate: string;
+  views?: string;
+}
+
+interface UserCreatedContent {
+  blogs: Blog[];
+  templates: Template[];
+  customInterviews: any[];
+}
+
 interface ProfileSavedProps {
-  savedTemplates: any[];
-  bookmarkedBlogs: any[];
-  userCreatedContent: {
-    blogs: any[];
-    templates: any[];
-    customInterviews: any[];
-  };
+  savedTemplates: Template[];
+  bookmarkedBlogs: Blog[];
+  userCreatedContent: UserCreatedContent;
+}
+
+interface CategoryItem {
+  name: string;
+  count: number;
+  icon: React.ElementType;
+  color: string;
 }
 
 const ProfileSaved: React.FC<ProfileSavedProps> = ({
@@ -30,6 +63,33 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
   userCreatedContent,
 }) => {
   const [savedContentFilter, setSavedContentFilter] = useState("all");
+
+  const categories: CategoryItem[] = [
+    {
+      name: "Templates",
+      count: savedTemplates.length,
+      icon: Target,
+      color: "blue",
+    },
+    {
+      name: "Articles",
+      count: bookmarkedBlogs.length,
+      icon: BookOpen,
+      color: "green",
+    },
+    {
+      name: "My Content",
+      count: userCreatedContent.blogs.length,
+      icon: Edit,
+      color: "purple",
+    },
+    {
+      name: "Interviews",
+      count: userCreatedContent.customInterviews.length,
+      icon: Users,
+      color: "orange",
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -200,7 +260,7 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
                       >
                         <div className="flex items-start space-x-3">
                           <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0">
-                            {item.type ? (
+                            {('type' in item) ? (
                               <Target className="w-5 h-5 text-gray-500 dark:text-gray-400" />
                             ) : (
                               <BookOpen className="w-5 h-5 text-gray-500 dark:text-gray-400" />
@@ -208,15 +268,15 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
                           </div>
                           <div className="flex-1 min-w-0">
                             <h4 className="text-gray-900 dark:text-white font-medium text-sm group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-1">
-                              {item.role || item.title || `Item ${index + 1}`}
+                              {('role' in item ? item.role : null) || ('title' in item ? item.title : null) || `Item ${index + 1}`}
                             </h4>
                             <p className="text-gray-600 dark:text-gray-400 text-xs mt-1">
-                              {item.category ||
-                                (item.author ? `By ${item.author}` : "Template")}
+                              {('category' in item ? item.category : null) ||
+                                (('author' in item && item.author) ? `By ${item.author}` : "Template")}
                             </p>
                             <div className="flex items-center space-x-2 mt-2">
                               <span className="text-xs text-gray-500 dark:text-gray-500">
-                                {item.duration || item.readTime || "30 min"}
+                                {('duration' in item ? item.duration : null) || ('readTime' in item ? item.readTime : null) || "30 min"}
                               </span>
                               <span className="w-1 h-1 bg-gray-400 dark:bg-gray-600 rounded-full"></span>
                               <span className="text-xs text-gray-500 dark:text-gray-500">
@@ -237,32 +297,7 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
                   Categories
                 </h3>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                  {[
-                    {
-                      name: "Templates",
-                      count: savedTemplates.length,
-                      icon: Target,
-                      color: "blue",
-                    },
-                    {
-                      name: "Articles",
-                      count: bookmarkedBlogs.length,
-                      icon: BookOpen,
-                      color: "green",
-                    },
-                    {
-                      name: "My Content",
-                      count: userCreatedContent.blogs.length,
-                      icon: Edit,
-                      color: "purple",
-                    },
-                    {
-                      name: "Interviews",
-                      count: userCreatedContent.customInterviews.length,
-                      icon: Users,
-                      color: "orange",
-                    },
-                  ].map((category) => (
+                  {categories.map((category) => (
                     <button
                       key={category.name}
                       onClick={() =>
@@ -273,12 +308,8 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
                       className="p-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 text-left group"
                     >
                       <div className="flex items-center space-x-3">
-                        <div
-                          className={`w-8 h-8 bg-${category.color}-600/20 dark:bg-${category.color}-600/30 rounded-lg flex items-center justify-center group-hover:bg-${category.color}-600/30 dark:group-hover:bg-${category.color}-600/40 transition-colors`}
-                        >
-                          <category.icon
-                            className={`w-4 h-4 text-${category.color}-600 dark:text-${category.color}-400`}
-                          />
+                        <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center group-hover:bg-blue-200 dark:group-hover:bg-blue-800/40 transition-colors">
+                          <category.icon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                         </div>
                         <div>
                           <div className="text-gray-900 dark:text-white font-medium text-sm">
@@ -474,7 +505,7 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
                               {blog.excerpt}
                             </p>
                             <div className="flex items-center space-x-4 text-xs text-gray-500 dark:text-gray-500">
-                              <span>By {blog.author}</span>
+                              <span>By {blog.author || 'Unknown'}</span>
                               <span className="w-1 h-1 bg-gray-400 dark:bg-gray-600 rounded-full"></span>
                               <span>{blog.readTime}</span>
                               <span className="w-1 h-1 bg-gray-400 dark:bg-gray-600 rounded-full"></span>
@@ -558,7 +589,7 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
 
                 {userCreatedContent.blogs.length > 0 ? (
                   <div className="space-y-3">
-                    {userCreatedContent.blogs.map((blog: any) => (
+                    {userCreatedContent.blogs.map((blog: Blog) => (
                       <div
                         key={blog.id}
                         className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 group"
@@ -655,7 +686,7 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
 
                 {userCreatedContent.templates.length > 0 ? (
                   <div className="space-y-3">
-                    {userCreatedContent.templates.map((template: any) => (
+                    {userCreatedContent.templates.map((template: Template) => (
                       <div
                         key={template.id}
                         className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 group"
@@ -667,15 +698,15 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
                             </div>
                             <div className="flex-1 min-w-0">
                               <h4 className="text-gray-900 dark:text-white font-medium group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors mb-1">
-                                {template.title}
+                                {template.title || `Template ${template.id}`}
                               </h4>
                               <p className="text-gray-600 dark:text-gray-400 text-sm line-clamp-1 mb-2">
-                                {template.description}
+                                {template.description || "Custom template"}
                               </p>
                               <div className="flex items-center space-x-4 text-xs text-gray-500 dark:text-gray-500">
-                                <span>{template.category}</span>
+                                <span>{template.category || "Custom"}</span>
                                 <span className="w-1 h-1 bg-gray-400 dark:bg-gray-600 rounded-full"></span>
-                                <span>{template.difficulty}</span>
+                                <span>{template.difficulty || "Intermediate"}</span>
                                 <span className="w-1 h-1 bg-gray-400 dark:bg-gray-600 rounded-full"></span>
                                 <span>{template.estimatedTime || "30 min"}</span>
                               </div>

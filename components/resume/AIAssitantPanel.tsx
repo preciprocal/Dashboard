@@ -14,12 +14,6 @@ import {
   Zap
 } from 'lucide-react';
 
-interface AIMessage {
-  role: 'user' | 'assistant';
-  content: string;
-  suggestions?: AISuggestion[];
-}
-
 interface AISuggestion {
   id: string;
   text: string;
@@ -34,8 +28,17 @@ interface AIAssistantPanelProps {
   onSuggestionCopy: (text: string) => void;
 }
 
+interface SectionOption {
+  value: string;
+  label: string;
+}
+
+interface ToneOption {
+  value: 'professional' | 'creative' | 'technical' | 'executive';
+  label: string;
+}
+
 export default function AIAssistantPanel({
-  selectedText,
   resumeId,
   userId,
   onSuggestionCopy
@@ -50,7 +53,7 @@ export default function AIAssistantPanel({
   const [showWelcome, setShowWelcome] = useState(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const sections = [
+  const sections: SectionOption[] = [
     { value: 'general', label: '💼 General' },
     { value: 'summary', label: '📝 Summary' },
     { value: 'experience', label: '🏢 Experience' },
@@ -58,7 +61,7 @@ export default function AIAssistantPanel({
     { value: 'achievements', label: '🏆 Achievements' }
   ];
 
-  const tones = [
+  const tones: ToneOption[] = [
     { value: 'professional', label: '💼 Professional' },
     { value: 'creative', label: '🎨 Creative' },
     { value: 'technical', label: '⚙️ Technical' },
@@ -94,9 +97,14 @@ export default function AIAssistantPanel({
 
       const data = await response.json();
       
-      const newSuggestions: AISuggestion[] = (data.suggestions || []).map((s: any, index: number) => ({
+      const newSuggestions: AISuggestion[] = (data.suggestions || []).map((s: {
+        rewritten?: string;
+        text?: string;
+        improvements?: string[];
+        score?: number;
+      }, index: number) => ({
         id: `suggestion-${Date.now()}-${index}`,
-        text: s.rewritten || s.text,
+        text: s.rewritten || s.text || '',
         improvements: s.improvements || [],
         score: s.score || 85
       }));
@@ -179,7 +187,7 @@ export default function AIAssistantPanel({
             {tones.map((t) => (
               <button
                 key={t.value}
-                onClick={() => setTone(t.value as any)}
+                onClick={() => setTone(t.value)}
                 className={`px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
                   tone === t.value
                     ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
@@ -252,7 +260,7 @@ export default function AIAssistantPanel({
             </div>
             <h3 className="text-xl font-bold text-white mb-3">Ready to Improve Your Resume?</h3>
             <p className="text-slate-400 max-w-md mx-auto mb-6">
-              Copy any section from your resume on the left, paste it in the text box above, and I'll generate professional AI-powered improvements.
+              Copy any section from your resume on the left, paste it in the text box above, and I&apos;ll generate professional AI-powered improvements.
             </p>
             <div className="flex flex-wrap gap-3 justify-center">
               <div className="px-4 py-2 bg-slate-800 rounded-lg text-sm text-slate-300">
@@ -381,7 +389,6 @@ export default function AIAssistantPanel({
             onChange={(e) => setUserInput(e.target.value)}
             onKeyPress={(e) => {
               if (e.key === 'Enter') {
-                // For now, just show a helpful message
                 alert('💡 Tip: Copy text from your resume and paste it in the box above, then click "Analyze with AI" to get suggestions!');
                 setUserInput('');
               }

@@ -11,6 +11,24 @@ import {
   useElements,
 } from "@stripe/react-stripe-js";
 
+// Define interfaces
+interface StripeFormProps {
+  planId: string;
+  billingCycle: "monthly" | "yearly";
+  user: {
+    name: string;
+    email: string;
+    id?: string;
+  };
+  onSuccess: () => void;
+  onError: (error: string) => void;
+}
+
+interface SubscriptionResponse {
+  clientSecret?: string;
+  error?: string;
+}
+
 // Initialize Stripe outside component to avoid re-initialization
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
@@ -18,18 +36,11 @@ const stripePromise = loadStripe(
 
 // The actual Stripe form component
 function StripeFormInner({
-  planId,
   billingCycle,
   user,
   onSuccess,
   onError,
-}: {
-  planId: string;
-  billingCycle: "monthly" | "yearly";
-  user: any;
-  onSuccess: () => void;
-  onError: (error: string) => void;
-}) {
+}: StripeFormProps) {
   const stripe = useStripe();
   const elements = useElements();
   const [loading, setLoading] = useState(false);
@@ -75,7 +86,7 @@ function StripeFormInner({
 
       console.log("📡 API Response status:", response.status);
 
-      const responseData = await response.json();
+      const responseData = await response.json() as SubscriptionResponse;
       console.log("📦 API Response data:", responseData);
 
       if (!response.ok) {
@@ -219,7 +230,7 @@ function StripeFormInner({
 }
 
 // Wrapper component with Elements provider
-function StripePaymentForm(props: any) {
+function StripePaymentForm(props: StripeFormProps) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {

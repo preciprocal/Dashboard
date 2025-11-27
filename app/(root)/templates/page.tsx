@@ -12,14 +12,9 @@ import Link from 'next/link';
 // Import data from separate file
 import {
   interviewTemplates,
-  categories as importedCategories,
-  difficulties,
-  types,
-  durations,
 } from "@/app/data/interviewTemplates";
 
-// Process categories with proper icons
-const categories = importedCategories || [];
+// Process template data
 const templateData = interviewTemplates || [];
 
 interface Template {

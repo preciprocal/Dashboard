@@ -1,12 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 
-import { cn } from "@/lib/utils";
 import { vapi } from "@/lib/vapi.sdk";
-import { generator, interviewer } from "@/constants";
+import { interviewer } from "@/constants";
 import { createFeedback } from "@/lib/actions/general.action";
 
 enum CallStatus {
@@ -19,6 +17,40 @@ enum CallStatus {
 interface SavedMessage {
   role: "user" | "system" | "assistant";
   content: string;
+}
+
+interface AgentProps {
+  userName: string;
+  userId: string;
+  interviewId: string;
+  feedbackId?: string;
+  type: string;
+  questions?: string[];
+  interviewRole?: string;
+}
+
+interface Message {
+  type: string;
+  transcriptType: string;
+  role: "user" | "system" | "assistant";
+  transcript: string;
+}
+
+interface PanelistAvatar {
+  initials: string;
+  gradient: string;
+}
+
+interface Panelist {
+  id: string;
+  name: string;
+  role: string;
+  avatar: PanelistAvatar;
+  status: string;
+  experience: string;
+  isLead: boolean;
+  isSpeaking?: boolean;
+  videoSrc?: string;
 }
 
 // Optimized Video Avatar Component
@@ -130,7 +162,7 @@ const Agent = ({
   type,
   questions,
   interviewRole = "Product Analyst",
-}: AgentProps & { interviewRole?: string }) => {
+}: AgentProps) => {
   const router = useRouter();
   const [callStatus, setCallStatus] = useState<CallStatus>(CallStatus.INACTIVE);
   const [messages, setMessages] = useState<SavedMessage[]>([]);
@@ -259,7 +291,7 @@ const Agent = ({
   const handleMessage = useCallback(
     (message: Message) => {
       if (message.type === "transcript" && message.transcriptType === "final") {
-        const newMessage = { role: message.role, content: message.transcript };
+        const newMessage: SavedMessage = { role: message.role, content: message.transcript };
         setMessages((prev) => [...prev, newMessage]);
 
         if (message.role === "assistant" && message.transcript.includes("?")) {
@@ -332,8 +364,8 @@ const Agent = ({
 
       try {
         const { success, feedbackId: id } = await createFeedback({
-          interviewId: interviewId!,
-          userId: userId!,
+          interviewId: interviewId,
+          userId: userId,
           transcript: messages,
           feedbackId,
         });
@@ -342,7 +374,7 @@ const Agent = ({
 
         if (success && (id || feedbackId)) {
           // Use the returned id or fallback to the existing feedbackId
-          const finalFeedbackId = id || feedbackId;
+          const _finalFeedbackId = id || feedbackId;
           console.log(
             "Redirecting to feedback page:",
             `/interview/${interviewId}/feedback`
@@ -712,7 +744,7 @@ const Agent = ({
                   </h4>
                   <p className="text-blue-200/70 text-xs sm:text-sm mt-1">
                     Our AI is analyzing your responses and generating
-                    personalized feedback. You'll be redirected to the feedback
+                    personalized feedback. You&apos;ll be redirected to the feedback
                     page shortly...
                   </p>
                 </div>

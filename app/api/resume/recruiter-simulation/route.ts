@@ -12,9 +12,46 @@ if (!apiKey) {
 
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 
+// Define interfaces
+interface RecruiterSimulationRequest {
+  resumeId: string;
+}
+
+interface ResumeData {
+  jobTitle?: string;
+  companyName?: string;
+  feedback?: {
+    overallScore?: number;
+    resumeText?: string;
+  };
+}
+
+interface HeatmapSection {
+  section: string;
+  attentionScore: number;
+  timeSpent: number;
+  notes: string;
+}
+
+interface FirstImpression {
+  score: number;
+  standoutElements: string[];
+  concerningElements: string[];
+  timeSpentInSeconds: number;
+}
+
+interface RecruiterSimulation {
+  firstImpression: FirstImpression;
+  timeToReview: number;
+  eyeTrackingHeatmap: HeatmapSection[];
+  passScreening: boolean;
+  screenerNotes: string[];
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { resumeId } = await request.json();
+    const body = await request.json() as RecruiterSimulationRequest;
+    const { resumeId } = body;
 
     console.log('👁️ Recruiter Simulation Started');
     console.log('   Resume ID:', resumeId);
@@ -45,7 +82,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const resumeData = resumeDoc.data();
+    const resumeData = resumeDoc.data() as ResumeData;
     
     // Use Gemini 2.0 Flash model
     const model = genAI.getGenerativeModel({ 
@@ -131,7 +168,7 @@ Provide realistic, actionable insights based on the resume content.`;
       throw new Error('Failed to parse AI response');
     }
 
-    const simulation = JSON.parse(jsonMatch[0]);
+    const simulation = JSON.parse(jsonMatch[0]) as RecruiterSimulation;
     
     // Validate simulation data
     if (!simulation.firstImpression || !simulation.eyeTrackingHeatmap) {
@@ -147,18 +184,19 @@ Provide realistic, actionable insights based on the resume content.`;
       simulation,
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ Recruiter simulation error:', error);
+    const err = error as Error & { status?: number; statusText?: string };
     console.error('   Error details:', {
-      message: error.message,
-      status: error.status,
-      statusText: error.statusText
+      message: err.message,
+      status: err.status,
+      statusText: err.statusText
     });
     
     return NextResponse.json(
       { 
-        error: error.message || 'Failed to run recruiter simulation',
-        details: process.env.NODE_ENV === 'development' ? error.toString() : undefined
+        error: err.message || 'Failed to run recruiter simulation',
+        details: process.env.NODE_ENV === 'development' ? err.toString() : undefined
       },
       { status: 500 }
     );

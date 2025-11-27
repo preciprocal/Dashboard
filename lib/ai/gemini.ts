@@ -53,7 +53,10 @@ export class GeminiService {
 
       console.log('✅ Gemini analysis complete:', {
         overallScore: feedback.overallScore,
-        categories: Object.keys(feedback).filter(k => typeof feedback[k] === 'object' && 'score' in feedback[k]),
+        categories: Object.keys(feedback).filter(k => {
+          const value = feedback[k as keyof ResumeFeedback];
+          return typeof value === 'object' && value !== null && 'score' in value;
+        }),
       });
 
       return feedback;

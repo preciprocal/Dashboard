@@ -4,19 +4,35 @@ import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
 import { signOut } from "@/lib/actions/auth.action";
 
+// Define interfaces
+interface UserData {
+  name?: string;
+  email?: string;
+  id?: string;
+}
+
+interface UserSubscription {
+  plan?: string;
+  status?: string;
+}
+
+interface UserStats {
+  totalInterviews: number;
+  averageScore: number;
+  currentStreak: number;
+}
+
+interface PlanBadgeInfo {
+  text: string;
+  style: string;
+}
+
 interface UserDropdownProps {
-  user: any;
+  user: UserData;
   userInitials: string;
-  userStats: {
-    totalInterviews: number;
-    averageScore: number;
-    currentStreak: number;
-  };
-  planBadgeInfo: {
-    text: string;
-    style: string;
-  };
-  userSubscription: any;
+  userStats: UserStats;
+  planBadgeInfo: PlanBadgeInfo;
+  userSubscription: UserSubscription | null;
 }
 
 const UserDropdown: React.FC<UserDropdownProps> = ({

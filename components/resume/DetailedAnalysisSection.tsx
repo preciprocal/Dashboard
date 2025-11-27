@@ -11,13 +11,32 @@ interface Tip {
   priority?: 'high' | 'medium' | 'low';
 }
 
+interface SpecificIssue {
+  issue?: string;
+  word?: string;
+  phrase?: string;
+  section?: string;
+  location?: string;
+  fix?: string;
+}
+
+interface MissingSkill {
+  skill?: string;
+  importance?: 'critical' | 'important' | 'recommended';
+}
+
+interface SectionData {
+  specificIssues?: SpecificIssue[];
+  missingSkills?: (MissingSkill | string)[];
+}
+
 interface DetailedAnalysisSectionProps {
   title: string;
   description: string;
   score: number;
   tips: Tip[];
   icon: React.ReactNode;
-  sectionData?: any;
+  sectionData?: SectionData;
 }
 
 export function DetailedAnalysisSection({ 
@@ -123,10 +142,10 @@ export function DetailedAnalysisSection({
                 </div>
                 
                 <div className="space-y-3">
-                  {sectionData.specificIssues.map((issue: any, index: number) => (
+                  {sectionData.specificIssues.map((issue: SpecificIssue, index: number) => (
                     <div key={index} className="bg-white dark:bg-slate-800/50 rounded-lg p-4 border border-red-100 dark:border-red-800/20">
                       <p className="font-medium text-red-900 dark:text-red-200 mb-2">
-                        {issue.issue || issue.word || issue.phrase || issue.section}
+                        {issue.issue || issue.word || issue.phrase || issue.section || 'Issue detected'}
                       </p>
                       
                       {issue.location && (
@@ -164,22 +183,25 @@ export function DetailedAnalysisSection({
                   <h4 className="font-semibold text-orange-900 dark:text-orange-200">Missing Critical Skills</h4>
                 </div>
                 <div className="space-y-3">
-                  {sectionData.missingSkills.map((skill: any, index: number) => (
-                    <div key={index} className="flex items-center justify-between bg-white dark:bg-slate-800/50 rounded-lg p-3 border border-orange-100 dark:border-orange-800/20">
-                      <span className="font-medium text-orange-800 dark:text-orange-200">
-                        {skill.skill || skill}
-                      </span>
-                      {skill.importance && (
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          skill.importance === 'critical' ? 'bg-red-500 text-white' :
-                          skill.importance === 'important' ? 'bg-orange-500 text-white' :
-                          'bg-blue-500 text-white'
-                        }`}>
-                          {skill.importance}
+                  {sectionData.missingSkills.map((skill: MissingSkill | string, index: number) => {
+                    const skillObj = typeof skill === 'string' ? { skill } : skill;
+                    return (
+                      <div key={index} className="flex items-center justify-between bg-white dark:bg-slate-800/50 rounded-lg p-3 border border-orange-100 dark:border-orange-800/20">
+                        <span className="font-medium text-orange-800 dark:text-orange-200">
+                          {skillObj.skill || String(skill)}
                         </span>
-                      )}
-                    </div>
-                  ))}
+                        {typeof skill === 'object' && skill.importance && (
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            skill.importance === 'critical' ? 'bg-red-500 text-white' :
+                            skill.importance === 'important' ? 'bg-orange-500 text-white' :
+                            'bg-blue-500 text-white'
+                          }`}>
+                            {skill.importance}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}

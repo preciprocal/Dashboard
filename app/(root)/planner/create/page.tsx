@@ -1,7 +1,7 @@
 // app/planner/create/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/firebase/client';
@@ -59,6 +59,12 @@ export default function CreatePlanPage() {
     'Communication Skills',
     'Leadership Questions'
   ];
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/sign-in');
+    }
+  }, [loading, user, router]);
 
   const toggleFocusArea = (area: string) => {
     setFormData(prev => ({
@@ -138,9 +144,10 @@ export default function CreatePlanPage() {
 
       router.push(`/planner/${data.planId}`);
       
-    } catch (error: any) {
-      console.error('Error:', error);
-      setError(error.message || 'Failed to generate plan. Please try again.');
+    } catch (err) {
+      console.error('Error:', err);
+      const error = err instanceof Error ? err : new Error('Failed to generate plan. Please try again.');
+      setError(error.message);
       setIsGenerating(false);
     }
   };
@@ -154,7 +161,6 @@ export default function CreatePlanPage() {
   }
 
   if (!user) {
-    router.push('/sign-in');
     return null;
   }
 

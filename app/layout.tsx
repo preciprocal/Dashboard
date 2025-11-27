@@ -1,4 +1,4 @@
-// app/layout.tsx - Simplified without custom providers for now
+// app/layout.tsx
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import {
@@ -21,11 +21,40 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// Define interfaces
+interface Interview {
+  id: string;
+  userId: string;
+  [key: string]: unknown;
+}
+
+interface Feedback {
+  totalScore?: number;
+  [key: string]: unknown;
+}
+
+interface InterviewWithFeedback extends Interview {
+  feedback: Feedback;
+}
+
+interface UserStats {
+  totalInterviews: number;
+  averageScore: number;
+  currentStreak: number;
+  practiceHours: number;
+  improvement: number;
+  remainingSessions: number;
+  interviewsUsed: number;
+  interviewsLimit: number;
+  resumesUsed: number;
+  resumesLimit: number;
+}
+
 // Helper function to calculate user stats (interviews only for now)
-const calculateUserStats = async (interviews: any[]) => {
+const calculateUserStats = async (interviews: Interview[]): Promise<UserStats> => {
   const totalInterviews = interviews.length;
 
-  let completedInterviews = [];
+  const completedInterviews: InterviewWithFeedback[] = [];
   let totalScore = 0;
   let scoredInterviews = 0;
 
@@ -34,7 +63,7 @@ const calculateUserStats = async (interviews: any[]) => {
       const feedback = await getFeedbackByInterviewId({
         interviewId: interview.id,
         userId: interview.userId,
-      });
+      }) as Feedback | null;
 
       if (feedback && feedback.totalScore) {
         completedInterviews.push({ ...interview, feedback });
@@ -77,8 +106,8 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  let user = null;
-  let userStats = {
+  let user: { id: string; [key: string]: unknown } | null = null;
+  let userStats: UserStats = {
     totalInterviews: 0,
     averageScore: 0,
     currentStreak: 0,
@@ -101,7 +130,7 @@ export default async function RootLayout({
       // Only fetch interview stats if we have a user
       if (user?.id) {
         try {
-          const interviews = await getInterviewsByUserId(user.id);
+          const interviews = await getInterviewsByUserId(user.id) as Interview[] | null;
           userStats = await calculateUserStats(interviews || []);
         } catch (error) {
           console.error("Failed to fetch user stats:", error);

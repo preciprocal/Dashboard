@@ -13,7 +13,6 @@ import {
   ArrowRight,
   Sparkles,
   Award,
-  TrendingUp,
   BookOpen,
   Zap,
   Brain
@@ -74,7 +73,7 @@ export default function PlannerTab({ plannerStats, userId }: PlannerTabProps) {
       
       // Get 3 most recent plans
       const sorted = plans
-        .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .sort((a: Plan, b: Plan) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         .slice(0, 3);
       
       setRecentPlans(sorted);

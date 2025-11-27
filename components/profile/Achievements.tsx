@@ -36,26 +36,26 @@ const AchievementsTab: React.FC<AchievementsTabProps> = ({ achievements }) => {
     return matchesCategory && matchesStatus;
   });
 
-  const getRarityColor = (rarity: string) => {
-    const colors = {
+  const getRarityColor = (rarity: Achievement['rarity']): string => {
+    const colors: Record<Achievement['rarity'], string> = {
       common: 'text-gray-400',
       uncommon: 'text-green-400',
       rare: 'text-blue-400',
       epic: 'text-purple-400',
       legendary: 'text-yellow-400'
     };
-    return colors[rarity as keyof typeof colors] || colors.common;
+    return colors[rarity];
   };
 
-  const getRarityBg = (rarity: string) => {
-    const colors = {
+  const getRarityBg = (rarity: Achievement['rarity']): string => {
+    const colors: Record<Achievement['rarity'], string> = {
       common: 'bg-gray-600',
       uncommon: 'bg-green-600',
       rare: 'bg-blue-600',
       epic: 'bg-purple-600',
       legendary: 'bg-yellow-600'
     };
-    return colors[rarity as keyof typeof colors] || colors.common;
+    return colors[rarity];
   };
 
   return (

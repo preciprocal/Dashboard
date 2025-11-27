@@ -2,7 +2,6 @@
 
 import { z } from "zod";
 import Link from "next/link";
-import Image from "next/image";
 import { toast } from "sonner";
 import { auth } from "@/firebase/client";
 import { useForm } from "react-hook-form";
@@ -19,13 +18,15 @@ import {
   setPersistence,
   browserLocalPersistence,
   browserSessionPersistence,
+  UserCredential,
 } from "firebase/auth";
 
 import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 
 import { signIn, signUp } from "@/lib/actions/auth.action";
-import FormField from "./FormField";
+
+type FormType = "sign-in" | "sign-up";
 
 const authFormSchema = (type: FormType) => {
   return z.object({
@@ -82,7 +83,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
         : browserSessionPersistence;
       await setPersistence(auth, persistence);
 
-      const result = await signInWithPopup(auth, provider);
+      const result: UserCredential = await signInWithPopup(auth, provider);
       const user = result.user;
       const idToken = await user.getIdToken();
 
@@ -116,17 +117,16 @@ const AuthForm = ({ type }: { type: FormType }) => {
 
       // Force a hard navigation to ensure session is recognized
       window.location.href = "/";
-    } catch (error: any) {
+    } catch (error) {
       console.error("Google auth error:", error);
+      const err = error as { code?: string };
       let errorMessage = "Failed to authenticate with Google.";
 
-      if (error.code === "auth/popup-closed-by-user") {
+      if (err.code === "auth/popup-closed-by-user") {
         errorMessage = "Sign-in was cancelled.";
-      } else if (error.code === "auth/popup-blocked") {
+      } else if (err.code === "auth/popup-blocked") {
         errorMessage = "Popup was blocked. Please allow popups and try again.";
-      } else if (
-        error.code === "auth/account-exists-with-different-credential"
-      ) {
+      } else if (err.code === "auth/account-exists-with-different-credential") {
         errorMessage =
           "An account already exists with this email using a different sign-in method.";
       }
@@ -150,7 +150,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
         : browserSessionPersistence;
       await setPersistence(auth, persistence);
 
-      const result = await signInWithPopup(auth, provider);
+      const result: UserCredential = await signInWithPopup(auth, provider);
       const user = result.user;
       const idToken = await user.getIdToken();
 
@@ -184,17 +184,16 @@ const AuthForm = ({ type }: { type: FormType }) => {
 
       // Force a hard navigation to ensure session is recognized
       window.location.href = "/";
-    } catch (error: any) {
+    } catch (error) {
       console.error("Facebook auth error:", error);
+      const err = error as { code?: string };
       let errorMessage = "Failed to authenticate with Facebook.";
 
-      if (error.code === "auth/popup-closed-by-user") {
+      if (err.code === "auth/popup-closed-by-user") {
         errorMessage = "Sign-in was cancelled.";
-      } else if (error.code === "auth/popup-blocked") {
+      } else if (err.code === "auth/popup-blocked") {
         errorMessage = "Popup was blocked. Please allow popups and try again.";
-      } else if (
-        error.code === "auth/account-exists-with-different-credential"
-      ) {
+      } else if (err.code === "auth/account-exists-with-different-credential") {
         errorMessage =
           "An account already exists with this email using a different sign-in method.";
       }
@@ -211,7 +210,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
       if (type === "sign-up") {
         const { name, email, password } = data;
 
-        const userCredential = await createUserWithEmailAndPassword(
+        const userCredential: UserCredential = await createUserWithEmailAndPassword(
           auth,
           email,
           password
@@ -241,7 +240,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
           : browserSessionPersistence;
         await setPersistence(auth, persistence);
 
-        const userCredential = await signInWithEmailAndPassword(
+        const userCredential: UserCredential = await signInWithEmailAndPassword(
           auth,
           email,
           password
@@ -265,7 +264,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
         const signInResult = await signIn({
           email,
           idToken,
-          provider: "email", // Add provider for email auth
+          provider: "email",
         });
 
         // Check if sign in was successful
@@ -282,19 +281,20 @@ const AuthForm = ({ type }: { type: FormType }) => {
         // Force a hard navigation to ensure session is recognized
         window.location.href = "/";
       }
-    } catch (error: any) {
+    } catch (error) {
       console.log(error);
+      const err = error as { code?: string };
       let errorMessage = "There was an error signing in.";
 
-      if (error.code === "auth/user-not-found") {
+      if (err.code === "auth/user-not-found") {
         errorMessage = "No account found with this email address.";
-      } else if (error.code === "auth/wrong-password") {
+      } else if (err.code === "auth/wrong-password") {
         errorMessage = "Invalid password. Please try again.";
-      } else if (error.code === "auth/invalid-email") {
+      } else if (err.code === "auth/invalid-email") {
         errorMessage = "Invalid email address format.";
-      } else if (error.code === "auth/user-disabled") {
+      } else if (err.code === "auth/user-disabled") {
         errorMessage = "This account has been disabled.";
-      } else if (error.code === "auth/too-many-requests") {
+      } else if (err.code === "auth/too-many-requests") {
         errorMessage = "Too many failed attempts. Please try again later.";
       }
 
@@ -400,7 +400,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
 
       {/* Right Side - Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center relative min-h-screen">
-        {/* Mobile Background - Completely redesigned */}
+        {/* Mobile Background */}
         <div className="lg:hidden absolute inset-0 bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700">
           {/* Animated background elements */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-xl animate-pulse"></div>
@@ -418,7 +418,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
         <div className="hidden lg:block absolute inset-0 bg-white"></div>
 
         <div className="relative z-10 w-full max-w-md mx-4 lg:mx-0 lg:p-12">
-          {/* Mobile Header - Fixed with consistent branding */}
+          {/* Mobile Header */}
           <div className="lg:hidden text-center mb-8 pt-8">
             {/* Logo */}
             <div className="flex items-center justify-center space-x-3 mb-6">
@@ -430,7 +430,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
               </h1>
             </div>
 
-            {/* Welcome message - cleaner design */}
+            {/* Welcome message */}
             <div className="space-y-2 mb-6">
               <h2 className="text-2xl font-bold text-white">
                 {isSignIn ? "Welcome Back!" : "Get Started"}
@@ -443,7 +443,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
             </div>
           </div>
 
-          {/* Desktop Form Header - Fixed with consistent branding */}
+          {/* Desktop Form Header */}
           <div className="hidden lg:block mb-8">
             <h2 className="text-3xl font-bold text-gray-900 mb-2">
               {isSignIn ? "Welcome Back!" : "Join Preciprocal"}
@@ -455,9 +455,9 @@ const AuthForm = ({ type }: { type: FormType }) => {
             </p>
           </div>
 
-          {/* Form Container - Mobile optimized */}
+          {/* Form Container */}
           <div className="bg-white/95 lg:bg-transparent backdrop-blur-lg lg:backdrop-blur-none rounded-3xl lg:rounded-none p-6 lg:p-0 shadow-2xl lg:shadow-none border border-white/20 lg:border-0">
-            {/* Social Login Buttons - Updated with Google and Facebook */}
+            {/* Social Login Buttons */}
             <div className="space-y-3 mb-6">
               {/* Google Auth Button */}
               <button

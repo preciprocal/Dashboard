@@ -17,8 +17,17 @@ interface ProgressChartProps {
   plan: InterviewPlan;
 }
 
+interface DayProgress {
+  day: number;
+  date: string;
+  focus: string;
+  percentage: number;
+  completedTasks: number;
+  totalTasks: number;
+}
+
 export default function ProgressChart({ plan }: ProgressChartProps) {
-  const dailyProgress = plan.dailyPlans.map(day => {
+  const dailyProgress: DayProgress[] = plan.dailyPlans.map(day => {
     const completedTasks = day.tasks.filter(t => t.status === 'done').length;
     const totalTasks = day.tasks.length;
     const percentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
@@ -55,7 +64,7 @@ export default function ProgressChart({ plan }: ProgressChartProps) {
   const currentStreak = calculateStreak();
   const bestDay = dailyProgress.reduce((best, current) => 
     current.percentage > best.percentage ? current : best
-  , dailyProgress[0]);
+  , dailyProgress[0] || { day: 0, percentage: 0, focus: '' });
 
   const avgProgress = dailyProgress.length > 0
     ? Math.round(dailyProgress.reduce((sum, day) => sum + day.percentage, 0) / dailyProgress.length)
@@ -277,8 +286,8 @@ export default function ProgressChart({ plan }: ProgressChartProps) {
                   <Sparkles className="w-5 h-5 text-emerald-400" />
                 </h3>
                 <p className="text-slate-300 text-sm">
-                  You've completed {plan.progress.percentage}% of your preparation plan. 
-                  Keep up this momentum and you'll be fully prepared!
+                  You&apos;ve completed {plan.progress.percentage}% of your preparation plan. 
+                  Keep up this momentum and you&apos;ll be fully prepared!
                 </p>
               </div>
             </div>

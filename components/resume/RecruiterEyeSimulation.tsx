@@ -49,7 +49,6 @@ interface RecruiterEyeSimulationProps {
 
 export default function RecruiterEyeSimulation({ 
   resumeId, 
-  imageUrl, 
   preloadedData,
   jobTitle,
   companyName,
@@ -57,13 +56,12 @@ export default function RecruiterEyeSimulation({
 }: RecruiterEyeSimulationProps) {
   const [simulationData, setSimulationData] = useState<RecruiterSimulationData | null>(preloadedData || null);
   const [isSimulating, setIsSimulating] = useState(false);
-  const [showHeatmap, setShowHeatmap] = useState(true);
+  const [showHeatmap] = useState(true);
   const [autoSimulated, setAutoSimulated] = useState(!!preloadedData);
   const [selectedPerspective, setSelectedPerspective] = useState<number>(0);
 
   const hasJobDescription = !!(jobDescription && jobDescription.trim().length > 50);
   const hasJobTitleOnly = !!(jobTitle && !hasJobDescription);
-  const hasNoContext = !jobTitle && !jobDescription;
 
   useEffect(() => {
     if (!autoSimulated && !preloadedData && resumeId) {
@@ -109,18 +107,19 @@ export default function RecruiterEyeSimulation({
     }
   };
 
-  const getAttentionColor = (score: number) => {
+  const getAttentionColor = (score: number): string => {
     if (score >= 80) return 'bg-emerald-500';
     if (score >= 60) return 'bg-amber-500';
     return 'bg-red-500';
   };
 
-  const getPerspectiveIcon = (role: string) => {
-    if (role.toLowerCase().includes('technical') || role.toLowerCase().includes('engineering')) {
+  const getPerspectiveIcon = (role: string): React.ReactNode => {
+    const roleLower = role.toLowerCase();
+    if (roleLower.includes('technical') || roleLower.includes('engineering')) {
       return <Briefcase className="w-5 h-5" />;
-    } else if (role.toLowerCase().includes('hr') || role.toLowerCase().includes('recruiter')) {
+    } else if (roleLower.includes('hr') || roleLower.includes('recruiter')) {
       return <Users className="w-5 h-5" />;
-    } else if (role.toLowerCase().includes('manager') || role.toLowerCase().includes('director')) {
+    } else if (roleLower.includes('manager') || roleLower.includes('director')) {
       return <UserCheck className="w-5 h-5" />;
     }
     return <Eye className="w-5 h-5" />;
@@ -147,7 +146,7 @@ export default function RecruiterEyeSimulation({
                     <span className="text-xs px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 rounded-full">AI-Enhanced</span>
                   </h4>
                   <p className="text-sm text-purple-800 dark:text-purple-300">
-                    AI studied {companyName}'s hiring practices and typical requirements for {jobTitle} roles. 
+                    AI studied {companyName}&apos;s hiring practices and typical requirements for {jobTitle} roles. 
                     Simulation based on company culture, interview process, and role expectations.
                   </p>
                   {simulationData.researchInsights && simulationData.researchInsights.length > 0 && (
@@ -172,7 +171,7 @@ export default function RecruiterEyeSimulation({
                   </h4>
                   <p className="text-sm text-blue-800 dark:text-blue-300">
                     AI used its knowledge of {jobTitle} hiring to simulate how recruiters for this role would evaluate your resume.
-                    {companyName && ` Analysis includes ${companyName}'s known hiring preferences.`}
+                    {companyName && ` Analysis includes ${companyName}&apos;s known hiring preferences.`}
                   </p>
                 </div>
               </>
@@ -242,7 +241,7 @@ export default function RecruiterEyeSimulation({
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
                         <span className="text-2xl">{simulationData.perspectives[selectedPerspective].icon}</span>
-                        {simulationData.perspectives[selectedPerspective].role}'s View
+                        {simulationData.perspectives[selectedPerspective].role}&apos;s View
                       </h3>
                       <div className="text-right">
                         <div className="text-3xl font-bold text-slate-900 dark:text-white">
@@ -448,7 +447,7 @@ export default function RecruiterEyeSimulation({
             <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-5 border border-blue-200 dark:border-blue-800">
               <h4 className="font-bold text-blue-900 dark:text-blue-200 mb-3 flex items-center gap-2">
                 <Info className="w-5 h-5" />
-                {simulationData.perspectives ? 'Overall Assessment' : 'Recruiter\'s Internal Notes'}
+                {simulationData.perspectives ? 'Overall Assessment' : 'Recruiter&apos;s Internal Notes'}
               </h4>
               <ul className="space-y-2">
                 {simulationData.screenerNotes.map((note, idx) => (

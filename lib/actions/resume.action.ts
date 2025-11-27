@@ -94,7 +94,6 @@ const resumeFeedbackSchema = z.object({
     }))
   }),
   
-  // NEW ENHANCED ANALYSIS AREAS WITH DETAILED ISSUE TRACKING
   dates: z.object({
     score: z.number().min(0).max(100),
     issues: z.array(z.string()),
@@ -274,7 +273,6 @@ const resumeFeedbackSchema = z.object({
     }))
   }),
   
-  // INDUSTRY-SPECIFIC ANALYSIS
   industryAnalysis: z.object({
     industry: z.string(),
     industryScore: z.number().min(0).max(100),
@@ -313,7 +311,6 @@ const resumeFeedbackSchema = z.object({
     }))
   }),
   
-  // COMPREHENSIVE IMPROVEMENT ROADMAP
   improvementRoadmap: z.object({
     totalIssuesFound: z.number(),
     criticalIssues: z.number(),
@@ -342,7 +339,6 @@ const resumeFeedbackSchema = z.object({
     }))
   }),
   
-  // EXECUTIVE SUMMARY OF ALL ISSUES
   executiveSummary: z.object({
     overallAssessment: z.string(),
     topThreeIssues: z.array(z.object({
@@ -449,95 +445,6 @@ Scrutinize the resume for ALL these specific problems:
    - Poor sentence structure
    - Redundant information
 
-6. **DATE ANALYSIS - BE FORENSIC (0-100)**
-   IDENTIFY ALL ISSUES:
-   - Employment gaps without explanation
-   - Overlapping employment dates that don't make sense
-   - Inconsistent date formats throughout
-   - Jobs that lasted less than 6 months (red flags)
-   - Education dates that don't align with career timeline
-   - Missing graduation dates
-   - Dates that show frequent job hopping
-   - Future dates or impossible dates
-   - Inconsistent month/year formatting
-   - Dates in education section that suggest age
-
-7. **SKILLS SECTION DEEP DIVE (0-100)**
-   COMPREHENSIVE ANALYSIS:
-   - List ALL skills mentioned vs required skills for role
-   - Identify skills that are completely irrelevant
-   - Point out missing industry-standard skills
-   - Find skills that suggest wrong seniority level
-   - Identify skills that need supporting evidence
-   - Spot skills that are too generic
-   - Find technical skills without versions/certifications
-   - Identify language skills without proficiency levels
-
-8. **GROWTH SIGNALS ASSESSMENT (0-100)**
-   LOOK FOR MISSING ELEMENTS:
-   - No evidence of promotions or title advancement
-   - Flat career trajectory with no progression
-   - No increase in responsibilities over time
-   - Missing leadership development
-   - No continuing education or skill development
-   - Same role/company for too long without advancement
-   - No mentoring or training others
-   - Missing professional development activities
-
-9. **JOB FIT ANALYSIS - BE PRECISE (0-100)**
-   DETAILED COMPARISON:
-   - List EXACT matches between resume and job requirements
-   - Identify EVERY missing requirement from job description
-   - Calculate percentage match of required skills
-   - Point out experience level mismatches
-   - Identify industry experience gaps
-   - Find missing certifications or qualifications
-   - Spot role responsibility misalignments
-   - Note company size/culture fit issues
-
-10. **PERSONAL PRONOUNS & VOICE (0-100)**
-    CATCH EVERY INSTANCE:
-    - Any use of "I," "me," "my," "we," "us," "our"
-    - Inconsistent voice between sections
-    - Mix of first and third person
-    - Casual language in professional resume
-    - Wrong tone for target industry
-
-11. **BUZZWORDS & LANGUAGE AUDIT (0-100)**
-    IDENTIFY OVERUSED TERMS:
-    - List ALL buzzwords and clichés used
-    - Count repetition of weak words ("responsible," "duties included")
-    - Find meaningless phrases ("results-oriented," "team player")
-    - Identify industry jargon used incorrectly
-    - Spot words that add no value
-    - Find better alternatives for overused terms
-
-12. **SECTION OPTIMIZATION PROBLEMS (0-100)**
-    IDENTIFY UNNECESSARY/MISSING:
-    - Outdated sections (Objective, References Available)
-    - Missing modern sections (Core Competencies, Key Achievements)
-    - Sections that add no value for target role
-    - Poor section ordering
-    - Sections that are too short or too long
-    - Missing sections that competitors will have
-
-13. **REPETITION ISSUES - COUNT EVERYTHING (0-100)**
-    FIND ALL REPETITION:
-    - List every repeated phrase with count
-    - Identify repeated action verbs
-    - Find repeated company/role descriptions
-    - Spot redundant information across sections
-    - Count overused words throughout
-
-14. **INDUSTRY ANALYSIS - BRUTAL COMPARISON (0-100)**
-    INDUSTRY-SPECIFIC REQUIREMENTS:
-    - Compare against top performers in target industry
-    - List missing industry-standard qualifications
-    - Identify outdated practices or skills
-    - Point out missing compliance/certification requirements
-    - Find gaps in industry knowledge demonstration
-    - Identify missing modern trends awareness
-
 SCORING GUIDELINES - BE HARSH:
 - 90-100: Exceptional (top 1% of all resumes, Fortune 500 ready)
 - 80-89: Strong (top 10%, needs minor tweaks)
@@ -576,7 +483,6 @@ export interface AnalyzeResumeParams {
   resumeText: string;
 }
 
-// Create resume record (unchanged)
 export async function createResumeRecord(params: CreateResumeParams) {
   try {
     const resumeRef = db.collection("resumes").doc();
@@ -607,12 +513,10 @@ export async function createResumeRecord(params: CreateResumeParams) {
   }
 }
 
-// Enhanced analyze resume with AI
 export async function analyzeResumeWithAI(params: AnalyzeResumeParams) {
   try {
-    const { resumeId, userId, jobTitle, jobDescription, resumeText } = params;
+    const { resumeId, jobTitle, jobDescription, resumeText } = params;
 
-    // Generate comprehensive AI analysis
     const { object } = await generateObject({
       model: google("gemini-2.0-flash-001", {
         structuredOutputs: false,
@@ -634,7 +538,6 @@ export async function analyzeResumeWithAI(params: AnalyzeResumeParams) {
       Provide brutally honest, detailed feedback that will genuinely help improve the resume's effectiveness in today's job market. Don't hold back on criticism if it will help the candidate succeed.`
     });
 
-    // Update resume with comprehensive feedback
     const resumeRef = db.collection("resumes").doc(resumeId);
     const updateData = {
       status: 'complete',
@@ -650,7 +553,6 @@ export async function analyzeResumeWithAI(params: AnalyzeResumeParams) {
   } catch (error) {
     console.error('Error analyzing resume:', error);
     
-    // Mark as failed in database
     try {
       const resumeRef = db.collection("resumes").doc(params.resumeId);
       await resumeRef.update({
@@ -666,7 +568,6 @@ export async function analyzeResumeWithAI(params: AnalyzeResumeParams) {
   }
 }
 
-// Get resume by ID (unchanged)
 export async function getResumeById(resumeId: string, userId: string) {
   try {
     const doc = await db.collection('resumes').doc(resumeId).get();
@@ -688,7 +589,6 @@ export async function getResumeById(resumeId: string, userId: string) {
   }
 }
 
-// Get all resumes for user (unchanged)
 export async function getResumesByUserId(userId: string) {
   try {
     const snapshot = await db

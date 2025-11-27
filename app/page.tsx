@@ -1,49 +1,32 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import {
   Activity,
   Target,
-  BarChart3,
   Brain,
   TrendingUp,
   Calendar,
-  Clock,
-  Award,
   Zap,
-  Plus,
   FileText,
-  Upload,
-  CheckCircle,
   Users,
   Star,
-  ArrowUpRight,
-  ArrowDownRight,
   BookOpen,
-  Shield,
-  Timer,
-  Trophy,
   CheckCircle2,
   Sparkles
 } from "lucide-react";
 
 // Import the modular components
 import ProfileOverview from "@/components/profile/Overview";
-import ProfileInterviews from "@/components/profile/Interviews";
-import { ProfileAnalytics } from "@/components/profile/Analytics";
-import ProfileRecommendations from "@/components/profile/Recommendations";
-import Resumes from "@/components/profile/Resumes";
 
 // Import the new dynamic recommendations engine
 import { 
   generateDynamicAIRecommendations,
   analyzeInterviewPerformance,
   analyzeResumeData,
-  AIRecommendation
 } from "@/lib/ai/ai-recommendations-engine";
 
 // Import shared Resume type
@@ -162,21 +145,42 @@ interface UserStats {
   plannerStats?: PlannerStats;
 }
 
+// Define type for Firebase user
+interface FirebaseUser {
+  uid: string;
+  displayName: string | null;
+  email: string | null;
+  photoURL: string | null;
+}
+
+// Define type for plan data from Firebase
+interface PlanData {
+  status: string;
+  progress: {
+    percentage: number;
+    completedTasks: number;
+  };
+  createdAt: string;
+  id: string;
+  role: string;
+  company?: string;
+  interviewDate: string;
+}
+
+// Define type for stats from PlannerService
+interface PlannerServiceStats {
+  currentStreak?: number;
+}
+
 // ============ MAIN COMPONENT ============
 
 export default function Dashboard() {
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [activeTab, setActiveTab] = useState<
-    "overview" | "interviews" | "resumes" | "analytics" | "recommendations"
-  >("overview");
-
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [interviews, setInterviews] = useState<Interview[]>([]);
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [stats, setStats] = useState<UserStats | null>(null);
-  const [aiRecommendations, setAIRecommendations] = useState<AIRecommendation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [tabLoading, setTabLoading] = useState(false);
 
   // Update current time every minute
   useEffect(() => {
@@ -187,18 +191,6 @@ export default function Dashboard() {
     return () => clearInterval(timer);
   }, []);
 
-  // Handle tab changes with loading state
-  const handleTabChange = (newTab: typeof activeTab) => {
-    if (newTab === activeTab) return;
-    
-    setTabLoading(true);
-    setActiveTab(newTab);
-    
-    setTimeout(() => {
-      setTabLoading(false);
-    }, 500);
-  };
-
   // ============ PLANNER STATS FUNCTION ============
 
   const fetchPlannerStats = async (userId: string): Promise<PlannerStats> => {
@@ -206,21 +198,21 @@ export default function Dashboard() {
       const { PlannerService } = await import('@/lib/services/planner-services');
       
       // Fetch user's plans
-      const plans = await PlannerService.getUserPlans(userId);
-      const stats = await PlannerService.getUserPlanStats(userId);
+      const plans = await PlannerService.getUserPlans(userId) as PlanData[];
+      const stats = await PlannerService.getUserPlanStats(userId) as PlannerServiceStats;
       
       const totalPlans = plans.length;
-      const activePlans = plans.filter((p: any) => p.status === 'active').length;
-      const completedPlans = plans.filter((p: any) => p.status === 'completed' || p.progress.percentage === 100).length;
+      const activePlans = plans.filter((p) => p.status === 'active').length;
+      const completedPlans = plans.filter((p) => p.status === 'completed' || p.progress.percentage === 100).length;
       
       const averageProgress = plans.length > 0
-        ? Math.round(plans.reduce((sum: number, p: any) => sum + p.progress.percentage, 0) / plans.length)
+        ? Math.round(plans.reduce((sum, p) => sum + p.progress.percentage, 0) / plans.length)
         : 0;
 
       // Find most recent active plan
       const activePlansList = plans
-        .filter((p: any) => p.status === 'active' && p.progress.percentage < 100)
-        .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        .filter((p) => p.status === 'active' && p.progress.percentage < 100)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       
       let currentPlan = undefined;
       if (activePlansList.length > 0) {
@@ -239,7 +231,7 @@ export default function Dashboard() {
         };
       }
 
-      const totalTasksCompleted = plans.reduce((sum: number, p: any) => sum + p.progress.completedTasks, 0);
+      const totalTasksCompleted = plans.reduce((sum, p) => sum + p.progress.completedTasks, 0);
       const currentStreak = stats?.currentStreak || 0;
 
       return {
@@ -279,10 +271,10 @@ export default function Dashboard() {
         const { getFeedbackByInterviewId } = await import('@/lib/actions/general.action');
 
         // Wait for auth state
-        const currentUser = await new Promise<any>((resolve) => {
+        const currentUser = await new Promise<FirebaseUser | null>((resolve) => {
           const unsubscribe = onAuthStateChanged(auth, (user) => {
             unsubscribe();
-            resolve(user);
+            resolve(user as FirebaseUser | null);
           });
         });
 
@@ -324,7 +316,8 @@ export default function Dashboard() {
             userResumes,
             calculatedStats
           );
-          setAIRecommendations(dynamicRecommendations);
+          
+          console.log('🤖 Generated recommendations:', dynamicRecommendations);
           
           setUserProfile({
             id: currentUser.uid,
@@ -346,7 +339,7 @@ export default function Dashboard() {
 
         console.log('🎯 Loaded interviews:', userInterviews.length);
 
-        const interviewsWithDates = userInterviews.map((interview: any) => ({
+        const interviewsWithDates = userInterviews.map((interview) => ({
           ...interview,
           createdAt: interview.createdAt?.toDate
             ? interview.createdAt.toDate()
@@ -374,7 +367,7 @@ export default function Dashboard() {
           // Fetch feedback for each interview
           console.log('🔍 Fetching feedback for interviews...');
           const interviewsWithFeedback = await Promise.all(
-            interviewsWithDates.map(async (interview: any) => {
+            interviewsWithDates.map(async (interview) => {
               try {
                 const feedback = await getFeedbackByInterviewId({
                   interviewId: interview.id,
@@ -412,7 +405,6 @@ export default function Dashboard() {
           );
           
           console.log('🤖 Generated Dynamic Recommendations:', dynamicRecommendations);
-          setAIRecommendations(dynamicRecommendations);
 
           // Log analysis for debugging
           const interviewAnalysis = analyzeInterviewPerformance(interviewsWithFeedback);
@@ -431,7 +423,8 @@ export default function Dashboard() {
             userResumes,
             calculatedStats
           );
-          setAIRecommendations(dynamicRecommendations);
+          
+          console.log('🤖 Generated recommendations:', dynamicRecommendations);
         }
       } catch (error) {
         console.error("Failed to fetch user data:", error);
@@ -483,9 +476,10 @@ export default function Dashboard() {
       : 0;
 
     const resumeIssuesResolved = resumes.reduce((total, resume) => {
-      return total + Object.values(resume.feedback || {}).reduce((sum: number, section: any) => {
-        if (section?.tips && Array.isArray(section.tips)) {
-          return sum + section.tips.filter((tip: any) => tip.type === 'good').length;
+      return total + Object.values(resume.feedback || {}).reduce((sum: number, section) => {
+        const sectionData = section as { tips?: Array<{ type?: string }> };
+        if (sectionData?.tips && Array.isArray(sectionData.tips)) {
+          return sum + sectionData.tips.filter((tip) => tip.type === 'good').length;
         }
         return sum;
       }, 0);
@@ -922,7 +916,7 @@ export default function Dashboard() {
               Weekly Velocity
             </div>
             <div className="text-slate-400 text-xs">
-              This week's practice count
+              This week&apos;s practice count
             </div>
           </div>
         </div>

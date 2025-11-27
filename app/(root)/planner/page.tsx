@@ -1,7 +1,7 @@
 // app/planner/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/firebase/client';
@@ -38,29 +38,16 @@ export default function PlannerPage() {
   const [plans, setPlans] = useState<InterviewPlan[]>([]);
   const [stats, setStats] = useState<PlanStats | null>(null);
   const [loadingPlans, setLoadingPlans] = useState<boolean>(true);
-  const [loadingStats, setLoadingStats] = useState<boolean>(true);
+  const [sortBy, setSortBy] = useState<'date' | 'progress' | 'name'>('date');
   const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [sortBy, setSortBy] = useState<'date' | 'progress' | 'name'>('date');
   
   // Error states
   const [criticalError, setCriticalError] = useState<CriticalError | null>(null);
   const [plansError, setPlansError] = useState<string>('');
   const [statsError, setStatsError] = useState<string>('');
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/sign-in');
-      return;
-    }
-
-    if (user) {
-      loadUserPlans();
-      loadUserStats();
-    }
-  }, [user, loading, router]);
-
-  const loadUserPlans = async (): Promise<void> => {
+  const loadUserPlans = useCallback(async (): Promise<void> => {
     if (!user) return;
     
     try {
@@ -70,7 +57,7 @@ export default function PlannerPage() {
       setPlans(userPlans);
     } catch (err: unknown) {
       console.error('Error loading plans:', err);
-      const error = err as Error;
+      const error = err instanceof Error ? err : new Error('Unknown error');
       
       if (error.message.includes('Firebase') || error.message.includes('firestore')) {
         setCriticalError({
@@ -94,29 +81,38 @@ export default function PlannerPage() {
     } finally {
       setLoadingPlans(false);
     }
-  };
+  }, [user]);
 
-  const loadUserStats = async (): Promise<void> => {
+  const loadUserStats = useCallback(async (): Promise<void> => {
     if (!user) return;
     
     try {
-      setLoadingStats(true);
       setStatsError('');
       const userStats = await PlannerService.getUserPlanStats(user.uid);
       setStats(userStats);
     } catch (err: unknown) {
       console.error('Error loading stats:', err);
-      const error = err as Error;
+      const error = err instanceof Error ? err : new Error('Unknown error');
       
       if (error.message.includes('Firebase') || error.message.includes('firestore')) {
         setStatsError('Unable to load statistics');
       } else {
         setStatsError('Failed to load statistics');
       }
-    } finally {
-      setLoadingStats(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/sign-in');
+      return;
+    }
+
+    if (user) {
+      loadUserPlans();
+      loadUserStats();
+    }
+  }, [user, loading, router, loadUserPlans, loadUserStats]);
 
   const handleRetryError = (): void => {
     setCriticalError(null);

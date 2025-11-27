@@ -4,12 +4,10 @@ import { Share2, Copy, Check, Download, Mail, Linkedin, Twitter, Link as LinkIco
 interface ShareableScoreBadgeProps {
   score: number;
   resumeId: string;
-  userName?: string;
 }
 
-export default function ShareableScoreBadge({ score, resumeId, userName }: ShareableScoreBadgeProps) {
+export default function ShareableScoreBadge({ score, resumeId }: ShareableScoreBadgeProps) {
   const [copied, setCopied] = useState(false);
-  const [showShareModal, setShowShareModal] = useState(false);
 
   const shareUrl = `${window.location.origin}/resume/badge/${resumeId}`;
   const badgeEmbedCode = `<a href="${shareUrl}" target="_blank">
@@ -29,7 +27,6 @@ export default function ShareableScoreBadge({ score, resumeId, userName }: Share
   };
 
   const handleDownloadBadge = () => {
-    // Create a canvas to generate the badge image
     const canvas = document.createElement('canvas');
     canvas.width = 400;
     canvas.height = 150;
@@ -37,7 +34,6 @@ export default function ShareableScoreBadge({ score, resumeId, userName }: Share
     
     if (!ctx) return;
 
-    // Background gradient
     const gradient = ctx.createLinearGradient(0, 0, 400, 150);
     if (score >= 80) {
       gradient.addColorStop(0, '#10b981');
@@ -53,7 +49,6 @@ export default function ShareableScoreBadge({ score, resumeId, userName }: Share
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, 400, 150);
 
-    // White text
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 20px Arial';
     ctx.textAlign = 'center';
@@ -65,7 +60,6 @@ export default function ShareableScoreBadge({ score, resumeId, userName }: Share
     ctx.font = '16px Arial';
     ctx.fillText('Verified by ResumeAI', 200, 135);
 
-    // Download
     canvas.toBlob(blob => {
       if (blob) {
         const url = URL.createObjectURL(blob);
@@ -89,13 +83,13 @@ export default function ShareableScoreBadge({ score, resumeId, userName }: Share
     window.open(urls[platform], '_blank');
   };
 
-  const getScoreColor = (score: number) => {
+  const getScoreColor = (score: number): string => {
     if (score >= 80) return 'from-emerald-500 to-green-600';
     if (score >= 60) return 'from-amber-500 to-orange-600';
     return 'from-red-500 to-rose-600';
   };
 
-  const getScoreLabel = (score: number) => {
+  const getScoreLabel = (score: number): string => {
     if (score >= 90) return 'Outstanding';
     if (score >= 80) return 'Excellent';
     if (score >= 70) return 'Good';

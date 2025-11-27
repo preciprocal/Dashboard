@@ -1,8 +1,47 @@
+// app/api/vapi/generate/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "ai";
 import { google } from "@ai-sdk/google";
 import { db } from "@/firebase/admin";
 import { getRandomInterviewCover } from "@/lib/utils";
+
+// Define interfaces
+interface FunctionCall {
+  name: string;
+  parameters: GenerateInterviewParams | SaveInterviewParams;
+}
+
+interface Message {
+  function_call?: FunctionCall;
+}
+
+interface VapiRequest {
+  message: Message;
+}
+
+interface GenerateInterviewParams {
+  role: string;
+  level: string;
+  type: 'technical' | 'behavioural' | 'mixed';
+  techstack: string | string[];
+  amount: number;
+  userid?: string;
+}
+
+interface SaveInterviewParams {
+  interview_data: InterviewData;
+}
+
+interface InterviewData {
+  role: string;
+  type: string;
+  level: string;
+  techstack: string[];
+  questions: string[];
+  technicalQuestions?: string[];
+  behavioralQuestions?: string[];
+  userId?: string;
+}
 
 // Helper function to clean and parse AI responses
 function parseQuestionsFromResponse(response: string): string[] {
@@ -16,9 +55,9 @@ function parseQuestionsFromResponse(response: string): string[] {
       .trim();
 
     // Try to parse as JSON first
-    return JSON.parse(cleanedResponse);
-  } catch (parseError) {
-    console.error("JSON parsing failed, trying fallback method:", parseError);
+    return JSON.parse(cleanedResponse) as string[];
+  } catch (_parseError) {
+    console.error("JSON parsing failed, trying fallback method:", _parseError);
 
     // Fallback: extract questions manually
     const lines = response
@@ -151,7 +190,7 @@ function buildEnhancedPrompt(
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const body = await req.json() as VapiRequest;
     const { message } = body;
     const { function_call } = message;
 
@@ -166,7 +205,8 @@ export async function POST(req: NextRequest) {
 
     switch (name) {
       case "generate_interview":
-        const { role, level, type, techstack, amount, userid } = parameters;
+        const genParams = parameters as GenerateInterviewParams;
+        const { role, level, type, techstack, amount, userid } = genParams;
 
         // Convert techstack array to string for the AI prompt
         const techstackString = Array.isArray(techstack)
@@ -188,7 +228,7 @@ export async function POST(req: NextRequest) {
           const { text: questions } = await generateText({
             model: google("gemini-2.0-flash-001"),
             prompt: prompt,
-            temperature: 0.7, // Add some creativity while maintaining quality
+            temperature: 0.7,
           });
 
           technicalQuestions = parseQuestionsFromResponse(questions);
@@ -222,7 +262,7 @@ export async function POST(req: NextRequest) {
           const { text: questions } = await generateText({
             model: google("gemini-2.0-flash-001"),
             prompt: prompt,
-            temperature: 0.6, // Slightly lower temperature for behavioral consistency
+            temperature: 0.6,
           });
 
           behavioralQuestions = parseQuestionsFromResponse(questions);
@@ -250,41 +290,14 @@ export async function POST(req: NextRequest) {
           const technicalCount = Math.ceil(amount * 0.6); // 60% technical
           const behavioralCount = amount - technicalCount; // 40% behavioral
 
-          // Generate technical questions with enhanced focus
-          const technicalPrompt = `Generate ${technicalCount} technical interview questions for a ${level} ${role} position.
-            
-            TECH STACK FOCUS: ${techstackString}
-            
-            MUST INCLUDE ICE-BREAKER TECHNICAL QUESTIONS (start with these):
-            - "How's your day going? What kind of technical projects have you been working on lately?"
-            - "What technologies have you been enjoying working with recently?"
-            - "Tell me about your technical background and what got you excited about ${role.toLowerCase()} development"
-            - "What's been the most interesting technical challenge you've tackled recently?"
-            
-            THEN INCLUDE DEEPER TECHNICAL QUESTIONS:
-            - Architecture and system design questions specific to ${techstackString}
-            - Implementation and coding approach questions
-            - Performance optimization and scalability challenges
-            - Debugging and troubleshooting scenarios
-            - Best practices and code quality questions
-            - Problem-solving methodology questions
-            
-            REQUIREMENTS:
-            - Deep technical questions specific to ${role} responsibilities
-            - Include architecture and system design questions for mid/senior levels
-            - Focus on practical problem-solving scenarios using ${techstackString}
-            - Ask about debugging and optimization challenges
-            - Include questions about best practices and code quality
-            - Make questions conversational and engaging, not dry or mechanical
-            - Start with friendly technical ice-breakers before diving deep
-            
-            SAMPLE QUESTION TYPES:
-            - "Walk me through how you would architect a [role-specific system] using ${techstackString}"
-            - "Describe your experience with [specific technology] and how you've used it to solve complex problems"
-            - "How would you approach debugging a performance issue in a ${techstackString} application?"
-            - "What are some best practices you follow when working with ${techstackString}?"
-            
-            Return as JSON array format without additional text.`;
+          // Generate technical questions
+          const technicalPrompt = buildEnhancedPrompt(
+            "technical",
+            technicalCount,
+            role,
+            level,
+            techstackString
+          );
 
           const { text: techQuestions } = await generateText({
             model: google("gemini-2.0-flash-001"),
@@ -292,34 +305,14 @@ export async function POST(req: NextRequest) {
             temperature: 0.7,
           });
 
-          // Generate behavioral questions with greeting focus
-          const behavioralPrompt = `Generate ${behavioralCount} behavioral interview questions for a ${level} ${role} position.
-            
-            MUST INCLUDE ICE-BREAKER AND GREETING QUESTIONS (start with these):
-            - "Hello! How has your day been going so far?"
-            - "What have you been up to these days? Any interesting projects or activities?"
-            - "Are you getting any time to relax lately, or have you been keeping busy?"
-            - "Tell me about yourself and what drew you to ${role.toLowerCase()} work"
-            - "It's wonderful to meet you! Why are you interested in this ${role} position?"
-            - "What would you hope to accomplish in your first few months if you got this role?"
-            
-            ADDITIONAL BEHAVIORAL FOCUS AREAS:
-            - Team collaboration and communication experiences
-            - Problem-solving approach in interpersonal situations  
-            - Learning and adaptation experiences
-            - Leadership and initiative examples
-            - Cultural fit and work style preferences
-            - Career motivation and personal goals
-            - Conflict resolution and relationship management
-            - Personal growth and development stories
-            - Work-life balance and stress management
-            - Communication preferences and feedback style
-            
-            CRITICAL: These must be BEHAVIORAL questions ONLY - absolutely no technical questions about coding, programming, or system design.
-            Start with warm ice-breakers and casual conversation, then move to more substantive behavioral questions.
-            Focus on personality, experiences, teamwork, and cultural fit.
-            Make questions feel like natural conversation starters that help understand their human nature.
-            Return as JSON array format without additional text.`;
+          // Generate behavioral questions
+          const behavioralPrompt = buildEnhancedPrompt(
+            "behavioural",
+            behavioralCount,
+            role,
+            level,
+            techstackString
+          );
 
           const { text: behavQuestions } = await generateText({
             model: google("gemini-2.0-flash-001"),
@@ -360,12 +353,9 @@ export async function POST(req: NextRequest) {
           techstack: Array.isArray(techstack)
             ? techstack
             : techstack.split(",").map((t: string) => t.trim()),
-          // Keep original questions array for backward compatibility
           questions: allQuestions,
-          // Enhanced differentiated question arrays
           technicalQuestions: technicalQuestions,
           behavioralQuestions: behavioralQuestions,
-          // Enhanced metadata
           questionCounts: {
             total: allQuestions.length,
             technical: technicalQuestions.length,
@@ -379,7 +369,7 @@ export async function POST(req: NextRequest) {
             ),
             techStackCoverage: techstackString,
             difficultyLevel: level,
-            estimatedDuration: allQuestions.length * 3, // 3 minutes per question
+            estimatedDuration: allQuestions.length * 3,
           },
           userId: userid || "anonymous",
           finalized: true,
@@ -412,7 +402,8 @@ export async function POST(req: NextRequest) {
         });
 
       case "save_interview":
-        const { interview_data } = parameters;
+        const saveParams = parameters as SaveInterviewParams;
+        const { interview_data } = saveParams;
 
         // Enhanced save with metadata
         const saveDocRef = await db.collection("interviews").add({
@@ -420,7 +411,6 @@ export async function POST(req: NextRequest) {
           finalized: true,
           coverImage: getRandomInterviewCover(),
           createdAt: new Date().toISOString(),
-          // Add quality metrics
           qualityMetrics: {
             hasRoleSpecificQuestions: true,
             includesGreetingQuestions: true,

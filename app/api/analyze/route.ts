@@ -1,9 +1,7 @@
 // app/api/analyze/route.ts
-
 import { validatePDFFile } from '@/lib/resume/pdf-parser-server';
 import { AnalysisService } from '@/lib/services/analysis-services';
 import { NextRequest, NextResponse } from 'next/server';
-
 
 export const runtime = 'nodejs'; // Explicitly use Node.js runtime
 export const maxDuration = 60; // Max 60 seconds
@@ -40,13 +38,17 @@ export async function POST(request: NextRequest) {
 
     // Analyze resume
     console.log('🚀 Starting analysis...');
+    console.log('   Job Title:', jobTitle || 'Not specified');
+    console.log('   Company:', companyName || 'Not specified');
+    console.log('   Job Description Length:', jobDescription?.length || 0);
+    
     const startTime = Date.now();
 
     const feedback = await AnalysisService.analyzeResume(file, {
       jobTitle,
       jobDescription,
       companyName,
-      analysisType: analysisType as any,
+      analysisType: analysisType as 'quick' | 'full' | 'detailed',
     });
 
     const processingTime = Date.now() - startTime;

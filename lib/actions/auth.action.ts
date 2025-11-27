@@ -6,6 +6,47 @@ import { cookies } from "next/headers";
 // Session duration (1 week)
 const SESSION_DURATION = 60 * 60 * 24 * 7;
 
+interface SignUpParams {
+  uid: string;
+  name: string;
+  email: string;
+  provider?: string;
+}
+
+interface SignInParams {
+  email: string;
+  idToken: string;
+  provider?: string;
+}
+
+interface Subscription {
+  plan: string;
+  status: string;
+  interviewsUsed: number;
+  interviewsLimit: number;
+  createdAt: string;
+  updatedAt: string;
+  trialEndsAt: string | null;
+  subscriptionEndsAt: string | null;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+  currentPeriodStart: string | null;
+  currentPeriodEnd: string | null;
+  canceledAt: string | null;
+  lastPaymentAt: string | null;
+}
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  provider: string;
+  createdAt: string;
+  updatedAt: string;
+  lastLogin?: string;
+  subscription?: Subscription;
+}
+
 /**
  * Helper function to convert Firestore Timestamp to ISO string
  */
@@ -258,7 +299,6 @@ export async function signOut() {
 }
 
 // Get current user from session cookie
-// ✅ FIXED: Now properly serializes all Timestamp fields
 export async function getCurrentUser(): Promise<User | null> {
   const cookieStore = await cookies();
 
@@ -278,15 +318,13 @@ export async function getCurrentUser(): Promise<User | null> {
 
     const userData = userRecord.data();
 
-    // ✅ Serialize all timestamp fields to ISO strings
+    // Serialize all timestamp fields to ISO strings
     return {
       ...userData,
       id: userRecord.id,
-      // Convert all possible timestamp fields
       createdAt: convertTimestampToISO(userData?.createdAt),
       updatedAt: convertTimestampToISO(userData?.updatedAt),
       lastLogin: convertTimestampToISO(userData?.lastLogin),
-      // Handle subscription timestamps if they exist
       subscription: userData?.subscription ? {
         ...userData.subscription,
         createdAt: convertTimestampToISO(userData.subscription.createdAt),
@@ -342,7 +380,6 @@ export async function updateUserProfile(
 }
 
 // Get user profile by ID
-// ✅ FIXED: Now properly serializes all Timestamp fields
 export async function getUserProfile(userId: string): Promise<User | null> {
   try {
     const userDoc = await db.collection("users").doc(userId).get();
@@ -353,7 +390,7 @@ export async function getUserProfile(userId: string): Promise<User | null> {
 
     const userData = userDoc.data();
 
-    // ✅ Serialize all timestamp fields to ISO strings
+    // Serialize all timestamp fields to ISO strings
     return {
       ...userData,
       id: userDoc.id,
@@ -490,7 +527,7 @@ export async function deleteUserAccount(userId: string) {
 // Update user subscription data
 export async function updateUserSubscription(
   userId: string,
-  subscriptionData: any
+  subscriptionData: Partial<Subscription>
 ) {
   try {
     await db

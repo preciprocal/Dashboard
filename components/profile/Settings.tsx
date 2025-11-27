@@ -27,10 +27,58 @@ import {
   ExternalLink,
 } from "lucide-react";
 
+interface UserProfile {
+  name: string;
+  email: string;
+  phone?: string;
+  location?: string;
+  targetRole?: string;
+  preferredTech?: string[];
+}
+
 interface ProfileSettingsProps {
-  userProfile: any;
+  userProfile: UserProfile;
   onLogout: () => void;
   isLoggingOut: boolean;
+}
+
+interface FormField {
+  label: string;
+  type: string;
+  value: string;
+  icon: React.ElementType;
+}
+
+interface NotificationSetting {
+  name: string;
+  description: string;
+  enabled: boolean;
+}
+
+interface Session {
+  device: string;
+  location: string;
+  lastActive: string;
+  current: boolean;
+}
+
+interface ThemeOption {
+  value: string;
+  label: string;
+  icon: React.ElementType;
+}
+
+interface AppearanceSetting {
+  key: string;
+  label: string;
+  description: string;
+}
+
+interface PreferenceSetting {
+  key: string;
+  label: string;
+  description: string;
+  defaultChecked: boolean;
 }
 
 const ProfileSettings: React.FC<ProfileSettingsProps> = ({
@@ -40,6 +88,44 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({
 }) => {
   const [activeSettingsTab, setActiveSettingsTab] = useState("profile");
   const [isEditing, setIsEditing] = useState(false);
+
+  const formFields: FormField[] = [
+    { label: "Full Name", type: "text", value: userProfile.name, icon: User },
+    { label: "Email", type: "email", value: userProfile.email, icon: Mail },
+    { label: "Phone", type: "tel", value: userProfile.phone || "", icon: Phone },
+    { label: "Location", type: "text", value: userProfile.location || "", icon: MapPin },
+    { label: "Job Title", type: "text", value: userProfile.targetRole || "", icon: Briefcase },
+    { label: "Company", type: "text", value: "", icon: Building },
+  ];
+
+  const notificationSettings: NotificationSetting[] = [
+    { name: "Interview Reminders", description: "Get notified about upcoming sessions", enabled: true },
+    { name: "Performance Insights", description: "Weekly progress reports", enabled: true },
+    { name: "AI Recommendations", description: "Personalized study suggestions", enabled: true },
+    { name: "Community Updates", description: "New content and features", enabled: false },
+  ];
+
+  const sessions: Session[] = [
+    { device: "MacBook Pro", location: "San Francisco", lastActive: "Active now", current: true },
+    { device: "iPhone 14", location: "San Francisco", lastActive: "2 hours ago", current: false },
+  ];
+
+  const themeOptions: ThemeOption[] = [
+    { value: "light", label: "Light", icon: Sun },
+    { value: "dark", label: "Dark", icon: Moon },
+    { value: "auto", label: "Auto", icon: Monitor },
+  ];
+
+  const appearanceSettings: AppearanceSetting[] = [
+    { key: "animations", label: "Animations", description: "Enable smooth transitions" },
+    { key: "soundEffects", label: "Sound Effects", description: "Play notification sounds" },
+  ];
+
+  const preferenceSettings: PreferenceSetting[] = [
+    { key: "autoSave", label: "Auto-save Progress", description: "Automatically save progress", defaultChecked: true },
+    { key: "practiceReminders", label: "Practice Reminders", description: "Daily practice notifications", defaultChecked: true },
+    { key: "dataBackup", label: "Data Backup", description: "Cloud backup enabled", defaultChecked: true },
+  ];
 
   return (
     <div className="space-y-6">
@@ -207,14 +293,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({
 
                     {/* Form Fields */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {[
-                        { label: "Full Name", type: "text", value: userProfile.name, icon: User },
-                        { label: "Email", type: "email", value: userProfile.email, icon: Mail },
-                        { label: "Phone", type: "tel", value: userProfile.phone || "", icon: Phone },
-                        { label: "Location", type: "text", value: userProfile.location || "", icon: MapPin },
-                        { label: "Job Title", type: "text", value: userProfile.targetRole || "", icon: Briefcase },
-                        { label: "Company", type: "text", value: "", icon: Building },
-                      ].map((field) => (
+                      {formFields.map((field) => (
                         <div key={field.label}>
                           <label className="text-sm text-slate-400 mb-2 block">{field.label}</label>
                           <div className="relative">
@@ -328,12 +407,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({
               </div>
 
               <div className="p-6 space-y-4">
-                {[
-                  { name: "Interview Reminders", description: "Get notified about upcoming sessions", enabled: true },
-                  { name: "Performance Insights", description: "Weekly progress reports", enabled: true },
-                  { name: "AI Recommendations", description: "Personalized study suggestions", enabled: true },
-                  { name: "Community Updates", description: "New content and features", enabled: false },
-                ].map((notification) => (
+                {notificationSettings.map((notification) => (
                   <div key={notification.name} className="flex items-center justify-between p-4 rounded-lg border border-white/5 hover:bg-white/5">
                     <div>
                       <h4 className="text-white font-medium text-sm">{notification.name}</h4>
@@ -407,10 +481,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({
                   <div className="border-t border-white/5 pt-6">
                     <h4 className="text-white font-medium mb-4 text-sm">Active Sessions</h4>
                     <div className="space-y-3">
-                      {[
-                        { device: "MacBook Pro", location: "San Francisco", lastActive: "Active now", current: true },
-                        { device: "iPhone 14", location: "San Francisco", lastActive: "2 hours ago", current: false },
-                      ].map((session, index) => (
+                      {sessions.map((session, index) => (
                         <div key={index} className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg">
                           <div className="flex items-center gap-3">
                             <Monitor className="h-5 w-5 text-slate-400" />
@@ -455,11 +526,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({
                 <div>
                   <label className="text-sm text-slate-400 mb-3 block">Theme</label>
                   <div className="grid grid-cols-3 gap-3">
-                    {[
-                      { value: "light", label: "Light", icon: Sun },
-                      { value: "dark", label: "Dark", icon: Moon },
-                      { value: "auto", label: "Auto", icon: Monitor },
-                    ].map((theme) => (
+                    {themeOptions.map((theme) => (
                       <button
                         key={theme.value}
                         onClick={() => toast.success(`Theme: ${theme.label}`)}
@@ -474,10 +541,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({
 
                 {/* Options */}
                 <div className="space-y-4">
-                  {[
-                    { key: "animations", label: "Animations", description: "Enable smooth transitions" },
-                    { key: "soundEffects", label: "Sound Effects", description: "Play notification sounds" },
-                  ].map((setting) => (
+                  {appearanceSettings.map((setting) => (
                     <div key={setting.key} className="flex items-center justify-between p-4 rounded-lg border border-white/5">
                       <div>
                         <h4 className="text-white font-medium text-sm">{setting.label}</h4>
@@ -517,11 +581,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({
               <div className="p-6 space-y-6">
                 {/* System Settings */}
                 <div className="space-y-4">
-                  {[
-                    { key: "autoSave", label: "Auto-save Progress", description: "Automatically save progress", defaultChecked: true },
-                    { key: "practiceReminders", label: "Practice Reminders", description: "Daily practice notifications", defaultChecked: true },
-                    { key: "dataBackup", label: "Data Backup", description: "Cloud backup enabled", defaultChecked: true },
-                  ].map((setting) => (
+                  {preferenceSettings.map((setting) => (
                     <div key={setting.key} className="flex items-center justify-between p-4 rounded-lg border border-white/5">
                       <div>
                         <h5 className="text-white font-medium text-sm">{setting.label}</h5>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Video,
@@ -66,8 +65,6 @@ const InterviewDetailsClient = ({
   feedbackId,
   type = "interview"
 }: InterviewDetailsClientProps) => {
-  const router = useRouter();
-
   const [currentView, setCurrentView] = useState<"waiting" | "interview">("waiting");
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [isAudioOn, setIsAudioOn] = useState(true);
@@ -120,7 +117,7 @@ const InterviewDetailsClient = ({
 
       } catch (error) {
         console.error("Device check error:", error);
-        if (error.name === 'NotAllowedError') {
+        if ((error as Error).name === 'NotAllowedError') {
           setDeviceStatus(prev => ({
             ...prev,
             camera: "denied",

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { auth } from '@/firebase/admin';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import type { HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 
 // Use the SAME environment variable as your generate route
 const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
@@ -12,6 +13,24 @@ if (!apiKey) {
 }
 
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
+
+// Define interfaces
+interface ConversationMessage {
+  role: string;
+  content: string;
+}
+
+interface ChatRequest {
+  message: string;
+  planId?: string;
+  conversationHistory?: ConversationMessage[];
+}
+
+interface UsageMetadata {
+  totalTokenCount?: number;
+  promptTokenCount?: number;
+  candidatesTokenCount?: number;
+}
 
 // System prompt for the AI coach
 const COACH_SYSTEM_PROMPT = `You are an expert interview preparation coach and technical mentor. Your role is to:
@@ -82,8 +101,8 @@ export async function POST(request: NextRequest) {
     try {
       decodedClaims = await auth.verifySessionCookie(session.value, true);
       console.log('✅ Session verified for user:', decodedClaims.uid);
-    } catch (error) {
-      console.error('❌ Session verification failed:', error);
+    } catch (_error) {
+      console.error('❌ Session verification failed:', _error);
       return NextResponse.json(
         { 
           success: false,
@@ -97,11 +116,11 @@ export async function POST(request: NextRequest) {
     const userId = decodedClaims.uid;
 
     // ==================== INPUT VALIDATION ====================
-    let body;
+    let body: ChatRequest;
     try {
-      body = await request.json();
-    } catch (error) {
-      console.error('❌ Invalid JSON body:', error);
+      body = await request.json() as ChatRequest;
+    } catch (_error) {
+      console.error('❌ Invalid JSON body:', _error);
       return NextResponse.json(
         { 
           success: false,
@@ -162,7 +181,7 @@ export async function POST(request: NextRequest) {
     // Build the conversation prompt
     const formattedPrompt = [
       `SYSTEM: ${COACH_SYSTEM_PROMPT}`,
-      ...recentMessages.map((msg: any) => 
+      ...recentMessages.map((msg: ConversationMessage) => 
         `${msg.role.toUpperCase()}: ${msg.content}`
       ),
       `USER: ${trimmedMessage}`
@@ -185,25 +204,25 @@ export async function POST(request: NextRequest) {
       },
       safetySettings: [
         {
-          category: 'HARM_CATEGORY_HARASSMENT',
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE',
+          category: 'HARM_CATEGORY_HARASSMENT' as HarmCategory,
+          threshold: 'BLOCK_MEDIUM_AND_ABOVE' as HarmBlockThreshold,
         },
         {
-          category: 'HARM_CATEGORY_HATE_SPEECH',
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE',
+          category: 'HARM_CATEGORY_HATE_SPEECH' as HarmCategory,
+          threshold: 'BLOCK_MEDIUM_AND_ABOVE' as HarmBlockThreshold,
         },
         {
-          category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE',
+          category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT' as HarmCategory,
+          threshold: 'BLOCK_MEDIUM_AND_ABOVE' as HarmBlockThreshold,
         },
         {
-          category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE',
+          category: 'HARM_CATEGORY_DANGEROUS_CONTENT' as HarmCategory,
+          threshold: 'BLOCK_MEDIUM_AND_ABOVE' as HarmBlockThreshold,
         },
       ],
     });
     
-    let assistantResponse: string;
+    let assistantResponse: string = '';
     let tokensUsed = 0;
     
     try {
@@ -212,8 +231,9 @@ export async function POST(request: NextRequest) {
       assistantResponse = response.text();
       
       // Get token usage if available
-      if (response.usageMetadata) {
-        tokensUsed = response.usageMetadata.totalTokenCount || 0;
+      const metadata = response.usageMetadata as UsageMetadata | undefined;
+      if (metadata) {
+        tokensUsed = metadata.totalTokenCount || 0;
       }
       
       if (!assistantResponse || assistantResponse.trim().length === 0) {
@@ -226,16 +246,17 @@ export async function POST(request: NextRequest) {
       console.log('⏱️  AI response time:', aiResponseTime, 'ms');
       console.log('🎯 Tokens used:', tokensUsed);
       
-    } catch (geminiError: any) {
+    } catch (geminiError) {
       console.error('❌ Gemini API error:', geminiError);
+      const error = geminiError as Error;
       console.error('Error details:', {
-        message: geminiError.message,
-        name: geminiError.name,
-        stack: geminiError.stack
+        message: error.message,
+        name: error.name,
+        stack: error.stack
       });
       
       // Handle specific Gemini errors
-      if (geminiError.message?.includes('quota')) {
+      if (error.message?.includes('quota')) {
         return NextResponse.json(
           { 
             success: false,
@@ -246,7 +267,7 @@ export async function POST(request: NextRequest) {
         );
       }
       
-      if (geminiError.message?.includes('API key')) {
+      if (error.message?.includes('API key')) {
         return NextResponse.json(
           { 
             success: false,
@@ -257,7 +278,7 @@ export async function POST(request: NextRequest) {
         );
       }
       
-      if (geminiError.message?.includes('safety') || geminiError.message?.includes('blocked')) {
+      if (error.message?.includes('safety') || error.message?.includes('blocked')) {
         assistantResponse = "I apologize, but I cannot respond to that message due to content safety guidelines. Please rephrase your question in a professional manner, and I'll be happy to help with your interview preparation.";
         console.log('⚠️  Safety filter triggered, using default response');
       } else {
@@ -291,14 +312,15 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json(responseData);
 
-  } catch (error: any) {
+  } catch (error) {
     const totalResponseTime = Date.now() - requestStartTime;
+    const err = error as Error;
     
-    console.error('❌ Unexpected error in chat API:', error);
+    console.error('❌ Unexpected error in chat API:', err);
     console.error('Error details:', {
-      message: error.message,
-      name: error.name,
-      stack: error.stack
+      message: err.message,
+      name: err.name,
+      stack: err.stack
     });
     
     return NextResponse.json(
@@ -306,7 +328,7 @@ export async function POST(request: NextRequest) {
         success: false,
         error: 'Failed to process chat message',
         code: 'INTERNAL_ERROR',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        details: process.env.NODE_ENV === 'development' ? err.message : undefined,
         responseTime: totalResponseTime
       },
       { status: 500 }
@@ -318,7 +340,7 @@ export async function POST(request: NextRequest) {
  * GET handler for health check
  * Endpoint: GET /api/planner/chat
  */
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     // Check if Gemini API key is configured
     if (!apiKey) {
@@ -353,7 +375,7 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString()
     });
     
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json(
       { 
         status: 'error',

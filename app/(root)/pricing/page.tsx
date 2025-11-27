@@ -9,6 +9,7 @@ import {
   useElements,
   PaymentRequestButtonElement,
 } from "@stripe/react-stripe-js";
+import type { PaymentRequest } from "@stripe/stripe-js";
 
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
@@ -117,7 +118,7 @@ function PaymentRequestButton({
   onError: (error: string) => void;
 }) {
   const stripe = useStripe();
-  const [paymentRequest, setPaymentRequest] = useState<any>(null);
+  const [paymentRequest, setPaymentRequest] = useState<PaymentRequest | null>(null);
   const [canMakePayment, setCanMakePayment] = useState(false);
 
   const plan = pricingPlans.find((p) => p.id === planId);
@@ -164,8 +165,8 @@ function PaymentRequestButton({
         });
 
         if (!response.ok) throw new Error("Failed to create subscription");
-        const { clientSecret, error } = await response.json();
-        if (error) throw new Error(error);
+        const { clientSecret, error: apiError } = await response.json();
+        if (apiError) throw new Error(apiError);
 
         const { error: stripeError } = await stripe.confirmCardPayment(
           clientSecret,
@@ -179,9 +180,9 @@ function PaymentRequestButton({
 
         ev.complete("success");
         onSuccess();
-      } catch (error) {
+      } catch (err) {
         ev.complete("fail");
-        onError(error instanceof Error ? error.message : "Payment failed");
+        onError(err instanceof Error ? err.message : "Payment failed");
       }
     });
   }, [stripe, plan, finalPrice, billingCycle, user, onSuccess, onError]);
@@ -229,7 +230,7 @@ function StripeCheckoutForm({
   billingCycle: "monthly" | "yearly";
   user: User;
   onSuccess: () => void;
-  onError: (error: string) => void;
+  onError: (errorMsg: string) => void;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -256,8 +257,8 @@ function StripeCheckoutForm({
       });
 
       if (!response.ok) throw new Error("Failed to create subscription");
-      const { clientSecret, error } = await response.json();
-      if (error) throw new Error(error);
+      const { clientSecret, error: apiError } = await response.json();
+      if (apiError) throw new Error(apiError);
 
       const cardElement = elements.getElement(CardElement);
       if (!cardElement) throw new Error("Card element not found");
@@ -274,8 +275,8 @@ function StripeCheckoutForm({
 
       if (stripeError) throw new Error(stripeError.message);
       onSuccess();
-    } catch (error) {
-      onError(error instanceof Error ? error.message : "Payment failed");
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Payment failed");
     } finally {
       setLoading(false);
     }
@@ -340,8 +341,8 @@ const getUserData = async (): Promise<User | null> => {
     }
 
     return await response.json();
-  } catch (error) {
-    console.error("Error fetching user data:", error);
+  } catch (err) {
+    console.error("Error fetching user data:", err);
     return null;
   }
 };
@@ -361,8 +362,8 @@ export default function SubscriptionPage() {
       try {
         const userData = await getUserData();
         if (userData) setUser(userData);
-      } catch (error) {
-        console.error("Failed to load user data:", error);
+      } catch (err) {
+        console.error("Failed to load user data:", err);
       } finally {
         setIsLoading(false);
       }
@@ -414,7 +415,7 @@ export default function SubscriptionPage() {
       } else {
         setTimeout(() => window.location.reload(), 2000);
       }
-    } catch (error) {
+    } catch (err) {
       setTimeout(() => window.location.reload(), 2000);
     }
 
@@ -422,8 +423,8 @@ export default function SubscriptionPage() {
     setSelectedPlan(null);
   };
 
-  const handlePaymentError = (error: string) => {
-    alert(`Payment failed: ${error}`);
+  const handlePaymentError = (errorMsg: string) => {
+    alert(`Payment failed: ${errorMsg}`);
   };
 
   const handleManageBilling = async () => {
@@ -446,7 +447,7 @@ export default function SubscriptionPage() {
       const { url } = await response.json();
       if (url) window.location.href = url;
       else throw new Error("No portal URL returned");
-    } catch (error) {
+    } catch (err) {
       alert("Failed to open billing portal");
     }
   };
@@ -593,7 +594,7 @@ export default function SubscriptionPage() {
                 {/* Features */}
                 <div>
                   <h4 className="text-gray-900 dark:text-white font-medium mb-3">
-                    What's included:
+                    What&apos;s included:
                   </h4>
                   <ul className="space-y-2">
                     {plan?.features.map((feature, index) => (

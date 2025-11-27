@@ -2,7 +2,7 @@
 
 // components/FileUploader.tsx
 import { useState, useCallback } from 'react';
-import { useDropzone } from 'react-dropzone';
+import { useDropzone, FileRejection, DropzoneOptions } from 'react-dropzone';
 
 interface FileUploaderProps {
   onFileSelect?: (file: File | null) => void;
@@ -21,7 +21,7 @@ const formatSize = (bytes: number): string => {
 export default function FileUploader({ onFileSelect }: FileUploaderProps) {
   const [dragError, setDragError] = useState<string>('');
 
-  const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: any[]) => {
+  const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: FileRejection[]) => {
     setDragError('');
     
     if (rejectedFiles.length > 0) {
@@ -42,12 +42,14 @@ export default function FileUploader({ onFileSelect }: FileUploaderProps) {
 
   const maxFileSize = 20 * 1024 * 1024; // 20MB in bytes
 
-  const { getRootProps, getInputProps, isDragActive, acceptedFiles, isDragReject } = useDropzone({
+  const dropzoneOptions: DropzoneOptions = {
     onDrop,
     multiple: false,
     accept: { 'application/pdf': ['.pdf'] },
     maxSize: maxFileSize,
-  });
+  };
+
+  const { getRootProps, getInputProps, isDragActive, acceptedFiles, isDragReject } = useDropzone(dropzoneOptions);
 
   const file = acceptedFiles[0] || null;
 

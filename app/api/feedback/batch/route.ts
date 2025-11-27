@@ -2,9 +2,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getFeedbackByInterviewId } from "@/lib/actions/general.action";
 
+// Define interfaces
+interface Interview {
+  id: string;
+  [key: string]: unknown;
+}
+
+interface InterviewWithFeedback extends Interview {
+  feedback?: unknown;
+  score: number;
+}
+
+interface BatchFeedbackRequest {
+  interviews: Interview[];
+  userId: string;
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { interviews, userId } = await request.json();
+    const body = await request.json() as BatchFeedbackRequest;
+    const { interviews, userId } = body;
 
     if (!interviews || !userId) {
       return NextResponse.json(
@@ -14,7 +31,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch feedback for all interviews
-    const feedbackPromises = interviews.map(async (interview: any) => {
+    const feedbackPromises = interviews.map(async (interview: Interview): Promise<InterviewWithFeedback> => {
       try {
         const feedback = await getFeedbackByInterviewId({
           interviewId: interview.id,
@@ -23,9 +40,9 @@ export async function POST(request: NextRequest) {
         return {
           ...interview,
           feedback: feedback,
-          score: feedback?.totalScore || 0,
+          score: (feedback as { totalScore?: number })?.totalScore || 0,
         };
-      } catch (error) {
+      } catch (_error) {
         return { ...interview, score: 0 };
       }
     });
@@ -33,8 +50,8 @@ export async function POST(request: NextRequest) {
     const interviewsWithFeedback = await Promise.all(feedbackPromises);
 
     return NextResponse.json({ interviews: interviewsWithFeedback });
-  } catch (error) {
-    console.error("Error fetching batch feedback:", error);
+  } catch (_error) {
+    console.error("Error fetching batch feedback:", _error);
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 }

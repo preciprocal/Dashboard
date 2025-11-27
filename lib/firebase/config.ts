@@ -1,22 +1,37 @@
 // lib/firebase/config.ts
-// Client-side Firebase configuration
-export { auth, db } from '@/firebase/client'; // Adjust path to your client config file
+import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
+import { getAuth, Auth } from 'firebase/auth';
+import { getFirestore, Firestore } from 'firebase/firestore';
+import { getStorage, FirebaseStorage } from 'firebase/storage';
 
-// Add storage for resume file uploads
-import { getStorage } from 'firebase/storage';
-import { getApp } from 'firebase/app';
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+};
 
-let storage: any;
-try {
-  storage = getStorage(getApp());
-} catch (error) {
-  console.error('Error initializing Firebase Storage:', error);
-  // Make sure you have added getStorage to your firebase/clients.ts:
-  // import { getStorage } from 'firebase/storage';
-  // export const storage = getStorage(app);
+// Initialize Firebase
+let app: FirebaseApp;
+let auth: Auth;
+let db: Firestore;
+let storage: FirebaseStorage;
+
+if (typeof window !== 'undefined') {
+  // Client-side initialization
+  app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+  storage = getStorage(app);
+} else {
+  // Server-side - initialize but some features may not work
+  app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+  storage = getStorage(app);
 }
 
-export { storage };
-
-// Note: Admin SDK should only be imported in API routes, not here
-// The admin imports will be handled in the API route files
+export { app, auth, db, storage };

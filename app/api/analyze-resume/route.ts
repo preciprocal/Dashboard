@@ -64,6 +64,31 @@ const resumeFixSchema = z.object({
   }))
 });
 
+// Define request interfaces
+interface GenerateFixesRequest {
+  action: 'generateFixes';
+  resumeContent: string;
+  jobDescription?: string;
+  feedback?: z.infer<typeof resumeFeedbackSchema>;
+}
+
+interface RegenerateFixRequest {
+  action: 'regenerateFix';
+  originalFix: {
+    id: string;
+    category: string;
+    issue: string;
+    originalText: string;
+    improvedText: string;
+    explanation: string;
+    priority: string;
+    impact: string;
+  };
+  resumeContent: string;
+}
+
+type RequestData = GenerateFixesRequest | RegenerateFixRequest;
+
 export async function GET() {
   const envTest = {
     hasGoogleAI: !!process.env.GOOGLE_GENERATIVE_AI_API_KEY,
@@ -95,7 +120,7 @@ export async function POST(request: NextRequest) {
       return await handleResumeAnalysis(request);
     } else {
       // Resume fixes generation or regeneration request
-      const requestData = await request.json();
+      const requestData = await request.json() as RequestData;
       
       if (requestData.action === 'generateFixes') {
         return await handleGenerateResumeFixes(requestData);
@@ -302,7 +327,7 @@ Provide exactly 4-5 tips per category with honest scoring. Be specific and actio
   }
 }
 
-async function handleGenerateResumeFixes(requestData: any) {
+async function handleGenerateResumeFixes(requestData: GenerateFixesRequest) {
   const { resumeContent, jobDescription, feedback } = requestData;
 
   if (!resumeContent) {
@@ -450,7 +475,7 @@ Analyze the resume content and provide 10-15 of the most impactful fixes.
   }
 }
 
-async function handleRegenerateSpecificFix(requestData: any) {
+async function handleRegenerateSpecificFix(requestData: RegenerateFixRequest) {
   const { originalFix, resumeContent } = requestData;
 
   if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
@@ -503,7 +528,11 @@ Make it meaningfully different while solving the same underlying issue.
       throw new Error('No valid JSON in AI response');
     }
 
-    const alternative = JSON.parse(jsonMatch[0]);
+    const alternative = JSON.parse(jsonMatch[0]) as {
+      improvedText: string;
+      explanation: string;
+      impact?: string;
+    };
     
     console.log('✅ Fix regenerated with alternative approach');
     
@@ -531,34 +560,34 @@ Make it meaningfully different while solving the same underlying issue.
   }
 }
 
-function processAnalysisObject(object: any) {
+function processAnalysisObject(object: z.infer<typeof resumeFeedbackSchema>) {
   // Ensure all tips have explanations where expected
   const processedObject = {
     ...object,
     toneAndStyle: {
       ...object.toneAndStyle,
-      tips: object.toneAndStyle.tips.map((tip: any) => ({
+      tips: object.toneAndStyle.tips.map((tip) => ({
         ...tip,
         explanation: tip.explanation || `${tip.tip} - Professional analysis recommendation.`
       }))
     },
     content: {
       ...object.content,
-      tips: object.content.tips.map((tip: any) => ({
+      tips: object.content.tips.map((tip) => ({
         ...tip,
         explanation: tip.explanation || `${tip.tip} - Content improvement suggestion.`
       }))
     },
     structure: {
       ...object.structure,
-      tips: object.structure.tips.map((tip: any) => ({
+      tips: object.structure.tips.map((tip) => ({
         ...tip,
         explanation: tip.explanation || `${tip.tip} - Structure enhancement recommendation.`
       }))
     },
     skills: {
       ...object.skills,
-      tips: object.skills.tips.map((tip: any) => ({
+      tips: object.skills.tips.map((tip) => ({
         ...tip,
         explanation: tip.explanation || `${tip.tip} - Skills optimization advice.`
       }))
@@ -716,7 +745,7 @@ function createDetailedMockAnalysis(jobTitle: string, jobDescription: string) {
   };
 }
 
-function generateMockExtractedText(jobTitle: string, jobDescription: string): string {
+function generateMockExtractedText(jobTitle: string, _jobDescription: string): string {
   return `NEERAJ KOLANER
 Software Engineer | neeraj.k@gmail.com | (617) 555-0123 | LinkedIn: linkedin.com/in/neerajkolaner
 
@@ -737,49 +766,69 @@ Development: RESTful APIs, Microservices, Agile Development, CI/CD
 
 PROFESSIONAL EXPERIENCE
 Software Engineering Intern | ABC Tech Solutions, Boston, MA | June 2023 - Present
-• Developed and maintained web applications using React and Node.js
-• Collaborated with cross-functional teams to deliver features ahead of schedule
-• Implemented RESTful APIs for data processing and user management
-• Optimized database queries resulting in 30% performance improvement
-• Participated in code reviews and maintained high code quality standards
+- Developed and maintained web applications using React and Node.js
+- Collaborated with cross-functional teams to deliver features ahead of schedule
+- Implemented RESTful APIs for data processing and user management
+- Optimized database queries resulting in 30% performance improvement
+- Participated in code reviews and maintained high code quality standards
 
 Logistics & Operations Assistant | XYZ Development Services, Boston, MA | Feb 2023 - June 2023
-• Managed inventory tracking systems and coordinated supply chain operations
-• Developed automated reporting tools using Python for operational efficiency
-• Analyzed data trends and provided insights for process improvement
-• Supported project management activities for construction projects
+- Managed inventory tracking systems and coordinated supply chain operations
+- Developed automated reporting tools using Python for operational efficiency
+- Analyzed data trends and provided insights for process improvement
+- Supported project management activities for construction projects
 
 PROJECTS
 E-commerce Web Application | Personal Project | Mar 2023 - May 2023
-• Built full-stack e-commerce platform using MERN stack
-• Implemented user authentication, payment processing, and inventory management
-• Deployed on AWS with CI/CD pipeline using GitHub Actions
-• Achieved 99.9% uptime with responsive design for mobile and desktop
+- Built full-stack e-commerce platform using MERN stack
+- Implemented user authentication, payment processing, and inventory management
+- Deployed on AWS with CI/CD pipeline using GitHub Actions
+- Achieved 99.9% uptime with responsive design for mobile and desktop
 
 Task Management System | University Project | Jan 2023 - Mar 2023
-• Designed and developed collaborative task management application
-• Used React frontend with Node.js backend and PostgreSQL database
-• Implemented real-time updates using WebSocket technology
-• Led team of 4 developers using Agile methodologies
+- Designed and developed collaborative task management application
+- Used React frontend with Node.js backend and PostgreSQL database
+- Implemented real-time updates using WebSocket technology
+- Led team of 4 developers using Agile methodologies
 
 RELEVANT COURSEWORK & CERTIFICATIONS
-• Data Structures and Algorithms (Advanced)
-• Database Design and Management
-• Software Engineering Principles
-• Web Development Technologies
-• Cloud Computing Fundamentals
-• AWS Cloud Practitioner Certification (In Progress)
+- Data Structures and Algorithms (Advanced)
+- Database Design and Management
+- Software Engineering Principles
+- Web Development Technologies
+- Cloud Computing Fundamentals
+- AWS Cloud Practitioner Certification (In Progress)
 
 ACHIEVEMENTS
-• Dean's List recognition for academic excellence (Fall 2022, Spring 2023)
-• Hackathon Winner - "Best Technical Innovation" at TechFest 2023
-• Active member of Computer Science Student Association
-• Volunteer tutor for introductory programming courses`;
+- Dean's List recognition for academic excellence (Fall 2022, Spring 2023)
+- Hackathon Winner - "Best Technical Innovation" at TechFest 2023
+- Active member of Computer Science Student Association
+- Volunteer tutor for introductory programming courses`;
 }
 
-function generateMockFixes(resumeContent: string, jobDescription?: string): any[] {
+function generateMockFixes(resumeContent: string, jobDescription?: string): Array<{
+  id: string;
+  category: string;
+  issue: string;
+  originalText: string;
+  improvedText: string;
+  explanation: string;
+  priority: string;
+  impact: string;
+  location?: string;
+}> {
   // Generate realistic mock fixes based on the content
-  const fixes = [];
+  const fixes: Array<{
+    id: string;
+    category: string;
+    issue: string;
+    originalText: string;
+    improvedText: string;
+    explanation: string;
+    priority: string;
+    impact: string;
+    location?: string;
+  }> = [];
   
   if (resumeContent.includes('responsible for')) {
     fixes.push({
@@ -818,6 +867,20 @@ function generateMockFixes(resumeContent: string, jobDescription?: string): any[
       explanation: 'Professional email addresses using your name create better first impressions with hiring managers',
       priority: 'medium',
       impact: 'Prevents automatic filtering by recruiters'
+    });
+  }
+
+  // Add a default fix if none were generated
+  if (fixes.length === 0) {
+    fixes.push({
+      id: 'general-improvement-1',
+      category: 'Content Enhancement',
+      issue: 'Generic descriptions lack specific impact',
+      originalText: 'Worked on various projects',
+      improvedText: 'Led development of 5 high-priority projects, resulting in 30% efficiency improvement',
+      explanation: 'Specific numbers and outcomes demonstrate tangible value and measurable contributions',
+      priority: 'high',
+      impact: 'Increases resume impact and memorability'
     });
   }
 

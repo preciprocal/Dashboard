@@ -14,9 +14,29 @@ import {
   Filter,
 } from "lucide-react";
 
+interface Interview {
+  id: string;
+  type: string;
+  status?: string;
+  score?: number;
+  createdAt: Date | string;
+  feedback?: Record<string, unknown>;
+}
+
+interface Stats {
+  averageScore?: number;
+}
+
 interface ProfileInterviewsProps {
-  interviews: any[];
-  stats: any;
+  interviews: Interview[];
+  stats: Stats;
+}
+
+interface StatConfig {
+  icon: React.ElementType;
+  value: number | string;
+  label: string;
+  color: string;
 }
 
 const ProfileInterviews: React.FC<ProfileInterviewsProps> = ({
@@ -77,6 +97,38 @@ const ProfileInterviews: React.FC<ProfileInterviewsProps> = ({
       : null;
   const averageScore = stats?.averageScore || 0;
 
+  const statsConfig: StatConfig[] = [
+    {
+      icon: FileText,
+      value: totalInterviews,
+      label: "Total Interviews",
+      color: "blue",
+    },
+    {
+      icon: TrendingUp,
+      value: thisMonthInterviews,
+      label: "This Month",
+      color: "emerald",
+    },
+    {
+      icon: Calendar,
+      value: lastInterviewDate
+        ? lastInterviewDate.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          })
+        : "N/A",
+      label: "Last Interview",
+      color: "purple",
+    },
+    {
+      icon: Award,
+      value: averageScore,
+      label: "Average Score",
+      color: "amber",
+    },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -113,37 +165,7 @@ const ProfileInterviews: React.FC<ProfileInterviewsProps> = ({
       {/* Key Metrics */}
       {hasInterviews && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            {
-              icon: FileText,
-              value: totalInterviews,
-              label: "Total Interviews",
-              color: "blue",
-            },
-            {
-              icon: TrendingUp,
-              value: thisMonthInterviews,
-              label: "This Month",
-              color: "emerald",
-            },
-            {
-              icon: Calendar,
-              value: lastInterviewDate
-                ? lastInterviewDate.toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                  })
-                : "N/A",
-              label: "Last Interview",
-              color: "purple",
-            },
-            {
-              icon: Award,
-              value: averageScore,
-              label: "Average Score",
-              color: "amber",
-            },
-          ].map((stat, index) => (
+          {statsConfig.map((stat, index) => (
             <div key={index} className="glass-card hover-lift">
               <div className="p-5">
                 <div className="flex items-center justify-between mb-3">

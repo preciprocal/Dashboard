@@ -1,7 +1,7 @@
 // app/planner/[id]/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/firebase/client';
@@ -37,18 +37,7 @@ export default function PlanDetailPage() {
   const [loadingPlan, setLoadingPlan] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/sign-in');
-      return;
-    }
-
-    if (user && params.id) {
-      loadPlan();
-    }
-  }, [user, loading, params.id]);
-
-  const loadPlan = async () => {
+  const loadPlan = useCallback(async () => {
     if (!params.id || typeof params.id !== 'string') return;
     
     try {
@@ -72,7 +61,18 @@ export default function PlanDetailPage() {
     } finally {
       setLoadingPlan(false);
     }
-  };
+  }, [params.id, router, user?.uid]);
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/sign-in');
+      return;
+    }
+
+    if (user && params.id) {
+      loadPlan();
+    }
+  }, [user, loading, params.id, router, loadPlan]);
 
   const handleTaskUpdate = async (taskId: string, newStatus: 'todo' | 'in-progress' | 'done') => {
     if (!plan) return;

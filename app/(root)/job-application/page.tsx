@@ -1,17 +1,45 @@
 // app/job-application/page.tsx
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/firebase/client';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import { 
-  FileText, Briefcase, Building2, Sparkles, Download, 
+  FileText, Briefcase, Sparkles, Download, 
   Upload, CheckCircle2, Loader2, AlertCircle, ArrowRight,
-  Wand2, Copy, Check, RefreshCw, Eye, ArrowLeft, MessageSquare,
+  Wand2, Copy, Check, RefreshCw, ArrowLeft,
   Send, Bot, User as UserIcon, Lightbulb, Zap
 } from 'lucide-react';
+
+interface ExtractedData {
+  jobTitle: string;
+  companyName: string;
+  companyType: string;
+  techStack: string[];
+  requiredSkills: string[];
+  location: string;
+  experienceLevel: string;
+  keyResponsibilities: string[];
+  companyInfo: string;
+}
+
+interface Resume {
+  id: string;
+  jobTitle: string;
+  companyName: string;
+  score: number;
+  createdAt: string;
+  deleted?: boolean;
+  status?: string;
+}
+
+interface CustomizationMessage {
+  type: 'user' | 'ai';
+  message: string;
+  timestamp: Date;
+}
 
 export default function JobApplicationPage() {
   const router = useRouter();
@@ -22,7 +50,7 @@ export default function JobApplicationPage() {
   
   // Job Description Input
   const [jobDescription, setJobDescription] = useState('');
-  const [extractedData, setExtractedData] = useState({
+  const [extractedData, setExtractedData] = useState<ExtractedData>({
     jobTitle: '',
     companyName: '',
     companyType: '',
@@ -35,10 +63,10 @@ export default function JobApplicationPage() {
   });
   
   // Resume State
-  const [selectedResume, setSelectedResume] = useState<any>(null);
-  const [availableResumes, setAvailableResumes] = useState([]);
+  const [selectedResume, setSelectedResume] = useState<Resume | null>(null);
+  const [availableResumes, setAvailableResumes] = useState<Resume[]>([]);
   const [tailoredResume, setTailoredResume] = useState('');
-  const [resumeChanges, setResumeChanges] = useState([]);
+  const [resumeChanges, setResumeChanges] = useState<string[]>([]);
   
   // Cover Letter State
   const [coverLetter, setCoverLetter] = useState('');
@@ -60,12 +88,30 @@ export default function JobApplicationPage() {
   const [customizingDocument, setCustomizingDocument] = useState<'resume' | 'coverLetter' | null>(null);
   const [customizationPrompt, setCustomizationPrompt] = useState('');
   const [isCustomizing, setIsCustomizing] = useState(false);
-  const [customizationHistory, setCustomizationHistory] = useState<Array<{
-    type: 'user' | 'ai';
-    message: string;
-    timestamp: Date;
-  }>>([]);
+  const [customizationHistory, setCustomizationHistory] = useState<CustomizationMessage[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Load user's resumes on mount
+  const loadUserResumes = useCallback(async () => {
+    try {
+      const idToken = await user?.getIdToken();
+      const response = await fetch('/api/resume', {
+        headers: {
+          'Authorization': `Bearer ${idToken}`
+        }
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        const validResumes = data.data.filter((r: Resume) => 
+          !r.deleted && r.status === 'complete' && r.score
+        );
+        setAvailableResumes(validResumes);
+      }
+    } catch (err) {
+      console.error('Error loading resumes:', err);
+    }
+  }, [user]);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -79,33 +125,12 @@ export default function JobApplicationPage() {
     if (user) {
       loadUserResumes();
     }
-  }, [user]);
+  }, [user, loadUserResumes]);
 
   // Auto-scroll chat
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [customizationHistory]);
-
-  const loadUserResumes = async () => {
-    try {
-      const idToken = await user?.getIdToken();
-      const response = await fetch('/api/resume', {
-        headers: {
-          'Authorization': `Bearer ${idToken}`
-        }
-      });
-      const data = await response.json();
-      
-      if (data.success) {
-        const validResumes = data.data.filter((r: any) => 
-          !r.deleted && r.status === 'complete' && r.score
-        );
-        setAvailableResumes(validResumes);
-      }
-    } catch (err) {
-      console.error('Error loading resumes:', err);
-    }
-  };
 
   const extractJobDetails = async () => {
     if (!jobDescription.trim()) {
@@ -136,8 +161,9 @@ export default function JobApplicationPage() {
       setExtractedData(data.extracted);
       setProgress(prev => ({ ...prev, extraction: true }));
       setStep(2);
-    } catch (err: any) {
-      setError(err.message || 'Failed to extract job details');
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('Failed to extract job details');
+      setError(error.message);
     } finally {
       setIsProcessing(false);
     }
@@ -194,8 +220,9 @@ export default function JobApplicationPage() {
       setProgress(prev => ({ ...prev, coverLetterGeneration: true }));
       
       setStep(3);
-    } catch (err: any) {
-      setError(err.message || 'Failed to generate application documents');
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('Failed to generate application documents');
+      setError(error.message);
     } finally {
       setIsProcessing(false);
     }
@@ -247,10 +274,11 @@ export default function JobApplicationPage() {
         timestamp: new Date()
       }]);
 
-    } catch (err: any) {
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('Failed to apply changes');
       setCustomizationHistory(prev => [...prev, {
         type: 'ai',
-        message: `Error: ${err.message || 'Failed to apply changes'}`,
+        message: `Error: ${error.message}`,
         timestamp: new Date()
       }]);
     } finally {
@@ -420,10 +448,10 @@ export default function JobApplicationPage() {
               value={jobDescription}
               onChange={(e) => setJobDescription(e.target.value)}
               placeholder="Paste the complete job description here including:
-• Job title and company name
-• Required skills and technologies  
-• Responsibilities and qualifications
-• Company information (optional)
+- Job title and company name
+- Required skills and technologies  
+- Responsibilities and qualifications
+- Company information (optional)
 
 Example:
 Software Engineer at TechCorp
@@ -545,7 +573,7 @@ Required: React, Node.js, Python, AWS..."
                 </div>
               ) : (
                 <div className="grid gap-3">
-                  {availableResumes.map((resume: any) => (
+                  {availableResumes.map((resume: Resume) => (
                     <button
                       key={resume.id}
                       onClick={() => setSelectedResume(resume)}

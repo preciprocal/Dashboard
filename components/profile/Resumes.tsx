@@ -13,18 +13,24 @@ import { FileText, Upload, Filter, LayoutGrid, List, X } from 'lucide-react';
 type SortOption = 'all' | 'high-scores' | 'needs-improvement' | 'recent';
 type ViewMode = 'grid' | 'list';
 
-interface ResumesProps {
-  user?: any;
-  loading?: boolean;
+interface ResumeTip {
+  type: 'good' | 'improve';
+  message: string;
 }
 
-export default function Resumes({ user: propUser, loading = false }: ResumesProps) {
+interface ResumeStats {
+  averageScore: number;
+  totalResumes: number;
+  improvementTips: number;
+}
+
+export default function Resumes() {
   const [user, userLoading] = useAuthState(auth);
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [loadingResumes, setLoadingResumes] = useState(true);
   const [sortFilter, setSortFilter] = useState<SortOption>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<ResumeStats>({
     averageScore: 0,
     totalResumes: 0,
     improvementTips: 0
@@ -44,13 +50,15 @@ export default function Resumes({ user: propUser, loading = false }: ResumesProp
           const totalTips = userResumes.reduce((sum, resume) => {
             if (!resume.feedback) return sum;
             
-            return sum + [
+            const allTips: ResumeTip[] = [
               ...(resume.feedback.ATS?.tips || []),
               ...(resume.feedback.content?.tips || []),
               ...(resume.feedback.structure?.tips || []),
               ...(resume.feedback.skills?.tips || []),
               ...(resume.feedback.toneAndStyle?.tips || [])
-            ].filter(tip => tip?.type === 'improve').length;
+            ];
+            
+            return sum + allTips.filter(tip => tip?.type === 'improve').length;
           }, 0);
           
           setStats({
@@ -99,7 +107,7 @@ export default function Resumes({ user: propUser, loading = false }: ResumesProp
     return filtered;
   }, [resumes, sortFilter]);
 
-  const getSortLabel = (option: SortOption) => {
+  const getSortLabel = (option: SortOption): string => {
     const labels: Record<SortOption, string> = {
       'all': 'All Resumes',
       'high-scores': 'High Scores (90+)',
@@ -109,7 +117,7 @@ export default function Resumes({ user: propUser, loading = false }: ResumesProp
     return labels[option];
   };
 
-  const getFilterCount = (option: SortOption) => {
+  const getFilterCount = (option: SortOption): number => {
     switch (option) {
       case 'high-scores':
         return resumes.filter(resume => (resume.feedback?.overallScore || 0) >= 90).length;
@@ -167,6 +175,57 @@ export default function Resumes({ user: propUser, loading = false }: ResumesProp
         </div>
       </div>
 
+      {/* Stats Overview */}
+      {resumes.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="glass-card hover-lift">
+            <div className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                  <FileText className="w-5 h-5 text-blue-400" />
+                </div>
+                <span className="text-2xl font-semibold text-white">
+                  {stats.totalResumes}
+                </span>
+              </div>
+              <p className="text-sm text-slate-400">Total Resumes</p>
+            </div>
+          </div>
+
+          <div className="glass-card hover-lift">
+            <div className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <span className="text-2xl font-semibold text-white">
+                  {stats.averageScore}%
+                </span>
+              </div>
+              <p className="text-sm text-slate-400">Average Score</p>
+            </div>
+          </div>
+
+          <div className="glass-card hover-lift">
+            <div className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 bg-amber-500/10 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                  </svg>
+                </div>
+                <span className="text-2xl font-semibold text-white">
+                  {stats.improvementTips}
+                </span>
+              </div>
+              <p className="text-sm text-slate-400">Improvement Tips</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       {resumes.length > 0 ? (
         <div className="space-y-6">
@@ -206,6 +265,7 @@ export default function Resumes({ user: propUser, loading = false }: ResumesProp
                           ? 'bg-white/10 text-white' 
                           : 'text-slate-400 hover:text-white'
                       }`}
+                      aria-label="Grid view"
                     >
                       <LayoutGrid className="w-4 h-4" />
                     </button>
@@ -216,6 +276,7 @@ export default function Resumes({ user: propUser, loading = false }: ResumesProp
                           ? 'bg-white/10 text-white' 
                           : 'text-slate-400 hover:text-white'
                       }`}
+                      aria-label="List view"
                     >
                       <List className="w-4 h-4" />
                     </button>
@@ -234,6 +295,7 @@ export default function Resumes({ user: propUser, loading = false }: ResumesProp
                 <button 
                   onClick={() => setSortFilter('all')}
                   className="ml-1 hover:bg-blue-500/20 rounded p-0.5"
+                  aria-label="Clear filter"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -252,6 +314,7 @@ export default function Resumes({ user: propUser, loading = false }: ResumesProp
                 <div
                   key={`resume-${resume.id}-${index}`}
                   className="animate-fadeIn"
+                  style={{ animationDelay: `${index * 50}ms` }}
                 >
                   <ResumeCard resume={resume} viewMode={viewMode} />
                 </div>

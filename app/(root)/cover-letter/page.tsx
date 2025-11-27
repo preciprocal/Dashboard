@@ -1,269 +1,326 @@
+// ============================================
+// FILE 2: app/cover-letter/page.tsx
+// Cover Letter Dashboard
+// ============================================
+
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { 
-  FileText, Sparkles, Download, Copy, Check, AlertCircle, 
-  Building2, Briefcase, Wand2, Loader2, 
-  Settings, CheckCircle2, XCircle, RefreshCw, ChevronDown 
-} from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth } from '@/firebase/client';
+import { auth, db } from '@/firebase/client';
+import { collection, query, where, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
+import ErrorPage from '@/components/Error';
+import { toast } from 'sonner';
+import { 
+  FileText, 
+  Sparkles, 
+  Zap, 
+  LayoutGrid, 
+  List, 
+  Filter, 
+  CheckCircle, 
+  AlertCircle, 
+  RefreshCw,
+  Plus,
+  Copy,
+  Download,
+  Trash2,
+  Eye,
+  Building2,
+  Calendar,
+  TrendingUp,
+  X
+} from 'lucide-react';
 
-export default function CoverLetterPage() {
+type SortOption = 'all' | 'recent' | 'by-company' | 'by-role';
+type ViewMode = 'grid' | 'list';
+
+interface CoverLetter {
+  id: string;
+  userId: string;
+  jobRole: string;
+  companyName?: string;
+  tone: string;
+  content: string;
+  wordCount: number;
+  createdAt: Date;
+  usedResume?: boolean;
+}
+
+interface CoverLetterStats {
+  totalLetters: number;
+  averageWordCount: number;
+  companiesApplied: number;
+  thisMonth: number;
+}
+
+interface CriticalError {
+  code: string;
+  title: string;
+  message: string;
+  details?: string;
+}
+
+export default function CoverLetterDashboard() {
   const [user, loading] = useAuthState(auth);
-  const [jobRole, setJobRole] = useState('');
-  const [jobDescription, setJobDescription] = useState('');
-  const [companyName, setCompanyName] = useState('');
-  const [tone, setTone] = useState('professional');
-  const [generatedLetter, setGeneratedLetter] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [error, setError] = useState('');
-  const [profileStatus, setProfileStatus] = useState({
-    hasProfile: false,
-    hasResume: false,
-    loading: true,
-    userName: '',
-    resumeCount: 0
+  const router = useRouter();
+  const [coverLetters, setCoverLetters] = useState<CoverLetter[]>([]);
+  const [loadingLetters, setLoadingLetters] = useState<boolean>(true);
+  const [sortFilter, setSortFilter] = useState<SortOption>('all');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [stats, setStats] = useState<CoverLetterStats>({
+    totalLetters: 0,
+    averageWordCount: 0,
+    companiesApplied: 0,
+    thisMonth: 0
   });
-  const [metadata, setMetadata] = useState<any>(null);
-  const [showDownloadMenu, setShowDownloadMenu] = useState(false);
+
+  // Error states
+  const [criticalError, setCriticalError] = useState<CriticalError | null>(null);
+  const [lettersError, setLettersError] = useState<string>('');
+  const [selectedLetter, setSelectedLetter] = useState<CoverLetter | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/sign-in');
+    }
+  }, [loading, user, router]);
 
   useEffect(() => {
     if (user) {
-      checkProfileStatus();
+      loadCoverLetters();
     }
   }, [user]);
 
-  const checkProfileStatus = async () => {
-    try {
-      setProfileStatus(prev => ({ ...prev, loading: true }));
-      
-      const profileResponse = await fetch('/api/profile');
-      const profileData = await profileResponse.json();
-      
-      if (!profileResponse.ok) {
-        throw new Error('Failed to fetch profile');
-      }
+  const loadCoverLetters = async (): Promise<void> => {
+    if (!user) return;
 
-      const { collection, query, where, getDocs, orderBy } = await import('firebase/firestore');
-      const { db } = await import('@/firebase/client');
+    try {
+      setLoadingLetters(true);
+      setLettersError('');
       
-      const resumesQuery = query(
-        collection(db, 'resumes'),
-        where('userId', '==', user?.uid),
-        orderBy('createdAt', 'desc')
+      // Query without orderBy to avoid index requirement
+      const lettersQuery = query(
+        collection(db, 'coverLetters'),
+        where('userId', '==', user.uid)
       );
       
-      const resumesSnapshot = await getDocs(resumesQuery);
-      const resumes = resumesSnapshot.docs
-        .map(doc => doc.data())
-        .filter(resume => !resume.deleted);
+      const snapshot = await getDocs(lettersQuery);
+      let letters = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate() || new Date(),
+      })) as CoverLetter[];
 
-      setProfileStatus({
-        hasProfile: !!profileData.user,
-        hasResume: resumes.length > 0,
-        loading: false,
-        userName: profileData.user?.name || '',
-        resumeCount: resumes.length
-      });
-    } catch (err) {
-      console.error('Error checking profile:', err);
-      setProfileStatus({
-        hasProfile: false,
-        hasResume: false,
-        loading: false,
-        userName: '',
-        resumeCount: 0
-      });
-    }
-  };
+      // Sort in JavaScript instead of Firestore
+      letters = letters.sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
 
-  const handleGenerate = async () => {
-    if (!jobRole.trim()) {
-      setError('Please enter a job role');
-      return;
-    }
-
-    if (!profileStatus.hasProfile && !profileStatus.hasResume) {
-      setError('Please complete your profile or upload a resume in Settings first');
-      return;
-    }
-
-    setIsGenerating(true);
-    setError('');
-    setGeneratedLetter('');
-    setMetadata(null);
-
-    try {
-      const response = await fetch('/api/cover-letter', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          jobRole: jobRole.trim(),
-          jobDescription: jobDescription.trim(),
-          companyName: companyName.trim(),
-          tone,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to generate cover letter');
+      setCoverLetters(letters);
+      
+      // Calculate stats
+      if (letters.length > 0) {
+        const avgWords = Math.round(
+          letters.reduce((sum, letter) => sum + (letter.wordCount || 0), 0) / letters.length
+        );
+        
+        const uniqueCompanies = new Set(
+          letters.filter(l => l.companyName).map(l => l.companyName)
+        ).size;
+        
+        const currentMonth = new Date().getMonth();
+        const currentYear = new Date().getFullYear();
+        const thisMonthCount = letters.filter(letter => {
+          const letterDate = new Date(letter.createdAt);
+          return letterDate.getMonth() === currentMonth && letterDate.getFullYear() === currentYear;
+        }).length;
+        
+        setStats({
+          totalLetters: letters.length,
+          averageWordCount: avgWords,
+          companiesApplied: uniqueCompanies,
+          thisMonth: thisMonthCount
+        });
       }
-
-      if (data.success && data.coverLetter) {
-        setGeneratedLetter(data.coverLetter.content);
-        setMetadata(data.metadata || null);
+    } catch (err: unknown) {
+      console.error('Error loading cover letters:', err);
+      const error = err as Error;
+      
+      if (error.message.includes('Firebase') || error.message.includes('firestore')) {
+        setCriticalError({
+          code: 'DATABASE',
+          title: 'Database Connection Error',
+          message: 'Unable to load your cover letters. Please check your internet connection.',
+          details: error.message
+        });
+      } else if (error.message.includes('fetch') || error.message.includes('network')) {
+        setCriticalError({
+          code: 'NETWORK',
+          title: 'Network Error',
+          message: 'Unable to connect to the server. Please check your internet connection.',
+          details: error.message
+        });
+      } else if (error.message.includes('permission') || error.message.includes('denied')) {
+        setLettersError('You do not have permission to view cover letters. Please contact support.');
       } else {
-        throw new Error('Invalid response format');
+        setLettersError('Failed to load cover letters. Please try again.');
       }
-    } catch (err: any) {
-      console.error('Generation error:', err);
-      setError(err.message || 'Failed to generate cover letter. Please try again.');
     } finally {
-      setIsGenerating(false);
+      setLoadingLetters(false);
     }
   };
 
-  const handleCopy = async () => {
+  const handleRetryError = (): void => {
+    setCriticalError(null);
+    setLettersError('');
+    if (user) {
+      loadCoverLetters();
+    }
+  };
+
+  const handleDelete = async (letterId: string) => {
+    if (!confirm('Are you sure you want to delete this cover letter?')) return;
+    
     try {
-      await navigator.clipboard.writeText(generatedLetter);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
+      await deleteDoc(doc(db, 'coverLetters', letterId));
+      setCoverLetters(prev => prev.filter(l => l.id !== letterId));
+      toast.success('Cover letter deleted');
+      
+      // Recalculate stats
+      const updatedLetters = coverLetters.filter(l => l.id !== letterId);
+      if (updatedLetters.length > 0) {
+        const avgWords = Math.round(
+          updatedLetters.reduce((sum, letter) => sum + (letter.wordCount || 0), 0) / updatedLetters.length
+        );
+        const uniqueCompanies = new Set(
+          updatedLetters.filter(l => l.companyName).map(l => l.companyName)
+        ).size;
+        const currentMonth = new Date().getMonth();
+        const currentYear = new Date().getFullYear();
+        const thisMonthCount = updatedLetters.filter(letter => {
+          const letterDate = new Date(letter.createdAt);
+          return letterDate.getMonth() === currentMonth && letterDate.getFullYear() === currentYear;
+        }).length;
+        
+        setStats({
+          totalLetters: updatedLetters.length,
+          averageWordCount: avgWords,
+          companiesApplied: uniqueCompanies,
+          thisMonth: thisMonthCount
+        });
+      } else {
+        setStats({
+          totalLetters: 0,
+          averageWordCount: 0,
+          companiesApplied: 0,
+          thisMonth: 0
+        });
+      }
+    } catch (error) {
+      console.error('Error deleting cover letter:', error);
+      toast.error('Failed to delete cover letter');
     }
   };
 
-  const handleDownloadTxt = () => {
+  const handleCopy = async (content: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      toast.success('Copied to clipboard!');
+    } catch (error) {
+      console.error('Failed to copy:', error);
+      toast.error('Failed to copy');
+    }
+  };
+
+  const handleDownload = (letter: CoverLetter) => {
     const element = document.createElement('a');
-    const file = new Blob([generatedLetter], { type: 'text/plain' });
+    const file = new Blob([letter.content], { type: 'text/plain' });
     element.href = URL.createObjectURL(file);
-    element.download = `cover_letter_${jobRole.replace(/\s+/g, '_')}_${Date.now()}.txt`;
+    element.download = `cover_letter_${letter.jobRole.replace(/\s+/g, '_')}_${Date.now()}.txt`;
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
-    setShowDownloadMenu(false);
+    toast.success('Downloaded!');
   };
 
-  const handleDownloadWord = async () => {
-    try {
-      const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="UTF-8">
-          <style>
-            body {
-              font-family: 'Calibri', 'Arial', sans-serif;
-              font-size: 11pt;
-              line-height: 1.5;
-              margin: 1in;
-            }
-            p {
-              margin-bottom: 12pt;
-            }
-          </style>
-        </head>
-        <body>
-          ${generatedLetter.split('\n\n').map(para => `<p>${para.replace(/\n/g, '<br>')}</p>`).join('\n')}
-        </body>
-        </html>
-      `;
-      
-      const blob = new Blob([htmlContent], { 
-        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
-      });
-      
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `cover_letter_${jobRole.replace(/\s+/g, '_')}_${Date.now()}.doc`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      
-      setShowDownloadMenu(false);
-    } catch (err) {
-      console.error('Failed to generate Word document:', err);
-      alert('Failed to generate Word document. Please try downloading as text instead.');
+  const filteredLetters = useMemo(() => {
+    let filtered = [...coverLetters];
+
+    switch (sortFilter) {
+      case 'recent':
+        filtered = filtered.sort((a, b) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        break;
+      case 'by-company':
+        filtered = filtered.sort((a, b) => 
+          (a.companyName || '').localeCompare(b.companyName || '')
+        );
+        break;
+      case 'by-role':
+        filtered = filtered.sort((a, b) => 
+          a.jobRole.localeCompare(b.jobRole)
+        );
+        break;
+      case 'all':
+      default:
+        filtered = filtered.sort((a, b) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        break;
     }
+
+    return filtered;
+  }, [coverLetters, sortFilter]);
+
+  const getFilterCount = (option: SortOption): number => {
+    return coverLetters.length;
   };
 
-  const handleDownloadPdf = async () => {
-    try {
-      const { jsPDF } = await import('jspdf');
-      
-      const doc = new jsPDF();
-      doc.setFont('helvetica');
-      doc.setFontSize(11);
-      
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const margins = 20;
-      const maxLineWidth = pageWidth - (margins * 2);
-      
-      const lines = doc.splitTextToSize(generatedLetter, maxLineWidth);
-      
-      let y = 20;
-      const lineHeight = 7;
-      const pageHeight = doc.internal.pageSize.getHeight();
-      
-      lines.forEach((line: string) => {
-        if (y + lineHeight > pageHeight - 20) {
-          doc.addPage();
-          y = 20;
-        }
-        doc.text(line, margins, y);
-        y += lineHeight;
-      });
-      
-      doc.save(`cover_letter_${jobRole.replace(/\s+/g, '_')}_${Date.now()}.pdf`);
-      
-      setShowDownloadMenu(false);
-    } catch (err) {
-      console.error('Failed to generate PDF:', err);
-      alert('Failed to generate PDF. Please try downloading as text instead.');
-    }
-  };
-
-  const handleReset = () => {
-    setJobRole('');
-    setJobDescription('');
-    setCompanyName('');
-    setTone('professional');
-    setGeneratedLetter('');
-    setError('');
-    setMetadata(null);
-  };
-
-  if (loading || profileStatus.loading) {
+  // Show critical error page
+  if (criticalError) {
     return (
-      <AnimatedLoader 
-        isVisible={true}
-        loadingText="Loading cover letter generator..."
-        onHide={() => console.log('Cover letter page loaded')}
+      <ErrorPage
+        errorCode={criticalError.code}
+        errorTitle={criticalError.title}
+        errorMessage={criticalError.message}
+        errorDetails={criticalError.details}
+        showBackButton={true}
+        showHomeButton={true}
+        showRefreshButton={true}
+        onRetry={handleRetryError}
       />
     );
   }
 
+  // Show loader
+  if (loading || loadingLetters) {
+    return (
+      <AnimatedLoader
+        isVisible={true}
+        loadingText="Loading your cover letters..."
+        showNavigation={true}
+      />
+    );
+  }
+
+  // Auth required
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="glass-card hover-lift">
-          <div className="text-center p-12">
+        <div className="glass-card-gradient hover-lift">
+          <div className="glass-card-gradient-inner text-center p-12">
             <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-white mb-2">Authentication Required</h2>
-            <p className="text-slate-400 mb-6">Please log in to use the cover letter generator</p>
+            <p className="text-slate-400 mb-6">Please log in to view your cover letters</p>
             <Link 
-              href="/login"
-              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 py-3 rounded-lg"
+              href="/sign-in"
+              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 py-3 rounded-xl"
             >
               Go to Login
             </Link>
@@ -275,388 +332,413 @@ export default function CoverLetterPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Clean Header */}
       <div className="glass-card hover-lift">
-        <div className="p-6 text-center">
-          <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-full px-4 py-2 mb-4">
-            <Sparkles className="w-4 h-4 text-blue-400" />
-            <span className="text-blue-400 text-sm font-medium">AI-Powered</span>
+        <div className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-semibold text-white mb-1">
+                Cover Letter Generator
+              </h1>
+              <p className="text-slate-400 text-sm">
+                AI-powered professional cover letters
+              </p>
+            </div>
+            
+            <Link
+              href="/cover-letter/create"
+              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-4 py-2.5 rounded-lg"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Generate New</span>
+            </Link>
           </div>
-          <h1 className="text-3xl font-semibold text-white mb-2">
-            Cover Letter Generator
-          </h1>
-          <p className="text-slate-400 text-sm max-w-2xl mx-auto">
-            Generate personalized, professional cover letters tailored to any job role
-          </p>
         </div>
       </div>
 
-      {/* Profile Status Alert */}
-      {(!profileStatus.hasProfile || !profileStatus.hasResume) && (
-        <div className="glass-card hover-lift">
-          <div className="p-5">
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-10 bg-amber-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                <AlertCircle className="w-5 h-5 text-amber-400" />
-              </div>
+      {/* Error Message */}
+      {lettersError && (
+        <div className="glass-card-gradient hover-lift animate-fade-in-up">
+          <div className="glass-card-gradient-inner">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <h3 className="text-amber-400 font-medium mb-3">Profile Setup Needed</h3>
-                <div className="space-y-2 text-sm text-slate-300 mb-4">
-                  {!profileStatus.hasProfile && (
-                    <div className="flex items-center gap-2">
-                      <XCircle className="w-4 h-4 text-red-400" />
-                      <span>Complete your profile in Settings</span>
-                    </div>
-                  )}
-                  {!profileStatus.hasResume && (
-                    <div className="flex items-center gap-2">
-                      <XCircle className="w-4 h-4 text-red-400" />
-                      <span>Upload your resume for better results</span>
-                    </div>
-                  )}
-                </div>
-                <Link 
-                  href="/profile"
+                <p className="text-red-400 text-sm mb-2">{lettersError}</p>
+                <button
+                  onClick={() => {
+                    setLettersError('');
+                    loadCoverLetters();
+                  }}
                   className="glass-button hover-lift inline-flex items-center gap-2 px-4 py-2 text-white text-sm font-medium rounded-lg"
                 >
-                  <Settings className="w-4 h-4" />
-                  Go to Profile
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Success Indicators */}
-      {profileStatus.hasProfile && profileStatus.hasResume && (
-        <div className="glass-card hover-lift">
-          <div className="p-5">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center">
-                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-              </div>
-              <div>
-                <p className="text-emerald-400 font-medium">Profile Ready</p>
-                <p className="text-slate-400 text-sm">
-                  Using data from {profileStatus.userName}'s profile 
-                  {profileStatus.resumeCount > 0 && ` and ${profileStatus.resumeCount} resume${profileStatus.resumeCount > 1 ? 's' : ''}`}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Input Section */}
-        <div className="space-y-6">
-          <div className="glass-card hover-lift">
-            <div className="p-6">
-              <h2 className="text-lg font-semibold text-white mb-5 flex items-center gap-2">
-                <div className="w-8 h-8 bg-blue-500/10 rounded-lg flex items-center justify-center">
-                  <Briefcase className="w-4 h-4 text-blue-400" />
-                </div>
-                Job Details
-              </h2>
-
-              <div className="space-y-4">
-                {/* Job Role */}
-                <div>
-                  <label className="block text-sm text-slate-400 mb-2">
-                    Job Role <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={jobRole}
-                    onChange={(e) => setJobRole(e.target.value)}
-                    placeholder="e.g., Senior Software Engineer"
-                    className="glass-input w-full px-4 py-2.5 rounded-lg text-white placeholder-slate-500 text-sm"
-                  />
-                </div>
-
-                {/* Company Name */}
-                <div>
-                  <label className="block text-sm text-slate-400 mb-2">
-                    Company Name <span className="text-slate-500">(optional)</span>
-                  </label>
-                  <div className="relative">
-                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                    <input
-                      type="text"
-                      value={companyName}
-                      onChange={(e) => setCompanyName(e.target.value)}
-                      placeholder="e.g., Google"
-                      className="glass-input w-full pl-10 pr-4 py-2.5 rounded-lg text-white placeholder-slate-500 text-sm"
-                    />
-                  </div>
-                </div>
-
-                {/* Job Description */}
-                <div>
-                  <label className="block text-sm text-slate-400 mb-2">
-                    Job Description <span className="text-slate-500">(optional)</span>
-                  </label>
-                  <textarea
-                    value={jobDescription}
-                    onChange={(e) => setJobDescription(e.target.value)}
-                    placeholder="Paste the job description here..."
-                    rows={6}
-                    className="glass-input w-full px-4 py-2.5 rounded-lg text-white placeholder-slate-500 text-sm resize-none"
-                  />
-                  <div className="flex items-center justify-between mt-2">
-                    <p className="text-xs text-slate-500">
-                      {jobDescription.length} characters
-                    </p>
-                    {jobDescription.length > 0 && (
-                      <button
-                        onClick={() => setJobDescription('')}
-                        className="text-xs text-slate-500 hover:text-slate-400"
-                      >
-                        Clear
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Tone Selection */}
-                <div>
-                  <label className="block text-sm text-slate-400 mb-2">
-                    Tone
-                  </label>
-                  <select
-                    value={tone}
-                    onChange={(e) => setTone(e.target.value)}
-                    className="glass-input w-full px-4 py-2.5 rounded-lg text-white text-sm"
-                  >
-                    <option value="professional">Professional</option>
-                    <option value="enthusiastic">Enthusiastic</option>
-                    <option value="formal">Formal</option>
-                    <option value="friendly">Friendly</option>
-                    <option value="confident">Confident</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Error Message */}
-              {error && (
-                <div className="mt-4 glass-card p-4 border border-red-500/20">
-                  <div className="flex items-start gap-3">
-                    <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                    <p className="text-red-400 text-sm">{error}</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={handleGenerate}
-                  disabled={isGenerating || !jobRole.trim()}
-                  className="flex-1 glass-button-primary hover-lift py-2.5 px-6 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
-                >
-                  {isGenerating ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 className="w-4 h-4" />
-                      Generate
-                    </>
-                  )}
+                  <RefreshCw className="w-4 h-4" />
+                  Try Again
                 </button>
-
-                {generatedLetter && (
-                  <button
-                    onClick={handleReset}
-                    className="glass-button hover-lift px-6 py-2.5 text-white rounded-lg flex items-center gap-2 text-sm"
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                    Reset
-                  </button>
-                )}
               </div>
             </div>
           </div>
         </div>
+      )}
 
-        {/* Output Section */}
+      {/* Main Content */}
+      {coverLetters.length > 0 ? (
         <div className="space-y-6">
-          <div className="glass-card hover-lift" style={{ minHeight: '600px' }}>
-            <div className="p-6 h-full">
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                  <div className="w-8 h-8 bg-purple-500/10 rounded-lg flex items-center justify-center">
-                    <FileText className="w-4 h-4 text-purple-400" />
+          
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="glass-card hover-lift">
+              <div className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-blue-400" />
                   </div>
-                  Generated Letter
-                </h2>
+                  <span className="text-2xl font-semibold text-white">{stats.totalLetters}</span>
+                </div>
+                <p className="text-sm text-slate-400">Total Letters</p>
+              </div>
+            </div>
 
-                {generatedLetter && (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleCopy}
-                      className="glass-button hover-lift p-2 rounded-lg"
-                      title="Copy"
+            <div className="glass-card hover-lift">
+              <div className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center">
+                    <Zap className="w-5 h-5 text-emerald-400" />
+                  </div>
+                  <span className="text-2xl font-semibold text-white">{stats.averageWordCount}</span>
+                </div>
+                <p className="text-sm text-slate-400">Avg Word Count</p>
+              </div>
+            </div>
+
+            <div className="glass-card hover-lift">
+              <div className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
+                    <Building2 className="w-5 h-5 text-purple-400" />
+                  </div>
+                  <span className="text-2xl font-semibold text-white">{stats.companiesApplied}</span>
+                </div>
+                <p className="text-sm text-slate-400">Companies</p>
+              </div>
+            </div>
+
+            <div className="glass-card hover-lift">
+              <div className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 bg-amber-500/10 rounded-lg flex items-center justify-center">
+                    <TrendingUp className="w-5 h-5 text-amber-400" />
+                  </div>
+                  <span className="text-2xl font-semibold text-white">{stats.thisMonth}</span>
+                </div>
+                <p className="text-sm text-slate-400">This Month</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Controls Bar */}
+          <div className="glass-card">
+            <div className="p-5">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-white">Your Cover Letters</h2>
+                  <p className="text-slate-400 text-sm mt-0.5">
+                    {filteredLetters.length} of {coverLetters.length} letters
+                  </p>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  {/* Filter Dropdown */}
+                  <div className="relative">
+                    <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+                    <select 
+                      value={sortFilter} 
+                      onChange={(e) => setSortFilter(e.target.value as SortOption)}
+                      className="glass-input pl-10 pr-4 py-2.5 rounded-lg text-white text-sm appearance-none cursor-pointer min-w-[200px]"
                     >
-                      {copied ? (
-                        <Check className="w-4 h-4 text-emerald-400" />
-                      ) : (
-                        <Copy className="w-4 h-4 text-slate-300" />
-                      )}
+                      <option value="all">All ({getFilterCount('all')})</option>
+                      <option value="recent">Recent First</option>
+                      <option value="by-company">By Company</option>
+                      <option value="by-role">By Role</option>
+                    </select>
+                  </div>
+                  
+                  {/* View Toggle */}
+                  <div className="flex bg-slate-900/50 rounded-lg p-1">
+                    <button 
+                      onClick={() => setViewMode('grid')}
+                      className={`p-2 rounded transition-all ${
+                        viewMode === 'grid' 
+                          ? 'bg-white/10 text-white' 
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                      aria-label="Grid view"
+                    >
+                      <LayoutGrid className="w-4 h-4" />
                     </button>
-                    
-                    {/* Download Dropdown */}
-                    <div className="relative">
+                    <button 
+                      onClick={() => setViewMode('list')}
+                      className={`p-2 rounded transition-all ${
+                        viewMode === 'list' 
+                          ? 'bg-white/10 text-white' 
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                      aria-label="List view"
+                    >
+                      <List className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Cover Letters Grid/List */}
+          {filteredLetters.length > 0 ? (
+            <div className={
+              viewMode === 'grid' 
+                ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6" 
+                : "space-y-4"
+            }>
+              {filteredLetters.map((letter, index) => (
+                <div
+                  key={`letter-${letter.id}-${index}`}
+                  className="glass-card hover-lift opacity-0 animate-fadeIn"
+                  style={{ animationDelay: `${index * 100}ms`, animationFillMode: 'forwards' }}
+                >
+                  <div className="p-5">
+                    {/* Header */}
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1">
+                        <h3 className="text-white font-semibold mb-1 line-clamp-1">
+                          {letter.jobRole}
+                        </h3>
+                        {letter.companyName && (
+                          <p className="text-slate-400 text-sm flex items-center gap-1">
+                            <Building2 className="w-3 h-3" />
+                            {letter.companyName}
+                          </p>
+                        )}
+                      </div>
+                      <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <FileText className="w-5 h-5 text-purple-400" />
+                      </div>
+                    </div>
+
+                    {/* Preview */}
+                    <div className="mb-4">
+                      <p className="text-slate-300 text-sm line-clamp-3">
+                        {letter.content.substring(0, 150)}...
+                      </p>
+                    </div>
+
+                    {/* Meta Info */}
+                    <div className="flex items-center gap-4 mb-4 text-xs text-slate-400">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        {new Date(letter.createdAt).toLocaleDateString()}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <FileText className="w-3 h-3" />
+                        {letter.wordCount} words
+                      </div>
+                    </div>
+
+                    {/* Tags */}
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      <span className="px-2 py-1 bg-blue-500/10 text-blue-400 rounded text-xs capitalize">
+                        {letter.tone}
+                      </span>
+                      {letter.usedResume && (
+                        <span className="px-2 py-1 bg-emerald-500/10 text-emerald-400 rounded text-xs flex items-center gap-1">
+                          <CheckCircle className="w-3 h-3" />
+                          Resume
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2">
                       <button
-                        onClick={() => setShowDownloadMenu(!showDownloadMenu)}
-                        className="glass-button hover-lift p-2 rounded-lg flex items-center gap-1"
+                        onClick={() => {
+                          setSelectedLetter(letter);
+                          setShowPreview(true);
+                        }}
+                        className="flex-1 glass-button hover-lift px-3 py-2 rounded-lg text-white text-sm flex items-center justify-center gap-2"
+                      >
+                        <Eye className="w-4 h-4" />
+                        View
+                      </button>
+                      <button
+                        onClick={() => handleCopy(letter.content)}
+                        className="glass-button hover-lift p-2 rounded-lg"
+                        title="Copy"
+                      >
+                        <Copy className="w-4 h-4 text-slate-300" />
+                      </button>
+                      <button
+                        onClick={() => handleDownload(letter)}
+                        className="glass-button hover-lift p-2 rounded-lg"
                         title="Download"
                       >
                         <Download className="w-4 h-4 text-slate-300" />
-                        <ChevronDown className="w-3 h-3 text-slate-300" />
                       </button>
-                      
-                      {showDownloadMenu && (
-                        <>
-                          <div 
-                            className="fixed inset-0 z-10" 
-                            onClick={() => setShowDownloadMenu(false)}
-                          />
-                          <div className="absolute right-0 mt-2 w-44 glass-card rounded-lg z-20 overflow-hidden border border-white/10">
-                            <button
-                              onClick={handleDownloadTxt}
-                              className="w-full px-4 py-2.5 text-left text-slate-300 hover:bg-white/5 flex items-center gap-2 text-sm"
-                            >
-                              <FileText className="w-4 h-4" />
-                              Text (.txt)
-                            </button>
-                            <button
-                              onClick={handleDownloadWord}
-                              className="w-full px-4 py-2.5 text-left text-slate-300 hover:bg-white/5 flex items-center gap-2 border-t border-white/5 text-sm"
-                            >
-                              <FileText className="w-4 h-4" />
-                              Word (.docx)
-                            </button>
-                            <button
-                              onClick={handleDownloadPdf}
-                              className="w-full px-4 py-2.5 text-left text-slate-300 hover:bg-white/5 flex items-center gap-2 border-t border-white/5 text-sm"
-                            >
-                              <FileText className="w-4 h-4" />
-                              PDF (.pdf)
-                            </button>
-                          </div>
-                        </>
-                      )}
+                      <button
+                        onClick={() => handleDelete(letter.id)}
+                        className="glass-button hover-lift p-2 rounded-lg"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-400" />
+                      </button>
                     </div>
                   </div>
-                )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            /* No Results State */
+            <div className="glass-card">
+              <div className="text-center py-16 px-6">
+                <div className="w-16 h-16 bg-slate-800/50 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <FileText className="w-8 h-8 text-slate-400" />
+                </div>
+                <h3 className="text-xl font-semibold text-white mb-2">
+                  No letters match this filter
+                </h3>
+                <p className="text-slate-400 mb-6">
+                  Try adjusting your filter or generate a new letter
+                </p>
+                <button
+                  onClick={() => setSortFilter('all')}
+                  className="text-sm text-slate-300 hover:text-white underline"
+                >
+                  Clear Filter
+                </button>
               </div>
+            </div>
+          )}
+        </div>
+      ) : !lettersError ? (
+        /* Empty State */
+        <div className="glass-card">
+          <div className="text-center py-16 px-6">
+            <div className="w-20 h-20 bg-slate-800/50 rounded-2xl flex items-center justify-center mx-auto mb-8">
+              <FileText className="w-10 h-10 text-slate-400" />
+            </div>
+            
+            <h3 className="text-2xl font-semibold text-white mb-3">
+              Welcome to Cover Letter Generator
+            </h3>
+            <p className="text-slate-400 mb-10 max-w-xl mx-auto">
+              Generate professional, personalized cover letters powered by AI. Stand out from the competition.
+            </p>
 
-              {/* Loading State */}
-              {isGenerating && (
-                <div className="flex flex-col items-center justify-center py-20">
-                  <div className="w-16 h-16 bg-purple-500/10 rounded-2xl flex items-center justify-center mb-4">
-                    <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
-                  </div>
-                  <p className="text-white font-medium mb-1">Crafting your cover letter...</p>
-                  <p className="text-slate-400 text-sm">This may take 10-20 seconds</p>
+            {/* Feature Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10 max-w-3xl mx-auto">
+              <div className="text-center">
+                <div className="w-12 h-12 bg-blue-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
+                  <Sparkles className="w-6 h-6 text-blue-400" />
                 </div>
-              )}
-
-              {/* Empty State */}
-              {!isGenerating && !generatedLetter && !error && (
-                <div className="flex flex-col items-center justify-center py-20">
-                  <div className="w-16 h-16 bg-slate-800/50 rounded-2xl flex items-center justify-center mb-4">
-                    <FileText className="w-8 h-8 text-slate-400" />
-                  </div>
-                  <p className="text-white font-medium mb-1">Your letter will appear here</p>
-                  <p className="text-slate-400 text-sm">Fill in the details and click Generate</p>
+                <p className="text-sm text-slate-400">AI-Powered</p>
+              </div>
+              
+              <div className="text-center">
+                <div className="w-12 h-12 bg-purple-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
+                  <Zap className="w-6 h-6 text-purple-400" />
                 </div>
-              )}
-
-              {/* Generated Letter */}
-              {generatedLetter && (
-                <div className="space-y-4">
-                  <div className="glass-card p-5 border border-white/5">
-                    <div className="whitespace-pre-wrap text-slate-200 text-sm leading-relaxed">
-                      {generatedLetter}
-                    </div>
-                  </div>
-
-                  {/* Metadata */}
-                  {metadata && (
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="glass-card p-3 text-center">
-                        <p className="text-xs text-slate-500 mb-1">Words</p>
-                        <p className="text-lg font-semibold text-white">
-                          {generatedLetter.split(/\s+/).length}
-                        </p>
-                      </div>
-                      <div className="glass-card p-3 text-center">
-                        <p className="text-xs text-slate-500 mb-1">Resume</p>
-                        <p className="text-lg font-semibold text-white">
-                          {metadata.usedResume ? '✓' : '✗'}
-                        </p>
-                      </div>
-                      <div className="glass-card p-3 text-center">
-                        <p className="text-xs text-slate-500 mb-1">Time</p>
-                        <p className="text-lg font-semibold text-white">
-                          {(metadata.responseTime / 1000).toFixed(1)}s
-                        </p>
-                      </div>
-                    </div>
-                  )}
+                <p className="text-sm text-slate-400">Fast Generation</p>
+              </div>
+              
+              <div className="text-center">
+                <div className="w-12 h-12 bg-emerald-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
+                  <CheckCircle className="w-6 h-6 text-emerald-400" />
                 </div>
+                <p className="text-sm text-slate-400">Professional</p>
+              </div>
+              
+              <div className="text-center">
+                <div className="w-12 h-12 bg-amber-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
+                  <FileText className="w-6 h-6 text-amber-400" />
+                </div>
+                <p className="text-sm text-slate-400">Customizable</p>
+              </div>
+            </div>
+
+            <Link
+              href="/cover-letter/generate"
+              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 py-3 rounded-lg"
+            >
+              <Plus className="w-5 h-5" />
+              <span>Generate First Letter</span>
+            </Link>
+            
+            <p className="text-xs text-slate-500 mt-6">
+              Upload your resume for personalized letters
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Preview Modal */}
+      {showPreview && selectedLetter && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="glass-card max-w-3xl w-full max-h-[80vh] overflow-hidden">
+            <div className="p-6 border-b border-white/10">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-xl font-semibold text-white">{selectedLetter.jobRole}</h2>
+                <button
+                  onClick={() => setShowPreview(false)}
+                  className="text-slate-400 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              {selectedLetter.companyName && (
+                <p className="text-slate-400 text-sm">{selectedLetter.companyName}</p>
               )}
+            </div>
+            
+            <div className="p-6 overflow-y-auto max-h-[60vh]">
+              <div className="whitespace-pre-wrap text-slate-200 text-sm leading-relaxed">
+                {selectedLetter.content}
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-white/10 flex gap-3">
+              <button
+                onClick={() => handleCopy(selectedLetter.content)}
+                className="flex-1 glass-button hover-lift px-4 py-2.5 rounded-lg text-white flex items-center justify-center gap-2"
+              >
+                <Copy className="w-4 h-4" />
+                Copy
+              </button>
+              <button
+                onClick={() => handleDownload(selectedLetter)}
+                className="flex-1 glass-button-primary hover-lift px-4 py-2.5 rounded-lg flex items-center justify-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Download
+              </button>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Tips Section */}
-      <div className="glass-card hover-lift">
-        <div className="p-6">
-          <h3 className="text-lg font-semibold text-white mb-5 flex items-center gap-2">
-            <div className="w-8 h-8 bg-emerald-500/10 rounded-lg flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-emerald-400" />
-            </div>
-            Tips for Best Results
-          </h3>
-          <div className="grid md:grid-cols-2 gap-4">
-            {[
-              {
-                title: "Provide Job Description",
-                description: "Paste the full job posting for targeted results"
-              },
-              {
-                title: "Complete Your Profile",
-                description: "Add experience and skills for personalization"
-              },
-              {
-                title: "Upload Resume",
-                description: "Resume data creates more authentic letters"
-              },
-              {
-                title: "Review & Edit",
-                description: "Always personalize before sending"
-              }
-            ].map((tip, index) => (
-              <div key={index} className="flex items-start gap-3">
-                <div className="w-6 h-6 bg-emerald-500/10 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                </div>
-                <div>
-                  <p className="text-slate-200 font-medium text-sm mb-1">{tip.title}</p>
-                  <p className="text-slate-400 text-xs">{tip.description}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      <style jsx>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        .animate-fadeIn {
+          animation: fadeIn 0.4s ease-out forwards;
+        }
+      `}</style>
     </div>
   );
 }

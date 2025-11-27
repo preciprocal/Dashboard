@@ -39,7 +39,7 @@ interface ResumeFixerProps {
   resume: Resume;
   jobDescription?: string;
   onHighlightChange?: (highlightedFixes: Set<string>) => void;
-  extractedText?: string; // Resume text content from analysis
+  extractedText?: string;
 }
 
 interface FixesResponse {
@@ -78,10 +78,15 @@ interface ApplyFixResponse {
   };
 }
 
+interface BatchApplyResponse {
+  appliedFixes: ResumeFix[];
+  failedFixes: ResumeFix[];
+}
+
 const generateResumeFixes = async (
   resumeContent: string,
   jobDescription?: string,
-  feedback?: any,
+  feedback?: unknown,
   targetRole?: string
 ): Promise<FixesResponse> => {
   console.log('📡 Calling AI resume fixes API...');
@@ -92,7 +97,7 @@ const generateResumeFixes = async (
     jobDescription: jobDescription || '',
     feedback,
     targetRole,
-    experience: 'mid-level' // Could be extracted from resume analysis
+    experience: 'mid-level'
   };
 
   const response = await fetch('/api/analyze-resume', {
@@ -169,7 +174,7 @@ const applyFix = async (resumeContent: string, fix: ResumeFix): Promise<ApplyFix
   return response.json();
 };
 
-const batchApplyFixes = async (resumeContent: string, fixes: ResumeFix[]) => {
+const batchApplyFixes = async (resumeContent: string, fixes: ResumeFix[]): Promise<BatchApplyResponse> => {
   const response = await fetch('/api/analyze-resume', {
     method: 'POST',
     headers: {
@@ -206,7 +211,6 @@ export default function AdvancedResumeFixer({
   const [applyingFixes, setApplyingFixes] = useState(false);
   const [analysisCompleted, setAnalysisCompleted] = useState(false);
 
-  // Notify parent component when selected fixes change
   useEffect(() => {
     if (onHighlightChange) {
       onHighlightChange(selectedFixes);
@@ -220,23 +224,17 @@ export default function AdvancedResumeFixer({
     try {
       console.log('🚀 Starting real AI fixes generation...');
       
-      // Try to get resume content from various sources
       let resumeContent = extractedText;
       
-      // If no extractedText provided, try to construct from resume data
       if (!resumeContent && resume) {
-        // Try to use any text-based fields from the resume object
         const resumeParts = [];
         
-        // Add any available text data from resume
         if (resume.companyName) resumeParts.push(`Target Company: ${resume.companyName}`);
         if (resume.jobTitle) resumeParts.push(`Target Position: ${resume.jobTitle}`);
         
-        // Join available data
         resumeContent = resumeParts.join('\n');
       }
       
-      // If still no content, show helpful error
       if (!resumeContent || resumeContent.trim().length < 20) {
         setError('Resume text content is needed for AI analysis. This feature requires the resume text to be extracted during the initial analysis process. Please re-upload your resume to enable text extraction.');
         return;
@@ -254,7 +252,6 @@ export default function AdvancedResumeFixer({
       setRecommendations(result.recommendations);
       setAnalysisCompleted(true);
       
-      // Auto-select critical and high priority fixes if any exist
       if (result.fixes.length > 0) {
         const highPriorityIds = result.fixes
           .filter(fix => fix.priority === 'critical' || fix.priority === 'high')
@@ -264,9 +261,9 @@ export default function AdvancedResumeFixer({
       
       console.log(`✅ Generated ${result.fixes.length} real AI fixes`);
       
-    } catch (error) {
-      console.error('❌ Failed to generate fixes:', error);
-      setError(error instanceof Error ? error.message : 'Failed to generate fixes');
+    } catch (err) {
+      console.error('❌ Failed to generate fixes:', err);
+      setError(err instanceof Error ? err.message : 'Failed to generate fixes');
     } finally {
       setLoading(false);
     }
@@ -274,12 +271,12 @@ export default function AdvancedResumeFixer({
 
   const handleRegenerateFix = async (fixId: string) => {
     const fix = fixes.find(f => f.id === fixId);
-    if (!fix) return;
+    if (!fix || !extractedText) return;
     
     setRegeneratingFix(fixId);
     
     try {
-      const result = await regenerateSpecificFix(fix, resume, jobDescription);
+      const result = await regenerateSpecificFix(fix, extractedText, jobDescription);
       
       setFixes(prevFixes => 
         prevFixes.map(prevFix => 
@@ -297,8 +294,8 @@ export default function AdvancedResumeFixer({
       
       console.log('✅ Fix regenerated successfully');
       
-    } catch (error) {
-      console.error('❌ Failed to regenerate fix:', error);
+    } catch (err) {
+      console.error('❌ Failed to regenerate fix:', err);
       setError('Failed to regenerate fix. Please try again.');
     } finally {
       setRegeneratingFix(null);
@@ -324,11 +321,9 @@ export default function AdvancedResumeFixer({
       const selectedFixData = fixes.filter(fix => selectedFixes.has(fix.id));
       
       if (selectedFixData.length === 1) {
-        // Apply single fix
         await applyFix(extractedText, selectedFixData[0]);
         console.log('✅ Single fix applied successfully');
       } else {
-        // Apply multiple fixes in batch
         const result = await batchApplyFixes(extractedText, selectedFixData);
         console.log(`✅ Applied ${result.appliedFixes.length} fixes successfully`);
         
@@ -337,11 +332,8 @@ export default function AdvancedResumeFixer({
         }
       }
       
-      // Here you would typically update the resume content in your parent component
-      // or trigger a callback to handle the updated content
-      
-    } catch (error) {
-      console.error('❌ Failed to apply fixes:', error);
+    } catch (err) {
+      console.error('❌ Failed to apply fixes:', err);
       setError('Failed to apply fixes. Please try again.');
     } finally {
       setApplyingFixes(false);
@@ -381,7 +373,6 @@ export default function AdvancedResumeFixer({
     URL.revokeObjectURL(url);
   };
 
-  // Group fixes by category
   const fixesByCategory = fixes.reduce((acc, fix) => {
     if (!acc[fix.category]) {
       acc[fix.category] = [];
@@ -391,9 +382,8 @@ export default function AdvancedResumeFixer({
   }, {} as Record<string, ResumeFix[]>);
 
   const categories = Object.keys(fixesByCategory);
-  const priorityOrder = { critical: 4, high: 3, medium: 2, low: 1 };
+  const priorityOrder: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
 
-  // Show error state
   if (error) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
@@ -538,7 +528,6 @@ export default function AdvancedResumeFixer({
         </div>
       )}
 
-      {/* Show "No fixes needed" message when analysis is complete but no fixes found */}
       {analysisCompleted && fixes.length === 0 && !loading && (
         <div className="text-center py-12">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full mb-4">
@@ -548,7 +537,7 @@ export default function AdvancedResumeFixer({
           </div>
           <h4 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Resume looks great!</h4>
           <p className="text-gray-600 dark:text-gray-300 mb-6 max-w-md mx-auto">
-            Our AI analysis didn't find any critical issues with your resume. It appears to be well-formatted and optimized.
+            Our AI analysis didn&apos;t find any critical issues with your resume. It appears to be well-formatted and optimized.
           </p>
           <div className="flex justify-center gap-3">
             <button
@@ -573,7 +562,6 @@ export default function AdvancedResumeFixer({
 
       {fixes.length > 0 && (
         <div>
-          {/* Summary Stats */}
           {summary && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
               <div className="text-center">
@@ -595,7 +583,6 @@ export default function AdvancedResumeFixer({
             </div>
           )}
 
-          {/* Category Filter Tabs */}
           <div className="mb-6">
             <div className="flex flex-wrap gap-2">
               <button
@@ -624,7 +611,6 @@ export default function AdvancedResumeFixer({
             </div>
           </div>
 
-          {/* Fixes List */}
           <div className="space-y-4">
             {(activeCategory ? fixesByCategory[activeCategory] || [] : fixes)
               .sort((a, b) => priorityOrder[b.priority] - priorityOrder[a.priority])
@@ -690,12 +676,12 @@ export default function AdvancedResumeFixer({
                       <div className="space-y-3">
                         <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border-l-4 border-red-400">
                           <p className="text-sm font-medium text-red-800 dark:text-red-300 mb-1">Before:</p>
-                          <p className="text-sm text-red-700 dark:text-red-300 italic whitespace-pre-line">"{fix.originalText}"</p>
+                          <p className="text-sm text-red-700 dark:text-red-300 italic whitespace-pre-line">&quot;{fix.originalText}&quot;</p>
                         </div>
                         
                         <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg border-l-4 border-green-400">
                           <p className="text-sm font-medium text-green-800 dark:text-green-300 mb-1">After:</p>
-                          <p className="text-sm text-green-700 dark:text-green-300 font-medium whitespace-pre-line">"{fix.improvedText}"</p>
+                          <p className="text-sm text-green-700 dark:text-green-300 font-medium whitespace-pre-line">&quot;{fix.improvedText}&quot;</p>
                         </div>
                         
                         <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
@@ -715,7 +701,6 @@ export default function AdvancedResumeFixer({
               ))}
           </div>
 
-          {/* Recommendations Section */}
           {recommendations && (
             <div className="mt-8 p-6 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 rounded-lg border border-green-200 dark:border-green-800">
               <div className="flex items-center justify-between">

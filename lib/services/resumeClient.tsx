@@ -35,6 +35,26 @@ export interface ResumeStats {
   resumesLimit: number;
 }
 
+// Type guard for Firebase storage errors
+interface FirebaseStorageError {
+  code?: string;
+  message?: string;
+}
+
+function isFirebaseStorageError(error: unknown): error is FirebaseStorageError {
+  return typeof error === 'object' && error !== null && ('code' in error || 'message' in error);
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (isFirebaseStorageError(error) && error.message) {
+    return error.message;
+  }
+  return 'Unknown error';
+}
+
 class ResumeClientService {
   // Get auth token for API calls
   private async getAuthToken(): Promise<string | null> {
@@ -44,7 +64,7 @@ class ResumeClientService {
     try {
       const token = await user.getIdToken();
       return token;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error getting auth token:', error);
       return null;
     }
@@ -57,17 +77,19 @@ class ResumeClientService {
       const snapshot = await uploadBytes(storageRef, file);
       const downloadURL = await getDownloadURL(snapshot.ref);
       return downloadURL;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error uploading file:', error);
       
       // Handle CORS errors gracefully
-      if (error?.code === 'storage/unauthorized' || 
-          error?.message?.includes('CORS') || 
-          error?.message?.includes('XMLHttpRequest')) {
-        console.warn('CORS error detected, using fallback upload method');
-        // For development, we'll create a mock URL
-        // In production, you'd want to implement a server-side upload
-        return `mock://upload/${userId}/${resumeId}/${file.name}`;
+      if (isFirebaseStorageError(error)) {
+        if (error.code === 'storage/unauthorized' || 
+            error.message?.includes('CORS') || 
+            error.message?.includes('XMLHttpRequest')) {
+          console.warn('CORS error detected, using fallback upload method');
+          // For development, we'll create a mock URL
+          // In production, you'd want to implement a server-side upload
+          return `mock://upload/${userId}/${resumeId}/${file.name}`;
+        }
       }
       
       return null;
@@ -104,11 +126,11 @@ class ResumeClientService {
 
       const result = await response.json();
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating resume:', error);
       return { 
         success: false, 
-        error: error.message || 'Failed to create resume' 
+        error: getErrorMessage(error) || 'Failed to create resume' 
       };
     }
   }
@@ -133,11 +155,11 @@ class ResumeClientService {
 
       const result = await response.json();
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching resumes:', error);
       return { 
         success: false, 
-        error: error.message || 'Failed to fetch resumes' 
+        error: getErrorMessage(error) || 'Failed to fetch resumes' 
       };
     }
   }
@@ -168,11 +190,11 @@ class ResumeClientService {
 
       const result = await response.json();
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching resume:', error);
       return { 
         success: false, 
-        error: error.message || 'Failed to fetch resume' 
+        error: getErrorMessage(error) || 'Failed to fetch resume' 
       };
     }
   }
@@ -205,11 +227,11 @@ class ResumeClientService {
 
       const result = await response.json();
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating resume:', error);
       return { 
         success: false, 
-        error: error.message || 'Failed to update resume' 
+        error: getErrorMessage(error) || 'Failed to update resume' 
       };
     }
   }
@@ -235,11 +257,11 @@ class ResumeClientService {
 
       const result = await response.json();
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting resume:', error);
       return { 
         success: false, 
-        error: error.message || 'Failed to delete resume' 
+        error: getErrorMessage(error) || 'Failed to delete resume' 
       };
     }
   }
@@ -264,17 +286,18 @@ class ResumeClientService {
 
       const result = await response.json();
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching stats:', error);
       return { 
         success: false, 
-        error: error.message || 'Failed to fetch stats' 
+        error: getErrorMessage(error) || 'Failed to fetch stats' 
       };
     }
   }
 
   // Analyze resume (mock implementation - replace with PuterJS)
-  async analyzeResume(file: File, jobDescription: string, jobTitle: string): Promise<{
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async analyzeResume(_file: File, _jobDescription: string, _jobTitle: string): Promise<{
     overallScore: number;
     strengths: string[];
     improvements: string[];

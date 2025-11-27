@@ -1,202 +1,610 @@
-import InterviewGeneratorForm from "@/components/InterviewGeneratorForm";
-import { getCurrentUser } from "@/lib/actions/auth.action";
-import { redirect } from "next/navigation";
-import Link from "next/link";
-import { Target, Star, BarChart3, Shield, ArrowRight, Calendar } from "lucide-react";
+'use client';
 
-// Helper function to get plan display info
-function getPlanDisplayInfo(subscription: any) {
-  if (!subscription) {
-    return {
-      name: "Free",
-      color: "slate",
-      isUnlimited: false,
-    };
-  }
+import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { auth } from '@/firebase/client';
+import AnimatedLoader from '@/components/loader/AnimatedLoader';
+import ErrorPage from '@/components/Error';
+import ProfileInterviewCard from '@/components/ProfileInterviewCard';
+import { 
+  Target, 
+  TrendingUp, 
+  Zap, 
+  LayoutGrid, 
+  List, 
+  Filter, 
+  CheckCircle, 
+  AlertCircle, 
+  RefreshCw,
+  Award,
+  Clock,
+  Brain,
+  Plus
+} from 'lucide-react';
 
-  switch (subscription.plan) {
-    case "starter":
-      return {
-        name: "Free",
-        color: "slate",
-        isUnlimited: false,
-      };
-    case "pro":
-      return {
-        name: subscription.status === "trial" ? "Pro Trial" : "Pro",
-        color: "blue",
-        isUnlimited: true,
-      };
-    case "premium":
-      return {
-        name: "Premium",
-        color: "purple",
-        isUnlimited: true,
-      };
-    default:
-      return {
-        name: "Free",
-        color: "slate",
-        isUnlimited: false,
-      };
-  }
+type SortOption = 'all' | 'high-scores' | 'needs-improvement' | 'recent' | 'technical' | 'behavioral';
+type ViewMode = 'grid' | 'list';
+
+interface Interview {
+  id: string;
+  userId: string;
+  role: string;
+  type: "technical" | "behavioral" | "system-design" | "coding";
+  techstack: string[];
+  company: string;
+  position: string;
+  createdAt: Date;
+  updatedAt: Date;
+  duration: number;
+  score?: number;
+  status: "completed" | "in-progress" | "scheduled";
+  feedback?: {
+    strengths: string[];
+    weaknesses: string[];
+    overallRating: number;
+    technicalAccuracy: number;
+    communication: number;
+    problemSolving: number;
+    confidence: number;
+    totalScore?: number;
+    finalAssessment?: string;
+    categoryScores?: { [key: string]: number };
+    areasForImprovement?: string[];
+  };
+  questions?: {
+    question: string;
+    answer: string;
+    score: number;
+    feedback: string;
+  }[];
 }
 
-// Helper function to calculate next reset date for starter plan
-function calculateNextResetDate(subscription: any): Date {
-  if (!subscription?.currentPeriodEnd) {
-    const createdAt = subscription?.createdAt
-      ? new Date(subscription.createdAt)
-      : new Date();
-    const now = new Date();
-    const nextMonth = new Date(createdAt);
+interface InterviewStats {
+  averageScore: number;
+  totalInterviews: number;
+  totalHours: number;
+  completionRate: number;
+}
 
-    while (nextMonth <= now) {
-      nextMonth.setMonth(nextMonth.getMonth() + 1);
+interface CriticalError {
+  code: string;
+  title: string;
+  message: string;
+  details?: string;
+}
+
+export default function InterviewsDashboard() {
+  const [user, loading] = useAuthState(auth);
+  const router = useRouter();
+  const [interviews, setInterviews] = useState<Interview[]>([]);
+  const [loadingInterviews, setLoadingInterviews] = useState<boolean>(true);
+  const [sortFilter, setSortFilter] = useState<SortOption>('all');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [stats, setStats] = useState<InterviewStats>({
+    averageScore: 0,
+    totalInterviews: 0,
+    totalHours: 0,
+    completionRate: 0
+  });
+
+  // Error states
+  const [criticalError, setCriticalError] = useState<CriticalError | null>(null);
+  const [interviewsError, setInterviewsError] = useState<string>('');
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/sign-in');
     }
+  }, [loading, user, router]);
 
-    return nextMonth;
-  }
+  useEffect(() => {
+    if (user) {
+      loadInterviews();
+    }
+  }, [user]);
 
-  return new Date(subscription.currentPeriodEnd);
-}
+  const loadInterviews = async (): Promise<void> => {
+    if (!user) return;
 
-export default async function CreateInterviewPage() {
-  const user = await getCurrentUser();
+    try {
+      setLoadingInterviews(true);
+      setInterviewsError('');
+      
+      // Import actions
+      const { getInterviewsByUserId, getFeedbackByInterviewId } = await import('@/lib/actions/general.action');
+      
+      // Fetch user interviews
+      const userInterviews = await getInterviewsByUserId(user.uid);
+      
+      if (!userInterviews || userInterviews.length === 0) {
+        setInterviews([]);
+        setLoadingInterviews(false);
+        return;
+      }
 
-  if (!user?.id) {
-    redirect("/sign-in");
-  }
+      // Convert dates and fetch feedback
+      const interviewsWithDates = userInterviews.map((interview: any) => ({
+        ...interview,
+        createdAt: interview.createdAt?.toDate
+          ? interview.createdAt.toDate()
+          : new Date(interview.createdAt),
+        updatedAt: interview.updatedAt?.toDate
+          ? interview.updatedAt.toDate()
+          : new Date(interview.updatedAt || interview.createdAt),
+      }));
 
-  const subscription = user.subscription;
-  const planInfo = getPlanDisplayInfo(subscription);
+      // Fetch feedback for each interview
+      const interviewsWithFeedback = await Promise.all(
+        interviewsWithDates.map(async (interview: any) => {
+          try {
+            const feedback = await getFeedbackByInterviewId({
+              interviewId: interview.id,
+              userId: user.uid,
+            });
 
-  const remainingSessionsCount = planInfo.isUnlimited
-    ? -1
-    : Math.max(
-        0,
-        (subscription?.interviewsLimit || 10) -
-          (subscription?.interviewsUsed || 0)
+            if (feedback) {
+              return {
+                ...interview,
+                feedback: feedback,
+                score: feedback.totalScore || 0,
+              };
+            }
+            return interview;
+          } catch (error) {
+            console.error('Error fetching feedback for interview:', interview.id, error);
+            return interview;
+          }
+        })
       );
 
-  const hasSessionsRemaining =
-    planInfo.isUnlimited || remainingSessionsCount > 0;
+      setInterviews(interviewsWithFeedback);
+      
+      // Calculate stats
+      if (interviewsWithFeedback.length > 0) {
+        const completedInterviews = interviewsWithFeedback.filter(
+          (i) => i.feedback && i.score && i.score > 0
+        );
+        
+        const avgScore = completedInterviews.length > 0
+          ? Math.round(
+              completedInterviews.reduce((sum, i) => sum + (i.score || 0), 0) /
+              completedInterviews.length
+            )
+          : 0;
+        
+        const totalHours = Math.round(interviewsWithFeedback.length * 0.75);
+        const completionRate = Math.round((completedInterviews.length / interviewsWithFeedback.length) * 100);
+        
+        setStats({
+          averageScore: avgScore,
+          totalInterviews: interviewsWithFeedback.length,
+          totalHours,
+          completionRate
+        });
+      }
+    } catch (err: unknown) {
+      console.error('Error loading interviews:', err);
+      const error = err as Error;
+      
+      // Check for critical errors
+      if (error.message.includes('Firebase') || error.message.includes('firestore')) {
+        setCriticalError({
+          code: 'DATABASE',
+          title: 'Database Connection Error',
+          message: 'Unable to load your interviews. Please check your internet connection.',
+          details: error.message
+        });
+      } else if (error.message.includes('fetch') || error.message.includes('network')) {
+        setCriticalError({
+          code: 'NETWORK',
+          title: 'Network Error',
+          message: 'Unable to connect to the server. Please check your internet connection.',
+          details: error.message
+        });
+      } else if (error.message.includes('permission') || error.message.includes('denied')) {
+        setInterviewsError('You do not have permission to view interviews. Please contact support.');
+      } else {
+        setInterviewsError('Failed to load interviews. Please try again.');
+      }
+    } finally {
+      setLoadingInterviews(false);
+    }
+  };
 
-  const nextResetDate = !planInfo.isUnlimited
-    ? calculateNextResetDate(subscription)
-    : null;
+  const handleRetryError = (): void => {
+    setCriticalError(null);
+    setInterviewsError('');
+    if (user) {
+      loadInterviews();
+    }
+  };
 
-  return (
-    <div className="min-h-screen flex flex-col">
-      {hasSessionsRemaining ? (
-        <div className="flex-1 flex flex-col space-y-6 p-6">
-          {/* Header */}
-          <div className="glass-card hover-lift">
-            <div className="p-6 text-center">
-              <div className="inline-flex items-center px-4 py-2 bg-blue-500/10 border border-blue-500/20 rounded-full text-sm font-medium mb-4">
-                <Target className="w-4 h-4 mr-2 text-blue-400" />
-                <span className="text-blue-400">Interview Practice</span>
-              </div>
-              <h1 className="text-3xl font-semibold text-white mb-2">
-                Create Interview Session
-              </h1>
-              <p className="text-slate-400 max-w-2xl mx-auto text-sm">
-                Generate AI-powered interview questions tailored to your career goals
-              </p>
-            </div>
-          </div>
+  const filteredInterviews = useMemo(() => {
+    let filtered = [...interviews];
 
-          {/* Plan Status */}
-          <div className="glass-card">
-            <div className="p-4">
-              <div className={`inline-flex items-center px-4 py-2 rounded-lg text-sm ${
-                planInfo.color === 'blue' 
-                  ? 'bg-blue-500/10 border border-blue-500/20 text-blue-400'
-                  : planInfo.color === 'purple'
-                  ? 'bg-purple-500/10 border border-purple-500/20 text-purple-400'
-                  : 'bg-slate-500/10 border border-slate-500/20 text-slate-400'
-              }`}>
-                <Shield className="w-4 h-4 mr-2" />
-                <span className="font-medium">{planInfo.name} Plan</span>
-                {!planInfo.isUnlimited && (
-                  <span className="ml-2 opacity-90">
-                    • {remainingSessionsCount} sessions remaining
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
+    switch (sortFilter) {
+      case 'high-scores':
+        filtered = filtered
+          .filter(interview => (interview.score || 0) >= 80)
+          .sort((a, b) => (b.score || 0) - (a.score || 0));
+        break;
+      case 'needs-improvement':
+        filtered = filtered.filter(interview => (interview.score || 0) < 70);
+        break;
+      case 'technical':
+        filtered = filtered.filter(interview => 
+          interview.type === 'technical' || interview.type === 'coding' || interview.type === 'system-design'
+        );
+        break;
+      case 'behavioral':
+        filtered = filtered.filter(interview => interview.type === 'behavioral');
+        break;
+      case 'recent':
+        filtered = filtered.sort((a, b) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        break;
+      case 'all':
+      default:
+        filtered = filtered.sort((a, b) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        break;
+    }
 
-          {/* Main Form */}
-          <div className="flex-1 glass-card">
-            <div className="p-6">
-              <InterviewGeneratorForm userId={user.id} />
-            </div>
+    return filtered;
+  }, [interviews, sortFilter]);
+
+  const getFilterCount = (option: SortOption): number => {
+    switch (option) {
+      case 'high-scores':
+        return interviews.filter(interview => (interview.score || 0) >= 80).length;
+      case 'needs-improvement':
+        return interviews.filter(interview => (interview.score || 0) < 70).length;
+      case 'technical':
+        return interviews.filter(interview => 
+          interview.type === 'technical' || interview.type === 'coding' || interview.type === 'system-design'
+        ).length;
+      case 'behavioral':
+        return interviews.filter(interview => interview.type === 'behavioral').length;
+      case 'recent':
+      case 'all':
+      default:
+        return interviews.length;
+    }
+  };
+
+  // Show critical error page
+  if (criticalError) {
+    return (
+      <ErrorPage
+        errorCode={criticalError.code}
+        errorTitle={criticalError.title}
+        errorMessage={criticalError.message}
+        errorDetails={criticalError.details}
+        showBackButton={true}
+        showHomeButton={true}
+        showRefreshButton={true}
+        onRetry={handleRetryError}
+      />
+    );
+  }
+
+  // Show loader during initial auth check or interview loading
+  if (loading || loadingInterviews) {
+    return (
+      <AnimatedLoader
+        isVisible={true}
+        loadingText="Loading your interview dashboard..."
+        showNavigation={true}
+      />
+    );
+  }
+
+  // Show auth required message
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="glass-card-gradient hover-lift">
+          <div className="glass-card-gradient-inner text-center p-12">
+            <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-white mb-2">Authentication Required</h2>
+            <p className="text-slate-400 mb-6">Please log in to view your interviews</p>
+            <Link 
+              href="/sign-in"
+              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 py-3 rounded-xl"
+            >
+              Go to Login
+            </Link>
           </div>
         </div>
-      ) : (
-        <div className="flex-1 flex items-center justify-center p-6">
-          <div className="glass-card max-w-lg w-full">
-            <div className="p-8">
-              <div className="w-16 h-16 bg-slate-800/50 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <Shield className="w-8 h-8 text-slate-400" />
-              </div>
-              
-              <div className="text-center space-y-6">
-                <div>
-                  <h2 className="text-2xl font-semibold text-white mb-3">
-                    Session Limit Reached
-                  </h2>
-                  <p className="text-slate-400">
-                    You have used all available interview sessions for this billing period. 
-                    Upgrade your plan or wait for your next reset.
-                  </p>
-                </div>
+      </div>
+    );
+  }
 
-                <div className="space-y-3">
-                  <Link
-                    href="/subscription"
-                    className="w-full inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg font-medium transition-all"
-                  >
-                    <Star className="w-5 h-5 mr-2" />
-                    Upgrade Plan
-                    <ArrowRight className="w-5 h-5 ml-2" />
-                  </Link>
-                  
-                  <Link
-                    href="/profile"
-                    className="w-full inline-flex items-center justify-center px-6 py-3 bg-white/5 hover:bg-white/10 text-slate-300 rounded-lg font-medium transition-all border border-white/10"
-                  >
-                    <BarChart3 className="w-5 h-5 mr-2" />
-                    View Progress
-                  </Link>
-                </div>
+  return (
+    <div className="space-y-6">
+      {/* Clean Header */}
+      <div className="glass-card hover-lift">
+        <div className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-semibold text-white mb-1">
+                Interview Practice
+              </h1>
+              <p className="text-slate-400 text-sm">
+                AI-powered interview preparation
+              </p>
+            </div>
+            
+            <Link
+              href="/interview/create"
+              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-4 py-2.5 rounded-lg"
+            >
+              <Plus className="w-4 h-4" />
+              <span>New Interview</span>
+            </Link>
+          </div>
+        </div>
+      </div>
 
-                {nextResetDate && (
-                  <div className="glass-card p-4">
-                    <div className="flex items-center justify-center mb-2">
-                      <Calendar className="w-5 h-5 text-slate-400 mr-2" />
-                      <span className="font-medium text-slate-300">
-                        Next Reset
-                      </span>
-                    </div>
-                    <div className="text-white font-semibold">
-                      {nextResetDate.toLocaleDateString('en-US', { 
-                        month: 'long', 
-                        day: 'numeric',
-                        year: 'numeric'
-                      })}
-                    </div>
-                    <div className="text-slate-400 text-sm mt-1">
-                      {Math.max(0, Math.ceil((nextResetDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))} days remaining
-                    </div>
-                  </div>
-                )}
+      {/* Interviews Error Message */}
+      {interviewsError && (
+        <div className="glass-card-gradient hover-lift animate-fade-in-up">
+          <div className="glass-card-gradient-inner">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-red-400 text-sm mb-2">{interviewsError}</p>
+                <button
+                  onClick={() => {
+                    setInterviewsError('');
+                    loadInterviews();
+                  }}
+                  className="glass-button hover-lift inline-flex items-center gap-2 px-4 py-2 text-white text-sm font-medium rounded-lg"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Try Again
+                </button>
               </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* Main Content */}
+      {interviews.length > 0 ? (
+        <div className="space-y-6">
+          
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="glass-card hover-lift">
+              <div className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                    <Target className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <span className="text-2xl font-semibold text-white">{stats.totalInterviews}</span>
+                </div>
+                <p className="text-sm text-slate-400">Total Interviews</p>
+              </div>
+            </div>
+
+            <div className="glass-card hover-lift">
+              <div className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center">
+                    <CheckCircle className="w-5 h-5 text-emerald-400" />
+                  </div>
+                  <span className="text-2xl font-semibold text-white">{stats.averageScore}%</span>
+                </div>
+                <p className="text-sm text-slate-400">Average Score</p>
+              </div>
+            </div>
+
+            <div className="glass-card hover-lift">
+              <div className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
+                    <Clock className="w-5 h-5 text-purple-400" />
+                  </div>
+                  <span className="text-2xl font-semibold text-white">{stats.totalHours}h</span>
+                </div>
+                <p className="text-sm text-slate-400">Practice Time</p>
+              </div>
+            </div>
+
+            <div className="glass-card hover-lift">
+              <div className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 bg-amber-500/10 rounded-lg flex items-center justify-center">
+                    <Award className="w-5 h-5 text-amber-400" />
+                  </div>
+                  <span className="text-2xl font-semibold text-white">{stats.completionRate}%</span>
+                </div>
+                <p className="text-sm text-slate-400">Completion Rate</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Controls Bar */}
+          <div className="glass-card">
+            <div className="p-5">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-white">Your Interviews</h2>
+                  <p className="text-slate-400 text-sm mt-0.5">
+                    {filteredInterviews.length} of {interviews.length} interviews
+                  </p>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  {/* Filter Dropdown */}
+                  <div className="relative">
+                    <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+                    <select 
+                      value={sortFilter} 
+                      onChange={(e) => setSortFilter(e.target.value as SortOption)}
+                      className="glass-input pl-10 pr-4 py-2.5 rounded-lg text-white text-sm appearance-none cursor-pointer min-w-[200px]"
+                    >
+                      <option value="all">All ({getFilterCount('all')})</option>
+                      <option value="high-scores">High Scores ({getFilterCount('high-scores')})</option>
+                      <option value="needs-improvement">Needs Work ({getFilterCount('needs-improvement')})</option>
+                      <option value="technical">Technical ({getFilterCount('technical')})</option>
+                      <option value="behavioral">Behavioral ({getFilterCount('behavioral')})</option>
+                      <option value="recent">Recent ({getFilterCount('recent')})</option>
+                    </select>
+                  </div>
+                  
+                  {/* View Toggle */}
+                  <div className="flex bg-slate-900/50 rounded-lg p-1">
+                    <button 
+                      onClick={() => setViewMode('grid')}
+                      className={`p-2 rounded transition-all ${
+                        viewMode === 'grid' 
+                          ? 'bg-white/10 text-white' 
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                      aria-label="Grid view"
+                    >
+                      <LayoutGrid className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={() => setViewMode('list')}
+                      className={`p-2 rounded transition-all ${
+                        viewMode === 'list' 
+                          ? 'bg-white/10 text-white' 
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                      aria-label="List view"
+                    >
+                      <List className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Interview Grid/List */}
+          {filteredInterviews.length > 0 ? (
+            <div className={
+              viewMode === 'grid' 
+                ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6" 
+                : "space-y-4"
+            }>
+              {filteredInterviews.map((interview, index) => (
+                <div
+                  key={`interview-${interview.id}-${index}`}
+                  className="opacity-0 animate-fadeIn"
+                  style={{ animationDelay: `${index * 100}ms`, animationFillMode: 'forwards' }}
+                >
+                  <ProfileInterviewCard interview={interview} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            /* No Results State */
+            <div className="glass-card">
+              <div className="text-center py-16 px-6">
+                <div className="w-16 h-16 bg-slate-800/50 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <Target className="w-8 h-8 text-slate-400" />
+                </div>
+                <h3 className="text-xl font-semibold text-white mb-2">
+                  No interviews match this filter
+                </h3>
+                <p className="text-slate-400 mb-6">
+                  Try adjusting your filter or start a new interview
+                </p>
+                <button
+                  onClick={() => setSortFilter('all')}
+                  className="text-sm text-slate-300 hover:text-white underline"
+                >
+                  Clear Filter
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : !interviewsError ? (
+        /* Empty State */
+        <div className="glass-card">
+          <div className="text-center py-16 px-6">
+            <div className="w-20 h-20 bg-slate-800/50 rounded-2xl flex items-center justify-center mx-auto mb-8">
+              <Target className="w-10 h-10 text-slate-400" />
+            </div>
+            
+            <h3 className="text-2xl font-semibold text-white mb-3">
+              Welcome to Interview Practice
+            </h3>
+            <p className="text-slate-400 mb-10 max-w-xl mx-auto">
+              Get AI-powered mock interviews, personalized feedback, and track your progress to ace your next interview
+            </p>
+
+            {/* Feature Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10 max-w-3xl mx-auto">
+              <div className="text-center">
+                <div className="w-12 h-12 bg-blue-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
+                  <Brain className="w-6 h-6 text-blue-400" />
+                </div>
+                <p className="text-sm text-slate-400">AI Feedback</p>
+              </div>
+              
+              <div className="text-center">
+                <div className="w-12 h-12 bg-purple-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
+                  <Award className="w-6 h-6 text-purple-400" />
+                </div>
+                <p className="text-sm text-slate-400">Performance Score</p>
+              </div>
+              
+              <div className="text-center">
+                <div className="w-12 h-12 bg-emerald-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
+                  <TrendingUp className="w-6 h-6 text-emerald-400" />
+                </div>
+                <p className="text-sm text-slate-400">Track Progress</p>
+              </div>
+              
+              <div className="text-center">
+                <div className="w-12 h-12 bg-amber-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
+                  <Zap className="w-6 h-6 text-amber-400" />
+                </div>
+                <p className="text-sm text-slate-400">Real-time Practice</p>
+              </div>
+            </div>
+
+            <Link
+              href="/createinterview"
+              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 py-3 rounded-lg"
+            >
+              <Plus className="w-5 h-5" />
+              <span>Start First Interview</span>
+            </Link>
+            
+            <p className="text-xs text-slate-500 mt-6">
+              Choose from Technical, Behavioral, or System Design interviews
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      <style jsx>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        .animate-fadeIn {
+          animation: fadeIn 0.4s ease-out forwards;
+        }
+      `}</style>
     </div>
   );
 }

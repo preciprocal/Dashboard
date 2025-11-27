@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/firebase/client';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -12,10 +12,18 @@ import AIAssistantPanel from '@/components/resume/AIAssitantPanel';
 import { Loader2, ArrowLeft, FileText, AlertCircle, Sparkles, Eye } from 'lucide-react';
 import Link from 'next/link';
 
+interface ResumeData {
+  fileName?: string;
+  imagePath?: string;
+  resumePath?: string;
+  resumeHtml?: string;
+  resumeText?: string;
+  [key: string]: unknown;
+}
+
 export default function ResumeWriterPage() {
   const [user, loading] = useAuthState(auth);
   const searchParams = useSearchParams();
-  const router = useRouter();
   const resumeId = searchParams.get('id');
   
   const [resumeContent, setResumeContent] = useState('');
@@ -24,7 +32,7 @@ export default function ResumeWriterPage() {
   const [loadingMessage, setLoadingMessage] = useState('Loading resume...');
   const [extractionProgress, setExtractionProgress] = useState(0);
   const [error, setError] = useState('');
-  const [resumeData, setResumeData] = useState<any>(null);
+  const [resumeData, setResumeData] = useState<ResumeData | null>(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   useEffect(() => {
@@ -62,7 +70,7 @@ export default function ResumeWriterPage() {
           return;
         }
 
-        const data = resumeSnap.data();
+        const data = resumeSnap.data() as ResumeData;
         setResumeData(data);
         setExtractionProgress(40);
 
@@ -151,8 +159,8 @@ export default function ResumeWriterPage() {
         setIsLoadingResume(false);
         setIsInitialLoad(false);
 
-      } catch (error) {
-        console.error('❌ Error:', error);
+      } catch (err) {
+        console.error('❌ Error:', err);
         setError('Failed to load resume');
         setResumeContent(getTemplate());
         setIsLoadingResume(false);
@@ -330,16 +338,16 @@ export default function ResumeWriterPage() {
         <TinyMCEEditorPanel
           initialContent={resumeContent}
           resumeId={resumeId}
-          userId={user.uid}
-          resumePath={resumeData?.resumePath}
+          userId={user?.uid ?? ''}
+          resumePath={resumeData?.resumePath as string | undefined}
           onTextSelect={setSelectedText}
         />
 
         <AIAssistantPanel
           selectedText={selectedText}
           resumeId={resumeId}
-          userId={user.uid}
-          onSuggestionCopy={(text) => {
+          userId={user?.uid ?? ''}
+          onSuggestionCopy={() => {
             console.log('✅ Copied to clipboard');
           }}
         />

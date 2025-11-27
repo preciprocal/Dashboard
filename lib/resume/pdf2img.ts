@@ -12,7 +12,6 @@ async function loadPdfJs(): Promise<any> {
   isLoading = true;
   try {
     loadPromise = import("pdfjs-dist").then((lib) => {
-      // Use the matching worker version for 4.8.69
       lib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.8.69/pdf.worker.min.mjs';
       pdfjsLib = lib;
       isLoading = false;
@@ -43,7 +42,6 @@ export async function convertPdfToImage(file: File): Promise<PdfConversionResult
     const page = await pdf.getPage(1);
     console.log('First page loaded');
 
-    // Use reasonable scale for good quality without memory issues
     const scale = 1.5;
     const viewport = page.getViewport({ scale });
     
@@ -59,7 +57,6 @@ export async function convertPdfToImage(file: File): Promise<PdfConversionResult
 
     console.log('Canvas created:', { width: canvas.width, height: canvas.height });
 
-    // Enable high quality rendering
     context.imageSmoothingEnabled = true;
     context.imageSmoothingQuality = "high";
 
@@ -96,7 +93,7 @@ export async function convertPdfToImage(file: File): Promise<PdfConversionResult
           }
         },
         "image/png",
-        0.9 // Good quality balance
+        0.9
       );
     });
   } catch (err) {

@@ -36,11 +36,38 @@ import {
   Award
 } from 'lucide-react';
 
+interface Interview {
+  id: string;
+  type: string;
+  score: number;
+  feedback?: Record<string, unknown>;
+  createdAt: Date | string;
+  status?: string;
+}
+
+interface Resume {
+  id: string;
+  feedback?: {
+    ATS?: { score: number };
+    content?: { score: number };
+    structure?: { score: number };
+    skills?: { score: number };
+  };
+}
+
+interface Stats {
+  averageScore?: number;
+  communicationScore?: number;
+  interviewReadinessScore?: number;
+  weeklyVelocity?: number;
+  currentStreak?: number;
+  hoursSpent?: number;
+}
+
 interface ProfileAnalyticsProps {
-  stats: any;
-  interviews: any[];
-  resumes: any[];
-  loading?: boolean;
+  stats: Stats;
+  interviews: Interview[];
+  resumes: Resume[];
 }
 
 interface ChartDataPoint {
@@ -72,14 +99,13 @@ export const ProfileAnalytics: React.FC<ProfileAnalyticsProps> = ({
   stats,
   interviews = [],
   resumes = [],
-  loading = false,
 }) => {
-  const formatNumber = (value: any): number => {
+  const formatNumber = (value: number | undefined): number => {
     const num = Number(value);
     return isNaN(num) ? 0 : num;
   };
 
-  const formatPercent = (value: any): number => {
+  const formatPercent = (value: number | undefined): number => {
     const num = Number(value);
     return isNaN(num) ? 0 : Math.round(num);
   };
@@ -128,11 +154,11 @@ export const ProfileAnalytics: React.FC<ProfileAnalyticsProps> = ({
     },
   ];
 
-  const completedInterviews = interviews.filter((i: any) => i.feedback && i.score > 0);
+  const completedInterviews = interviews.filter((i: Interview) => i.feedback && i.score > 0);
   const performanceData: ChartDataPoint[] = completedInterviews
-    .sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    .sort((a: Interview, b: Interview) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
     .slice(-10)
-    .map((interview: any, i: number) => ({
+    .map((interview: Interview, i: number) => ({
       name: `#${i + 1}`,
       score: interview.score || 0,
     }));
@@ -142,7 +168,7 @@ export const ProfileAnalytics: React.FC<ProfileAnalyticsProps> = ({
   }
 
   const typeData: TypeDistribution[] = Object.entries(
-    interviews.reduce((acc: Record<string, number>, int: any) => {
+    interviews.reduce((acc: Record<string, number>, int: Interview) => {
       acc[int.type] = (acc[int.type] || 0) + 1;
       return acc;
     }, {})
@@ -155,7 +181,7 @@ export const ProfileAnalytics: React.FC<ProfileAnalyticsProps> = ({
     typeData.push({ name: 'Technical', value: 1 }, { name: 'Behavioral', value: 1 });
   }
 
-  const resumeData: ResumeScoreData[] = resumes.slice(-5).map((r: any, i: number) => ({
+  const resumeData: ResumeScoreData[] = resumes.slice(-5).map((r: Resume, i: number) => ({
     name: `R${i + 1}`,
     ATS: r.feedback?.ATS?.score || 0,
     Content: r.feedback?.content?.score || 0,
@@ -345,7 +371,7 @@ export const ProfileAnalytics: React.FC<ProfileAnalyticsProps> = ({
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent }: { name: string; percent: number }) => `${name} ${(percent * 100).toFixed(0)}%`}
                   outerRadius={100}
                   dataKey="value"
                   stroke="none"

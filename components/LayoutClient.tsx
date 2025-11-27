@@ -15,30 +15,91 @@ import {
   Home,
   Video,
   BookOpen,
-  BarChart3,
   Settings,
   HelpCircle,
   LogOut,
   Plus,
   Crown,
   FileText,
-  User,
   Shield,
   Star,
   Calendar,
   Pen,
-  CheckSquare
 } from 'lucide-react';
 import { signOut } from "@/lib/actions/auth.action";
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/firebase/client';
 import { FirebaseService } from '@/lib/services/firebase-service';
+import type { LucideIcon } from 'lucide-react';
 
-// Theme Context
-const ThemeContext = createContext<{
+// Define interfaces
+interface ThemeContextType {
   darkMode: boolean;
   toggleTheme: () => void;
-} | null>(null);
+}
+
+interface LayoutClientProps {
+  children: React.ReactNode;
+  user: UserData | null;
+  userStats: UserStats;
+}
+
+interface UserData {
+  id?: string;
+  name?: string | null;
+  email?: string | null;
+  subscription?: {
+    plan?: string;
+    status?: string;
+  };
+}
+
+interface UserStats {
+  totalInterviews?: number;
+  averageScore?: number;
+  interviewsUsed?: number;
+  interviewsLimit?: number;
+  resumesUsed?: number;
+  resumesLimit?: number;
+}
+
+interface SafeUserStats {
+  totalInterviews: number;
+  averageScore: number;
+  interviewsUsed: number;
+  interviewsLimit: number;
+  resumesUsed: number;
+  resumesLimit: number;
+}
+
+interface NavItem {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  href: string;
+  category?: string;
+}
+
+interface ResumeData {
+  id: string;
+  companyName?: string;
+  jobTitle?: string;
+  createdAt: string;
+  feedback?: {
+    overallScore?: number;
+  };
+}
+
+interface PlanInfo {
+  text: string;
+  icon: LucideIcon;
+  style: string;
+  badgeClass: string;
+  showUpgrade: boolean;
+}
+
+// Theme Context
+const ThemeContext = createContext<ThemeContextType | null>(null);
 
 const useTheme = () => {
   const context = useContext(ThemeContext);
@@ -47,7 +108,7 @@ const useTheme = () => {
 };
 
 const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
-  const [darkMode, setDarkMode] = useState(true); // Default to dark mode for glass effect
+  const [darkMode, setDarkMode] = useState(true);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -82,7 +143,7 @@ const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
 const useResumeCount = () => {
   const [user] = useAuthState(auth);
   const [resumeCount, setResumeCount] = useState(0);
-  const [latestResume, setLatestResume] = useState<any>(null);
+  const [latestResume, setLatestResume] = useState<ResumeData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -116,7 +177,7 @@ const useResumeCount = () => {
 };
 
 // Helper Functions
-const getPlanInfo = (subscription: any) => {
+const getPlanInfo = (subscription: UserData['subscription']): PlanInfo => {
   if (!subscription || subscription.plan === "starter" || !subscription.plan) {
     return {
       text: "Free Plan",
@@ -155,7 +216,7 @@ const getPlanInfo = (subscription: any) => {
   }
 };
 
-const getSafeUserStats = (userStats: any) => {
+const getSafeUserStats = (userStats: UserStats): SafeUserStats => {
   if (!userStats || typeof userStats !== 'object') {
     return {
       totalInterviews: 0,
@@ -177,14 +238,8 @@ const getSafeUserStats = (userStats: any) => {
   };
 };
 
-interface LayoutClientProps {
-  children: React.ReactNode;
-  user: any;
-  userStats: any;
-}
-
 // Progress Bar Component
-const ProgressBar = ({ used, limit, color = "blue" }: { used: number; limit: number; color?: string }) => {
+const ProgressBar = ({ used, limit }: { used: number; limit: number }) => {
   const percentage = Math.min((used / limit) * 100, 100);
   
   return (
@@ -201,17 +256,15 @@ const ProgressBar = ({ used, limit, color = "blue" }: { used: number; limit: num
 const SearchDropdown = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const { resumeCount } = useResumeCount();
 
-  const allItems = [
-    { label: 'Dashboard', href: '/', icon: Home, category: 'Navigation' },
-    { label: 'Profile', href: '/profile', icon: User, category: 'Navigation' },
-    { label: 'Resume Analysis', href: '/resume', icon: FileText, category: 'Navigation' },
-    { label: 'Cover Letter', href: '/cover-letter', icon: Pen, category: 'Navigation' },
-    { label: 'Interviews', href: '/interviews', icon: Video, category: 'Navigation' },
-    { label: 'Planner', href: '/planner', icon: Calendar, category: 'Navigation' },
-    { label: 'Start New Interview', href: '/createinterview', icon: Plus, category: 'Actions' },
-    { label: 'Upload Resume', href: '/resume/upload', icon: FileText, category: 'Actions' },
+  const allItems: NavItem[] = [
+    { id: 'dashboard', label: 'Dashboard', href: '/', icon: Home, category: 'Navigation' },
+    { id: 'resume', label: 'Resume Analysis', href: '/resume', icon: FileText, category: 'Navigation' },
+    { id: 'cover-letter', label: 'Cover Letter', href: '/cover-letter', icon: Pen, category: 'Navigation' },
+    { id: 'interviews', label: 'Interviews', href: '/interview', icon: Video, category: 'Navigation' },
+    { id: 'planner', label: 'Planner', href: '/planner', icon: Calendar, category: 'Navigation' },
+    { id: 'new-interview', label: 'Start New Interview', href: '/createinterview', icon: Plus, category: 'Actions' },
+    { id: 'upload-resume', label: 'Upload Resume', href: '/resume/upload', icon: FileText, category: 'Actions' },
   ];
 
   const filteredItems = searchQuery
@@ -221,10 +274,11 @@ const SearchDropdown = () => {
     : allItems;
 
   const groupedItems = filteredItems.reduce((acc, item) => {
-    if (!acc[item.category]) acc[item.category] = [];
-    acc[item.category].push(item);
+    const category = item.category || 'Other';
+    if (!acc[category]) acc[category] = [];
+    acc[category].push(item);
     return acc;
-  }, {} as Record<string, typeof allItems>);
+  }, {} as Record<string, NavItem[]>);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -314,7 +368,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const mainNavItems = [
+  const mainNavItems: NavItem[] = [
     { id: 'overview', label: 'Overview', icon: Home, href: '/' },
     { id: 'resume', label: 'Resume', icon: FileText, href: '/resume' },
     { id: 'cover-letter', label: 'Cover Letter', icon: Pen, href: '/cover-letter' },
@@ -322,11 +376,11 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
     { id: 'planner', label: 'Planner', icon: Calendar, href: '/planner' },
   ];
 
-  const teamSpaces = [
+  const teamSpaces: NavItem[] = [
     { id: 'templates', label: 'Templates', icon: BookOpen, href: '/templates' },
   ];
 
-  const otherItems = [
+  const otherItems: NavItem[] = [
     { id: 'settings', label: 'Settings', icon: Settings, href: '/settings' },
     { id: 'help', label: 'Support', icon: HelpCircle, href: '/help' },
   ];
@@ -349,7 +403,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
     if (!name || typeof name !== 'string' || name.trim() === '') return "U";
     try {
       return name.trim().split(" ").map((word) => word.charAt(0)).join("").toUpperCase().substring(0, 2);
-    } catch (error) {
+    } catch (_error) {
       return "U";
     }
   };

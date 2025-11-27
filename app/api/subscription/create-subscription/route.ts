@@ -1,13 +1,24 @@
 // app/api/subscription/create-subscription/route.ts
 import Stripe from "stripe";
 import { NextRequest, NextResponse } from "next/server";
-// Adjust path to your auth file
 import { db } from "@/firebase/admin";
 import { getCurrentUser } from "@/lib/actions/auth.action";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2024-06-20",
 });
+
+// Define interfaces
+interface CreateSubscriptionRequest {
+  priceId: string;
+  billingCycle?: string;
+}
+
+interface UserData {
+  subscription?: {
+    stripeCustomerId?: string;
+  };
+}
 
 export async function POST(request: NextRequest) {
   console.log("🔥 Create subscription API called");
@@ -23,7 +34,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse request body
-    const body = await request.json();
+    const body = await request.json() as CreateSubscriptionRequest;
     console.log("📝 Request body:", body);
 
     const { priceId, billingCycle } = body;
@@ -42,20 +53,21 @@ export async function POST(request: NextRequest) {
 
     // Get user's current subscription data from Firestore
     const userDoc = await db.collection("users").doc(user.id).get();
-    const userData = userDoc.data();
+    const userData = userDoc.data() as UserData | undefined;
 
-    let customer;
+    let customer: Stripe.Customer;
     const existingCustomerId = userData?.subscription?.stripeCustomerId;
 
     // Create or retrieve Stripe customer
     if (existingCustomerId) {
       try {
-        customer = await stripe.customers.retrieve(existingCustomerId);
-        if (customer.deleted) {
+        const retrievedCustomer = await stripe.customers.retrieve(existingCustomerId);
+        if ('deleted' in retrievedCustomer && retrievedCustomer.deleted) {
           throw new Error("Customer was deleted");
         }
+        customer = retrievedCustomer as Stripe.Customer;
         console.log("✅ Found existing customer:", customer.id);
-      } catch (error) {
+      } catch (_error) {
         console.log("🆕 Customer not found, creating new one");
         customer = await stripe.customers.create({
           email: user.email,

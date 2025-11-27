@@ -8,6 +8,26 @@ import { extractTextFromResume } from '@/lib/resume/pdf-text-extractor';
 const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 
+// Define interfaces
+interface ExtractedData {
+  jobTitle?: string;
+  companyName?: string;
+  companyType?: string;
+  techStack?: string[];
+}
+
+interface TailorResumeRequest {
+  resumeId: string;
+  jobDescription: string;
+  extractedData?: ExtractedData;
+}
+
+interface ResumeData {
+  userId: string;
+  resumeText?: string;
+  fileUrl?: string;
+}
+
 export async function POST(request: NextRequest) {
   try {
     console.log('✏️ Resume Tailoring Started');
@@ -35,7 +55,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse request
-    const { resumeId, jobDescription, extractedData } = await request.json();
+    const body = await request.json() as TailorResumeRequest;
+    const { resumeId, jobDescription, extractedData } = body;
 
     if (!resumeId || !jobDescription) {
       return NextResponse.json(
@@ -57,7 +78,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const resumeData = resumeDoc.data();
+    const resumeData = resumeDoc.data() as ResumeData;
 
     // Verify ownership
     if (resumeData.userId !== userId) {
@@ -105,7 +126,7 @@ export async function POST(request: NextRequest) {
       ? `\nCOMPANY CONTEXT: The company is in the ${extractedData.companyType} industry.` 
       : '';
 
-    const techStackContext = extractedData?.techStack?.length > 0
+    const techStackContext = extractedData?.techStack && extractedData.techStack.length > 0
       ? `\nREQUIRED TECHNOLOGIES: ${extractedData.techStack.join(', ')}`
       : '';
 
@@ -134,7 +155,7 @@ CRITICAL INSTRUCTIONS:
 WHAT YOU SHOULD CHANGE:
 1. **Technical Skills Section**: 
    - Add relevant technologies from the job description that match candidate's experience
-   - Prioritize technologies: ${extractedData?.techStack?.slice(0, 10).join(', ')}
+   - Prioritize technologies: ${extractedData?.techStack?.slice(0, 10).join(', ') || 'relevant technologies'}
    - Keep existing skills, just reorder/emphasize relevant ones
 
 2. **Experience Descriptions**:
@@ -144,7 +165,7 @@ WHAT YOU SHOULD CHANGE:
    - Quantify achievements where possible
 
 3. **Professional Summary/Objective** (if exists):
-   - Tailor to emphasize fit for ${extractedData?.jobTitle} role
+   - Tailor to emphasize fit for ${extractedData?.jobTitle || 'the target'} role
    - Mention relevant technologies from target tech stack
    - Keep it concise (2-3 sentences)
 
@@ -197,11 +218,11 @@ Return ONLY the JSON array, nothing else.`;
     const changesResult = await model.generateContent(changesPrompt);
     const changesText = changesResult.response.text();
     
-    let changes = [];
+    let changes: string[] = [];
     try {
       const jsonMatch = changesText.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
-        changes = JSON.parse(jsonMatch[0]);
+        changes = JSON.parse(jsonMatch[0]) as string[];
       }
     } catch (e) {
       console.error('Failed to parse changes:', e);
@@ -226,10 +247,11 @@ Return ONLY the JSON array, nothing else.`;
       }
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ Resume tailoring error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to tailor resume';
     return NextResponse.json(
-      { error: error.message || 'Failed to tailor resume' },
+      { error: errorMessage },
       { status: 500 }
     );
   }

@@ -26,6 +26,15 @@ interface GeminiAnalysis {
   reasoning: string;
 }
 
+interface APIResponse {
+  result?: {
+    interview?: {
+      id?: string;
+    };
+  };
+  error?: string;
+}
+
 export default function InterviewGeneratorForm({
   userId,
 }: InterviewGeneratorFormProps) {
@@ -57,7 +66,7 @@ export default function InterviewGeneratorForm({
       });
 
       if (!response.ok) throw new Error("Failed to analyze with Gemini");
-      return await response.json();
+      return await response.json() as GeminiAnalysis;
     } catch (error) {
       console.error("Gemini analysis error:", error);
       return fallbackAnalysis(text);
@@ -133,22 +142,18 @@ export default function InterviewGeneratorForm({
       
       if (file.type === "text/plain") {
         extractedText = await file.text();
-      } else {
-        // Simplified file processing for demo
-        const reader = new FileReader();
-        reader.onload = async (event) => {
-          extractedText = "Extracted content from file";
-        };
-        reader.readAsArrayBuffer(file);
-      }
-
-      if (extractedText && extractedText.length > 20) {
-        setFormData(prev => ({ ...prev, jobDescription: extractedText }));
-        const analysis = await analyzeWithGemini(extractedText);
-        if (analysis) {
-          setGeminiAnalysis(analysis);
-          applyGeminiAnalysis(analysis);
+        
+        if (extractedText && extractedText.length > 20) {
+          setFormData(prev => ({ ...prev, jobDescription: extractedText }));
+          const analysis = await analyzeWithGemini(extractedText);
+          if (analysis) {
+            setGeminiAnalysis(analysis);
+            applyGeminiAnalysis(analysis);
+          }
         }
+      } else {
+        // For non-text files, show message to use manual input
+        alert("PDF and DOC files are supported. Please paste the job description manually for now.");
       }
     } catch (error) {
       console.error("File processing error:", error);
@@ -224,14 +229,14 @@ export default function InterviewGeneratorForm({
       });
 
       if (response.ok) {
-        const result = await response.json();
+        const result = await response.json() as APIResponse;
         if (result.result?.interview?.id) {
           router.push(`/interview/${result.result.interview.id}`);
         } else {
           throw new Error("Interview ID not found in response");
         }
       } else {
-        const errorData = await response.json();
+        const errorData = await response.json() as APIResponse;
         throw new Error(errorData.error || "Failed to generate interview");
       }
     } catch (error) {
@@ -255,7 +260,7 @@ export default function InterviewGeneratorForm({
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto">
         <div className="p-6 space-y-6">
-          {/* AI Job Analysis Section - Compact */}
+          {/* AI Job Analysis Section */}
           <div className="bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-pink-500/10 rounded-xl border border-indigo-500/20 p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-3">
@@ -282,7 +287,7 @@ export default function InterviewGeneratorForm({
               Upload your job description or paste it below for intelligent AI analysis
             </p>
 
-            {/* Two Column Layout - Compact */}
+            {/* Two Column Layout */}
             <div className="grid lg:grid-cols-2 gap-6">
               {/* File Upload */}
               <div className="space-y-3">
@@ -377,7 +382,7 @@ export default function InterviewGeneratorForm({
             )}
           </div>
 
-          {/* AI Analysis Results - Compact */}
+          {/* AI Analysis Results */}
           {geminiAnalysis && (
             <div className="bg-gradient-to-br from-emerald-500/10 via-green-500/5 to-teal-500/10 rounded-xl border border-emerald-500/30 p-4">
               <div className="flex items-center justify-between mb-4">
@@ -447,7 +452,7 @@ export default function InterviewGeneratorForm({
             </div>
           )}
 
-          {/* Form Fields - Compact Grid */}
+          {/* Form Fields */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid lg:grid-cols-2 gap-6">
               {/* Left Column */}

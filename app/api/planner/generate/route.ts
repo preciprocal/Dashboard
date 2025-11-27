@@ -13,6 +13,62 @@ if (!apiKey) {
 
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 
+// Define interfaces
+interface GeneratePlanRequest {
+  role: string;
+  company?: string;
+  interviewDate: string;
+  daysUntilInterview: number;
+  skillLevel: string;
+  focusAreas?: string[];
+  existingSkills?: string[];
+  weakAreas?: string[];
+}
+
+interface Resource {
+  type: string;
+  title: string;
+  url: string;
+  duration?: string;
+  difficulty?: string;
+}
+
+interface BehavioralPrep {
+  topic: string;
+  question: string;
+  tips: string[];
+  framework: string;
+}
+
+interface Task {
+  id?: string;
+  type: string;
+  title: string;
+  description: string;
+  status: string;
+  priority: string;
+  estimatedMinutes: number;
+  dueDate?: string;
+}
+
+interface DailyPlan {
+  day?: number;
+  date?: string;
+  focus: string;
+  topics: string[];
+  resources: Resource[];
+  behavioral: BehavioralPrep;
+  communicationTip: string;
+  tasks: Task[];
+  estimatedHours: number;
+  aiTips: string[];
+  completed: boolean;
+}
+
+interface GeneratedPlan {
+  dailyPlans: DailyPlan[];
+}
+
 const SYSTEM_PROMPT = `You are an expert interview preparation coach. Create personalized, day-by-day interview preparation plans that are realistic, comprehensive, and resource-rich.
 
 Return your response as valid JSON with this exact structure:
@@ -89,7 +145,7 @@ export async function POST(request: NextRequest) {
     const userId = decodedClaims.uid;
 
     // Parse request body
-    const body = await request.json();
+    const body = await request.json() as GeneratePlanRequest;
     const {
       role,
       company,
@@ -148,9 +204,9 @@ Create a detailed, day-by-day plan with specific resources, practice problems, a
       throw new Error('Failed to parse AI response - no JSON found');
     }
 
-    let generatedPlan;
+    let generatedPlan: GeneratedPlan;
     try {
-      generatedPlan = JSON.parse(jsonMatch[0]);
+      generatedPlan = JSON.parse(jsonMatch[0]) as GeneratedPlan;
     } catch (parseError) {
       console.error('❌ JSON parsing error:', parseError);
       console.error('Extracted text:', jsonMatch[0].substring(0, 500));
@@ -171,7 +227,7 @@ Create a detailed, day-by-day plan with specific resources, practice problems, a
     const currentDate = new Date();
 
     // Generate task IDs and dates
-    generatedPlan.dailyPlans = generatedPlan.dailyPlans.map((dailyPlan: any, dayIndex: number) => {
+    generatedPlan.dailyPlans = generatedPlan.dailyPlans.map((dailyPlan: DailyPlan, dayIndex: number) => {
       const planDate = new Date(currentDate);
       planDate.setDate(planDate.getDate() + dayIndex);
       
@@ -179,7 +235,7 @@ Create a detailed, day-by-day plan with specific resources, practice problems, a
         ...dailyPlan,
         day: dayIndex + 1,
         date: planDate.toISOString().split('T')[0],
-        tasks: (dailyPlan.tasks || []).map((task: any, taskIndex: number) => ({
+        tasks: (dailyPlan.tasks || []).map((task: Task, taskIndex: number) => ({
           ...task,
           id: `${planId}_day${dayIndex + 1}_task${taskIndex + 1}`,
           dueDate: planDate.toISOString().split('T')[0],
@@ -190,7 +246,7 @@ Create a detailed, day-by-day plan with specific resources, practice problems, a
 
     // Calculate total tasks
     const totalTasks = generatedPlan.dailyPlans.reduce(
-      (sum: number, day: any) => sum + (day.tasks?.length || 0), 
+      (sum: number, day: DailyPlan) => sum + (day.tasks?.length || 0), 
       0
     );
 
@@ -237,16 +293,17 @@ Create a detailed, day-by-day plan with specific resources, practice problems, a
       plan: completePlan
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ Error generating interview plan:', error);
-    console.error('   Error name:', error.name);
-    console.error('   Error message:', error.message);
+    const err = error as Error;
+    console.error('   Error name:', err.name);
+    console.error('   Error message:', err.message);
     
     return NextResponse.json(
       { 
         error: 'Failed to generate plan', 
-        details: error.message,
-        type: error.name 
+        details: err.message,
+        type: err.name 
       },
       { status: 500 }
     );

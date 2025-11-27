@@ -2,20 +2,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2, AlertCircle, ExternalLink, FileText, Eye, Download } from 'lucide-react';
+import { Loader2, AlertCircle, ExternalLink, FileText, Download } from 'lucide-react';
 
 interface WordEmbedPanelProps {
   resumePath: string;
   resumeId: string;
-  userId: string;
-  onTextSelect: (text: string) => void;
 }
 
 export default function WordEmbedPanel({
   resumePath,
   resumeId,
-  userId,
-  onTextSelect
 }: WordEmbedPanelProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -36,7 +32,6 @@ export default function WordEmbedPanel({
     if (!resumePath) return;
 
     if (resumePath.startsWith('data:')) {
-      // Create download link for base64 data
       const link = document.createElement('a');
       link.href = resumePath;
       link.download = `resume_${resumeId}.pdf`;
@@ -73,7 +68,6 @@ export default function WordEmbedPanel({
     );
   }
 
-  // Check if it's a PDF or image
   const isPDF = resumePath.includes('application/pdf');
   const isImage = resumePath.includes('data:image/');
 
@@ -108,7 +102,6 @@ export default function WordEmbedPanel({
       {/* Document Display */}
       <div className="flex-1 overflow-auto bg-slate-950 p-6">
         {isPDF ? (
-          // PDF Display using embed
           <div className="h-full w-full max-w-4xl mx-auto">
             <embed
               src={resumePath}
@@ -118,7 +111,6 @@ export default function WordEmbedPanel({
             />
           </div>
         ) : isImage ? (
-          // Image Preview
           <div className="max-w-4xl mx-auto">
             <img
               src={resumePath}
@@ -128,7 +120,6 @@ export default function WordEmbedPanel({
             />
           </div>
         ) : (
-          // Fallback
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
               <FileText className="w-16 h-16 text-slate-600 mx-auto mb-4" />

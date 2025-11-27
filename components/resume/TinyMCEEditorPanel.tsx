@@ -1,9 +1,9 @@
 // components/resume/TinyMCEEditorPanel.tsx
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Editor } from '@tinymce/tinymce-react';
-import { Save, Download, Check, Loader2, FileText, Eye, ExternalLink } from 'lucide-react';
+import { Save, Download, Check, Loader2, FileText } from 'lucide-react';
 
 interface TinyMCEEditorPanelProps {
   initialContent: string;
@@ -17,45 +17,15 @@ export default function TinyMCEEditorPanel({
   initialContent,
   resumeId,
   userId,
-  resumePath,
   onTextSelect
 }: TinyMCEEditorPanelProps) {
   const [content, setContent] = useState(initialContent);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
-  const editorRef = useRef<any>(null);
+  const [editorRef, setEditorRef] = useState<any>(null);
 
-  // Auto-save every 3 seconds
-  useEffect(() => {
-    const autoSave = setTimeout(() => {
-      if (content && content.length > 50 && !content.includes('Paste your resume')) {
-        handleSave();
-      }
-    }, 3000);
-
-    return () => clearTimeout(autoSave);
-  }, [content]);
-
-  // Handle text selection for AI
-  useEffect(() => {
-    const handleSelection = () => {
-      if (editorRef.current) {
-        const editor = editorRef.current;
-        const selectedText = editor.selection?.getContent({ format: 'text' }) || '';
-        
-        if (selectedText.trim().length > 10) {
-          onTextSelect(selectedText.trim());
-        }
-      }
-    };
-
-    // Poll for selection changes
-    const interval = setInterval(handleSelection, 1000);
-    return () => clearInterval(interval);
-  }, [onTextSelect]);
-
-  const handleSave = async () => {
-    if (!resumeId || !userId || !editorRef.current) return;
+  const handleSave = useCallback(async () => {
+    if (!resumeId || !userId || !editorRef) return;
 
     setIsSaving(true);
     setSaveStatus('saving');
@@ -64,10 +34,8 @@ export default function TinyMCEEditorPanel({
       const { doc, updateDoc } = await import('firebase/firestore');
       const { db } = await import('@/firebase/client');
       
-      // Get both HTML and plain text
-      const editor = editorRef.current;
-      const htmlContent = editor.getContent();
-      const plainText = editor.getContent({ format: 'text' });
+      const htmlContent = editorRef.getContent();
+      const plainText = editorRef.getContent({ format: 'text' });
       
       const resumeRef = doc(db, 'resumes', resumeId);
       await updateDoc(resumeRef, {
@@ -85,16 +53,39 @@ export default function TinyMCEEditorPanel({
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [resumeId, userId, editorRef]);
+
+  useEffect(() => {
+    const autoSave = setTimeout(() => {
+      if (content && content.length > 50 && !content.includes('Paste your resume')) {
+        handleSave();
+      }
+    }, 3000);
+
+    return () => clearTimeout(autoSave);
+  }, [content, handleSave]);
+
+  useEffect(() => {
+    const handleSelection = () => {
+      if (editorRef) {
+        const selectedText = editorRef.selection?.getContent({ format: 'text' }) || '';
+        
+        if (selectedText.trim().length > 10) {
+          onTextSelect(selectedText.trim());
+        }
+      }
+    };
+
+    const interval = setInterval(handleSelection, 1000);
+    return () => clearInterval(interval);
+  }, [editorRef, onTextSelect]);
 
   const handleDownload = async () => {
-    if (!editorRef.current) return;
+    if (!editorRef) return;
     
     try {
-      // Get the HTML content from TinyMCE
-      const htmlContent = editorRef.current.getContent();
+      const htmlContent = editorRef.getContent();
       
-      // Create a properly formatted HTML document for PDF
       const fullHtml = `
 <!DOCTYPE html>
 <html>
@@ -149,19 +140,16 @@ export default function TinyMCEEditorPanel({
 </body>
 </html>`;
 
-      // Convert HTML to PDF using browser's print functionality
       const printWindow = window.open('', '_blank');
       if (printWindow) {
         printWindow.document.write(fullHtml);
         printWindow.document.close();
         
-        // Wait for content to load then trigger print dialog
         printWindow.onload = () => {
           printWindow.focus();
           printWindow.print();
         };
       } else {
-        // Fallback: download as HTML if popup blocked
         const blob = new Blob([fullHtml], { type: 'text/html' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -219,18 +207,6 @@ export default function TinyMCEEditorPanel({
             <Download className="w-3 h-3" />
             <span>Download</span>
           </button>
-
-          {resumePath && (
-            <a 
-              href={resumePath} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded text-xs font-medium transition-colors flex items-center space-x-1"
-            >
-              <Eye className="w-3 h-3" />
-              <span>View PDF</span>
-            </a>
-          )}
         </div>
       </div>
 
@@ -270,8 +246,8 @@ export default function TinyMCEEditorPanel({
           
           <Editor
             apiKey="7ukp4qecoz96y5ywhz6gbio9woyul7w3kl529pnmbp1jaci8"
-            onInit={(evt, editor) => {
-              editorRef.current = editor;
+            onInit={(_evt, editor) => {
+              setEditorRef(editor);
               console.log('✅ TinyMCE Editor initialized');
             }}
             value={content}
@@ -343,7 +319,7 @@ export default function TinyMCEEditorPanel({
               quickbars_selection_toolbar: 'bold italic | quicklink h2 h3 blockquote',
               automatic_uploads: false,
             }}
-            onEditorChange={(newContent, editor) => {
+            onEditorChange={(newContent) => {
               setContent(newContent);
             }}
           />
@@ -353,7 +329,7 @@ export default function TinyMCEEditorPanel({
       {/* Status Bar */}
       <div className="bg-slate-900 border-t border-slate-700 px-4 py-2 text-xs text-slate-400 flex items-center justify-between flex-shrink-0">
         <span>✏️ Microsoft Word-like editor • Auto-saves every 3 seconds</span>
-        <span>{editorRef.current?.plugins.wordcount?.body.getCharacterCount() || 0} characters</span>
+        <span>{editorRef?.plugins.wordcount?.body.getCharacterCount() || 0} characters</span>
       </div>
     </div>
   );

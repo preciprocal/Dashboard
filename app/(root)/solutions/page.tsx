@@ -254,7 +254,7 @@ const InteractiveSolutionsDashboard = () => {
     }
   };
 
-  const currentSolution = solutions[activeSolution];
+  const currentSolution = solutions[activeSolution as keyof typeof solutions];
   const currentFramework = currentSolution.frameworks[activeFramework];
 
   return (
@@ -377,7 +377,7 @@ const InteractiveSolutionsDashboard = () => {
                                   </div>
                                   <div>
                                     <div className="text-green-300 font-medium text-sm mb-1">Example:</div>
-                                    <div className="text-gray-300 text-sm italic">"{step.example}"</div>
+                                    <div className="text-gray-300 text-sm italic">&quot;{step.example}&quot;</div>
                                   </div>
                                 </div>
                               </div>

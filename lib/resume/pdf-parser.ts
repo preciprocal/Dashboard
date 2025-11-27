@@ -1,30 +1,22 @@
-// lib/utils/pdf-parser.ts
+// lib/resume/pdf-parser.ts
 
-import { getDocument } from 'pdfjs-dist/legacy/build/pdf';
-
-// For Node.js environment, we need to use the legacy build
-if (typeof window === 'undefined') {
-  // Server-side configuration
-  const pdfjsLib = require('pdfjs-dist/legacy/build/pdf');
-  
-  // Disable worker in Node.js environment
-  pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+interface PDFDocumentProxy {
+  numPages: number;
+  getPage: (pageNum: number) => Promise<any>;
 }
 
 /**
- * Extract text from PDF file (Server-side compatible)
+ * Extract text from PDF file (Client-side)
  */
 export async function extractTextFromPDF(file: File): Promise<string> {
   try {
-    // Convert file to array buffer
+    const pdfjsLib = await import('pdfjs-dist');
+    
+    // Set worker source
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
     const arrayBuffer = await file.arrayBuffer();
     
-    // Use legacy build for better compatibility
-    const pdfjsLib = typeof window === 'undefined' 
-      ? require('pdfjs-dist/legacy/build/pdf')
-      : await import('pdfjs-dist');
-
-    // Load PDF document
     const loadingTask = pdfjsLib.getDocument({ 
       data: arrayBuffer,
       useWorkerFetch: false,
@@ -32,11 +24,10 @@ export async function extractTextFromPDF(file: File): Promise<string> {
       useSystemFonts: true,
     });
     
-    const pdf = await loadingTask.promise;
+    const pdf: PDFDocumentProxy = await loadingTask.promise;
 
     console.log(`📄 PDF loaded: ${pdf.numPages} pages`);
 
-    // Extract text from all pages
     const textPromises: Promise<string>[] = [];
 
     for (let i = 1; i <= pdf.numPages; i++) {
@@ -44,8 +35,6 @@ export async function extractTextFromPDF(file: File): Promise<string> {
     }
 
     const pageTexts = await Promise.all(textPromises);
-
-    // Combine all pages
     const fullText = pageTexts.join('\n\n');
 
     console.log(`✅ Extracted ${fullText.length} characters`);
@@ -60,12 +49,11 @@ export async function extractTextFromPDF(file: File): Promise<string> {
 /**
  * Extract text from a single page
  */
-async function extractPageText(pdf: any, pageNumber: number): Promise<string> {
+async function extractPageText(pdf: PDFDocumentProxy, pageNumber: number): Promise<string> {
   try {
     const page = await pdf.getPage(pageNumber);
     const textContent = await page.getTextContent();
 
-    // Combine text items
     const text = textContent.items
       .map((item: any) => item.str)
       .join(' ')
@@ -85,7 +73,6 @@ export function validatePDFFile(file: File): {
   valid: boolean;
   error?: string;
 } {
-  // Check file type
   if (file.type !== 'application/pdf') {
     return {
       valid: false,
@@ -93,7 +80,6 @@ export function validatePDFFile(file: File): {
     };
   }
 
-  // Check file size (max 10MB)
   const maxSize = 10 * 1024 * 1024;
   if (file.size > maxSize) {
     return {

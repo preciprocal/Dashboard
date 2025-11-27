@@ -7,6 +7,21 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 
+// Define interfaces for request body
+interface CustomizationContext {
+  jobTitle?: string;
+  companyName?: string;
+  companyType?: string;
+  techStack?: string[];
+}
+
+interface CustomizationRequest {
+  documentType: 'resume' | 'coverLetter';
+  currentContent: string;
+  userPrompt: string;
+  context?: CustomizationContext;
+}
+
 export async function POST(request: NextRequest) {
   try {
     console.log('🎨 AI Customization Started');
@@ -23,7 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     const decodedClaims = await auth.verifySessionCookie(session.value, true);
-    const userId = decodedClaims.uid;
+    const _userId = decodedClaims.uid;
 
     // Check API
     if (!genAI || !apiKey) {
@@ -34,12 +49,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse request
+    const body = await request.json() as CustomizationRequest;
     const { 
       documentType, // 'resume' or 'coverLetter'
       currentContent,
       userPrompt,
       context // job details for context
-    } = await request.json();
+    } = body;
 
     if (!documentType || !currentContent || !userPrompt) {
       return NextResponse.json(
@@ -137,10 +153,11 @@ Return ONLY the explanation, no other text.`;
       }
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ Customization error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to customize document';
     return NextResponse.json(
-      { error: error.message || 'Failed to customize document' },
+      { error: errorMessage },
       { status: 500 }
     );
   }

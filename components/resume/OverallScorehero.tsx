@@ -9,7 +9,7 @@ interface OverallScoreHeroProps {
 }
 
 export function OverallScoreHero({ score }: OverallScoreHeroProps) {
-  const getGrade = (score: number) => {
+  const getGrade = (score: number): string => {
     if (score >= 90) return 'A+';
     if (score >= 80) return 'A';
     if (score >= 70) return 'B';
@@ -17,7 +17,7 @@ export function OverallScoreHero({ score }: OverallScoreHeroProps) {
     return 'D';
   };
 
-  const getLabel = (score: number) => {
+  const getLabel = (score: number): string => {
     if (score >= 90) return 'Outstanding';
     if (score >= 80) return 'Excellent';
     if (score >= 70) return 'Good';
@@ -43,7 +43,7 @@ export function OverallScoreHero({ score }: OverallScoreHeroProps) {
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-white mb-1">Overall Score</h2>
-                <p className="text-blue-100">Your resume's comprehensive performance rating</p>
+                <p className="text-blue-100">Your resume&apos;s comprehensive performance rating</p>
               </div>
             </div>
             

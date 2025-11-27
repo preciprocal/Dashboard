@@ -27,6 +27,7 @@ import {
 import { DetailedAnalysisSection } from '@/components/resume/DetailedAnalysisSection';
 import { ImprovementRoadmap } from '@/components/resume/ImprovementRoadmap';
 import { OverallScoreHero } from './OverallScorehero';
+import Image from 'next/image';
 
 export default function ResumeDetailsPage() {
   const params = useParams();
@@ -221,7 +222,7 @@ export default function ResumeDetailsPage() {
             <div className="w-full max-w-md">
               {imageUrl && imageUrl.startsWith('data:image') ? (
                 <div className="mb-4">
-                  <img
+                  <Image
                     src={imageUrl}
                     alt="Resume preview"
                     className="w-full rounded-2xl shadow-xl border border-slate-200 dark:border-slate-600 max-h-[calc(100vh-300px)] object-contain"

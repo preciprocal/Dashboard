@@ -32,22 +32,54 @@ interface Resume {
   };
 }
 
+interface Interview {
+  id: string;
+  type: string;
+  score: number;
+  createdAt: Date | string;
+}
+
+interface Stats {
+  averageScore?: number;
+  totalInterviews?: number;
+  totalResumes?: number;
+  averageResumeScore?: number;
+  plannerStats?: {
+    activePlans: number;
+    totalPlans: number;
+    completedPlans: number;
+    currentPlan?: {
+      id: string;
+      role: string;
+      company?: string;
+      progress: number;
+      daysRemaining: number;
+      interviewDate: string;
+    };
+  };
+}
+
+interface DailyFocus {
+  id: string;
+  type: string;
+  icon: string;
+  text: string;
+  description: string;
+  completed: boolean;
+}
+
 interface ProfileOverviewProps {
-  userProfile: any;
-  stats: any;
-  interviews: any[];
+  stats: Stats;
+  interviews: Interview[];
   resumes?: Resume[];
-  generateDailyFocus: (interviews: any[], resumes: any[], stats: any) => any[];
-  loading?: boolean;
+  generateDailyFocus: (interviews: Interview[], resumes: Resume[], stats: Stats) => DailyFocus[];
 }
 
 const ProfileOverview: React.FC<ProfileOverviewProps> = ({
-  userProfile,
   stats,
   interviews,
   resumes = [],
   generateDailyFocus,
-  loading = false,
 }) => {
   const hasResumes = resumes && resumes.length > 0;
   const hasInterviews = interviews && interviews.length > 0;
@@ -61,7 +93,7 @@ const ProfileOverview: React.FC<ProfileOverviewProps> = ({
   const getJobReadinessStatus = () => {
     const interviewReady = averageScore >= 70;
     const resumeReady = hasResumes && averageResumeScore >= 70;
-    const plannerActive = plannerStats?.activePlans > 0;
+    const plannerActive = plannerStats && plannerStats.activePlans > 0;
     
     if (interviewReady && resumeReady && plannerActive) {
       return { status: "ready", message: "Job Ready", color: "emerald" };
@@ -268,7 +300,7 @@ const ProfileOverview: React.FC<ProfileOverviewProps> = ({
                 <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center">
                   <Target className="h-6 w-6 text-amber-400" />
                 </div>
-                {dailyFocus.filter((f: any) => f.completed).length === dailyFocus.length && (
+                {dailyFocus.filter((f: DailyFocus) => f.completed).length === dailyFocus.length && (
                   <div className="absolute -top-1 -right-1 w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center border-2 border-slate-900">
                     <CheckCircle className="w-4 h-4 text-white" />
                   </div>
@@ -282,7 +314,7 @@ const ProfileOverview: React.FC<ProfileOverviewProps> = ({
                       <div 
                         key={i}
                         className={`w-2 h-2 rounded-full ${
-                          i < dailyFocus.filter((f: any) => f.completed).length
+                          i < dailyFocus.filter((f: DailyFocus) => f.completed).length
                             ? 'bg-emerald-500'
                             : 'bg-slate-600'
                         }`}
@@ -290,13 +322,13 @@ const ProfileOverview: React.FC<ProfileOverviewProps> = ({
                     ))}
                   </div>
                   <span className="text-sm text-slate-400">
-                    {dailyFocus.filter((f: any) => f.completed).length} of {dailyFocus.length} completed
+                    {dailyFocus.filter((f: DailyFocus) => f.completed).length} of {dailyFocus.length} completed
                   </span>
                 </div>
               </div>
             </div>
             
-            {dailyFocus.filter((f: any) => f.completed).length === dailyFocus.length ? (
+            {dailyFocus.filter((f: DailyFocus) => f.completed).length === dailyFocus.length ? (
               <div className="px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded-lg text-sm font-medium">
                 <Trophy className="w-4 h-4 mr-1 inline" />
                 All Done!
@@ -310,7 +342,7 @@ const ProfileOverview: React.FC<ProfileOverviewProps> = ({
           </div>
 
           <div className="space-y-3">
-            {dailyFocus.map((focus: any) => {
+            {dailyFocus.map((focus: DailyFocus) => {
               const getColors = (type: string, completed: boolean) => {
                 if (completed) {
                   return {

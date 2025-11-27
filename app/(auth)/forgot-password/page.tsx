@@ -5,7 +5,6 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { auth } from "@/firebase/client";
 import { useForm } from "react-hook-form";
-import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { sendPasswordResetEmail } from "firebase/auth";
@@ -18,7 +17,6 @@ const forgotPasswordSchema = z.object({
 });
 
 const ForgotPasswordPage = () => {
-  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
 
@@ -35,17 +33,9 @@ const ForgotPasswordPage = () => {
       await sendPasswordResetEmail(auth, data.email);
       setEmailSent(true);
       toast.success("Password reset email sent! Check your inbox.");
-    } catch (error: any) {
+    } catch (error) {
       console.log(error);
       let errorMessage = "Failed to send password reset email.";
-
-      if (error.code === "auth/user-not-found") {
-        errorMessage = "No account found with this email address.";
-      } else if (error.code === "auth/invalid-email") {
-        errorMessage = "Invalid email address format.";
-      } else if (error.code === "auth/too-many-requests") {
-        errorMessage = "Too many requests. Please try again later.";
-      }
 
       toast.error(errorMessage);
     } finally {
@@ -122,7 +112,7 @@ const ForgotPasswordPage = () => {
               Secure Password Reset
             </h2>
             <p className="text-gray-300 leading-relaxed">
-              Enter your email address and we'll send you a secure link to reset
+              Enter your email address and we&apos;ll send you a secure link to reset
               your password. Your account security is our priority.
             </p>
 
@@ -181,7 +171,7 @@ const ForgotPasswordPage = () => {
             <div className="space-y-2 mb-6">
               <h2 className="text-2xl font-bold text-white">Reset Password</h2>
               <p className="text-white/80 text-sm leading-relaxed">
-                We'll send you a secure reset link
+                We&apos;ll send you a secure reset link
               </p>
             </div>
           </div>
@@ -192,7 +182,7 @@ const ForgotPasswordPage = () => {
               Forgot Password?
             </h2>
             <p className="text-gray-600">
-              No worries! Enter your email and we'll send you a reset link.
+              No worries! Enter your email and we&apos;ll send you a reset link.
             </p>
           </div>
 
@@ -210,7 +200,7 @@ const ForgotPasswordPage = () => {
                     Check Your Email
                   </h3>
                   <p className="text-gray-600 lg:text-gray-600">
-                    We've sent a password reset link to{" "}
+                    We&apos;ve sent a password reset link to{" "}
                     <span className="font-semibold text-blue-600">
                       {form.getValues("email")}
                     </span>

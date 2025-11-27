@@ -17,10 +17,13 @@ import {
   AlertCircle,
   Info,
   TrendingUp,
-  Loader2
+  Loader2,
+  Upload,
+  Zap
 } from 'lucide-react';
 import { compressPDF, validatePDF } from '@/lib/resume/pdf-compression';
 import { convertPdfToImage } from '@/lib/resume/pdf2img';
+import Link from 'next/link';
 
 const PROCESSING_STEPS = [
   { step: 0, message: 'Compressing file...', progress: 10 },
@@ -179,11 +182,11 @@ export default function UploadResume() {
         }
       }, 2000);
       
-    } catch (error) {
-      console.error('❌ Analysis failed:', error);
+    } catch (err) {
+      console.error('❌ Analysis failed:', err);
       
-      const errorMessage = error instanceof Error 
-        ? error.message 
+      const errorMessage = err instanceof Error 
+        ? err.message 
         : 'An unexpected error occurred';
       
       setError(errorMessage);
@@ -286,7 +289,7 @@ export default function UploadResume() {
               <div className="mt-4 p-3 bg-amber-500/10 rounded-lg border border-amber-500/20">
                 <p className="text-xs text-amber-400 flex items-start">
                   <Info className="w-3 h-3 mr-2 mt-0.5 flex-shrink-0" />
-                  Saving to database... Please don't close this window.
+                  Saving to database... Please don&apos;t close this window.
                 </p>
               </div>
             )}
@@ -403,7 +406,7 @@ export default function UploadResume() {
                 <button
                   key={type.value}
                   type="button"
-                  onClick={() => setFormData({ ...formData, analysisType: type.value as any })}
+                  onClick={() => setFormData({ ...formData, analysisType: type.value as 'full' | 'quick' | 'ats-only' })}
                   className={`p-4 rounded-lg border transition-all ${
                     formData.analysisType === type.value
                       ? 'border-blue-500/30 bg-blue-500/10'

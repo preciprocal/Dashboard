@@ -1,4 +1,4 @@
-// lib/firebase-service.ts
+// lib/services/firebase-service.ts
 import { 
   collection, 
   doc, 
@@ -12,6 +12,14 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from '@/firebase/client';
 import { Resume } from '@/types/resume';
+
+// Helper function to get error message from unknown error
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return 'Unknown error';
+}
 
 export class FirebaseService {
   // Convert file to base64 data URL (similar to your interview form approach)
@@ -83,9 +91,9 @@ export class FirebaseService {
       console.log('✅ Resume saved successfully to Firestore');
       
       return resume.id;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error saving resume:', error);
-      throw new Error(`Failed to save resume: ${(error as any)?.message || 'Unknown error'}`);
+      throw new Error(`Failed to save resume: ${getErrorMessage(error)}`);
     }
   }
 
@@ -110,9 +118,9 @@ export class FirebaseService {
       
       await setDoc(resumeRef, resumeData);
       console.log('✅ Resume saved successfully to Firestore');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error saving resume:', error);
-      throw new Error(`Failed to save resume: ${(error as any)?.message || 'Unknown error'}`);
+      throw new Error(`Failed to save resume: ${getErrorMessage(error)}`);
     }
   }
 
@@ -144,7 +152,7 @@ export class FirebaseService {
         console.log('❌ Resume not found');
         return null;
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error getting resume:', error);
       throw new Error('Failed to get resume');
     }
@@ -182,14 +190,14 @@ export class FirebaseService {
 
       console.log('✅ Found', resumes.length, 'resumes for user');
       return resumes;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error getting user resumes:', error);
       throw new Error('Failed to get user resumes');
     }
   }
 
   // Create downloadable URL from base64 (for viewing PDFs)
-  static createDownloadableUrl(base64Data: string, filename: string): string {
+  static createDownloadableUrl(base64Data: string, _filename: string): string {
     try {
       // Convert base64 data URL back to blob
       const [header, data] = base64Data.split(',');
@@ -206,7 +214,7 @@ export class FirebaseService {
       const blob = new Blob([byteArray], { type: mimeType });
       
       return URL.createObjectURL(blob);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error creating downloadable URL:', error);
       return '';
     }
@@ -241,7 +249,7 @@ export class FirebaseService {
       await setDoc(resumeRef, { deleted: true, deletedAt: new Date() }, { merge: true });
       
       console.log('✅ Resume marked as deleted');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error deleting resume:', error);
       throw new Error('Failed to delete resume');
     }
@@ -258,7 +266,7 @@ export class FirebaseService {
   }
 
   // Estimate document size (helpful for Firestore limits)
-  static estimateDocumentSize(data: any): number {
+  static estimateDocumentSize(data: unknown): number {
     return JSON.stringify(data).length;
   }
 }

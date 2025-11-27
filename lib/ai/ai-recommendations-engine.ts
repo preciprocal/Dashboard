@@ -22,6 +22,21 @@ export interface AIRecommendation {
   }[];
 }
 
+interface Interview {
+  feedback?: {
+    categoryScores?: Record<string, number>;
+    totalScore?: number;
+  };
+  score?: number;
+}
+
+interface Resume {
+  feedback?: {
+    overallScore?: number;
+    [key: string]: any;
+  };
+}
+
 interface InterviewAnalysis {
   weakestCategory: string;
   weakestScore: number;
@@ -42,10 +57,22 @@ interface ResumeAnalysis {
   improvementAreas: string[];
 }
 
+interface CategoryRecommendation {
+  title: string;
+  description: string;
+  resources: Array<{
+    title: string;
+    url: string;
+    type: "article" | "video" | "course" | "book" | "practice";
+    rating?: number;
+    users?: string;
+  }>;
+}
+
 /**
  * Analyze interview performance patterns
  */
-export function analyzeInterviewPerformance(interviews: any[]): InterviewAnalysis {
+export function analyzeInterviewPerformance(interviews: Interview[]): InterviewAnalysis {
   if (!interviews || interviews.length === 0) {
     return {
       weakestCategory: 'communication',
@@ -154,7 +181,7 @@ export function analyzeInterviewPerformance(interviews: any[]): InterviewAnalysi
 /**
  * Analyze resume data patterns
  */
-export function analyzeResumeData(resumes: any[]): ResumeAnalysis {
+export function analyzeResumeData(resumes: Resume[]): ResumeAnalysis {
   if (!resumes || resumes.length === 0) {
     return {
       averageScore: 0,
@@ -225,7 +252,7 @@ export function analyzeResumeData(resumes: any[]): ResumeAnalysis {
   });
 
   const commonIssues = Object.entries(issueFrequency)
-    .filter(([_, count]) => count >= 2 || resumes.length === 1)
+    .filter(([, count]) => count >= 2 || resumes.length === 1)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
     .map(([issue]) => issue);
@@ -255,9 +282,8 @@ export function analyzeResumeData(resumes: any[]): ResumeAnalysis {
  * Generate dynamic AI recommendations based on data analysis
  */
 export function generateDynamicAIRecommendations(
-  interviews: any[],
-  resumes: any[],
-  stats: any
+  interviews: Interview[],
+  resumes: Resume[]
 ): AIRecommendation[] {
   const recommendations: AIRecommendation[] = [];
   
@@ -270,7 +296,7 @@ export function generateDynamicAIRecommendations(
     
     // 1. Address weakest interview category
     if (interviewAnalysis.weakestScore < 70) {
-      const categoryMap: Record<string, any> = {
+      const categoryMap: Record<string, CategoryRecommendation> = {
         communication: {
           title: "Improve Communication Skills",
           description: `Your communication scores average ${interviewAnalysis.weakestScore}/100. Focus on structured responses using the STAR method (Situation, Task, Action, Result) to articulate your thoughts more clearly.`,
@@ -278,14 +304,14 @@ export function generateDynamicAIRecommendations(
             {
               title: "STAR Method Interview Guide",
               url: "https://www.indeed.com/career-advice/interviewing/how-to-use-the-star-interview-response-technique",
-              type: "article" as const,
+              type: "article",
               rating: 4.7,
               users: "12K readers"
             },
             {
               title: "Effective Communication for Interviews",
               url: "https://www.coursera.org/learn/professional-interview-skills",
-              type: "course" as const,
+              type: "course",
               rating: 4.5,
               users: "45K students"
             }
@@ -298,14 +324,14 @@ export function generateDynamicAIRecommendations(
             {
               title: "System Design Interview Book",
               url: "https://www.amazon.com/System-Design-Interview-insiders-Second/dp/B08CMF2CQF",
-              type: "book" as const,
+              type: "book",
               rating: 4.8,
               users: "8K reviews"
             },
             {
               title: "LeetCode - Technical Interview Prep",
               url: "https://leetcode.com/",
-              type: "practice" as const,
+              type: "practice",
               rating: 4.6,
               users: "1M+ users"
             }
@@ -318,14 +344,14 @@ export function generateDynamicAIRecommendations(
             {
               title: "Cracking the Coding Interview",
               url: "https://www.crackingthecodinginterview.com/",
-              type: "book" as const,
+              type: "book",
               rating: 4.6,
               users: "45K reviews"
             },
             {
               title: "HackerRank Problem Solving",
               url: "https://www.hackerrank.com/domains/algorithms",
-              type: "practice" as const,
+              type: "practice",
               rating: 4.5,
               users: "500K+ users"
             }
@@ -338,14 +364,14 @@ export function generateDynamicAIRecommendations(
             {
               title: "Interview Confidence Building Course",
               url: "https://www.udemy.com/course/interview-confidence/",
-              type: "course" as const,
+              type: "course",
               rating: 4.4,
               users: "15K students"
             },
             {
               title: "Pramp - Free Mock Interviews",
               url: "https://www.pramp.com/",
-              type: "practice" as const,
+              type: "practice",
               rating: 4.6,
               users: "200K+ users"
             }
@@ -358,7 +384,7 @@ export function generateDynamicAIRecommendations(
             {
               title: "Behavioral Interview Mastery",
               url: "https://www.themuse.com/advice/behavioral-interview-questions-answers-examples",
-              type: "article" as const,
+              type: "article",
               rating: 4.5,
               users: "50K readers"
             }
@@ -434,7 +460,7 @@ export function generateDynamicAIRecommendations(
     
     // 4. Address weakest resume section
     if (resumeAnalysis.weakestScore < 75) {
-      const sectionMap: Record<string, any> = {
+      const sectionMap: Record<string, CategoryRecommendation> = {
         ATS: {
           title: "Optimize for ATS Systems",
           description: `Your ATS compatibility scores ${resumeAnalysis.weakestScore}/100. Use relevant keywords, proper formatting, and avoid graphics/tables that ATS systems can't parse.`,
@@ -442,7 +468,7 @@ export function generateDynamicAIRecommendations(
             {
               title: "ATS-Friendly Resume Guide",
               url: "https://www.jobscan.co/blog/ats-resume/",
-              type: "article" as const,
+              type: "article",
               rating: 4.7,
               users: "50K readers"
             }
@@ -455,7 +481,7 @@ export function generateDynamicAIRecommendations(
             {
               title: "Writing Powerful Resume Bullets",
               url: "https://www.themuse.com/advice/185-powerful-verbs-that-will-make-your-resume-awesome",
-              type: "article" as const,
+              type: "article",
               rating: 4.6,
               users: "100K readers"
             }
@@ -468,7 +494,7 @@ export function generateDynamicAIRecommendations(
             {
               title: "Resume Structure Best Practices",
               url: "https://www.indeed.com/career-advice/resumes-cover-letters/resume-format",
-              type: "article" as const,
+              type: "article",
               rating: 4.5,
               users: "75K readers"
             }
@@ -481,7 +507,7 @@ export function generateDynamicAIRecommendations(
             {
               title: "Skills Section Guide",
               url: "https://www.indeed.com/career-advice/resumes-cover-letters/skills-to-put-on-resume",
-              type: "article" as const,
+              type: "article",
               rating: 4.6,
               users: "90K readers"
             }
@@ -494,7 +520,7 @@ export function generateDynamicAIRecommendations(
             {
               title: "Professional Writing for Resumes",
               url: "https://www.grammarly.com/business/learn/resume-writing-tips/",
-              type: "article" as const,
+              type: "article",
               rating: 4.5,
               users: "60K readers"
             }
@@ -625,7 +651,7 @@ export function generateDynamicAIRecommendations(
   }
 
   // Sort by priority and limit to top 5
-  const priorityOrder = { high: 0, medium: 1, low: 2 };
+  const priorityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
   return recommendations
     .sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority])
     .slice(0, 5);

@@ -49,6 +49,39 @@ Tone Guidelines:
 
 Remember: Make it personal, make it relevant, make it memorable. Include specific project names or research areas when available.`;
 
+// Add interface for request body
+interface CoverLetterRequest {
+  jobRole: string;
+  jobDescription?: string;
+  companyName?: string;
+  tone?: string;
+}
+
+// Add interface for user profile
+interface UserProfile {
+  name: string;
+  email: string;
+  phone?: string;
+  streetAddress?: string;
+  city?: string;
+  state?: string;
+  linkedIn?: string;
+  github?: string;
+  website?: string;
+  bio?: string;
+  targetRole?: string;
+  experienceLevel?: string;
+  preferredTech?: string[];
+  careerGoals?: string;
+}
+
+// Add interface for resume data
+interface ResumeData {
+  id?: string;
+  originalName?: string;
+  resumeText?: string;
+}
+
 // Helper function to research company
 async function researchCompany(companyName: string, jobRole: string): Promise<string> {
   if (!companyName || !genAI) return '';
@@ -137,7 +170,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ==================== PARSE REQUEST ====================
-    const body = await request.json();
+    const body = await request.json() as CoverLetterRequest;
     const { jobRole, jobDescription, companyName, tone = 'professional' } = body;
 
     console.log('📋 Request Details:');
@@ -156,7 +189,7 @@ export async function POST(request: NextRequest) {
 
     // ==================== FETCH USER PROFILE ====================
     console.log('👤 Fetching user profile...');
-    let userProfile: any;
+    let userProfile: UserProfile;
     
     try {
       const userDoc = await db.collection('users').doc(userId).get();
@@ -168,7 +201,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      userProfile = userDoc.data();
+      userProfile = userDoc.data() as UserProfile;
       console.log('✅ User profile loaded:', userProfile.name);
     } catch (profileError) {
       console.error('❌ Error fetching user profile:', profileError);
@@ -180,7 +213,7 @@ export async function POST(request: NextRequest) {
 
     // ==================== FETCH USER'S LATEST RESUME ====================
     console.log('📄 Fetching user resumes...');
-    let latestResume: any = null;
+    let latestResume: ResumeData | null = null;
     let resumeText = '';
     
     try {
@@ -192,7 +225,7 @@ export async function POST(request: NextRequest) {
         .get();
 
       if (!resumesSnapshot.empty) {
-        latestResume = resumesSnapshot.docs[0].data();
+        latestResume = resumesSnapshot.docs[0].data() as ResumeData;
         resumeText = latestResume.resumeText || '';
         console.log('✅ Latest resume found:', latestResume.originalName);
         console.log('   Resume text length:', resumeText.length);
@@ -225,13 +258,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ==================== BUILD USER CONTEXT (UPDATED WITH SEPARATE ADDRESS FIELDS) ====================
+    // ==================== BUILD USER CONTEXT ====================
     const userContext = {
       name: userProfile.name || 'Candidate',
       email: userProfile.email,
       phone: userProfile.phone || '',
       
-      // UPDATED: Use separate address fields
+      // Use separate address fields
       streetAddress: userProfile.streetAddress || '',
       city: userProfile.city || '',
       state: userProfile.state || '',
@@ -244,7 +277,7 @@ export async function POST(request: NextRequest) {
       experienceLevel: userProfile.experienceLevel || 'mid',
       preferredTech: userProfile.preferredTech || [],
       careerGoals: userProfile.careerGoals || '',
-      resumeText: resumeText.substring(0, 4000), // Increased limit for better context
+      resumeText: resumeText.substring(0, 4000),
     };
 
     console.log('📊 User Context Built');
@@ -371,17 +404,18 @@ IMPORTANT: Return ONLY the formatted cover letter, no additional commentary or e
       console.log('   AI response time:', aiResponseTime, 'ms');
       console.log('   Tokens used:', tokensUsed);
 
-    } catch (geminiError: any) {
+    } catch (geminiError) {
       console.error('❌ Gemini API error:', geminiError);
       
-      if (geminiError.message?.includes('quota')) {
+      const error = geminiError as Error;
+      if (error.message?.includes('quota')) {
         return NextResponse.json(
           { success: false, error: 'API quota exceeded. Please try again later.' },
           { status: 429 }
         );
       }
 
-      if (geminiError.message?.includes('safety')) {
+      if (error.message?.includes('safety')) {
         return NextResponse.json(
           { success: false, error: 'Content safety issue. Please modify your input and try again.' },
           { status: 400 }
@@ -452,7 +486,7 @@ IMPORTANT: Return ONLY the formatted cover letter, no additional commentary or e
       });
     }
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ Unexpected error:', error);
     return NextResponse.json(
       { 

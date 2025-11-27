@@ -1,5 +1,5 @@
 // app/api/profile/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/actions/auth.action";
 import { getInterviewsByUserId } from "@/lib/actions/general.action";
 
@@ -17,8 +17,8 @@ export async function GET() {
       user: currentUser,
       interviews: interviews || [],
     });
-  } catch (error) {
-    console.error("Error fetching profile data:", error);
+  } catch (_error) {
+    console.error("Error fetching profile data:", _error);
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 }

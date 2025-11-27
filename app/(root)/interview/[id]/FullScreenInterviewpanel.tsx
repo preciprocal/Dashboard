@@ -8,12 +8,10 @@ import {
   Mic,
   MicOff,
   PhoneOff,
-  Settings,
   Volume2,
   VolumeX,
   ArrowLeft,
   Clock,
-  Crown,
   Loader2,
   AlertCircle,
   CheckCircle2
@@ -137,7 +135,6 @@ const FullScreenInterviewPanel = ({
   userName,
   userId,
   interviewRole,
-  interviewType,
   questions,
   feedbackId,
   type = "interview",
@@ -148,13 +145,11 @@ const FullScreenInterviewPanel = ({
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [isAudioOn, setIsAudioOn] = useState(true);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
-  const [currentTime, setCurrentTime] = useState(new Date());
   const [callDuration, setCallDuration] = useState(0);
   const [connectionQuality, setConnectionQuality] = useState<'excellent' | 'good' | 'poor'>('excellent');
 
   const [callStatus, setCallStatus] = useState<CallStatus>(CallStatus.INACTIVE);
   const [messages, setMessages] = useState<SavedMessage[]>([]);
-  const [isSpeaking, setIsSpeaking] = useState(false);
   const [lastMessage, setLastMessage] = useState<string>("");
   const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -277,7 +272,6 @@ const FullScreenInterviewPanel = ({
   }, [interviewId, interviewRole, callStatus, speakingPersonId, videoSources, userName]);
 
   const handleSpeechStart = useCallback(() => {
-    setIsSpeaking(true);
     const interviewers = ["tech_recruiter", "hr", "junior"];
     setSpeakingPersonId(
       interviewers[Math.floor(Math.random() * interviewers.length)]
@@ -285,7 +279,6 @@ const FullScreenInterviewPanel = ({
   }, []);
 
   const handleSpeechEnd = useCallback(() => {
-    setIsSpeaking(false);
     setSpeakingPersonId(null);
   }, []);
 
@@ -307,26 +300,12 @@ const FullScreenInterviewPanel = ({
     [totalQuestions]
   );
 
-  const initializeInterview = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(track => track.stop());
-      return true;
-    } catch (error) {
-      console.error("Microphone permission error:", error);
-      return false;
-    }
-  };
-
-  const startInterview = async () => {
+  const startInterview = useCallback(async () => {
     setCallStatus(CallStatus.CONNECTING);
 
     try {
-      const deviceReady = await initializeInterview();
-      if (!deviceReady) {
-        setCallStatus(CallStatus.INACTIVE);
-        return;
-      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(track => track.stop());
 
       if (!interviewId || !userId || !questions || questions.length === 0) {
         throw new Error("Missing required interview data");
@@ -365,7 +344,7 @@ const FullScreenInterviewPanel = ({
       console.error("Interview start error:", error);
       setCallStatus(CallStatus.INACTIVE);
     }
-  };
+  }, [interviewId, userId, questions, type, userName]);
 
   useEffect(() => {
     if (!autoStartAttempted && questions && questions.length > 0 && userId && interviewId) {
@@ -376,7 +355,7 @@ const FullScreenInterviewPanel = ({
 
       return () => clearTimeout(timer);
     }
-  }, [questions, userId, interviewId, autoStartAttempted]);
+  }, [questions, userId, interviewId, autoStartAttempted, startInterview]);
 
   useEffect(() => {
     if (questions?.length) {
@@ -407,12 +386,10 @@ const FullScreenInterviewPanel = ({
       vapi.off("speech-start", handleSpeechStart);
       vapi.off("speech-end", handleSpeechEnd);
     };
-  }, [questions, handleMessage, handleSpeechStart, handleSpeechEnd, totalQuestions]);
+  }, [questions, handleMessage, handleSpeechStart, handleSpeechEnd]);
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentTime(new Date());
-      
       if (callStartTime.current) {
         const duration = Math.floor((Date.now() - callStartTime.current.getTime()) / 1000);
         setCallDuration(duration);
@@ -462,8 +439,6 @@ const FullScreenInterviewPanel = ({
         });
 
         if (success && (id || feedbackId)) {
-          const finalFeedbackId = id || feedbackId;
-
           setTimeout(() => {
             setIsGeneratingFeedback(false);
             router.push(`/interview/${interviewId}/feedback`);

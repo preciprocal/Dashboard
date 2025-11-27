@@ -1,6 +1,4 @@
-import Image from "next/image";
 import { redirect } from "next/navigation";
-import Link from "next/link";
 
 import {
   getFeedbackByInterviewId,
@@ -22,7 +20,7 @@ export default async function InterviewDetailsPage({ params }: RouteParams) {
 
   const feedback = await getFeedbackByInterviewId({
     interviewId: id,
-    userId: user?.id!,
+    userId: user?.id ?? "",
   });
 
   // Import the client component dynamically
@@ -30,8 +28,8 @@ export default async function InterviewDetailsPage({ params }: RouteParams) {
 
   return (
     <InterviewDetailsClient
-      userName={user?.name!}
-      userId={user?.id}
+      userName={user?.name ?? "User"}
+      userId={user?.id ?? ""}
       interviewId={id}
       interview={{
         role: interview.role,

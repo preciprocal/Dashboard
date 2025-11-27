@@ -5,10 +5,45 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 
+// Define interfaces
+interface RewriteContext {
+  jobTitle?: string;
+  companyName?: string;
+  jobDescription?: string;
+  missingKeywords?: string[];
+  missingSkills?: string[];
+}
+
+interface RewriteRequest {
+  resumeId?: string;
+  userId?: string;
+  section: string;
+  originalText: string;
+  tone: 'professional' | 'creative' | 'technical' | 'executive';
+  context?: RewriteContext;
+}
+
+interface Suggestion {
+  id: string;
+  original?: string;
+  rewritten: string;
+  improvements: string[];
+  tone: string;
+  score: number;
+  keywordsAdded?: string[];
+  atsOptimizations?: string[];
+  confidenceScore: number;
+  optimizationMode: string;
+}
+
+interface RewriteResponse {
+  suggestions: Suggestion[];
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { resumeId, userId, section, originalText, tone, context } = body;
+    const body = await request.json() as RewriteRequest;
+    const { section, originalText, tone, context } = body;
 
     console.log('🧠 Intelligent Resume Rewrite Started');
     console.log('   Section:', section);
@@ -57,12 +92,12 @@ ${context.companyName ? `Company: ${context.companyName}` : ''}
 COMPLETE JOB DESCRIPTION:
 ${context.jobDescription}
 
-${context.missingKeywords?.length > 0 ? `
+${context.missingKeywords && context.missingKeywords.length > 0 ? `
 🔑 CRITICAL MISSING KEYWORDS (Must incorporate naturally):
 ${context.missingKeywords.slice(0, 12).join(', ')}
 ` : ''}
 
-${context.missingSkills?.length > 0 ? `
+${context.missingSkills && context.missingSkills.length > 0 ? `
 ⚡ MISSING TECHNICAL SKILLS (Address if relevant):
 ${context.missingSkills.slice(0, 10).join(', ')}
 ` : ''}
@@ -196,7 +231,7 @@ ${originalText}
 
 REWRITING REQUIREMENTS:
 - Section: ${section}
-- Tone: ${tone} (${toneDescriptions[tone as keyof typeof toneDescriptions]})
+- Tone: ${tone} (${toneDescriptions[tone]})
 - Length: 2-4 powerful sentences
 - Mode: ${optimizationMode.toUpperCase()}
 
@@ -204,7 +239,7 @@ Generate exactly 3 distinct, high-quality variations. Each must:
 1. Use commanding action verbs (Led, Spearheaded, Architected, Transformed, Delivered, Achieved, Pioneered)
 2. Include specific quantifiable achievements with numbers and percentages
 3. ${optimizationMode === 'job-description' ? 'Naturally weave in missing keywords from job description' : 
-     optimizationMode === 'ai-knowledge' ? `Incorporate skills/technologies typical for ${context.jobTitle} at ${context.companyName || 'this type of company'}` :
+     optimizationMode === 'ai-knowledge' ? `Incorporate skills/technologies typical for ${context?.jobTitle} at ${context?.companyName || 'this type of company'}` :
      'Use strong industry-standard keywords'}
 4. Be concrete and specific (avoid generic statements)
 5. Sound authentic and natural (not keyword-stuffed)
@@ -231,7 +266,7 @@ Return ONLY valid JSON (no markdown, no code blocks, no extra text):
       ${optimizationMode !== 'general' ? `"atsOptimizations": [
         ${optimizationMode === 'job-description' 
           ? '"Incorporated missing keyword from job posting"' 
-          : `"Added typical ${context.jobTitle} requirements"`},
+          : `"Added typical ${context?.jobTitle} requirements"`},
         "Enhanced technical depth with role-specific terms",
         "Aligned language with industry expectations"
       ],` : ''}
@@ -263,76 +298,7 @@ Return ONLY valid JSON (no markdown, no code blocks, no extra text):
   ]
 }
 
-CRITICAL INSTRUCTIONS - READ CAREFULLY:
-
-${optimizationMode === 'job-description' ? `
-🎯 JOB DESCRIPTION MODE - PRECISION TARGETING:
-You have the COMPLETE job description. This is the highest accuracy mode.
-
-MUST DO:
-- Read job description carefully and extract key requirements
-- Identify which missing keywords naturally fit this ${section} section
-- Don't force keywords - only add what makes sense contextually
-- Use exact phrases from job posting where appropriate
-- Prioritize critical missing skills over nice-to-have ones
-- Make every word count toward job alignment
-- Ensure natural flow - no keyword stuffing
-
-EXAMPLE:
-If missing keyword is "Kubernetes" and section is "experience":
-✓ GOOD: "Led deployment of microservices on Kubernetes, reducing..."
-✗ BAD: "Used Kubernetes" (too forced, no context)
-` : ''}
-
-${optimizationMode === 'ai-knowledge' ? `
-🔬 AI KNOWLEDGE MODE - INTELLIGENT INFERENCE:
-You don't have job description, but you know about "${context.jobTitle}"${context.companyName ? ` at ${context.companyName}` : ''}.
-
-USE YOUR KNOWLEDGE TO:
-1. Identify typical requirements for ${context.jobTitle} positions
-2. Understand common tech stacks used in this role
-3. ${context.companyName ? `Know ${context.companyName}'s technologies, culture, and values` : 'Apply industry standards'}
-4. Recognize trending skills in this field (2024-2025)
-5. Understand seniority expectations from job title
-6. Incorporate universally important skills for this role
-
-COMPANY KNOWLEDGE TO APPLY:
-${context.companyName === 'Google' ? '- Google tech: Go, Python, Kubernetes, GCP, BigQuery, TensorFlow\n- Google values: Scale (billions), innovation, technical depth\n- Keywords: distributed systems, large-scale, ML/AI, infrastructure' : ''}
-${context.companyName === 'Amazon' ? '- Amazon tech: AWS, Java, Python, DynamoDB, microservices\n- Amazon values: Customer obsession, ownership, high standards\n- Keywords: customer impact, scalability, ownership, operational excellence' : ''}
-${context.companyName === 'Meta' || context.companyName === 'Facebook' ? '- Meta tech: React, Python, GraphQL, PyTorch, Hack\n- Meta values: Move fast, be bold, build social value\n- Keywords: social impact, billions of users, real-time systems' : ''}
-${context.companyName === 'Microsoft' ? '- Microsoft tech: Azure, C#, .NET, TypeScript, AI services\n- Microsoft values: Growth mindset, innovation, inclusivity\n- Keywords: cloud transformation, enterprise, AI/ML integration' : ''}
-${context.companyName === 'Netflix' ? '- Netflix tech: Java, Python, Node.js, AWS, Kafka\n- Netflix values: Freedom & responsibility, context not control\n- Keywords: streaming, personalization, A/B testing, microservices' : ''}
-${!context.companyName ? '- Use general industry standards for ' + context.jobTitle : ''}
-
-INTELLIGENT ASSUMPTIONS:
-- For "Senior" roles: Add leadership, mentoring, architecture
-- For "Principal/Staff": Add strategy, influence, system design
-- For "Backend": Add scalability, APIs, databases, performance
-- For "Frontend": Add UX, React/Vue, performance, accessibility
-- For "Full Stack": Balance both with end-to-end ownership
-- For "DevOps/SRE": Add CI/CD, monitoring, infrastructure, reliability
-- For "Data": Add ML/AI, big data, analytics, visualization
-
-MAKE IT AUTHENTIC:
-Don't just list keywords - demonstrate experience with them through achievements.
-` : ''}
-
-${optimizationMode === 'general' ? `
-📝 GENERAL MODE - PROFESSIONAL POLISH:
-No job-specific information available. Focus on maximum impact.
-
-ENHANCE WITH:
-- Strongest possible action verbs
-- Impressive quantifiable metrics
-- Professional polish and clarity
-- Industry-standard best practices
-- General ATS optimization
-
-TIP FOR USER: Provide job title and company for role-specific optimization!
-` : ''}
-
-RETURN FORMAT - PURE JSON ONLY:
-No markdown code blocks, no explanations, just the JSON object.`;
+Return the JSON object now.`;
 
     console.log('   🎯 Optimization Mode:', optimizationMode.toUpperCase());
     console.log('   📝 Mode Description:', modeDescription);
@@ -354,9 +320,9 @@ No markdown code blocks, no explanations, just the JSON object.`;
       throw new Error('Failed to extract JSON from AI response');
     }
 
-    let parsed;
+    let parsed: RewriteResponse;
     try {
-      parsed = JSON.parse(jsonMatch[0]);
+      parsed = JSON.parse(jsonMatch[0]) as RewriteResponse;
     } catch (e) {
       console.error('   ❌ JSON parse error:', e);
       console.error('   JSON preview:', jsonMatch[0].substring(0, 200));
@@ -368,7 +334,7 @@ No markdown code blocks, no explanations, just the JSON object.`;
       throw new Error('AI response missing suggestions array');
     }
 
-    const validSuggestions = parsed.suggestions.filter((s: any) => 
+    const validSuggestions = parsed.suggestions.filter((s: Suggestion) => 
       s.id && s.rewritten && s.improvements && typeof s.score === 'number'
     );
 
@@ -379,7 +345,7 @@ No markdown code blocks, no explanations, just the JSON object.`;
 
     console.log('   ✅ Rewrite complete!');
     console.log('   Valid suggestions:', validSuggestions.length);
-    console.log('   Average score:', Math.round(validSuggestions.reduce((sum: number, s: any) => sum + s.score, 0) / validSuggestions.length));
+    console.log('   Average score:', Math.round(validSuggestions.reduce((sum: number, s: Suggestion) => sum + s.score, 0) / validSuggestions.length));
     console.log('   Keywords added:', validSuggestions[0].keywordsAdded?.length || 0);
 
     return NextResponse.json({
@@ -393,18 +359,19 @@ No markdown code blocks, no explanations, just the JSON object.`;
                        optimizationMode === 'ai-knowledge' ? 'high' : 'medium',
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ Rewrite error:', error);
-    console.error('   Type:', error.constructor.name);
-    console.error('   Message:', error.message);
+    const err = error as Error;
+    console.error('   Type:', err.constructor.name);
+    console.error('   Message:', err.message);
     
     return NextResponse.json(
       { 
-        error: error.message || 'Failed to generate suggestions',
-        errorType: error.constructor.name,
+        error: err.message || 'Failed to generate suggestions',
+        errorType: err.constructor.name,
         details: process.env.NODE_ENV === 'development' ? {
-          message: error.message,
-          stack: error.stack?.split('\n').slice(0, 3).join('\n')
+          message: err.message,
+          stack: err.stack?.split('\n').slice(0, 3).join('\n')
         } : undefined
       },
       { status: 500 }

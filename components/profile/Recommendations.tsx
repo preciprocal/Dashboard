@@ -1,5 +1,4 @@
 import React from "react";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
   Brain,
@@ -30,11 +29,24 @@ interface AIRecommendation {
   }[];
 }
 
+interface Interview {
+  id: string;
+  type: string;
+  score: number;
+  createdAt: Date | string;
+}
+
+interface Stats {
+  totalInterviews?: number;
+  averageScore?: number;
+  improvementRate?: number;
+}
+
 interface ProfileRecommendationsProps {
-  stats: any;
-  interviews: any[];
+  stats: Stats;
+  interviews: Interview[];
   aiRecommendations: AIRecommendation[];
-  generateAIRecommendations: (interviews: any[], stats: any) => AIRecommendation[];
+  generateAIRecommendations: (interviews: Interview[], stats: Stats) => AIRecommendation[];
 }
 
 const ProfileRecommendations: React.FC<ProfileRecommendationsProps> = ({
@@ -63,7 +75,7 @@ const ProfileRecommendations: React.FC<ProfileRecommendationsProps> = ({
                 </h2>
                 <p className="text-slate-400">
                   Personalized learning path based on{" "}
-                  {stats.totalInterviews > 0
+                  {(stats.totalInterviews || 0) > 0
                     ? `${stats.totalInterviews} interviews`
                     : "your profile"}
                 </p>
@@ -269,7 +281,7 @@ const ProfileRecommendations: React.FC<ProfileRecommendationsProps> = ({
 
           <div className="glass-card p-5 border border-purple-500/20 mb-6">
             <p className="text-slate-300 text-sm leading-relaxed">
-              {stats.totalInterviews > 0 ? (
+              {(stats.totalInterviews || 0) > 0 ? (
                 <>
                   Based on analysis of your{" "}
                   <span className="font-medium text-purple-400">
@@ -285,7 +297,7 @@ const ProfileRecommendations: React.FC<ProfileRecommendationsProps> = ({
               ) : (
                 <>
                   Welcome to your personalized AI learning companion! Based on
-                  your profile and career goals, we've curated a comprehensive
+                  your profile and career goals, we&apos;ve curated a comprehensive
                   learning path that adapts to your progress.
                 </>
               )}
@@ -301,8 +313,8 @@ const ProfileRecommendations: React.FC<ProfileRecommendationsProps> = ({
                 <div>
                   <div className="text-sm text-slate-400">Success Probability</div>
                   <div className="text-emerald-400 font-semibold text-lg">
-                    {stats.totalInterviews > 0
-                      ? Math.min(95, stats.averageScore + 15)
+                    {(stats.totalInterviews || 0) > 0
+                      ? Math.min(95, (stats.averageScore || 0) + 15)
                       : 75}
                     %
                   </div>
@@ -318,7 +330,7 @@ const ProfileRecommendations: React.FC<ProfileRecommendationsProps> = ({
                 <div>
                   <div className="text-sm text-slate-400">Learning Velocity</div>
                   <div className="text-blue-400 font-semibold text-lg">
-                    {stats.improvementRate > 0
+                    {(stats.improvementRate || 0) > 0
                       ? `+${stats.improvementRate}%`
                       : "Optimizing"}
                   </div>
@@ -334,11 +346,11 @@ const ProfileRecommendations: React.FC<ProfileRecommendationsProps> = ({
                 <div>
                   <div className="text-sm text-slate-400">Readiness Level</div>
                   <div className="text-amber-400 font-semibold text-lg">
-                    {stats.averageScore >= 85
+                    {(stats.averageScore || 0) >= 85
                       ? "Expert"
-                      : stats.averageScore >= 70
+                      : (stats.averageScore || 0) >= 70
                       ? "Advanced"
-                      : stats.averageScore >= 50
+                      : (stats.averageScore || 0) >= 50
                       ? "Intermediate"
                       : "Beginner"}
                   </div>

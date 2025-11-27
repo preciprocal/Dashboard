@@ -15,7 +15,6 @@ import {
   User,
   Bookmark,
   Settings,
-  Mail,
   Phone,
   Edit,
   Save,
@@ -24,15 +23,12 @@ import {
   Linkedin,
   Globe,
   Briefcase,
-  Target,
   TrendingUp,
   Clock,
   FileText,
   Zap,
   AlertCircle,
   RefreshCw,
-  CheckCircle,
-  Calendar,
 } from "lucide-react";
 
 // Import the modular components
@@ -91,6 +87,31 @@ interface CriticalError {
   details?: string;
 }
 
+interface SavedTemplate {
+  id: number;
+  title: string;
+  category: string;
+  [key: string]: unknown;
+}
+
+interface BookmarkedBlog {
+  id: number;
+  title: string;
+  excerpt: string;
+  category: string;
+  author: string;
+  publishDate: string;
+  readTime: string;
+  tags: string[];
+  savedAt: string;
+}
+
+interface UserCreatedContent {
+  blogs: unknown[];
+  templates: unknown[];
+  customInterviews: unknown[];
+}
+
 const ProfilePage = (): JSX.Element => {
   const router = useRouter();
   const [user, authLoading] = useAuthState(auth);
@@ -101,9 +122,9 @@ const ProfilePage = (): JSX.Element => {
   const [stats, setStats] = useState<UserStats | null>(null);
 
   // Saved content states
-  const [savedTemplates, setSavedTemplates] = useState<any[]>([]);
-  const [bookmarkedBlogs, setBookmarkedBlogs] = useState<any[]>([]);
-  const [userCreatedContent, setUserCreatedContent] = useState({
+  const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
+  const [bookmarkedBlogs, setBookmarkedBlogs] = useState<BookmarkedBlog[]>([]);
+  const [userCreatedContent, setUserCreatedContent] = useState<UserCreatedContent>({
     blogs: [],
     templates: [],
     customInterviews: [],
@@ -138,8 +159,8 @@ const ProfilePage = (): JSX.Element => {
 
         const bookmarkedBlogsData = localStorage.getItem("bookmarkedPosts");
         if (bookmarkedBlogsData) {
-          const bookmarkedIds = JSON.parse(bookmarkedBlogsData);
-          const mockBookmarkedBlogs = bookmarkedIds.map((id: number) => ({
+          const bookmarkedIds: number[] = JSON.parse(bookmarkedBlogsData);
+          const mockBookmarkedBlogs: BookmarkedBlog[] = bookmarkedIds.map((id: number) => ({
             id,
             title: `How to Ace Your Interview: Advanced Tips ${id}`,
             excerpt: "Comprehensive guide covering advanced interview techniques...",
@@ -240,24 +261,28 @@ const ProfilePage = (): JSX.Element => {
         setEditedProfile(profile);
 
         // Calculate stats from interviews
-        const interviewsWithDates = (userInterviews || []).map((interview: any) => ({
+        const interviewsWithDates = (userInterviews || []).map((interview: {
+          createdAt?: { toDate?: () => Date } | string | Date;
+          [key: string]: unknown;
+        }) => ({
           ...interview,
           createdAt: interview.createdAt?.toDate
-            ? interview.createdAt.toDate()
-            : new Date(interview.createdAt),
+            ? (interview.createdAt as { toDate: () => Date }).toDate()
+            : new Date(interview.createdAt as string | Date),
         }));
 
         const totalInterviews = interviewsWithDates.length;
         const completedInterviews = interviewsWithDates.filter(
-          (i: any) => i.status === "completed"
+          (i: { status?: string }) => i.status === "completed"
         );
 
         const averageScore = completedInterviews.length > 0
-          ? completedInterviews.reduce((sum: number, i: any) => sum + (i.feedback?.overallRating || 0), 0) / completedInterviews.length
+          ? completedInterviews.reduce((sum: number, i: { feedback?: { overallRating?: number } }) => 
+              sum + (i.feedback?.overallRating || 0), 0) / completedInterviews.length
           : 0;
 
         const hoursSpent = completedInterviews.reduce(
-          (sum: number, i: any) => sum + (i.duration || 0),
+          (sum: number, i: { duration?: number }) => sum + (i.duration || 0),
           0
         ) / 60;
 
@@ -280,7 +305,7 @@ const ProfilePage = (): JSX.Element => {
 
       } catch (err: unknown) {
         console.error("Failed to fetch user data:", err);
-        const error = err as Error;
+        const error = err instanceof Error ? err : new Error('Unknown error');
         
         if (error.message.includes('Firebase') || error.message.includes('firestore')) {
           setCriticalError({

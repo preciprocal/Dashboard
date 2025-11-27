@@ -7,6 +7,65 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 
+// Define interfaces
+interface QuizRequest {
+  planId: string;
+}
+
+interface QuizQuestion {
+  id: number;
+  question: string;
+  options: string[];
+  correctAnswer: number;
+  explanation: string;
+  category: string;
+  relatedDay: number;
+  difficulty: string;
+  source: string;
+}
+
+interface QuizData {
+  questions: QuizQuestion[];
+}
+
+interface Resource {
+  type: string;
+  title: string;
+  difficulty?: string;
+}
+
+interface BehavioralPrep {
+  topic: string;
+  question: string;
+  tips?: string[];
+}
+
+interface Task {
+  title: string;
+  description: string;
+}
+
+interface DailyPlan {
+  day: number;
+  focus: string;
+  topics?: string[];
+  resources?: Resource[];
+  behavioral?: BehavioralPrep;
+  tasks?: Task[];
+  aiTips?: string[];
+}
+
+interface PlanData {
+  userId: string;
+  role: string;
+  company?: string;
+  skillLevel: string;
+  dailyPlans?: DailyPlan[];
+  progress?: {
+    totalTasks?: number;
+  };
+}
+
 const QUIZ_PROMPT = `You are an expert interview coach. Generate a quiz based on the user's interview preparation plan.
 
 Generate exactly 12 questions:
@@ -75,7 +134,8 @@ export async function POST(request: NextRequest) {
     console.log('✅ User:', userId);
 
     // Get planId from request
-    const { planId } = await request.json();
+    const body = await request.json() as QuizRequest;
+    const { planId } = body;
 
     if (!planId) {
       return NextResponse.json(
@@ -97,7 +157,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const planData = planDoc.data();
+    const planData = planDoc.data() as PlanData;
     console.log('✅ Plan loaded:', planData?.role);
 
     // Verify ownership
@@ -138,7 +198,7 @@ export async function POST(request: NextRequest) {
       throw new Error('No JSON in response');
     }
 
-    const quizData = JSON.parse(jsonMatch[0]);
+    const quizData = JSON.parse(jsonMatch[0]) as QuizData;
 
     if (!quizData.questions || !Array.isArray(quizData.questions)) {
       throw new Error('Invalid quiz structure');
@@ -168,16 +228,17 @@ export async function POST(request: NextRequest) {
       }
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ Error:', error);
+    const err = error as Error;
     return NextResponse.json(
-      { error: error.message || 'Failed to generate quiz' },
+      { error: err.message || 'Failed to generate quiz' },
       { status: 500 }
     );
   }
 }
 
-function buildContext(planData: any): string {
+function buildContext(planData: PlanData): string {
   const lines: string[] = [];
   
   lines.push(`ROLE: ${planData.role}`);
@@ -185,7 +246,7 @@ function buildContext(planData: any): string {
   lines.push(`SKILL: ${planData.skillLevel}`);
   lines.push('');
 
-  planData.dailyPlans?.forEach((day: any) => {
+  planData.dailyPlans?.forEach((day: DailyPlan) => {
     lines.push(`DAY ${day.day}: ${day.focus}`);
     
     if (day.topics?.length) {
@@ -194,7 +255,7 @@ function buildContext(planData: any): string {
     
     if (day.resources?.length) {
       lines.push('Resources:');
-      day.resources.forEach((r: any) => {
+      day.resources.forEach((r: Resource) => {
         lines.push(`  - ${r.title} (${r.type}${r.difficulty ? ', ' + r.difficulty : ''})`);
       });
     }
@@ -210,7 +271,7 @@ function buildContext(planData: any): string {
     
     if (day.tasks?.length) {
       lines.push('Tasks:');
-      day.tasks.forEach((t: any) => {
+      day.tasks.forEach((t: Task) => {
         lines.push(`  - ${t.title}: ${t.description}`);
       });
     }

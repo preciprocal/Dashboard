@@ -1,7 +1,7 @@
 // components/resume/ResumeEditorPanel.tsx
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   Save, 
   Download, 
@@ -112,7 +112,7 @@ export default function ResumeEditorPanel({
     setIsInitialized(true);
 
     console.log('✅ Editor initialized');
-  }, [content]);
+  }, [content, isInitialized]);
 
   // Handle text selection - NO AUTO ANALYSIS
   useEffect(() => {
@@ -146,27 +146,8 @@ export default function ResumeEditorPanel({
     }
   };
 
-  // Auto-save functionality
-  useEffect(() => {
-    if (!editorRef.current || !isInitialized) return;
-
-    const currentText = editorRef.current.innerText.trim();
-    
-    // Don't save placeholder text
-    if (!currentText || currentText.includes('Start typing your resume here')) {
-      return;
-    }
-
-    const autoSave = setTimeout(() => {
-      if (resumeId && currentText.length > 10) {
-        handleSave();
-      }
-    }, 3000);
-
-    return () => clearTimeout(autoSave);
-  }, [isInitialized, resumeId]);
-
-  const handleSave = async () => {
+  // Memoize handleSave to avoid unnecessary recreations
+  const handleSave = useCallback(async () => {
     if (!resumeId || !userId || !editorRef.current) return;
 
     const plainText = editorRef.current.innerText.trim();
@@ -198,7 +179,27 @@ export default function ResumeEditorPanel({
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [resumeId, userId]);
+
+  // Auto-save functionality
+  useEffect(() => {
+    if (!editorRef.current || !isInitialized) return;
+
+    const currentText = editorRef.current.innerText.trim();
+    
+    // Don't save placeholder text
+    if (!currentText || currentText.includes('Start typing your resume here')) {
+      return;
+    }
+
+    const autoSave = setTimeout(() => {
+      if (resumeId && currentText.length > 10) {
+        handleSave();
+      }
+    }, 3000);
+
+    return () => clearTimeout(autoSave);
+  }, [isInitialized, resumeId, handleSave]);
 
   const handleDownload = () => {
     const plainText = editorRef.current?.innerText || '';

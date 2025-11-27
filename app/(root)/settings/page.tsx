@@ -12,22 +12,17 @@ import {
   Bell,
   Shield,
   Eye,
-  Palette,
   Globe,
-  Zap,
   Database,
   Key,
   Mail,
   Moon,
   Sun,
   Monitor,
-  Volume2,
-  VolumeX,
   Download,
   Upload,
   Trash2,
   AlertCircle,
-  CheckCircle2,
   ArrowLeft,
   Save,
   RotateCcw,
@@ -167,7 +162,7 @@ export default function SettingsPage() {
     }
   };
 
-  const updateSettings = (section: keyof AppSettings, key: string, value: any) => {
+  const updateSettings = (section: keyof AppSettings, key: string, value: string | boolean) => {
     setSettings(prev => ({
       ...prev,
       [section]: {

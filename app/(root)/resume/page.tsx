@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -45,19 +45,7 @@ export default function ResumeDashboard() {
   const [criticalError, setCriticalError] = useState<CriticalError | null>(null);
   const [resumesError, setResumesError] = useState<string>('');
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/sign-in');
-    }
-  }, [loading, user, router]);
-
-  useEffect(() => {
-    if (user) {
-      loadResumes();
-    }
-  }, [user]);
-
-  const loadResumes = async (): Promise<void> => {
+  const loadResumes = useCallback(async (): Promise<void> => {
     if (!user) return;
 
     try {
@@ -87,7 +75,7 @@ export default function ResumeDashboard() {
       }
     } catch (err: unknown) {
       console.error('Error loading resumes:', err);
-      const error = err as Error;
+      const error = err instanceof Error ? err : new Error('Unknown error');
       
       // Check for critical errors
       if (error.message.includes('Firebase') || error.message.includes('firestore')) {
@@ -112,7 +100,19 @@ export default function ResumeDashboard() {
     } finally {
       setLoadingResumes(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/sign-in');
+    }
+  }, [loading, user, router]);
+
+  useEffect(() => {
+    if (user) {
+      loadResumes();
+    }
+  }, [user, loadResumes]);
 
   const handleRetryError = (): void => {
     setCriticalError(null);

@@ -7,9 +7,26 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-11-20.acacia',
 });
 
+// Define interfaces
+interface CheckoutRequest {
+  userId: string;
+  planId: string;
+  billingPeriod: 'monthly' | 'yearly';
+  successUrl?: string;
+  cancelUrl?: string;
+}
+
+interface UserData {
+  email: string;
+  subscription?: {
+    stripeCustomerId?: string;
+  };
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const { userId, planId, billingPeriod, successUrl, cancelUrl } = await req.json();
+    const body = await req.json() as CheckoutRequest;
+    const { userId, planId, billingPeriod, successUrl, cancelUrl } = body;
 
     if (!userId || !planId) {
       return NextResponse.json(
@@ -27,7 +44,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const userData = userDoc.data();
+    const userData = userDoc.data() as UserData;
     const email = userData?.email;
 
     // Define your Stripe Price IDs (create these in Stripe Dashboard)
@@ -75,7 +92,7 @@ export async function POST(req: NextRequest) {
     // Create Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
-      payment_method_types: ['card', 'apple_pay', 'google_pay'],
+      payment_method_types: ['card'],
       line_items: [
         {
           price: priceId,
@@ -106,10 +123,11 @@ export async function POST(req: NextRequest) {
       sessionUrl: session.url,
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Stripe checkout error:', error);
+    const err = error as Error;
     return NextResponse.json(
-      { error: error.message || 'Failed to create checkout session' },
+      { error: err.message || 'Failed to create checkout session' },
       { status: 500 }
     );
   }
@@ -136,10 +154,11 @@ export async function GET(req: NextRequest) {
       subscriptionId: session.subscription,
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error retrieving session:', error);
+    const err = error as Error;
     return NextResponse.json(
-      { error: error.message },
+      { error: err.message },
       { status: 500 }
     );
   }

@@ -21,7 +21,6 @@ import {
   Edit3,
   Star,
   TrendingUp,
-  Calendar,
   Loader2,
   Wand2,
   Award,
@@ -36,6 +35,7 @@ import ScoreCircle from '@/components/resume/ScoreCircle';
 import JobMatcher from '@/components/resume/JobMatcher';
 import RecruiterEyeSimulation from '@/components/resume/RecruiterEyeSimulation';
 import ResumeRewriter from '@/components/resume/ResumeRewriter';
+import Image from 'next/image';
 
 function getScoreColor(score: number): string {
   if (score >= 80) return 'text-emerald-400';
@@ -104,11 +104,38 @@ function OverallScoreHero({ score }: { score: number }) {
   );
 }
 
-function DetailedAnalysisSection({ title, description, score, tips, icon, sectionData }: any) {
+interface Tip {
+  tip?: string;
+  message?: string;
+  type?: string;
+  explanation?: string;
+  priority?: 'high' | 'medium' | 'low';
+}
+
+interface SectionData {
+  score: number;
+  tips: Tip[];
+  [key: string]: unknown;
+}
+
+function DetailedAnalysisSection({ 
+  title, 
+  description, 
+  score, 
+  tips, 
+  icon 
+}: { 
+  title: string;
+  description: string;
+  score: number;
+  tips: Tip[];
+  icon: React.ReactNode;
+  sectionData?: SectionData;
+}) {
   const [isExpanded, setIsExpanded] = useState(false);
   
-  const goodTips = tips.filter((tip: any) => tip.type === 'good');
-  const improveTips = tips.filter((tip: any) => tip.type !== 'good');
+  const goodTips = tips.filter((tip: Tip) => tip.type === 'good');
+  const improveTips = tips.filter((tip: Tip) => tip.type !== 'good');
 
   return (
     <div className="glass-card-gradient hover-lift">
@@ -160,7 +187,7 @@ function DetailedAnalysisSection({ title, description, score, tips, icon, sectio
 
         {isExpanded && (
           <div className="mt-5 space-y-3">
-            {tips.map((tip: any, index: number) => {
+            {tips.map((tip: Tip, index: number) => {
               const tipText = tip.tip || tip.message || '';
               const isGood = tip.type === 'good';
               
@@ -216,7 +243,21 @@ function DetailedAnalysisSection({ title, description, score, tips, icon, sectio
   );
 }
 
-function ImprovementRoadmap({ roadmap }: any) {
+interface RoadmapItem {
+  action: string;
+  timeToComplete: string;
+  impact: 'high' | 'medium' | 'low';
+}
+
+interface ImprovementRoadmapData {
+  quickWins?: RoadmapItem[];
+  mediumTermGoals?: RoadmapItem[];
+  mediumTerm?: RoadmapItem[];
+  longTermStrategies?: RoadmapItem[];
+  longTerm?: RoadmapItem[];
+}
+
+function ImprovementRoadmap({ roadmap }: { roadmap: ImprovementRoadmapData }) {
   const [activeTab, setActiveTab] = useState<'quick' | 'medium' | 'long'>('quick');
 
   if (!roadmap) return null;
@@ -264,7 +305,7 @@ function ImprovementRoadmap({ roadmap }: any) {
 
         {activeTabData && activeTabData.data.length > 0 ? (
           <div className="space-y-3">
-            {activeTabData.data.map((item: any, index: number) => (
+            {activeTabData.data.map((item: RoadmapItem, index: number) => (
               <div key={index} className="glass-morphism rounded-lg p-4 border border-white/5 hover-lift">
                 <div className="flex items-start gap-3">
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold text-white flex-shrink-0 ${
@@ -338,8 +379,8 @@ export default function ResumeDetailsPage() {
             setImageUrl(resumeData.imagePath);
           }
         }
-      } catch (error) {
-        console.error('Error loading resume:', error);
+      } catch (err) {
+        console.error('Error loading resume:', err);
         setError('Failed to load resume');
         setResume(null);
       } finally {
@@ -378,8 +419,8 @@ export default function ResumeDetailsPage() {
       } else {
         window.open(resume.resumePath, '_blank');
       }
-    } catch (error) {
-      console.error('Download failed:', error);
+    } catch (err) {
+      console.error('Download failed:', err);
       alert('Failed to download PDF');
     }
   };
@@ -400,8 +441,8 @@ export default function ResumeDetailsPage() {
       } else {
         window.open(resume.resumePath, '_blank');
       }
-    } catch (error) {
-      console.error('View failed:', error);
+    } catch (err) {
+      console.error('View failed:', err);
       alert('Failed to view PDF');
     }
   };
@@ -470,13 +511,16 @@ export default function ResumeDetailsPage() {
             {/* Scrollable Image */}
             <div className="flex-1 overflow-y-auto glass-scrollbar mb-4">
               {imageUrl ? (
-                <img
+                <Image
                   src={imageUrl}
                   alt="Resume preview"
+                  width={800}
+                  height={1000}
                   className="w-full rounded-xl shadow-glass border border-white/10 object-contain"
                   onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                    const fallback = e.currentTarget.nextElementSibling;
+                    const target = e.currentTarget as HTMLImageElement;
+                    target.style.display = 'none';
+                    const fallback = target.nextElementSibling;
                     if (fallback) {
                       (fallback as HTMLElement).classList.remove('hidden');
                     }
@@ -570,7 +614,7 @@ export default function ResumeDetailsPage() {
               ].map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
+                  onClick={() => setActiveTab(tab.id as 'analysis' | 'jobmatch' | 'recruiter' | 'rewriter')}
                   className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-medium transition-all ${
                     activeTab === tab.id
                       ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-glass'

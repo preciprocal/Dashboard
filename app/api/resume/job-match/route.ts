@@ -11,9 +11,36 @@ if (!apiKey) {
 
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 
+// Define interfaces
+interface JobMatchRequest {
+  resumeId: string;
+  resumeText: string;
+  jobDescription: string;
+  jobTitle?: string;
+  companyName?: string;
+}
+
+interface SkillMatch {
+  skill: string;
+  present: boolean;
+  importance: 'critical' | 'important' | 'nice-to-have';
+}
+
+interface JobMatchResult {
+  overallScore: number;
+  matchedKeywords: string[];
+  missingKeywords: string[];
+  skillsMatch: SkillMatch[];
+  experienceAlignment: number;
+  recommendations: string[];
+  competitiveAdvantages: string[];
+  redFlags: string[];
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { resumeId, resumeText, jobDescription, jobTitle, companyName } = await request.json();
+    const body = await request.json() as JobMatchRequest;
+    const { resumeId, resumeText, jobDescription, jobTitle, companyName } = body;
 
     console.log('🎯 Job Match Analysis Started');
     console.log('   Resume ID:', resumeId);
@@ -118,7 +145,7 @@ Be specific and actionable in your analysis. Score from 0-100 where:
       throw new Error('Failed to parse AI response');
     }
 
-    const matchResult = JSON.parse(jsonMatch[0]);
+    const matchResult = JSON.parse(jsonMatch[0]) as JobMatchResult;
     console.log('   ✅ Job match analysis complete');
     console.log('   Overall Score:', matchResult.overallScore);
 
@@ -127,18 +154,19 @@ Be specific and actionable in your analysis. Score from 0-100 where:
       matchResult,
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ Job match error:', error);
+    const err = error as Error & { status?: number; statusText?: string };
     console.error('   Error details:', {
-      message: error.message,
-      status: error.status,
-      statusText: error.statusText
+      message: err.message,
+      status: err.status,
+      statusText: err.statusText
     });
     
     return NextResponse.json(
       { 
-        error: error.message || 'Failed to analyze job match',
-        details: process.env.NODE_ENV === 'development' ? error.toString() : undefined
+        error: err.message || 'Failed to analyze job match',
+        details: process.env.NODE_ENV === 'development' ? err.toString() : undefined
       },
       { status: 500 }
     );

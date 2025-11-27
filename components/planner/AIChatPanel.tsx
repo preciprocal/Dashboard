@@ -2,8 +2,6 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth } from '@/firebase/client';
 import { ChatMessage } from '@/types/planner';
 import {
   Send,
@@ -16,12 +14,41 @@ import {
   Copy,
   Check
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 interface AIChatPanelProps {
   planId: string;
 }
 
-const SUGGESTED_PROMPTS = [
+interface SuggestedPrompt {
+  icon: LucideIcon;
+  text: string;
+  category: string;
+}
+
+interface CodeSegment {
+  type: 'code';
+  language: string;
+  content: string;
+  blockIndex: number;
+}
+
+interface TextSegment {
+  type: 'text';
+  content: string;
+}
+
+type MessageSegment = CodeSegment | TextSegment;
+
+interface APIResponse {
+  response: string;
+  metadata?: {
+    responseTime?: number;
+    [key: string]: unknown;
+  };
+}
+
+const SUGGESTED_PROMPTS: SuggestedPrompt[] = [
   {
     icon: Lightbulb,
     text: "Explain binary search in simple terms",
@@ -59,7 +86,7 @@ function FormattedMessage({ content }: { content: string }) {
     }, 2000);
   };
 
-  const segments = [];
+  const segments: MessageSegment[] = [];
   let currentIndex = 0;
   let blockIndex = 0;
 
@@ -216,7 +243,6 @@ function FormattedText({ content }: { content: string }) {
 }
 
 export default function AIChatPanel({ planId }: AIChatPanelProps) {
-  const [user] = useAuthState(auth);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
@@ -276,7 +302,7 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
         throw new Error('Failed to get response');
       }
 
-      const data = await response.json();
+      const data = await response.json() as APIResponse;
 
       const assistantMessage: ChatMessage = {
         id: `assistant_${Date.now()}`,
@@ -365,7 +391,7 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
                 <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/5">
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
                   <p className="text-xs text-slate-500">
-                    {(message.metadata.responseTime / 1000).toFixed(2)}s
+                    {((message.metadata.responseTime as number) / 1000).toFixed(2)}s
                   </p>
                 </div>
               )}

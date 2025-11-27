@@ -22,6 +22,7 @@ import {
   TrendingUp,
   Sparkles
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 interface Question {
   id: number;
@@ -47,6 +48,41 @@ interface QuizProps {
   onClose?: () => void;
 }
 
+interface APIResponse {
+  questions: Question[];
+  metadata?: QuizMetadata;
+  error?: string;
+}
+
+interface PerformanceInfo {
+  level: string;
+  emoji: string;
+  icon: LucideIcon;
+  color: string;
+  bg: string;
+  border: string;
+  message: string;
+}
+
+interface CategoryData {
+  answers: boolean[];
+  icon: LucideIcon;
+  color: string;
+}
+
+const SUGGESTED_PROMPTS = [
+  {
+    icon: Lightbulb,
+    text: "Explain binary search in simple terms",
+    category: "Technical"
+  },
+  {
+    icon: Users,
+    text: "Generate 5 behavioral questions for FAANG interviews",
+    category: "Behavioral"
+  },
+];
+
 export default function InterviewQuiz({ planId, onClose }: QuizProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -69,7 +105,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
       setLoading(true);
       setError(null);
 
-      const response = await fetch('/api/planner/quiz', {
+      const response = await fetch('/api/planner/quiz/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ planId }),
@@ -81,11 +117,11 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
       }
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json() as { error?: string };
         throw new Error(errorData.error || `Server error: ${response.status}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as APIResponse;
 
       if (!data.questions || !Array.isArray(data.questions)) {
         throw new Error('Invalid response: missing questions array');
@@ -95,8 +131,9 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
       setMetadata(data.metadata || null);
       setLoading(false);
 
-    } catch (err: any) {
-      setError(err.message || 'Failed to load quiz');
+    } catch (err) {
+      const error = err as Error;
+      setError(error.message || 'Failed to load quiz');
       setLoading(false);
     }
   };
@@ -136,7 +173,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
     fetchQuiz();
   };
 
-  const getPerformance = () => {
+  const getPerformance = (): PerformanceInfo => {
     const percentage = (score / questions.length) * 100;
     if (percentage >= 90) return { 
       level: 'Outstanding', 
@@ -176,16 +213,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
     };
   };
 
-  const getDifficultyColor = (difficulty: string) => {
-    switch(difficulty) {
-      case 'easy': return 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800';
-      case 'medium': return 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800';
-      case 'hard': return 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800';
-      default: return 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300';
-    }
-  };
-
-  const getCategoryIcon = (category: string) => {
+  const getCategoryIcon = (category: string): LucideIcon => {
     switch(category) {
       case 'Technical': return Code;
       case 'Behavioral': return Users;
@@ -194,7 +222,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
     }
   };
 
-  const getCategoryColor = (category: string) => {
+  const getCategoryColor = (category: string): string => {
     switch(category) {
       case 'Technical': return 'from-blue-500 to-cyan-500';
       case 'Behavioral': return 'from-purple-500 to-pink-500';
@@ -397,7 +425,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
     const PerformanceIcon = performance.icon;
     const percentage = Math.round((score / questions.length) * 100);
 
-    const categoryBreakdown = {
+    const categoryBreakdown: Record<string, CategoryData> = {
       technical: { 
         answers: answers.filter((_, i) => questions[i].category === 'Technical'),
         icon: Code,
@@ -605,7 +633,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
               )}
             </div>
           </div>
-          <span className={`px-4 py-2 rounded-xl text-sm font-bold ${getDifficultyColor(question.difficulty)}`}>
+          <span className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600 rounded-xl text-sm font-bold">
             {question.difficulty.toUpperCase()}
           </span>
         </div>
@@ -693,7 +721,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
                     ? 'text-green-900 dark:text-green-100' 
                     : 'text-blue-900 dark:text-blue-100'
                 }`}>
-                  {isCorrect ? '✨ Perfect! That\'s Correct!' : '💡 Learning Moment'}
+                  {isCorrect ? '✨ Perfect! That&apos;s Correct!' : '💡 Learning Moment'}
                 </h3>
                 <p className={`${
                   isCorrect 

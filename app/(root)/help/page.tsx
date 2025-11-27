@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/firebase/client';
-import { collection, addDoc, query, where, orderBy, getDocs, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, query, where, orderBy, getDocs, serverTimestamp, Timestamp } from 'firebase/firestore';
 import {
   Search,
   MessageSquare,
@@ -17,12 +17,10 @@ import {
   CheckCircle2,
   AlertCircle,
   HelpCircle,
-  Zap,
   Target,
   Award,
   ChevronRight,
-  Loader2,
-  Shield
+  Loader2
 } from 'lucide-react';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import ErrorPage from '@/components/Error';
@@ -35,8 +33,15 @@ interface SupportTicket {
   category: string;
   status: 'open' | 'in-progress' | 'resolved';
   priority: 'low' | 'medium' | 'high';
-  createdAt: any;
-  updatedAt: any;
+  createdAt: Timestamp | null;
+  updatedAt: Timestamp | null;
+}
+
+interface CriticalError {
+  code: string;
+  title: string;
+  message: string;
+  details?: string;
 }
 
 export default function HelpSupportPage() {
@@ -55,7 +60,7 @@ export default function HelpSupportPage() {
 
   const [userTickets, setUserTickets] = useState<SupportTicket[]>([]);
   const [loadingTickets, setLoadingTickets] = useState(false);
-  const [criticalError, setCriticalError] = useState<any>(null);
+  const [criticalError, setCriticalError] = useState<CriticalError | null>(null);
 
   const faqs = [
     {
@@ -152,14 +157,15 @@ export default function HelpSupportPage() {
         })) as SupportTicket[];
         
         setUserTickets(tickets);
-      } catch (error: any) {
+      } catch (error) {
         console.error('Error loading tickets:', error);
-        if (error.message?.includes('Firebase') || error.message?.includes('permission')) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        if (errorMessage.includes('Firebase') || errorMessage.includes('permission')) {
           setCriticalError({
             code: 'DATABASE',
             title: 'Database Connection Error',
             message: 'Unable to load support tickets',
-            details: error.message
+            details: errorMessage
           });
         }
       } finally {
@@ -211,14 +217,15 @@ export default function HelpSupportPage() {
         setSubmitSuccess(false);
         setActiveSection('tickets');
       }, 2000);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error submitting ticket:', error);
-      if (error.message?.includes('Firebase')) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage.includes('Firebase')) {
         setCriticalError({
           code: 'DATABASE',
           title: 'Submission Error',
           message: 'Unable to submit ticket',
-          details: error.message
+          details: errorMessage
         });
       } else {
         setSubmitError('Failed to submit. Please try again.');
@@ -387,7 +394,7 @@ export default function HelpSupportPage() {
                 <div className="glass-morphism p-8 rounded-xl border border-green-500/30 text-center">
                   <CheckCircle2 className="w-12 h-12 text-green-400 mx-auto mb-3" />
                   <h4 className="text-base font-semibold text-white mb-1">Ticket Submitted</h4>
-                  <p className="text-slate-400 text-sm">We'll respond within 24 hours</p>
+                  <p className="text-slate-400 text-sm">We&apos;ll respond within 24 hours</p>
                 </div>
               ) : (
                 <form onSubmit={handleSubmitTicket} className="space-y-4">
@@ -415,11 +422,11 @@ export default function HelpSupportPage() {
                   <div>
                     <label className="block text-xs font-medium text-slate-400 mb-2">Priority</label>
                     <div className="flex gap-2">
-                      {['low', 'medium', 'high'].map((p) => (
+                      {(['low', 'medium', 'high'] as const).map((p) => (
                         <button
                           key={p}
                           type="button"
-                          onClick={() => setPriority(p as any)}
+                          onClick={() => setPriority(p)}
                           className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
                             priority === p
                               ? 'bg-white/10 text-white'
@@ -580,7 +587,7 @@ export default function HelpSupportPage() {
               <div className="text-center py-16">
                 <FileText className="w-10 h-10 text-slate-500 mx-auto mb-3" />
                 <h3 className="text-base font-semibold text-white mb-2">No tickets</h3>
-                <p className="text-slate-400 text-sm mb-4">You haven't submitted any tickets yet</p>
+                <p className="text-slate-400 text-sm mb-4">You haven&apos;t submitted any tickets yet</p>
                 <button
                   onClick={() => setActiveSection('contact')}
                   className="glass-button-primary hover-lift inline-flex items-center px-5 py-2.5 rounded-lg font-medium text-sm"

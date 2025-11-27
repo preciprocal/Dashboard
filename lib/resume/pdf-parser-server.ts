@@ -1,10 +1,32 @@
-// lib/utils/pdf-parser-server.ts
-
+// lib/resume/pdf-parser-server.ts
 import pdf from 'pdf-parse';
+
+interface ParsedPDF {
+  text: string;
+  numPages: number;
+  metadata: any;
+}
+
+/**
+ * Parse PDF buffer to extract text (server-side only)
+ */
+export async function parsePDFServer(buffer: Buffer): Promise<ParsedPDF> {
+  try {
+    const data = await pdf(buffer);
+    
+    return {
+      text: data.text,
+      numPages: data.numpages,
+      metadata: data.info
+    };
+  } catch (err) {
+    console.error('PDF parsing error:', err);
+    throw new Error('Failed to parse PDF');
+  }
+}
 
 /**
  * Extract text from PDF file (Server-side only)
- * This is the recommended approach for API routes
  */
 export async function extractTextFromPDF(file: File): Promise<string> {
   try {
@@ -22,8 +44,8 @@ export async function extractTextFromPDF(file: File): Promise<string> {
 
     // Clean up the text
     const cleanedText = data.text
-      .replace(/\s+/g, ' ') // Replace multiple spaces with single space
-      .replace(/\n\s*\n/g, '\n\n') // Normalize line breaks
+      .replace(/\s+/g, ' ')
+      .replace(/\n\s*\n/g, '\n\n')
       .trim();
 
     if (cleanedText.length < 100) {
@@ -31,11 +53,11 @@ export async function extractTextFromPDF(file: File): Promise<string> {
     }
 
     return cleanedText;
-  } catch (error) {
-    console.error('❌ PDF extraction error:', error);
+  } catch (err) {
+    console.error('❌ PDF extraction error:', err);
     
-    if (error instanceof Error) {
-      throw new Error(`Failed to extract PDF text: ${error.message}`);
+    if (err instanceof Error) {
+      throw new Error(`Failed to extract PDF text: ${err.message}`);
     }
     
     throw new Error('Failed to extract text from PDF');
@@ -64,9 +86,9 @@ export async function getPDFMetadata(file: File): Promise<{
       subject: data.info?.Subject,
       keywords: data.info?.Keywords,
     };
-  } catch (error) {
-    console.error('PDF metadata error:', error);
-    throw error;
+  } catch (err) {
+    console.error('PDF metadata error:', err);
+    throw err;
   }
 }
 
@@ -77,7 +99,6 @@ export function validatePDFFile(file: File): {
   valid: boolean;
   error?: string;
 } {
-  // Check file type
   if (file.type !== 'application/pdf') {
     return {
       valid: false,
@@ -85,7 +106,6 @@ export function validatePDFFile(file: File): {
     };
   }
 
-  // Check file size (max 10MB)
   const maxSize = 10 * 1024 * 1024;
   if (file.size > maxSize) {
     return {
@@ -94,7 +114,6 @@ export function validatePDFFile(file: File): {
     };
   }
 
-  // Check minimum size (1KB)
   if (file.size < 1024) {
     return {
       valid: false,
@@ -111,9 +130,8 @@ export function validatePDFFile(file: File): {
 export async function isPDFTextBased(file: File): Promise<boolean> {
   try {
     const text = await extractTextFromPDF(file);
-    // If we got reasonable amount of text, it's text-based
     return text.length > 50;
-  } catch (error) {
+  } catch {
     return false;
   }
 }

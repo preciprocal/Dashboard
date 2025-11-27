@@ -1,4 +1,4 @@
-// lib/services/planner-service.ts
+// lib/services/planner-services.ts
 import { 
   collection, 
   doc, 
@@ -9,7 +9,6 @@ import {
   query, 
   where, 
   orderBy,
-  Timestamp,
   deleteDoc
 } from 'firebase/firestore';
 import { auth, db } from '@/firebase/client';
@@ -21,6 +20,14 @@ import {
   Notification,
   PlanStats
 } from '@/types/planner';
+
+// Helper function to get error message from unknown error
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return 'Unknown error';
+}
 
 export class PlannerService {
   // ==================== PLANS ====================
@@ -48,9 +55,9 @@ export class PlannerService {
       });
       
       console.log('✅ Plan saved successfully to Firestore');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error saving plan:', error);
-      throw new Error(`Failed to save plan: ${(error as any)?.message || 'Unknown error'}`);
+      throw new Error(`Failed to save plan: ${getErrorMessage(error)}`);
     }
   }
 
@@ -75,7 +82,7 @@ export class PlannerService {
         console.log('❌ Plan not found');
         return null;
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error getting plan:', error);
       throw new Error('Failed to get plan');
     }
@@ -104,7 +111,7 @@ export class PlannerService {
 
       console.log('✅ Found', plans.length, 'plans for user');
       return plans;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error getting user plans:', error);
       throw new Error('Failed to get user plans');
     }
@@ -117,7 +124,7 @@ export class PlannerService {
     try {
       const allPlans = await this.getUserPlans(userId);
       return allPlans.filter(plan => plan.status === 'active');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error getting active plans:', error);
       throw new Error('Failed to get active plans');
     }
@@ -194,7 +201,7 @@ export class PlannerService {
       }
 
       await this.savePlan(plan);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error updating plan progress:', error);
       throw new Error('Failed to update plan progress');
     }
@@ -212,7 +219,7 @@ export class PlannerService {
       plan.progress.totalTasks += 1;
       
       await this.savePlan(plan);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error adding custom task:', error);
       throw new Error('Failed to add custom task');
     }
@@ -237,7 +244,7 @@ export class PlannerService {
       });
       
       console.log('✅ Plan status updated to:', status);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error updating plan status:', error);
       throw new Error('Failed to update plan status');
     }
@@ -248,6 +255,10 @@ export class PlannerService {
    */
   static async deletePlan(planId: string): Promise<void> {
     try {
+      if (!db) {
+        throw new Error('Firebase Firestore is not initialized');
+      }
+
       if (!auth.currentUser) {
         throw new Error('User must be authenticated');
       }
@@ -263,7 +274,7 @@ export class PlannerService {
       await deleteDoc(planRef);
       
       console.log('✅ Plan deleted successfully');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error deleting plan:', error);
       throw new Error('Failed to delete plan');
     }
@@ -279,7 +290,7 @@ export class PlannerService {
 
       plan.progress.totalStudyHours += hoursToAdd;
       await this.savePlan(plan);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error updating study hours:', error);
       throw new Error('Failed to update study hours');
     }
@@ -303,7 +314,7 @@ export class PlannerService {
       });
       
       console.log('✅ Chat session saved successfully');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error saving chat session:', error);
       throw new Error('Failed to save chat session');
     }
@@ -320,7 +331,7 @@ export class PlannerService {
       const sessionSnap = await getDoc(sessionRef);
       
       return sessionSnap.exists() ? sessionSnap.data() as CoachChatSession : null;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error getting chat session:', error);
       throw new Error('Failed to get chat session');
     }
@@ -343,7 +354,7 @@ export class PlannerService {
       
       const querySnapshot = await getDocs(q);
       return querySnapshot.docs.map(doc => doc.data() as CoachChatSession);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error getting user chat sessions:', error);
       throw new Error('Failed to get user chat sessions');
     }
@@ -363,7 +374,7 @@ export class PlannerService {
       });
       
       console.log('✅ Chat session archived');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error archiving chat session:', error);
       throw new Error('Failed to archive chat session');
     }
@@ -384,7 +395,7 @@ export class PlannerService {
       await setDoc(prefRef, preferences);
       
       console.log('✅ Preferences saved successfully');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error saving preferences:', error);
       throw new Error('Failed to save preferences');
     }
@@ -401,7 +412,7 @@ export class PlannerService {
       const prefSnap = await getDoc(prefRef);
       
       return prefSnap.exists() ? prefSnap.data() as UserPlannerPreferences : null;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error getting preferences:', error);
       return null;
     }
@@ -429,7 +440,7 @@ export class PlannerService {
       }
       
       return preferences;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error getting or creating preferences:', error);
       throw new Error('Failed to get or create preferences');
     }
@@ -448,7 +459,7 @@ export class PlannerService {
       await setDoc(notifRef, notification);
       
       console.log('✅ Notification created');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error creating notification:', error);
       throw new Error('Failed to create notification');
     }
@@ -471,7 +482,7 @@ export class PlannerService {
       
       const querySnapshot = await getDocs(q);
       return querySnapshot.docs.map(doc => doc.data() as Notification);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error getting notifications:', error);
       return [];
     }
@@ -491,7 +502,7 @@ export class PlannerService {
       });
       
       console.log('✅ Notification marked as read');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error marking notification as read:', error);
       throw new Error('Failed to mark notification as read');
     }
@@ -510,7 +521,7 @@ export class PlannerService {
       
       await Promise.all(updatePromises);
       console.log('✅ All notifications marked as read');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error marking all notifications as read:', error);
       throw new Error('Failed to mark all notifications as read');
     }
@@ -584,7 +595,7 @@ export class PlannerService {
         tasksCompleted,
         upcomingInterviews
       };
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error getting plan stats:', error);
       throw new Error('Failed to get plan stats');
     }
@@ -626,7 +637,7 @@ export class PlannerService {
       }
       
       console.log('✅ Batch task update completed');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error in batch task update:', error);
       throw new Error('Failed to batch update tasks');
     }
@@ -650,7 +661,7 @@ export class PlannerService {
         
         return daysUntil > 0 && daysUntil <= daysThreshold;
       });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error getting expiring plans:', error);
       throw new Error('Failed to get expiring plans');
     }

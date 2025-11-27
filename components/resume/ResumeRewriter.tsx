@@ -1,7 +1,7 @@
 // components/resume/ResumeRewriter.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Wand2, Copy, Check, Loader2, RefreshCw, Sparkles, AlertCircle, Target, Zap, Info, Brain, FileText, Award } from 'lucide-react';
 
 interface RewriteSuggestion {

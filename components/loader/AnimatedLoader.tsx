@@ -19,15 +19,11 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
   isVisible,
   onHide,
   loadingText = "Loading",
-  duration,
-  onDashboard,
-  onBack,
   showNavigation = true
 }) => {
   const router = useRouter();
   const [shouldRender, setShouldRender] = useState(isVisible);
   const [fadeOut, setFadeOut] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [currentQuoteIndex, setCurrentQuoteIndex] = useState(0);
   const [randomizedMessages, setRandomizedMessages] = useState<string[]>([]);
 
@@ -63,78 +59,6 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
     "Asking Stack Overflow for life advice 💬",
     "Converting Monday blues to Friday vibes 🎉",
     "Blockchain-ing your success (whatever that means) ⛓️",
-    "Pivoting harder than a startup 🔄",
-    "Synergizing the synergy synergistically 🤝",
-    "Throwing buzzwords at the wall 🎯",
-    "Circling back to circle back later 🔄",
-    "Moving the needle on the KPIs 📊",
-    "Touching base with your potential ⚾",
-    "Taking this offline and into reality 💼",
-    "Deep diving into shallow waters 🏊",
-    "Unpacking your bandwidth capacity 📦",
-    "Leveraging your core competencies 🎓",
-    "Making data-driven gut decisions 🎲",
-    "Boiling the ocean one drop at a time 🌊",
-    "Eating our own dog food (yum?) 🐕",
-    "Drinking our own champagne 🍾",
-    "Running it up the flagpole 🚩",
-    "Thinking outside the box we built 📦",
-    "Low-hanging fruit? We're climbing trees 🌳",
-    "Herding cats into organized chaos 🐱",
-    "Peeling back the onion layers 🧅",
-    "Shifting paradigms left and right 🔀",
-    "Disrupting the disruptors 💣",
-    "Agile-ing agilely with agility 🏃",
-    "Waterfalling upwards somehow 💦",
-    "Scrum-ing the impossible ⚡",
-    "Kanban-ing your career journey 📋",
-    "Jira-ing away your doubts 🎫",
-    "Slacking off on Slack (just working!) 💬",
-    "Zoom fatigue is so 2020 📹",
-    "async/awaiting your greatness ⏳",
-    "Promises resolved, callbacks deprecated ✅",
-    "Stackoverflow-ing life's questions 🤔",
-    "GitHub copilot-ing your future 🤖",
-    "npm installing confidence.js 📦",
-    "pip installing success==latest 🐍",
-    "Docker-izing your dreams 🐳",
-    "Kubernetes-ing your career clusters ⚓",
-    "CI/CD-ing you to success 🔄",
-    "Jenkins-ing some serious momentum 🏗️",
-    "AWS-ome things loading... ☁️",
-    "Azure-ing you it'll be worth it 💙",
-    "Google Cloud-ing your judgment (positively) 🌤️",
-    "Serverless? More like stress-less! 😌",
-    "Microservices for macro success 🔬",
-    "Monolith-ic career goals crushing 🗿",
-    "API-ing your way to the top 🔌",
-    "REST-ing? Never! 💤",
-    "GraphQL-ing all your career data 📊",
-    "NoSQL? No problem! 🚀",
-    "MongoDB-ing through opportunities 🍃",
-    "PostgreSQL-ly the best choice 🐘",
-    "Redis-covering your potential ⚡",
-    "Kafka-ing up career opportunities 📨",
-    "RabbitMQ-ing your success messages 🐰",
-    "gRPC-ing the competition 🎮",
-    "WebSocket-ing real-time dreams 🔌",
-    "OAuth-ing into your future 🔐",
-    "JWT-okening your achievements 🎟️",
-    "CORS-ing through barriers 🚧",
-    "HTTP 200: Success incoming! ✅",
-    "HTTP 418: I'm a teapot (and proud!) ☕",
-    "Status code 201: Dreams created 🎉",
-    "Avoiding 500 internal drama errors 😅",
-    "403 Forbidden? Not for you! 🚫",
-    "301 Redirecting to success ➡️",
-    "Loading faster than your ex's excuses ⚡",
-    "More exciting than reading Terms & Conditions 📜",
-    "Buffering your awesomeness to 100% 📶",
-    "Ctrl+Alt+Del-eting your doubts ⌨️",
-    "Windows updating your confidence (finally!) 🪟",
-    "Mac-ing things happen 🍎",
-    "Linux-ing outside the box 🐧",
-    "Have you tried turning it off and on? We did! 🔄"
   ];
 
   // Fisher-Yates shuffle algorithm to randomize messages
@@ -156,7 +80,6 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
     if (isVisible) {
       setShouldRender(true);
       setFadeOut(false);
-      setProgress(0);
       setCurrentQuoteIndex(0);
       
       // Rotate quotes every 3 seconds
@@ -172,20 +95,10 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
         });
       }, 3000);
 
-      // Progress simulation
-      const progressInterval = setInterval(() => {
-        setProgress(prev => {
-          if (prev >= 95) return prev;
-          return prev + Math.random() * 12;
-        });
-      }, 400);
-
       return () => {
         clearInterval(quoteInterval);
-        clearInterval(progressInterval);
       };
     } else {
-      setProgress(100);
       setFadeOut(true);
       const timer = setTimeout(() => {
         setShouldRender(false);
@@ -196,11 +109,7 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
   }, [isVisible, onHide, randomizedMessages.length]);
 
   const handleBack = () => {
-    if (onBack) {
-      onBack();
-    } else {
-      router.back();
-    }
+    router.back();
   };
 
   const handleHelp = () => {
