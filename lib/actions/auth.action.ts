@@ -366,8 +366,13 @@ export async function updateUserProfile(
   profileData: Partial<User>
 ) {
   try {
-    // Remove fields that shouldn't be updated - prefix with underscore to indicate intentionally unused
-    const { id: _id, createdAt: _createdAt, subscription: _subscription, ...updateData } = profileData;
+    // Remove fields that shouldn't be updated
+    const { id, createdAt, subscription, ...updateData } = profileData;
+    
+    // Suppress unused variable warnings
+    void id;
+    void createdAt;
+    void subscription;
 
     // Add updatedAt timestamp
     const dataToUpdate = {
@@ -432,6 +437,9 @@ export async function resetUserPassword(
   _currentPassword: string,
   newPassword: string
 ) {
+  // Suppress unused parameter warning
+  void _currentPassword;
+  
   try {
     // Get user by email
     const userRecord = await auth.getUserByEmail(email);

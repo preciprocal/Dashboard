@@ -52,7 +52,6 @@ export default function ResumeRewriter({
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [useJobContext, setUseJobContext] = useState(true);
   const [optimizationMode, setOptimizationMode] = useState<string>('');
-  const [_modeDescription, setModeDescription] = useState<string>('');
 
   // Determine mode
   const hasFullDescription = !!(jobDescription && jobDescription.trim().length > 50);
@@ -129,7 +128,6 @@ export default function ResumeRewriter({
 
       setSuggestions(data.suggestions);
       setOptimizationMode(data.optimizationMode || 'general');
-      setModeDescription(data.modeDescription || 'General optimization');
       setErrorMessage('');
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to generate suggestions';

@@ -1,6 +1,6 @@
 // lib/ai/gemini.ts
 
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 import { 
   buildAnalysisPrompt, 
@@ -14,6 +14,43 @@ import { API_CONFIG, GEMINI_CONFIG } from './gemini-config';
 
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(API_CONFIG.apiKey);
+
+// Define type for parsed JSON responses
+interface ParsedATSScan {
+  score?: number;
+  matchedKeywords?: string[];
+  missingKeywords?: string[];
+  criticalIssues?: string[];
+}
+
+interface ParsedJobMatch {
+  matchScore?: number;
+  matchedSkills?: string[];
+  missingSkills?: string[];
+  recommendations?: string[];
+  alignment?: {
+    technical: number;
+    experience: number;
+    culture: number;
+  };
+}
+
+interface ParsedKeywords {
+  keywords?: string[];
+}
+
+interface ParsedPortfolio {
+  summary?: string;
+  highlights?: string[];
+  tagline?: string;
+}
+
+interface ParsedBenchmark {
+  percentile?: number;
+  strengths?: string[];
+  gaps?: string[];
+  recommendations?: string[];
+}
 
 /**
  * Gemini AI Service - Comprehensive Resume Analysis
@@ -102,7 +139,7 @@ Return ONLY valid JSON:
 `;
 
       const result = await this.generateWithRetry(prompt, { model: 'flash' });
-      const parsed = this.extractJSON(result);
+      const parsed = this.extractJSON<ParsedATSScan>(result);
 
       return {
         score: parsed.score || 0,
@@ -166,7 +203,7 @@ Return ONLY valid JSON:
     try {
       const prompt = buildJobMatchPrompt(resumeText, jobDescription);
       const result = await this.generateWithRetry(prompt);
-      const parsed = this.extractJSON(result);
+      const parsed = this.extractJSON<ParsedJobMatch>(result);
 
       return {
         matchScore: parsed.matchScore || 0,
@@ -188,7 +225,7 @@ Return ONLY valid JSON:
     try {
       const prompt = buildKeywordExtractionPrompt(text);
       const result = await this.generateWithRetry(prompt, { model: 'flash' });
-      const parsed = this.extractJSON(result);
+      const parsed = this.extractJSON<ParsedKeywords>(result);
 
       return parsed.keywords || [];
     } catch (error) {
@@ -232,7 +269,7 @@ Return as JSON:
 `;
 
       const result = await this.generateWithRetry(prompt);
-      const parsed = this.extractJSON(result);
+      const parsed = this.extractJSON<ParsedPortfolio>(result);
 
       return {
         summary: parsed.summary || '',
@@ -274,7 +311,7 @@ Return as JSON with: percentile, strengths[], gaps[], recommendations[]
 `;
 
       const result = await this.generateWithRetry(prompt);
-      const parsed = this.extractJSON(result);
+      const parsed = this.extractJSON<ParsedBenchmark>(result);
 
       return {
         percentile: parsed.percentile || 50,
@@ -348,7 +385,7 @@ Return as JSON with: percentile, strengths[], gaps[], recommendations[]
   /**
    * Extract JSON from Gemini response (handles markdown code blocks)
    */
-  private static extractJSON(text: string): any {
+  private static extractJSON<T>(text: string): T {
     try {
       // Remove markdown code blocks if present
       let cleaned = text.trim();
@@ -362,7 +399,7 @@ Return as JSON with: percentile, strengths[], gaps[], recommendations[]
         throw new Error('No JSON found in response');
       }
 
-      return JSON.parse(jsonMatch[0]);
+      return JSON.parse(jsonMatch[0]) as T;
     } catch (error) {
       console.error('JSON parsing failed:', error);
       console.error('Raw text:', text);

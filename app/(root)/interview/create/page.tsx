@@ -4,8 +4,32 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Target, Star, BarChart3, Shield, ArrowRight, Calendar } from "lucide-react";
 
+// Define the subscription interface
+interface Subscription {
+  plan: string;
+  status: string;
+  interviewsUsed: number;
+  interviewsLimit: number;
+  createdAt: string;
+  updatedAt: string;
+  trialEndsAt: string | null;
+  subscriptionEndsAt: string | null;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+  currentPeriodStart: string | null;
+  currentPeriodEnd: string | null;
+  canceledAt: string | null;
+  lastPaymentAt: string | null;
+}
+
+interface PlanDisplayInfo {
+  name: string;
+  color: string;
+  isUnlimited: boolean;
+}
+
 // Helper function to get plan display info
-function getPlanDisplayInfo(subscription: any) {
+function getPlanDisplayInfo(subscription: Subscription | undefined): PlanDisplayInfo {
   if (!subscription) {
     return {
       name: "Free",
@@ -43,7 +67,7 @@ function getPlanDisplayInfo(subscription: any) {
 }
 
 // Helper function to calculate next reset date for starter plan
-function calculateNextResetDate(subscription: any): Date {
+function calculateNextResetDate(subscription: Subscription | undefined): Date {
   if (!subscription?.currentPeriodEnd) {
     const createdAt = subscription?.createdAt
       ? new Date(subscription.createdAt)

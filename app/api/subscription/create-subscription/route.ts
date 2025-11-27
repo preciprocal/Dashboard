@@ -4,8 +4,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/firebase/admin";
 import { getCurrentUser } from "@/lib/actions/auth.action";
 
+// Use type assertion for API version to handle version mismatch
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-06-20",
+  apiVersion: "2024-06-20" as Stripe.LatestApiVersion,
 });
 
 // Define interfaces
@@ -67,8 +68,9 @@ export async function POST(request: NextRequest) {
         }
         customer = retrievedCustomer as Stripe.Customer;
         console.log("✅ Found existing customer:", customer.id);
-      } catch (_error) {
-        console.log("🆕 Customer not found, creating new one");
+      } catch (error) {
+        // Log the error for debugging but continue with customer creation
+        console.log("🆕 Customer not found or error occurred, creating new one:", error instanceof Error ? error.message : 'Unknown error');
         customer = await stripe.customers.create({
           email: user.email,
           name: user.name,

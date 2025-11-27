@@ -1,5 +1,5 @@
 // app/api/analyze/route.ts
-import { validatePDFFile } from '@/lib/resume/pdf-parser-server';
+import { validatePDFFileServer } from '@/lib/resume/pdf-parser-server';
 import { AnalysisService } from '@/lib/services/analysis-services';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
 
     console.log(`📄 File received: ${file.name} (${file.size} bytes)`);
 
-    const validation = validatePDFFile(file);
+    const validation = validatePDFFileServer(file);
     if (!validation.valid) {
       return NextResponse.json(
         { error: validation.error },

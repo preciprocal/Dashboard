@@ -1,9 +1,8 @@
-// lib/services/analysis-service.ts
+// lib/services/analysis-services.tsx
 
 import { GeminiService } from '../ai/gemini';
-
 import type { ResumeFeedback } from '@/types/resume';
-import { extractTextFromPDF } from '../resume/pdf-parser-server';
+import { extractTextFromPDFServer } from '../resume/pdf-parser-server';
 
 export class AnalysisService {
   /**
@@ -15,7 +14,7 @@ export class AnalysisService {
       jobTitle?: string;
       jobDescription?: string;
       companyName?: string;
-      analysisType?: 'full' | 'quick' | 'ats-only';
+      analysisType?: 'full' | 'quick' | 'ats-only' | 'detailed';
     } = {}
   ): Promise<ResumeFeedback> {
     console.log('📄 Starting resume analysis...');
@@ -23,7 +22,7 @@ export class AnalysisService {
     try {
       // 1. Extract text from PDF
       console.log('📝 Extracting text from PDF...');
-      const resumeText = await extractTextFromPDF(file);
+      const resumeText = await extractTextFromPDFServer(file);
 
       if (!resumeText || resumeText.length < 100) {
         throw new Error(
@@ -66,7 +65,7 @@ export class AnalysisService {
    * Quick ATS scan
    */
   static async quickScan(file: File, jobDescription?: string) {
-    const text = await extractTextFromPDF(file);
+    const text = await extractTextFromPDFServer(file);
     return GeminiService.quickATSScan(text, jobDescription);
   }
 
@@ -87,7 +86,7 @@ export class AnalysisService {
    * Job matching
    */
   static async matchJob(file: File, jobDescription: string) {
-    const text = await extractTextFromPDF(file);
+    const text = await extractTextFromPDFServer(file);
     return GeminiService.matchJobDescription(text, jobDescription);
   }
 }

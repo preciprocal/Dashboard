@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Eye, Clock, TrendingUp, AlertTriangle, CheckCircle2, Zap, Info, Loader2, Brain, Users, UserCheck } from 'lucide-react';
+import { Eye, Clock, TrendingUp, AlertTriangle, CheckCircle2, Zap, Info, Loader2, Brain, Users } from 'lucide-react';
 
 interface HeatmapPoint {
   section: string;

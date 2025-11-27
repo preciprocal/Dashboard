@@ -1,7 +1,7 @@
 // components/planner/InterviewQuiz.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Brain, 
   Trophy, 
@@ -70,19 +70,6 @@ interface CategoryData {
   color: string;
 }
 
-const SUGGESTED_PROMPTS = [
-  {
-    icon: Lightbulb,
-    text: "Explain binary search in simple terms",
-    category: "Technical"
-  },
-  {
-    icon: Users,
-    text: "Generate 5 behavioral questions for FAANG interviews",
-    category: "Behavioral"
-  },
-];
-
 export default function InterviewQuiz({ planId, onClose }: QuizProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -96,11 +83,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
   const [score, setScore] = useState(0);
   const [answers, setAnswers] = useState<boolean[]>([]);
 
-  useEffect(() => {
-    fetchQuiz();
-  }, [planId]);
-
-  const fetchQuiz = async () => {
+  const fetchQuiz = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -136,7 +119,11 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
       setError(error.message || 'Failed to load quiz');
       setLoading(false);
     }
-  };
+  }, [planId]);
+
+  useEffect(() => {
+    fetchQuiz();
+  }, [fetchQuiz]);
 
   const handleAnswerSelect = (answerIndex: number) => {
     if (showResult) return;
@@ -721,7 +708,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
                     ? 'text-green-900 dark:text-green-100' 
                     : 'text-blue-900 dark:text-blue-100'
                 }`}>
-                  {isCorrect ? '✨ Perfect! That&apos;s Correct!' : '💡 Learning Moment'}
+                  {isCorrect ? '✨ Perfect! That\'s Correct!' : '💡 Learning Moment'}
                 </h3>
                 <p className={`${
                   isCorrect 
