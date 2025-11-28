@@ -22,6 +22,29 @@ import {
   ArrowLeft
 } from "lucide-react";
 
+interface CategoryScore {
+  name: string;
+  score: number;
+  comment: string;
+}
+
+interface Feedback {
+  totalScore: number;
+  categoryScores: CategoryScore[];
+  strengths: string[];
+  areasForImprovement: string[];
+  finalAssessment: string;
+}
+
+interface Interview {
+  userId: string;
+  role: string;
+  company?: string;
+  type: string;
+  duration?: number;
+  questions: unknown[];
+}
+
 interface Props {
   params: Promise<{ id: string }>;
 }
@@ -34,7 +57,7 @@ export default async function InterviewFeedbackPage({ params }: Props) {
   }
 
   const { id } = await params;
-  const interview = await getInterviewById(id);
+  const interview = await getInterviewById(id) as Interview | null;
 
   if (!interview) {
     notFound();
@@ -47,7 +70,7 @@ export default async function InterviewFeedbackPage({ params }: Props) {
   const feedback = await getFeedbackByInterviewId({
     interviewId: id,
     userId: user.id,
-  });
+  }) as Feedback | null;
 
   if (!feedback) {
     return (
@@ -90,14 +113,14 @@ export default async function InterviewFeedbackPage({ params }: Props) {
     );
   }
 
-  const getScoreColor = (score: number) => {
+  const getScoreColor = (score: number): string => {
     if (score >= 85) return "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
     if (score >= 70) return "text-blue-400 bg-blue-500/10 border-blue-500/20";
     if (score >= 55) return "text-amber-400 bg-amber-500/10 border-amber-500/20";
     return "text-red-400 bg-red-500/10 border-red-500/20";
   };
 
-  const getScoreLabel = (score: number) => {
+  const getScoreLabel = (score: number): string => {
     if (score >= 95) return "Outstanding";
     if (score >= 85) return "Excellent";
     if (score >= 75) return "Very Good";
@@ -106,7 +129,7 @@ export default async function InterviewFeedbackPage({ params }: Props) {
     return "Needs Improvement";
   };
 
-  const getGradeBadge = (score: number) => {
+  const getGradeBadge = (score: number): { grade: string; color: string } => {
     if (score >= 95) return { grade: "A+", color: "emerald" };
     if (score >= 85) return { grade: "A", color: "blue" };
     if (score >= 75) return { grade: "B+", color: "purple" };
@@ -124,7 +147,7 @@ export default async function InterviewFeedbackPage({ params }: Props) {
   };
 
   const avgCategoryScore = Math.round(
-    feedback.categoryScores.reduce((sum, cat) => sum + cat.score, 0) / 
+    feedback.categoryScores.reduce((sum: number, cat: CategoryScore) => sum + cat.score, 0) / 
     feedback.categoryScores.length
   );
 
@@ -273,10 +296,10 @@ export default async function InterviewFeedbackPage({ params }: Props) {
           
           <div className="space-y-4">
             {[
-              { label: "Your Score", value: industryBenchmark.yourScore, isUser: true },
-              { label: "Industry Average", value: industryBenchmark.industryAverage },
-              { label: "Company Average", value: industryBenchmark.companyAverage },
-              { label: "Top 10%", value: industryBenchmark.topPerformers, isTop: true },
+              { label: "Your Score", value: industryBenchmark.yourScore, isUser: true, isTop: false },
+              { label: "Industry Average", value: industryBenchmark.industryAverage, isUser: false, isTop: false },
+              { label: "Company Average", value: industryBenchmark.companyAverage, isUser: false, isTop: false },
+              { label: "Top 10%", value: industryBenchmark.topPerformers, isUser: false, isTop: true },
             ].map((item, index) => (
               <div key={index} className="space-y-2">
                 <div className="flex justify-between items-center">
@@ -348,7 +371,7 @@ export default async function InterviewFeedbackPage({ params }: Props) {
         </div>
 
         <div className="p-6 space-y-6">
-          {feedback.categoryScores.map((category, index) => {
+          {feedback.categoryScores.map((category: CategoryScore, index: number) => {
             const isStrength = category.score >= 80;
             const needsWork = category.score < 60;
             
@@ -500,7 +523,7 @@ export default async function InterviewFeedbackPage({ params }: Props) {
           </div>
 
           <div className="p-6 space-y-4">
-            {feedback.strengths.map((strength, index) => (
+            {feedback.strengths.map((strength: string, index: number) => (
               <div key={index} className="glass-card p-4 border border-emerald-500/20">
                 <div className="flex items-start gap-3">
                   <div className="w-8 h-8 bg-emerald-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -534,7 +557,7 @@ export default async function InterviewFeedbackPage({ params }: Props) {
           </div>
 
           <div className="p-6 space-y-4">
-            {feedback.areasForImprovement.map((area, index) => {
+            {feedback.areasForImprovement.map((area: string, index: number) => {
               const priority = index < 2 ? "High" : index < 4 ? "Medium" : "Low";
               
               return (
