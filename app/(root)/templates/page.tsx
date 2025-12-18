@@ -71,7 +71,7 @@ const TemplateCard: React.FC<TemplateCardProps> = ({ template }) => {
     }
   };
 
-  const getTypeIcon = (type: string): JSX.Element => {
+  const getTypeIcon = (type: string) => {
     switch (type) {
       case "Technical":
         return (
@@ -210,7 +210,7 @@ const TemplateCard: React.FC<TemplateCardProps> = ({ template }) => {
   );
 };
 
-export default function TemplatePage(): JSX.Element {
+export default function TemplatePage() {
   const [user, loading] = useAuthState(auth);
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState<string>("");
