@@ -505,7 +505,7 @@ export default function Dashboard() {
 
     const weeklyTarget = Math.max(3, Math.min(7, Math.round(totalInterviews / 4)));
 
-    // NEW KPI: Technical Depth Score (1-5 stars)
+    // NEW KPI: Technical Depth Score (0-10 scale) - FIXED
     const technicalInterviews = completedInterviews.filter(i => 
       i.type === 'technical' || i.type === 'coding' || i.type === 'system-design'
     );
@@ -514,14 +514,14 @@ export default function Dashboard() {
       ? Math.round(
           (technicalInterviews.reduce((sum, i) => {
             const score = i.score || 0;
-            let depthPoints = score / 20;
+            let depthPoints = score / 10; // Changed from /20 to /10 for 0-10 scale
             
             if (i.type === 'system-design') depthPoints *= 1.2;
             if (i.type === 'coding') depthPoints *= 1.1;
             
-            return sum + Math.min(5, depthPoints);
-          }, 0) / technicalInterviews.length) * 10
-        ) / 10
+            return sum + Math.min(10, depthPoints); // Changed from 5 to 10
+          }, 0) / technicalInterviews.length) * 10 // Multiply to get integer
+        ) / 10 // Keep one decimal place
       : 0;
 
     // NEW KPI: Communication Score
@@ -921,7 +921,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Technical Depth */}
+        {/* Technical Depth - FIXED */}
         <div className="glass-card p-5 hover-lift group">
           <div className="flex items-center justify-between mb-4">
             <div className="w-12 h-12 gradient-success rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-glass">
@@ -931,7 +931,7 @@ export default function Dashboard() {
               <div className="flex items-center justify-end gap-0.5 mb-1">
                 {[1, 2, 3, 4, 5].map((starNumber) => {
                   const depth = stats.technicalDepth || 0;
-                  const filledStars = Math.floor(depth / 10);
+                  const filledStars = Math.floor((depth / 10) * 5); // Convert 0-10 to 0-5 stars
                   
                   return (
                     <Star
@@ -945,7 +945,7 @@ export default function Dashboard() {
                   );
                 })}
               </div>
-              <div className="text-emerald-300 text-xs font-medium">{stats.technicalDepth || 0}/50</div>
+              <div className="text-emerald-300 text-xs font-medium">{stats.technicalDepth || 0}/10</div>
             </div>
           </div>
           <div className="space-y-1">
