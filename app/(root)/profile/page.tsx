@@ -87,15 +87,24 @@ interface CriticalError {
   details?: string;
 }
 
+// FIXED: Templates and Blogs should use string IDs to match Saved.tsx expectations
 interface SavedTemplate {
-  id: number;
+  id: string; // Changed from number to string
   title: string;
   category: string;
+  role?: string;
+  description?: string;
+  techstack?: string[];
+  difficulty?: string;
+  type?: string;
+  duration?: string;
+  questions?: number;
+  rating?: number;
   [key: string]: unknown;
 }
 
 interface BookmarkedBlog {
-  id: number;
+  id: string; // Changed from number to string
   title: string;
   excerpt: string;
   category: string;
@@ -104,12 +113,44 @@ interface BookmarkedBlog {
   readTime: string;
   tags: string[];
   savedAt: string;
+  content?: string;
+  authorAvatar?: string;
+  [key: string]: unknown;
+}
+
+// FIXED: Add CustomInterview interface to match Saved.tsx expectations
+interface CustomInterview {
+  id: string;
+  title: string;
+  role?: string;
+  type?: string;
+  difficulty?: string;
+  questions?: number;
+  duration?: string;
+  createdAt?: string;
+  [key: string]: unknown;
 }
 
 interface UserCreatedContent {
-  blogs: unknown[];
-  templates: unknown[];
-  customInterviews: unknown[];
+  blogs: BookmarkedBlog[]; // Changed from unknown[] to BookmarkedBlog[]
+  templates: SavedTemplate[]; // Changed from unknown[] to SavedTemplate[]
+  customInterviews: CustomInterview[]; // Changed from unknown[] to CustomInterview[]
+}
+
+// FIXED: Add proper interface for Firebase timestamp
+interface FirebaseTimestamp {
+  toDate: () => Date;
+}
+
+// FIXED: Add proper interface for interview data
+interface InterviewData {
+  createdAt?: FirebaseTimestamp | string | Date;
+  status?: string;
+  duration?: number;
+  feedback?: {
+    overallRating?: number;
+  };
+  [key: string]: unknown;
 }
 
 const ProfilePage = () => {
@@ -148,30 +189,44 @@ const ProfilePage = () => {
     }
   }, [authLoading, user, router]);
 
-  // Load saved data from localStorage
+  // Load saved data from localStorage - FIXED with string IDs
   useEffect(() => {
     const loadSavedContent = (): void => {
       try {
         const savedTemplatesData = localStorage.getItem("bookmarkedTemplates");
         if (savedTemplatesData) {
-          setSavedTemplates(JSON.parse(savedTemplatesData));
+          const templates: unknown = JSON.parse(savedTemplatesData);
+          // Convert number IDs to string IDs
+          if (Array.isArray(templates)) {
+            const templatesWithStringIds: SavedTemplate[] = templates.map((t: unknown) => {
+              const template = t as Record<string, unknown>;
+              return {
+                ...template,
+                id: String(template.id)
+              } as SavedTemplate;
+            });
+            setSavedTemplates(templatesWithStringIds);
+          }
         }
 
         const bookmarkedBlogsData = localStorage.getItem("bookmarkedPosts");
         if (bookmarkedBlogsData) {
-          const bookmarkedIds: number[] = JSON.parse(bookmarkedBlogsData);
-          const mockBookmarkedBlogs: BookmarkedBlog[] = bookmarkedIds.map((id: number) => ({
-            id,
-            title: `How to Ace Your Interview: Advanced Tips ${id}`,
-            excerpt: "Comprehensive guide covering advanced interview techniques...",
-            category: "career-tips",
-            author: "Career Expert",
-            publishDate: "2025-01-10",
-            readTime: "8 min read",
-            tags: ["Career", "Interview Tips", "Success"],
-            savedAt: new Date().toISOString(),
-          }));
-          setBookmarkedBlogs(mockBookmarkedBlogs);
+          const bookmarkedIds: unknown = JSON.parse(bookmarkedBlogsData);
+          // Convert to proper BookmarkedBlog objects with string IDs
+          if (Array.isArray(bookmarkedIds)) {
+            const mockBookmarkedBlogs: BookmarkedBlog[] = bookmarkedIds.map((id: unknown) => ({
+              id: String(id), // Convert to string
+              title: `How to Ace Your Interview: Advanced Tips ${id}`,
+              excerpt: "Comprehensive guide covering advanced interview techniques...",
+              category: "career-tips",
+              author: "Career Expert",
+              publishDate: "2025-01-10",
+              readTime: "8 min read",
+              tags: ["Career", "Interview Tips", "Success"],
+              savedAt: new Date().toISOString(),
+            }));
+            setBookmarkedBlogs(mockBookmarkedBlogs);
+          }
         }
 
         const userPosts = localStorage.getItem("userPosts");
@@ -179,9 +234,36 @@ const ProfilePage = () => {
         const customInterviews = localStorage.getItem("customInterviews");
 
         setUserCreatedContent({
-          blogs: userPosts ? JSON.parse(userPosts) : [],
-          templates: userTemplates ? JSON.parse(userTemplates) : [],
-          customInterviews: customInterviews ? JSON.parse(customInterviews) : [],
+          blogs: userPosts ? (() => {
+            const parsed: unknown = JSON.parse(userPosts);
+            if (Array.isArray(parsed)) {
+              return parsed.map((b: unknown) => {
+                const blog = b as Record<string, unknown>;
+                return { ...blog, id: String(blog.id) } as BookmarkedBlog;
+              });
+            }
+            return [];
+          })() : [],
+          templates: userTemplates ? (() => {
+            const parsed: unknown = JSON.parse(userTemplates);
+            if (Array.isArray(parsed)) {
+              return parsed.map((t: unknown) => {
+                const template = t as Record<string, unknown>;
+                return { ...template, id: String(template.id) } as SavedTemplate;
+              });
+            }
+            return [];
+          })() : [],
+          customInterviews: customInterviews ? (() => {
+            const parsed: unknown = JSON.parse(customInterviews);
+            if (Array.isArray(parsed)) {
+              return parsed.map((ci: unknown) => {
+                const interview = ci as Record<string, unknown>;
+                return { ...interview, id: String(interview.id) } as CustomInterview;
+              });
+            }
+            return [];
+          })() : [],
         });
       } catch (err) {
         console.error("Failed to load saved content:", err);
@@ -190,6 +272,26 @@ const ProfilePage = () => {
 
     loadSavedContent();
   }, []);
+
+  // FIXED: Helper function to safely convert createdAt to Date
+  const convertToDate = (createdAt: FirebaseTimestamp | string | Date | undefined): Date => {
+    if (!createdAt) {
+      return new Date();
+    }
+    
+    // Check if it's a Firebase Timestamp
+    if (typeof createdAt === 'object' && 'toDate' in createdAt && typeof createdAt.toDate === 'function') {
+      return createdAt.toDate();
+    }
+    
+    // Check if it's already a Date
+    if (createdAt instanceof Date) {
+      return createdAt;
+    }
+    
+    // Otherwise treat as string or number
+    return new Date(createdAt as string | number);
+  };
 
   // Fetch user data from Firebase - UPDATED to use new address fields
   useEffect(() => {
@@ -260,29 +362,24 @@ const ProfilePage = () => {
         setUserProfile(profile);
         setEditedProfile(profile);
 
-        // Calculate stats from interviews
-        const interviewsWithDates = (userInterviews || []).map((interview: {
-          createdAt?: { toDate?: () => Date } | string | Date;
-          [key: string]: unknown;
-        }) => ({
+        // FIXED: Calculate stats from interviews with proper type handling
+        const interviewsWithDates = (userInterviews || []).map((interview: InterviewData) => ({
           ...interview,
-          createdAt: interview.createdAt?.toDate
-            ? (interview.createdAt as { toDate: () => Date }).toDate()
-            : new Date(interview.createdAt as string | Date),
+          createdAt: convertToDate(interview.createdAt),
         }));
 
         const totalInterviews = interviewsWithDates.length;
         const completedInterviews = interviewsWithDates.filter(
-          (i: { status?: string }) => i.status === "completed"
+          (i: InterviewData) => i.status === "completed"
         );
 
         const averageScore = completedInterviews.length > 0
-          ? completedInterviews.reduce((sum: number, i: { feedback?: { overallRating?: number } }) => 
+          ? completedInterviews.reduce((sum: number, i: InterviewData) => 
               sum + (i.feedback?.overallRating || 0), 0) / completedInterviews.length
           : 0;
 
         const hoursSpent = completedInterviews.reduce(
-          (sum: number, i: { duration?: number }) => sum + (i.duration || 0),
+          (sum: number, i: InterviewData) => sum + (i.duration || 0),
           0
         ) / 60;
 
@@ -340,7 +437,22 @@ const ProfilePage = () => {
     setIsSaving(true);
     try {
       const { updateUserProfile } = await import("@/lib/actions/auth.action");
-      const result = await updateUserProfile(user.uid, updatedProfile);
+      
+      // Exclude subscription and convert Date fields to strings before sending to Firebase
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { subscription, ...profileWithoutSubscription } = updatedProfile;
+      
+      const profileForUpdate = {
+        ...profileWithoutSubscription,
+        createdAt: updatedProfile.createdAt instanceof Date 
+          ? updatedProfile.createdAt.toISOString() 
+          : updatedProfile.createdAt,
+        lastLogin: updatedProfile.lastLogin instanceof Date 
+          ? updatedProfile.lastLogin.toISOString() 
+          : updatedProfile.lastLogin,
+      };
+      
+      const result = await updateUserProfile(user.uid, profileForUpdate);
       
       if (result.success) {
         setUserProfile((prev) => (prev ? { ...prev, ...updatedProfile } : null));
