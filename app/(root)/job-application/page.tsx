@@ -360,8 +360,14 @@ export default function JobApplicationPage() {
   ];
 
   if (loading) {
-    return <AnimatedLoader />;
-  }
+  return (
+    <AnimatedLoader
+      isVisible={true}
+      loadingText="Loading..."
+      showNavigation={true}
+    />
+  );
+}
 
   if (!user) {
     return null;
