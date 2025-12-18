@@ -112,7 +112,7 @@ interface UserCreatedContent {
   customInterviews: unknown[];
 }
 
-const ProfilePage = (): JSX.Element => {
+const ProfilePage = () => {
   const router = useRouter();
   const [user, authLoading] = useAuthState(auth);
   const [activeTab, setActiveTab] = useState<"profile" | "saved" | "settings">("profile");
