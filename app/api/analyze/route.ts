@@ -36,11 +36,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate and normalize analysis type
+    let normalizedAnalysisType: 'full' | 'quick' | 'ats-only' = 'full';
+    if (analysisType === 'quick' || analysisType === 'ats-only') {
+      normalizedAnalysisType = analysisType;
+    } else if (analysisType === 'detailed') {
+      // Map 'detailed' to 'full' since they're not supported
+      normalizedAnalysisType = 'full';
+    }
+
     // Analyze resume
     console.log('🚀 Starting analysis...');
     console.log('   Job Title:', jobTitle || 'Not specified');
     console.log('   Company:', companyName || 'Not specified');
     console.log('   Job Description Length:', jobDescription?.length || 0);
+    console.log('   Analysis Type:', normalizedAnalysisType);
     
     const startTime = Date.now();
 
@@ -48,7 +58,7 @@ export async function POST(request: NextRequest) {
       jobTitle,
       jobDescription,
       companyName,
-      analysisType: analysisType as 'quick' | 'full' | 'detailed',
+      analysisType: normalizedAnalysisType,
     });
 
     const processingTime = Date.now() - startTime;
