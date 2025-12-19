@@ -56,22 +56,39 @@ export default function ResumeDashboard() {
       setResumes(userResumes);
       
       if (userResumes.length > 0) {
-        const avgScore = userResumes.reduce((sum, resume) => sum + resume.feedback.overallScore, 0) / userResumes.length;
-        const totalTips = userResumes.reduce((sum, resume) => {
-          return sum + [
-            ...resume.feedback.ATS.tips,
-            ...resume.feedback.content.tips,
-            ...resume.feedback.structure.tips,
-            ...resume.feedback.skills.tips,
-            ...resume.feedback.toneAndStyle.tips
-          ].filter(tip => tip.type === 'improve').length;
-        }, 0);
+        // Filter resumes that have feedback
+        const resumesWithFeedback = userResumes.filter(resume => resume.feedback);
         
-        setStats({
-          averageScore: Math.round(avgScore),
-          totalResumes: userResumes.length,
-          improvementTips: totalTips
-        });
+        if (resumesWithFeedback.length > 0) {
+          const avgScore = resumesWithFeedback.reduce((sum, resume) => {
+            return sum + (resume.feedback?.overallScore || 0);
+          }, 0) / resumesWithFeedback.length;
+          
+          const totalTips = resumesWithFeedback.reduce((sum, resume) => {
+            if (!resume.feedback) return sum;
+            
+            const tips = [
+              ...(resume.feedback.ats?.tips || []),
+              ...(resume.feedback.content?.tips || []),
+              ...(resume.feedback.structure?.tips || []),
+              ...(resume.feedback.skills?.tips || []),
+            ];
+            
+            return sum + tips.filter(tip => tip.type !== 'good').length;
+          }, 0);
+          
+          setStats({
+            averageScore: Math.round(avgScore),
+            totalResumes: userResumes.length,
+            improvementTips: totalTips
+          });
+        } else {
+          setStats({
+            averageScore: 0,
+            totalResumes: userResumes.length,
+            improvementTips: 0
+          });
+        }
       }
     } catch (err: unknown) {
       console.error('Error loading resumes:', err);
@@ -128,11 +145,11 @@ export default function ResumeDashboard() {
     switch (sortFilter) {
       case 'high-scores':
         filtered = filtered
-          .filter(resume => resume.feedback.overallScore >= 90)
-          .sort((a, b) => b.feedback.overallScore - a.feedback.overallScore);
+          .filter(resume => resume.feedback && resume.feedback.overallScore >= 90)
+          .sort((a, b) => (b.feedback?.overallScore || 0) - (a.feedback?.overallScore || 0));
         break;
       case 'needs-improvement':
-        filtered = filtered.filter(resume => resume.feedback.overallScore < 70);
+        filtered = filtered.filter(resume => resume.feedback && resume.feedback.overallScore < 70);
         break;
       case 'recent':
         filtered = filtered.sort((a, b) => 
@@ -153,9 +170,9 @@ export default function ResumeDashboard() {
   const getFilterCount = (option: SortOption): number => {
     switch (option) {
       case 'high-scores':
-        return resumes.filter(resume => resume.feedback.overallScore >= 90).length;
+        return resumes.filter(resume => resume.feedback && resume.feedback.overallScore >= 90).length;
       case 'needs-improvement':
-        return resumes.filter(resume => resume.feedback.overallScore < 70).length;
+        return resumes.filter(resume => resume.feedback && resume.feedback.overallScore < 70).length;
       case 'recent':
       case 'all':
       default:
