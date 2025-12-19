@@ -112,25 +112,18 @@ interface Tip {
   priority?: 'high' | 'medium' | 'low';
 }
 
-interface SectionData {
-  score: number;
-  tips: Tip[];
-  [key: string]: unknown;
-}
-
 function DetailedAnalysisSection({ 
   title, 
   description, 
   score, 
   tips, 
-  icon 
+  icon
 }: { 
   title: string;
   description: string;
   score: number;
   tips: Tip[];
   icon: React.ReactNode;
-  sectionData?: SectionData;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   
@@ -403,10 +396,7 @@ export default function ResumeDetailsPage() {
 
     try {
       if (resume.resumePath.startsWith('data:')) {
-        const downloadUrl = FirebaseService.createDownloadableUrl(
-          resume.resumePath, 
-          resume.originalFileName || `resume_${resume.id}.pdf`
-        );
+        const downloadUrl = FirebaseService.createDownloadableUrl(resume.resumePath);
         
         const link = document.createElement('a');
         link.href = downloadUrl;
@@ -433,10 +423,7 @@ export default function ResumeDetailsPage() {
 
     try {
       if (resume.resumePath.startsWith('data:')) {
-        const viewUrl = FirebaseService.createDownloadableUrl(
-          resume.resumePath, 
-          resume.originalFileName || `resume_${resume.id}.pdf`
-        );
+        const viewUrl = FirebaseService.createDownloadableUrl(resume.resumePath);
         window.open(viewUrl, '_blank');
       } else {
         window.open(resume.resumePath, '_blank');
@@ -639,9 +626,8 @@ export default function ResumeDetailsPage() {
               <DetailedAnalysisSection
                 title="ATS Compatibility"
                 description="Applicant tracking system optimization"
-                score={feedback.ATS?.score || feedback.ats?.score || 0}
-                tips={feedback.ATS?.tips || feedback.ats?.tips || []}
-                sectionData={feedback.ATS || feedback.ats}
+                score={feedback.ats?.score || 0}
+                tips={feedback.ats?.tips || []}
                 icon={<Shield className="w-5 h-5 text-white" />}
               />
 
@@ -650,7 +636,6 @@ export default function ResumeDetailsPage() {
                 description="Relevance and impact of content"
                 score={feedback.content?.score || 0}
                 tips={feedback.content?.tips || []}
-                sectionData={feedback.content}
                 icon={<FileText className="w-5 h-5 text-white" />}
               />
 
@@ -659,7 +644,6 @@ export default function ResumeDetailsPage() {
                 description="Organization and visual appeal"
                 score={feedback.structure?.score || 0}
                 tips={feedback.structure?.tips || []}
-                sectionData={feedback.structure}
                 icon={<Edit3 className="w-5 h-5 text-white" />}
               />
 
@@ -668,23 +652,11 @@ export default function ResumeDetailsPage() {
                 description="Technical and soft skills presentation"
                 score={feedback.skills?.score || 0}
                 tips={feedback.skills?.tips || []}
-                sectionData={feedback.skills}
                 icon={<Star className="w-5 h-5 text-white" />}
               />
 
-              {feedback.toneAndStyle && (
-                <DetailedAnalysisSection
-                  title="Tone & Style"
-                  description="Professional writing quality"
-                  score={feedback.toneAndStyle.score}
-                  tips={feedback.toneAndStyle.tips}
-                  sectionData={feedback.toneAndStyle}
-                  icon={<Edit3 className="w-5 h-5 text-white" />}
-                />
-              )}
-
-              {feedback.improvementRoadmap && (
-                <ImprovementRoadmap roadmap={feedback.improvementRoadmap} />
+              {feedback.roadmap && (
+                <ImprovementRoadmap roadmap={feedback.roadmap} />
               )}
             </div>
           )}
@@ -693,8 +665,7 @@ export default function ResumeDetailsPage() {
             <div className="animate-fade-in-up">
               <JobMatcher 
                 resumeId={resume.id}
-                resumeText={feedback?.resumeText}
-                preloadedMatch={feedback?.jobMatch}
+                
               />
             </div>
           )}
@@ -704,7 +675,7 @@ export default function ResumeDetailsPage() {
               <RecruiterEyeSimulation 
                 resumeId={resume.id}
                 imageUrl={imageUrl}
-                preloadedData={feedback?.recruiterSimulation}
+                
               />
             </div>
           )}
