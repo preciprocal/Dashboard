@@ -43,10 +43,15 @@ export default function ResumeCard({ resume, viewMode = 'grid', className = '' }
         dateObj = date;
       } else if (typeof date === 'string' || typeof date === 'number') {
         dateObj = new Date(date);
-      } else if (typeof date === 'object' && 'seconds' in date) {
-        dateObj = new Date(date.seconds * 1000);
-      } else if (typeof date === 'object' && 'toDate' in date && typeof date.toDate === 'function') {
-        dateObj = date.toDate();
+      } else if (typeof date === 'object') {
+        // Handle Firestore timestamp
+        if ('seconds' in date && typeof date.seconds === 'number') {
+          dateObj = new Date(date.seconds * 1000);
+        } else if ('toDate' in date && typeof date.toDate === 'function') {
+          dateObj = date.toDate();
+        } else {
+          return 'Recent';
+        }
       } else {
         return 'Recent';
       }
@@ -93,9 +98,10 @@ export default function ResumeCard({ resume, viewMode = 'grid', className = '' }
     
     let count = 0;
     const categories = ['ATS', 'ats', 'content', 'structure', 'skills', 'toneAndStyle', 'impact', 'grammar'];
+    const feedback = resume.feedback;
     
     categories.forEach(key => {
-      const category = resume.feedback[key as keyof typeof resume.feedback] as FeedbackCategory | undefined;
+      const category = feedback[key as keyof typeof feedback] as FeedbackCategory | undefined;
       if (category && typeof category === 'object') {
         count += getTips(category, 'improve').length;
       }
@@ -109,9 +115,10 @@ export default function ResumeCard({ resume, viewMode = 'grid', className = '' }
     
     let count = 0;
     const categories = ['ATS', 'ats', 'content', 'structure', 'skills', 'toneAndStyle', 'impact', 'grammar'];
+    const feedback = resume.feedback;
     
     categories.forEach(key => {
-      const category = resume.feedback[key as keyof typeof resume.feedback] as FeedbackCategory | undefined;
+      const category = feedback[key as keyof typeof feedback] as FeedbackCategory | undefined;
       if (category && typeof category === 'object') {
         count += getTips(category, 'good').length;
       }
@@ -121,12 +128,19 @@ export default function ResumeCard({ resume, viewMode = 'grid', className = '' }
   };
 
   const getOverallScore = (): number => {
-    return resume.feedback?.overallScore || resume.score || 0;
+    if (resume.feedback?.overallScore) {
+      return resume.feedback.overallScore;
+    }
+    if (resume.score) {
+      return resume.score;
+    }
+    return 0;
   };
 
   const getCategoryScore = (categoryName: string): number => {
     if (!resume.feedback) return 0;
-    const category = resume.feedback[categoryName as keyof typeof resume.feedback] as FeedbackCategory | undefined;
+    const feedback = resume.feedback;
+    const category = feedback[categoryName as keyof typeof feedback] as FeedbackCategory | undefined;
     if (category && typeof category === 'object' && 'score' in category) {
       return category.score || 0;
     }
