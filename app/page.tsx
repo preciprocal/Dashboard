@@ -29,7 +29,7 @@ import {
   analyzeResumeData,
 } from "@/lib/ai/ai-recommendations-engine";
 
-// Import shared Resume type
+// Import shared Resume type from types/resume
 import type { Resume } from "@/types/resume";
 
 // ============ INTERFACES ============
@@ -313,8 +313,7 @@ export default function Dashboard() {
           
           const dynamicRecommendations = generateDynamicAIRecommendations(
             [],
-            userResumes,
-            calculatedStats
+            userResumes as unknown as Parameters<typeof generateDynamicAIRecommendations>[1]
           );
           
           console.log('🤖 Generated recommendations:', dynamicRecommendations);
@@ -397,18 +396,17 @@ export default function Dashboard() {
           setStats(calculatedStats);
           console.log('📊 Stats calculated:', calculatedStats);
 
-          // Generate dynamic AI recommendations
+          // Generate dynamic AI recommendations - use type assertion
           const dynamicRecommendations = generateDynamicAIRecommendations(
             interviewsWithFeedback,
-            userResumes,
-            calculatedStats
+            userResumes as unknown as Parameters<typeof generateDynamicAIRecommendations>[1]
           );
           
           console.log('🤖 Generated Dynamic Recommendations:', dynamicRecommendations);
 
           // Log analysis for debugging
           const interviewAnalysis = analyzeInterviewPerformance(interviewsWithFeedback);
-          const resumeAnalysis = analyzeResumeData(userResumes);
+          const resumeAnalysis = analyzeResumeData(userResumes as unknown as Parameters<typeof analyzeResumeData>[0]);
           
           console.log('📊 Interview Analysis:', interviewAnalysis);
           console.log('📄 Resume Analysis:', resumeAnalysis);
@@ -420,8 +418,7 @@ export default function Dashboard() {
           
           const dynamicRecommendations = generateDynamicAIRecommendations(
             [],
-            userResumes,
-            calculatedStats
+            userResumes as unknown as Parameters<typeof generateDynamicAIRecommendations>[1]
           );
           
           console.log('🤖 Generated recommendations:', dynamicRecommendations);
@@ -438,6 +435,57 @@ export default function Dashboard() {
   }, []);
 
   // ============ HELPER FUNCTIONS ============
+
+  // Helper to convert Resume from types/resume to ProfileOverview's expected format
+  const convertResumeForOverview = (resume: Resume) => {
+    // Create default feedback structure if missing
+    const defaultFeedback = {
+      overallScore: 0,
+      ATS: {
+        score: 0,
+        tips: [] as Array<{ type: 'good' | 'improve'; message: string }>
+      },
+      content: {
+        score: 0,
+        tips: [] as Array<{ type: 'good' | 'improve'; message: string }>
+      },
+      structure: {
+        score: 0,
+        tips: [] as Array<{ type: 'good' | 'improve'; message: string }>
+      },
+      skills: {
+        score: 0,
+        tips: [] as Array<{ type: 'good' | 'improve'; message: string }>
+      },
+      toneAndStyle: {
+        score: 0,
+        tips: [] as Array<{ type: 'good' | 'improve'; message: string }>
+      }
+    };
+
+    // Check if feedback exists and has the expected structure
+    let feedback = defaultFeedback;
+    if (resume.feedback && typeof resume.feedback === 'object') {
+      // If feedback has the new structure with ATS, content, etc., use it
+      if ('ATS' in resume.feedback && 'content' in resume.feedback) {
+        feedback = resume.feedback as unknown as typeof defaultFeedback;
+      } else {
+        // Otherwise, use the feedback's overallScore if available
+        feedback = {
+          ...defaultFeedback,
+          overallScore: resume.feedback.overallScore || 0
+        };
+      }
+    }
+
+    return {
+      ...resume,
+      filename: resume.fileName,
+      originalName: resume.originalFileName || resume.fileName,
+      uploadedAt: resume.createdAt instanceof Date ? resume.createdAt : new Date(resume.createdAt),
+      feedback
+    };
+  };
 
   // Enhanced stats calculation including resume stats, new KPIs, and planner stats
   const calculateEnhancedUserStats = (
@@ -505,7 +553,7 @@ export default function Dashboard() {
 
     const weeklyTarget = Math.max(3, Math.min(7, Math.round(totalInterviews / 4)));
 
-    // NEW KPI: Technical Depth Score (0-10 scale) - FIXED
+    // NEW KPI: Technical Depth Score (0-10 scale)
     const technicalInterviews = completedInterviews.filter(i => 
       i.type === 'technical' || i.type === 'coding' || i.type === 'system-design'
     );
@@ -514,14 +562,14 @@ export default function Dashboard() {
       ? Math.round(
           (technicalInterviews.reduce((sum, i) => {
             const score = i.score || 0;
-            let depthPoints = score / 10; // Changed from /20 to /10 for 0-10 scale
+            let depthPoints = score / 10;
             
             if (i.type === 'system-design') depthPoints *= 1.2;
             if (i.type === 'coding') depthPoints *= 1.1;
             
-            return sum + Math.min(10, depthPoints); // Changed from 5 to 10
-          }, 0) / technicalInterviews.length) * 10 // Multiply to get integer
-        ) / 10 // Keep one decimal place
+            return sum + Math.min(10, depthPoints);
+          }, 0) / technicalInterviews.length) * 10
+        ) / 10
       : 0;
 
     // NEW KPI: Communication Score
@@ -637,7 +685,16 @@ export default function Dashboard() {
   };
 
   // Generate enhanced daily focus including resume tasks
-  const generateEnhancedDailyFocus = (interviews: Interview[], resumes: Resume[], stats: UserStats) => {
+  const generateEnhancedDailyFocus = (
+    interviews: unknown, 
+    resumes: unknown, 
+    stats: unknown
+  ) => {
+    // Cast to our local types for processing
+    const typedInterviews = interviews as Array<Interview & { score: number }>;
+    const typedResumes = resumes as ReturnType<typeof convertResumeForOverview>[];
+    const typedStats = stats as UserStats;
+    
     const today = new Date();
     const todayStart = new Date(
       today.getFullYear(),
@@ -645,14 +702,14 @@ export default function Dashboard() {
       today.getDate()
     );
 
-    const todayInterviews = interviews.filter((interview) => {
+    const todayInterviews = typedInterviews.filter((interview) => {
       const interviewDate =
         interview.createdAt instanceof Date
           ? interview.createdAt
           : new Date(interview.createdAt);
       return (
         interviewDate >= todayStart &&
-        (interview.score! > 0 ||
+        (interview.score > 0 ||
           (interview.feedback && Object.keys(interview.feedback).length > 0))
       );
     });
@@ -679,7 +736,7 @@ export default function Dashboard() {
       });
     }
 
-    if (resumes.length === 0) {
+    if (typedResumes.length === 0) {
       focuses.push({
         id: 2,
         text: "Upload Your First Resume",
@@ -688,11 +745,11 @@ export default function Dashboard() {
         type: "resume",
         icon: "📄",
       });
-    } else if (stats.averageResumeScore! < 70) {
+    } else if (typedStats.averageResumeScore! < 70) {
       focuses.push({
         id: 2,
         text: "Improve Resume Score",
-        description: `Current: ${stats.averageResumeScore}%`,
+        description: `Current: ${typedStats.averageResumeScore}%`,
         completed: false,
         type: "improvement",
         icon: "📈",
@@ -701,14 +758,14 @@ export default function Dashboard() {
       focuses.push({
         id: 2,
         text: "Resume Looking Great!",
-        description: `Score: ${stats.averageResumeScore}%`,
+        description: `Score: ${typedStats.averageResumeScore}%`,
         completed: true,
         type: "resume",
         icon: "⭐",
       });
     }
 
-    if (interviews.length > 0 && resumes.length > 0 && stats.averageScore > 70 && stats.averageResumeScore! > 70) {
+    if (typedInterviews.length > 0 && typedResumes.length > 0 && typedStats.averageScore > 70 && typedStats.averageResumeScore! > 70) {
       focuses.push({
         id: 3,
         text: "Ready for Applications!",
@@ -921,7 +978,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Technical Depth - FIXED */}
+        {/* Technical Depth */}
         <div className="glass-card p-5 hover-lift group">
           <div className="flex items-center justify-between mb-4">
             <div className="w-12 h-12 gradient-success rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-glass">
@@ -931,7 +988,7 @@ export default function Dashboard() {
               <div className="flex items-center justify-end gap-0.5 mb-1">
                 {[1, 2, 3, 4, 5].map((starNumber) => {
                   const depth = stats.technicalDepth || 0;
-                  const filledStars = Math.floor((depth / 10) * 5); // Convert 0-10 to 0-5 stars
+                  const filledStars = Math.floor((depth / 10) * 5);
                   
                   return (
                     <Star
@@ -1049,14 +1106,15 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Profile Overview Component */}
+      {/* Profile Overview Component - REMOVED userProfile PROP */}
       <ProfileOverview
-        userProfile={userProfile}
         stats={stats}
-        interviews={interviews}
-        resumes={resumes}
-        generateDailyFocus={generateEnhancedDailyFocus}
-        loading={false}
+        interviews={interviews.map(interview => ({
+          ...interview,
+          score: interview.score ?? 0
+        }))}
+        resumes={resumes.map(convertResumeForOverview) as unknown as Parameters<typeof ProfileOverview>[0]['resumes']}
+        generateDailyFocus={generateEnhancedDailyFocus as unknown as Parameters<typeof ProfileOverview>[0]['generateDailyFocus']}
       />
     </div>
   );
