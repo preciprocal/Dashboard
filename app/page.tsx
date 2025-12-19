@@ -338,15 +338,48 @@ export default function Dashboard() {
 
         console.log('🎯 Loaded interviews:', userInterviews.length);
 
-        const interviewsWithDates = userInterviews.map((interview) => ({
-          ...interview,
-          createdAt: interview.createdAt?.toDate
-            ? interview.createdAt.toDate()
-            : new Date(interview.createdAt),
-          updatedAt: interview.updatedAt?.toDate
-            ? interview.updatedAt.toDate()
-            : new Date(interview.updatedAt || interview.createdAt),
-        }));
+        const interviewsWithDates: Interview[] = userInterviews.map((interview) => {
+          let createdAt: Date;
+          let updatedAt: Date;
+
+          // Handle createdAt
+          if (interview.createdAt instanceof Date) {
+            createdAt = interview.createdAt;
+          } else if (typeof interview.createdAt === 'string') {
+            createdAt = new Date(interview.createdAt);
+          } else if (interview.createdAt && typeof interview.createdAt === 'object' && 'toDate' in interview.createdAt) {
+            createdAt = interview.createdAt.toDate();
+          } else {
+            createdAt = new Date();
+          }
+
+          // Handle updatedAt
+          if (interview.updatedAt instanceof Date) {
+            updatedAt = interview.updatedAt;
+          } else if (typeof interview.updatedAt === 'string') {
+            updatedAt = new Date(interview.updatedAt);
+          } else if (interview.updatedAt && typeof interview.updatedAt === 'object' && 'toDate' in interview.updatedAt) {
+            updatedAt = interview.updatedAt.toDate();
+          } else {
+            updatedAt = createdAt;
+          }
+
+          return {
+            id: interview.id,
+            userId: interview.userId,
+            role: interview.role,
+            type: interview.type,
+            techstack: interview.techstack,
+            company: interview.company,
+            position: interview.position,
+            createdAt,
+            updatedAt,
+            duration: interview.duration,
+            score: interview.score,
+            status: interview.status,
+            questions: interview.questions,
+          } as Interview;
+        });
 
         setUserProfile({
           id: currentUser.uid,
@@ -365,7 +398,7 @@ export default function Dashboard() {
         if (interviewsWithDates && interviewsWithDates.length > 0) {
           // Fetch feedback for each interview
           console.log('🔍 Fetching feedback for interviews...');
-          const interviewsWithFeedback = await Promise.all(
+          const interviewsWithFeedback: Interview[] = await Promise.all(
             interviewsWithDates.map(async (interview) => {
               try {
                 const feedback = await getFeedbackByInterviewId({
@@ -376,7 +409,19 @@ export default function Dashboard() {
                 if (feedback) {
                   return {
                     ...interview,
-                    feedback: feedback,
+                    feedback: {
+                      strengths: feedback.strengths || [],
+                      weaknesses: feedback.areasForImprovement || [],
+                      overallRating: feedback.totalScore || 0,
+                      technicalAccuracy: feedback.technicalAccuracy || 0,
+                      communication: feedback.communication || 0,
+                      problemSolving: feedback.problemSolving || 0,
+                      confidence: feedback.confidence || 0,
+                      totalScore: feedback.totalScore,
+                      finalAssessment: feedback.finalAssessment,
+                      categoryScores: feedback.categoryScores,
+                      areasForImprovement: feedback.areasForImprovement || [],
+                    },
                     score: feedback.totalScore || 0,
                   };
                 }
@@ -1106,7 +1151,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Profile Overview Component - REMOVED userProfile PROP */}
+      {/* Profile Overview Component - REMOVED userProfile AND loading PROPS */}
       <ProfileOverview
         stats={stats}
         interviews={interviews.map(interview => ({
