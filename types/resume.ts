@@ -514,7 +514,7 @@ export interface ActivityLog {
   userId: string;
   resumeId?: string;
   action: ActivityAction;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   createdAt: Date | string;
 }
 
@@ -563,7 +563,7 @@ export interface PaginatedResponse<T> {
 }
 
 // API Response Wrapper
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
@@ -715,3 +715,6 @@ export type RequireOnlyOne<T, Keys extends keyof T = keyof T> = Pick<T, Exclude<
   {
     [K in Keys]-?: Required<Pick<T, K>> & Partial<Record<Exclude<Keys, K>, undefined>>;
   }[Keys];
+
+// Export Tip type for backward compatibility
+export type Tip = ResumeTip;

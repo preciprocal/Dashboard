@@ -125,7 +125,14 @@ export default async function RootLayout({
     const isUserAuthenticated = await isAuthenticated();
     
     if (isUserAuthenticated) {
-      user = await getCurrentUser();
+      const currentUser = await getCurrentUser();
+      
+      // FIXED: Spread first, then type cast to add index signature
+      if (currentUser) {
+        user = {
+          ...currentUser,
+        } as { id: string; [key: string]: unknown };
+      }
       
       // Only fetch interview stats if we have a user
       if (user?.id) {

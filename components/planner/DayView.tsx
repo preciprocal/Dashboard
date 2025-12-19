@@ -26,7 +26,7 @@ interface DayViewProps {
   onTaskUpdate: (taskId: string, newStatus: 'todo' | 'in-progress' | 'done') => void;
 }
 
-export default function DayView({ dailyPlan, onTaskUpdate }: DayViewProps): JSX.Element {
+export default function DayView({ dailyPlan, onTaskUpdate }: DayViewProps) {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
 
   const completedTasks = dailyPlan.tasks.filter(t => t.status === 'done').length;

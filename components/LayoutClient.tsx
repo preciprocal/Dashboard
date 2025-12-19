@@ -83,7 +83,7 @@ interface ResumeData {
   id: string;
   companyName?: string;
   jobTitle?: string;
-  createdAt: string;
+  createdAt: string | Date;
   feedback?: {
     overallScore?: number;
   };
@@ -155,9 +155,11 @@ const useResumeCount = () => {
         setResumeCount(resumes.length);
         
         if (resumes.length > 0) {
-          const sorted = resumes.sort((a, b) => 
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          );
+          const sorted = resumes.sort((a, b) => {
+            const dateA = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt);
+            const dateB = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt);
+            return dateB.getTime() - dateA.getTime();
+          });
           setLatestResume(sorted[0]);
         }
       } catch (error) {
@@ -386,7 +388,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
 
   const safeUser = user || {};
   const stats = getSafeUserStats(userStats);
-  const userSubscription = safeUser?.subscription || null;
+  const userSubscription = safeUser?.subscription || undefined;
   const planInfo = getPlanInfo(userSubscription);
 
   const updatedStats = { ...stats, resumesUsed: resumeCount };

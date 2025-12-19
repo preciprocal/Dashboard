@@ -6,7 +6,7 @@ import { db } from "@/firebase/admin";
 import { getCurrentUser } from "@/lib/actions/auth.action";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-06-20",
+  apiVersion: "2025-07-30.basil", // FIXED: Updated to latest Stripe API version
 });
 
 export async function POST(request: NextRequest) {

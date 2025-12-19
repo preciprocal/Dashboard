@@ -1,6 +1,10 @@
 // lib/ai/gemini.ts
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { 
+  GoogleGenerativeAI,
+  HarmCategory,
+  HarmBlockThreshold,
+} from '@google/generative-ai';
 
 import { 
   buildAnalysisPrompt, 
@@ -347,7 +351,24 @@ Return as JSON with: percentile, strengths[], gaps[], recommendations[]
         const result = await model.generateContent({
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
           generationConfig: GEMINI_CONFIG.generationConfig,
-          safetySettings: GEMINI_CONFIG.safetySettings,
+          safetySettings: [
+            {
+              category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+              threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            },
+            {
+              category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+              threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            },
+            {
+              category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+              threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            },
+            {
+              category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+              threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            },
+          ],
         });
 
         const response = result.response;

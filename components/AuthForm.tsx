@@ -216,11 +216,11 @@ const AuthForm = ({ type }: { type: FormType }) => {
           password
         );
 
+        // Password is not needed in signUp action - it's already handled by Firebase Auth
         const result = await signUp({
           uid: userCredential.user.uid,
           name: name!,
           email,
-          password,
         });
 
         if (!result.success) {

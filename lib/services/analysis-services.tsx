@@ -14,7 +14,7 @@ export class AnalysisService {
       jobTitle?: string;
       jobDescription?: string;
       companyName?: string;
-      analysisType?: 'full' | 'quick' | 'ats-only' | 'detailed';
+      analysisType?: 'full' | 'quick' | 'ats-only';
     } = {}
   ): Promise<ResumeFeedback> {
     console.log('📄 Starting resume analysis...');

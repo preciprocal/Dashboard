@@ -1,8 +1,31 @@
 // app/api/resume/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, db } from '@/firebase/admin'; // Use your actual export names
+import { auth, db } from '@/firebase/admin';
 import { revalidatePath } from 'next/cache';
-import type { Resume } from '../route';
+
+// FIXED: Add error property to Resume interface
+export interface Resume {
+  id: string;
+  userId: string;
+  companyName: string;
+  jobTitle: string;
+  jobDescription: string;
+  fileName: string;
+  fileSize: number;
+  fileUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+  status: 'analyzing' | 'complete' | 'failed';
+  score?: number;
+  feedback?: {
+    overallScore: number;
+    strengths: string[];
+    improvements: string[];
+    suggestions: string[];
+  };
+  analyzedAt?: string;
+  error?: string; // ADDED: error property for failed status
+}
 
 // Verify Firebase Auth token
 async function verifyToken(request: NextRequest) {
@@ -27,7 +50,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params; // Await params
+    const { id } = await params;
     
     const user = await verifyToken(request);
     if (!user) {
@@ -60,7 +83,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params; // Await params
+    const { id } = await params;
     
     const user = await verifyToken(request);
     if (!user) {
@@ -97,7 +120,7 @@ export async function PUT(
 
     await docRef.update(updateData);
     revalidatePath('/resume');
-    revalidatePath(`/resume/${id}`); // Use the awaited id
+    revalidatePath(`/resume/${id}`);
     
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -112,7 +135,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params; // Await params
+    const { id } = await params;
     
     const user = await verifyToken(request);
     if (!user) {

@@ -4,9 +4,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/firebase/admin";
 import { getCurrentUser } from "@/lib/actions/auth.action";
 
-// Use type assertion for API version to handle version mismatch
+// FIXED: Updated to latest Stripe API version
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-06-20" as Stripe.LatestApiVersion,
+  apiVersion: "2025-07-30.basil",
 });
 
 // Define interfaces
@@ -19,6 +19,11 @@ interface UserData {
   subscription?: {
     stripeCustomerId?: string;
   };
+}
+
+// FIXED: Add interface for expanded invoice
+interface ExpandedInvoice extends Stripe.Invoice {
+  payment_intent: Stripe.PaymentIntent;
 }
 
 export async function POST(request: NextRequest) {
@@ -133,8 +138,9 @@ export async function POST(request: NextRequest) {
       console.log("✅ Subscription created:", subscription.id);
       console.log("🔗 Subscription metadata:", subscription.metadata);
 
-      const invoice = subscription.latest_invoice as Stripe.Invoice;
-      const paymentIntent = invoice.payment_intent as Stripe.PaymentIntent;
+      // FIXED: Type cast to ExpandedInvoice to access payment_intent
+      const invoice = subscription.latest_invoice as ExpandedInvoice;
+      const paymentIntent = invoice.payment_intent;
 
       if (!paymentIntent || !paymentIntent.client_secret) {
         console.log("❌ No client secret in payment intent");

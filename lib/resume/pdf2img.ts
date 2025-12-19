@@ -98,14 +98,16 @@ export async function convertPdfToImage(file: File): Promise<PdfConversionResult
             console.log('Conversion successful, image size:', blob.size);
 
             resolve({
+              success: true,
               imageUrl: URL.createObjectURL(blob),
               file: imageFile,
             });
           } else {
             console.error('Failed to create blob from canvas');
             resolve({
+              success: false,
               imageUrl: "",
-              file: null,
+              file: undefined,
               error: "Failed to create image blob from canvas",
             });
           }
@@ -117,8 +119,9 @@ export async function convertPdfToImage(file: File): Promise<PdfConversionResult
   } catch (err) {
     console.error('PDF conversion error:', err);
     return {
+      success: false,
       imageUrl: "",
-      file: null,
+      file: undefined,
       error: `Failed to convert PDF: ${err instanceof Error ? err.message : 'Unknown error'}`,
     };
   }

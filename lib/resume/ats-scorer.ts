@@ -1,12 +1,12 @@
 // lib/utils/ats-scorer.ts
-import type Tip  from '@/types/resume';
+import type {ResumeTip}  from '@/types/resume';
 
 interface ATSScore {
   score: number;
   keywordScore: number;
   matchedKeywords: string[];
   missingKeywords: string[];
-  tips: Tip[];
+  tips: ResumeTip[];
   metrics: Record<string, number>;
 }
 
@@ -15,7 +15,7 @@ export function calculateATSScore(
   jobDescription?: string
 ): ATSScore {
   const text = resumeText.toLowerCase();
-  const tips: Tip[] = [];
+  const tips: ResumeTip[] = [];
   const metrics: Record<string, number> = {};
 
   // 1. Format check (40 points)

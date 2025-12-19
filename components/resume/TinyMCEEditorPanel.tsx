@@ -14,6 +14,18 @@ interface TinyMCEEditorPanelProps {
   onTextSelect: (text: string) => void;
 }
 
+// Extended editor type to include plugins
+interface ExtendedEditor extends TinyMCEEditor {
+  plugins?: {
+    wordcount?: {
+      body?: {
+        getCharacterCount?: () => number;
+        getWordCount?: () => number;
+      };
+    };
+  };
+}
+
 export default function TinyMCEEditorPanel({
   initialContent,
   resumeId,
@@ -171,8 +183,23 @@ export default function TinyMCEEditorPanel({
 
   const getCharacterCount = (): number => {
     if (!editorRef) return 0;
-    const wordcountPlugin = editorRef.plugins.wordcount as { body?: { getCharacterCount?: () => number } } | undefined;
-    return wordcountPlugin?.body?.getCharacterCount?.() || 0;
+    
+    try {
+      // Cast to extended editor type to access plugins
+      const extendedEditor = editorRef as ExtendedEditor;
+      const wordcountPlugin = extendedEditor.plugins?.wordcount;
+      
+      if (wordcountPlugin && typeof wordcountPlugin.body?.getCharacterCount === 'function') {
+        return wordcountPlugin.body.getCharacterCount();
+      }
+      
+      // Fallback: count characters from plain text content
+      const plainText = editorRef.getContent({ format: 'text' });
+      return plainText.length;
+    } catch (error) {
+      console.error('Error getting character count:', error);
+      return 0;
+    }
   };
 
   return (

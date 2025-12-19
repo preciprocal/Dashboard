@@ -21,6 +21,14 @@ function getErrorMessage(error: unknown): string {
   return 'Unknown error';
 }
 
+// Helper function to convert string or Date to Date
+function toDate(value: string | Date): Date {
+  if (value instanceof Date) {
+    return value;
+  }
+  return new Date(value);
+}
+
 interface FileMetadata {
   pdfSize: number;
   pdfName: string;
@@ -78,7 +86,7 @@ export class FirebaseService {
         // Store files as base64 data URLs
         imagePath: imageBase64, // data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...
         resumePath: pdfBase64,   // data:application/pdf;base64,JVBERi0xLjQKMSAwIG9iago8...
-        createdAt: Timestamp.fromDate(resume.createdAt),
+        createdAt: Timestamp.fromDate(toDate(resume.createdAt)),
         // Add file metadata
         fileMetadata: {
           pdfSize: pdfFile.size,
@@ -95,8 +103,8 @@ export class FirebaseService {
         userId: resumeData.userId,
         companyName: resumeData.companyName,
         jobTitle: resumeData.jobTitle,
-        hasPdfData: resumeData.resumePath.startsWith('data:'),
-        hasImageData: resumeData.imagePath.startsWith('data:'),
+        hasPdfData: resumeData.resumePath?.startsWith('data:') ?? false,
+        hasImageData: resumeData.imagePath?.startsWith('data:') ?? false,
         pdfSize: resumeData.fileMetadata?.pdfSize,
         imageSize: resumeData.fileMetadata?.imageSize,
       });
@@ -127,7 +135,7 @@ export class FirebaseService {
       const resumeRef = doc(db, 'resumes', resume.id);
       const resumeData = {
         ...resume,
-        createdAt: Timestamp.fromDate(resume.createdAt),
+        createdAt: Timestamp.fromDate(toDate(resume.createdAt)),
       };
       
       await setDoc(resumeRef, resumeData);

@@ -4,10 +4,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/firebase/admin";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-06-20",
+  apiVersion: "2025-07-30.basil",
 });
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+
+// FIXED: Add interface to properly type subscription with period properties
+interface SubscriptionWithPeriods extends Stripe.Subscription {
+  current_period_start: number;
+  current_period_end: number;
+}
+
+// FIXED: Add interface for invoice with subscription property
+interface InvoiceWithSubscription extends Stripe.Invoice {
+  subscription: string | Stripe.Subscription;
+}
 
 // Helper function to safely convert Unix timestamp to ISO string
 function safeTimestampToISO(
@@ -50,28 +61,28 @@ export async function POST(request: NextRequest) {
     switch (event.type) {
       case "customer.subscription.created":
         await handleSubscriptionCreated(
-          event.data.object as Stripe.Subscription
+          event.data.object as SubscriptionWithPeriods
         );
         break;
 
       case "customer.subscription.updated":
         await handleSubscriptionUpdated(
-          event.data.object as Stripe.Subscription
+          event.data.object as SubscriptionWithPeriods
         );
         break;
 
       case "customer.subscription.deleted":
         await handleSubscriptionDeleted(
-          event.data.object as Stripe.Subscription
+          event.data.object as SubscriptionWithPeriods
         );
         break;
 
       case "invoice.payment_succeeded":
-        await handlePaymentSucceeded(event.data.object as Stripe.Invoice);
+        await handlePaymentSucceeded(event.data.object as InvoiceWithSubscription);
         break;
 
       case "invoice.payment_failed":
-        await handlePaymentFailed(event.data.object as Stripe.Invoice);
+        await handlePaymentFailed(event.data.object as InvoiceWithSubscription);
         break;
 
       default:
@@ -88,7 +99,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
+async function handleSubscriptionCreated(subscription: SubscriptionWithPeriods) {
   console.log("🆕 Subscription created:", subscription.id);
   console.log("🔍 Subscription metadata:", subscription.metadata);
 
@@ -113,7 +124,7 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
     const currentData = userDoc.data();
     console.log("📄 Current user data:", currentData?.subscription);
 
-    // Safely convert timestamps
+    // Use snake_case property names
     const currentPeriodStart = safeTimestampToISO(
       subscription.current_period_start
     );
@@ -145,7 +156,7 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
   }
 }
 
-async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
+async function handleSubscriptionUpdated(subscription: SubscriptionWithPeriods) {
   console.log("🔄 Subscription updated:", subscription.id);
 
   const userId = subscription.metadata.userId;
@@ -166,7 +177,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
 
     const currentData = userDoc.data();
 
-    // Safely convert timestamps
+    // Use snake_case property names
     const currentPeriodEnd = safeTimestampToISO(
       subscription.current_period_end
     );
@@ -192,7 +203,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   }
 }
 
-async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
+async function handleSubscriptionDeleted(subscription: SubscriptionWithPeriods) {
   console.log("🗑️ Subscription deleted:", subscription.id);
 
   const userId = subscription.metadata.userId;
@@ -232,13 +243,14 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   }
 }
 
-async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
+async function handlePaymentSucceeded(invoice: InvoiceWithSubscription) {
   console.log("💰 Payment succeeded for invoice:", invoice.id);
 
   if (invoice.subscription) {
+    // FIXED: Use unknown intermediate cast for type conversion
     const subscription = await stripe.subscriptions.retrieve(
       invoice.subscription as string
-    );
+    ) as unknown as SubscriptionWithPeriods;
     const userId = subscription.metadata.userId;
 
     if (userId) {
@@ -254,7 +266,7 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
 
         const currentData = userDoc.data();
 
-        // Safely convert timestamps
+        // Use snake_case property names
         const currentPeriodEnd = safeTimestampToISO(
           subscription.current_period_end
         );
@@ -286,13 +298,14 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
   }
 }
 
-async function handlePaymentFailed(invoice: Stripe.Invoice) {
+async function handlePaymentFailed(invoice: InvoiceWithSubscription) {
   console.log("❌ Payment failed for invoice:", invoice.id);
 
   if (invoice.subscription) {
+    // FIXED: Use unknown intermediate cast for type conversion
     const subscription = await stripe.subscriptions.retrieve(
       invoice.subscription as string
-    );
+    ) as unknown as SubscriptionWithPeriods;
     const userId = subscription.metadata.userId;
 
     if (userId) {
