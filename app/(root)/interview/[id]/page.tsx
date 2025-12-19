@@ -34,9 +34,9 @@ export default async function InterviewDetailsPage({ params }: RouteParams) {
       interview={{
         role: interview.role,
         type: interview.type,
-        level: interview.level,
+        level: interview.level ?? "mid",
         techstack: interview.techstack,
-        questions: interview.questions,
+        questions: interview.questions ?? [],
       }}
       feedbackId={feedback?.id}
       type="interview"
