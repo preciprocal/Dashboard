@@ -6,13 +6,83 @@ import { google } from "@ai-sdk/google";
 import { db } from "@/firebase/admin";
 import { feedbackSchema } from "@/constants";
 
+// ============ TYPE DEFINITIONS ============
+
+interface TranscriptMessage {
+  role: string;
+  content: string;
+}
+
+interface CreateFeedbackParams {
+  interviewId: string;
+  userId: string;
+  transcript: TranscriptMessage[];
+  feedbackId?: string;
+}
+
+interface GetFeedbackByInterviewIdParams {
+  interviewId: string;
+  userId: string;
+}
+
+interface GetLatestInterviewsParams {
+  userId: string;
+  limit?: number;
+}
+
+// Firestore Timestamp type
+interface FirestoreTimestamp {
+  seconds: number;
+  nanoseconds: number;
+  toDate: () => Date;
+}
+
+interface Interview {
+  id: string;
+  userId: string;
+  role: string;
+  type: "technical" | "behavioral" | "system-design" | "coding";
+  techstack: string[];
+  company: string;
+  position: string;
+  createdAt: FirestoreTimestamp | Date | string;
+  updatedAt: FirestoreTimestamp | Date | string;
+  duration: number;
+  status: "completed" | "in-progress" | "scheduled";
+  finalized?: boolean;
+  questions?: string[];
+  level?: string;
+  feedback?: Record<string, unknown>;
+  score?: number;
+}
+
+interface Feedback {
+  id: string;
+  interviewId: string;
+  userId: string;
+  totalScore: number;
+  categoryScores: Record<string, number>;
+  strengths: string[];
+  areasForImprovement: string[];
+  finalAssessment: string;
+  createdAt: string;
+  updatedAt?: string;
+  technicalAccuracy?: number;
+  communication?: number;
+  problemSolving?: number;
+  confidence?: number;
+  overallRating?: number;
+}
+
+// ============ FUNCTIONS ============
+
 export async function createFeedback(params: CreateFeedbackParams) {
   const { interviewId, userId, transcript, feedbackId } = params;
 
   try {
     const formattedTranscript = transcript
       .map(
-        (sentence: { role: string; content: string }) =>
+        (sentence: TranscriptMessage) =>
           `- ${sentence.role}: ${sentence.content}\n`
       )
       .join("");
@@ -69,7 +139,11 @@ export async function createFeedback(params: CreateFeedbackParams) {
 export async function getInterviewById(id: string): Promise<Interview | null> {
   const interview = await db.collection("interviews").doc(id).get();
 
-  return interview.data() as Interview | null;
+  if (!interview.exists) {
+    return null;
+  }
+
+  return { id: interview.id, ...interview.data() } as Interview;
 }
 
 export async function getFeedbackByInterviewId(
