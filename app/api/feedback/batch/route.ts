@@ -9,7 +9,7 @@ interface Interview {
 }
 
 interface InterviewWithFeedback extends Interview {
-  feedback?: unknown;
+  feedback?: FeedbackData | null;
   score: number;
 }
 
@@ -18,9 +18,22 @@ interface BatchFeedbackRequest {
   userId: string;
 }
 
-interface FeedbackResponse {
-  totalScore?: number;
-  [key: string]: unknown;
+interface FeedbackData {
+  id: string;
+  interviewId: string;
+  userId: string;
+  totalScore: number;
+  categoryScores: Record<string, number>;
+  strengths: string[];
+  areasForImprovement: string[];
+  finalAssessment: string;
+  createdAt: string;
+  updatedAt?: string;
+  technicalAccuracy?: number;
+  communication?: number;
+  problemSolving?: number;
+  confidence?: number;
+  overallRating?: number;
 }
 
 export async function POST(request: NextRequest) {
@@ -42,13 +55,19 @@ export async function POST(request: NextRequest) {
           interviewId: interview.id,
           userId: userId,
         });
+        
         return {
           ...interview,
           feedback: feedback,
-          score: (feedback as FeedbackResponse)?.totalScore || 0,
+          score: feedback?.totalScore || 0,
         };
-      } catch {
-        return { ...interview, score: 0 };
+      } catch (error) {
+        console.error(`Error fetching feedback for interview ${interview.id}:`, error);
+        return { 
+          ...interview, 
+          feedback: null,
+          score: 0 
+        };
       }
     });
 
