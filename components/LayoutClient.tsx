@@ -1,3 +1,4 @@
+// components/LayoutClient.tsx
 "use client"
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import Link from 'next/link';
@@ -31,6 +32,7 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/firebase/client';
 import { FirebaseService } from '@/lib/services/firebase-service';
 import type { LucideIcon } from 'lucide-react';
+import { Toaster } from 'sonner';
 
 interface ThemeContextType {
   darkMode: boolean;
@@ -96,6 +98,19 @@ interface PlanInfo {
   badgeClass: string;
   showUpgrade: boolean;
 }
+
+// Define public routes that don't require authentication
+const PUBLIC_ROUTES = [
+  '/sign-in',
+  '/sign-up',
+  '/forgot-password',
+  '/reset-password',
+  '/verify-email',
+  '/onboarding',
+];
+
+// Define routes that should redirect authenticated users
+const AUTH_ROUTES = ['/sign-in', '/sign-up', '/forgot-password'];
 
 const ThemeContext = createContext<ThemeContextType | null>(null);
 
@@ -353,6 +368,25 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
 
   const { resumeCount, latestResume, loading: resumeLoading } = useResumeCount();
 
+  // ============ AUTHENTICATION REDIRECT LOGIC ============
+  useEffect(() => {
+    // Check if current route is public
+    const isPublicRoute = PUBLIC_ROUTES.some(route => pathname.startsWith(route));
+    const isAuthRoute = AUTH_ROUTES.some(route => pathname.startsWith(route));
+
+    // Redirect logic
+    if (!user && !isPublicRoute) {
+      // User not authenticated and trying to access protected route
+      const redirectUrl = `/sign-in?redirect=${encodeURIComponent(pathname)}`;
+      console.log('🔒 Redirecting to sign-in:', redirectUrl);
+      router.push(redirectUrl);
+    } else if (user && isAuthRoute) {
+      // User authenticated but on auth pages, redirect to home
+      console.log('✅ User authenticated, redirecting to home');
+      router.push('/');
+    }
+  }, [user, pathname, router]);
+
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 10);
@@ -381,6 +415,19 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
 
   const authPages = ['/sign-in', '/sign-up', '/forgot-password', '/reset-password', '/verify-email', '/onboarding'];
   const isAuthPage = authPages.some(page => pathname.startsWith(page));
+
+  // Show nothing while redirecting for protected routes
+  const isPublicRoute = PUBLIC_ROUTES.some(route => pathname.startsWith(route));
+  if (!user && !isPublicRoute) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-400">Redirecting to sign in...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (isAuthPage) {
     return <div className="min-h-screen">{children}</div>;
@@ -686,18 +733,60 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
 
 export default function LayoutClient({ children, user, userStats }: LayoutClientProps) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  // ============ AUTHENTICATION REDIRECT LOGIC ============
+  useEffect(() => {
+    // Check if current route is public
+    const isPublicRoute = PUBLIC_ROUTES.some(route => pathname.startsWith(route));
+    const isAuthRoute = AUTH_ROUTES.some(route => pathname.startsWith(route));
+
+    // Redirect logic
+    if (!user && !isPublicRoute) {
+      // User not authenticated and trying to access protected route
+      const redirectUrl = `/sign-in?redirect=${encodeURIComponent(pathname)}`;
+      console.log('🔒 Redirecting to sign-in:', redirectUrl);
+      router.push(redirectUrl);
+    } else if (user && isAuthRoute) {
+      // User authenticated but on auth pages, redirect to home
+      console.log('✅ User authenticated, redirecting to home');
+      router.push('/');
+    }
+  }, [user, pathname, router]);
+
   const authPages = ['/sign-in', '/sign-up', '/forgot-password', '/reset-password', '/verify-email', '/onboarding'];
   const isAuthPage = authPages.some(page => pathname.startsWith(page));
 
+  // Show nothing while redirecting for protected routes
+  const isPublicRoute = PUBLIC_ROUTES.some(route => pathname.startsWith(route));
+  if (!user && !isPublicRoute) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-400">Redirecting to sign in...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (isAuthPage) {
-    return <div className="min-h-screen">{children}</div>;
+    return (
+      <>
+        <Toaster position="top-right" richColors />
+        <div className="min-h-screen">{children}</div>
+      </>
+    );
   }
 
   return (
-    <ThemeProvider>
-      <LayoutContent user={user} userStats={userStats}>
-        {children}
-      </LayoutContent>
-    </ThemeProvider>
+    <>
+      <Toaster position="top-right" richColors />
+      <ThemeProvider>
+        <LayoutContent user={user} userStats={userStats}>
+          {children}
+        </LayoutContent>
+      </ThemeProvider>
+    </>
   );
 }

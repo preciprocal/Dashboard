@@ -5,7 +5,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { auth } from "@/firebase/client";
 import { useForm } from "react-hook-form";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState, useEffect } from "react";
 
@@ -39,11 +39,15 @@ const authFormSchema = (type: FormType) => {
 
 const AuthForm = ({ type }: { type: FormType }) => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isFacebookLoading, setIsFacebookLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Get redirect URL from query params, default to dashboard
+  const redirectUrl = searchParams.get('redirect') || '/';
 
   const formSchema = authFormSchema(type);
   const form = useForm<z.infer<typeof formSchema>>({
@@ -115,8 +119,9 @@ const AuthForm = ({ type }: { type: FormType }) => {
       // Add a small delay to ensure session cookie is set
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // Force a hard navigation to ensure session is recognized
-      window.location.href = "/";
+      // Redirect to the original page or dashboard
+      console.log('✅ Redirecting to:', redirectUrl);
+      window.location.href = redirectUrl;
     } catch (error) {
       console.error("Google auth error:", error);
       const err = error as { code?: string };
@@ -129,6 +134,8 @@ const AuthForm = ({ type }: { type: FormType }) => {
       } else if (err.code === "auth/account-exists-with-different-credential") {
         errorMessage =
           "An account already exists with this email using a different sign-in method.";
+      } else if (err.code === "auth/unauthorized-domain") {
+        errorMessage = "This domain is not authorized for Google sign-in. Please add your domain to Firebase Authorized Domains.";
       }
 
       toast.error(errorMessage);
@@ -182,8 +189,9 @@ const AuthForm = ({ type }: { type: FormType }) => {
       // Add a small delay to ensure session cookie is set
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // Force a hard navigation to ensure session is recognized
-      window.location.href = "/";
+      // Redirect to the original page or dashboard
+      console.log('✅ Redirecting to:', redirectUrl);
+      window.location.href = redirectUrl;
     } catch (error) {
       console.error("Facebook auth error:", error);
       const err = error as { code?: string };
@@ -196,6 +204,8 @@ const AuthForm = ({ type }: { type: FormType }) => {
       } else if (err.code === "auth/account-exists-with-different-credential") {
         errorMessage =
           "An account already exists with this email using a different sign-in method.";
+      } else if (err.code === "auth/unauthorized-domain") {
+        errorMessage = "This domain is not authorized for Facebook sign-in. Please add your domain to Firebase Authorized Domains.";
       }
 
       toast.error(errorMessage);
@@ -229,7 +239,12 @@ const AuthForm = ({ type }: { type: FormType }) => {
         }
 
         toast.success("Account created successfully. Please sign in.");
-        router.push("/sign-in");
+        
+        // Redirect to sign-in with the same redirect parameter
+        const signInUrl = redirectUrl !== '/' 
+          ? `/sign-in?redirect=${encodeURIComponent(redirectUrl)}`
+          : '/sign-in';
+        router.push(signInUrl);
         router.refresh();
       } else {
         const { email, password } = data;
@@ -278,8 +293,9 @@ const AuthForm = ({ type }: { type: FormType }) => {
         // Add a small delay to ensure session cookie is set
         await new Promise((resolve) => setTimeout(resolve, 500));
 
-        // Force a hard navigation to ensure session is recognized
-        window.location.href = "/";
+        // Redirect to the original page or dashboard
+        console.log('✅ Redirecting to:', redirectUrl);
+        window.location.href = redirectUrl;
       }
     } catch (error) {
       console.log(error);
@@ -296,6 +312,8 @@ const AuthForm = ({ type }: { type: FormType }) => {
         errorMessage = "This account has been disabled.";
       } else if (err.code === "auth/too-many-requests") {
         errorMessage = "Too many failed attempts. Please try again later.";
+      } else if (err.code === "auth/invalid-credential") {
+        errorMessage = "Invalid credentials. Please check your email and password.";
       }
 
       toast.error(errorMessage);
@@ -667,7 +685,15 @@ const AuthForm = ({ type }: { type: FormType }) => {
               <p className="text-gray-600 text-sm">
                 {isSignIn ? "New to Preciprocal?" : "Already have an account?"}
                 <Link
-                  href={!isSignIn ? "/sign-in" : "/sign-up"}
+                  href={
+                    !isSignIn 
+                      ? redirectUrl !== '/' 
+                        ? `/sign-in?redirect=${encodeURIComponent(redirectUrl)}`
+                        : '/sign-in'
+                      : redirectUrl !== '/'
+                        ? `/sign-up?redirect=${encodeURIComponent(redirectUrl)}`
+                        : '/sign-up'
+                  }
                   className="ml-1 text-blue-600 hover:text-blue-500 font-semibold hover:underline"
                 >
                   {!isSignIn ? "Sign in" : "Create an account"}
