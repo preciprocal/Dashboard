@@ -79,23 +79,6 @@ interface CriticalError {
   details?: string;
 }
 
-interface RawInterview {
-  id: string;
-  userId: string;
-  role: string;
-  type: "technical" | "behavioral" | "system-design" | "coding";
-  techstack: string[];
-  company: string;
-  position: string;
-  createdAt: { toDate: () => Date } | string | Date;
-  updatedAt?: { toDate: () => Date } | string | Date;
-  duration: number;
-  score?: number;
-  status: "completed" | "in-progress" | "scheduled";
-  feedback?: InterviewFeedback;
-  questions?: InterviewQuestion[];
-}
-
 export default function InterviewsDashboard() {
   const [user, loading] = useAuthState(auth);
   const router = useRouter();
@@ -136,23 +119,52 @@ export default function InterviewsDashboard() {
         return;
       }
 
-      const interviewsWithDates = userInterviews.map((interview: RawInterview) => {
-        const createdAtDate = interview.createdAt && typeof interview.createdAt === 'object' && 'toDate' in interview.createdAt
-          ? interview.createdAt.toDate()
-          : new Date(interview.createdAt as string | Date);
-        
-        const updatedAtDate = interview.updatedAt && typeof interview.updatedAt === 'object' && 'toDate' in interview.updatedAt
-          ? interview.updatedAt.toDate()
-          : new Date((interview.updatedAt || interview.createdAt) as string | Date);
-        
+      // Convert dates properly
+      const interviewsWithDates: Interview[] = userInterviews.map((interview) => {
+        let createdAt: Date;
+        let updatedAt: Date;
+
+        // Handle createdAt
+        if (interview.createdAt instanceof Date) {
+          createdAt = interview.createdAt;
+        } else if (typeof interview.createdAt === 'string') {
+          createdAt = new Date(interview.createdAt);
+        } else if (interview.createdAt && typeof interview.createdAt === 'object' && 'toDate' in interview.createdAt) {
+          createdAt = (interview.createdAt as { toDate: () => Date }).toDate();
+        } else {
+          createdAt = new Date();
+        }
+
+        // Handle updatedAt
+        if (interview.updatedAt instanceof Date) {
+          updatedAt = interview.updatedAt;
+        } else if (typeof interview.updatedAt === 'string') {
+          updatedAt = new Date(interview.updatedAt);
+        } else if (interview.updatedAt && typeof interview.updatedAt === 'object' && 'toDate' in interview.updatedAt) {
+          updatedAt = (interview.updatedAt as { toDate: () => Date }).toDate();
+        } else {
+          updatedAt = createdAt;
+        }
+
         return {
-          ...interview,
-          createdAt: createdAtDate,
-          updatedAt: updatedAtDate,
+          id: interview.id,
+          userId: interview.userId,
+          role: interview.role,
+          type: interview.type,
+          techstack: interview.techstack,
+          company: interview.company,
+          position: interview.position,
+          createdAt,
+          updatedAt,
+          duration: interview.duration,
+          score: interview.score,
+          status: interview.status,
+          // Don't include questions here - they'll be added with feedback if needed
         };
       });
 
-      const interviewsWithFeedback = await Promise.all(
+      // Fetch feedback for each interview
+      const interviewsWithFeedback: Interview[] = await Promise.all(
         interviewsWithDates.map(async (interview) => {
           try {
             const feedback = await getFeedbackByInterviewId({
@@ -163,8 +175,20 @@ export default function InterviewsDashboard() {
             if (feedback) {
               return {
                 ...interview,
-                feedback: feedback as InterviewFeedback,
-                score: (feedback as InterviewFeedback).totalScore || 0,
+                feedback: {
+                  strengths: feedback.strengths || [],
+                  weaknesses: feedback.areasForImprovement || [],
+                  overallRating: feedback.totalScore || 0,
+                  technicalAccuracy: feedback.technicalAccuracy || 0,
+                  communication: feedback.communication || 0,
+                  problemSolving: feedback.problemSolving || 0,
+                  confidence: feedback.confidence || 0,
+                  totalScore: feedback.totalScore,
+                  finalAssessment: feedback.finalAssessment,
+                  categoryScores: feedback.categoryScores,
+                  areasForImprovement: feedback.areasForImprovement || [],
+                },
+                score: feedback.totalScore || 0,
               };
             }
             return interview;
@@ -175,7 +199,7 @@ export default function InterviewsDashboard() {
         })
       );
 
-      setInterviews(interviewsWithFeedback as Interview[]);
+      setInterviews(interviewsWithFeedback);
       
       if (interviewsWithFeedback.length > 0) {
         const completedInterviews = interviewsWithFeedback.filter(
