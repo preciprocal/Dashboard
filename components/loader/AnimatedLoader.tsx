@@ -13,19 +13,23 @@ interface AnimatedLoaderProps {
   onDashboard?: () => void;
   onBack?: () => void;
   showNavigation?: boolean;
+  progress?: number; // Optional: manual progress control (0-100)
 }
 
 const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
   isVisible,
   onHide,
   loadingText = "Loading",
-  showNavigation = true
+  duration = 5000, // Default 5 seconds to complete
+  showNavigation = true,
+  progress: manualProgress
 }) => {
   const router = useRouter();
   const [shouldRender, setShouldRender] = useState(isVisible);
   const [fadeOut, setFadeOut] = useState(false);
   const [currentQuoteIndex, setCurrentQuoteIndex] = useState(0);
   const [randomizedMessages, setRandomizedMessages] = useState<string[]>([]);
+  const [progress, setProgress] = useState(0);
 
   // Fun loading messages - memoized to prevent recreation
   const funnyMessages = useMemo(() => [
@@ -76,28 +80,49 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
     setRandomizedMessages(shuffleArray(funnyMessages));
   }, [shuffleArray, funnyMessages]);
 
+  // Progress animation
   useEffect(() => {
     if (isVisible) {
       setShouldRender(true);
       setFadeOut(false);
       setCurrentQuoteIndex(0);
       
-      // Rotate quotes every 3 seconds
-      const quoteInterval = setInterval(() => {
-        setCurrentQuoteIndex(prev => {
-          const nextIndex = prev + 1;
-          // Re-shuffle when we reach the end
-          if (nextIndex >= randomizedMessages.length) {
-            setRandomizedMessages(shuffleArray(funnyMessages));
-            return 0;
+      // If manual progress is provided, use it
+      if (manualProgress !== undefined) {
+        setProgress(Math.min(100, Math.max(0, manualProgress)));
+      } else {
+        // Auto-increment progress
+        setProgress(0);
+        const startTime = Date.now();
+        const interval = 50; // Update every 50ms for smooth animation
+        
+        const progressInterval = setInterval(() => {
+          const elapsed = Date.now() - startTime;
+          const newProgress = Math.min(100, (elapsed / duration) * 100);
+          setProgress(newProgress);
+          
+          if (newProgress >= 100) {
+            clearInterval(progressInterval);
           }
-          return nextIndex;
-        });
-      }, 3000);
+        }, interval);
+        
+        // Rotate quotes every 3 seconds
+        const quoteInterval = setInterval(() => {
+          setCurrentQuoteIndex(prev => {
+            const nextIndex = prev + 1;
+            if (nextIndex >= randomizedMessages.length) {
+              setRandomizedMessages(shuffleArray(funnyMessages));
+              return 0;
+            }
+            return nextIndex;
+          });
+        }, 3000);
 
-      return () => {
-        clearInterval(quoteInterval);
-      };
+        return () => {
+          clearInterval(progressInterval);
+          clearInterval(quoteInterval);
+        };
+      }
     } else {
       setFadeOut(true);
       const timer = setTimeout(() => {
@@ -106,7 +131,14 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
       }, 600);
       return () => clearTimeout(timer);
     }
-  }, [isVisible, onHide, randomizedMessages.length, shuffleArray, funnyMessages]);
+  }, [isVisible, onHide, duration, randomizedMessages.length, shuffleArray, funnyMessages, manualProgress]);
+
+  // Update progress when manualProgress changes
+  useEffect(() => {
+    if (manualProgress !== undefined) {
+      setProgress(Math.min(100, Math.max(0, manualProgress)));
+    }
+  }, [manualProgress]);
 
   const handleBack = () => {
     router.back();
@@ -117,6 +149,11 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
   };
 
   if (!shouldRender) return null;
+
+  // Calculate circle properties
+  const radius = 58;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (progress / 100) * circumference;
 
   return (
     <div className={`fixed inset-0 z-[9999] flex items-center justify-center transition-opacity duration-600 ${
@@ -155,27 +192,32 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
       {/* Main Content */}
       <div className="flex flex-col items-center gap-10 px-4 relative z-10">
         
-        {/* Spinner */}
+        {/* Progress Circle */}
         <div className="relative">
-          <svg className="w-32 h-32" style={{ animation: 'spin 2s linear infinite' }}>
+          <svg className="w-32 h-32 -rotate-90">
+            {/* Background circle */}
             <circle
               cx="64"
               cy="64"
-              r="58"
+              r={radius}
               stroke="rgba(139, 92, 246, 0.1)"
-              strokeWidth="3"
+              strokeWidth="4"
               fill="none"
             />
+            {/* Progress circle */}
             <circle
               cx="64"
               cy="64"
-              r="58"
+              r={radius}
               stroke="url(#loaderGradient)"
-              strokeWidth="3"
+              strokeWidth="4"
               fill="none"
-              strokeDasharray="364"
-              strokeDashoffset="91"
+              strokeDasharray={circumference}
+              strokeDashoffset={strokeDashoffset}
               strokeLinecap="round"
+              style={{
+                transition: 'stroke-dashoffset 0.3s ease-out'
+              }}
             />
             <defs>
               <linearGradient id="loaderGradient" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -186,8 +228,9 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
             </defs>
           </svg>
 
-          {/* Center Logo */}
+          {/* Center Content */}
           <div className="absolute inset-0 flex items-center justify-center">
+            {/* Logo */}
             <div className="w-16 h-16 flex items-center justify-center">
               <Image
                 src={logo}
@@ -200,8 +243,12 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
             </div>
           </div>
 
+          {/* Glow effect */}
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-20 h-20 bg-purple-500/20 rounded-full blur-2xl animate-pulse"></div>
+            <div 
+              className="w-20 h-20 bg-purple-500/20 rounded-full blur-2xl transition-opacity duration-300"
+              style={{ opacity: progress / 100 }}
+            ></div>
           </div>
         </div>
 
@@ -230,17 +277,6 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
           </div>
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes spin {
-          from {
-            transform: rotate(0deg);
-          }
-          to {
-            transform: rotate(360deg);
-          }
-        }
-      `}</style>
     </div>
   );
 };
