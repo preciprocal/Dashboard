@@ -1,6 +1,6 @@
 // components/LayoutClient.tsx
 "use client"
-import React, { useState, useEffect, createContext, useContext } from 'react';
+import React, { useState, useEffect, createContext } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import NextImage from 'next/image';
@@ -10,8 +10,6 @@ import {
   Bell, 
   Menu,
   X,
-  Sun,
-  Moon,
   ChevronDown,
   Home,
   Video,
@@ -114,11 +112,11 @@ const AUTH_ROUTES = ['/sign-in', '/sign-up', '/forgot-password'];
 
 const ThemeContext = createContext<ThemeContextType | null>(null);
 
-const useTheme = () => {
-  const context = useContext(ThemeContext);
-  if (!context) throw new Error('useTheme must be used within a ThemeProvider');
-  return context;
-};
+// const useTheme = () => {
+//   const context = useContext(ThemeContext);
+//   if (!context) throw new Error('useTheme must be used within a ThemeProvider');
+//   return context;
+// };
 
 const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const [darkMode, setDarkMode] = useState(true);
@@ -375,7 +373,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const { darkMode, toggleTheme } = useTheme();
+  // const { darkMode, toggleTheme } = useTheme();
   const pathname = usePathname();
   const router = useRouter();
 
@@ -756,7 +754,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
             </div>
 
             <div className="flex items-center space-x-3">
-              <button
+              {/* <button
                 onClick={toggleTheme}
                 className="bg-slate-100 dark:bg-slate-800/50 
                          border border-slate-200 dark:border-white/10
@@ -765,7 +763,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
                 title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
               >
                 {darkMode ? <Sun className="w-5 h-5 text-slate-600 dark:text-slate-300" /> : <Moon className="w-5 h-5 text-slate-600 dark:text-slate-300" />}
-              </button>
+              </button> */}
 
               <button className="bg-slate-100 dark:bg-slate-800/50 
                                border border-slate-200 dark:border-white/10
