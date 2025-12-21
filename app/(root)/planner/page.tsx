@@ -21,7 +21,7 @@ import {
   Filter
 } from 'lucide-react';
 import PlanCard from '@/components/planner/PlanCard';
-import AnimatedLoader from '@/components/loader/AnimatedLoader';
+import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
 import ErrorPage from '@/components/Error';
 
 interface CriticalError {
@@ -38,6 +38,7 @@ export default function PlannerPage() {
   const [plans, setPlans] = useState<InterviewPlan[]>([]);
   const [stats, setStats] = useState<PlanStats | null>(null);
   const [loadingPlans, setLoadingPlans] = useState<boolean>(true);
+  const [loadingStep, setLoadingStep] = useState(0);
   const [sortBy, setSortBy] = useState<'date' | 'progress' | 'name'>('date');
   const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -47,14 +48,32 @@ export default function PlannerPage() {
   const [plansError, setPlansError] = useState<string>('');
   const [statsError, setStatsError] = useState<string>('');
 
+  // Define loading steps
+  const loadingSteps: LoadingStep[] = [
+    { name: 'Authenticating user...', weight: 1 },
+    { name: 'Loading preparation plans...', weight: 3 },
+    { name: 'Calculating statistics...', weight: 2 },
+    { name: 'Organizing data...', weight: 1 },
+    { name: 'Finalizing planner...', weight: 1 }
+  ];
+
   const loadUserPlans = useCallback(async (): Promise<void> => {
     if (!user) return;
     
     try {
       setLoadingPlans(true);
       setPlansError('');
+      setLoadingStep(0); // Authenticating
+      
+      // Step 1: Loading plans
+      setLoadingStep(1);
       const userPlans = await PlannerService.getUserPlans(user.uid);
       setPlans(userPlans);
+      
+      // Step 3: Organizing (step 2 is stats)
+      setLoadingStep(3);
+      await new Promise(resolve => setTimeout(resolve, 150));
+      
     } catch (err: unknown) {
       console.error('Error loading plans:', err);
       const error = err instanceof Error ? err : new Error('Unknown error');
@@ -88,8 +107,12 @@ export default function PlannerPage() {
     
     try {
       setStatsError('');
+      
+      // Step 2: Calculating statistics
+      setLoadingStep(2);
       const userStats = await PlannerService.getUserPlanStats(user.uid);
       setStats(userStats);
+      
     } catch (err: unknown) {
       console.error('Error loading stats:', err);
       const error = err instanceof Error ? err : new Error('Unknown error');
@@ -109,8 +132,16 @@ export default function PlannerPage() {
     }
 
     if (user) {
-      loadUserPlans();
-      loadUserStats();
+      const loadData = async () => {
+        await loadUserPlans();
+        await loadUserStats();
+        
+        // Step 4: Finalizing
+        setLoadingStep(4);
+        await new Promise(resolve => setTimeout(resolve, 150));
+      };
+      
+      loadData();
     }
   }, [user, loading, router, loadUserPlans, loadUserStats]);
 
@@ -166,10 +197,13 @@ export default function PlannerPage() {
     );
   }
 
-  if (loading) {
+  if (loading || loadingPlans) {
     return (
       <AnimatedLoader 
         isVisible={true}
+        mode="steps"
+        steps={loadingSteps}
+        currentStep={loadingStep}
         loadingText="Loading your preparation plans..."
         showNavigation={true}
       />
@@ -327,114 +361,102 @@ export default function PlannerPage() {
         </div>
       )}
 
-      {/* Loading State */}
-      {loadingPlans ? (
+      {/* Search & Filter */}
+      {plans.length > 0 && (
         <div className="glass-card">
-          <div className="text-center py-16">
-            <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-slate-400">Loading plans...</p>
+          <div className="p-5">
+            <div className="flex flex-col md:flex-row gap-3 mb-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by role or company..."
+                  className="glass-input w-full pl-10 pr-4 py-2.5 rounded-lg text-white placeholder-slate-500 text-sm"
+                />
+              </div>
+
+              <div className="relative">
+                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as 'date' | 'progress' | 'name')}
+                  className="glass-input pl-10 pr-4 py-2.5 rounded-lg text-white text-sm appearance-none cursor-pointer min-w-[160px]"
+                >
+                  <option value="date">Latest First</option>
+                  <option value="progress">By Progress</option>
+                  <option value="name">Alphabetical</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Filter Tabs */}
+            <div className="flex gap-2">
+              {[
+                { value: 'all' as const, label: 'All', count: plans.length },
+                { value: 'active' as const, label: 'Active', count: plans.filter(p => p.status === 'active').length },
+                { value: 'completed' as const, label: 'Completed', count: plans.filter(p => p.status === 'completed').length }
+              ].map((tab) => (
+                <button
+                  key={tab.value}
+                  onClick={() => setFilter(tab.value)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    filter === tab.value
+                      ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
+                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  {tab.label} <span className="opacity-60">({tab.count})</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Plans Grid or Empty State */}
+      {filteredPlans.length === 0 ? (
+        <div className="glass-card">
+          <div className="text-center py-16 px-6">
+            <div className="w-16 h-16 bg-slate-800/50 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              {searchQuery ? <Search className="w-8 h-8 text-slate-400" /> : <Calendar className="w-8 h-8 text-slate-400" />}
+            </div>
+            <h3 className="text-xl font-semibold text-white mb-2">
+              {searchQuery 
+                ? 'No matching plans' 
+                : filter === 'all' 
+                  ? 'No plans yet' 
+                  : `No ${filter} plans`}
+            </h3>
+            <p className="text-slate-400 mb-8 max-w-md mx-auto">
+              {searchQuery 
+                ? 'Try adjusting your search criteria'
+                : filter === 'all' 
+                  ? 'Create your first preparation plan to get started'
+                  : `You have no ${filter} plans at the moment`}
+            </p>
+            {filter === 'all' && !searchQuery && (
+              <Link
+                href="/planner/create"
+                className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 py-3 rounded-lg"
+              >
+                <Plus className="w-5 h-5" />
+                <span>Create Plan</span>
+              </Link>
+            )}
           </div>
         </div>
       ) : (
-        <>
-          {/* Search & Filter */}
-          {plans.length > 0 && (
-            <div className="glass-card">
-              <div className="p-5">
-                <div className="flex flex-col md:flex-row gap-3 mb-4">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search by role or company..."
-                      className="glass-input w-full pl-10 pr-4 py-2.5 rounded-lg text-white placeholder-slate-500 text-sm"
-                    />
-                  </div>
-
-                  <div className="relative">
-                    <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
-                    <select
-                      value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value as 'date' | 'progress' | 'name')}
-                      className="glass-input pl-10 pr-4 py-2.5 rounded-lg text-white text-sm appearance-none cursor-pointer min-w-[160px]"
-                    >
-                      <option value="date">Latest First</option>
-                      <option value="progress">By Progress</option>
-                      <option value="name">Alphabetical</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Filter Tabs */}
-                <div className="flex gap-2">
-                  {[
-                    { value: 'all' as const, label: 'All', count: plans.length },
-                    { value: 'active' as const, label: 'Active', count: plans.filter(p => p.status === 'active').length },
-                    { value: 'completed' as const, label: 'Completed', count: plans.filter(p => p.status === 'completed').length }
-                  ].map((tab) => (
-                    <button
-                      key={tab.value}
-                      onClick={() => setFilter(tab.value)}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                        filter === tab.value
-                          ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
-                          : 'text-slate-400 hover:text-white hover:bg-white/5'
-                      }`}
-                    >
-                      {tab.label} <span className="opacity-60">({tab.count})</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Plans Grid or Empty State */}
-          {filteredPlans.length === 0 ? (
-            <div className="glass-card">
-              <div className="text-center py-16 px-6">
-                <div className="w-16 h-16 bg-slate-800/50 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                  {searchQuery ? <Search className="w-8 h-8 text-slate-400" /> : <Calendar className="w-8 h-8 text-slate-400" />}
-                </div>
-                <h3 className="text-xl font-semibold text-white mb-2">
-                  {searchQuery 
-                    ? 'No matching plans' 
-                    : filter === 'all' 
-                      ? 'No plans yet' 
-                      : `No ${filter} plans`}
-                </h3>
-                <p className="text-slate-400 mb-8 max-w-md mx-auto">
-                  {searchQuery 
-                    ? 'Try adjusting your search criteria'
-                    : filter === 'all' 
-                      ? 'Create your first preparation plan to get started'
-                      : `You have no ${filter} plans at the moment`}
-                </p>
-                {filter === 'all' && !searchQuery && (
-                  <Link
-                    href="/planner/create"
-                    className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 py-3 rounded-lg"
-                  >
-                    <Plus className="w-5 h-5" />
-                    <span>Create Plan</span>
-                  </Link>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredPlans.map(plan => (
-                <PlanCard 
-                  key={plan.id} 
-                  plan={plan}
-                  onUpdate={loadUserPlans}
-                />
-              ))}
-            </div>
-          )}
-        </>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredPlans.map(plan => (
+            <PlanCard 
+              key={plan.id} 
+              plan={plan}
+              onUpdate={loadUserPlans}
+            />
+          ))}
+        </div>
       )}
 
       {/* Upcoming Interviews Alert */}
@@ -459,7 +481,7 @@ export default function PlannerPage() {
       )}
 
       {/* Feature Overview for Empty State */}
-      {plans.length === 0 && !loadingPlans && (
+      {plans.length === 0 && (
         <div className="glass-card">
           <div className="p-6">
             <h3 className="text-lg font-semibold text-white mb-6 text-center">

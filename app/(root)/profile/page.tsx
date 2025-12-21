@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/firebase/client';
-import AnimatedLoader from '@/components/loader/AnimatedLoader';
+import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
 import ErrorPage from '@/components/Error';
 import {
   ArrowLeft,
@@ -173,6 +173,7 @@ const ProfilePage = () => {
 
   // UI states
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [loadingStep, setLoadingStep] = useState(0);
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -181,6 +182,16 @@ const ProfilePage = () => {
   // Error states
   const [criticalError, setCriticalError] = useState<CriticalError | null>(null);
   const [profileError, setProfileError] = useState<string>("");
+
+  // Define loading steps
+  const loadingSteps: LoadingStep[] = [
+    { name: 'Authenticating user...', weight: 1 },
+    { name: 'Loading profile data...', weight: 2 },
+    { name: 'Fetching interview history...', weight: 2 },
+    { name: 'Calculating statistics...', weight: 2 },
+    { name: 'Loading saved content...', weight: 1 },
+    { name: 'Finalizing profile...', weight: 1 }
+  ];
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -193,6 +204,9 @@ const ProfilePage = () => {
   useEffect(() => {
     const loadSavedContent = (): void => {
       try {
+        // Step 4: Loading saved content
+        setLoadingStep(4);
+        
         const savedTemplatesData = localStorage.getItem("bookmarkedTemplates");
         if (savedTemplatesData) {
           const templates: unknown = JSON.parse(savedTemplatesData);
@@ -270,8 +284,10 @@ const ProfilePage = () => {
       }
     };
 
-    loadSavedContent();
-  }, []);
+    if (user && !authLoading) {
+      loadSavedContent();
+    }
+  }, [user, authLoading]);
 
   // FIXED: Helper function to safely convert createdAt to Date
   const convertToDate = (createdAt: FirebaseTimestamp | string | Date | undefined): Date => {
@@ -300,8 +316,11 @@ const ProfilePage = () => {
 
       setIsLoading(true);
       setProfileError("");
+      setLoadingStep(0); // Authenticating
 
       try {
+        // Step 1: Loading profile data
+        setLoadingStep(1);
         const profileResponse = await fetch("/api/profile");
         
         if (!profileResponse.ok) {
@@ -333,6 +352,9 @@ const ProfilePage = () => {
           return;
         }
 
+        // Step 2: Fetching interview history
+        setLoadingStep(2);
+
         // UPDATED: Build profile from Firebase user data with new address fields
         const profile: UserProfile = {
           id: currentUser.id,
@@ -361,6 +383,9 @@ const ProfilePage = () => {
 
         setUserProfile(profile);
         setEditedProfile(profile);
+
+        // Step 3: Calculating statistics
+        setLoadingStep(3);
 
         // FIXED: Calculate stats from interviews with proper type handling
         const interviewsWithDates = (userInterviews || []).map((interview: InterviewData) => ({
@@ -399,6 +424,10 @@ const ProfilePage = () => {
             ? Math.round((completedInterviews.length / totalInterviews) * 100)
             : 0,
         });
+
+        // Step 5: Finalizing
+        setLoadingStep(5);
+        await new Promise(resolve => setTimeout(resolve, 150));
 
       } catch (err: unknown) {
         console.error("Failed to fetch user data:", err);
@@ -521,6 +550,9 @@ const ProfilePage = () => {
     return (
       <AnimatedLoader
         isVisible={true}
+        mode="steps"
+        steps={loadingSteps}
+        currentStep={loadingStep}
         loadingText="Loading your profile..."
         showNavigation={true}
       />

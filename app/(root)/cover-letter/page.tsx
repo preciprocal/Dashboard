@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/firebase/client';
 import { collection, query, where, getDocs, deleteDoc, doc } from 'firebase/firestore';
-import AnimatedLoader from '@/components/loader/AnimatedLoader';
+import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
 import ErrorPage from '@/components/Error';
 import { toast } from 'sonner';
 import { 
@@ -64,6 +64,7 @@ export default function CoverLetterDashboard() {
   const router = useRouter();
   const [coverLetters, setCoverLetters] = useState<CoverLetter[]>([]);
   const [loadingLetters, setLoadingLetters] = useState<boolean>(true);
+  const [loadingStep, setLoadingStep] = useState(0);
   const [sortFilter, setSortFilter] = useState<SortOption>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [stats, setStats] = useState<CoverLetterStats>({
@@ -78,6 +79,16 @@ export default function CoverLetterDashboard() {
   const [selectedLetter, setSelectedLetter] = useState<CoverLetter | null>(null);
   const [showPreview, setShowPreview] = useState(false);
 
+  // Define loading steps
+  const loadingSteps: LoadingStep[] = [
+    { name: 'Authenticating user...', weight: 1 },
+    { name: 'Connecting to database...', weight: 1 },
+    { name: 'Loading cover letters...', weight: 3 },
+    { name: 'Calculating statistics...', weight: 2 },
+    { name: 'Organizing content...', weight: 1 },
+    { name: 'Finalizing dashboard...', weight: 1 }
+  ];
+
   useEffect(() => {
     if (!loading && !user) {
       router.push('/sign-in');
@@ -90,7 +101,14 @@ export default function CoverLetterDashboard() {
     try {
       setLoadingLetters(true);
       setLettersError('');
-      
+      setLoadingStep(0); // Authenticating
+
+      // Step 1: Connecting to database
+      setLoadingStep(1);
+      await new Promise(resolve => setTimeout(resolve, 200)); // Small delay to show step
+
+      // Step 2: Loading cover letters
+      setLoadingStep(2);
       const lettersQuery = query(
         collection(db, 'coverLetters'),
         where('userId', '==', user.uid)
@@ -109,6 +127,8 @@ export default function CoverLetterDashboard() {
 
       setCoverLetters(letters);
       
+      // Step 3: Calculating statistics
+      setLoadingStep(3);
       if (letters.length > 0) {
         const avgWords = Math.round(
           letters.reduce((sum, letter) => sum + (letter.wordCount || 0), 0) / letters.length
@@ -132,6 +152,15 @@ export default function CoverLetterDashboard() {
           thisMonth: thisMonthCount
         });
       }
+
+      // Step 4: Organizing content
+      setLoadingStep(4);
+      await new Promise(resolve => setTimeout(resolve, 150));
+
+      // Step 5: Finalizing
+      setLoadingStep(5);
+      await new Promise(resolve => setTimeout(resolve, 150));
+
     } catch (err: unknown) {
       console.error('Error loading cover letters:', err);
       const error = err as Error;
@@ -285,6 +314,9 @@ export default function CoverLetterDashboard() {
     return (
       <AnimatedLoader
         isVisible={true}
+        mode="steps"
+        steps={loadingSteps}
+        currentStep={loadingStep}
         loadingText="Loading your cover letters..."
         showNavigation={true}
       />

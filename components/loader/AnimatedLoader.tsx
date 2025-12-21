@@ -5,6 +5,11 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import logo from "@/public/logo.png";
 
+export interface LoadingStep {
+  name: string;
+  weight?: number; // Weight of this step in total progress (default: 1)
+}
+
 interface AnimatedLoaderProps {
   isVisible: boolean;
   onHide?: () => void;
@@ -13,16 +18,22 @@ interface AnimatedLoaderProps {
   onDashboard?: () => void;
   onBack?: () => void;
   showNavigation?: boolean;
-  progress?: number; // Optional: manual progress control (0-100)
+  progress?: number; // Manual progress control (0-100)
+  steps?: LoadingStep[]; // Define loading steps for automatic tracking
+  currentStep?: number; // Current step index (for step-based progress)
+  mode?: 'auto' | 'manual' | 'steps'; // Progress mode
 }
 
 const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
   isVisible,
   onHide,
   loadingText = "Loading",
-  duration = 5000, // Default 5 seconds to complete
+  duration = 5000,
   showNavigation = true,
-  progress: manualProgress
+  progress: manualProgress,
+  steps = [],
+  currentStep = 0,
+  mode = 'auto'
 }) => {
   const router = useRouter();
   const [shouldRender, setShouldRender] = useState(isVisible);
@@ -30,8 +41,8 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
   const [currentQuoteIndex, setCurrentQuoteIndex] = useState(0);
   const [randomizedMessages, setRandomizedMessages] = useState<string[]>([]);
   const [progress, setProgress] = useState(0);
+  const [currentStepName, setCurrentStepName] = useState<string>('');
 
-  // Fun loading messages - memoized to prevent recreation
   const funnyMessages = useMemo(() => [
     "Convincing AI it's not a robot 🤖",
     "Teaching algorithms to dance 💃",
@@ -65,7 +76,6 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
     "Blockchain-ing your success (whatever that means) ⛓️",
   ], []);
 
-  // Fisher-Yates shuffle algorithm to randomize messages
   const shuffleArray = useCallback((array: string[]) => {
     const shuffled = [...array];
     for (let i = shuffled.length - 1; i > 0; i--) {
@@ -75,54 +85,81 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
     return shuffled;
   }, []);
 
-  // Initialize randomized messages on mount
+  // Calculate progress based on steps
+  const calculateStepProgress = useCallback(() => {
+    if (steps.length === 0) return 0;
+
+    const totalWeight = steps.reduce((sum, step) => sum + (step.weight || 1), 0);
+    let completedWeight = 0;
+
+    for (let i = 0; i < Math.min(currentStep, steps.length); i++) {
+      completedWeight += steps[i].weight || 1;
+    }
+
+    return Math.min(100, (completedWeight / totalWeight) * 100);
+  }, [steps, currentStep]);
+
+  // Initialize randomized messages
   useEffect(() => {
     setRandomizedMessages(shuffleArray(funnyMessages));
   }, [shuffleArray, funnyMessages]);
 
-  // Progress animation
+  // Progress animation based on mode
   useEffect(() => {
     if (isVisible) {
       setShouldRender(true);
       setFadeOut(false);
       setCurrentQuoteIndex(0);
-      
-      // If manual progress is provided, use it
-      if (manualProgress !== undefined) {
+
+      let progressInterval: NodeJS.Timeout | null = null;
+      let quoteInterval: NodeJS.Timeout | null = null;
+
+      // Handle different progress modes
+      if (mode === 'manual' && manualProgress !== undefined) {
+        // Manual mode: use provided progress
         setProgress(Math.min(100, Math.max(0, manualProgress)));
+      } else if (mode === 'steps') {
+        // Steps mode: calculate progress from current step
+        const stepProgress = calculateStepProgress();
+        setProgress(stepProgress);
+        
+        // Update current step name
+        if (currentStep < steps.length) {
+          setCurrentStepName(steps[currentStep].name);
+        }
       } else {
-        // Auto-increment progress
+        // Auto mode: animate progress over duration
         setProgress(0);
         const startTime = Date.now();
-        const interval = 50; // Update every 50ms for smooth animation
-        
-        const progressInterval = setInterval(() => {
+        const interval = 50;
+
+        progressInterval = setInterval(() => {
           const elapsed = Date.now() - startTime;
           const newProgress = Math.min(100, (elapsed / duration) * 100);
           setProgress(newProgress);
-          
+
           if (newProgress >= 100) {
-            clearInterval(progressInterval);
+            clearInterval(progressInterval!);
           }
         }, interval);
-        
-        // Rotate quotes every 3 seconds
-        const quoteInterval = setInterval(() => {
-          setCurrentQuoteIndex(prev => {
-            const nextIndex = prev + 1;
-            if (nextIndex >= randomizedMessages.length) {
-              setRandomizedMessages(shuffleArray(funnyMessages));
-              return 0;
-            }
-            return nextIndex;
-          });
-        }, 3000);
-
-        return () => {
-          clearInterval(progressInterval);
-          clearInterval(quoteInterval);
-        };
       }
+
+      // Rotate quotes every 3 seconds
+      quoteInterval = setInterval(() => {
+        setCurrentQuoteIndex(prev => {
+          const nextIndex = prev + 1;
+          if (nextIndex >= randomizedMessages.length) {
+            setRandomizedMessages(shuffleArray(funnyMessages));
+            return 0;
+          }
+          return nextIndex;
+        });
+      }, 3000);
+
+      return () => {
+        if (progressInterval) clearInterval(progressInterval);
+        if (quoteInterval) clearInterval(quoteInterval);
+      };
     } else {
       setFadeOut(true);
       const timer = setTimeout(() => {
@@ -131,14 +168,38 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
       }, 600);
       return () => clearTimeout(timer);
     }
-  }, [isVisible, onHide, duration, randomizedMessages.length, shuffleArray, funnyMessages, manualProgress]);
+  }, [
+    isVisible,
+    onHide,
+    duration,
+    mode,
+    manualProgress,
+    currentStep,
+    steps,
+    calculateStepProgress,
+    randomizedMessages.length,
+    shuffleArray,
+    funnyMessages
+  ]);
 
-  // Update progress when manualProgress changes
+  // Update progress when manual progress changes
   useEffect(() => {
-    if (manualProgress !== undefined) {
+    if (mode === 'manual' && manualProgress !== undefined) {
       setProgress(Math.min(100, Math.max(0, manualProgress)));
     }
-  }, [manualProgress]);
+  }, [manualProgress, mode]);
+
+  // Update progress when step changes
+  useEffect(() => {
+    if (mode === 'steps') {
+      const stepProgress = calculateStepProgress();
+      setProgress(stepProgress);
+      
+      if (currentStep < steps.length) {
+        setCurrentStepName(steps[currentStep].name);
+      }
+    }
+  }, [currentStep, mode, calculateStepProgress, steps]);
 
   const handleBack = () => {
     router.back();
@@ -228,7 +289,7 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
             </defs>
           </svg>
 
-          {/* Center Content */}
+          {/* Center Content - Logo only */}
           <div className="absolute inset-0 flex items-center justify-center">
             {/* Logo */}
             <div className="w-16 h-16 flex items-center justify-center">
@@ -248,7 +309,7 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
             <div 
               className="w-20 h-20 bg-purple-500/20 rounded-full blur-2xl transition-opacity duration-300"
               style={{ opacity: progress / 100 }}
-            ></div>
+            />
           </div>
         </div>
 
@@ -257,10 +318,17 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
           <h2 className="text-xl font-semibold text-white">
             {loadingText}
           </h2>
+
+          {/* Current Step Name (if in steps mode) */}
+          {mode === 'steps' && currentStepName && (
+            <p className="text-sm text-slate-400 font-medium">
+              {currentStepName}
+            </p>
+          )}
           
           {/* Rotating Quote */}
           <div className="glass-morphism px-6 py-3 rounded-full inline-flex items-center gap-3 border border-white/10">
-            <div className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse"></div>
+            <div className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse" />
             <span className="text-sm text-slate-300 font-medium">
               {randomizedMessages[currentQuoteIndex] || funnyMessages[0]}
             </span>

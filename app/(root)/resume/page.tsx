@@ -7,7 +7,7 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/firebase/client';
 import { FirebaseService } from '@/lib/services/firebase-service';
 import ResumeCard from '@/components/resume/ResumeCard';
-import AnimatedLoader from '@/components/loader/AnimatedLoader';
+import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
 import ErrorPage from '@/components/Error';
 import { Resume } from '@/types/resume';
 import { FileText, Upload, Zap, LayoutGrid, List, Filter, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
@@ -33,6 +33,7 @@ export default function ResumeDashboard() {
   const router = useRouter();
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [loadingResumes, setLoadingResumes] = useState<boolean>(true);
+  const [loadingStep, setLoadingStep] = useState(0);
   const [sortFilter, setSortFilter] = useState<SortOption>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [stats, setStats] = useState<ResumeStats>({
@@ -45,16 +46,35 @@ export default function ResumeDashboard() {
   const [criticalError, setCriticalError] = useState<CriticalError | null>(null);
   const [resumesError, setResumesError] = useState<string>('');
 
+  // Define loading steps
+  const loadingSteps: LoadingStep[] = [
+    { name: 'Authenticating user...', weight: 1 },
+    { name: 'Loading resume files...', weight: 3 },
+    { name: 'Analyzing feedback data...', weight: 2 },
+    { name: 'Calculating statistics...', weight: 2 },
+    { name: 'Organizing resumes...', weight: 1 },
+    { name: 'Finalizing dashboard...', weight: 1 }
+  ];
+
   const loadResumes = useCallback(async (): Promise<void> => {
     if (!user) return;
 
     try {
       setLoadingResumes(true);
       setResumesError('');
+      setLoadingStep(0); // Authenticating
       
+      // Step 1: Loading resume files
+      setLoadingStep(1);
       const userResumes = await FirebaseService.getUserResumes(user.uid);
       setResumes(userResumes);
       
+      // Step 2: Analyzing feedback data
+      setLoadingStep(2);
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Step 3: Calculating statistics
+      setLoadingStep(3);
       if (userResumes.length > 0) {
         // Filter resumes that have feedback
         const resumesWithFeedback = userResumes.filter(resume => resume.feedback);
@@ -90,6 +110,15 @@ export default function ResumeDashboard() {
           });
         }
       }
+
+      // Step 4: Organizing resumes
+      setLoadingStep(4);
+      await new Promise(resolve => setTimeout(resolve, 150));
+
+      // Step 5: Finalizing
+      setLoadingStep(5);
+      await new Promise(resolve => setTimeout(resolve, 150));
+      
     } catch (err: unknown) {
       console.error('Error loading resumes:', err);
       const error = err instanceof Error ? err : new Error('Unknown error');
@@ -201,6 +230,9 @@ export default function ResumeDashboard() {
     return (
       <AnimatedLoader
         isVisible={true}
+        mode="steps"
+        steps={loadingSteps}
+        currentStep={loadingStep}
         loadingText="Loading your resume dashboard..."
         showNavigation={true}
       />

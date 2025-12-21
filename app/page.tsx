@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import AnimatedLoader from '@/components/loader/AnimatedLoader';
+import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
 import {
   Activity,
   Target,
@@ -181,6 +181,20 @@ export default function Dashboard() {
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadingStep, setLoadingStep] = useState(0);
+
+  // Define loading steps with weights
+  const loadingSteps: LoadingStep[] = [
+    { name: 'Authenticating user...', weight: 1 },
+    { name: 'Loading user profile...', weight: 1 },
+    { name: 'Fetching interview history...', weight: 2 },
+    { name: 'Loading resume data...', weight: 2 },
+    { name: 'Retrieving planner stats...', weight: 1 },
+    { name: 'Processing feedback data...', weight: 3 },
+    { name: 'Calculating performance metrics...', weight: 2 },
+    { name: 'Generating AI recommendations...', weight: 2 },
+    { name: 'Finalizing dashboard...', weight: 1 }
+  ];
 
   // Update current time every minute
   useEffect(() => {
@@ -262,8 +276,9 @@ export default function Dashboard() {
     const fetchUserData = async () => {
       try {
         setIsLoading(true);
+        setLoadingStep(0);
 
-        // Import Firebase auth
+        // Step 0: Authenticating user
         const { auth } = await import('@/firebase/client');
         const { onAuthStateChanged } = await import('firebase/auth');
         const { FirebaseService } = await import('@/lib/services/firebase-service');
@@ -284,6 +299,30 @@ export default function Dashboard() {
           return;
         }
 
+        setLoadingStep(1); // Move to step 1: Loading user profile
+
+        // Set basic user profile
+        setUserProfile({
+          id: currentUser.uid,
+          name: currentUser.displayName || "User",
+          email: currentUser.email || "",
+          createdAt: new Date(),
+          lastLogin: new Date(),
+          targetRole: "Software Engineer",
+          experienceLevel: "mid",
+          preferredTech: ["JavaScript", "React", "Node.js"],
+          avatar: currentUser.photoURL || undefined,
+          bio: "",
+          location: "",
+        });
+
+        setLoadingStep(2); // Move to step 2: Fetching interview history
+
+        // Fetch user interviews using server action
+        const userInterviews = await getInterviewsByUserId(currentUser.uid);
+        
+        setLoadingStep(3); // Move to step 3: Loading resume data
+
         // Fetch user resumes using Firebase service
         let userResumes: Resume[] = [];
         try {
@@ -294,6 +333,8 @@ export default function Dashboard() {
           console.error('Error fetching resumes:', error);
         }
 
+        setLoadingStep(4); // Move to step 4: Retrieving planner stats
+
         // Fetch planner stats
         let plannerStats: PlannerStats | undefined;
         try {
@@ -303,13 +344,16 @@ export default function Dashboard() {
           console.error('Error fetching planner stats:', error);
         }
 
-        // Fetch user interviews using server action
-        const userInterviews = await getInterviewsByUserId(currentUser.uid);
         if (!userInterviews) {
           console.log('No interviews found for user');
           setInterviews([]);
+          
+          setLoadingStep(6); // Skip to calculation step
+          
           const calculatedStats = calculateEnhancedUserStats([], userResumes, plannerStats);
           setStats(calculatedStats);
+          
+          setLoadingStep(7); // Generate recommendations
           
           const dynamicRecommendations = generateDynamicAIRecommendations(
             [],
@@ -318,21 +362,12 @@ export default function Dashboard() {
           
           console.log('🤖 Generated recommendations:', dynamicRecommendations);
           
-          setUserProfile({
-            id: currentUser.uid,
-            name: currentUser.displayName || "User",
-            email: currentUser.email || "",
-            createdAt: new Date(),
-            lastLogin: new Date(),
-            targetRole: "Software Engineer",
-            experienceLevel: "mid",
-            preferredTech: ["JavaScript", "React", "Node.js"],
-            avatar: currentUser.photoURL || undefined,
-            bio: "",
-            location: "",
-          });
+          setLoadingStep(8); // Finalizing
           
-          setIsLoading(false);
+          setTimeout(() => {
+            setIsLoading(false);
+          }, 300);
+          
           return;
         }
 
@@ -381,21 +416,9 @@ export default function Dashboard() {
           } as Interview;
         });
 
-        setUserProfile({
-          id: currentUser.uid,
-          name: currentUser.displayName || "User",
-          email: currentUser.email || "",
-          createdAt: new Date(),
-          lastLogin: new Date(),
-          targetRole: "Software Engineer",
-          experienceLevel: "mid",
-          preferredTech: ["JavaScript", "React", "Node.js"],
-          avatar: currentUser.photoURL || undefined,
-          bio: "",
-          location: "",
-        });
-
         if (interviewsWithDates && interviewsWithDates.length > 0) {
+          setLoadingStep(5); // Move to step 5: Processing feedback data
+          
           // Fetch feedback for each interview
           console.log('🔍 Fetching feedback for interviews...');
           const interviewsWithFeedback: Interview[] = await Promise.all(
@@ -436,10 +459,14 @@ export default function Dashboard() {
           console.log('✅ Interviews with feedback loaded');
           setInterviews(interviewsWithFeedback);
           
+          setLoadingStep(6); // Move to step 6: Calculating metrics
+          
           // Calculate enhanced stats with planner stats
           const calculatedStats = calculateEnhancedUserStats(interviewsWithFeedback, userResumes, plannerStats);
           setStats(calculatedStats);
           console.log('📊 Stats calculated:', calculatedStats);
+
+          setLoadingStep(7); // Move to step 7: Generating AI recommendations
 
           // Generate dynamic AI recommendations - use type assertion
           const dynamicRecommendations = generateDynamicAIRecommendations(
@@ -458,8 +485,13 @@ export default function Dashboard() {
 
         } else {
           setInterviews([]);
+          
+          setLoadingStep(6);
+          
           const calculatedStats = calculateEnhancedUserStats([], userResumes, plannerStats);
           setStats(calculatedStats);
+          
+          setLoadingStep(7);
           
           const dynamicRecommendations = generateDynamicAIRecommendations(
             [],
@@ -468,10 +500,17 @@ export default function Dashboard() {
           
           console.log('🤖 Generated recommendations:', dynamicRecommendations);
         }
+
+        setLoadingStep(8); // Move to step 8: Finalizing dashboard
+        
+        // Small delay to show finalization
+        setTimeout(() => {
+          setIsLoading(false);
+        }, 300);
+        
       } catch (error) {
         console.error("Failed to fetch user data:", error);
         toast.error("Failed to load dashboard data");
-      } finally {
         setIsLoading(false);
       }
     };
@@ -833,12 +872,16 @@ export default function Dashboard() {
 
   // ============ RENDER ============
 
-  // Main loading screen
+  // Main loading screen with dynamic progress
   if (isLoading) {
     return (
       <AnimatedLoader
         isVisible={true}
+        mode="steps"
+        steps={loadingSteps}
+        currentStep={loadingStep}
         loadingText="Loading your professional dashboard..."
+        showNavigation={false}
         onHide={() => console.log('Dashboard loaded')}
       />
     );
@@ -1151,7 +1194,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Profile Overview Component - REMOVED userProfile AND loading PROPS */}
+      {/* Profile Overview Component */}
       <ProfileOverview
         stats={stats}
         interviews={interviews.map(interview => ({

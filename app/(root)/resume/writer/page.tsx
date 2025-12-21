@@ -9,7 +9,8 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/firebase/client';
 import TinyMCEEditorPanel from '@/components/resume/TinyMCEEditorPanel';
 import AIAssistantPanel from '@/components/resume/AIAssitantPanel';
-import { Loader2, ArrowLeft, FileText, AlertCircle, Sparkles, Eye } from 'lucide-react';
+import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
+import { ArrowLeft, FileText, AlertCircle, Sparkles, Eye } from 'lucide-react';
 import Link from 'next/link';
 
 interface ResumeData {
@@ -29,11 +30,21 @@ export default function ResumeWriterPage() {
   const [resumeContent, setResumeContent] = useState('');
   const [selectedText, setSelectedText] = useState('');
   const [isLoadingResume, setIsLoadingResume] = useState(true);
-  const [loadingMessage, setLoadingMessage] = useState('Loading resume...');
-  const [extractionProgress, setExtractionProgress] = useState(0);
+  const [loadingStep, setLoadingStep] = useState(0);
   const [error, setError] = useState('');
   const [resumeData, setResumeData] = useState<ResumeData | null>(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  // Define loading steps
+  const loadingSteps: LoadingStep[] = [
+    { name: 'Authenticating user...', weight: 1 },
+    { name: 'Fetching resume...', weight: 1 },
+    { name: 'Loading resume data...', weight: 2 },
+    { name: 'Analyzing format with AI...', weight: 3 },
+    { name: 'Generating editable content...', weight: 2 },
+    { name: 'Saving formatted resume...', weight: 1 },
+    { name: 'Setting up editor...', weight: 1 }
+  ];
 
   useEffect(() => {
     const loadResume = async () => {
@@ -54,13 +65,18 @@ export default function ResumeWriterPage() {
       try {
         console.log('📄 Loading resume:', resumeId);
         
-        setLoadingMessage('Fetching resume...');
-        setExtractionProgress(10);
+        // Step 0: Authenticating
+        setLoadingStep(0);
+        
+        // Step 1: Fetching resume
+        setLoadingStep(1);
+        await new Promise(resolve => setTimeout(resolve, 200));
         
         const resumeRef = doc(db, 'resumes', resumeId);
         const resumeSnap = await getDoc(resumeRef);
         
-        setExtractionProgress(30);
+        // Step 2: Loading resume data
+        setLoadingStep(2);
         
         if (!resumeSnap.exists()) {
           console.error('❌ Resume not found');
@@ -72,7 +88,6 @@ export default function ResumeWriterPage() {
 
         const data = resumeSnap.data() as ResumeData;
         setResumeData(data);
-        setExtractionProgress(40);
 
         console.log('✅ Resume loaded');
 
@@ -80,8 +95,11 @@ export default function ResumeWriterPage() {
         if (data.resumeHtml && data.resumeHtml.length > 100) {
           console.log('✅ Using cached HTML');
           setResumeContent(data.resumeHtml);
-          setLoadingMessage('Resume loaded!');
-          setExtractionProgress(100);
+          
+          // Step 6: Setting up editor
+          setLoadingStep(6);
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
           setIsLoadingResume(false);
           setIsInitialLoad(false);
           return;
@@ -90,8 +108,9 @@ export default function ResumeWriterPage() {
         // Use Gemini Vision
         if (data.imagePath && data.imagePath.startsWith('data:image/')) {
           console.log('🎨 Analyzing with AI Vision...');
-          setLoadingMessage('Analyzing format with AI...');
-          setExtractionProgress(50);
+          
+          // Step 3: Analyzing format with AI
+          setLoadingStep(3);
 
           try {
             const response = await fetch('/api/resume/format-from-image', {
@@ -103,7 +122,8 @@ export default function ResumeWriterPage() {
               })
             });
 
-            setExtractionProgress(80);
+            // Step 4: Generating editable content
+            setLoadingStep(4);
 
             const resultText = await response.text();
             console.log('📥 API Response:', response.status);
@@ -116,7 +136,8 @@ export default function ResumeWriterPage() {
                   console.log('✅ HTML generated');
                   setResumeContent(result.html);
                   
-                  setExtractionProgress(95);
+                  // Step 5: Saving formatted resume
+                  setLoadingStep(5);
                   
                   await updateDoc(resumeRef, {
                     resumeText: result.text,
@@ -125,8 +146,11 @@ export default function ResumeWriterPage() {
                   });
                   
                   console.log('💾 Saved');
-                  setLoadingMessage('Complete!');
-                  setExtractionProgress(100);
+                  
+                  // Step 6: Setting up editor
+                  setLoadingStep(6);
+                  await new Promise(resolve => setTimeout(resolve, 200));
+                  
                   setIsLoadingResume(false);
                   setIsInitialLoad(false);
                   return;
@@ -143,9 +167,17 @@ export default function ResumeWriterPage() {
         // Use text with formatting
         if (data.resumeText && data.resumeText.length > 100) {
           console.log('✅ Converting text to HTML');
+          
+          // Step 4: Generating editable content
+          setLoadingStep(4);
+          
           const html = convertTextToHtml(data.resumeText);
           setResumeContent(html);
-          setExtractionProgress(100);
+          
+          // Step 6: Setting up editor
+          setLoadingStep(6);
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
           setIsLoadingResume(false);
           setIsInitialLoad(false);
           return;
@@ -155,7 +187,11 @@ export default function ResumeWriterPage() {
         console.log('⚠️ Using template');
         setResumeContent(getTemplate());
         setError('Paste your resume content to get started');
-        setExtractionProgress(100);
+        
+        // Step 6: Setting up editor
+        setLoadingStep(6);
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
         setIsLoadingResume(false);
         setIsInitialLoad(false);
 
@@ -208,36 +244,32 @@ export default function ResumeWriterPage() {
   // Loading state
   if (loading || (isLoadingResume && isInitialLoad)) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center max-w-lg px-6">
-          <div className="relative mb-6">
-            <Loader2 className="w-16 h-16 animate-spin text-purple-500 mx-auto" />
-          </div>
-          <p className="text-slate-300 text-lg font-medium mb-2">{loadingMessage}</p>
-          <p className="text-slate-500 text-sm mb-6">Setting up workspace...</p>
-          
-          {extractionProgress > 0 && (
-            <div className="w-full max-w-md mx-auto">
-              <div className="w-full bg-slate-800 rounded-full h-2 mb-2">
-                <div 
-                  className="bg-gradient-to-r from-purple-600 to-blue-600 h-2 rounded-full transition-all duration-500"
-                  style={{ width: `${extractionProgress}%` }}
-                />
-              </div>
-              <p className="text-slate-500 text-xs">{extractionProgress}%</p>
-            </div>
-          )}
-        </div>
-      </div>
+      <AnimatedLoader
+        isVisible={true}
+        mode="steps"
+        steps={loadingSteps}
+        currentStep={loadingStep}
+        loadingText="Setting up AI Resume Writer..."
+        showNavigation={false}
+      />
     );
   }
 
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <FileText className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-          <p className="text-slate-300 text-lg mb-4">Please sign in to continue</p>
+        <div className="glass-card hover-lift max-w-md">
+          <div className="text-center p-12">
+            <FileText className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-white mb-2">Authentication Required</h2>
+            <p className="text-slate-400 mb-6">Please sign in to continue</p>
+            <Link 
+              href="/sign-in"
+              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 py-3 rounded-lg"
+            >
+              Go to Login
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -246,14 +278,17 @@ export default function ResumeWriterPage() {
   if (!resumeId) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <AlertCircle className="w-16 h-16 text-amber-400 mx-auto mb-4" />
-          <p className="text-slate-300 text-lg mb-4">No resume selected</p>
-          <Link href="/resume">
-            <button className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium">
-              View Resumes
-            </button>
-          </Link>
+        <div className="glass-card hover-lift max-w-md">
+          <div className="text-center p-12">
+            <AlertCircle className="w-16 h-16 text-amber-400 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-white mb-2">No Resume Selected</h2>
+            <p className="text-slate-400 mb-6">Please select a resume to edit</p>
+            <Link href="/resume">
+              <button className="glass-button-primary hover-lift px-6 py-3 text-white rounded-lg font-medium">
+                View Resumes
+              </button>
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -262,22 +297,24 @@ export default function ResumeWriterPage() {
   if (!isLoadingResume && !isInitialLoad && (error || !resumeData)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center max-w-md mx-auto px-6">
-          <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-semibold text-white mb-3">Resume Not Found</h2>
-          <p className="text-slate-400 mb-8">{error || 'Could not load resume'}</p>
-          <div className="flex gap-4 justify-center">
-            <button 
-              onClick={() => window.location.reload()} 
-              className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium"
-            >
-              Try Again
-            </button>
-            <Link href="/resume">
-              <button className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium">
-                Back
+        <div className="glass-card hover-lift max-w-md">
+          <div className="text-center p-12">
+            <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+            <h2 className="text-2xl font-semibold text-white mb-3">Resume Not Found</h2>
+            <p className="text-slate-400 mb-8">{error || 'Could not load resume'}</p>
+            <div className="flex gap-4 justify-center">
+              <button 
+                onClick={() => window.location.reload()} 
+                className="glass-button-primary hover-lift px-6 py-3 text-white rounded-lg font-medium"
+              >
+                Try Again
               </button>
-            </Link>
+              <Link href="/resume">
+                <button className="glass-button hover-lift px-6 py-3 text-white rounded-lg font-medium">
+                  Back to Resumes
+                </button>
+              </Link>
+            </div>
           </div>
         </div>
       </div>

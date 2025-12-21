@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/firebase/client';
-import AnimatedLoader from '@/components/loader/AnimatedLoader';
+import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
 import ErrorPage from '@/components/Error';
 import ProfileInterviewCard from '@/components/ProfileInterviewCard';
 import { 
@@ -84,6 +84,7 @@ export default function InterviewsDashboard() {
   const router = useRouter();
   const [interviews, setInterviews] = useState<Interview[]>([]);
   const [loadingInterviews, setLoadingInterviews] = useState<boolean>(true);
+  const [loadingStep, setLoadingStep] = useState(0);
   const [sortFilter, setSortFilter] = useState<SortOption>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [stats, setStats] = useState<InterviewStats>({
@@ -95,6 +96,17 @@ export default function InterviewsDashboard() {
 
   const [criticalError, setCriticalError] = useState<CriticalError | null>(null);
   const [interviewsError, setInterviewsError] = useState<string>('');
+
+  // Define loading steps
+  const loadingSteps: LoadingStep[] = [
+    { name: 'Authenticating user...', weight: 1 },
+    { name: 'Loading interview history...', weight: 2 },
+    { name: 'Converting data formats...', weight: 1 },
+    { name: 'Fetching feedback data...', weight: 3 },
+    { name: 'Calculating performance metrics...', weight: 2 },
+    { name: 'Organizing interviews...', weight: 1 },
+    { name: 'Finalizing dashboard...', weight: 1 }
+  ];
 
   useEffect(() => {
     if (!loading && !user) {
@@ -108,18 +120,24 @@ export default function InterviewsDashboard() {
     try {
       setLoadingInterviews(true);
       setInterviewsError('');
+      setLoadingStep(0); // Authenticating
       
+      // Step 1: Loading interview history
+      setLoadingStep(1);
       const { getInterviewsByUserId, getFeedbackByInterviewId } = await import('@/lib/actions/general.action');
       
       const userInterviews = await getInterviewsByUserId(user.uid);
       
       if (!userInterviews || userInterviews.length === 0) {
         setInterviews([]);
+        setLoadingStep(6); // Skip to finalizing
+        await new Promise(resolve => setTimeout(resolve, 200));
         setLoadingInterviews(false);
         return;
       }
 
-      // Convert dates properly
+      // Step 2: Converting data formats
+      setLoadingStep(2);
       const interviewsWithDates: Interview[] = userInterviews.map((interview) => {
         let createdAt: Date;
         let updatedAt: Date;
@@ -159,11 +177,11 @@ export default function InterviewsDashboard() {
           duration: interview.duration,
           score: interview.score,
           status: interview.status,
-          // Don't include questions here - they'll be added with feedback if needed
         };
       });
 
-      // Fetch feedback for each interview
+      // Step 3: Fetching feedback data
+      setLoadingStep(3);
       const interviewsWithFeedback: Interview[] = await Promise.all(
         interviewsWithDates.map(async (interview) => {
           try {
@@ -201,6 +219,8 @@ export default function InterviewsDashboard() {
 
       setInterviews(interviewsWithFeedback);
       
+      // Step 4: Calculating performance metrics
+      setLoadingStep(4);
       if (interviewsWithFeedback.length > 0) {
         const completedInterviews = interviewsWithFeedback.filter(
           (i) => i.feedback && i.score && i.score > 0
@@ -223,6 +243,15 @@ export default function InterviewsDashboard() {
           completionRate
         });
       }
+
+      // Step 5: Organizing interviews
+      setLoadingStep(5);
+      await new Promise(resolve => setTimeout(resolve, 150));
+
+      // Step 6: Finalizing
+      setLoadingStep(6);
+      await new Promise(resolve => setTimeout(resolve, 150));
+
     } catch (err: unknown) {
       console.error('Error loading interviews:', err);
       const error = err as Error;
@@ -339,6 +368,9 @@ export default function InterviewsDashboard() {
     return (
       <AnimatedLoader
         isVisible={true}
+        mode="steps"
+        steps={loadingSteps}
+        currentStep={loadingStep}
         loadingText="Loading your interview dashboard..."
         showNavigation={true}
       />
