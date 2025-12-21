@@ -7,64 +7,354 @@
   color-scheme: light;
 }
 
-/* Dark mode variables (when .dark class is present) */
+/* Dark mode variables */
 .dark {
   --background: #0a0a0a;
   --foreground: #ededed;
   color-scheme: dark;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-/* Remove the media query that was conflicting with manual theme switching */
-/* @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-} */
-
 /* Base body styles */
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  font-family: Arial, Helvetica, sans-serif;
   transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
 }
 
-/* Ensure HTML background changes with theme */
 html {
   background: var(--background);
   transition: background-color 0.2s ease-in-out;
 }
 
-/* Override Tailwind's default background for proper theme switching */
-.bg-gray-50 {
-  background-color: rgb(249 250 251);
+body::-webkit-scrollbar {
+  display: none;
 }
 
-.dark .bg-gray-50 {
-  background-color: rgb(17 24 39) !important;
+/* Sidebar Glassmorphism - LIGHT MODE ENABLED */
+.glass-sidebar {
+  background: white !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid rgb(226, 232, 240) !important;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.04) !important;
 }
 
-.bg-gray-900 {
-  background-color: rgb(17 24 39);
+.dark .glass-sidebar {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.1) !important;
 }
 
-.bg-white {
-  background-color: rgb(255 255 255);
+/* Card Glassmorphism */
+.glass-card {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.dark .bg-white {
-  background-color: rgb(17 24 39) !important;
+.dark .glass-card {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
 }
 
-/* Text color overrides with better contrast */
+.glass-card:hover {
+  background: rgba(248, 250, 252, 1);
+  border-color: rgba(203, 213, 225, 0.9);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.dark .glass-card:hover {
+  background: rgba(15, 23, 42, 0.7);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-4px);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
+}
+
+/* General Glassmorphism */
+.glass-morphism {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+.dark .glass-morphism {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+/* Button Glassmorphism */
+.glass-button {
+  background: rgba(241, 245, 249, 1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  transition: all 0.3s ease;
+}
+
+.dark .glass-button {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-button:hover {
+  background: rgba(226, 232, 240, 1);
+  border-color: rgba(203, 213, 225, 1);
+  transform: translateY(-2px);
+}
+
+.dark .glass-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.glass-button-primary {
+  background: linear-gradient(135deg, rgb(102, 126, 234) 0%, rgb(118, 75, 162) 100%) !important;
+  border: 1px solid rgba(102, 126, 234, 0.4);
+}
+
+.glass-button-primary:hover {
+  background: linear-gradient(135deg, rgb(92, 116, 224) 0%, rgb(108, 65, 152) 100%) !important;
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+}
+
+/* Input Glassmorphism */
+.glass-input {
+  background: white;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  transition: all 0.3s ease;
+}
+
+.dark .glass-input {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-input:focus {
+  background: white;
+  border-color: rgba(102, 126, 234, 0.5);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.dark .glass-input:focus {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(102, 126, 234, 0.5);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* Badge Glassmorphism */
+.glass-badge {
+  background: rgba(241, 245, 249, 1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.dark .glass-badge {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* Gradient Backgrounds */
+.gradient-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.gradient-secondary {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.gradient-accent {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.gradient-success {
+  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+}
+
+.gradient-warning {
+  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+}
+
+.gradient-mesh {
+  background: radial-gradient(at 40% 20%, hsla(280, 100%, 70%, 0.3) 0px, transparent 50%), radial-gradient(at 80% 0%, hsla(240, 100%, 70%, 0.3) 0px, transparent 50%), radial-gradient(at 0% 50%, hsla(340, 100%, 70%, 0.3) 0px, transparent 50%), radial-gradient(at 80% 50%, hsla(200, 100%, 70%, 0.3) 0px, transparent 50%), radial-gradient(at 0% 100%, hsla(260, 100%, 70%, 0.3) 0px, transparent 50%), radial-gradient(at 80% 100%, hsla(320, 100%, 70%, 0.3) 0px, transparent 50%), radial-gradient(at 0% 0%, hsla(200, 100%, 70%, 0.3) 0px, transparent 50%);
+}
+
+/* Status Badges */
+.status-badge-todo {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.3);
+  color: #d97706;
+}
+
+.dark .status-badge-todo {
+  color: #fbbf24;
+}
+
+.status-badge-progress {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #2563eb;
+}
+
+.dark .status-badge-progress {
+  color: #60a5fa;
+}
+
+.status-badge-done {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #059669;
+}
+
+.dark .status-badge-done {
+  color: #34d399;
+}
+
+/* Priority Badges */
+.priority-low {
+  color: #2563eb;
+  background: rgba(59, 130, 246, 0.15);
+}
+
+.dark .priority-low {
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.priority-medium {
+  color: #d97706;
+  background: rgba(245, 158, 11, 0.15);
+}
+
+.dark .priority-medium {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.priority-high {
+  color: #dc2626;
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.dark .priority-high {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* Scrollbar Styling */
+.glass-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.glass-scrollbar::-webkit-scrollbar-track {
+  background: rgba(226, 232, 240, 0.3);
+  border-radius: 10px;
+}
+
+.dark .glass-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.glass-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.6);
+  border-radius: 10px;
+}
+
+.dark .glass-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.glass-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.8);
+}
+
+.dark .glass-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.5s ease-out;
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite linear;
+  background: linear-gradient(to right, rgba(148, 163, 184, 0) 0%, rgba(148, 163, 184, 0.3) 50%, rgba(148, 163, 184, 0) 100%);
+  background-size: 1000px 100%;
+}
+
+.dark .animate-shimmer {
+  background: linear-gradient(to right, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0) 100%);
+}
+
+/* Shadow Utilities */
+.shadow-glass {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.dark .shadow-glass {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.shadow-glass-lg {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.dark .shadow-glass-lg {
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Hover Effects */
+.hover-lift {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.dark .hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+}
+
+/* Text Colors - Strong specificity for light mode */
 .text-gray-900 {
   color: rgb(17 24 39) !important;
 }
@@ -105,11 +395,6 @@ html {
   color: rgb(107 114 128) !important;
 }
 
-.text-white {
-  color: rgb(255 255 255) !important;
-}
-
-/* Improve heading contrast */
 h1, h2, h3, h4, h5, h6 {
   color: rgb(17 24 39) !important;
 }
@@ -118,54 +403,62 @@ h1, h2, h3, h4, h5, h6 {
   color: rgb(255 255 255) !important;
 }
 
-/* Better button text contrast */
-button {
-  color: rgb(55 65 81) !important;
+/* Background Colors */
+.bg-gray-50 {
+  background-color: rgb(249 250 251) !important;
 }
 
-.dark button {
-  color: rgb(209 213 219) !important;
+.dark .bg-gray-50 {
+  background-color: rgb(17 24 39) !important;
 }
 
-/* Exception for buttons with specific background colors */
-.bg-blue-600 button,
-.bg-purple-600 button,
-.bg-gradient-to-r button {
-  color: rgb(255 255 255) !important;
+.bg-white {
+  background-color: rgb(255 255 255) !important;
 }
 
-/* Link colors */
-a {
-  color: rgb(55 65 81) !important;
+.dark .bg-white {
+  background-color: rgb(17 24 39) !important;
 }
 
-.dark a {
-  color: rgb(209 213 219) !important;
-}
-
-/* Input text colors */
+/* Input & Form Elements */
 input, textarea, select {
   color: rgb(17 24 39) !important;
+  background-color: white !important;
+  border-color: rgb(226 232 240) !important;
 }
 
 .dark input, .dark textarea, .dark select {
   color: rgb(243 244 246) !important;
+  background-color: rgb(31 41 55) !important;
+  border-color: rgb(55 65 81) !important;
 }
 
-/* Border color overrides */
+input::placeholder, textarea::placeholder {
+  color: rgb(107 114 128) !important;
+}
+
+.dark input::placeholder, .dark textarea::placeholder {
+  color: rgb(156 163 175) !important;
+}
+
+/* Border Colors */
 .border-gray-200 {
-  border-color: rgb(229 231 235);
+  border-color: rgb(229 231 235) !important;
 }
 
 .dark .border-gray-200 {
   border-color: rgb(55 65 81) !important;
 }
 
-.border-gray-700 {
-  border-color: rgb(55 65 81);
+.border-white\/10 {
+  border-color: rgba(226, 232, 240, 0.8) !important;
 }
 
-/* Scrollbar hiding for horizontal scrolling tabs */
+.dark .border-white\/10 {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Scrollbar */
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -175,10 +468,13 @@ input, textarea, select {
   display: none;
 }
 
-/* Custom scrollbar for sidebar on desktop */
 .sidebar-scroll {
   scrollbar-width: thin;
-  scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+  scrollbar-color: rgba(148, 163, 184, 0.5) transparent;
+}
+
+.dark .sidebar-scroll {
+  scrollbar-color: rgba(75, 85, 99, 0.5) transparent;
 }
 
 .sidebar-scroll::-webkit-scrollbar {
@@ -190,68 +486,44 @@ input, textarea, select {
 }
 
 .sidebar-scroll::-webkit-scrollbar-thumb {
-  background-color: rgba(156, 163, 175, 0.5);
+  background-color: rgba(148, 163, 184, 0.5);
   border-radius: 2px;
-}
-
-.sidebar-scroll::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(156, 163, 175, 0.7);
-}
-
-/* Dark mode scrollbar */
-.dark .sidebar-scroll {
-  scrollbar-color: rgba(75, 85, 99, 0.5) transparent;
 }
 
 .dark .sidebar-scroll::-webkit-scrollbar-thumb {
   background-color: rgba(75, 85, 99, 0.5);
 }
 
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(100, 116, 139, 0.7);
+}
+
 .dark .sidebar-scroll::-webkit-scrollbar-thumb:hover {
   background-color: rgba(75, 85, 99, 0.7);
 }
 
-/* Resize cursor for sidebar */
-.resize-handle {
-  cursor: col-resize;
-}
-
-.resize-handle:hover {
-  background-color: rgba(59, 130, 246, 0.1);
-}
-
-/* Smooth transitions for theme changes */
+/* Smooth Transitions */
 * {
   transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out, border-color 0.2s ease-in-out;
 }
 
-/* Mobile-specific styles */
-@media (max-width: 1023px) {
-  .sidebar-resize-handle {
-    display: none !important;
-  }
+/* Focus States */
+button:focus-visible, a:focus-visible, input:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
 }
 
-/* Ensure proper spacing on mobile */
+/* Mobile Optimizations */
 @media (max-width: 640px) {
   .grid-cols-2 {
     gap: 0.75rem;
   }
   
-  .grid-cols-1 {
-    gap: 1rem;
-  }
-  
   .space-y-6 > * + * {
-    margin-top: 1rem;
-  }
-  
-  .lg\:space-y-8 > * + * {
     margin-top: 1rem;
   }
 }
 
-/* Better touch targets on mobile */
 @media (max-width: 1023px) {
   button, a {
     min-height: 44px;
@@ -259,47 +531,9 @@ input, textarea, select {
     align-items: center;
     justify-content: center;
   }
-  
-  .sidebar button,
-  .sidebar a {
-    padding: 0.75rem 1rem;
-  }
 }
 
-/* Prevent text selection during resize */
-.select-none {
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
-}
-
-/* Loading states */
-.loading {
-  opacity: 0.6;
-  pointer-events: none;
-}
-
-/* Focus styles for accessibility */
-button:focus-visible,
-a:focus-visible,
-input:focus-visible {
-  outline: 2px solid #3b82f6;
-  outline-offset: 2px;
-}
-
-/* High contrast mode support */
-@media (prefers-contrast: high) {
-  .border-gray-200 {
-    border-color: #000;
-  }
-  
-  .dark .border-gray-700 {
-    border-color: #fff;
-  }
-}
-
-/* Reduced motion support */
+/* Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
@@ -307,307 +541,13 @@ input:focus-visible {
   }
 }
 
-/* Prevent flash of unstyled content */
-html:not(.dark):not([data-theme]) {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-/* Force immediate theme application */
-.dark {
-  --background: #0a0a0a !important;
-  --foreground: #ededed !important;
-}
-
-/* Additional theme support for common elements */
-.dark input {
-  background-color: rgb(31 41 55) !important;
-  border-color: rgb(55 65 81) !important;
-  color: rgb(243 244 246) !important;
-}
-
-.dark input::placeholder {
-  color: rgb(156 163 175) !important;
-}
-
-body::-webkit-scrollbar{
-  display: none;
-}
-
-:root {
-  /* Glassmorphism Colors */
-  --glass-bg: rgba(255, 255, 255, 0.05);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --glass-hover: rgba(255, 255, 255, 0.08);
-  --glass-active: rgba(255, 255, 255, 0.12);
+/* High Contrast */
+@media (prefers-contrast: high) {
+  .border-gray-200 {
+    border-color: #000;
+  }
   
-  /* Gradient Colors */
-  --gradient-start: #667eea;
-  --gradient-middle: #764ba2;
-  --gradient-end: #f093fb;
-  
-  /* Status Colors */
-  --status-todo: #f59e0b;
-  --status-progress: #3b82f6;
-  --status-done: #10b981;
-  
-  /* Priority Colors */
-  --priority-low: #3b82f6;
-  --priority-medium: #f59e0b;
-  --priority-high: #ef4444;
-}
-
-/* Glassmorphism Base Classes */
-.glass-morphism {
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-}
-
-.glass-morphism-hover {
-  transition: all 0.3s ease;
-}
-
-.glass-morphism-hover:hover {
-  background: var(--glass-hover);
-  border-color: rgba(255, 255, 255, 0.15);
-  transform: translateY(-2px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
-}
-
-/* Card Glassmorphism */
-.glass-card {
-  background: rgba(15, 23, 42, 0.6);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.glass-card:hover {
-  background: rgba(15, 23, 42, 0.7);
-  border-color: rgba(255, 255, 255, 0.2);
-  transform: translateY(-4px);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
-}
-
-/* Sidebar Glassmorphism */
-.glass-sidebar {
-  background: linear-gradient(
-    135deg,
-    rgba(15, 23, 42, 0.8) 0%,
-    rgba(30, 41, 59, 0.7) 100%
-  );
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.1);
-}
-
-/* Gradient Backgrounds */
-.gradient-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-}
-
-.gradient-secondary {
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-}
-
-.gradient-accent {
-  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-}
-
-.gradient-success {
-  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-}
-
-.gradient-warning {
-  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-}
-
-.gradient-mesh {
-  background: 
-    radial-gradient(at 40% 20%, hsla(280, 100%, 70%, 0.3) 0px, transparent 50%),
-    radial-gradient(at 80% 0%, hsla(240, 100%, 70%, 0.3) 0px, transparent 50%),
-    radial-gradient(at 0% 50%, hsla(340, 100%, 70%, 0.3) 0px, transparent 50%),
-    radial-gradient(at 80% 50%, hsla(200, 100%, 70%, 0.3) 0px, transparent 50%),
-    radial-gradient(at 0% 100%, hsla(260, 100%, 70%, 0.3) 0px, transparent 50%),
-    radial-gradient(at 80% 100%, hsla(320, 100%, 70%, 0.3) 0px, transparent 50%),
-    radial-gradient(at 0% 0%, hsla(200, 100%, 70%, 0.3) 0px, transparent 50%);
-}
-
-/* Button Glassmorphism */
-.glass-button {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  transition: all 0.3s ease;
-}
-
-.glass-button:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px);
-}
-
-.glass-button-primary {
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.6), rgba(118, 75, 162, 0.6));
-  border: 1px solid rgba(102, 126, 234, 0.4);
-}
-
-.glass-button-primary:hover {
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.8), rgba(118, 75, 162, 0.8));
-  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
-}
-
-/* Input Glassmorphism */
-.glass-input {
-  background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  transition: all 0.3s ease;
-}
-
-.glass-input:focus {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(102, 126, 234, 0.5);
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-/* Badge Glassmorphism */
-.glass-badge {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-/* Status Badges */
-.status-badge-todo {
-  background: rgba(245, 158, 11, 0.15);
-  border-color: rgba(245, 158, 11, 0.3);
-  color: #fbbf24;
-}
-
-.status-badge-progress {
-  background: rgba(59, 130, 246, 0.15);
-  border-color: rgba(59, 130, 246, 0.3);
-  color: #60a5fa;
-}
-
-.status-badge-done {
-  background: rgba(16, 185, 129, 0.15);
-  border-color: rgba(16, 185, 129, 0.3);
-  color: #34d399;
-}
-
-/* Priority Badges */
-.priority-low {
-  color: #3b82f6;
-  background: rgba(59, 130, 246, 0.1);
-}
-
-.priority-medium {
-  color: #f59e0b;
-  background: rgba(245, 158, 11, 0.1);
-}
-
-.priority-high {
-  color: #ef4444;
-  background: rgba(239, 68, 68, 0.1);
-}
-
-/* Scrollbar Styling */
-.glass-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.glass-scrollbar::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 10px;
-}
-
-.glass-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-}
-
-.glass-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.15);
-}
-
-/* Animations */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes shimmer {
-  0% {
-    background-position: -1000px 0;
-  }
-  100% {
-    background-position: 1000px 0;
-  }
-}
-
-.animate-fade-in-up {
-  animation: fadeInUp 0.5s ease-out;
-}
-
-.animate-shimmer {
-  animation: shimmer 2s infinite linear;
-  background: linear-gradient(
-    to right,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.1) 50%,
-    rgba(255, 255, 255, 0) 100%
-  );
-  background-size: 1000px 100%;
-}
-
-/* Shadow Utilities */
-.shadow-glass {
-  box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-}
-
-.shadow-glass-lg {
-  box-shadow: 
-    0 16px 48px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-}
-
-/* Hover Effects */
-.hover-lift {
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.hover-lift:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
-}
-
-/* Dark Mode Specific */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --glass-bg: rgba(15, 23, 42, 0.6);
-    --glass-border: rgba(255, 255, 255, 0.1);
-    --glass-hover: rgba(255, 255, 255, 0.08);
+  .dark .border-gray-700 {
+    border-color: #fff;
   }
 }

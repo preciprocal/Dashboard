@@ -88,7 +88,7 @@ async function researchCompany(companyName: string, jobRole: string): Promise<st
   
   try {
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.0-flash-001',
+      model: 'gemini-2.5-flash',
       generationConfig: {
         temperature: 0.3,
         maxOutputTokens: 1024,
@@ -291,7 +291,7 @@ export async function POST(request: NextRequest) {
     const aiStartTime = Date.now();
 
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.0-flash-001',
+      model: 'gemini-2.5-flash',
       generationConfig: {
         temperature: 0.7,
         topP: 0.9,

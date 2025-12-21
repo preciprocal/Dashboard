@@ -185,7 +185,7 @@ Create a detailed, day-by-day plan with specific resources, practice problems, a
     // Use Gemini 2.0 Flash model (same as your working route)
     console.log('   Calling Gemini AI...');
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.0-flash-001'
+      model: 'gemini-2.5-flash'
     });
 
     const fullPrompt = SYSTEM_PROMPT + '\n\n' + userPrompt + '\n\nIMPORTANT: Return ONLY valid JSON, no markdown, no extra text.';

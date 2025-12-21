@@ -66,8 +66,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ✅ Using Gemini 2.5 Flash - Latest and most powerful model
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.0-flash-001'
+      model: 'gemini-2.5-flash'
     });
 
     // Determine optimization mode
@@ -302,6 +303,7 @@ Return the JSON object now.`;
 
     console.log('   🎯 Optimization Mode:', optimizationMode.toUpperCase());
     console.log('   📝 Mode Description:', modeDescription);
+    console.log('   🤖 Using Gemini 2.5 Flash');
     console.log('   Calling Gemini AI...');
     
     const result = await model.generateContent(prompt);

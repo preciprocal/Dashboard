@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
     const aiStartTime = Date.now();
 
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.0-flash-001',
+      model: 'gemini-2.5-flash',
       generationConfig: {
         temperature: 0.7,
         topP: 0.9,
@@ -278,7 +278,7 @@ export async function POST(request: NextRequest) {
       success: true,
       response: assistantResponse,
       metadata: {
-        model: 'gemini-2.0-flash-001',
+        model: 'gemini-2.5-flash',
         responseTime: totalResponseTime,
         aiResponseTime: aiResponseTime,
         tokensUsed,
@@ -339,7 +339,7 @@ export async function GET() {
     return NextResponse.json({
       status: 'ok',
       service: 'planner-ai-coach-chat',
-      model: 'gemini-2.0-flash-001',
+      model: 'gemini-2.5-flash',
       version: '1.0.0',
       features: [
         'technical-questions',

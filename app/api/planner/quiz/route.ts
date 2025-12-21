@@ -183,7 +183,7 @@ export async function POST(request: NextRequest) {
     // Call Gemini
     console.log('🤖 Calling Gemini...');
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.0-flash-001'
+      model: 'gemini-2.5-flash'
     });
 
     const prompt = `${QUIZ_PROMPT}\n\nPLAN DATA:\n${context}\n\nGenerate quiz now.`;

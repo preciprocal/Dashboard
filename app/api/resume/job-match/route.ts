@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
 
     // Use stable model version
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.0-flash-001' 
+      model: 'gemini-2.5-flash' 
     });
 
     const prompt = `You are an expert ATS system and recruiter. Analyze how well this resume matches the job description.

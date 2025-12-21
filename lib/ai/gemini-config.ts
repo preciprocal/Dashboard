@@ -1,7 +1,7 @@
 // lib/ai/gemini-config.ts
 
 export const GEMINI_CONFIG = {
-  // Model selection - Using ONLY gemini-2.0-flash-001
+  // Model selection - Using ONLY gemini-2.5-flash
   models: {
     pro: 'gemini-2.0-flash-exp',        // Use Flash for everything
     flash: 'gemini-2.0-flash-exp',      // Same model

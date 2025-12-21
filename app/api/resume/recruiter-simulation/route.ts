@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     
     // Use Gemini 2.0 Flash model
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.0-flash-001'
+      model: 'gemini-2.5-flash'
     });
 
     const prompt = `You are a senior recruiter reviewing resumes. Simulate how you would review this resume in the first 6-10 seconds.

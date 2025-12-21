@@ -536,7 +536,7 @@ export async function analyzeResumeWithAI(params: AnalyzeResumeParams) {
     const { resumeId, jobTitle, jobDescription, resumeText } = params;
 
     const { object } = await generateObject({
-      model: google("gemini-2.0-flash-001", {
+      model: google("gemini-2.5-flash", {
         structuredOutputs: false,
       }),
       schema: resumeFeedbackSchema,

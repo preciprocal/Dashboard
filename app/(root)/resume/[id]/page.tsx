@@ -22,7 +22,7 @@ import {
   Star,
   TrendingUp,
   Loader2,
-  Wand2,
+  
   Award,
   Activity,
   PenTool,
@@ -34,7 +34,6 @@ import {
 import ScoreCircle from '@/components/resume/ScoreCircle';
 import JobMatcher from '@/components/resume/JobMatcher';
 import RecruiterEyeSimulation from '@/components/resume/RecruiterEyeSimulation';
-import ResumeRewriter from '@/components/resume/ResumeRewriter';
 import Image from 'next/image';
 
 function getScoreColor(score: number): string {
@@ -569,7 +568,7 @@ export default function ResumeDetailsPage() {
               </Link>
               
               <h1 className="text-2xl font-bold text-white mb-1">Resume Analysis</h1>
-              <p className="text-sm text-slate-400">AI-powered evaluation with Gemini 2.0</p>
+              <p className="text-sm text-slate-400">AI-powered evaluation with Preciprocal AI</p>
 
               {(resume.companyName || resume.jobTitle) && (
                 <div className="flex items-center gap-2 mt-4">
@@ -597,7 +596,7 @@ export default function ResumeDetailsPage() {
                 { id: 'analysis', label: 'Analysis', icon: Shield },
                 { id: 'jobmatch', label: 'Job Match', icon: Target },
                 { id: 'recruiter', label: 'Recruiter', icon: Eye },
-                { id: 'rewriter', label: 'Rewriter', icon: Wand2 },
+                
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -680,14 +679,7 @@ export default function ResumeDetailsPage() {
             </div>
           )}
 
-          {activeTab === 'rewriter' && (
-            <div className="animate-fade-in-up">
-              <ResumeRewriter 
-                resumeId={resume.id}
-                userId={user.uid}
-              />
-            </div>
-          )}
+          
 
           {/* Action Buttons */}
           <div className="flex gap-3 pb-8 animate-fade-in-up">

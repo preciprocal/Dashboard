@@ -226,7 +226,7 @@ export async function POST(req: NextRequest) {
           );
 
           const { text: questions } = await generateText({
-            model: google("gemini-2.0-flash-001"),
+            model: google("gemini-2.5-flash"),
             prompt: prompt,
             temperature: 0.7,
           });
@@ -242,7 +242,7 @@ export async function POST(req: NextRequest) {
             Return as JSON array format.`;
 
             const { text: additionalQuestions } = await generateText({
-              model: google("gemini-2.0-flash-001"),
+              model: google("gemini-2.5-flash"),
               prompt: additionalPrompt,
               temperature: 0.8,
             });
@@ -260,7 +260,7 @@ export async function POST(req: NextRequest) {
           );
 
           const { text: questions } = await generateText({
-            model: google("gemini-2.0-flash-001"),
+            model: google("gemini-2.5-flash"),
             prompt: prompt,
             temperature: 0.6,
           });
@@ -277,7 +277,7 @@ export async function POST(req: NextRequest) {
             Return as JSON array format.`;
 
             const { text: additionalQuestions } = await generateText({
-              model: google("gemini-2.0-flash-001"),
+              model: google("gemini-2.5-flash"),
               prompt: additionalPrompt,
               temperature: 0.7,
             });
@@ -300,7 +300,7 @@ export async function POST(req: NextRequest) {
           );
 
           const { text: techQuestions } = await generateText({
-            model: google("gemini-2.0-flash-001"),
+            model: google("gemini-2.5-flash"),
             prompt: technicalPrompt,
             temperature: 0.7,
           });
@@ -315,7 +315,7 @@ export async function POST(req: NextRequest) {
           );
 
           const { text: behavQuestions } = await generateText({
-            model: google("gemini-2.0-flash-001"),
+            model: google("gemini-2.5-flash"),
             prompt: behavioralPrompt,
             temperature: 0.6,
           });

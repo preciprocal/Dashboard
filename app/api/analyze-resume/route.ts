@@ -102,7 +102,7 @@ export async function GET() {
     message: 'AI Resume Analysis API with Gemini Resume Fixer',
     timestamp: new Date().toISOString(),
     status: 'ok',
-    model: 'gemini-2.0-flash-001',
+    model: 'gemini-2.5-flash',
     framework: 'ai-sdk',
     features: ['analysis', 'text-extraction', 'fixes', 'regeneration'],
     environment: envTest
@@ -219,7 +219,7 @@ Return only the extracted text, maintaining the original structure.
     `;
 
     const textResponse = await generateText({
-      model: google("gemini-2.0-flash-001"),
+      model: google("gemini-2.5-flash"),
       messages: [
         {
           role: "user",
@@ -273,7 +273,7 @@ Provide exactly 4-5 tips per category with honest scoring. Be specific and actio
     `;
 
     const { object } = await generateObject({
-      model: google("gemini-2.0-flash-001"),
+      model: google("gemini-2.5-flash"),
       schema: resumeFeedbackSchema,
       system: "You are Sarah Chen, a senior resume analyst with 15+ years of recruiting experience at top tech companies like Google, Amazon, and Microsoft. Provide detailed, actionable feedback with honest scoring based on industry standards.",
       messages: [
@@ -296,7 +296,7 @@ Provide exactly 4-5 tips per category with honest scoring. Be specific and actio
       extractedText: extractedText,
       meta: {
         timestamp: new Date().toISOString(),
-        model: 'gemini-2.0-flash-001',
+        model: 'gemini-2.5-flash',
         version: '5.0-with-text-extraction',
         type: 'expert-ai-analysis',
         textExtracted: true,
@@ -428,7 +428,7 @@ Analyze the resume content and provide 10-15 of the most impactful fixes.
     `;
 
     const { object } = await generateObject({
-      model: google("gemini-2.0-flash-001"),
+      model: google("gemini-2.5-flash"),
       schema: resumeFixSchema,
       messages: [{ role: "user", content: fixPrompt }]
     });
@@ -450,7 +450,7 @@ Analyze the resume content and provide 10-15 of the most impactful fixes.
       fixes: validatedFixes,
       meta: {
         timestamp: new Date().toISOString(),
-        model: 'gemini-2.0-flash-001',
+        model: 'gemini-2.5-flash',
         type: 'dynamic-ai-fixes',
         count: validatedFixes.length,
         contentAnalyzed: resumeContent.length
@@ -518,7 +518,7 @@ Make it meaningfully different while solving the same underlying issue.
     `;
 
     const { text } = await generateText({
-      model: google("gemini-2.0-flash-001"),
+      model: google("gemini-2.5-flash"),
       messages: [{ role: "user", content: regeneratePrompt }]
     });
 
@@ -544,7 +544,7 @@ Make it meaningfully different while solving the same underlying issue.
       },
       meta: {
         timestamp: new Date().toISOString(),
-        model: 'gemini-2.0-flash-001',
+        model: 'gemini-2.5-flash',
         type: 'fix-regeneration',
         originalCategory: originalFix.category
       }

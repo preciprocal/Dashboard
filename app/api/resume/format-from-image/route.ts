@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
 
     // Use Gemini Flash with vision
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.0-flash-001' 
+      model: 'gemini-2.5-flash' 
     });
 
     // Extract base64 data
