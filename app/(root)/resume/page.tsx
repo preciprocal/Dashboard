@@ -233,7 +233,7 @@ export default function ResumeDashboard() {
         mode="steps"
         steps={loadingSteps}
         currentStep={loadingStep}
-        loadingText="Loading your resume dashboard..."
+        loadingText="Loading your resumes..."
         showNavigation={true}
       />
     );

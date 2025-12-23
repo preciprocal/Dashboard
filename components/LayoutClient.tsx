@@ -24,6 +24,7 @@ import {
   Star,
   Calendar,
   Pen,
+  ArrowLeftRight,
 } from 'lucide-react';
 import { signOut } from "@/lib/actions/auth.action";
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -111,12 +112,6 @@ const PUBLIC_ROUTES = [
 const AUTH_ROUTES = ['/sign-in', '/sign-up', '/forgot-password'];
 
 const ThemeContext = createContext<ThemeContextType | null>(null);
-
-// const useTheme = () => {
-//   const context = useContext(ThemeContext);
-//   if (!context) throw new Error('useTheme must be used within a ThemeProvider');
-//   return context;
-// };
 
 const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const [darkMode, setDarkMode] = useState(true);
@@ -373,26 +368,35 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  // const { darkMode, toggleTheme } = useTheme();
+  const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const [savedAccounts, setSavedAccounts] = useState<Array<{email: string, name: string}>>([]);
   const pathname = usePathname();
   const router = useRouter();
 
   const { resumeCount, latestResume, loading: resumeLoading } = useResumeCount();
 
+  // Load saved accounts from localStorage
+  useEffect(() => {
+    const accounts = localStorage.getItem('saved_accounts');
+    if (accounts) {
+      try {
+        setSavedAccounts(JSON.parse(accounts));
+      } catch (e) {
+        console.error('Failed to parse saved accounts:', e);
+      }
+    }
+  }, []);
+
   // ============ AUTHENTICATION REDIRECT LOGIC ============
   useEffect(() => {
-    // Check if current route is public
     const isPublicRoute = PUBLIC_ROUTES.some(route => pathname.startsWith(route));
     const isAuthRoute = AUTH_ROUTES.some(route => pathname.startsWith(route));
 
-    // Redirect logic
     if (!user && !isPublicRoute) {
-      // User not authenticated and trying to access protected route
       const redirectUrl = `/sign-in?redirect=${encodeURIComponent(pathname)}`;
       console.log('🔒 Redirecting to sign-in:', redirectUrl);
       router.push(redirectUrl);
     } else if (user && isAuthRoute) {
-      // User authenticated but on auth pages, redirect to home
       console.log('✅ User authenticated, redirecting to home');
       router.push('/');
     }
@@ -406,6 +410,22 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Close account menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const accountMenu = document.getElementById('account-menu-container');
+      if (accountMenu && !accountMenu.contains(event.target as Node)) {
+        setShowAccountMenu(false);
+      }
+    };
+
+    if (showAccountMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showAccountMenu]);
 
   const mainNavItems: NavItem[] = [
     { id: 'overview', label: 'Overview', icon: Home, href: '/' },
@@ -427,7 +447,6 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
   const authPages = ['/sign-in', '/sign-up', '/forgot-password', '/reset-password', '/verify-email', '/onboarding'];
   const isAuthPage = authPages.some(page => pathname.startsWith(page));
 
-  // Show nothing while redirecting for protected routes
   const isPublicRoute = PUBLIC_ROUTES.some(route => pathname.startsWith(route));
   if (!user && !isPublicRoute) {
     return (
@@ -483,7 +502,6 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* Light mode background */}
       <div className="fixed inset-0 bg-gradient-to-br from-slate-50 via-purple-50/30 to-blue-50/20 dark:bg-gradient-to-br dark:from-slate-900/95 dark:via-purple-900/90 dark:to-slate-900/95 -z-10" />
       
       {sidebarOpen && (
@@ -502,20 +520,26 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
         sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
       }`}>
         <div className="p-4 border-b border-slate-200 dark:border-white/10">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between h-[57px]">
             <Link href="/" className="flex items-center space-x-3 group" onClick={handleLinkClick}>
-              <NextImage src={logo} alt="Preciprocal" width={28} height={28} className="rounded-lg" priority />
-              <span className="text-lg font-bold text-slate-900 dark:text-white">Preciprocal</span>
+              <NextImage src={logo} alt="Preciprocal" width={36} height={36} className="rounded-lg" priority />
+              <span className="text-xl font-bold text-slate-900 dark:text-white">Preciprocal</span>
             </Link>
             <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
               <X className="w-5 h-5" />
             </button>
           </div>
 
-          <div className="flex items-center space-x-3 
-                         bg-slate-100/80 dark:bg-slate-800/50 
-                         border border-slate-200 dark:border-white/10
-                         p-3 rounded-xl">
+          <div 
+            id="account-menu-container"
+            onClick={() => setShowAccountMenu(!showAccountMenu)}
+            className="w-full flex items-center space-x-3 mt-4
+                       bg-slate-100/80 dark:bg-slate-800/50 
+                       border border-slate-200 dark:border-white/10
+                       p-3 rounded-xl relative cursor-pointer
+                       hover:bg-slate-200/80 dark:hover:bg-slate-800/70
+                       transition-colors"
+          >
             <div className="relative">
               <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center text-white font-semibold">
                 {userInitials}
@@ -523,18 +547,126 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
               <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white dark:border-slate-900" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-slate-900 dark:text-white font-medium text-sm truncate">{safeUser?.name || 'User'}</p>
-              <button className="flex items-center space-x-1 text-slate-600 dark:text-slate-400 text-xs hover:text-slate-900 dark:hover:text-white transition-colors">
-                <span className="truncate">{safeUser?.email || 'user@example.com'}</span>
-                <ChevronDown className="w-3 h-3 flex-shrink-0" />
-              </button>
+              <p className="text-slate-900 dark:text-white font-medium text-sm truncate text-left">{safeUser?.name || 'User'}</p>
+              <div className="flex items-center space-x-1 text-slate-600 dark:text-slate-400 text-xs">
+                <span className="truncate text-left">{safeUser?.email || 'user@example.com'}</span>
+                <ChevronDown className={`w-3 h-3 flex-shrink-0 transition-transform ${showAccountMenu ? 'rotate-180' : ''}`} />
+              </div>
             </div>
+
+            {/* Account Menu Dropdown */}
+            {showAccountMenu && (
+              <div 
+                className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800/95 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-xl shadow-xl z-50 overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="p-2">
+                  {/* Current Account */}
+                  <div className="px-3 py-2 border-b border-slate-200 dark:border-white/10">
+                    <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Current Account</p>
+                    <div className="flex items-center gap-3 p-2 bg-slate-100 dark:bg-slate-800/50 rounded-lg">
+                      <div className="w-8 h-8 rounded-full gradient-primary flex items-center justify-center text-white font-semibold text-sm">
+                        {userInitials}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{safeUser?.name || 'User'}</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 truncate">{safeUser?.email || 'user@example.com'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Saved Accounts */}
+                  {savedAccounts.length > 0 && (
+                    <div className="px-3 py-2 border-b border-slate-200 dark:border-white/10">
+                      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Switch Account</p>
+                      {savedAccounts.map((account, index) => {
+                        const accountInitials = getInitials(account.name);
+                        return (
+                          <button
+                            key={index}
+                            onClick={() => {
+                              console.log('Switch to:', account.email);
+                              setShowAccountMenu(false);
+                            }}
+                            className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors mb-1"
+                          >
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-semibold text-sm">
+                              {accountInitials}
+                            </div>
+                            <div className="flex-1 min-w-0 text-left">
+                              <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{account.name}</p>
+                              <p className="text-xs text-slate-600 dark:text-slate-400 truncate">{account.email}</p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Switch Account */}
+                  <div className="p-2 border-b border-slate-200 dark:border-white/10">
+                    <Link
+                      href="/sign-in"
+                      onClick={() => {
+                        setShowAccountMenu(false);
+                        handleLinkClick();
+                      }}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors text-slate-700 dark:text-slate-300"
+                    >
+                      <ArrowLeftRight className="w-4 h-4" />
+                      <span className="text-sm">Switch Account</span>
+                    </Link>
+                  </div>
+
+                  {/* Account Actions */}
+                  <div className="p-2">
+                    <Link
+                      href="/profile"
+                      onClick={() => {
+                        setShowAccountMenu(false);
+                        handleLinkClick();
+                      }}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors text-slate-700 dark:text-slate-300"
+                    >
+                      <Settings className="w-4 h-4" />
+                      <span className="text-sm">Account Settings</span>
+                    </Link>
+                    
+                    <Link
+                      href="/pricing"
+                      onClick={() => {
+                        setShowAccountMenu(false);
+                        handleLinkClick();
+                      }}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors text-slate-700 dark:text-slate-300"
+                    >
+                      <Crown className="w-4 h-4" />
+                      <span className="text-sm">Manage Subscription</span>
+                    </Link>
+
+                    <div className="h-px bg-slate-200 dark:bg-white/10 my-2" />
+
+                    <button
+                      onClick={() => {
+                        setShowAccountMenu(false);
+                        handleLogout();
+                      }}
+                      disabled={isLoggingOut}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors text-red-600 dark:text-red-400 text-sm disabled:opacity-50"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>{isLoggingOut ? 'Logging out...' : 'Sign Out'}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
         <div className="p-3 space-y-2">
           <Link 
-            href="/createinterview"
+            href="/interview/create"
             onClick={handleLinkClick}
             className="glass-button-primary w-full px-4 py-3 rounded-xl hover-lift flex items-center justify-center group
                        bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700
@@ -699,7 +831,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
 
             {planInfo.showUpgrade && (
               <Link 
-                href="/subscription"
+                href="/pricing"
                 onClick={handleLinkClick}
                 className="glass-button-primary w-full px-4 py-2.5 rounded-lg hover-lift flex items-center justify-center text-white text-sm font-medium
                            bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700
@@ -754,17 +886,6 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
             </div>
 
             <div className="flex items-center space-x-3">
-              {/* <button
-                onClick={toggleTheme}
-                className="bg-slate-100 dark:bg-slate-800/50 
-                         border border-slate-200 dark:border-white/10
-                         p-2 rounded-lg hover-lift
-                         hover:bg-slate-200 dark:hover:bg-slate-800"
-                title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-              >
-                {darkMode ? <Sun className="w-5 h-5 text-slate-600 dark:text-slate-300" /> : <Moon className="w-5 h-5 text-slate-600 dark:text-slate-300" />}
-              </button> */}
-
               <button className="bg-slate-100 dark:bg-slate-800/50 
                                border border-slate-200 dark:border-white/10
                                p-2 rounded-lg hover-lift relative
@@ -797,20 +918,15 @@ export default function LayoutClient({ children, user, userStats }: LayoutClient
   const pathname = usePathname();
   const router = useRouter();
 
-  // ============ AUTHENTICATION REDIRECT LOGIC ============
   useEffect(() => {
-    // Check if current route is public
     const isPublicRoute = PUBLIC_ROUTES.some(route => pathname.startsWith(route));
     const isAuthRoute = AUTH_ROUTES.some(route => pathname.startsWith(route));
 
-    // Redirect logic
     if (!user && !isPublicRoute) {
-      // User not authenticated and trying to access protected route
       const redirectUrl = `/sign-in?redirect=${encodeURIComponent(pathname)}`;
       console.log('🔒 Redirecting to sign-in:', redirectUrl);
       router.push(redirectUrl);
     } else if (user && isAuthRoute) {
-      // User authenticated but on auth pages, redirect to home
       console.log('✅ User authenticated, redirecting to home');
       router.push('/');
     }
@@ -819,7 +935,6 @@ export default function LayoutClient({ children, user, userStats }: LayoutClient
   const authPages = ['/sign-in', '/sign-up', '/forgot-password', '/reset-password', '/verify-email', '/onboarding'];
   const isAuthPage = authPages.some(page => pathname.startsWith(page));
 
-  // Show nothing while redirecting for protected routes
   const isPublicRoute = PUBLIC_ROUTES.some(route => pathname.startsWith(route));
   if (!user && !isPublicRoute) {
     return (

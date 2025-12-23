@@ -260,8 +260,8 @@ export default function RecruiterEyeSimulation({
                     <ul className="space-y-2">
                       {simulationData.perspectives[selectedPerspective].keyObservations.map((obs, idx) => (
                         <li key={idx} className="flex items-start gap-2 text-sm text-emerald-800 dark:text-emerald-300">
-                          <span className="text-emerald-600">•</span>
-                          {obs}
+                          <span className="text-emerald-600 mt-0.5 flex-shrink-0">•</span>
+                          <span className="leading-relaxed">{obs}</span>
                         </li>
                       ))}
                     </ul>
@@ -277,8 +277,8 @@ export default function RecruiterEyeSimulation({
                       <ul className="space-y-2">
                         {simulationData.perspectives[selectedPerspective].concerns.map((concern, idx) => (
                           <li key={idx} className="flex items-start gap-2 text-sm text-amber-800 dark:text-amber-300">
-                            <span className="text-amber-600">•</span>
-                            {concern}
+                            <span className="text-amber-600 mt-0.5 flex-shrink-0">•</span>
+                            <span className="leading-relaxed">{concern}</span>
                           </li>
                         ))}
                       </ul>
@@ -353,8 +353,8 @@ export default function RecruiterEyeSimulation({
               <div className="space-y-2">
                 {simulationData.firstImpression.standoutElements.map((element, idx) => (
                   <div key={idx} className="flex items-start gap-2">
-                    <div className="w-2 h-2 bg-emerald-600 rounded-full mt-2" />
-                    <span className="text-sm text-emerald-800 dark:text-emerald-300">{element}</span>
+                    <div className="w-2 h-2 bg-emerald-600 rounded-full mt-2 flex-shrink-0" />
+                    <span className="text-sm text-emerald-800 dark:text-emerald-300 leading-relaxed">{element}</span>
                   </div>
                 ))}
               </div>
@@ -371,8 +371,8 @@ export default function RecruiterEyeSimulation({
               <div className="space-y-2">
                 {simulationData.firstImpression.concerningElements.map((element, idx) => (
                   <div key={idx} className="flex items-start gap-2">
-                    <div className="w-2 h-2 bg-amber-600 rounded-full mt-2" />
-                    <span className="text-sm text-amber-800 dark:text-amber-300">{element}</span>
+                    <div className="w-2 h-2 bg-amber-600 rounded-full mt-2 flex-shrink-0" />
+                    <span className="text-sm text-amber-800 dark:text-amber-300 leading-relaxed">{element}</span>
                   </div>
                 ))}
               </div>
@@ -435,13 +435,13 @@ export default function RecruiterEyeSimulation({
             <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-5 border border-blue-200 dark:border-blue-800">
               <h4 className="font-bold text-blue-900 dark:text-blue-200 mb-3 flex items-center gap-2">
                 <Info className="w-5 h-5" />
-                {simulationData.perspectives ? 'Overall Assessment' : 'Recruiter&apos;s Internal Notes'}
+                {simulationData.perspectives ? 'Overall Assessment' : "Recruiter's Internal Notes"}
               </h4>
               <ul className="space-y-2">
                 {simulationData.screenerNotes.map((note, idx) => (
                   <li key={idx} className="flex items-start gap-2">
-                    <span className="text-blue-600 mt-1">•</span>
-                    <span className="text-sm text-blue-800 dark:text-blue-300">{note}</span>
+                    <span className="text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0">•</span>
+                    <span className="text-sm text-blue-800 dark:text-blue-300 leading-relaxed">{note}</span>
                   </li>
                 ))}
               </ul>

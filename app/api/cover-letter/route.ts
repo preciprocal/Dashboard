@@ -4,7 +4,6 @@ import { cookies } from 'next/headers';
 import { auth, db } from '@/firebase/admin';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Use the same environment variable as your other routes
 const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
 if (!apiKey) {
@@ -16,40 +15,41 @@ const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 const COVER_LETTER_SYSTEM_PROMPT = `You are an expert professional cover letter writer with years of experience in HR and recruitment. Your task is to create compelling, personalized cover letters that:
 
 1. **Use proper business letter format** with sender/recipient details at the top
-2. **Match the job description** - Align skills and experience with specific requirements
-3. **Tell a story** - Create a narrative that explains why the candidate is perfect for this role
-4. **Show personality** - Let the candidate's unique voice and passion come through
-5. **Demonstrate value** - Highlight specific achievements and how they translate to this role
-6. **Reference relevant work** - Mention specific projects, research, or industry insights that show deep understanding
-7. **Be professional yet personable** - Strike the right balance for corporate communication
+2. **Include professional links** - LinkedIn, GitHub, Portfolio in a clean format
+3. **Match the job description** - Align skills and experience with specific requirements
+4. **Tell a story** - Create a narrative that explains why the candidate is perfect for this role
+5. **Show personality** - Let the candidate's unique voice and passion come through
+6. **Demonstrate value** - Highlight specific achievements and how they translate to this role
+7. **Reference relevant work** - Mention specific projects, research, or industry insights
+8. **Be professional yet personable** - Strike the right balance for corporate communication
 
 CRITICAL FORMAT REQUIREMENTS:
-- Start with sender's full contact information (name, address, email, phone)
+- Start with candidate's full contact information (name, address, email, phone)
+- Include professional links in a clean format: LinkedIn | GitHub | Portfolio (on separate lines)
 - Add current date
 - Include recipient information (Hiring Manager, Company Name, Company Address)
 - Use "Dear Hiring Team," or "Dear [Specific Name]," as salutation
-- Write 3-4 paragraphs of body text
+- Write 3-4 well-developed paragraphs of body text
 - End with "Best regards," or "Sincerely," followed by sender's name
-- Keep total length to 400-500 words
+- Keep it concise but comprehensive (400-500 words)
 
 Structure:
 - Opening: Hook that shows enthusiasm and immediate relevance, mention specific role
 - Body 1: Connect experience to job requirements with SPECIFIC examples and metrics
-- Body 2: Highlight relevant projects, research, or industry knowledge that shows you've done homework
-- Body 3: Show genuine interest in company/mission and explain why you're drawn to it
-- Closing: Confident call to action with specific timeline or next steps
+- Body 2: Highlight relevant projects with GitHub/portfolio references where appropriate
+- Body 3: Show genuine interest in company/mission and explain cultural fit
+- Closing: Confident call to action with specific next steps
 
 Tone Guidelines:
-- Professional but conversational (like the example provided)
+- Professional but conversational
 - Confident but not arrogant
 - Enthusiastic but not desperate
 - Specific and detailed, not generic
 - Use "I'm" and contractions to sound natural
-- Reference specific technologies, methodologies, or industry trends
+- Reference specific technologies, frameworks, or methodologies
 
-Remember: Make it personal, make it relevant, make it memorable. Include specific project names or research areas when available.`;
+Remember: Make it personal, make it relevant, make it memorable. Be concise and impactful.`;
 
-// Add interface for request body
 interface CoverLetterRequest {
   jobRole: string;
   jobDescription?: string;
@@ -57,7 +57,6 @@ interface CoverLetterRequest {
   tone?: string;
 }
 
-// Add interface for user profile
 interface UserProfile {
   name: string;
   email: string;
@@ -75,14 +74,12 @@ interface UserProfile {
   careerGoals?: string;
 }
 
-// Add interface for resume data
 interface ResumeData {
   id?: string;
   originalName?: string;
   resumeText?: string;
 }
 
-// Helper function to research company
 async function researchCompany(companyName: string, jobRole: string): Promise<string> {
   if (!companyName || !genAI) return '';
   
@@ -103,7 +100,7 @@ async function researchCompany(companyName: string, jobRole: string): Promise<st
 4. Specific projects or products relevant to ${jobRole}
 5. Company location/headquarters
 
-Provide concise, factual information in 3-4 sentences. Focus on what would be impressive to mention in a cover letter.
+Provide concise, factual information in 2-3 sentences. Focus on what would be impressive to mention in a cover letter.
 If you cannot find specific information, say "Company information not available" and do not make up details.`;
 
     const result = await model.generateContent(researchPrompt);
@@ -114,7 +111,6 @@ If you cannot find specific information, say "Company information not available"
   }
 }
 
-// Helper function to format current date
 function getCurrentDate(): string {
   const now = new Date();
   const options: Intl.DateTimeFormatOptions = { 
@@ -179,7 +175,6 @@ export async function POST(request: NextRequest) {
     console.log('   Job Description Length:', jobDescription?.length || 0);
     console.log('   Tone:', tone);
 
-    // Validation
     if (!jobRole) {
       return NextResponse.json(
         { success: false, error: 'Job role is required' },
@@ -263,12 +258,9 @@ export async function POST(request: NextRequest) {
       name: userProfile.name || 'Candidate',
       email: userProfile.email,
       phone: userProfile.phone || '',
-      
-      // Use separate address fields
       streetAddress: userProfile.streetAddress || '',
       city: userProfile.city || '',
       state: userProfile.state || '',
-      
       linkedin: userProfile.linkedIn || '',
       github: userProfile.github || '',
       website: userProfile.website || '',
@@ -280,14 +272,21 @@ export async function POST(request: NextRequest) {
       resumeText: resumeText.substring(0, 4000),
     };
 
+    // Build professional links string with markdown hyperlinks
+    const professionalLinks: string[] = [];
+    if (userContext.linkedin) professionalLinks.push(`[LinkedIn](${userContext.linkedin})`);
+    if (userContext.github) professionalLinks.push(`[GitHub](${userContext.github})`);
+    if (userContext.website) professionalLinks.push(`[Portfolio](${userContext.website})`);
+    const linksString = professionalLinks.length > 0 ? professionalLinks.join(' | ') : '';
+
     console.log('📊 User Context Built');
     console.log('   Has Resume:', hasResume);
+    console.log('   Professional Links:', professionalLinks.length);
     console.log('   Experience Level:', userContext.experienceLevel);
-    console.log('   Preferred Tech:', userContext.preferredTech.length);
     console.log('   Has Company Research:', !!companyResearch);
 
     // ==================== GENERATE COVER LETTER ====================
-    console.log('🤖 Generating cover letter with Gemini 2.0 Flash...');
+    console.log('🤖 Generating cover letter with Gemini 2.5 Flash...');
     const aiStartTime = Date.now();
 
     const model = genAI.getGenerativeModel({ 
@@ -299,18 +298,19 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Get current date dynamically
     const currentDate = getCurrentDate();
 
-    const userPrompt = `Generate a compelling cover letter in the EXACT format of the example below:
+    const userPrompt = `Generate a compelling, professional cover letter in the EXACT format below.
 
-EXAMPLE FORMAT (FOLLOW THIS EXACTLY):
+EXACT FORMAT TO FOLLOW:
 """
 [Candidate Name]
 [Street Address]
 [City, State ZIP]
 [Email]
 [Phone]
+${linksString ? '[Professional Links - format as hyperlinked text: LinkedIn | GitHub | Portfolio]' : ''}
+
 [Current Date]
 
 Hiring Manager
@@ -319,15 +319,15 @@ Hiring Manager
 
 Dear Hiring Team,
 
-[Opening paragraph with enthusiasm and role mention]
+[Opening paragraph - 2-3 sentences with enthusiasm and role mention]
 
-[Body paragraph 1 with specific experience and metrics]
+[Body paragraph 1 - 3-4 sentences connecting experience to job with metrics]
 
-[Body paragraph 2 with relevant projects and technical details]
+[Body paragraph 2 - 3-4 sentences with projects and technical details]
 
-[Body paragraph 3 showing company research and genuine interest]
+[Body paragraph 3 - 2-3 sentences showing company research and genuine interest]
 
-[Closing paragraph with confidence and call to action]
+[Closing paragraph - 2 sentences with confidence and call to action]
 
 Best regards,
 [Candidate Name]
@@ -347,10 +347,9 @@ Name: ${userContext.name}
 Email: ${userContext.email}
 ${userContext.phone ? `Phone: ${userContext.phone}` : ''}
 ${userContext.streetAddress ? `Street Address: ${userContext.streetAddress}` : ''}
-${userContext.city ? `City: ${userContext.city}` : ''}
-${userContext.state ? `State: ${userContext.state}` : ''}
+${userContext.city && userContext.state ? `Location: ${userContext.city}, ${userContext.state}` : ''}
+${linksString ? `Professional Links (use markdown hyperlinks): ${linksString}` : ''}
 Experience Level: ${userContext.experienceLevel}
-${userContext.targetRole ? `Target Role: ${userContext.targetRole}` : ''}
 ${userContext.preferredTech.length > 0 ? `Technical Skills: ${userContext.preferredTech.join(', ')}` : ''}
 ${userContext.bio ? `Bio: ${userContext.bio}` : ''}
 ${userContext.careerGoals ? `Career Goals: ${userContext.careerGoals}` : ''}
@@ -360,25 +359,41 @@ ${hasResume ? `RESUME SUMMARY (Extract specific projects, metrics, and achieveme
 TONE: ${tone}
 
 CRITICAL REQUIREMENTS:
-1. START with candidate's contact info block:
-   - Name on first line
-   - Street address on second line (if provided, use: "${userContext.streetAddress}")
-   - City, State on third line (if provided, format as: "${userContext.city}${userContext.city && userContext.state ? ', ' : ''}${userContext.state}")
+1. START with candidate's contact block including:
+   - Name
+   - Street address (if provided: "${userContext.streetAddress}")
+   - City, State (if provided: "${userContext.city}${userContext.city && userContext.state ? ', ' : ''}${userContext.state}")
    - Email
    - Phone
+   ${linksString ? `- Professional links on ONE line using MARKDOWN HYPERLINK format: ${linksString}` : ''}
 2. Add current date: ${currentDate}
 3. Include recipient block (Hiring Manager, Company Name, City/State)
-4. Use conversational, natural tone with contractions ("I'm", "I've", "you're")
-5. Reference SPECIFIC projects from the resume with actual names
-6. Include metrics and numbers where possible
-7. Show you've researched the company (use the company research provided)
-8. Mention specific technologies, frameworks, or methodologies
-9. Keep it 400-500 words
+4. Use conversational tone with contractions ("I'm", "I've", "you're")
+5. Reference SPECIFIC projects from resume with actual names
+6. Include metrics and numbers
+7. ${companyResearch ? 'Show company research knowledge' : 'Show genuine interest in company'}
+8. Mention specific technologies and methodologies
+9. Keep it concise and impactful (400-500 words)
 10. End with "Best regards," and candidate name
 
-Make it sound authentic and enthusiastic like the example. Don't be overly formal or robotic.
+IMPORTANT FOR LINKS: Format professional links as markdown hyperlinks where the link text is the platform name:
+- LinkedIn link should be: [LinkedIn](url)
+- GitHub link should be: [GitHub](url)
+- Portfolio link should be: [Portfolio](url)
+- Separate multiple links with: " | "
+- Example: [LinkedIn](https://linkedin.com/in/user) | [GitHub](https://github.com/user) | [Portfolio](https://portfolio.com)
 
-IMPORTANT: Return ONLY the formatted cover letter, no additional commentary or explanations.`;
+Make it sound authentic, enthusiastic, and professional.
+
+IMPORTANT: Return ONLY the formatted cover letter, no additional commentary.
+
+CRITICAL: Ensure you complete the entire letter including:
+- All body paragraphs
+- Closing statement
+- "Best regards," or "Sincerely,"
+- Candidate name at the end
+
+Do not stop mid-paragraph. Complete the full letter.`;
 
     const fullPrompt = COVER_LETTER_SYSTEM_PROMPT + '\n\n' + userPrompt;
 
@@ -398,11 +413,24 @@ IMPORTANT: Return ONLY the formatted cover letter, no additional commentary or e
         throw new Error('Empty response from AI');
       }
 
+      // Check if response was cut off (ends abruptly without proper closing)
+      const hasProperClosing = coverLetterText.includes('Best regards') || 
+                                coverLetterText.includes('Sincerely') ||
+                                coverLetterText.includes('Regards');
+      
+      if (!hasProperClosing) {
+        console.warn('⚠️ Response appears incomplete, missing proper closing');
+        // Add a note that this might be incomplete
+        coverLetterText += '\n\n[Note: Generation may have been cut off. Please regenerate for a complete letter.]';
+      }
+
       const aiResponseTime = Date.now() - aiStartTime;
       console.log('✅ Cover letter generated');
       console.log('   Length:', coverLetterText.length, 'characters');
+      console.log('   Word count:', coverLetterText.split(/\s+/).length);
       console.log('   AI response time:', aiResponseTime, 'ms');
       console.log('   Tokens used:', tokensUsed);
+      console.log('   Has proper closing:', hasProperClosing);
 
     } catch (geminiError) {
       console.error('❌ Gemini API error:', geminiError);
@@ -473,7 +501,6 @@ IMPORTANT: Return ONLY the formatted cover letter, no additional commentary or e
 
     } catch (saveError) {
       console.error('❌ Error saving cover letter:', saveError);
-      // Return the cover letter anyway, just log the save error
       return NextResponse.json({
         success: true,
         coverLetter: {

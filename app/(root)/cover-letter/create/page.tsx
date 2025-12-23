@@ -3,10 +3,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   FileText, Sparkles, Download, Copy, Check, AlertCircle, 
-  Building2, Briefcase, Wand2, Loader2, 
+  Briefcase, Wand2, Loader2, 
   Settings, CheckCircle2, XCircle, RefreshCw, ChevronDown,
   Save,
-  History
+  History,
+  FileDown
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -49,6 +50,68 @@ export default function CoverLetterGeneratorPage() {
   const [metadata, setMetadata] = useState<CoverLetterMetadata | null>(null);
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const [currentFactIndex, setCurrentFactIndex] = useState(0);
+  const [showToneMenu, setShowToneMenu] = useState(false);
+
+  // Fun facts about cover letters - useful tips in an engaging way
+  const coverLetterFacts = [
+    "🎯 Recruiters spend just 7.4 seconds on your cover letter - start with a bang, not 'I am writing to apply...'",
+    "🔥 The magic formula: Problem they have → Your solution → Proof it worked. That's it!",
+    "💰 Mentioning '$500K revenue increase' beats saying 'increased revenue' - numbers = credibility!",
+    "🎪 Fun fact: Cover letters with a brief personal story get 60% more callbacks than generic ones!",
+    "🚀 'Achieved, Led, Created, Increased' >> 'Responsible for, Worked on, Helped with' - own your wins!",
+    "📱 80% of cover letters are now read on mobile first - keep paragraphs SHORT and punchy!",
+    "🎭 Mirror their vibe: Startup? Be conversational. Corporate? Polish it up. Tech? Show your GitHub!",
+    "⚡ The 3-paragraph power play: 1) Why you're excited 2) Why you're qualified 3) What's next",
+    "🔍 Research hack: Check their 'About' page, latest blog post, or recent LinkedIn updates for insider intel!",
+    "🎨 White space is your friend - dense text = instant skip. Break it up, make it breathable!",
+    "💡 End with confidence: 'I look forward to discussing...' NOT 'I hope to hear from you...'",
+    "🌟 Your LinkedIn/GitHub at the top isn't just decoration - it's proof you're the real deal!",
+    "🎯 Tailor-made > Template. Spending 20 mins customizing beats sending 50 generic letters!",
+    "📊 Data point: Candidates who address hiring managers by name get 2x more responses!",
+    "✨ Show don't tell: 'Built an app used by 10K users' >> 'I'm a skilled developer'",
+  ];
+
+  // Rotate facts every 4 seconds during generation
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isGenerating) {
+      interval = setInterval(() => {
+        setCurrentFactIndex((prev) => (prev + 1) % coverLetterFacts.length);
+      }, 4000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isGenerating, coverLetterFacts.length]);
+
+  // Helper function to convert markdown links to HTML
+  const convertMarkdownLinks = (text: string): string => {
+    return text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 underline">$1</a>');
+  };
+
+  // Handle click outside to close dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      
+      if (showDownloadMenu && !target.closest('.download-dropdown')) {
+        setShowDownloadMenu(false);
+      }
+      
+      if (showToneMenu && !target.closest('.tone-dropdown')) {
+        setShowToneMenu(false);
+      }
+    };
+
+    if (showDownloadMenu || showToneMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showDownloadMenu, showToneMenu]);
 
   const checkProfileStatus = useCallback(async () => {
     if (!user) return;
@@ -193,7 +256,9 @@ export default function CoverLetterGeneratorPage() {
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(generatedLetter);
+      // Remove markdown syntax before copying
+      const plainText = generatedLetter.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1: $2');
+      await navigator.clipboard.writeText(plainText);
       setCopied(true);
       toast.success('Copied to clipboard!');
       setTimeout(() => setCopied(false), 2000);
@@ -203,98 +268,73 @@ export default function CoverLetterGeneratorPage() {
     }
   };
 
-  const handleDownloadTxt = () => {
-    const element = document.createElement('a');
-    const file = new Blob([generatedLetter], { type: 'text/plain' });
-    element.href = URL.createObjectURL(file);
-    element.download = `cover_letter_${jobRole.replace(/\s+/g, '_')}_${Date.now()}.txt`;
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
-    setShowDownloadMenu(false);
-    toast.success('Downloaded as TXT');
-  };
-
-  const handleDownloadWord = async () => {
+  const handleDownloadPDF = async () => {
     try {
-      const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="UTF-8">
-          <style>
-            body {
-              font-family: 'Calibri', 'Arial', sans-serif;
-              font-size: 11pt;
-              line-height: 1.5;
-              margin: 1in;
-            }
-            p {
-              margin-bottom: 12pt;
-            }
-          </style>
-        </head>
-        <body>
-          ${generatedLetter.split('\n\n').map(para => `<p>${para.replace(/\n/g, '<br>')}</p>`).join('\n')}
-        </body>
-        </html>
-      `;
-      
-      const blob = new Blob([htmlContent], { 
-        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
+      const response = await fetch('/api/cover-letter/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: generatedLetter,
+          jobRole: jobRole,
+          companyName: companyName,
+          format: 'pdf'
+        })
       });
-      
+
+      if (!response.ok) {
+        throw new Error('PDF generation failed');
+      }
+
+      const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `cover_letter_${jobRole.replace(/\s+/g, '_')}_${Date.now()}.doc`;
+      link.download = `cover_letter_${jobRole.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       
       setShowDownloadMenu(false);
-      toast.success('Downloaded as Word');
-    } catch (err) {
-      console.error('Failed to generate Word document:', err);
-      toast.error('Failed to generate Word document');
+      toast.success('PDF downloaded!');
+    } catch (error) {
+      console.error('Failed to generate PDF:', error);
+      toast.error('Failed to generate PDF');
     }
   };
 
-  const handleDownloadPdf = async () => {
+  const handleDownloadWord = async () => {
     try {
-      const { jsPDF } = await import('jspdf');
-      
-      const doc = new jsPDF();
-      doc.setFont('helvetica');
-      doc.setFontSize(11);
-      
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const margins = 20;
-      const maxLineWidth = pageWidth - (margins * 2);
-      
-      const lines = doc.splitTextToSize(generatedLetter, maxLineWidth);
-      
-      let y = 20;
-      const lineHeight = 7;
-      const pageHeight = doc.internal.pageSize.getHeight();
-      
-      lines.forEach((line: string) => {
-        if (y + lineHeight > pageHeight - 20) {
-          doc.addPage();
-          y = 20;
-        }
-        doc.text(line, margins, y);
-        y += lineHeight;
+      const response = await fetch('/api/cover-letter/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: generatedLetter,
+          jobRole: jobRole,
+          companyName: companyName,
+          format: 'docx'
+        })
       });
-      
-      doc.save(`cover_letter_${jobRole.replace(/\s+/g, '_')}_${Date.now()}.pdf`);
+
+      if (!response.ok) {
+        throw new Error('Word document generation failed');
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `cover_letter_${jobRole.replace(/\s+/g, '_')}_${Date.now()}.docx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
       
       setShowDownloadMenu(false);
-      toast.success('Downloaded as PDF');
-    } catch (err) {
-      console.error('Failed to generate PDF:', err);
-      toast.error('Failed to generate PDF');
+      toast.success('Word document downloaded!');
+    } catch (error) {
+      console.error('Failed to generate Word document:', error);
+      toast.error('Failed to generate Word document');
     }
   };
 
@@ -458,16 +498,13 @@ export default function CoverLetterGeneratorPage() {
                   <label className="block text-sm text-slate-400 mb-2">
                     Company Name <span className="text-slate-500">(optional)</span>
                   </label>
-                  <div className="relative">
-                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                    <input
-                      type="text"
-                      value={companyName}
-                      onChange={(e) => setCompanyName(e.target.value)}
-                      placeholder="e.g., Google"
-                      className="glass-input w-full pl-10 pr-4 py-2.5 rounded-lg text-white placeholder-slate-500 text-sm"
-                    />
-                  </div>
+                  <input
+                    type="text"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    placeholder="e.g., Google"
+                    className="glass-input w-full px-4 py-2.5 rounded-lg text-white placeholder-slate-500 text-sm"
+                  />
                 </div>
 
                 {/* Job Description */}
@@ -479,7 +516,7 @@ export default function CoverLetterGeneratorPage() {
                     value={jobDescription}
                     onChange={(e) => setJobDescription(e.target.value)}
                     placeholder="Paste the job description here..."
-                    rows={6}
+                    rows={8}
                     className="glass-input w-full px-4 py-2.5 rounded-lg text-white placeholder-slate-500 text-sm resize-none"
                   />
                   <div className="flex items-center justify-between mt-2">
@@ -502,17 +539,38 @@ export default function CoverLetterGeneratorPage() {
                   <label className="block text-sm text-slate-400 mb-2">
                     Tone
                   </label>
-                  <select
-                    value={tone}
-                    onChange={(e) => setTone(e.target.value)}
-                    className="glass-input w-full px-4 py-2.5 rounded-lg text-white text-sm"
-                  >
-                    <option value="professional">Professional</option>
-                    <option value="enthusiastic">Enthusiastic</option>
-                    <option value="formal">Formal</option>
-                    <option value="friendly">Friendly</option>
-                    <option value="confident">Confident</option>
-                  </select>
+                  <div className="relative tone-dropdown">
+                    <button
+                      type="button"
+                      onClick={() => setShowToneMenu(!showToneMenu)}
+                      className="glass-input w-full px-4 py-2.5 rounded-lg text-white text-sm text-left flex items-center justify-between cursor-pointer"
+                    >
+                      <span className="capitalize">{tone}</span>
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showToneMenu ? 'rotate-180' : ''}`} />
+                    </button>
+                    
+                    {showToneMenu && (
+                      <div className="absolute left-0 right-0 top-full mt-2 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-lg shadow-xl z-20 overflow-hidden">
+                        {['professional', 'enthusiastic', 'formal', 'friendly', 'confident'].map((toneOption) => (
+                          <button
+                            key={toneOption}
+                            type="button"
+                            onClick={() => {
+                              setTone(toneOption);
+                              setShowToneMenu(false);
+                            }}
+                            className={`w-full px-4 py-2.5 text-left text-sm transition-colors capitalize ${
+                              tone === toneOption 
+                                ? 'bg-blue-500/30 text-blue-300' 
+                                : 'text-white hover:bg-white/5'
+                            }`}
+                          >
+                            {toneOption}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -556,14 +614,57 @@ export default function CoverLetterGeneratorPage() {
                   </button>
                 )}
               </div>
+
+              {/* What Makes a Great Cover Letter - Show only when letter is generated */}
+              {generatedLetter && (
+                <div className="mt-6 pt-6 border-t border-white/5">
+                  <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-purple-400" />
+                    What Makes a Great Cover Letter
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-slate-800/30 rounded-lg p-3.5 border border-white/5">
+                      <div className="w-9 h-9 bg-blue-500/10 rounded-lg flex items-center justify-center mb-2.5">
+                        <FileText className="w-4 h-4 text-blue-400" />
+                      </div>
+                      <p className="text-xs font-medium text-white mb-1">Concise & Clear</p>
+                      <p className="text-xs text-slate-400 leading-relaxed">Keep it 250-400 words</p>
+                    </div>
+                    
+                    <div className="bg-slate-800/30 rounded-lg p-3.5 border border-white/5">
+                      <div className="w-9 h-9 bg-emerald-500/10 rounded-lg flex items-center justify-center mb-2.5">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      </div>
+                      <p className="text-xs font-medium text-white mb-1">Highly Relevant</p>
+                      <p className="text-xs text-slate-400 leading-relaxed">Match job requirements</p>
+                    </div>
+                    
+                    <div className="bg-slate-800/30 rounded-lg p-3.5 border border-white/5">
+                      <div className="w-9 h-9 bg-amber-500/10 rounded-lg flex items-center justify-center mb-2.5">
+                        <Sparkles className="w-4 h-4 text-amber-400" />
+                      </div>
+                      <p className="text-xs font-medium text-white mb-1">Authentic Voice</p>
+                      <p className="text-xs text-slate-400 leading-relaxed">Show genuine interest</p>
+                    </div>
+                    
+                    <div className="bg-slate-800/30 rounded-lg p-3.5 border border-white/5">
+                      <div className="w-9 h-9 bg-purple-500/10 rounded-lg flex items-center justify-center mb-2.5">
+                        <Briefcase className="w-4 h-4 text-purple-400" />
+                      </div>
+                      <p className="text-xs font-medium text-white mb-1">Results-Driven</p>
+                      <p className="text-xs text-slate-400 leading-relaxed">Use concrete examples</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
         {/* Output Section */}
         <div className="space-y-6">
-          <div className="glass-card hover-lift" style={{ minHeight: '600px' }}>
-            <div className="p-6 h-full">
+          <div className="glass-card hover-lift h-full">
+            <div className="p-6 flex flex-col h-full">
               <div className="flex items-center justify-between mb-5">
                 <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                   <div className="w-8 h-8 bg-purple-500/10 rounded-lg flex items-center justify-center">
@@ -573,13 +674,13 @@ export default function CoverLetterGeneratorPage() {
                 </h2>
 
                 {generatedLetter && (
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-2">
                     {/* Save Button */}
                     {!isSaved ? (
                       <button
                         onClick={handleSave}
                         disabled={isSaving}
-                        className="glass-button-primary hover-lift px-4 py-2 rounded-lg flex items-center gap-2 text-sm"
+                        className="glass-button-primary hover-lift px-4 py-2.5 rounded-lg flex items-center gap-2 text-sm"
                         title="Save"
                       >
                         {isSaving ? (
@@ -595,7 +696,7 @@ export default function CoverLetterGeneratorPage() {
                         )}
                       </button>
                     ) : (
-                      <div className="glass-button bg-emerald-500/10 border-emerald-500/20 px-4 py-2 rounded-lg flex items-center gap-2 text-sm">
+                      <div className="glass-button bg-emerald-500/10 border-emerald-500/20 px-4 py-2.5 rounded-lg flex items-center gap-2 text-sm">
                         <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                         <span className="text-emerald-400">Saved</span>
                       </div>
@@ -603,7 +704,7 @@ export default function CoverLetterGeneratorPage() {
 
                     <button
                       onClick={handleCopy}
-                      className="glass-button hover-lift p-2 rounded-lg"
+                      className="glass-button hover-lift p-2.5 rounded-lg"
                       title="Copy"
                     >
                       {copied ? (
@@ -614,10 +715,10 @@ export default function CoverLetterGeneratorPage() {
                     </button>
                     
                     {/* Download Dropdown */}
-                    <div className="relative">
+                    <div className="relative download-dropdown">
                       <button
                         onClick={() => setShowDownloadMenu(!showDownloadMenu)}
-                        className="glass-button hover-lift p-2 rounded-lg flex items-center gap-1"
+                        className="glass-button hover-lift p-2.5 rounded-lg flex items-center gap-1"
                         title="Download"
                       >
                         <Download className="w-4 h-4 text-slate-300" />
@@ -625,35 +726,23 @@ export default function CoverLetterGeneratorPage() {
                       </button>
                       
                       {showDownloadMenu && (
-                        <>
-                          <div 
-                            className="fixed inset-0 z-10" 
-                            onClick={() => setShowDownloadMenu(false)}
-                          />
-                          <div className="absolute right-0 mt-2 w-44 glass-card rounded-lg z-20 overflow-hidden border border-white/10">
-                            <button
-                              onClick={handleDownloadTxt}
-                              className="w-full px-4 py-2.5 text-left text-slate-300 hover:bg-white/5 flex items-center gap-2 text-sm"
-                            >
-                              <FileText className="w-4 h-4" />
-                              Text (.txt)
-                            </button>
-                            <button
-                              onClick={handleDownloadWord}
-                              className="w-full px-4 py-2.5 text-left text-slate-300 hover:bg-white/5 flex items-center gap-2 border-t border-white/5 text-sm"
-                            >
-                              <FileText className="w-4 h-4" />
-                              Word (.docx)
-                            </button>
-                            <button
-                              onClick={handleDownloadPdf}
-                              className="w-full px-4 py-2.5 text-left text-slate-300 hover:bg-white/5 flex items-center gap-2 border-t border-white/5 text-sm"
-                            >
-                              <FileText className="w-4 h-4" />
-                              PDF (.pdf)
-                            </button>
-                          </div>
-                        </>
+                        <div className="absolute right-0 top-full mt-2 w-48 glass-card rounded-lg shadow-xl z-20 overflow-hidden">
+                          <button
+                            onClick={handleDownloadPDF}
+                            className="w-full px-4 py-3 text-left text-sm text-white hover:bg-white/5 flex items-center gap-3 transition-colors"
+                          >
+                            <FileDown className="w-4 h-4 text-red-400" />
+                            <span>Download as PDF</span>
+                          </button>
+                          <div className="h-px bg-white/10" />
+                          <button
+                            onClick={handleDownloadWord}
+                            className="w-full px-4 py-3 text-left text-sm text-white hover:bg-white/5 flex items-center gap-3 transition-colors"
+                          >
+                            <FileDown className="w-4 h-4 text-blue-400" />
+                            <span>Download as Word</span>
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -662,18 +751,22 @@ export default function CoverLetterGeneratorPage() {
 
               {/* Loading State */}
               {isGenerating && (
-                <div className="flex flex-col items-center justify-center py-20">
+                <div className="flex flex-col items-center justify-center flex-1">
                   <div className="w-16 h-16 bg-purple-500/10 rounded-2xl flex items-center justify-center mb-4">
                     <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
                   </div>
-                  <p className="text-white font-medium mb-1">Crafting your cover letter...</p>
-                  <p className="text-slate-400 text-sm">This may take 10-20 seconds</p>
+                  <p className="text-white font-medium mb-3">Crafting your cover letter...</p>
+                  <div className="max-w-md mx-auto text-center min-h-[60px] flex items-center justify-center">
+                    <p className="text-slate-400 text-sm animate-fade-in">
+                      {coverLetterFacts[currentFactIndex]}
+                    </p>
+                  </div>
                 </div>
               )}
 
               {/* Empty State */}
               {!isGenerating && !generatedLetter && !error && (
-                <div className="flex flex-col items-center justify-center py-20">
+                <div className="flex flex-col items-center justify-center flex-1">
                   <div className="w-16 h-16 bg-slate-800/50 rounded-2xl flex items-center justify-center mb-4">
                     <FileText className="w-8 h-8 text-slate-400" />
                   </div>
@@ -684,11 +777,12 @@ export default function CoverLetterGeneratorPage() {
 
               {/* Generated Letter */}
               {generatedLetter && (
-                <div className="space-y-4">
-                  <div className="glass-card p-5 border border-white/5 max-h-[500px] overflow-y-auto">
-                    <div className="whitespace-pre-wrap text-slate-200 text-sm leading-relaxed">
-                      {generatedLetter}
-                    </div>
+                <div className="space-y-4 flex-1 flex flex-col">
+                  <div className="glass-card p-5 border border-white/5 flex-1 overflow-y-auto">
+                    <div 
+                      className="text-slate-200 text-sm leading-relaxed whitespace-pre-wrap"
+                      dangerouslySetInnerHTML={{ __html: convertMarkdownLinks(generatedLetter) }}
+                    />
                   </div>
 
                   {/* Metadata */}

@@ -147,7 +147,7 @@ const ProfileOverview: React.FC<ProfileOverviewProps> = ({
                 asChild
                 className="glass-button-primary hover-lift"
               >
-                <Link href="/createinterview">
+                <Link href="/interview/create">
                   <Target className="h-4 w-4 mr-2" />
                   New Interview
                 </Link>

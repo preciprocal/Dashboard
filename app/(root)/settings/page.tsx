@@ -20,7 +20,6 @@ import {
   Sun,
   Monitor,
   Download,
-  Upload,
   Trash2,
   AlertCircle,
   ArrowLeft,
@@ -40,7 +39,6 @@ interface AppSettings {
     systemUpdates: boolean;
   };
   privacy: {
-    profileVisibility: 'public' | 'private' | 'connections';
     shareAnalytics: boolean;
     allowDataCollection: boolean;
   };
@@ -57,53 +55,46 @@ interface AppSettings {
     practiceReminders: boolean;
     emailFrequency: 'realtime' | 'daily' | 'weekly' | 'never';
   };
-  data: {
-    autoBackup: boolean;
-    backupFrequency: 'daily' | 'weekly' | 'monthly';
-    dataRetention: '30' | '90' | '365' | 'forever';
-  };
 }
+
+const defaultSettings: AppSettings = {
+  notifications: {
+    email: true,
+    push: true,
+    interviewReminders: true,
+    weeklyDigest: true,
+    aiRecommendations: true,
+    systemUpdates: true,
+  },
+  privacy: {
+    shareAnalytics: false,
+    allowDataCollection: true,
+  },
+  appearance: {
+    theme: 'dark',
+    language: 'en',
+    fontSize: 'medium',
+    reducedMotion: false,
+  },
+  preferences: {
+    autoSave: true,
+    soundEffects: true,
+    defaultInterviewType: 'mixed',
+    practiceReminders: true,
+    emailFrequency: 'daily',
+  },
+};
 
 export default function SettingsPage() {
   const [user, loading] = useAuthState(auth);
   const router = useRouter();
   const [activeSection, setActiveSection] = useState('notifications');
   const [isSaving, setSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
-
-  const [settings, setSettings] = useState<AppSettings>({
-    notifications: {
-      email: true,
-      push: true,
-      interviewReminders: true,
-      weeklyDigest: true,
-      aiRecommendations: true,
-      systemUpdates: true,
-    },
-    privacy: {
-      profileVisibility: 'private',
-      shareAnalytics: false,
-      allowDataCollection: true,
-    },
-    appearance: {
-      theme: 'dark',
-      language: 'en',
-      fontSize: 'medium',
-      reducedMotion: false,
-    },
-    preferences: {
-      autoSave: true,
-      soundEffects: true,
-      defaultInterviewType: 'mixed',
-      practiceReminders: true,
-      emailFrequency: 'daily',
-    },
-    data: {
-      autoBackup: true,
-      backupFrequency: 'weekly',
-      dataRetention: '365',
-    },
-  });
+  const [settings, setSettings] = useState<AppSettings>(defaultSettings);
+  const [originalSettings, setOriginalSettings] = useState<AppSettings>(defaultSettings);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -118,31 +109,55 @@ export default function SettingsPage() {
   }, [user]);
 
   const loadSettings = async () => {
+    if (!user) return;
+
+    setIsLoading(true);
     try {
-      const response = await fetch('/api/settings');
+      const token = await user.getIdToken();
+      const response = await fetch('/api/settings', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
       if (response.ok) {
         const data = await response.json();
         if (data.settings) {
           setSettings(data.settings);
+          setOriginalSettings(data.settings);
         }
+      } else {
+        console.error('Failed to load settings');
+        toast.error('Failed to load settings');
       }
     } catch (error) {
       console.error('Error loading settings:', error);
+      toast.error('Error loading settings');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleSave = async () => {
+    if (!user) return;
+
     setSaving(true);
     try {
+      const token = await user.getIdToken();
       const response = await fetch('/api/settings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify({ settings }),
       });
 
       if (response.ok) {
-        toast.success('Settings saved successfully!');
+        const data = await response.json();
+        setOriginalSettings(data.settings);
         setHasChanges(false);
+        toast.success('Settings saved successfully!');
       } else {
         throw new Error('Failed to save settings');
       }
@@ -154,12 +169,14 @@ export default function SettingsPage() {
     }
   };
 
-  const handleReset = () => {
-    if (confirm('Reset all settings to default values?')) {
-      loadSettings();
-      setHasChanges(false);
-      toast.info('Settings reset to defaults');
+  const handleReset = async () => {
+    if (!confirm('Reset all settings to last saved state? This will discard any unsaved changes.')) {
+      return;
     }
+
+    setSettings(originalSettings);
+    setHasChanges(false);
+    toast.info('Settings reset to last saved state');
   };
 
   const updateSettings = (section: keyof AppSettings, key: string, value: string | boolean) => {
@@ -173,7 +190,60 @@ export default function SettingsPage() {
     setHasChanges(true);
   };
 
-  if (loading) {
+  const handleExportData = async () => {
+    if (!user) return;
+
+    setIsExporting(true);
+    
+    try {
+      const token = await user.getIdToken();
+      
+      const response = await fetch('/api/settings/export-data', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit request');
+      }
+
+      toast.success('Data report requested! You will receive your report via email within 24 hours.', {
+        duration: 5000,
+      });
+    } catch (error) {
+      console.error('Error requesting data export:', error);
+      toast.error('Failed to submit data request. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleDeleteAllData = async () => {
+    if (!user) return;
+
+    const confirmText = 'DELETE';
+    const userInput = prompt(
+      `This will permanently delete ALL your data including interviews, resumes, and plans.\n\nType "${confirmText}" to confirm:`
+    );
+
+    if (userInput !== confirmText) {
+      toast.info('Data deletion cancelled');
+      return;
+    }
+
+    try {
+      toast.loading('Deleting all data...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      toast.success('All data would be deleted (API not implemented yet)');
+    } catch (error) {
+      console.error('Error deleting data:', error);
+      toast.error('Failed to delete data');
+    }
+  };
+
+  if (loading || isLoading) {
     return (
       <AnimatedLoader
         isVisible={true}
@@ -192,7 +262,6 @@ export default function SettingsPage() {
     { id: 'privacy', label: 'Privacy & Security', icon: Shield },
     { id: 'appearance', label: 'Appearance', icon: Eye },
     { id: 'preferences', label: 'Preferences', icon: Settings },
-    { id: 'data', label: 'Data Management', icon: Database },
   ];
 
   return (
@@ -235,7 +304,7 @@ export default function SettingsPage() {
                 <button
                   onClick={handleSave}
                   disabled={isSaving}
-                  className="glass-button-primary hover-lift px-4 py-2 rounded-lg flex items-center gap-2 text-sm"
+                  className="glass-button-primary hover-lift px-4 py-2 rounded-lg flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSaving ? (
                     <>
@@ -331,6 +400,7 @@ export default function SettingsPage() {
           {/* Privacy & Security */}
           {activeSection === 'privacy' && (
             <div className="space-y-6">
+              {/* Privacy Settings Card */}
               <div className="glass-card">
                 <div className="p-6 border-b border-white/5">
                   <div className="flex items-center gap-3">
@@ -338,39 +408,13 @@ export default function SettingsPage() {
                       <Shield className="h-5 w-5 text-orange-400" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-white">Privacy & Security</h3>
+                      <h3 className="text-lg font-semibold text-white">Privacy Settings</h3>
                       <p className="text-slate-400 text-sm">Control your data and privacy</p>
                     </div>
                   </div>
                 </div>
 
                 <div className="p-6 space-y-6">
-                  {/* Profile Visibility */}
-                  <div>
-                    <label className="block text-sm text-slate-400 mb-3">
-                      Profile Visibility
-                    </label>
-                    <div className="grid grid-cols-3 gap-3">
-                      {[
-                        { value: 'public', label: 'Public' },
-                        { value: 'private', label: 'Private' },
-                        { value: 'connections', label: 'Connections' },
-                      ].map((option) => (
-                        <button
-                          key={option.value}
-                          onClick={() => updateSettings('privacy', 'profileVisibility', option.value)}
-                          className={`px-4 py-3 rounded-lg text-sm font-medium transition-all ${
-                            settings.privacy.profileVisibility === option.value
-                              ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
-                              : 'bg-white/5 text-slate-300 hover:bg-white/10 border border-white/10'
-                          }`}
-                        >
-                          {option.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
                   {/* Privacy Toggles */}
                   {[
                     { key: 'shareAnalytics', label: 'Share Analytics', desc: 'Help improve the platform with anonymized data' },
@@ -392,8 +436,24 @@ export default function SettingsPage() {
                       </label>
                     </div>
                   ))}
+                </div>
+              </div>
 
-                  {/* Two-Factor Auth */}
+              {/* Security Card */}
+              <div className="glass-card">
+                <div className="p-6 border-b border-white/5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center">
+                      <Key className="h-5 w-5 text-emerald-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">Security</h3>
+                      <p className="text-slate-400 text-sm">Protect your account</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-6">
                   <div className="glass-card p-4 border border-emerald-500/20">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
@@ -402,15 +462,95 @@ export default function SettingsPage() {
                         </div>
                         <div>
                           <h4 className="text-white font-medium text-sm">Two-Factor Authentication</h4>
-                          <p className="text-slate-400 text-xs">Add extra security</p>
+                          <p className="text-slate-400 text-xs">Add an extra layer of security</p>
                         </div>
                       </div>
                       <button
-                        onClick={() => toast.success('2FA setup would open')}
+                        onClick={() => toast.info('2FA setup coming soon')}
                         className="glass-button-primary hover-lift px-4 py-2 rounded-lg text-sm"
                       >
                         Enable
                       </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Data Management Card */}
+              <div className="glass-card">
+                <div className="p-6 border-b border-white/5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                      <Database className="h-5 w-5 text-blue-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">Your Data</h3>
+                      <p className="text-slate-400 text-sm">Export or delete your data</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-6 space-y-6">
+                  {/* Export Data */}
+                  <div className="glass-card p-4 border border-blue-500/20">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 flex-1">
+                        <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                          <Download className="h-5 w-5 text-blue-400" />
+                        </div>
+                        <div>
+                          <h4 className="text-white font-medium text-sm mb-1">
+                            Request Data Report
+                          </h4>
+                          <p className="text-slate-400 text-xs">
+                            Request a complete PDF report of all your data. You will receive it via email within 24 hours.
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleExportData}
+                        disabled={isExporting}
+                        className="glass-button-primary hover-lift px-4 py-2 rounded-lg text-sm font-medium ml-4 flex items-center gap-2 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isExporting ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Submitting...
+                          </>
+                        ) : (
+                          <>
+                            <Download className="w-4 h-4" />
+                            Request Report
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Danger Zone */}
+                  <div className="border-t border-white/5 pt-6">
+                    <h4 className="text-red-400 font-medium mb-4 flex items-center text-sm">
+                      <AlertCircle className="h-4 w-4 mr-2" />
+                      Danger Zone
+                    </h4>
+                    <div className="glass-card p-4 border border-red-500/20">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h5 className="text-white font-medium mb-1 text-sm">
+                            Delete All Data
+                          </h5>
+                          <p className="text-slate-400 text-xs">
+                            Permanently remove all your interviews, resumes, plans, and account data. This action cannot be undone.
+                          </p>
+                        </div>
+                        <button
+                          onClick={handleDeleteAllData}
+                          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium ml-4 flex items-center gap-2 whitespace-nowrap"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Delete All
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -616,125 +756,6 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* Data Management */}
-          {activeSection === 'data' && (
-            <div className="space-y-6">
-              <div className="glass-card">
-                <div className="p-6 border-b border-white/5">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-indigo-500/10 rounded-lg flex items-center justify-center">
-                      <Database className="h-5 w-5 text-indigo-400" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-white">Data Management</h3>
-                      <p className="text-slate-400 text-sm">Manage your data and backups</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-6 space-y-6">
-                  {/* Backup Settings */}
-                  <div>
-                    <label className="block text-sm text-slate-400 mb-2">
-                      Backup Frequency
-                    </label>
-                    <select
-                      value={settings.data.backupFrequency}
-                      onChange={(e) => updateSettings('data', 'backupFrequency', e.target.value)}
-                      className="w-full px-4 py-2.5 glass-input rounded-lg text-white text-sm"
-                    >
-                      <option value="daily">Daily</option>
-                      <option value="weekly">Weekly</option>
-                      <option value="monthly">Monthly</option>
-                    </select>
-                  </div>
-
-                  {/* Data Retention */}
-                  <div>
-                    <label className="block text-sm text-slate-400 mb-2">
-                      Data Retention Period
-                    </label>
-                    <select
-                      value={settings.data.dataRetention}
-                      onChange={(e) => updateSettings('data', 'dataRetention', e.target.value)}
-                      className="w-full px-4 py-2.5 glass-input rounded-lg text-white text-sm"
-                    >
-                      <option value="30">30 Days</option>
-                      <option value="90">90 Days</option>
-                      <option value="365">1 Year</option>
-                      <option value="forever">Forever</option>
-                    </select>
-                  </div>
-
-                  {/* Auto Backup Toggle */}
-                  <div className="flex items-center justify-between p-4 rounded-lg border border-white/5">
-                    <div>
-                      <h4 className="text-white font-medium text-sm">Automatic Backups</h4>
-                      <p className="text-slate-400 text-xs">Backup data to cloud storage</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={settings.data.autoBackup}
-                        onChange={(e) => updateSettings('data', 'autoBackup', e.target.checked)}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                    </label>
-                  </div>
-
-                  {/* Export/Import */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <button
-                      onClick={() => toast.success('Exporting data...')}
-                      className="glass-button hover-lift text-white px-4 py-3 rounded-lg flex items-center justify-center gap-2"
-                    >
-                      <Download className="w-4 h-4" />
-                      Export Data
-                    </button>
-                    <button
-                      onClick={() => toast.success('Import dialog would open')}
-                      className="glass-button hover-lift text-white px-4 py-3 rounded-lg flex items-center justify-center gap-2"
-                    >
-                      <Upload className="w-4 h-4" />
-                      Import Data
-                    </button>
-                  </div>
-
-                  {/* Danger Zone */}
-                  <div className="border-t border-white/5 pt-6">
-                    <h4 className="text-red-400 font-medium mb-4 flex items-center text-sm">
-                      <AlertCircle className="h-4 w-4 mr-2" />
-                      Danger Zone
-                    </h4>
-                    <div className="glass-card p-4 border border-red-500/20">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h5 className="text-white font-medium mb-1 text-sm">
-                            Delete All Data
-                          </h5>
-                          <p className="text-slate-400 text-xs">
-                            Permanently remove all your interviews, resumes, and plans
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => {
-                            if (confirm('Are you sure? This action cannot be undone.')) {
-                              toast.error('Data deletion would proceed here');
-                            }
-                          }}
-                          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium ml-4"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Changes Indicator */}
           {hasChanges && (
             <div className="glass-card border border-blue-500/20">
@@ -748,9 +769,9 @@ export default function SettingsPage() {
                   <button
                     onClick={handleSave}
                     disabled={isSaving}
-                    className="glass-button-primary hover-lift px-4 py-2 rounded-lg text-sm"
+                    className="glass-button-primary hover-lift px-4 py-2 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Save Now
+                    {isSaving ? 'Saving...' : 'Save Now'}
                   </button>
                 </div>
               </div>

@@ -994,12 +994,9 @@ export default function Dashboard() {
             </div>
           </div>
         ) : stats.plannerStats && stats.plannerStats.totalPlans > 0 ? (
-          <div 
-            className="glass-card p-5 hover-lift group cursor-pointer"
-            onClick={() => window.location.href = '/planner'}
-          >
+          <div className="glass-card p-5 group">
             <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 gradient-success rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-glass">
+              <div className="w-12 h-12 gradient-success rounded-xl flex items-center justify-center shadow-glass">
                 <CheckCircle2 className="w-6 h-6 text-white" />
               </div>
               <div className="text-right">

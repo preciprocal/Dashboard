@@ -27,7 +27,8 @@ import {
   Building2,
   Calendar,
   TrendingUp,
-  X
+  X,
+  FileDown
 } from 'lucide-react';
 
 type SortOption = 'all' | 'recent' | 'by-company' | 'by-role';
@@ -78,6 +79,33 @@ export default function CoverLetterDashboard() {
   const [lettersError, setLettersError] = useState<string>('');
   const [selectedLetter, setSelectedLetter] = useState<CoverLetter | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [showDownloadMenu, setShowDownloadMenu] = useState<string | null>(null);
+
+  // Helper function to convert markdown links to HTML
+  const convertMarkdownLinks = (text: string): string => {
+    return text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 underline">$1</a>');
+  };
+
+  // Handle click outside to close download dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showDownloadMenu) {
+        const target = event.target as HTMLElement;
+        // Check if click is outside dropdown menu
+        if (!target.closest('.download-dropdown-menu') && !target.closest('.download-button')) {
+          setShowDownloadMenu(null);
+        }
+      }
+    };
+
+    if (showDownloadMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showDownloadMenu]);
 
   // Define loading steps
   const loadingSteps: LoadingStep[] = [
@@ -101,13 +129,11 @@ export default function CoverLetterDashboard() {
     try {
       setLoadingLetters(true);
       setLettersError('');
-      setLoadingStep(0); // Authenticating
+      setLoadingStep(0);
 
-      // Step 1: Connecting to database
       setLoadingStep(1);
-      await new Promise(resolve => setTimeout(resolve, 200)); // Small delay to show step
+      await new Promise(resolve => setTimeout(resolve, 200));
 
-      // Step 2: Loading cover letters
       setLoadingStep(2);
       const lettersQuery = query(
         collection(db, 'coverLetters'),
@@ -127,7 +153,6 @@ export default function CoverLetterDashboard() {
 
       setCoverLetters(letters);
       
-      // Step 3: Calculating statistics
       setLoadingStep(3);
       if (letters.length > 0) {
         const avgWords = Math.round(
@@ -153,11 +178,9 @@ export default function CoverLetterDashboard() {
         });
       }
 
-      // Step 4: Organizing content
       setLoadingStep(4);
       await new Promise(resolve => setTimeout(resolve, 150));
 
-      // Step 5: Finalizing
       setLoadingStep(5);
       await new Promise(resolve => setTimeout(resolve, 150));
 
@@ -248,7 +271,9 @@ export default function CoverLetterDashboard() {
 
   const handleCopy = async (content: string) => {
     try {
-      await navigator.clipboard.writeText(content);
+      // Remove markdown syntax before copying
+      const plainText = content.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1: $2');
+      await navigator.clipboard.writeText(plainText);
       toast.success('Copied to clipboard!');
     } catch (error) {
       console.error('Failed to copy:', error);
@@ -256,15 +281,74 @@ export default function CoverLetterDashboard() {
     }
   };
 
-  const handleDownload = (letter: CoverLetter) => {
-    const element = document.createElement('a');
-    const file = new Blob([letter.content], { type: 'text/plain' });
-    element.href = URL.createObjectURL(file);
-    element.download = `cover_letter_${letter.jobRole.replace(/\s+/g, '_')}_${Date.now()}.txt`;
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
-    toast.success('Downloaded!');
+  const handleDownloadPDF = async (letter: CoverLetter): Promise<void> => {
+    try {
+      const response = await fetch('/api/cover-letter/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: letter.content,
+          jobRole: letter.jobRole,
+          companyName: letter.companyName,
+          format: 'pdf'
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('PDF generation failed');
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `cover_letter_${letter.jobRole.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.success('PDF downloaded!');
+      setShowDownloadMenu(null);
+    } catch (error) {
+      console.error('Failed to generate PDF:', error);
+      toast.error('Failed to generate PDF');
+    }
+  };
+
+  const handleDownloadWord = async (letter: CoverLetter): Promise<void> => {
+    try {
+      const response = await fetch('/api/cover-letter/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: letter.content,
+          jobRole: letter.jobRole,
+          companyName: letter.companyName,
+          format: 'docx'
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Word document generation failed');
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `cover_letter_${letter.jobRole.replace(/\s+/g, '_')}_${Date.now()}.docx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.success('Word document downloaded!');
+      setShowDownloadMenu(null);
+    } catch (error) {
+      console.error('Failed to generate Word document:', error);
+      toast.error('Failed to generate Word document');
+    }
   };
 
   const filteredLetters = useMemo(() => {
@@ -515,7 +599,7 @@ export default function CoverLetterDashboard() {
               {filteredLetters.map((letter, index) => (
                 <div
                   key={`letter-${letter.id}-${index}`}
-                  className="glass-card hover-lift opacity-0 animate-fadeIn"
+                  className="glass-card hover-lift opacity-0 animate-fadeIn relative"
                   style={{ animationDelay: `${index * 100}ms`, animationFillMode: 'forwards' }}
                 >
                   <div className="p-5">
@@ -539,9 +623,12 @@ export default function CoverLetterDashboard() {
 
                     {/* Preview */}
                     <div className="mb-4">
-                      <p className="text-slate-300 text-sm line-clamp-3">
-                        {letter.content.substring(0, 150)}...
-                      </p>
+                      <div 
+                        className="text-slate-300 text-sm line-clamp-3"
+                        dangerouslySetInnerHTML={{ 
+                          __html: convertMarkdownLinks(letter.content.substring(0, 150) + '...') 
+                        }}
+                      />
                     </div>
 
                     {/* Meta Info */}
@@ -588,13 +675,47 @@ export default function CoverLetterDashboard() {
                       >
                         <Copy className="w-4 h-4 text-slate-300" />
                       </button>
-                      <button
-                        onClick={() => handleDownload(letter)}
-                        className="glass-button hover-lift p-2 rounded-lg"
-                        title="Download"
-                      >
-                        <Download className="w-4 h-4 text-slate-300" />
-                      </button>
+                      
+                      {/* Download Dropdown */}
+                      <div className="relative">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowDownloadMenu(showDownloadMenu === letter.id ? null : letter.id);
+                          }}
+                          className="glass-button hover-lift p-2 rounded-lg download-button"
+                          title="Download"
+                        >
+                          <Download className="w-4 h-4 text-slate-300" />
+                        </button>
+                        
+                        {showDownloadMenu === letter.id && (
+                          <div className="absolute right-0 bottom-full mb-2 w-48 glass-card rounded-lg shadow-xl z-[101] overflow-hidden download-dropdown-menu">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownloadPDF(letter);
+                              }}
+                              className="w-full px-4 py-3 text-left text-sm text-white hover:bg-white/5 flex items-center gap-3 transition-colors"
+                            >
+                              <FileDown className="w-4 h-4 text-red-400" />
+                              <span>Download as PDF</span>
+                            </button>
+                            <div className="h-px bg-white/10" />
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownloadWord(letter);
+                              }}
+                              className="w-full px-4 py-3 text-left text-sm text-white hover:bg-white/5 flex items-center gap-3 transition-colors"
+                            >
+                              <FileDown className="w-4 h-4 text-blue-400" />
+                              <span>Download as Word</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      
                       <button
                         onClick={() => handleDelete(letter.id)}
                         className="glass-button hover-lift p-2 rounded-lg"
@@ -677,7 +798,7 @@ export default function CoverLetterDashboard() {
             </div>
 
             <Link
-              href="/cover-letter/generate"
+              href="/cover-letter/create"
               className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 py-3 rounded-lg"
             >
               <Plus className="w-5 h-5" />
@@ -693,14 +814,22 @@ export default function CoverLetterDashboard() {
 
       {/* Preview Modal */}
       {showPreview && selectedLetter && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div 
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={(e) => {
+            // Close if clicking directly on backdrop
+            if (e.target === e.currentTarget) {
+              setShowPreview(false);
+            }
+          }}
+        >
           <div className="glass-card max-w-3xl w-full max-h-[80vh] overflow-hidden">
             <div className="p-6 border-b border-white/10">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-xl font-semibold text-white">{selectedLetter.jobRole}</h2>
                 <button
                   onClick={() => setShowPreview(false)}
-                  className="text-slate-400 hover:text-white"
+                  className="text-slate-400 hover:text-white transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -711,9 +840,10 @@ export default function CoverLetterDashboard() {
             </div>
             
             <div className="p-6 overflow-y-auto max-h-[60vh]">
-              <div className="whitespace-pre-wrap text-slate-200 text-sm leading-relaxed">
-                {selectedLetter.content}
-              </div>
+              <div 
+                className="text-slate-200 text-sm leading-relaxed whitespace-pre-wrap"
+                dangerouslySetInnerHTML={{ __html: convertMarkdownLinks(selectedLetter.content) }}
+              />
             </div>
 
             <div className="p-6 border-t border-white/10 flex gap-3">
@@ -724,13 +854,46 @@ export default function CoverLetterDashboard() {
                 <Copy className="w-4 h-4" />
                 Copy
               </button>
-              <button
-                onClick={() => handleDownload(selectedLetter)}
-                className="flex-1 glass-button-primary hover-lift px-4 py-2.5 rounded-lg flex items-center justify-center gap-2"
-              >
-                <Download className="w-4 h-4" />
-                Download
-              </button>
+              
+              {/* Download Dropdown in Modal */}
+              <div className="flex-1 relative">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowDownloadMenu(showDownloadMenu === 'modal' ? null : 'modal');
+                  }}
+                  className="w-full glass-button-primary hover-lift px-4 py-2.5 rounded-lg flex items-center justify-center gap-2 download-button"
+                >
+                  <Download className="w-4 h-4" />
+                  Download
+                </button>
+                
+                {showDownloadMenu === 'modal' && (
+                  <div className="absolute bottom-full mb-2 left-0 right-0 glass-card rounded-lg shadow-xl z-[101] overflow-hidden download-dropdown-menu">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDownloadPDF(selectedLetter);
+                      }}
+                      className="w-full px-4 py-3 text-left text-sm text-white hover:bg-white/5 flex items-center gap-3 transition-colors"
+                    >
+                      <FileDown className="w-4 h-4 text-red-400" />
+                      <span>Download as PDF</span>
+                    </button>
+                    <div className="h-px bg-white/10" />
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDownloadWord(selectedLetter);
+                      }}
+                      className="w-full px-4 py-3 text-left text-sm text-white hover:bg-white/5 flex items-center gap-3 transition-colors"
+                    >
+                      <FileDown className="w-4 h-4 text-blue-400" />
+                      <span>Download as Word</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

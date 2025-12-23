@@ -371,7 +371,7 @@ export default function InterviewsDashboard() {
         mode="steps"
         steps={loadingSteps}
         currentStep={loadingStep}
-        loadingText="Loading your interview dashboard..."
+        loadingText="Loading your interviews..."
         showNavigation={true}
       />
     );
