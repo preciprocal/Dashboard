@@ -48,8 +48,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Get redirect URL from query params, default to dashboard
-  const redirectUrl = searchParams.get('redirect') || '/';
+  const redirectUrl = searchParams.get("redirect") || "/";
 
   const formSchema = authFormSchema(type);
   const form = useForm<z.infer<typeof formSchema>>({
@@ -62,7 +61,6 @@ const AuthForm = ({ type }: { type: FormType }) => {
     },
   });
 
-  // Load remembered email on component mount
   useEffect(() => {
     if (type === "sign-in") {
       const rememberedEmail = localStorage.getItem("rememberedEmail");
@@ -75,7 +73,6 @@ const AuthForm = ({ type }: { type: FormType }) => {
     }
   }, [type, form]);
 
-  // Google OAuth Sign In
   const handleGoogleAuth = async () => {
     setIsGoogleLoading(true);
     try {
@@ -83,7 +80,6 @@ const AuthForm = ({ type }: { type: FormType }) => {
       provider.addScope("email");
       provider.addScope("profile");
 
-      // Set persistence for Google auth
       const persistence = rememberMe
         ? browserLocalPersistence
         : browserSessionPersistence;
@@ -93,20 +89,17 @@ const AuthForm = ({ type }: { type: FormType }) => {
       const user = result.user;
       const idToken = await user.getIdToken();
 
-      // Handle Google sign in (this will create user if they don't exist)
       const signInResult = await signIn({
         email: user.email!,
         idToken,
         provider: "google",
       });
 
-      // Check if sign in was successful
       if (!signInResult.success) {
         toast.error(signInResult.message);
         return;
       }
 
-      // Handle remember me for OAuth
       if (rememberMe) {
         localStorage.setItem("rememberedEmail", user.email!);
         localStorage.setItem("rememberMe", "true");
@@ -114,15 +107,11 @@ const AuthForm = ({ type }: { type: FormType }) => {
 
       toast.success(
         type === "sign-up"
-          ? "Account created and signed in successfully with Google!"
-          : "Signed in successfully with Google!"
+          ? "Account created successfully with Google!"
+          : "Signed in successfully!"
       );
 
-      // Add a small delay to ensure session cookie is set
       await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Redirect to the original page or dashboard
-      console.log('✅ Redirecting to:', redirectUrl);
       window.location.href = redirectUrl;
     } catch (error) {
       console.error("Google auth error:", error);
@@ -137,7 +126,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
         errorMessage =
           "An account already exists with this email using a different sign-in method.";
       } else if (err.code === "auth/unauthorized-domain") {
-        errorMessage = "This domain is not authorized for Google sign-in. Please add your domain to Firebase Authorized Domains.";
+        errorMessage = "This domain is not authorized for Google sign-in.";
       }
 
       toast.error(errorMessage);
@@ -146,14 +135,12 @@ const AuthForm = ({ type }: { type: FormType }) => {
     }
   };
 
-  // Facebook OAuth Sign In
   const handleFacebookAuth = async () => {
     setIsFacebookLoading(true);
     try {
       const provider = new FacebookAuthProvider();
       provider.addScope("email");
 
-      // Set persistence for Facebook auth
       const persistence = rememberMe
         ? browserLocalPersistence
         : browserSessionPersistence;
@@ -163,20 +150,17 @@ const AuthForm = ({ type }: { type: FormType }) => {
       const user = result.user;
       const idToken = await user.getIdToken();
 
-      // Handle Facebook sign in (this will create user if they don't exist)
       const signInResult = await signIn({
         email: user.email!,
         idToken,
         provider: "facebook",
       });
 
-      // Check if sign in was successful
       if (!signInResult.success) {
         toast.error(signInResult.message);
         return;
       }
 
-      // Handle remember me for OAuth
       if (rememberMe) {
         localStorage.setItem("rememberedEmail", user.email!);
         localStorage.setItem("rememberMe", "true");
@@ -184,15 +168,11 @@ const AuthForm = ({ type }: { type: FormType }) => {
 
       toast.success(
         type === "sign-up"
-          ? "Account created and signed in successfully with Facebook!"
-          : "Signed in successfully with Facebook!"
+          ? "Account created successfully with Facebook!"
+          : "Signed in successfully!"
       );
 
-      // Add a small delay to ensure session cookie is set
       await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Redirect to the original page or dashboard
-      console.log('✅ Redirecting to:', redirectUrl);
       window.location.href = redirectUrl;
     } catch (error) {
       console.error("Facebook auth error:", error);
@@ -207,7 +187,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
         errorMessage =
           "An account already exists with this email using a different sign-in method.";
       } else if (err.code === "auth/unauthorized-domain") {
-        errorMessage = "This domain is not authorized for Facebook sign-in. Please add your domain to Firebase Authorized Domains.";
+        errorMessage = "This domain is not authorized for Facebook sign-in.";
       }
 
       toast.error(errorMessage);
@@ -222,13 +202,9 @@ const AuthForm = ({ type }: { type: FormType }) => {
       if (type === "sign-up") {
         const { name, email, password } = data;
 
-        const userCredential: UserCredential = await createUserWithEmailAndPassword(
-          auth,
-          email,
-          password
-        );
+        const userCredential: UserCredential =
+          await createUserWithEmailAndPassword(auth, email, password);
 
-        // Password is not needed in signUp action - it's already handled by Firebase Auth
         const result = await signUp({
           uid: userCredential.user.uid,
           name: name!,
@@ -241,17 +217,16 @@ const AuthForm = ({ type }: { type: FormType }) => {
         }
 
         toast.success("Account created successfully. Please sign in.");
-        
-        // Redirect to sign-in with the same redirect parameter
-        const signInUrl = redirectUrl !== '/' 
-          ? `/sign-in?redirect=${encodeURIComponent(redirectUrl)}`
-          : '/sign-in';
+
+        const signInUrl =
+          redirectUrl !== "/"
+            ? `/sign-in?redirect=${encodeURIComponent(redirectUrl)}`
+            : "/sign-in";
         router.push(signInUrl);
         router.refresh();
       } else {
         const { email, password } = data;
 
-        // Set persistence based on remember me checkbox
         const persistence = rememberMe
           ? browserLocalPersistence
           : browserSessionPersistence;
@@ -269,7 +244,6 @@ const AuthForm = ({ type }: { type: FormType }) => {
           return;
         }
 
-        // Handle remember me functionality
         if (rememberMe) {
           localStorage.setItem("rememberedEmail", email);
           localStorage.setItem("rememberMe", "true");
@@ -284,7 +258,6 @@ const AuthForm = ({ type }: { type: FormType }) => {
           provider: "email",
         });
 
-        // Check if sign in was successful
         if (!signInResult.success) {
           toast.error(signInResult.message);
           return;
@@ -292,11 +265,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
 
         toast.success("Signed in successfully.");
 
-        // Add a small delay to ensure session cookie is set
         await new Promise((resolve) => setTimeout(resolve, 500));
-
-        // Redirect to the original page or dashboard
-        console.log('✅ Redirecting to:', redirectUrl);
         window.location.href = redirectUrl;
       }
     } catch (error) {
@@ -315,7 +284,8 @@ const AuthForm = ({ type }: { type: FormType }) => {
       } else if (err.code === "auth/too-many-requests") {
         errorMessage = "Too many failed attempts. Please try again later.";
       } else if (err.code === "auth/invalid-credential") {
-        errorMessage = "Invalid credentials. Please check your email and password.";
+        errorMessage =
+          "Invalid credentials. Please check your email and password.";
       }
 
       toast.error(errorMessage);
@@ -327,60 +297,194 @@ const AuthForm = ({ type }: { type: FormType }) => {
   const isSignIn = type === "sign-in";
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 relative overflow-hidden">
-      {/* Animated Background Elements */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-r from-purple-500/10 to-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "1s" }}></div>
-        <div className="absolute top-1/2 left-1/2 w-80 h-80 bg-gradient-to-r from-pink-500/10 to-purple-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "2s" }}></div>
-      </div>
+    <div className="min-h-screen flex bg-slate-950">
+      {/* Left Side - Branding */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative overflow-hidden">
+        {/* Subtle Grid Pattern */}
+        <div
+          className="absolute inset-0 opacity-[0.02]"
+          style={{
+            backgroundImage: `linear-gradient(rgba(148, 163, 184, 0.1) 1px, transparent 1px),
+                           linear-gradient(90deg, rgba(148, 163, 184, 0.1) 1px, transparent 1px)`,
+            backgroundSize: "50px 50px",
+          }}
+        ></div>
 
-      {/* Main Content Container */}
-      <div className="relative z-10 w-full max-w-md mx-4 py-12">
-        {/* Header Section */}
-        <div className="text-center mb-8">
-          {/* Logo */}
-          <div className="flex items-center justify-center space-x-3 mb-6">
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-2xl">
-              <Image 
-                src={logo} 
-                alt="Preciprocal" 
-                width={56} 
-                height={56} 
-                className="rounded-2xl"
-                priority
-              />
-            </div>
-            <h1 className="text-4xl font-black text-white drop-shadow-lg">
-              Preciprocal
-            </h1>
-          </div>
-
-          {/* Welcome Message */}
-          <div className="space-y-2 mb-8">
-            <h2 className="text-3xl font-bold text-white">
-              {isSignIn ? "Welcome Back!" : "Get Started"}
-            </h2>
-            <p className="text-slate-400 text-sm">
-              {isSignIn
-                ? "Sign in to continue your interview prep journey"
-                : "Create your account and master interviews with AI"}
-            </p>
-          </div>
+        {/* Animated Background Elements */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute top-1/4 -left-20 w-72 h-72 bg-purple-500/5 rounded-full blur-3xl animate-pulse"></div>
+          <div
+            className="absolute bottom-1/4 -right-20 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl animate-pulse"
+            style={{ animationDelay: "2s" }}
+          ></div>
+          <div
+            className="absolute top-1/2 left-1/2 w-64 h-64 bg-slate-700/10 rounded-full blur-2xl animate-pulse"
+            style={{ animationDelay: "4s" }}
+          ></div>
         </div>
 
-        {/* Form Card */}
-        <div className="glass-card p-8 backdrop-blur-xl border border-white/10 shadow-2xl">
+        {/* Geometric Accents */}
+        <div className="absolute top-20 right-20 w-32 h-32 border border-slate-700/20 rounded-2xl rotate-12 opacity-20"></div>
+        <div className="absolute bottom-40 left-20 w-24 h-24 border border-slate-700/20 rounded-full opacity-20"></div>
+
+        {/* Content */}
+        <div className="relative z-10 flex flex-col justify-center px-16 text-white">
+          <div className="mb-12">
+            <div className="flex items-center space-x-4 mb-8">
+              <Image
+                src={logo}
+                alt="Preciprocal"
+                width={56}
+                height={56}
+                className="rounded-2xl shadow-2xl"
+                priority
+              />
+              <h1 className="text-5xl font-black tracking-tight">
+                Preciprocal
+              </h1>
+            </div>
+            <h2 className="text-4xl font-bold mb-5 leading-tight tracking-tight">
+              Tired of AI Taking Your Job?
+              <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400">
+                Use AI to Take It Back.
+              </span>
+            </h2>
+            <p className="text-lg text-slate-400 leading-relaxed max-w-lg">
+              Master interviews, perfect your resume, and land your dream role
+              with AI-powered career prep that puts you ahead of the
+              competition.
+            </p>
+          </div>
+
+          {/* Feature List with Modern Cards */}
+          <div className="space-y-3 mt-8">
+            <div className="group p-5 bg-slate-800/30 hover:bg-slate-800/50 border border-slate-700/30 rounded-xl transition-all duration-300 backdrop-blur-sm">
+              <div className="flex items-start space-x-4">
+                <div className="w-10 h-10 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-purple-500/20 transition-all">
+                  <svg
+                    className="w-5 h-5 text-purple-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                    />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-base text-white mb-1">
+                    AI-Powered Mock Interviews
+                  </h3>
+                  <p className="text-slate-400 text-sm leading-relaxed">
+                    Practice with realistic AI interviewers
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="group p-5 bg-slate-800/30 hover:bg-slate-800/50 border border-slate-700/30 rounded-xl transition-all duration-300 backdrop-blur-sm">
+              <div className="flex items-start space-x-4">
+                <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-500/20 transition-all">
+                  <svg
+                    className="w-5 h-5 text-blue-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-base text-white mb-1">
+                    Smart Resume Analysis
+                  </h3>
+                  <p className="text-slate-400 text-sm leading-relaxed">
+                    Get personalized feedback and improvements
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="group p-5 bg-slate-800/30 hover:bg-slate-800/50 border border-slate-700/30 rounded-xl transition-all duration-300 backdrop-blur-sm">
+              <div className="flex items-start space-x-4">
+                <div className="w-10 h-10 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-cyan-500/20 transition-all">
+                  <svg
+                    className="w-5 h-5 text-cyan-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+                    />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-base text-white mb-1">
+                    Personalized Study Plans
+                  </h3>
+                  <p className="text-slate-400 text-sm leading-relaxed">
+                    Track your progress and stay organized
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Side - Auth Form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-slate-950">
+        <div className="w-full max-w-md">
+          {/* Mobile Logo */}
+          <div className="lg:hidden text-center mb-8">
+            <div className="flex items-center justify-center space-x-3 mb-4">
+              <Image
+                src={logo}
+                alt="Preciprocal"
+                width={48}
+                height={48}
+                className="rounded-xl"
+                priority
+              />
+              <h1 className="text-3xl font-black text-white">Preciprocal</h1>
+            </div>
+          </div>
+
+          {/* Form Header */}
+          <div className="mb-8">
+            <h2 className="text-3xl font-bold text-white mb-2">
+              {isSignIn ? "Welcome back" : "Create your account"}
+            </h2>
+            <p className="text-slate-400">
+              {isSignIn
+                ? "Enter your credentials to access your account"
+                : "Start your journey to interview success"}
+            </p>
+          </div>
+
           {/* Social Login Buttons */}
           <div className="space-y-3 mb-6">
-            {/* Google Auth Button */}
             <button
               onClick={handleGoogleAuth}
               disabled={isGoogleLoading}
-              className="w-full flex items-center justify-center space-x-3 py-3.5 px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all duration-200 group disabled:opacity-50 disabled:cursor-not-allowed hover:border-white/20"
+              className="w-full flex items-center justify-center space-x-3 py-3 px-4 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed group"
             >
               {isGoogleLoading ? (
-                <div className="w-5 h-5 border-2 border-slate-600 border-t-white rounded-full animate-spin"></div>
+                <div className="w-5 h-5 border-2 border-slate-700 border-t-purple-500 rounded-full animate-spin"></div>
               ) : (
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
                   <path
@@ -401,32 +505,29 @@ const AuthForm = ({ type }: { type: FormType }) => {
                   />
                 </svg>
               )}
-              <span className="text-white font-semibold">
+              <span className="text-white font-medium">
                 {isGoogleLoading ? "Connecting..." : "Continue with Google"}
               </span>
             </button>
 
-            {/* Facebook Auth Button */}
             <button
               onClick={handleFacebookAuth}
               disabled={isFacebookLoading}
-              className="w-full flex items-center justify-center space-x-3 py-3.5 px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all duration-200 group disabled:opacity-50 disabled:cursor-not-allowed hover:border-white/20"
+              className="w-full flex items-center justify-center space-x-3 py-3 px-4 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed group"
             >
               {isFacebookLoading ? (
-                <div className="w-5 h-5 border-2 border-slate-600 border-t-white rounded-full animate-spin"></div>
+                <div className="w-5 h-5 border-2 border-slate-700 border-t-purple-500 rounded-full animate-spin"></div>
               ) : (
                 <svg
-                  className="w-5 h-5 text-blue-500"
+                  className="w-5 h-5 text-[#1877F2]"
                   fill="currentColor"
                   viewBox="0 0 24 24"
                 >
                   <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
                 </svg>
               )}
-              <span className="text-white font-semibold">
-                {isFacebookLoading
-                  ? "Connecting..."
-                  : "Continue with Facebook"}
+              <span className="text-white font-medium">
+                {isFacebookLoading ? "Connecting..." : "Continue with Facebook"}
               </span>
             </button>
           </div>
@@ -434,62 +535,59 @@ const AuthForm = ({ type }: { type: FormType }) => {
           {/* Divider */}
           <div className="relative mb-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-white/10"></div>
+              <div className="w-full border-t border-slate-800"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-slate-900 text-slate-400 font-medium">
-                or continue with email
+              <span className="px-4 bg-slate-950 text-slate-500 font-medium">
+                Or continue with email
               </span>
             </div>
           </div>
 
           {/* Form */}
           <Form {...form}>
-            <form
-              onSubmit={form.handleSubmit(onSubmit)}
-              className="space-y-5"
-            >
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               {!isSignIn && (
                 <div>
-                  <label className="block text-sm font-semibold text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
                     Full Name
                   </label>
                   <input
                     {...form.register("name")}
                     type="text"
-                    placeholder="Enter your full name"
-                    className="w-full px-4 py-3.5 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all duration-200 text-white placeholder-slate-500 hover:bg-white/10"
+                    placeholder="John Doe"
+                    className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
                   />
                 </div>
               )}
 
               <div>
-                <label className="block text-sm font-semibold text-slate-300 mb-2">
-                  Email Address
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Email
                 </label>
                 <input
                   {...form.register("email")}
                   type="email"
-                  placeholder="Enter your email address"
-                  className="w-full px-4 py-3.5 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all duration-200 text-white placeholder-slate-500 hover:bg-white/10"
+                  placeholder="you@example.com"
+                  className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-slate-300 mb-2">
                   Password
                 </label>
                 <div className="relative">
                   <input
                     {...form.register("password")}
                     type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
-                    className="w-full px-4 py-3.5 pr-12 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all duration-200 text-white placeholder-slate-500 hover:bg-white/10"
+                    placeholder="••••••••"
+                    className="w-full px-4 py-3 pr-12 bg-slate-900 border border-slate-800 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-300 transition-colors"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-300"
                   >
                     {showPassword ? (
                       <svg
@@ -529,30 +627,33 @@ const AuthForm = ({ type }: { type: FormType }) => {
                   </button>
                 </div>
                 {!isSignIn && (
-                  <p className="text-xs text-slate-400 mt-2 px-1">
-                    Must be at least 6 characters long
+                  <p className="text-xs text-slate-500 mt-2">
+                    Must be at least 6 characters
                   </p>
                 )}
               </div>
 
               {isSignIn && (
-                <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
-                  <label className="flex items-center cursor-pointer">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center cursor-pointer group">
                     <input
                       type="checkbox"
                       checked={rememberMe}
                       onChange={(e) => setRememberMe(e.target.checked)}
-                      className="w-4 h-4 text-purple-600 bg-white/5 border-white/20 rounded focus:ring-purple-500 focus:ring-2 transition-colors"
+                      className="w-4 h-4 text-purple-600 bg-slate-900 border-slate-700 rounded  cursor-pointer accent-purple-600"
+                      style={{
+                        colorScheme: "dark",
+                      }}
                     />
-                    <span className="ml-2 text-sm text-slate-300 font-medium select-none">
+                    <span className="ml-2 text-sm text-slate-400 group-hover:text-slate-300 transition-colors">
                       Remember me
                     </span>
                   </label>
                   <Link
                     href="/forgot-password"
-                    className="text-sm text-white hover:text-slate-200 font-semibold hover:underline transition-colors"
+                    className="text-sm text-purple-500 hover:text-purple-400 font-medium"
                   >
-                    Forgot Password?
+                    Forgot password?
                   </Link>
                 </div>
               )}
@@ -560,53 +661,55 @@ const AuthForm = ({ type }: { type: FormType }) => {
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-bold py-4 px-4 rounded-xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none border-0 mt-6"
+                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-3 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border-0 shadow-lg hover:shadow-xl"
               >
                 {isLoading ? (
                   <div className="flex items-center justify-center space-x-2">
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                     <span>
-                      {isSignIn ? "Signing In..." : "Creating Account..."}
+                      {isSignIn ? "Signing in..." : "Creating account..."}
                     </span>
                   </div>
                 ) : (
-                  <span>{isSignIn ? "Sign In" : "Create Account"}</span>
+                  <span>{isSignIn ? "Sign in" : "Create account"}</span>
                 )}
               </Button>
             </form>
           </Form>
 
-          {/* Switch Auth Type */}
-          <div className="mt-6 text-center">
-            <p className="text-slate-300 text-sm">
-              {isSignIn ? "New to Preciprocal?" : "Already have an account?"}
-              <Link
-                href={
-                  !isSignIn 
-                    ? redirectUrl !== '/' 
-                      ? `/sign-in?redirect=${encodeURIComponent(redirectUrl)}`
-                      : '/sign-in'
-                    : redirectUrl !== '/'
-                      ? `/sign-up?redirect=${encodeURIComponent(redirectUrl)}`
-                      : '/sign-up'
-                }
-                className="ml-1 text-white hover:text-slate-200 font-semibold hover:underline transition-colors"
-              >
-                {!isSignIn ? "Sign in" : "Create an account"}
-              </Link>
-            </p>
-          </div>
-        </div>
+          {/* Footer Link */}
+          <p className="mt-6 text-center text-sm text-slate-400">
+            {isSignIn ? "Don't have an account?" : "Already have an account?"}
+            <Link
+              href={
+                !isSignIn
+                  ? redirectUrl !== "/"
+                    ? `/sign-in?redirect=${encodeURIComponent(redirectUrl)}`
+                    : "/sign-in"
+                  : redirectUrl !== "/"
+                  ? `/sign-up?redirect=${encodeURIComponent(redirectUrl)}`
+                  : "/sign-up"
+              }
+              className="ml-1 text-purple-500 hover:text-purple-400 font-semibold"
+            >
+              {!isSignIn ? "Sign in" : "Sign up"}
+            </Link>
+          </p>
 
-        {/* Footer */}
-        <div className="text-center mt-8">
-          <p className="text-slate-300 text-xs">
+          {/* Terms */}
+          <p className="mt-8 text-center text-xs text-slate-500">
             By continuing, you agree to our{" "}
-            <Link href="/terms" className="text-white hover:text-slate-200 underline font-medium transition-colors">
+            <Link
+              href="/terms"
+              className="text-slate-400 hover:text-slate-300 underline"
+            >
               Terms of Service
             </Link>{" "}
             and{" "}
-            <Link href="/privacy" className="text-white hover:text-slate-200 underline font-medium transition-colors">
+            <Link
+              href="/privacy"
+              className="text-slate-400 hover:text-slate-300 underline"
+            >
               Privacy Policy
             </Link>
           </p>

@@ -19,12 +19,10 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
-  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
 }
 
 html {
   background: var(--background);
-  transition: background-color 0.2s ease-in-out;
 }
 
 body::-webkit-scrollbar {
@@ -339,110 +337,6 @@ body::-webkit-scrollbar {
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
 }
 
-/* Text Colors - Strong specificity for light mode */
-.text-gray-900 {
-  color: rgb(17 24 39) !important;
-}
-
-.dark .text-gray-900 {
-  color: rgb(243 244 246) !important;
-}
-
-.text-gray-700 {
-  color: rgb(55 65 81) !important;
-}
-
-.dark .text-gray-700 {
-  color: rgb(209 213 219) !important;
-}
-
-.text-gray-600 {
-  color: rgb(75 85 99) !important;
-}
-
-.dark .text-gray-600 {
-  color: rgb(156 163 175) !important;
-}
-
-.text-gray-500 {
-  color: rgb(107 114 128) !important;
-}
-
-.dark .text-gray-500 {
-  color: rgb(107 114 128) !important;
-}
-
-.text-gray-400 {
-  color: rgb(156 163 175) !important;
-}
-
-.dark .text-gray-400 {
-  color: rgb(107 114 128) !important;
-}
-
-h1, h2, h3, h4, h5, h6 {
-  color: rgb(17 24 39) !important;
-}
-
-.dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
-  color: rgb(255 255 255) !important;
-}
-
-/* Background Colors */
-.bg-gray-50 {
-  background-color: rgb(249 250 251) !important;
-}
-
-.dark .bg-gray-50 {
-  background-color: rgb(17 24 39) !important;
-}
-
-.bg-white {
-  background-color: rgb(255 255 255) !important;
-}
-
-.dark .bg-white {
-  background-color: rgb(17 24 39) !important;
-}
-
-/* Input & Form Elements */
-input, textarea, select {
-  color: rgb(17 24 39) !important;
-  background-color: white !important;
-  border-color: rgb(226 232 240) !important;
-}
-
-.dark input, .dark textarea, .dark select {
-  color: rgb(243 244 246) !important;
-  background-color: rgb(31 41 55) !important;
-  border-color: rgb(55 65 81) !important;
-}
-
-input::placeholder, textarea::placeholder {
-  color: rgb(107 114 128) !important;
-}
-
-.dark input::placeholder, .dark textarea::placeholder {
-  color: rgb(156 163 175) !important;
-}
-
-/* Border Colors */
-.border-gray-200 {
-  border-color: rgb(229 231 235) !important;
-}
-
-.dark .border-gray-200 {
-  border-color: rgb(55 65 81) !important;
-}
-
-.border-white\/10 {
-  border-color: rgba(226, 232, 240, 0.8) !important;
-}
-
-.dark .border-white\/10 {
-  border-color: rgba(255, 255, 255, 0.1) !important;
-}
-
 /* Scrollbar */
 .scrollbar-hide {
   -ms-overflow-style: none;
@@ -485,54 +379,4 @@ input::placeholder, textarea::placeholder {
 
 .dark .sidebar-scroll::-webkit-scrollbar-thumb:hover {
   background-color: rgba(75, 85, 99, 0.7);
-}
-
-/* Smooth Transitions */
-* {
-  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out, border-color 0.2s ease-in-out;
-}
-
-/* Focus States */
-button:focus-visible, a:focus-visible, input:focus-visible {
-  outline: 2px solid #3b82f6;
-  outline-offset: 2px;
-}
-
-/* Mobile Optimizations */
-@media (max-width: 640px) {
-  .grid-cols-2 {
-    gap: 0.75rem;
-  }
-  
-  .space-y-6 > * + * {
-    margin-top: 1rem;
-  }
-}
-
-@media (max-width: 1023px) {
-  button, a {
-    min-height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-}
-
-/* Reduced Motion */
-@media (prefers-reduced-motion: reduce) {
-  * {
-    transition: none !important;
-    animation: none !important;
-  }
-}
-
-/* High Contrast */
-@media (prefers-contrast: high) {
-  .border-gray-200 {
-    border-color: #000;
-  }
-  
-  .dark .border-gray-700 {
-    border-color: #fff;
-  }
 }
