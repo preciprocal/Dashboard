@@ -82,6 +82,17 @@ const InterviewDetailsClient = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
+  // Normalize interview type to match expected union type
+  const normalizeInterviewType = (type: string): "technical" | "behavioral" | "mixed" => {
+    const normalized = type.toLowerCase();
+    if (normalized === "technical") return "technical";
+    if (normalized === "behavioral" || normalized === "behavioural") return "behavioral";
+    if (normalized === "mixed") return "mixed";
+    return "mixed"; // Default fallback
+  };
+
+  const interviewType = normalizeInterviewType(interview.type);
+
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
@@ -339,7 +350,7 @@ const InterviewDetailsClient = ({
         userName={userName}
         userId={userId}
         interviewRole={interview.role}
-        interviewType={interview.type}
+        interviewType={interviewType}
         questions={interview.questions}
         feedbackId={feedbackId}
         type={type}

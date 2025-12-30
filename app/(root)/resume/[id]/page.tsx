@@ -22,7 +22,6 @@ import {
   Star,
   TrendingUp,
   Loader2,
-  
   Award,
   Activity,
   PenTool,
@@ -477,7 +476,7 @@ export default function ResumeDetailsPage() {
   const feedback = resume.feedback;
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="fixed inset-0 lg:left-64 top-[73px] flex overflow-hidden">
       {/* Left Panel: Resume Preview - FIXED */}
       <div className="w-2/5 flex-shrink-0 flex flex-col h-full">
         <div className="glass-card h-full flex flex-col m-4 mr-2">
@@ -521,31 +520,24 @@ export default function ResumeDetailsPage() {
               </div>
             </div>
             
-            {/* Fixed Buttons at Bottom */}
-            <div className="space-y-2 flex-shrink-0">
-              <Link href={`/resume/writer?id=${resume.id}`}>
-                <button className="w-full glass-button-primary hover-lift px-4 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2">
-                  <PenTool className="w-4 h-4" />
-                  AI Writer
-                </button>
-              </Link>
-              
+            {/* Fixed Buttons at Bottom - Now in a Grid */}
+            <div className="grid grid-cols-2 gap-2 flex-shrink-0">
               <button 
                 onClick={handleViewPdf}
                 disabled={!resume.resumePath}
-                className="w-full glass-button hover-lift text-white px-4 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full glass-button hover-lift text-white px-4 py-2.5 rounded-xl font-medium text-sm flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 <Eye className="w-4 h-4" />
-                View Document
+                <span>View</span>
               </button>
               
               <button 
                 onClick={handleDownloadPdf}
                 disabled={!resume.resumePath}
-                className="w-full glass-button hover-lift text-white px-4 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full glass-button hover-lift text-white px-4 py-2.5 rounded-xl font-medium text-sm flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 <Download className="w-4 h-4" />
-                Download PDF
+                <span>Download</span>
               </button>
             </div>
           </div>
@@ -559,13 +551,23 @@ export default function ResumeDetailsPage() {
           {/* Header */}
           <div className="glass-card animate-fade-in-up">
             <div className="p-6">
-              <Link 
-                href="/resume" 
-                className="inline-flex items-center text-sm text-slate-400 hover:text-white transition-colors mb-4"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                All Resumes
-              </Link>
+              <div className="flex items-center justify-between mb-4">
+                <Link 
+                  href="/resume" 
+                  className="inline-flex items-center text-sm text-slate-400 hover:text-white transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  All Resumes
+                </Link>
+
+                {/* AI Writer Button */}
+                <Link href={`/resume/writer?id=${resume.id}`}>
+                  <button className="glass-button-primary hover-lift px-4 py-2 rounded-xl font-medium text-sm flex items-center gap-2">
+                    <PenTool className="w-4 h-4" />
+                    AI Writer
+                  </button>
+                </Link>
+              </div>
               
               <h1 className="text-2xl font-bold text-white mb-1">Resume Analysis</h1>
               <p className="text-sm text-slate-400">AI-powered evaluation with Preciprocal AI</p>
@@ -596,7 +598,6 @@ export default function ResumeDetailsPage() {
                 { id: 'analysis', label: 'Analysis', icon: Shield },
                 { id: 'jobmatch', label: 'Job Match', icon: Target },
                 { id: 'recruiter', label: 'Recruiter', icon: Eye },
-                
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -664,7 +665,6 @@ export default function ResumeDetailsPage() {
             <div className="animate-fade-in-up">
               <JobMatcher 
                 resumeId={resume.id}
-                
               />
             </div>
           )}
@@ -674,12 +674,9 @@ export default function ResumeDetailsPage() {
               <RecruiterEyeSimulation 
                 resumeId={resume.id}
                 imageUrl={imageUrl}
-                
               />
             </div>
           )}
-
-          
 
           {/* Action Buttons */}
           <div className="flex gap-3 pb-8 animate-fade-in-up">
