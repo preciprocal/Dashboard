@@ -7,10 +7,10 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/firebase/client';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/firebase/client';
-import TinyMCEEditorPanel from '@/components/resume/TinyMCEEditorPanel';
+import CustomEditorPanel from '@/components/resume/CustomEditorPanel';
 import AIAssistantPanel from '@/components/resume/AIAssitantPanel';
 import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
-import { ArrowLeft, FileText, AlertCircle, Sparkles, Eye } from 'lucide-react';
+import { ArrowLeft, FileText, AlertCircle, Sparkles, Eye, X } from 'lucide-react';
 import Link from 'next/link';
 
 interface ResumeData {
@@ -65,17 +65,13 @@ export default function ResumeWriterPage() {
       try {
         console.log('📄 Loading resume:', resumeId);
         
-        // Step 0: Authenticating
         setLoadingStep(0);
-        
-        // Step 1: Fetching resume
         setLoadingStep(1);
         await new Promise(resolve => setTimeout(resolve, 200));
         
         const resumeRef = doc(db, 'resumes', resumeId);
         const resumeSnap = await getDoc(resumeRef);
         
-        // Step 2: Loading resume data
         setLoadingStep(2);
         
         if (!resumeSnap.exists()) {
@@ -91,25 +87,18 @@ export default function ResumeWriterPage() {
 
         console.log('✅ Resume loaded');
 
-        // Use cached HTML
         if (data.resumeHtml && data.resumeHtml.length > 100) {
           console.log('✅ Using cached HTML');
           setResumeContent(data.resumeHtml);
-          
-          // Step 6: Setting up editor
           setLoadingStep(6);
           await new Promise(resolve => setTimeout(resolve, 200));
-          
           setIsLoadingResume(false);
           setIsInitialLoad(false);
           return;
         }
 
-        // Use Gemini Vision
         if (data.imagePath && data.imagePath.startsWith('data:image/')) {
           console.log('🎨 Analyzing with AI Vision...');
-          
-          // Step 3: Analyzing format with AI
           setLoadingStep(3);
 
           try {
@@ -122,9 +111,7 @@ export default function ResumeWriterPage() {
               })
             });
 
-            // Step 4: Generating editable content
             setLoadingStep(4);
-
             const resultText = await response.text();
             console.log('📥 API Response:', response.status);
             
@@ -135,8 +122,6 @@ export default function ResumeWriterPage() {
                 if (result && result.html && result.html.length > 100) {
                   console.log('✅ HTML generated');
                   setResumeContent(result.html);
-                  
-                  // Step 5: Saving formatted resume
                   setLoadingStep(5);
                   
                   await updateDoc(resumeRef, {
@@ -146,11 +131,8 @@ export default function ResumeWriterPage() {
                   });
                   
                   console.log('💾 Saved');
-                  
-                  // Step 6: Setting up editor
                   setLoadingStep(6);
                   await new Promise(resolve => setTimeout(resolve, 200));
-                  
                   setIsLoadingResume(false);
                   setIsInitialLoad(false);
                   return;
@@ -164,34 +146,23 @@ export default function ResumeWriterPage() {
           }
         }
 
-        // Use text with formatting
         if (data.resumeText && data.resumeText.length > 100) {
           console.log('✅ Converting text to HTML');
-          
-          // Step 4: Generating editable content
           setLoadingStep(4);
-          
           const html = convertTextToHtml(data.resumeText);
           setResumeContent(html);
-          
-          // Step 6: Setting up editor
           setLoadingStep(6);
           await new Promise(resolve => setTimeout(resolve, 200));
-          
           setIsLoadingResume(false);
           setIsInitialLoad(false);
           return;
         }
 
-        // Template
         console.log('⚠️ Using template');
         setResumeContent(getTemplate());
         setError('Paste your resume content to get started');
-        
-        // Step 6: Setting up editor
         setLoadingStep(6);
         await new Promise(resolve => setTimeout(resolve, 200));
-        
         setIsLoadingResume(false);
         setIsInitialLoad(false);
 
@@ -241,6 +212,10 @@ export default function ResumeWriterPage() {
 <h2 style="font-size: 14pt; text-transform: uppercase; margin: 1.5em 0 0.5em 0;">SKILLS</h2>
 <p>List your relevant skills here...</p>`;
 
+  const handleExit = () => {
+    window.location.href = `/resume/${resumeId}`;
+  };
+
   // Loading state
   if (loading || (isLoadingResume && isInitialLoad)) {
     return (
@@ -257,7 +232,7 @@ export default function ResumeWriterPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="fixed inset-0 bg-slate-950 z-50 flex items-center justify-center">
         <div className="glass-card hover-lift max-w-md">
           <div className="text-center p-12">
             <FileText className="w-16 h-16 text-slate-600 mx-auto mb-4" />
@@ -277,7 +252,7 @@ export default function ResumeWriterPage() {
 
   if (!resumeId) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="fixed inset-0 bg-slate-950 z-50 flex items-center justify-center">
         <div className="glass-card hover-lift max-w-md">
           <div className="text-center p-12">
             <AlertCircle className="w-16 h-16 text-amber-400 mx-auto mb-4" />
@@ -296,7 +271,7 @@ export default function ResumeWriterPage() {
 
   if (!isLoadingResume && !isInitialLoad && (error || !resumeData)) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="fixed inset-0 bg-slate-950 z-50 flex items-center justify-center">
         <div className="glass-card hover-lift max-w-md">
           <div className="text-center p-12">
             <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
@@ -322,57 +297,68 @@ export default function ResumeWriterPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div className="fixed inset-0 bg-slate-950 z-50 flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="glass-card border-b border-white/5 px-6 py-4 flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-4">
-          <Link href={`/resume/${resumeId}`}>
-            <button className="p-2 hover:bg-white/5 rounded-lg transition-colors">
-              <ArrowLeft className="w-5 h-5 text-slate-400" />
+      <div className="glass-card border-b border-white/5 px-6 py-3 flex-shrink-0">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleExit}
+              className="p-2 rounded-lg text-slate-400 hover:bg-white/5 transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
             </button>
-          </Link>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-purple-400" />
+            
+            <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-white" />
             </div>
+            
             <div>
-              <h1 className="text-xl font-semibold text-white">Resume AI Writer</h1>
-              <p className="text-sm text-slate-400">
+              <h1 className="text-white font-medium text-base">
+                Resume AI Writer
+              </h1>
+              <p className="text-slate-400 text-sm">
                 {resumeData?.fileName || 'AI-powered editor'}
               </p>
             </div>
           </div>
-        </div>
-        
-        <div className="flex items-center gap-3">
-          {resumeData?.imagePath && (
-            <a href={resumeData.imagePath} target="_blank" rel="noopener noreferrer">
+
+          <div className="flex items-center gap-3">
+            {resumeData?.imagePath && (
+              <a href={resumeData.imagePath} target="_blank" rel="noopener noreferrer">
+                <button className="px-4 py-2 glass-button hover-lift text-white rounded-lg flex items-center gap-2 text-sm">
+                  <Eye className="w-4 h-4" />
+                  <span className="hidden sm:inline">View Original</span>
+                </button>
+              </a>
+            )}
+            <Link href={`/resume/${resumeId}`}>
               <button className="px-4 py-2 glass-button hover-lift text-white rounded-lg flex items-center gap-2 text-sm">
-                <Eye className="w-4 h-4" />
-                View Original
+                <FileText className="w-4 h-4" />
+                <span className="hidden sm:inline">Analysis</span>
               </button>
-            </a>
-          )}
-          <Link href={`/resume/${resumeId}`}>
-            <button className="px-4 py-2 glass-button hover-lift text-white rounded-lg flex items-center gap-2 text-sm">
-              <FileText className="w-4 h-4" />
-              Analysis
+            </Link>
+            <button
+              onClick={handleExit}
+              className="p-2 rounded-lg text-slate-400 hover:bg-white/5 transition-colors"
+            >
+              <X className="w-5 h-5" />
             </button>
-          </Link>
+          </div>
         </div>
       </div>
 
       {/* Info Banner */}
-      <div className="glass-card border-b border-emerald-500/20 px-6 py-3 flex items-center gap-3 flex-shrink-0">
+      <div className="glass-card border-b border-emerald-500/20 px-6 py-2.5 flex items-center gap-3 flex-shrink-0">
         <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
         <p className="text-sm text-emerald-300">
           Edit your resume with Word-like features • Copy text to AI panel for improvements
         </p>
       </div>
 
-      {/* Editor Panels */}
-      <div className="flex-1 flex overflow-hidden">
-        <TinyMCEEditorPanel
+      {/* Editor Panels - Full Screen */}
+      <div className="flex-1 flex overflow-hidden min-h-0">
+        <CustomEditorPanel
           initialContent={resumeContent}
           resumeId={resumeId}
           userId={user?.uid ?? ''}

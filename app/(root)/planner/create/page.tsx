@@ -14,7 +14,6 @@ import {
   Target,
   TrendingUp,
   Loader2,
-  Info,
   CheckCircle2
 } from 'lucide-react';
 import Link from 'next/link';
@@ -155,7 +154,7 @@ export default function CreatePlanPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600 dark:text-blue-400" />
       </div>
     );
   }
@@ -166,23 +165,23 @@ export default function CreatePlanPage() {
 
   if (isGenerating) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="h-[calc(100vh-121px)] flex items-center justify-center">
         <div className="max-w-md w-full">
-          <div className="glass-card p-8">
+          <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-8 shadow-sm">
             <div className="text-center mb-6">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 mb-4">
                 <Sparkles className="w-8 h-8 text-white animate-pulse" />
               </div>
-              <h2 className="text-2xl font-semibold text-white mb-2">
+              <h2 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
                 Creating Your Plan
               </h2>
-              <p className="text-slate-400">
+              <p className="text-slate-600 dark:text-slate-400 text-sm">
                 {PROCESSING_STEPS[currentStep]?.message}
               </p>
             </div>
 
             {/* Progress Bar */}
-            <div className="w-full h-2 bg-slate-800/50 rounded-full overflow-hidden mb-6">
+            <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mb-6">
               <div
                 className="h-full bg-gradient-to-r from-blue-600 to-purple-600 transition-all duration-500"
                 style={{ width: `${PROCESSING_STEPS[currentStep]?.progress}%` }}
@@ -190,22 +189,22 @@ export default function CreatePlanPage() {
             </div>
 
             {/* Steps */}
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {PROCESSING_STEPS.map((step, index) => (
                 <div
                   key={index}
-                  className={`flex items-center gap-3 ${
-                    index <= currentStep ? 'opacity-100' : 'opacity-30'
+                  className={`flex items-center gap-3 transition-opacity ${
+                    index <= currentStep ? 'opacity-100' : 'opacity-40'
                   }`}
                 >
                   {index < currentStep ? (
-                    <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
                   ) : index === currentStep ? (
-                    <Loader2 className="w-5 h-5 text-blue-400 animate-spin flex-shrink-0" />
+                    <Loader2 className="w-4 h-4 text-blue-600 dark:text-blue-400 animate-spin flex-shrink-0" />
                   ) : (
-                    <div className="w-5 h-5 rounded-full border-2 border-slate-600 flex-shrink-0" />
+                    <div className="w-4 h-4 rounded-full border-2 border-slate-300 dark:border-slate-700 flex-shrink-0" />
                   )}
-                  <span className="text-sm text-slate-400">
+                  <span className="text-sm text-slate-600 dark:text-slate-400">
                     {step.message}
                   </span>
                 </div>
@@ -218,71 +217,71 @@ export default function CreatePlanPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="glass-card hover-lift">
-        <div className="p-6">
-          <Link
-            href="/planner"
-            className="inline-flex items-center text-sm text-slate-400 hover:text-white mb-4"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Plans
-          </Link>
-          
-          <h1 className="text-2xl font-semibold text-white mb-1">
-            Create Preparation Plan
-          </h1>
-          <p className="text-slate-400 text-sm">
-            AI-powered personalized study plan for your interview
-          </p>
-        </div>
+    <div className="h-[calc(100vh-121px)] flex flex-col overflow-hidden">
+      {/* Header Section - Fixed Height */}
+      <div className="flex-shrink-0 mb-6">
+        <Link
+          href="/planner"
+          className="inline-flex items-center text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white mb-4 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4 mr-1.5" />
+          Back to Plans
+        </Link>
+        
+        <h1 className="text-2xl font-semibold text-slate-900 dark:text-white mb-1">
+          Create Preparation Plan
+        </h1>
+        <p className="text-slate-600 dark:text-slate-400 text-sm">
+          AI-powered personalized study plan for your interview
+        </p>
       </div>
 
-      {/* Form */}
-      <form onSubmit={handleSubmit} className="space-y-6">
-        
-        {/* Basic Information */}
-        <div className="glass-card">
-          <div className="p-6">
-            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <div className="w-8 h-8 bg-blue-500/10 rounded-lg flex items-center justify-center">
-                <Briefcase className="w-4 h-4 text-blue-400" />
+      {/* Form Container - Takes remaining height */}
+      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
+        <form onSubmit={handleSubmit} className="space-y-6 pb-4">
+          
+          {/* Basic Information */}
+          <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-6">
+            <div className="flex items-center gap-2 mb-5">
+              <div className="w-8 h-8 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center">
+                <Briefcase className="w-4 h-4 text-slate-700 dark:text-slate-300" />
               </div>
-              Basic Information
-            </h2>
+              <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+                Basic Information
+              </h2>
+            </div>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm text-slate-400 mb-2">
-                  Job Role <span className="text-red-400">*</span>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                  Job Role <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                   placeholder="e.g., Senior Frontend Engineer"
-                  className="w-full px-4 py-2.5 glass-input rounded-lg text-white placeholder-slate-500 text-sm"
+                  className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm text-slate-400 mb-2">
-                  Company Name <span className="text-slate-500">(Optional)</span>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                  Company Name <span className="text-slate-400 text-xs">(Optional)</span>
                 </label>
                 <input
                   type="text"
                   value={formData.company}
                   onChange={(e) => setFormData({ ...formData, company: e.target.value })}
                   placeholder="e.g., Google, Microsoft"
-                  className="w-full px-4 py-2.5 glass-input rounded-lg text-white placeholder-slate-500 text-sm"
+                  className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm"
                 />
               </div>
 
               <div>
-                <label className="block text-sm text-slate-400 mb-2">
-                  Interview Date <span className="text-red-400">*</span>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                  Interview Date <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="date"
@@ -290,22 +289,22 @@ export default function CreatePlanPage() {
                   onChange={(e) => setFormData({ ...formData, interviewDate: e.target.value })}
                   min={new Date().toISOString().split('T')[0]}
                   max={new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
-                  className="w-full px-4 py-2.5 glass-input rounded-lg text-white text-sm"
+                  className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm"
                   required
                 />
                 {formData.interviewDate && (
-                  <p className="mt-2 text-sm text-slate-400 flex items-center">
-                    <Calendar className="w-4 h-4 mr-1" />
-                    {calculateDaysUntilInterview()} days until interview
-                  </p>
+                  <div className="mt-2 flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-400">
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>{calculateDaysUntilInterview()} days until interview</span>
+                  </div>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm text-slate-400 mb-2">
-                  Skill Level <span className="text-red-400">*</span>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                  Skill Level <span className="text-red-500">*</span>
                 </label>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-3 gap-2.5">
                   {(['beginner', 'intermediate', 'advanced'] as SkillLevel[]).map((level) => (
                     <button
                       key={level}
@@ -314,7 +313,7 @@ export default function CreatePlanPage() {
                       className={`px-4 py-2.5 rounded-lg font-medium text-sm transition-all ${
                         formData.skillLevel === level
                           ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
-                          : 'bg-white/5 text-slate-300 hover:bg-white/10 border border-white/10'
+                          : 'bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
                       }`}
                     >
                       <span className="capitalize">{level}</span>
@@ -324,31 +323,31 @@ export default function CreatePlanPage() {
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Focus Areas */}
-        <div className="glass-card">
-          <div className="p-6">
-            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <div className="w-8 h-8 bg-purple-500/10 rounded-lg flex items-center justify-center">
-                <Target className="w-4 h-4 text-purple-400" />
+          {/* Focus Areas */}
+          <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-6">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center">
+                <Target className="w-4 h-4 text-slate-700 dark:text-slate-300" />
               </div>
-              Focus Areas
-            </h2>
-            <p className="text-sm text-slate-400 mb-4">
-              Select areas to focus on (optional)
+              <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+                Focus Areas
+              </h2>
+            </div>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+              Select areas you&apos;d like to prioritize
             </p>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
               {commonFocusAreas.map((area) => (
                 <button
                   key={area}
                   type="button"
                   onClick={() => toggleFocusArea(area)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
                     formData.focusAreas.includes(area)
                       ? 'bg-blue-600 text-white'
-                      : 'bg-white/5 text-slate-300 hover:bg-white/10 border border-white/10'
+                      : 'bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
                   }`}
                 >
                   {area}
@@ -356,88 +355,65 @@ export default function CreatePlanPage() {
               ))}
             </div>
           </div>
-        </div>
 
-        {/* Additional Details */}
-        <div className="glass-card">
-          <div className="p-6">
-            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <div className="w-8 h-8 bg-emerald-500/10 rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-4 h-4 text-emerald-400" />
+          {/* Additional Details */}
+          <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-6">
+            <div className="flex items-center gap-2 mb-5">
+              <div className="w-8 h-8 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center">
+                <TrendingUp className="w-4 h-4 text-slate-700 dark:text-slate-300" />
               </div>
-              Additional Details
-            </h2>
+              <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+                Additional Details
+              </h2>
+            </div>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm text-slate-400 mb-2">
-                  Existing Skills <span className="text-slate-500">(Optional)</span>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                  Existing Skills <span className="text-slate-400 text-xs">(Optional)</span>
                 </label>
                 <input
                   type="text"
                   value={formData.existingSkills}
                   onChange={(e) => setFormData({ ...formData, existingSkills: e.target.value })}
-                  placeholder="e.g., React, Python, AWS (comma separated)"
-                  className="w-full px-4 py-2.5 glass-input rounded-lg text-white placeholder-slate-500 text-sm"
+                  placeholder="React, Python, AWS (comma separated)"
+                  className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm"
                 />
               </div>
 
               <div>
-                <label className="block text-sm text-slate-400 mb-2">
-                  Areas to Improve <span className="text-slate-500">(Optional)</span>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                  Areas to Improve <span className="text-slate-400 text-xs">(Optional)</span>
                 </label>
                 <input
                   type="text"
                   value={formData.weakAreas}
                   onChange={(e) => setFormData({ ...formData, weakAreas: e.target.value })}
-                  placeholder="e.g., System design, Dynamic programming"
-                  className="w-full px-4 py-2.5 glass-input rounded-lg text-white placeholder-slate-500 text-sm"
+                  placeholder="System design, Dynamic programming"
+                  className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm"
                 />
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Info Box */}
-        <div className="glass-card border border-blue-500/20">
-          <div className="p-4">
-            <div className="flex items-start gap-3">
-              <Info className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-slate-300">
-                <p className="font-medium mb-2 text-white">AI will generate:</p>
-                <ul className="space-y-1 text-slate-400">
-                  <li>• Day-by-day study schedule</li>
-                  <li>• Curated resources and practice problems</li>
-                  <li>• Behavioral questions with STAR framework</li>
-                  <li>• Technical topics and guidance</li>
-                </ul>
-              </div>
+          {/* Error */}
+          {error && (
+            <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-lg px-4 py-3">
+              <p className="text-red-700 dark:text-red-400 text-sm">{error}</p>
             </div>
-          </div>
-        </div>
+          )}
 
-        {/* Error */}
-        {error && (
-          <div className="glass-card border border-red-500/20">
-            <div className="p-4">
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                <p className="text-red-400 text-sm">{error}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Submit */}
-        <button
-          type="submit"
-          disabled={isGenerating}
-          className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Sparkles className="w-5 h-5" />
-          <span>Generate Plan</span>
-        </button>
-      </form>
+          {/* Submit */}
+          <button
+            type="submit"
+            disabled={isGenerating}
+            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>Generate Preparation Plan</span>
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

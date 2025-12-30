@@ -20,7 +20,7 @@ interface RewriteRequest {
   section: string;
   originalText: string;
   tone: 'professional' | 'creative' | 'technical' | 'executive';
-  context?: RewriteContext;
+  context?: string | RewriteContext; // Now accepts string (custom prompt) or object (job context)
 }
 
 interface Suggestion {
@@ -48,9 +48,7 @@ export async function POST(request: NextRequest) {
     console.log('🧠 Intelligent Resume Rewrite Started');
     console.log('   Section:', section);
     console.log('   Tone:', tone);
-    console.log('   Job Title:', context?.jobTitle || 'Not provided');
-    console.log('   Company:', context?.companyName || 'Not provided');
-    console.log('   Has Description:', !!context?.jobDescription);
+    console.log('   Context Type:', typeof context);
 
     if (!originalText || !section) {
       return NextResponse.json(
@@ -71,36 +69,68 @@ export async function POST(request: NextRequest) {
       model: 'gemini-2.5-flash'
     });
 
-    // Determine optimization mode
+    // Determine if context is a custom prompt (string) or job context (object)
+    const isCustomPrompt = typeof context === 'string' && context.trim().length > 0;
+    const jobContext = !isCustomPrompt && typeof context === 'object' ? context as RewriteContext : null;
+
     let optimizationMode = 'general';
     let modeDescription = 'General resume enhancement';
-    let jobContext = '';
+    let contextInstructions = '';
 
-    if (context?.jobDescription) {
+    if (isCustomPrompt) {
+      // MODE 4: CUSTOM USER PROMPT (NEW!)
+      optimizationMode = 'custom-prompt';
+      modeDescription = 'Custom user instructions';
+      
+      contextInstructions = `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🪄 MODE 4: CUSTOM USER PROMPT (USER-DIRECTED OPTIMIZATION)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+USER'S CUSTOM INSTRUCTIONS:
+"${context}"
+
+CRITICAL RULES FOR CUSTOM PROMPTS:
+✓ Follow the user's instructions EXACTLY as specified
+✓ Prioritize their specific requests over general best practices
+✓ If they ask for metrics, add specific numbers and percentages
+✓ If they ask for keywords, incorporate those exact terms naturally
+✓ If they ask to make it concise, reduce length while keeping impact
+✓ If they ask for technical depth, add specific tools/technologies
+✓ If they ask for leadership focus, emphasize team management
+✓ If they ask to add detail, expand with specific examples
+✓ Maintain the requested ${tone} tone throughout
+✓ Still optimize for ATS and professional quality
+✓ Don't contradict user's instructions with generic advice
+
+USER SATISFACTION IS HIGHEST PRIORITY - Give them exactly what they asked for!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+`;
+    } else if (jobContext?.jobDescription) {
       // MODE 1: Full job description provided (BEST)
       optimizationMode = 'job-description';
       modeDescription = `Tailored for specific job posting`;
       
-      jobContext = `
+      contextInstructions = `
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🎯 MODE 1: JOB DESCRIPTION OPTIMIZATION (HIGHEST ACCURACY)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 TARGET JOB INFORMATION:
-Position: ${context.jobTitle || 'Not specified'}
-${context.companyName ? `Company: ${context.companyName}` : ''}
+Position: ${jobContext.jobTitle || 'Not specified'}
+${jobContext.companyName ? `Company: ${jobContext.companyName}` : ''}
 
 COMPLETE JOB DESCRIPTION:
-${context.jobDescription}
+${jobContext.jobDescription}
 
-${context.missingKeywords && context.missingKeywords.length > 0 ? `
+${jobContext.missingKeywords && jobContext.missingKeywords.length > 0 ? `
 🔑 CRITICAL MISSING KEYWORDS (Must incorporate naturally):
-${context.missingKeywords.slice(0, 12).join(', ')}
+${jobContext.missingKeywords.slice(0, 12).join(', ')}
 ` : ''}
 
-${context.missingSkills && context.missingSkills.length > 0 ? `
+${jobContext.missingSkills && jobContext.missingSkills.length > 0 ? `
 ⚡ MISSING TECHNICAL SKILLS (Address if relevant):
-${context.missingSkills.slice(0, 10).join(', ')}
+${jobContext.missingSkills.slice(0, 10).join(', ')}
 ` : ''}
 
 OPTIMIZATION STRATEGY:
@@ -115,76 +145,36 @@ OPTIMIZATION STRATEGY:
 CRITICAL: Prioritize keywords that genuinely fit this ${section} section.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `;
-    } else if (context?.jobTitle) {
+    } else if (jobContext?.jobTitle) {
       // MODE 2: Job title/company only - Use AI knowledge
       optimizationMode = 'ai-knowledge';
-      modeDescription = `AI knowledge-based optimization for ${context.jobTitle}`;
+      modeDescription = `AI knowledge-based optimization for ${jobContext.jobTitle}`;
       
-      jobContext = `
+      contextInstructions = `
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🔬 MODE 2: AI KNOWLEDGE-BASED OPTIMIZATION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-TARGET ROLE: ${context.jobTitle}
-${context.companyName ? `TARGET COMPANY: ${context.companyName}` : ''}
+TARGET ROLE: ${jobContext.jobTitle}
+${jobContext.companyName ? `TARGET COMPANY: ${jobContext.companyName}` : ''}
 
 AI RESEARCH INSTRUCTIONS:
 You have extensive knowledge about job markets, industries, and company cultures.
-Use your training data to understand what makes a strong "${context.jobTitle}" candidate.
+Use your training data to understand what makes a strong "${jobContext.jobTitle}" candidate.
 
 ANALYZE AND INCORPORATE:
-1. Typical technical requirements for ${context.jobTitle} roles
+1. Typical technical requirements for ${jobContext.jobTitle} roles
 2. Common skills hiring managers seek for this position
 3. Industry-standard technologies and frameworks
-4. ${context.companyName ? `${context.companyName}'s known tech stack, values, and culture` : 'General industry best practices'}
+4. ${jobContext.companyName ? `${jobContext.companyName}'s known tech stack, values, and culture` : 'General industry best practices'}
 5. Trending tools and methodologies in this field
 6. Expected qualifications based on seniority level in title
 
-${context.companyName === 'Google' ? `
-GOOGLE-SPECIFIC OPTIMIZATION:
-- Tech: Go, Python, Kubernetes, GCP, Bigtable, TensorFlow
-- Values: Innovation at scale, technical excellence, data-driven
-- Culture: "Moonshot thinking", collaborative, fast-paced
-- Keywords: scale, billions of users, distributed systems, ML/AI
-` : ''}
-
-${context.companyName === 'Amazon' ? `
-AMAZON-SPECIFIC OPTIMIZATION:
-- Tech: AWS, Java, Python, DynamoDB, Lambda
-- Values: Customer obsession, ownership, bias for action, frugality
-- Culture: Leadership principles-driven, data-focused, high bar
-- Keywords: customer impact, scalability, ownership, metrics
-` : ''}
-
-${context.companyName === 'Meta' || context.companyName === 'Facebook' ? `
-META-SPECIFIC OPTIMIZATION:
-- Tech: React, Python, PHP, GraphQL, Hack
-- Values: Move fast, be bold, focus on impact, build social value
-- Culture: Hacker mentality, iteration, user-focused
-- Keywords: billions of users, real-time, social impact, innovation
-` : ''}
-
-${context.companyName === 'Microsoft' ? `
-MICROSOFT-SPECIFIC OPTIMIZATION:
-- Tech: Azure, C#, .NET, TypeScript, AI/ML
-- Values: Innovation, diversity, growth mindset, customer success
-- Culture: Collaborative, inclusive, cloud-first
-- Keywords: enterprise scale, cloud transformation, AI integration
-` : ''}
-
-${context.companyName === 'Apple' ? `
-APPLE-SPECIFIC OPTIMIZATION:
-- Tech: Swift, Objective-C, iOS/macOS, Metal, Core ML
-- Values: Excellence, simplicity, privacy, innovation
-- Culture: Design-driven, user experience focus, perfectionism
-- Keywords: user experience, privacy-first, elegant solutions
-` : ''}
-
 RESEARCH-BASED REWRITING:
-✓ Use knowledge of typical ${context.jobTitle} requirements
+✓ Use knowledge of typical ${jobContext.jobTitle} requirements
 ✓ Incorporate technologies commonly used in this role
 ✓ Add skills that are universally valued for this position
-✓ ${context.companyName ? `Apply ${context.companyName}'s cultural values and tech preferences` : 'Use industry standards'}
+✓ ${jobContext.companyName ? `Apply ${jobContext.companyName}'s cultural values and tech preferences` : 'Use industry standards'}
 ✓ Make educated assumptions about needed qualifications
 ✓ Include relevant trending technologies for this field
 
@@ -197,7 +187,7 @@ For highest accuracy (95%), provide the full job description.
       optimizationMode = 'general';
       modeDescription = 'General resume enhancement';
       
-      jobContext = `
+      contextInstructions = `
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📝 MODE 3: GENERAL OPTIMIZATION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -223,7 +213,7 @@ TIP: For role-specific optimization, provide job title and company name!
 
     const prompt = `You are an expert resume writer, ATS specialist, and career coach with deep knowledge of job markets, company cultures, and industry requirements.
 
-${jobContext}
+${contextInstructions}
 
 ORIGINAL TEXT TO REWRITE:
 """
@@ -233,19 +223,29 @@ ${originalText}
 REWRITING REQUIREMENTS:
 - Section: ${section}
 - Tone: ${tone} (${toneDescriptions[tone]})
-- Length: 2-4 powerful sentences
+- Length: ${isCustomPrompt ? 'As appropriate for user request' : '2-4 powerful sentences'}
 - Mode: ${optimizationMode.toUpperCase()}
 
 Generate exactly 3 distinct, high-quality variations. Each must:
+${isCustomPrompt ? `
+1. FOLLOW USER'S CUSTOM INSTRUCTIONS: "${context}"
+2. Still use commanding action verbs (Led, Spearheaded, Architected, Transformed)
+3. Include specific quantifiable achievements when relevant
+4. Be concrete and specific (avoid generic statements)
+5. Sound authentic and natural
+6. Maintain perfect ${tone} tone throughout
+7. Optimize for ATS while fulfilling user's request
+` : `
 1. Use commanding action verbs (Led, Spearheaded, Architected, Transformed, Delivered, Achieved, Pioneered)
 2. Include specific quantifiable achievements with numbers and percentages
 3. ${optimizationMode === 'job-description' ? 'Naturally weave in missing keywords from job description' : 
-     optimizationMode === 'ai-knowledge' ? `Incorporate skills/technologies typical for ${context?.jobTitle} at ${context?.companyName || 'this type of company'}` :
+     optimizationMode === 'ai-knowledge' ? `Incorporate skills/technologies typical for ${jobContext?.jobTitle} at ${jobContext?.companyName || 'this type of company'}` :
      'Use strong industry-standard keywords'}
 4. Be concrete and specific (avoid generic statements)
 5. Sound authentic and natural (not keyword-stuffed)
 6. Maintain perfect ${tone} tone throughout
 7. ${optimizationMode !== 'general' ? 'Maximize job relevance and ATS match score' : 'Maximize general impact'}
+`}
 
 Return ONLY valid JSON (no markdown, no code blocks, no extra text):
 {
@@ -255,23 +255,25 @@ Return ONLY valid JSON (no markdown, no code blocks, no extra text):
       "original": "${originalText.substring(0, 50)}...",
       "rewritten": "[Write comprehensive, impactful text here]",
       "improvements": [
-        "Added quantifiable metrics (+40% specificity)",
-        ${optimizationMode !== 'general' ? '"Incorporated [specific keyword] from requirements",' : '"Enhanced professional impact",'}
+        ${isCustomPrompt ? '"Applied user\'s custom instructions",' : '"Added quantifiable metrics (+40% specificity)",'}
+        ${optimizationMode !== 'general' && !isCustomPrompt ? '"Incorporated [specific keyword] from requirements",' : '"Enhanced professional impact",'}
         "Used stronger action verbs",
-        "Highlighted relevant technical expertise",
+        "Highlighted relevant expertise",
         "Optimized for ATS systems"
       ],
       "tone": "${tone}",
-      "score": ${optimizationMode === 'job-description' ? 95 : optimizationMode === 'ai-knowledge' ? 91 : 87},
-      ${optimizationMode !== 'general' ? `"keywordsAdded": ["keyword1", "keyword2", "keyword3"],` : ''}
-      ${optimizationMode !== 'general' ? `"atsOptimizations": [
-        ${optimizationMode === 'job-description' 
+      "score": ${isCustomPrompt ? 92 : optimizationMode === 'job-description' ? 95 : optimizationMode === 'ai-knowledge' ? 91 : 87},
+      ${optimizationMode !== 'general' || isCustomPrompt ? `"keywordsAdded": ["keyword1", "keyword2", "keyword3"],` : ''}
+      ${optimizationMode !== 'general' || isCustomPrompt ? `"atsOptimizations": [
+        ${isCustomPrompt 
+          ? '"Customized per user instructions"'
+          : optimizationMode === 'job-description' 
           ? '"Incorporated missing keyword from job posting"' 
-          : `"Added typical ${context?.jobTitle} requirements"`},
+          : `"Added typical ${jobContext?.jobTitle} requirements"`},
         "Enhanced technical depth with role-specific terms",
         "Aligned language with industry expectations"
       ],` : ''}
-      "confidenceScore": ${optimizationMode === 'job-description' ? 95 : optimizationMode === 'ai-knowledge' ? 88 : 85},
+      "confidenceScore": ${isCustomPrompt ? 90 : optimizationMode === 'job-description' ? 95 : optimizationMode === 'ai-knowledge' ? 88 : 85},
       "optimizationMode": "${optimizationMode}"
     },
     {
@@ -279,10 +281,10 @@ Return ONLY valid JSON (no markdown, no code blocks, no extra text):
       "rewritten": "[Second variation - different angle, equal quality]",
       "improvements": ["Variation 2 improvements"],
       "tone": "${tone}",
-      "score": ${optimizationMode === 'job-description' ? 93 : optimizationMode === 'ai-knowledge' ? 89 : 85},
-      ${optimizationMode !== 'general' ? `"keywordsAdded": ["keyword4", "keyword5"],` : ''}
-      ${optimizationMode !== 'general' ? `"atsOptimizations": ["Different approach"],` : ''}
-      "confidenceScore": ${optimizationMode === 'job-description' ? 93 : optimizationMode === 'ai-knowledge' ? 86 : 83},
+      "score": ${isCustomPrompt ? 90 : optimizationMode === 'job-description' ? 93 : optimizationMode === 'ai-knowledge' ? 89 : 85},
+      ${optimizationMode !== 'general' || isCustomPrompt ? `"keywordsAdded": ["keyword4", "keyword5"],` : ''}
+      ${optimizationMode !== 'general' || isCustomPrompt ? `"atsOptimizations": ["Different approach"],` : ''}
+      "confidenceScore": ${isCustomPrompt ? 88 : optimizationMode === 'job-description' ? 93 : optimizationMode === 'ai-knowledge' ? 86 : 83},
       "optimizationMode": "${optimizationMode}"
     },
     {
@@ -290,10 +292,10 @@ Return ONLY valid JSON (no markdown, no code blocks, no extra text):
       "rewritten": "[Third variation - unique perspective]",
       "improvements": ["Variation 3 improvements"],
       "tone": "${tone}",
-      "score": ${optimizationMode === 'job-description' ? 91 : optimizationMode === 'ai-knowledge' ? 87 : 83},
-      ${optimizationMode !== 'general' ? `"keywordsAdded": ["keyword6"],` : ''}
-      ${optimizationMode !== 'general' ? `"atsOptimizations": ["Third approach"],` : ''}
-      "confidenceScore": ${optimizationMode === 'job-description' ? 91 : optimizationMode === 'ai-knowledge' ? 84 : 81},
+      "score": ${isCustomPrompt ? 88 : optimizationMode === 'job-description' ? 91 : optimizationMode === 'ai-knowledge' ? 87 : 83},
+      ${optimizationMode !== 'general' || isCustomPrompt ? `"keywordsAdded": ["keyword6"],` : ''}
+      ${optimizationMode !== 'general' || isCustomPrompt ? `"atsOptimizations": ["Third approach"],` : ''}
+      "confidenceScore": ${isCustomPrompt ? 86 : optimizationMode === 'job-description' ? 91 : optimizationMode === 'ai-knowledge' ? 84 : 81},
       "optimizationMode": "${optimizationMode}"
     }
   ]
@@ -303,6 +305,9 @@ Return the JSON object now.`;
 
     console.log('   🎯 Optimization Mode:', optimizationMode.toUpperCase());
     console.log('   📝 Mode Description:', modeDescription);
+    if (isCustomPrompt) {
+      console.log('   🪄 Custom Prompt:', context);
+    }
     console.log('   🤖 Using Gemini 2.5 Flash');
     console.log('   Calling Gemini AI...');
     
@@ -355,9 +360,11 @@ Return the JSON object now.`;
       suggestions: validSuggestions,
       optimizationMode,
       modeDescription,
+      customPromptUsed: isCustomPrompt,
       aiKnowledgeUsed: optimizationMode === 'ai-knowledge',
       jobDescriptionUsed: optimizationMode === 'job-description',
-      confidenceLevel: optimizationMode === 'job-description' ? 'highest' : 
+      confidenceLevel: isCustomPrompt ? 'custom' :
+                       optimizationMode === 'job-description' ? 'highest' : 
                        optimizationMode === 'ai-knowledge' ? 'high' : 'medium',
     });
 

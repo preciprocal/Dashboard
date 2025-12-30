@@ -18,7 +18,7 @@ const stripePromise = loadStripe(
 // ============ INTERFACES ============
 
 interface UserSubscription {
-  plan: "starter" | "pro" | "premium";
+  plan: "free" | "starter" | "pro";
   status: "active" | "trial" | "expired" | "canceled";
   trialEndsAt?: string;
   subscriptionEndsAt?: string;
@@ -50,57 +50,156 @@ interface PricingPlan {
   features: string[];
   popular?: boolean;
   stripePriceId: string;
+  interviewLimit: number;
+}
+
+interface PromoCode {
+  code: string;
+  discountPercent: number;
+  valid: boolean;
+  stripeCouponId?: string;
+  university?: string;
 }
 
 const pricingPlans: PricingPlan[] = [
   {
-    id: "starter",
-    name: "Starter",
+    id: "free",
+    name: "Free",
     price: 0,
     period: "month",
     description: "Perfect for getting started",
     features: [
-      "10 AI interview sessions/month",
-      "Basic feedback & scoring",
-      "Common questions library",
+      "1 AI professional interview",
+      "Unlimited resume ATS scoring",
+      "Unlimited resume optimization",
+      "Unlimited cover letter generation",
+      "Unlimited interview prep plans",
+      "Basic analytics",
+    ],
+    stripePriceId: "price_free",
+    interviewLimit: 1,
+  },
+  {
+    id: "starter",
+    name: "Starter",
+    price: 25,
+    period: "month",
+    description: "Best for active job seekers",
+    features: [
+      "5 AI professional interviews",
+      "Everything in Free",
+      "Interview recordings & transcripts",
+      "Progress tracking dashboard",
+      "Unused interviews rollover (1 month)",
       "Email support",
     ],
+    popular: true,
     stripePriceId: "price_1RfPo9QSkS83MGF9RMqz523j",
+    interviewLimit: 5,
   },
   {
     id: "pro",
     name: "Pro",
-    price: 19,
+    price: 49,
     period: "month",
-    description: "Best for serious job seekers",
+    description: "For serious professionals",
     features: [
-      "Unlimited AI interviews",
-      "Advanced AI feedback & analysis",
-      "Video recording & playback",
-      "Company-specific prep",
-      "Progress analytics",
+      "12 AI professional interviews",
+      "Everything in Starter",
+      "Company-specific interview prep (FAANG, etc.)",
+      "Advanced analytics & insights",
+      "Performance improvement recommendations",
+      "Unused interviews rollover (1 month)",
       "Priority support",
     ],
-    popular: true,
     stripePriceId: "price_1RfPoqQSkS83MGF9ONnCVRl7",
-  },
-  {
-    id: "premium",
-    name: "Premium",
-    price: 39,
-    period: "month",
-    description: "For professionals seeking excellence",
-    features: [
-      "Everything in Pro",
-      "Expert human feedback",
-      "Resume optimization",
-      "Salary negotiation training",
-      "Career coaching resources",
-      "Live chat support",
-    ],
-    stripePriceId: "price_1RfPpSQSkS83MGF9Gdp0CEBt",
+    interviewLimit: 12,
   },
 ];
+
+// ============ PROMO CODE INPUT COMPONENT ============
+
+function PromoCodeInput({
+  onApply,
+  appliedPromo,
+  isLoading,
+}: {
+  onApply: (code: string) => Promise<void>;
+  appliedPromo: PromoCode | null;
+  isLoading: boolean;
+}) {
+  const [code, setCode] = useState("");
+  const [localLoading, setLocalLoading] = useState(false);
+
+  const handleApply = async () => {
+    if (!code.trim()) return;
+    setLocalLoading(true);
+    try {
+      await onApply(code.trim().toUpperCase());
+    } finally {
+      setLocalLoading(false);
+    }
+  };
+
+  const handleRemove = () => {
+    setCode("");
+    onApply("");
+  };
+
+  return (
+    <div className="space-y-2">
+      <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
+        Promo Code
+      </label>
+      {appliedPromo && appliedPromo.valid ? (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div>
+                <span className="text-green-700 dark:text-green-300 font-medium block">
+                  {appliedPromo.code} ({appliedPromo.discountPercent}% off)
+                </span>
+                {appliedPromo.university && (
+                  <span className="text-green-600 dark:text-green-400 text-xs">
+                    {appliedPromo.university}
+                  </span>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={handleRemove}
+              className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-200 text-sm font-medium cursor-pointer"
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex space-x-2">
+          <input
+            type="text"
+            value={code}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
+            placeholder="Enter code"
+            disabled={isLoading || localLoading}
+            className="flex-1 px-4 py-2 bg-white dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
+            onKeyPress={(e) => e.key === "Enter" && handleApply()}
+          />
+          <button
+            onClick={handleApply}
+            disabled={!code.trim() || isLoading || localLoading}
+            className="px-6 py-2 bg-gray-200 dark:bg-white/10 hover:bg-gray-300 dark:hover:bg-white/20 text-gray-900 dark:text-white font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
+            {localLoading ? "..." : "Apply"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ============ PAYMENT REQUEST BUTTON COMPONENT ============
 
@@ -108,12 +207,14 @@ function PaymentRequestButton({
   planId,
   billingCycle,
   user,
+  promoCode,
   onSuccess,
   onError,
 }: {
   planId: string;
   billingCycle: "monthly" | "yearly";
   user: User;
+  promoCode: PromoCode | null;
   onSuccess: () => void;
   onError: (error: string) => void;
 }) {
@@ -122,10 +223,14 @@ function PaymentRequestButton({
   const [canMakePayment, setCanMakePayment] = useState(false);
 
   const plan = pricingPlans.find((p) => p.id === planId);
-  const finalPrice =
+  let finalPrice =
     billingCycle === "yearly"
-      ? Math.floor((plan?.price || 0) * 12 * 0.8)
+      ? Math.round((plan?.price || 0) * 12 * 0.8)
       : plan?.price || 0;
+
+  if (promoCode && promoCode.valid) {
+    finalPrice = Math.round(finalPrice * (1 - promoCode.discountPercent / 100));
+  }
 
   useEffect(() => {
     if (!stripe || !plan) return;
@@ -161,6 +266,8 @@ function PaymentRequestButton({
             billingCycle,
             userId: user.id,
             paymentMethodId: ev.paymentMethod.id,
+            promoCode: promoCode?.valid ? promoCode.code : undefined,
+            couponId: promoCode?.stripeCouponId,
           }),
         });
 
@@ -185,7 +292,7 @@ function PaymentRequestButton({
         onError(err instanceof Error ? err.message : "Payment failed");
       }
     });
-  }, [stripe, plan, finalPrice, billingCycle, user, onSuccess, onError]);
+  }, [stripe, plan, finalPrice, billingCycle, user, promoCode, onSuccess, onError]);
 
   if (!canMakePayment || !paymentRequest) return null;
 
@@ -223,12 +330,14 @@ function StripeCheckoutForm({
   planId,
   billingCycle,
   user,
+  promoCode,
   onSuccess,
   onError,
 }: {
   planId: string;
   billingCycle: "monthly" | "yearly";
   user: User;
+  promoCode: PromoCode | null;
   onSuccess: () => void;
   onError: (errorMsg: string) => void;
 }) {
@@ -253,6 +362,8 @@ function StripeCheckoutForm({
           customerName: user.name,
           billingCycle,
           userId: user.id,
+          promoCode: promoCode?.valid ? promoCode.code : undefined,
+          couponId: promoCode?.stripeCouponId,
         }),
       });
 
@@ -282,17 +393,27 @@ function StripeCheckoutForm({
     }
   };
 
+  const handlePayPalClick = () => {
+    alert("PayPal payment coming soon! Currently accepting credit/debit cards.");
+  };
+
+  let displayPrice = plan?.price || 0;
+  if (promoCode && promoCode.valid) {
+    displayPrice = Math.round(displayPrice * (1 - promoCode.discountPercent / 100));
+  }
+
   return (
     <div>
       <PaymentRequestButton
         planId={planId}
         billingCycle={billingCycle}
         user={user}
+        promoCode={promoCode}
         onSuccess={onSuccess}
         onError={onError}
       />
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-4">
         <div className="p-4 bg-gray-100 dark:bg-white/5 rounded-lg border border-gray-200 dark:border-white/10">
           <CardElement
             options={{
@@ -308,9 +429,9 @@ function StripeCheckoutForm({
         </div>
 
         <button
-          type="submit"
+          onClick={handleSubmit}
           disabled={!stripe || loading}
-          className="w-full py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
         >
           {loading ? (
             <div className="flex items-center justify-center space-x-2">
@@ -318,10 +439,34 @@ function StripeCheckoutForm({
               <span>Processing...</span>
             </div>
           ) : (
-            `Subscribe - $${plan?.price}/${billingCycle === "yearly" ? "year" : "month"}`
+            `Subscribe - $${displayPrice}/${billingCycle === "yearly" ? "year" : "month"}`
           )}
         </button>
-      </form>
+
+        {/* Divider */}
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-200 dark:border-white/10"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-4 bg-white dark:bg-slate-950 text-gray-600 dark:text-slate-400">
+              Or pay with
+            </span>
+          </div>
+        </div>
+
+        {/* PayPal Button */}
+        <button
+          onClick={handlePayPalClick}
+          className="w-full py-3 bg-[#0070ba] hover:bg-[#005ea6] text-white font-medium rounded-lg transition-all cursor-pointer flex items-center justify-center space-x-2"
+        >
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8.32 21.97a.546.546 0 01-.26-.32c-.03-.15-.01-.3.06-.44l2.12-6.43H6.48L8.05 9.2a.51.51 0 01.5-.39h6.19c2.39 0 3.94.48 4.91 1.52.82.87 1.14 2.07 1.01 3.79-.18 2.39-1.18 4.09-3.04 5.2-1.19.71-2.87 1.07-5.01 1.07h-1.59c-.21 0-.41.13-.48.33l-.44 1.33a.55.55 0 01-.52.39h-1.26z"/>
+            <path d="M9.07 7.04c.18-1.15.96-2.04 2.37-2.04h5.59c.72 0 1.34.1 1.86.3.52.19.94.48 1.27.85.66.73.92 1.73.79 3.06-.18 1.87-.99 3.23-2.43 4.06-1.02.58-2.42.89-4.17.89h-1.11c-.21 0-.4.13-.47.33l-.63 1.91c-.03.09-.09.18-.17.23-.08.06-.18.09-.28.09H9.91c-.17 0-.32-.11-.38-.28-.06-.16-.03-.34.07-.47l2.13-6.41z"/>
+          </svg>
+          <span>PayPal (Coming Soon)</span>
+        </button>
+      </div>
     </div>
   );
 }
@@ -355,6 +500,8 @@ export default function SubscriptionPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [showCheckout, setShowCheckout] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [promoCode, setPromoCode] = useState<PromoCode | null>(null);
+  const [promoError, setPromoError] = useState<string>("");
 
   useEffect(() => {
     const loadUserData = async () => {
@@ -372,18 +519,53 @@ export default function SubscriptionPage() {
     loadUserData();
   }, []);
 
+  const handleApplyPromo = async (code: string) => {
+    setPromoError("");
+    
+    if (!code) {
+      setPromoCode(null);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/subscription/validate-promo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.valid) {
+        setPromoError(data.error || "Invalid promo code");
+        setPromoCode({ code, discountPercent: 0, valid: false });
+        return;
+      }
+
+      setPromoCode({
+        code: data.code,
+        discountPercent: data.discountPercent,
+        valid: true,
+        stripeCouponId: data.stripeCouponId,
+        university: data.university,
+      });
+    } catch (err) {
+      setPromoError("Failed to validate promo code");
+      setPromoCode({ code, discountPercent: 0, valid: false });
+    }
+  };
+
   const handlePlanSelect = async (planId: string) => {
     if (!user) {
       alert("Please log in to select a plan");
       return;
     }
 
-    if (planId === "starter") {
-      if (user.subscription.plan === "starter") {
+    if (planId === "free") {
+      if (user.subscription.plan === "free") {
         alert("You're already on the free plan!");
         return;
       }
-      // Handle downgrade logic here
       return;
     }
 
@@ -421,6 +603,7 @@ export default function SubscriptionPage() {
 
     setShowCheckout(false);
     setSelectedPlan(null);
+    setPromoCode(null);
   };
 
   const handlePaymentError = (errorMsg: string) => {
@@ -453,7 +636,12 @@ export default function SubscriptionPage() {
   };
 
   const getYearlyPrice = (monthlyPrice: number) => {
-    return Math.floor(monthlyPrice * 12 * 0.8);
+    return Math.round(monthlyPrice * 12 * 0.8);
+  };
+
+  const calculateFinalPrice = (basePrice: number) => {
+    if (!promoCode || !promoCode.valid) return basePrice;
+    return Math.round(basePrice * (1 - promoCode.discountPercent / 100));
   };
 
   const getButtonText = (plan: PricingPlan) => {
@@ -463,8 +651,8 @@ export default function SubscriptionPage() {
       return user.subscription.status === "trial" ? "Current Trial" : "Current Plan";
     }
 
-    if (plan.id === "starter") return "Downgrade";
-    if (user.subscription.plan === "starter") return "Upgrade";
+    if (plan.id === "free") return "Downgrade";
+    if (user.subscription.plan === "free") return "Upgrade";
     
     return "Select Plan";
   };
@@ -473,7 +661,7 @@ export default function SubscriptionPage() {
   
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center">
+      <div className="flex items-center justify-center" style={{ height: 'calc(100vh - 73px - 3rem)' }}>
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-gray-300 dark:border-white/30 border-t-purple-600 rounded-full animate-spin mx-auto mb-4"></div>
           <div className="text-gray-900 dark:text-white">Loading...</div>
@@ -486,7 +674,7 @@ export default function SubscriptionPage() {
   
   if (!user) {
     return (
-      <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center">
+      <div className="flex items-center justify-center" style={{ height: 'calc(100vh - 73px - 3rem)' }}>
         <div className="text-center max-w-md mx-auto p-6">
           <div className="text-gray-900 dark:text-white text-xl mb-4">Please Log In</div>
           <div className="text-gray-600 dark:text-slate-400 mb-6">
@@ -494,7 +682,7 @@ export default function SubscriptionPage() {
           </div>
           <button
             onClick={() => (window.location.href = "/auth/signin")}
-            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-6 py-3 rounded-lg transition-all"
+            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-6 py-3 rounded-lg transition-all cursor-pointer"
           >
             Go to Login
           </button>
@@ -507,127 +695,151 @@ export default function SubscriptionPage() {
   
   if (showCheckout && selectedPlan) {
     const plan = pricingPlans.find((p) => p.id === selectedPlan);
-    const finalPrice =
+    const basePrice =
       billingCycle === "yearly" ? getYearlyPrice(plan?.price || 0) : plan?.price || 0;
+    const finalPrice = calculateFinalPrice(basePrice);
+    const discount = basePrice - finalPrice;
 
     return (
-      <div className="min-h-screen bg-white dark:bg-slate-950">
-        <div className="container mx-auto px-6 py-8">
-          <div className="max-w-4xl mx-auto">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-8">
-              <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-                Complete Your Subscription
-              </h1>
-              <button
-                onClick={() => setShowCheckout(false)}
-                className="text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-              >
-                ← Back
-              </button>
-            </div>
+      <div>
+        <div className="max-w-4xl mx-auto">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
+              Complete Your Subscription
+            </h1>
+            <button
+              onClick={() => {
+                setShowCheckout(false);
+                setPromoCode(null);
+                setPromoError("");
+              }}
+              className="text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
+            >
+              ← Back
+            </button>
+          </div>
 
-            <div className="grid lg:grid-cols-2 gap-8">
-              {/* Order Summary */}
-              <div className="bg-gray-50 dark:bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-gray-200 dark:border-white/10 h-fit">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                  Order Summary
-                </h3>
+          <div className="grid lg:grid-cols-2 gap-6">
+            {/* Order Summary */}
+            <div className="bg-gray-50 dark:bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-gray-200 dark:border-white/10 h-fit">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                Order Summary
+              </h3>
 
-                <div className="space-y-4 mb-6">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-700 dark:text-slate-300">{plan?.name}</span>
-                    <span className="text-gray-900 dark:text-white font-medium">
-                      ${billingCycle === "yearly" ? getYearlyPrice(plan?.price || 0) : plan?.price}
-                      /{billingCycle === "yearly" ? "year" : "month"}
+              <div className="space-y-4 mb-6">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-700 dark:text-slate-300">{plan?.name}</span>
+                  <span className="text-gray-900 dark:text-white font-medium">
+                    ${basePrice}
+                    /{billingCycle === "yearly" ? "year" : "month"}
+                  </span>
+                </div>
+
+                {billingCycle === "yearly" && (
+                  <div className="flex justify-between items-center text-green-600 dark:text-green-400 text-sm">
+                    <span>Annual discount (20% off)</span>
+                    <span>-${Math.round((plan?.price || 0) * 12 * 0.2)}/year</span>
+                  </div>
+                )}
+
+                {promoCode && promoCode.valid && discount > 0 && (
+                  <div className="flex justify-between items-center text-purple-600 dark:text-purple-400 text-sm">
+                    <span>Promo code ({promoCode.discountPercent}% off)</span>
+                    <span>-${discount}</span>
+                  </div>
+                )}
+
+                <div className="border-t border-gray-200 dark:border-white/10 pt-4">
+                  <div className="flex justify-between items-center text-lg font-semibold">
+                    <span className="text-gray-900 dark:text-white">Total</span>
+                    <span className="text-gray-900 dark:text-white">
+                      ${finalPrice}/{billingCycle === "yearly" ? "year" : "month"}
                     </span>
                   </div>
-
-                  {billingCycle === "yearly" && (
-                    <div className="flex justify-between items-center text-green-600 dark:text-green-400 text-sm">
-                      <span>Annual discount (20% off)</span>
-                      <span>-${(plan?.price || 0) * 12 * 0.2}/year</span>
-                    </div>
-                  )}
-
-                  <div className="border-t border-gray-200 dark:border-white/10 pt-4">
-                    <div className="flex justify-between items-center text-lg font-semibold">
-                      <span className="text-gray-900 dark:text-white">Total</span>
-                      <span className="text-gray-900 dark:text-white">
-                        ${finalPrice}/{billingCycle === "yearly" ? "year" : "month"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Billing Cycle Toggle */}
-                <div className="mb-6">
-                  <div className="flex items-center space-x-2 bg-gray-100 dark:bg-white/5 rounded-lg p-1">
-                    <button
-                      onClick={() => setBillingCycle("monthly")}
-                      className={`flex-1 px-4 py-2 rounded-md font-medium transition-all ${
-                        billingCycle === "monthly"
-                          ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white"
-                          : "text-gray-700 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
-                      }`}
-                    >
-                      Monthly
-                    </button>
-                    <button
-                      onClick={() => setBillingCycle("yearly")}
-                      className={`flex-1 px-4 py-2 rounded-md font-medium transition-all relative ${
-                        billingCycle === "yearly"
-                          ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white"
-                          : "text-gray-700 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
-                      }`}
-                    >
-                      Yearly
-                      {billingCycle !== "yearly" && (
-                        <span className="absolute -top-1 -right-1 bg-green-500 text-xs px-1.5 py-0.5 rounded-full text-white">
-                          20%
-                        </span>
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Features */}
-                <div>
-                  <h4 className="text-gray-900 dark:text-white font-medium mb-3">
-                    What&apos;s included:
-                  </h4>
-                  <ul className="space-y-2">
-                    {plan?.features.map((feature, index) => (
-                      <li key={index} className="flex items-start text-gray-700 dark:text-slate-300 text-sm">
-                        <span className="w-1.5 h-1.5 bg-green-400 rounded-full mr-3 mt-1.5 flex-shrink-0"></span>
-                        {feature}
-                      </li>
-                    ))}
-                  </ul>
                 </div>
               </div>
 
-              {/* Payment Form */}
-              <div className="bg-gray-50 dark:bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-gray-200 dark:border-white/10">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
-                  Payment Details
-                </h3>
-                <Elements stripe={stripePromise}>
-                  <StripeCheckoutForm
-                    planId={selectedPlan}
-                    billingCycle={billingCycle}
-                    user={user}
-                    onSuccess={handlePaymentSuccess}
-                    onError={handlePaymentError}
-                  />
-                </Elements>
+              {/* Promo Code Input */}
+              <div className="mb-6">
+                <PromoCodeInput
+                  onApply={handleApplyPromo}
+                  appliedPromo={promoCode}
+                  isLoading={false}
+                />
+                {promoError && (
+                  <p className="text-red-600 dark:text-red-400 text-sm mt-2">{promoError}</p>
+                )}
+              </div>
 
-                <div className="mt-4 flex items-center justify-center space-x-2 text-gray-600 dark:text-slate-400 text-xs">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-                  </svg>
-                  <span>Secured by Stripe • 256-bit SSL encryption</span>
+              {/* Billing Cycle Toggle */}
+              <div className="mb-6">
+                <div className="flex items-center space-x-2 bg-gray-100 dark:bg-white/5 rounded-lg p-1">
+                  <button
+                    onClick={() => setBillingCycle("monthly")}
+                    className={`flex-1 px-4 py-2 rounded-md font-medium transition-all cursor-pointer ${
+                      billingCycle === "monthly"
+                        ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white"
+                        : "text-gray-700 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
+                    }`}
+                  >
+                    Monthly
+                  </button>
+                  <button
+                    onClick={() => setBillingCycle("yearly")}
+                    className={`flex-1 px-4 py-2 rounded-md font-medium transition-all relative cursor-pointer ${
+                      billingCycle === "yearly"
+                        ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white"
+                        : "text-gray-700 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
+                    }`}
+                  >
+                    Yearly
+                    {billingCycle !== "yearly" && (
+                      <span className="absolute -top-1 -right-1 bg-green-500 text-xs px-1.5 py-0.5 rounded-full text-white">
+                        20%
+                      </span>
+                    )}
+                  </button>
                 </div>
+              </div>
+
+              {/* Features */}
+              <div>
+                <h4 className="text-gray-900 dark:text-white font-medium mb-3">
+                  What&apos;s included:
+                </h4>
+                <ul className="space-y-2">
+                  {plan?.features.map((feature, index) => (
+                    <li key={index} className="flex items-start text-gray-700 dark:text-slate-300 text-sm">
+                      <span className="w-1.5 h-1.5 bg-green-400 rounded-full mr-3 mt-1.5 flex-shrink-0"></span>
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            {/* Payment Form */}
+            <div className="bg-gray-50 dark:bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-gray-200 dark:border-white/10">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
+                Payment Details
+              </h3>
+              <Elements stripe={stripePromise}>
+                <StripeCheckoutForm
+                  planId={selectedPlan}
+                  billingCycle={billingCycle}
+                  user={user}
+                  promoCode={promoCode}
+                  onSuccess={handlePaymentSuccess}
+                  onError={handlePaymentError}
+                />
+              </Elements>
+
+              <div className="mt-4 flex items-center justify-center space-x-2 text-gray-600 dark:text-slate-400 text-xs">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                </svg>
+                <span>Secured by Stripe • 256-bit SSL encryption</span>
               </div>
             </div>
           </div>
@@ -639,108 +851,99 @@ export default function SubscriptionPage() {
   // ============ MAIN PRICING VIEW ============
   
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-950">
-      {/* Hero Section */}
-      <section className="py-20">
-        <div className="container mx-auto px-6 text-center">
-          <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-4">
-            Choose Your Plan
-          </h1>
-          <p className="text-xl text-gray-600 dark:text-slate-400 max-w-2xl mx-auto mb-12">
-            Simple, transparent pricing. Start free, upgrade anytime.
-          </p>
+    <div className="flex flex-col justify-center" style={{ height: 'calc(100vh - 73px - 3rem)' }}>
+      <div className="text-center mb-6">
+        <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
+          Choose Your Plan
+        </h1>
+        <p className="text-lg text-gray-600 dark:text-slate-400">
+          Start free, upgrade anytime. All plans include unlimited resume tools.
+        </p>
+      </div>
 
-          {/* Current Plan Badge */}
-          {user.subscription.plan !== "starter" && (
-            <div className="inline-flex items-center px-4 py-2 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-full text-gray-700 dark:text-slate-300 text-sm mb-8 backdrop-blur-xl">
-              <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
-              Current Plan: {user.subscription.plan.charAt(0).toUpperCase() + user.subscription.plan.slice(1)}
-            </div>
-          )}
+      {/* Current Plan Badge */}
+      {user.subscription.plan !== "free" && (
+        <div className="flex justify-center mb-6">
+          <div className="inline-flex items-center px-4 py-2 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-full text-gray-700 dark:text-slate-300 text-sm backdrop-blur-xl">
+            <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
+            Current Plan: {user.subscription.plan.charAt(0).toUpperCase() + user.subscription.plan.slice(1)}
+          </div>
+        </div>
+      )}
 
-          {/* Pricing Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            {pricingPlans.map((plan) => {
-              const isCurrentPlan = user.subscription.plan === plan.id;
+      {/* Pricing Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto mb-6">
+        {pricingPlans.map((plan) => {
+          const isCurrentPlan = user.subscription.plan === plan.id;
 
-              return (
-                <div
-                  key={plan.id}
-                  className={`relative bg-gray-50 dark:bg-white/5 backdrop-blur-xl rounded-2xl p-8 border transition-all hover:bg-gray-100 dark:hover:bg-white/10 ${
-                    plan.popular
-                      ? "border-purple-500/50 scale-105"
-                      : isCurrentPlan
-                      ? "border-blue-500/50"
-                      : "border-gray-200 dark:border-white/10"
-                  }`}
-                >
-                  {plan.popular && (
-                    <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                      <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-1 rounded-full text-sm font-medium">
-                        Most Popular
-                      </div>
-                    </div>
-                  )}
-
-                  {isCurrentPlan && (
-                    <div className="absolute -top-4 right-4">
-                      <div className="bg-blue-500 text-white px-3 py-1 rounded-full text-xs font-medium">
-                        Current
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="text-center">
-                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                      {plan.name}
-                    </h3>
-                    <div className="text-4xl font-bold mb-2">
-                      <span className="text-gray-900 dark:text-white">${plan.price}</span>
-                      <span className="text-gray-600 dark:text-slate-400 text-lg">/{plan.period}</span>
-                    </div>
-                    <p className="text-gray-600 dark:text-slate-400 mb-6">{plan.description}</p>
-
-                    <ul className="space-y-3 mb-8 text-left">
-                      {plan.features.map((feature, index) => (
-                        <li key={index} className="flex items-start text-gray-700 dark:text-slate-300 text-sm">
-                          <span className="w-1.5 h-1.5 bg-green-400 rounded-full mr-3 mt-1.5 flex-shrink-0"></span>
-                          {feature}
-                        </li>
-                      ))}
-                    </ul>
-
-                    <button
-                      onClick={() => handlePlanSelect(plan.id)}
-                      disabled={isCurrentPlan && user.subscription.status !== "trial"}
-                      className={`w-full py-3 rounded-lg font-medium transition-all ${
-                        isCurrentPlan && user.subscription.status !== "trial"
-                          ? "bg-gray-200 dark:bg-white/10 text-gray-500 dark:text-slate-400 cursor-not-allowed"
-                          : plan.popular
-                          ? "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
-                          : "bg-gray-200 dark:bg-white/10 hover:bg-gray-300 dark:hover:bg-white/20 text-gray-900 dark:text-white"
-                      }`}
-                    >
-                      {getButtonText(plan)}
-                    </button>
+          return (
+            <div
+              key={plan.id}
+              className={`relative bg-gray-50 dark:bg-white/5 backdrop-blur-xl rounded-2xl p-8 border transition-all hover:bg-gray-100 dark:hover:bg-white/10 ${
+                plan.popular
+                  ? "border-purple-500/50 md:scale-105"
+                  : isCurrentPlan
+                  ? "border-blue-500/50"
+                  : "border-gray-200 dark:border-white/10"
+              }`}
+            >
+              {plan.popular && (
+                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                  <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-1 rounded-full text-sm font-medium">
+                    Most Popular
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              )}
 
-          {/* Manage Billing */}
-          {user.subscription.plan !== "starter" && user.subscription.stripeCustomerId && (
-            <div className="mt-12">
-              <button
-                onClick={handleManageBilling}
-                className="bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-900 dark:text-white px-6 py-3 rounded-lg border border-gray-200 dark:border-white/10 transition-all backdrop-blur-xl"
-              >
-                Manage Billing
-              </button>
+              <div className="text-center">
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                  {plan.name}
+                </h3>
+                <div className="text-4xl font-bold mb-2">
+                  <span className="text-gray-900 dark:text-white">${plan.price}</span>
+                  <span className="text-gray-600 dark:text-slate-400 text-lg">/{plan.period}</span>
+                </div>
+                <p className="text-gray-600 dark:text-slate-400 mb-6">{plan.description}</p>
+
+                <ul className="space-y-3 mb-8 text-left">
+                  {plan.features.map((feature, index) => (
+                    <li key={index} className="flex items-start text-gray-700 dark:text-slate-300 text-sm">
+                      <span className="w-1.5 h-1.5 bg-green-400 rounded-full mr-3 mt-1.5 flex-shrink-0"></span>
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+
+                <button
+                  onClick={() => handlePlanSelect(plan.id)}
+                  disabled={isCurrentPlan && user.subscription.status !== "trial"}
+                  className={`w-full py-3 rounded-lg font-medium transition-all cursor-pointer ${
+                    isCurrentPlan && user.subscription.status !== "trial"
+                      ? "bg-gray-200 dark:bg-white/10 text-gray-500 dark:text-slate-400 cursor-not-allowed"
+                      : plan.popular
+                      ? "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+                      : "bg-gray-200 dark:bg-white/10 hover:bg-gray-300 dark:hover:bg-white/20 text-gray-900 dark:text-white"
+                  }`}
+                >
+                  {getButtonText(plan)}
+                </button>
+              </div>
             </div>
-          )}
+          );
+        })}
+      </div>
+
+      {/* Manage Billing */}
+      {user.subscription.plan !== "free" && user.subscription.stripeCustomerId && (
+        <div className="text-center">
+          <button
+            onClick={handleManageBilling}
+            className="bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-900 dark:text-white px-6 py-3 rounded-lg border border-gray-200 dark:border-white/10 transition-all backdrop-blur-xl cursor-pointer"
+          >
+            Manage Billing
+          </button>
         </div>
-      </section>
+      )}
     </div>
   );
 }

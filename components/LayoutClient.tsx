@@ -92,6 +92,7 @@ interface ResumeData {
 
 interface PlanInfo {
   text: string;
+  displayName: string;
   icon: LucideIcon;
   style: string;
   badgeClass: string;
@@ -184,39 +185,52 @@ const useResumeCount = () => {
 };
 
 const getPlanInfo = (subscription: UserData['subscription']): PlanInfo => {
-  if (!subscription || subscription.plan === "starter" || !subscription.plan) {
+  if (!subscription || subscription.plan === "free" || !subscription.plan) {
     return {
-      text: "Free Plan",
+      text: "Free",
+      displayName: "Free Plan",
       icon: Shield,
       style: "text-green-600 dark:text-green-400",
-      badgeClass: "status-badge-done",
+      badgeClass: "bg-green-500/10 border-green-500/20 text-green-400",
       showUpgrade: true
     };
   }
 
   switch (subscription.plan) {
+    case "starter":
+      return {
+        text: subscription.status === "trial" ? "Starter Trial" : "Starter",
+        displayName: subscription.status === "trial" ? "Starter Trial" : "Starter Plan",
+        icon: Star,
+        style: "text-blue-600 dark:text-blue-400",
+        badgeClass: "bg-blue-500/10 border-blue-500/20 text-blue-400",
+        showUpgrade: true
+      };
     case "pro":
       return {
-        text: subscription.status === "trial" ? "Pro Trial" : "Pro Plan",
+        text: subscription.status === "trial" ? "Pro Trial" : "Pro",
+        displayName: subscription.status === "trial" ? "Pro Trial" : "Pro Plan",
         icon: Star,
         style: "text-purple-600 dark:text-purple-400",
-        badgeClass: "status-badge-progress",
+        badgeClass: "bg-purple-500/10 border-purple-500/20 text-purple-400",
         showUpgrade: false
       };
     case "premium":
       return {
-        text: "Premium Plan",
+        text: "Premium",
+        displayName: "Premium Plan",
         icon: Crown,
         style: "text-yellow-600 dark:text-yellow-400",
-        badgeClass: "status-badge-todo",
+        badgeClass: "bg-yellow-500/10 border-yellow-500/20 text-yellow-400",
         showUpgrade: false
       };
     default:
       return {
-        text: "Free Plan",
+        text: "Free",
+        displayName: "Free Plan",
         icon: Shield,
         style: "text-green-600 dark:text-green-400",
-        badgeClass: "status-badge-done",
+        badgeClass: "bg-green-500/10 border-green-500/20 text-green-400",
         showUpgrade: true
       };
   }
@@ -227,20 +241,20 @@ const getSafeUserStats = (userStats: UserStats): SafeUserStats => {
     return {
       totalInterviews: 0,
       averageScore: 0,
-      interviewsUsed: 5,
-      interviewsLimit: 10,
-      resumesUsed: 3,
-      resumesLimit: 5,
+      interviewsUsed: 0,
+      interviewsLimit: 1,
+      resumesUsed: 0,
+      resumesLimit: 999,
     };
   }
 
   return {
     totalInterviews: userStats.totalInterviews || 0,
     averageScore: userStats.averageScore || 0,
-    interviewsUsed: userStats.interviewsUsed || 5,
-    interviewsLimit: userStats.interviewsLimit || 10,
-    resumesUsed: userStats.resumesUsed || 3,
-    resumesLimit: userStats.resumesLimit || 5,
+    interviewsUsed: userStats.interviewsUsed || 0,
+    interviewsLimit: userStats.interviewsLimit || 1,
+    resumesUsed: userStats.resumesUsed || 0,
+    resumesLimit: userStats.resumesLimit || 999,
   };
 };
 
@@ -500,6 +514,8 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
 
   const isActive = (href: string) => pathname === href;
 
+  const PlanIcon = planInfo.icon;
+
   return (
     <div className="min-h-screen relative overflow-hidden">
       <div className="fixed inset-0 bg-gradient-to-br from-slate-50 via-purple-50/30 to-blue-50/20 dark:bg-gradient-to-br dark:from-slate-900/95 dark:via-purple-900/90 dark:to-slate-900/95 -z-10" />
@@ -523,7 +539,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
           <div className="flex items-center justify-between h-[57px]">
             <Link href="/" className="flex items-center space-x-3 group" onClick={handleLinkClick}>
               <NextImage src={logo} alt="Preciprocal" width={36} height={36} className="rounded-lg" priority />
-              <span className="text-xl font-bold text-slate-900 dark:text-white">Preciprocal</span>
+              <span className="text-xl font-bold text-slate-900 dark:text-white" style={{ fontFamily: "'Inter', sans-serif", letterSpacing: '-0.02em', fontWeight: 700 }}>Preciprocal</span>
             </Link>
             <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
               <X className="w-5 h-5" />
@@ -588,7 +604,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
                               console.log('Switch to:', account.email);
                               setShowAccountMenu(false);
                             }}
-                            className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors mb-1"
+                            className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors mb-1 cursor-pointer"
                           >
                             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-semibold text-sm">
                               {accountInitials}
@@ -611,7 +627,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
                         setShowAccountMenu(false);
                         handleLinkClick();
                       }}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors text-slate-700 dark:text-slate-300"
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors text-slate-700 dark:text-slate-300 cursor-pointer"
                     >
                       <ArrowLeftRight className="w-4 h-4" />
                       <span className="text-sm">Switch Account</span>
@@ -626,7 +642,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
                         setShowAccountMenu(false);
                         handleLinkClick();
                       }}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors text-slate-700 dark:text-slate-300"
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors text-slate-700 dark:text-slate-300 cursor-pointer"
                     >
                       <Settings className="w-4 h-4" />
                       <span className="text-sm">Account Settings</span>
@@ -638,7 +654,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
                         setShowAccountMenu(false);
                         handleLinkClick();
                       }}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors text-slate-700 dark:text-slate-300"
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors text-slate-700 dark:text-slate-300 cursor-pointer"
                     >
                       <Crown className="w-4 h-4" />
                       <span className="text-sm">Manage Subscription</span>
@@ -652,7 +668,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
                         handleLogout();
                       }}
                       disabled={isLoggingOut}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors text-red-600 dark:text-red-400 text-sm disabled:opacity-50"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors text-red-600 dark:text-red-400 text-sm disabled:opacity-50 cursor-pointer"
                     >
                       <LogOut className="w-4 h-4" />
                       <span>{isLoggingOut ? 'Logging out...' : 'Sign Out'}</span>
@@ -670,7 +686,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
             onClick={handleLinkClick}
             className="glass-button-primary w-full px-4 py-3 rounded-xl hover-lift flex items-center justify-center group
                        bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700
-                       shadow-lg hover:shadow-xl"
+                       shadow-lg hover:shadow-xl cursor-pointer"
           >
             <Plus className="w-4 h-4 mr-2 group-hover:rotate-90 transition-transform duration-200" />
             <span className="font-medium text-white">Start Interview</span>
@@ -684,7 +700,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
                        border border-slate-200 dark:border-white/10
                        hover:bg-slate-200 dark:hover:bg-slate-800
                        text-slate-900 dark:text-white
-                       shadow-sm hover:shadow-md"
+                       shadow-sm hover:shadow-md cursor-pointer"
           >
             <FileText className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform duration-200" />
             <span className="font-medium">Analyze Resume</span>
@@ -704,7 +720,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
                 key={item.id}
                 href={item.href}
                 onClick={handleLinkClick}
-                className={`group flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                className={`group flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 cursor-pointer ${
                   active 
                     ? 'bg-purple-100 dark:bg-white/10 text-purple-700 dark:text-white shadow-sm' 
                     : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'
@@ -733,7 +749,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
                            text-slate-700 dark:text-slate-300 
                            hover:bg-slate-100 dark:hover:bg-white/5 
                            hover:text-slate-900 dark:hover:text-white 
-                           transition-all duration-200"
+                           transition-all duration-200 cursor-pointer"
                 >
                   <Icon className="w-5 h-5 text-slate-500 dark:text-slate-400" />
                   <span className="font-medium text-sm">{item.label}</span>
@@ -754,7 +770,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
                          border border-slate-200 dark:border-white/10
                          mx-2 p-3 rounded-xl
                          hover:bg-slate-200 dark:hover:bg-slate-800
-                         hover:shadow-md transition-all duration-200"
+                         hover:shadow-md transition-all duration-200 cursor-pointer"
               >
                 <div className="flex items-center space-x-3">
                   <div className="w-8 h-8 gradient-accent rounded-lg flex items-center justify-center">
@@ -788,7 +804,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
                            text-slate-700 dark:text-slate-300 
                            hover:bg-slate-100 dark:hover:bg-white/5 
                            hover:text-slate-900 dark:hover:text-white 
-                           transition-all duration-200"
+                           transition-all duration-200 cursor-pointer"
                 >
                   <Icon className="w-5 h-5 text-slate-500 dark:text-slate-400" />
                   <span className="font-medium text-sm">{item.label}</span>
@@ -804,9 +820,10 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
                          rounded-xl p-4 space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-slate-900 dark:text-white">Plan</span>
-              <span className={`glass-badge ${planInfo.badgeClass} text-xs px-2 py-1`}>
-                {planInfo.text}
-              </span>
+              <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${planInfo.badgeClass} text-xs font-medium`}>
+                <PlanIcon className="w-3.5 h-3.5" />
+                <span>{planInfo.text}</span>
+              </div>
             </div>
 
             <div>
@@ -835,7 +852,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
                 onClick={handleLinkClick}
                 className="glass-button-primary w-full px-4 py-2.5 rounded-lg hover-lift flex items-center justify-center text-white text-sm font-medium
                            bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700
-                           shadow-md hover:shadow-lg"
+                           shadow-md hover:shadow-lg cursor-pointer"
               >
                 <Crown className="w-4 h-4 mr-2" />
                 Upgrade Plan
@@ -852,7 +869,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
                      text-red-600 dark:text-red-400 
                      hover:bg-red-50 dark:hover:bg-red-500/10 
                      hover:text-red-700 dark:hover:text-red-300 
-                     transition-all duration-200 text-sm disabled:opacity-50"
+                     transition-all duration-200 text-sm disabled:opacity-50 cursor-pointer"
           >
             <LogOut className="w-5 h-5" />
             <span className="font-medium">{isLoggingOut ? 'Logging out...' : 'Logout'}</span>
@@ -875,7 +892,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
                 className="lg:hidden 
                          bg-slate-100 dark:bg-slate-800/50 
                          border border-slate-200 dark:border-white/10
-                         p-2 rounded-lg hover-lift"
+                         p-2 rounded-lg hover-lift cursor-pointer"
               >
                 <Menu className="w-6 h-6 text-slate-900 dark:text-white" />
               </button>
@@ -889,7 +906,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
               <button className="bg-slate-100 dark:bg-slate-800/50 
                                border border-slate-200 dark:border-white/10
                                p-2 rounded-lg hover-lift relative
-                               hover:bg-slate-200 dark:hover:bg-slate-800">
+                               hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer">
                 <Bell className="w-5 h-5 text-slate-600 dark:text-slate-300" />
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
               </button>
@@ -897,7 +914,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
               <Link href="/profile" className="bg-slate-100 dark:bg-slate-800/50 
                                               border border-slate-200 dark:border-white/10
                                               p-1 rounded-lg hover-lift
-                                              hover:bg-slate-200 dark:hover:bg-slate-800">
+                                              hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer">
                 <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center text-white text-sm font-semibold">
                   {userInitials}
                 </div>

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { ChevronDown } from "lucide-react";
 
 interface InterviewGeneratorFormProps {
   userId: string;
@@ -45,6 +46,8 @@ export default function InterviewGeneratorForm({
   const [isProcessingFile, setIsProcessingFile] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [geminiAnalysis, setGeminiAnalysis] = useState<GeminiAnalysis | null>(null);
+  const [showLevelMenu, setShowLevelMenu] = useState(false);
+  const [showTypeMenu, setShowTypeMenu] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     role: "",
     level: "mid",
@@ -53,6 +56,29 @@ export default function InterviewGeneratorForm({
     techstack: "",
     jobDescription: "",
   });
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      
+      if (showLevelMenu && !target.closest('.level-dropdown')) {
+        setShowLevelMenu(false);
+      }
+      
+      if (showTypeMenu && !target.closest('.type-dropdown')) {
+        setShowTypeMenu(false);
+      }
+    };
+
+    if (showLevelMenu || showTypeMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showLevelMenu, showTypeMenu]);
 
   const analyzeWithGemini = async (text: string): Promise<GeminiAnalysis | null> => {
     if (!text || text.trim().length < 20) return null;
@@ -152,7 +178,6 @@ export default function InterviewGeneratorForm({
           }
         }
       } else {
-        // For non-text files, show message to use manual input
         alert("PDF and DOC files are supported. Please paste the job description manually for now.");
       }
     } catch (error) {
@@ -207,47 +232,122 @@ export default function InterviewGeneratorForm({
     setIsGenerating(true);
 
     try {
-      const response = await fetch("/api/vapi/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: {
-            function_call: {
-              name: "generate_interview",
-              parameters: {
-                role: formData.role,
-                level: formData.level,
-                type: formData.type,
-                amount: formData.amount,
-                techstack: formData.techstack,
-                jobDescription: formData.jobDescription,
-                userid: userId,
+      // Determine if we need to generate two separate interviews
+      const shouldGenerateBoth = formData.type === "mixed";
+      
+      if (shouldGenerateBoth) {
+        // Generate technical interview first
+        const technicalResponse = await fetch("/api/vapi/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: {
+              function_call: {
+                name: "generate_interview",
+                parameters: {
+                  role: formData.role,
+                  level: formData.level,
+                  type: "technical",
+                  amount: Math.ceil(formData.amount / 2), // Split questions between technical and behavioral
+                  techstack: formData.techstack,
+                  jobDescription: formData.jobDescription,
+                  userid: userId,
+                },
               },
             },
-          },
-        }),
-      });
+          }),
+        });
 
-      if (response.ok) {
-        const result = await response.json() as APIResponse;
-        if (result.result?.interview?.id) {
-          router.push(`/interview/${result.result.interview.id}`);
+        if (!technicalResponse.ok) {
+          const errorData = await technicalResponse.json() as APIResponse;
+          throw new Error(errorData.error || "Failed to generate technical interview");
+        }
+
+        const technicalResult = await technicalResponse.json() as APIResponse;
+
+        // Generate behavioral interview
+        const behavioralResponse = await fetch("/api/vapi/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: {
+              function_call: {
+                name: "generate_interview",
+                parameters: {
+                  role: formData.role,
+                  level: formData.level,
+                  type: "behavioural",
+                  amount: Math.floor(formData.amount / 2), // Remaining questions
+                  techstack: formData.techstack,
+                  jobDescription: formData.jobDescription,
+                  userid: userId,
+                },
+              },
+            },
+          }),
+        });
+
+        if (!behavioralResponse.ok) {
+          const errorData = await behavioralResponse.json() as APIResponse;
+          throw new Error(errorData.error || "Failed to generate behavioral interview");
+        }
+
+        const behavioralResult = await behavioralResponse.json() as APIResponse;
+
+        // Navigate to the first interview (technical)
+        if (technicalResult.result?.interview?.id) {
+          // Store both interview IDs in sessionStorage for later access
+          if (behavioralResult.result?.interview?.id) {
+            sessionStorage.setItem('behavioralInterviewId', behavioralResult.result.interview.id);
+          }
+          router.push(`/interview/${technicalResult.result.interview.id}`);
         } else {
           throw new Error("Interview ID not found in response");
         }
       } else {
-        const errorData = await response.json() as APIResponse;
-        throw new Error(errorData.error || "Failed to generate interview");
+        // Generate single interview type
+        const response = await fetch("/api/vapi/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: {
+              function_call: {
+                name: "generate_interview",
+                parameters: {
+                  role: formData.role,
+                  level: formData.level,
+                  type: formData.type,
+                  amount: formData.amount,
+                  techstack: formData.techstack,
+                  jobDescription: formData.jobDescription,
+                  userid: userId,
+                },
+              },
+            },
+          }),
+        });
+
+        if (response.ok) {
+          const result = await response.json() as APIResponse;
+          if (result.result?.interview?.id) {
+            router.push(`/interview/${result.result.interview.id}`);
+          } else {
+            throw new Error("Interview ID not found in response");
+          }
+        } else {
+          const errorData = await response.json() as APIResponse;
+          throw new Error(errorData.error || "Failed to generate interview");
+        }
       }
     } catch (error) {
       console.error("Error generating interview:", error);
-      alert("Failed to generate interview. Please try again.");
+      alert(error instanceof Error ? error.message : "Failed to generate interview. Please try again.");
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -255,346 +355,457 @@ export default function InterviewGeneratorForm({
     }));
   };
 
+  const getLevelLabel = (level: string) => {
+    switch (level) {
+      case 'entry': return 'Entry Level (0-2 years)';
+      case 'mid': return 'Mid Level (2-5 years)';
+      case 'senior': return 'Senior Level (5+ years)';
+      default: return level;
+    }
+  };
+
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case 'technical': return 'Technical Questions';
+      case 'behavioural': return 'Behavioral Questions';
+      case 'mixed': return 'Mixed (Technical + Behavioral)';
+      default: return type;
+    }
+  };
+
   return (
-    <div className="h-full flex flex-col overflow-hidden">
-      {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="p-6 space-y-6">
-          {/* AI Job Analysis Section */}
-          <div className="bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-pink-500/10 rounded-xl border border-indigo-500/20 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white text-lg">🤖</span>
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-white">AI Job Analysis</h3>
-                  <p className="text-indigo-300 text-sm">Powered by Google Gemini</p>
-                </div>
+    <div className="h-full flex flex-col overflow-y-auto scrollbar-hide">
+      <div className="space-y-6 pb-4">
+        {/* AI Job Analysis Section */}
+        <div className="bg-gradient-to-br from-blue-500/5 via-purple-500/5 to-transparent border border-slate-700/50 rounded-xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+                <span className="text-white text-lg">🤖</span>
               </div>
-              {(uploadedFile || formData.jobDescription) && (
-                <button
-                  type="button"
-                  onClick={clearFile}
-                  className="flex items-center space-x-2 px-3 py-1.5 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 hover:bg-red-500/20 transition-all duration-200 text-sm"
-                >
-                  🗑️ Clear
-                </button>
-              )}
-            </div>
-
-            <p className="text-gray-300 mb-6 text-sm leading-relaxed">
-              Upload your job description or paste it below for intelligent AI analysis
-            </p>
-
-            {/* Two Column Layout */}
-            <div className="grid lg:grid-cols-2 gap-6">
-              {/* File Upload */}
-              <div className="space-y-3">
-                <h4 className="text-sm font-semibold text-white flex items-center space-x-2">
-                  <span>📁 Upload File</span>
-                </h4>
-
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".txt,.pdf,.doc,.docx"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                  id="jobDescFile"
-                />
-
-                <label
-                  htmlFor="jobDescFile"
-                  className="group cursor-pointer block w-full p-6 border-2 border-dashed border-gray-600 hover:border-indigo-500/50 rounded-lg bg-gray-800/30 hover:bg-gray-800/50 transition-all duration-300"
-                >
-                  <div className="text-center">
-                    <div className="w-12 h-12 bg-indigo-500/20 rounded-lg flex items-center justify-center mx-auto mb-3 group-hover:bg-indigo-500/30 transition-colors">
-                      <span className="text-indigo-400 text-xl">📎</span>
-                    </div>
-                    <div className="text-white font-medium text-sm mb-1">
-                      {uploadedFile ? "Change File" : "Drop file or browse"}
-                    </div>
-                    <div className="text-gray-400 text-xs">PDF, DOCX, TXT (max 5MB)</div>
-                  </div>
-                </label>
-
-                {uploadedFile && (
-                  <div className="flex items-center space-x-3 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
-                    <span className="text-green-400">✅</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-green-300 font-medium text-sm truncate">
-                        {uploadedFile.name}
-                      </div>
-                      <div className="text-green-400 text-xs">
-                        {Math.round(uploadedFile.size / 1024)}KB uploaded
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Manual Input */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-semibold text-white flex items-center space-x-2">
-                    <span>✏️ Paste Manually</span>
-                  </h4>
-                  {formData.jobDescription && formData.jobDescription.length > 20 && (
-                    <button
-                      type="button"
-                      onClick={handleManualAnalysis}
-                      disabled={isAnalyzing}
-                      className="flex items-center space-x-2 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-lg font-medium text-xs disabled:opacity-50 transition-all duration-200"
-                    >
-                      {isAnalyzing ? (
-                        <>
-                          <div className="animate-spin w-3 h-3 border border-current border-t-transparent rounded-full"></div>
-                          <span>Analyzing...</span>
-                        </>
-                      ) : (
-                        <>🔍 Analyze</>
-                      )}
-                    </button>
-                  )}
-                </div>
-
-                <textarea
-                  id="jobDescription"
-                  name="jobDescription"
-                  value={formData.jobDescription}
-                  onChange={handleInputChange}
-                  placeholder="Paste your job description here for AI analysis..."
-                  rows={6}
-                  className="w-full px-3 py-2 bg-gray-800/80 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 resize-none text-sm"
-                />
+              <div>
+                <h3 className="text-base font-semibold text-slate-900 dark:text-white">AI Job Analysis</h3>
+                <p className="text-blue-600 dark:text-blue-400 text-xs">Powered by Gemini</p>
               </div>
             </div>
-
-            {/* Processing Indicator */}
-            {(isProcessingFile || isAnalyzing) && (
-              <div className="mt-4 flex items-center justify-center space-x-3 p-3 bg-indigo-500/10 border border-indigo-500/30 rounded-lg">
-                <div className="animate-spin w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full"></div>
-                <span className="text-indigo-300 font-medium text-sm">
-                  {isProcessingFile ? "Processing file..." : "AI analyzing..."}
-                </span>
-              </div>
+            {(uploadedFile || formData.jobDescription) && (
+              <button
+                type="button"
+                onClick={clearFile}
+                className="px-3 py-1.5 bg-red-500/10 border border-red-500/30 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-500/20 transition-all text-xs font-medium cursor-pointer"
+              >
+                Clear
+              </button>
             )}
           </div>
 
-          {/* AI Analysis Results */}
-          {geminiAnalysis && (
-            <div className="bg-gradient-to-br from-emerald-500/10 via-green-500/5 to-teal-500/10 rounded-xl border border-emerald-500/30 p-4">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-green-600 rounded-lg flex items-center justify-center">
-                    <span className="text-white">🧠</span>
-                  </div>
-                  <div>
-                    <h4 className="text-lg font-bold text-white">Analysis Complete</h4>
-                    <p className="text-emerald-300 text-xs">
-                      {Math.round(geminiAnalysis.confidence * 100)}% confidence
-                    </p>
-                  </div>
-                </div>
-              </div>
+          <p className="text-slate-600 dark:text-slate-400 mb-4 text-sm">
+            Upload your job description or paste it below for intelligent AI analysis
+          </p>
 
-              <div className="grid sm:grid-cols-3 gap-4 mb-4">
-                <div className="flex items-center space-x-3 p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-lg">
-                  <span>💼</span>
-                  <div>
-                    <div className="text-emerald-300 text-xs font-medium">Role</div>
-                    <div className="text-white font-semibold text-sm">{geminiAnalysis.role}</div>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-3 p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-lg">
-                  <span>📊</span>
-                  <div>
-                    <div className="text-emerald-300 text-xs font-medium">Level</div>
-                    <div className="text-white font-semibold text-sm">
-                      {geminiAnalysis.level.charAt(0).toUpperCase() + geminiAnalysis.level.slice(1)}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-3 p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-lg">
-                  <span>🎯</span>
-                  <div>
-                    <div className="text-emerald-300 text-xs font-medium">Type</div>
-                    <div className="text-white font-semibold text-sm">
-                      {geminiAnalysis.type.charAt(0).toUpperCase() + geminiAnalysis.type.slice(1)}
-                    </div>
-                  </div>
-                </div>
-              </div>
+          {/* Two Column Layout */}
+          <div className="grid lg:grid-cols-2 gap-4">
+            {/* File Upload */}
+            <div className="space-y-3">
+              <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">Upload File</h4>
 
-              {geminiAnalysis.techstack.length > 0 && (
-                <div>
-                  <div className="text-emerald-300 font-medium text-xs mb-2 flex items-center space-x-1">
-                    <span>🛠️ Technologies</span>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".txt,.pdf,.doc,.docx"
+                onChange={handleFileUpload}
+                className="hidden"
+                id="jobDescFile"
+              />
+
+              <label
+                htmlFor="jobDescFile"
+                className="group cursor-pointer block w-full p-5 border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500/50 dark:hover:border-blue-500/50 rounded-lg bg-slate-50 dark:bg-slate-800/30 hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-all"
+              >
+                <div className="text-center">
+                  <div className="w-10 h-10 bg-blue-500/10 dark:bg-blue-500/20 rounded-lg flex items-center justify-center mx-auto mb-2 group-hover:bg-blue-500/20 dark:group-hover:bg-blue-500/30 transition-colors">
+                    <span className="text-blue-600 dark:text-blue-400 text-lg">📎</span>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {geminiAnalysis.techstack.slice(0, 6).map((tech, index) => (
-                      <span
-                        key={index}
-                        className="px-2 py-1 bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 rounded-md text-xs font-medium"
-                      >
-                        {tech}
-                      </span>
-                    ))}
-                    {geminiAnalysis.techstack.length > 6 && (
-                      <span className="px-2 py-1 bg-gray-700 text-gray-300 rounded-md text-xs">
-                        +{geminiAnalysis.techstack.length - 6}
-                      </span>
-                    )}
+                  <div className="text-slate-900 dark:text-white font-medium text-sm mb-1">
+                    {uploadedFile ? "Change File" : "Drop file or browse"}
+                  </div>
+                  <div className="text-slate-500 dark:text-slate-400 text-xs">PDF, DOCX, TXT (max 5MB)</div>
+                </div>
+              </label>
+
+              {uploadedFile && (
+                <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/30 rounded-lg">
+                  <span className="text-green-600 dark:text-green-400">✅</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-green-700 dark:text-green-300 font-medium text-sm truncate">
+                      {uploadedFile.name}
+                    </div>
+                    <div className="text-green-600 dark:text-green-400 text-xs">
+                      {Math.round(uploadedFile.size / 1024)}KB uploaded
+                    </div>
                   </div>
                 </div>
               )}
             </div>
-          )}
 
-          {/* Form Fields */}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid lg:grid-cols-2 gap-6">
-              {/* Left Column */}
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label htmlFor="role" className="flex items-center space-x-2 text-sm font-medium text-white">
-                    <span>Job Role</span>
-                    <span className="text-red-400">*</span>
-                    {geminiAnalysis && (
-                      <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full">
-                        AI-detected
-                      </span>
-                    )}
-                  </label>
-                  <input
-                    type="text"
-                    id="role"
-                    name="role"
-                    required
-                    value={formData.role}
-                    onChange={handleInputChange}
-                    placeholder="e.g., Senior Frontend Developer"
-                    className="w-full px-3 py-2.5 bg-gray-800/80 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 text-sm"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="level" className="flex items-center space-x-2 text-sm font-medium text-white">
-                    <span>Experience Level</span>
-                    <span className="text-red-400">*</span>
-                    {geminiAnalysis && (
-                      <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full">
-                        AI-detected
-                      </span>
-                    )}
-                  </label>
-                  <select
-                    id="level"
-                    name="level"
-                    required
-                    value={formData.level}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2.5 bg-gray-800/80 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 text-sm"
+            {/* Manual Input */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">Paste Manually</h4>
+                {formData.jobDescription && formData.jobDescription.length > 20 && (
+                  <button
+                    type="button"
+                    onClick={handleManualAnalysis}
+                    disabled={isAnalyzing}
+                    className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg font-medium text-xs disabled:opacity-50 transition-all cursor-pointer"
                   >
-                    <option value="entry">Entry Level (0-2 years)</option>
-                    <option value="mid">Mid Level (2-5 years)</option>
-                    <option value="senior">Senior Level (5+ years)</option>
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="amount" className="flex items-center space-x-2 text-sm font-medium text-white">
-                    <span>Questions</span>
-                    <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    id="amount"
-                    name="amount"
-                    required
-                    min="1"
-                    max="20"
-                    value={formData.amount}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2.5 bg-gray-800/80 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 text-sm"
-                  />
-                  <p className="text-xs text-gray-400">Recommended: 5-10 questions</p>
-                </div>
-              </div>
-
-              {/* Right Column */}
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label htmlFor="type" className="flex items-center space-x-2 text-sm font-medium text-white">
-                    <span>Interview Type</span>
-                    <span className="text-red-400">*</span>
-                    {geminiAnalysis && (
-                      <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full">
-                        AI-detected
+                    {isAnalyzing ? (
+                      <span className="flex items-center gap-2">
+                        <div className="animate-spin w-3 h-3 border border-current border-t-transparent rounded-full"></div>
+                        Analyzing...
                       </span>
+                    ) : (
+                      'Analyze'
                     )}
-                  </label>
-                  <select
-                    id="type"
-                    name="type"
-                    required
-                    value={formData.type}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2.5 bg-gray-800/80 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 text-sm"
-                  >
-                    <option value="technical">Technical Questions</option>
-                    <option value="behavioural">Behavioral Questions</option>
-                    <option value="mixed">Mixed (Technical + Behavioral)</option>
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="techstack" className="flex items-center space-x-2 text-sm font-medium text-white">
-                    <span>Technologies & Skills</span>
-                    <span className="text-red-400">*</span>
-                    {geminiAnalysis && (
-                      <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full">
-                        AI-detected
-                      </span>
-                    )}
-                  </label>
-                  <textarea
-                    id="techstack"
-                    name="techstack"
-                    required
-                    value={formData.techstack}
-                    onChange={handleInputChange}
-                    placeholder="e.g., React, Node.js, TypeScript, PostgreSQL, AWS"
-                    rows={3}
-                    className="w-full px-3 py-2.5 bg-gray-800/80 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 resize-none text-sm"
-                  />
-                  <p className="text-xs text-gray-400">Separate technologies with commas</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Generate Button */}
-            <div className="pt-4">
-              <Button
-                type="submit"
-                disabled={isGenerating || isProcessingFile || isAnalyzing}
-                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-4 px-6 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-xl"
-              >
-                {isGenerating ? (
-                  <div className="flex items-center justify-center space-x-3">
-                    <div className="animate-spin w-5 h-5 border-2 border-current border-t-transparent rounded-full"></div>
-                    <span>Generating Your Interview...</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center space-x-3">
-                    <span>🚀</span>
-                    <span>Generate Interview</span>
-                  </div>
+                  </button>
                 )}
-              </Button>
+              </div>
+
+              <textarea
+                id="jobDescription"
+                name="jobDescription"
+                value={formData.jobDescription}
+                onChange={handleInputChange}
+                placeholder="Paste your job description here for AI analysis..."
+                className="w-full h-[120px] px-3 py-2.5 bg-white dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all resize-none text-sm"
+              />
             </div>
-          </form>
+          </div>
+
+          {/* Processing Indicator */}
+          {(isProcessingFile || isAnalyzing) && (
+            <div className="mt-4 flex items-center justify-center gap-3 p-3 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-lg">
+              <div className="animate-spin w-4 h-4 border-2 border-blue-600 dark:border-blue-400 border-t-transparent rounded-full"></div>
+              <span className="text-blue-700 dark:text-blue-300 font-medium text-sm">
+                {isProcessingFile ? "Processing file..." : "AI analyzing..."}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* AI Analysis Results */}
+        {geminiAnalysis && (
+          <div className="bg-gradient-to-br from-emerald-500/5 via-green-500/5 to-transparent border border-emerald-500/30 dark:border-emerald-500/20 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-gradient-to-br from-emerald-600 to-green-600 rounded-lg flex items-center justify-center">
+                  <span className="text-white text-sm">🧠</span>
+                </div>
+                <div>
+                  <h4 className="text-base font-semibold text-slate-900 dark:text-white">Analysis Complete</h4>
+                  <p className="text-emerald-600 dark:text-emerald-400 text-xs">
+                    {Math.round(geminiAnalysis.confidence * 100)}% confidence
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid sm:grid-cols-3 gap-3 mb-3">
+              <div className="flex items-center gap-2 p-2.5 bg-white dark:bg-emerald-500/5 border border-emerald-200 dark:border-emerald-500/20 rounded-lg">
+                <span className="text-lg">💼</span>
+                <div>
+                  <div className="text-emerald-600 dark:text-emerald-400 text-xs font-medium">Role</div>
+                  <div className="text-slate-900 dark:text-white font-semibold text-xs">{geminiAnalysis.role}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 p-2.5 bg-white dark:bg-emerald-500/5 border border-emerald-200 dark:border-emerald-500/20 rounded-lg">
+                <span className="text-lg">📊</span>
+                <div>
+                  <div className="text-emerald-600 dark:text-emerald-400 text-xs font-medium">Level</div>
+                  <div className="text-slate-900 dark:text-white font-semibold text-xs">
+                    {geminiAnalysis.level.charAt(0).toUpperCase() + geminiAnalysis.level.slice(1)}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 p-2.5 bg-white dark:bg-emerald-500/5 border border-emerald-200 dark:border-emerald-500/20 rounded-lg">
+                <span className="text-lg">🎯</span>
+                <div>
+                  <div className="text-emerald-600 dark:text-emerald-400 text-xs font-medium">Type</div>
+                  <div className="text-slate-900 dark:text-white font-semibold text-xs">
+                    {geminiAnalysis.type.charAt(0).toUpperCase() + geminiAnalysis.type.slice(1)}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {geminiAnalysis.techstack.length > 0 && (
+              <div>
+                <div className="text-emerald-700 dark:text-emerald-400 font-medium text-xs mb-2">
+                  Technologies Detected
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {geminiAnalysis.techstack.slice(0, 6).map((tech, index) => (
+                    <span
+                      key={index}
+                      className="px-2 py-0.5 bg-blue-500/10 dark:bg-blue-500/20 border border-blue-500/30 dark:border-blue-500/40 text-blue-700 dark:text-blue-300 rounded-md text-xs font-medium"
+                    >
+                      {tech}
+                    </span>
+                  ))}
+                  {geminiAnalysis.techstack.length > 6 && (
+                    <span className="px-2 py-0.5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-md text-xs">
+                      +{geminiAnalysis.techstack.length - 6}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Form Fields */}
+        <div className="space-y-4">
+          <div className="grid lg:grid-cols-2 gap-4">
+            {/* Left Column */}
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <label htmlFor="role" className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <span>Job Role</span>
+                  <span className="text-red-500">*</span>
+                  {geminiAnalysis && (
+                    <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs rounded-full">
+                      AI
+                    </span>
+                  )}
+                </label>
+                <input
+                  type="text"
+                  id="role"
+                  name="role"
+                  required
+                  value={formData.role}
+                  onChange={handleInputChange}
+                  placeholder="e.g., Senior Frontend Developer"
+                  className="w-full px-3 py-2.5 bg-white dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
+                />
+              </div>
+
+              {/* Experience Level Dropdown */}
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <span>Experience Level</span>
+                  <span className="text-red-500">*</span>
+                  {geminiAnalysis && (
+                    <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs rounded-full">
+                      AI
+                    </span>
+                  )}
+                </label>
+                <div className="relative level-dropdown">
+                  <button
+                    type="button"
+                    onClick={() => setShowLevelMenu(!showLevelMenu)}
+                    className="w-full px-4 py-2.5 bg-white dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white text-sm text-left flex items-center justify-between cursor-pointer hover:border-slate-400 dark:hover:border-slate-600 transition-all"
+                  >
+                    <span>{getLevelLabel(formData.level)}</span>
+                    <ChevronDown className={`w-4 h-4 text-slate-500 dark:text-slate-400 transition-transform ${showLevelMenu ? 'rotate-180' : ''}`} />
+                  </button>
+                  
+                  {showLevelMenu && (
+                    <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-20 overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormData(prev => ({ ...prev, level: 'entry' }));
+                          setShowLevelMenu(false);
+                        }}
+                        className={`w-full px-4 py-2.5 text-left text-sm transition-colors cursor-pointer ${
+                          formData.level === 'entry' 
+                            ? 'bg-blue-50 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300' 
+                            : 'text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5'
+                        }`}
+                      >
+                        Entry Level (0-2 years)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormData(prev => ({ ...prev, level: 'mid' }));
+                          setShowLevelMenu(false);
+                        }}
+                        className={`w-full px-4 py-2.5 text-left text-sm transition-colors cursor-pointer ${
+                          formData.level === 'mid' 
+                            ? 'bg-blue-50 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300' 
+                            : 'text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5'
+                        }`}
+                      >
+                        Mid Level (2-5 years)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormData(prev => ({ ...prev, level: 'senior' }));
+                          setShowLevelMenu(false);
+                        }}
+                        className={`w-full px-4 py-2.5 text-left text-sm transition-colors cursor-pointer ${
+                          formData.level === 'senior' 
+                            ? 'bg-blue-50 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300' 
+                            : 'text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5'
+                        }`}
+                      >
+                        Senior Level (5+ years)
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="amount" className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <span>Number of Questions</span>
+                  <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  id="amount"
+                  name="amount"
+                  required
+                  min="1"
+                  max="10"
+                  value={formData.amount}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2.5 bg-white dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
+                />
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {formData.type === 'mixed' 
+                    ? `Will generate ${Math.ceil(formData.amount / 2)} technical + ${Math.floor(formData.amount / 2)} behavioral`
+                    : 'Recommended: 5-10 questions'}
+                </p>
+              </div>
+            </div>
+
+            {/* Right Column */}
+            <div className="space-y-3">
+              {/* Interview Type Dropdown */}
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <span>Interview Type</span>
+                  <span className="text-red-500">*</span>
+                  {geminiAnalysis && (
+                    <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs rounded-full">
+                      AI
+                    </span>
+                  )}
+                </label>
+                <div className="relative type-dropdown">
+                  <button
+                    type="button"
+                    onClick={() => setShowTypeMenu(!showTypeMenu)}
+                    className="w-full px-4 py-2.5 bg-white dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white text-sm text-left flex items-center justify-between cursor-pointer hover:border-slate-400 dark:hover:border-slate-600 transition-all"
+                  >
+                    <span>{getTypeLabel(formData.type)}</span>
+                    <ChevronDown className={`w-4 h-4 text-slate-500 dark:text-slate-400 transition-transform ${showTypeMenu ? 'rotate-180' : ''}`} />
+                  </button>
+                  
+                  {showTypeMenu && (
+                    <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-20 overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormData(prev => ({ ...prev, type: 'technical' }));
+                          setShowTypeMenu(false);
+                        }}
+                        className={`w-full px-4 py-2.5 text-left text-sm transition-colors cursor-pointer ${
+                          formData.type === 'technical' 
+                            ? 'bg-blue-50 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300' 
+                            : 'text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5'
+                        }`}
+                      >
+                        Technical Questions
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormData(prev => ({ ...prev, type: 'behavioural' }));
+                          setShowTypeMenu(false);
+                        }}
+                        className={`w-full px-4 py-2.5 text-left text-sm transition-colors cursor-pointer ${
+                          formData.type === 'behavioural' 
+                            ? 'bg-blue-50 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300' 
+                            : 'text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5'
+                        }`}
+                      >
+                        Behavioral Questions
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormData(prev => ({ ...prev, type: 'mixed' }));
+                          setShowTypeMenu(false);
+                        }}
+                        className={`w-full px-4 py-2.5 text-left text-sm transition-colors cursor-pointer ${
+                          formData.type === 'mixed' 
+                            ? 'bg-blue-50 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300' 
+                            : 'text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5'
+                        }`}
+                      >
+                        Mixed (Technical + Behavioral)
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="techstack" className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <span>Technologies & Skills</span>
+                  <span className="text-red-500">*</span>
+                  {geminiAnalysis && (
+                    <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs rounded-full">
+                      AI
+                    </span>
+                  )}
+                </label>
+                <textarea
+                  id="techstack"
+                  name="techstack"
+                  required
+                  value={formData.techstack}
+                  onChange={handleInputChange}
+                  placeholder="e.g., React, Node.js, TypeScript, PostgreSQL, AWS"
+                  rows={3}
+                  className="w-full px-3 py-2.5 bg-white dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all resize-none text-sm"
+                />
+                <p className="text-xs text-slate-500 dark:text-slate-400">Separate technologies with commas</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Generate Button */}
+          <div className="pt-2">
+            <Button
+              onClick={handleSubmit}
+              disabled={isGenerating || isProcessingFile || isAnalyzing}
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-3.5 px-6 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl cursor-pointer"
+            >
+              {isGenerating ? (
+                <div className="flex items-center justify-center gap-3">
+                  <div className="animate-spin w-5 h-5 border-2 border-current border-t-transparent rounded-full"></div>
+                  <span>
+                    {formData.type === 'mixed' 
+                      ? 'Generating Technical & Behavioral Interviews...'
+                      : 'Generating Your Interview...'}
+                  </span>
+                </div>
+              ) : (
+                <span>
+                  {formData.type === 'mixed'
+                    ? 'Generate Both Interview Sets'
+                    : 'Generate Interview'}
+                </span>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

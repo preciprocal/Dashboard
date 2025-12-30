@@ -120,11 +120,11 @@ export async function POST(request: NextRequest) {
 
     console.log(`📄 Generating ${format.toUpperCase()} for: ${jobRole}`);
 
-    // Generate filename
-    const sanitize = (str: string) => str.replace(/[^a-z0-9]/gi, '_').replace(/_+/g, '_').toLowerCase();
+    // Generate filename - clean format without numbers or timestamps
+    const sanitize = (str: string) => str.replace(/[^a-zA-Z\s]/g, '').replace(/\s+/g, ' ').trim();
     const roleSlug = sanitize(jobRole);
-    const companySlug = companyName ? sanitize(companyName) : 'company';
-    const filename = `${companySlug}_${roleSlug}_cover_letter`;
+    const companySlug = companyName ? sanitize(companyName) : 'Company';
+    const filename = `${companySlug} ${roleSlug} Cover Letter`;
 
     // Parse content with links
     const parsedContent = parseContentWithLinks(content);

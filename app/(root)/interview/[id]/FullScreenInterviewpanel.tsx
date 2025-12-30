@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 
 import { vapi } from "@/lib/vapi.sdk";
-import { interviewer } from "@/constants";
+import { interviewer, technicalInterviewer, behavioralInterviewer } from "@/constants";
 import { createFeedback } from "@/lib/actions/general.action";
 
 enum CallStatus {
@@ -45,7 +45,7 @@ interface FullScreenInterviewPanelProps {
   userName: string;
   userId: string;
   interviewRole: string;
-  interviewType: string;
+  interviewType: "technical" | "behavioral" | "mixed";
   questions: string[];
   technicalQuestions?: string[];
   behavioralQuestions?: string[];
@@ -135,7 +135,10 @@ const FullScreenInterviewPanel = ({
   userName,
   userId,
   interviewRole,
+  interviewType,
   questions,
+  technicalQuestions,
+  behavioralQuestions,
   feedbackId,
   type = "interview",
   onExit
@@ -156,6 +159,7 @@ const FullScreenInterviewPanel = ({
   const [totalQuestions, setTotalQuestions] = useState(10);
   const [speakingPersonId, setSpeakingPersonId] = useState<string | null>(null);
   const [autoStartAttempted, setAutoStartAttempted] = useState(false);
+  const [currentInterviewPhase, setCurrentInterviewPhase] = useState<"technical" | "behavioral" | null>(null);
 
   const callStartTime = useRef<Date | null>(null);
 
@@ -176,17 +180,17 @@ const FullScreenInterviewPanel = ({
       }, 0);
 
       const hrNames = [
-        { name: "Sarah Mitchell", initials: "SM" },
-        { name: "Jennifer Davis", initials: "JD" },
-        { name: "Lisa Rodriguez", initials: "LR" },
-        { name: "Amanda Wilson", initials: "AW" },
+        { name: "Priya Sharma", initials: "PS" },
+        { name: "Ananya Patel", initials: "AP" },
+        { name: "Kavya Reddy", initials: "KR" },
+        { name: "Meera Iyer", initials: "MI" },
       ];
 
       const leadNames = [
-        { name: "Alexandra Chen", initials: "AC" },
-        { name: "Diana Kumar", initials: "DK" },
-        { name: "Jennifer Anderson", initials: "JA" },
-        { name: "Rebecca Singh", initials: "RS" },
+        { name: "Marcus Anderson", initials: "MA" },
+        { name: "James Mitchell", initials: "JM" },
+        { name: "Robert Thompson", initials: "RT" },
+        { name: "William Davis", initials: "WD" },
       ];
 
       const juniorNames = [
@@ -272,11 +276,21 @@ const FullScreenInterviewPanel = ({
   }, [interviewId, interviewRole, callStatus, speakingPersonId, videoSources, userName]);
 
   const handleSpeechStart = useCallback(() => {
-    const interviewers = ["tech_recruiter", "hr", "junior"];
-    setSpeakingPersonId(
-      interviewers[Math.floor(Math.random() * interviewers.length)]
-    );
-  }, []);
+    // Determine who speaks based on interview phase
+    if (currentInterviewPhase === "behavioral") {
+      // HR leads behavioral questions
+      setSpeakingPersonId("hr");
+    } else if (currentInterviewPhase === "technical") {
+      // Lead conducts technical questions
+      setSpeakingPersonId("tech_recruiter");
+    } else {
+      // Fallback to random for other scenarios
+      const interviewers = ["tech_recruiter", "hr", "junior"];
+      setSpeakingPersonId(
+        interviewers[Math.floor(Math.random() * interviewers.length)]
+      );
+    }
+  }, [currentInterviewPhase]);
 
   const handleSpeechEnd = useCallback(() => {
     setSpeakingPersonId(null);
@@ -325,18 +339,58 @@ const FullScreenInterviewPanel = ({
           variableValues: { username: userName, userid: userId },
         });
       } else {
-        if (!interviewer) {
+        // Determine which agent to use based on interview type
+        let selectedAgent;
+        let questionsToUse: string[] = [];
+
+        if (interviewType === "technical") {
+          selectedAgent = technicalInterviewer;
+          questionsToUse = technicalQuestions || questions;
+          setCurrentInterviewPhase("technical");
+        } else if (interviewType === "behavioral") {
+          selectedAgent = behavioralInterviewer;
+          questionsToUse = behavioralQuestions || questions;
+          setCurrentInterviewPhase("behavioral");
+        } else if (interviewType === "mixed") {
+          // For mixed interviews, ALWAYS start with behavioral first
+          selectedAgent = behavioralInterviewer;
+          questionsToUse = behavioralQuestions || [];
+          setCurrentInterviewPhase("behavioral");
+          
+          // If no behavioral questions are provided, use first half of general questions
+          if (questionsToUse.length === 0 && questions.length > 0) {
+            questionsToUse = questions.slice(0, Math.ceil(questions.length / 2));
+          }
+        } else {
+          // Default fallback to technical
+          selectedAgent = interviewer || technicalInterviewer;
+          questionsToUse = questions;
+        }
+
+        if (!selectedAgent) {
           throw new Error("Interviewer configuration not available");
         }
 
-        const formattedQuestions = questions?.map((q) => `- ${q}`).join("\n") || "";
+        const formattedQuestions = questionsToUse?.map((q) => `- ${q}`).join("\n") || "";
         
         if (!formattedQuestions) {
           throw new Error("Failed to format questions");
         }
         
-        await vapi.start(interviewer, {
-          variableValues: { questions: formattedQuestions },
+        await vapi.start(selectedAgent, {
+          variableValues: { 
+            questions: formattedQuestions,
+            interviewer_name: currentInterviewPhase === "behavioral" || interviewType === "behavioral" ? "Priya Sharma" : "Marcus Rivera",
+            interviewer_role: currentInterviewPhase === "behavioral" || interviewType === "behavioral" ? "Director of People Operations" : "Senior Software Architect",
+            company_name: "TechCorp",
+            department: currentInterviewPhase === "behavioral" || interviewType === "behavioral" ? "talent acquisition and employee development" : "engineering and infrastructure",
+            years_at_company: currentInterviewPhase === "behavioral" || interviewType === "behavioral" ? "four years" : "six years",
+            brief_role_description: currentInterviewPhase === "behavioral" || interviewType === "behavioral"
+              ? "fostering our company culture and ensuring we bring in people who align with our values"
+              : "designing scalable systems and mentoring our engineering talent",
+            techstack: interviewRole,
+            user: userName
+          },
         });
       }
       
@@ -344,7 +398,7 @@ const FullScreenInterviewPanel = ({
       console.error("Interview start error:", error);
       setCallStatus(CallStatus.INACTIVE);
     }
-  }, [interviewId, userId, questions, type, userName]);
+  }, [interviewId, userId, questions, technicalQuestions, behavioralQuestions, interviewType, currentInterviewPhase, type, userName, interviewRole]);
 
   useEffect(() => {
     if (!autoStartAttempted && questions && questions.length > 0 && userId && interviewId) {
@@ -358,7 +412,16 @@ const FullScreenInterviewPanel = ({
   }, [questions, userId, interviewId, autoStartAttempted, startInterview]);
 
   useEffect(() => {
-    if (questions?.length) {
+    // Set total questions based on interview type
+    if (interviewType === "mixed") {
+      const techCount = technicalQuestions?.length || 0;
+      const behavCount = behavioralQuestions?.length || 0;
+      setTotalQuestions(techCount + behavCount);
+    } else if (interviewType === "technical" && technicalQuestions) {
+      setTotalQuestions(technicalQuestions.length);
+    } else if (interviewType === "behavioral" && behavioralQuestions) {
+      setTotalQuestions(behavioralQuestions.length);
+    } else if (questions?.length) {
       setTotalQuestions(questions.length);
     }
 
@@ -386,7 +449,7 @@ const FullScreenInterviewPanel = ({
       vapi.off("speech-start", handleSpeechStart);
       vapi.off("speech-end", handleSpeechEnd);
     };
-  }, [questions, handleMessage, handleSpeechStart, handleSpeechEnd]);
+  }, [questions, technicalQuestions, behavioralQuestions, interviewType, handleMessage, handleSpeechStart, handleSpeechEnd]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -519,7 +582,7 @@ const FullScreenInterviewPanel = ({
           <div className="flex items-center gap-4">
             <button
               onClick={onExit}
-              className="p-2 hover:bg-white/5 rounded-lg transition-colors text-slate-400 hover:text-white"
+              className="p-2 rounded-lg text-slate-400"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
@@ -533,7 +596,8 @@ const FullScreenInterviewPanel = ({
                 Interview Conference
               </h1>
               <p className="text-slate-400 text-sm">
-                {interviewRole}
+                {interviewRole} {interviewType && `• ${interviewType.charAt(0).toUpperCase() + interviewType.slice(1)}`}
+                {currentInterviewPhase && ` (${currentInterviewPhase.charAt(0).toUpperCase() + currentInterviewPhase.slice(1)} Round)`}
               </p>
             </div>
           </div>
@@ -691,7 +755,7 @@ const FullScreenInterviewPanel = ({
               {callStatus === CallStatus.INACTIVE && autoStartAttempted ? (
                 <button
                   onClick={handleManualStart}
-                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium"
+                  className="px-6 py-2.5 bg-emerald-600 text-white rounded-lg font-medium"
                 >
                   Start Interview
                 </button>
@@ -704,10 +768,10 @@ const FullScreenInterviewPanel = ({
                 <>
                   <button
                     onClick={() => setIsAudioOn(!isAudioOn)}
-                    className={`p-3 rounded-full transition-all ${
+                    className={`p-3 rounded-full ${
                       isAudioOn 
-                        ? 'bg-slate-700 hover:bg-slate-600 text-white' 
-                        : 'bg-red-600 hover:bg-red-700 text-white'
+                        ? 'bg-slate-700 text-white' 
+                        : 'bg-red-600 text-white'
                     }`}
                   >
                     {isAudioOn ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
@@ -715,10 +779,10 @@ const FullScreenInterviewPanel = ({
 
                   <button
                     onClick={() => setIsVideoOn(!isVideoOn)}
-                    className={`p-3 rounded-full transition-all ${
+                    className={`p-3 rounded-full ${
                       isVideoOn 
-                        ? 'bg-slate-700 hover:bg-slate-600 text-white' 
-                        : 'bg-red-600 hover:bg-red-700 text-white'
+                        ? 'bg-slate-700 text-white' 
+                        : 'bg-red-600 text-white'
                     }`}
                   >
                     {isVideoOn ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
@@ -726,17 +790,17 @@ const FullScreenInterviewPanel = ({
 
                   <button
                     onClick={handleDisconnect}
-                    className="p-3 rounded-full bg-red-600 hover:bg-red-700 text-white transition-all"
+                    className="p-3 rounded-full bg-red-600 text-white"
                   >
                     <PhoneOff className="w-5 h-5" />
                   </button>
 
                   <button
                     onClick={() => setIsSpeakerOn(!isSpeakerOn)}
-                    className={`p-3 rounded-full transition-all ${
+                    className={`p-3 rounded-full ${
                       isSpeakerOn 
-                        ? 'bg-slate-700 hover:bg-slate-600 text-white' 
-                        : 'bg-red-600 hover:bg-red-700 text-white'
+                        ? 'bg-slate-700 text-white' 
+                        : 'bg-red-600 text-white'
                     }`}
                   >
                     {isSpeakerOn ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
@@ -761,7 +825,7 @@ const FullScreenInterviewPanel = ({
                     Preparing Interview
                   </h4>
                   <p className="text-blue-200/70 text-xs">
-                    Setting up your session...
+                    Setting up your {interviewType === "mixed" ? "behavioral round (Part 1 of 2)" : "session"}...
                   </p>
                 </div>
               </div>

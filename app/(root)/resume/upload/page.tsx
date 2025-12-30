@@ -16,8 +16,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Info,
-  TrendingUp,
-  Loader2
+  Loader2,
+  Upload
 } from 'lucide-react';
 import { compressPDF, validatePDF } from '@/lib/resume/pdf-compression';
 import { convertPdfToImage } from '@/lib/resume/pdf2img';
@@ -28,6 +28,24 @@ const PROCESSING_STEPS = [
   { step: 2, message: 'Analyzing with AI...', progress: 60 },
   { step: 3, message: 'Saving results...', progress: 85 },
   { step: 4, message: 'Complete!', progress: 100 },
+];
+
+const RESUME_FACTS = [
+  "💼 Recruiters spend an average of 6-7 seconds on initial resume screening",
+  "📊 75% of resumes are rejected by ATS systems before reaching human eyes",
+  "✨ Resumes with quantified achievements get 40% more interview callbacks",
+  "🎯 Using keywords from the job description increases ATS match by 60%",
+  "📝 One-page resumes are ideal for <10 years experience, two pages for more",
+  "🚀 Action verbs at the start of bullet points increase readability by 35%",
+  "💡 White space improves resume readability and reduces rejection rates",
+  "🔍 90% of large companies use ATS to filter applications",
+  "📈 Tailored resumes get 2x more interviews than generic ones",
+  "⚡ PDF format is preferred by 83% of recruiters over Word documents",
+  "🎨 Clean, professional fonts like Calibri or Arial score higher in ATS",
+  "📞 Including LinkedIn URL increases profile views by 71%",
+  "💪 Skills sections with 6-12 relevant skills perform best",
+  "🏆 Resumes starting with a strong summary get 50% more attention",
+  "📧 Professional email addresses increase callback rates by 24%",
 ];
 
 interface FormData {
@@ -45,6 +63,7 @@ export default function UploadResume() {
   const [currentStep, setCurrentStep] = useState(0);
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string>('');
+  const [currentFactIndex, setCurrentFactIndex] = useState(0);
   const [formData, setFormData] = useState<FormData>({
     companyName: '',
     jobTitle: '',
@@ -70,6 +89,12 @@ export default function UploadResume() {
 
     setIsProcessing(true);
     setError('');
+    setCurrentFactIndex(Math.floor(Math.random() * RESUME_FACTS.length));
+    
+    // Rotate facts every 4 seconds
+    const factInterval = setInterval(() => {
+      setCurrentFactIndex(prev => (prev + 1) % RESUME_FACTS.length);
+    }, 4000);
     
     const resumeId: string = crypto.randomUUID();
 
@@ -187,6 +212,8 @@ export default function UploadResume() {
       setError(errorMessage);
       setIsProcessing(false);
       setCurrentStep(0);
+    } finally {
+      clearInterval(factInterval);
     }
   };
 
@@ -210,8 +237,8 @@ export default function UploadResume() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-12 h-12 text-blue-400 animate-spin" />
+      <div className="h-[calc(100vh-73px)] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
       </div>
     );
   }
@@ -222,41 +249,31 @@ export default function UploadResume() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="h-[calc(100vh-73px-3rem)] flex items-center justify-center overflow-hidden">
       {/* Processing Loader */}
       {isProcessing && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="glass-card max-w-md w-full p-8">
-            {/* Header */}
-            <div className="text-center mb-6">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full mb-4">
-                <Sparkles className="w-8 h-8 text-white animate-pulse" />
+        <div className="fixed inset-0 bg-slate-950/95 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900/90 border border-slate-800 rounded-xl max-w-md w-full p-8">
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg mb-4">
+                <Sparkles className="w-7 h-7 text-white" />
               </div>
-              <h3 className="text-xl font-semibold text-white mb-2">
+              <h3 className="text-lg font-medium text-white mb-3">
                 {PROCESSING_STEPS[currentStep]?.message}
               </h3>
-              <p className="text-sm text-slate-400">
-                Please wait, this may take 10-30 seconds...
+              <p className="text-sm text-slate-400 leading-relaxed">
+                {RESUME_FACTS[currentFactIndex]}
               </p>
             </div>
 
-            {/* Progress Bar */}
-            <div className="relative w-full h-2 bg-slate-800/50 rounded-full overflow-hidden mb-6">
+            <div className="relative w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mb-6">
               <div 
                 className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-500 to-purple-600 transition-all duration-500"
                 style={{ width: `${PROCESSING_STEPS[currentStep]?.progress || 0}%` }}
               />
             </div>
 
-            {/* Percentage */}
-            <div className="text-center mb-6">
-              <span className="text-2xl font-semibold text-white">
-                {PROCESSING_STEPS[currentStep]?.progress || 0}%
-              </span>
-            </div>
-
-            {/* Steps */}
-            <div className="space-y-2">
+            <div className="space-y-3">
               {PROCESSING_STEPS.map((step, idx) => (
                 <div 
                   key={idx}
@@ -264,328 +281,256 @@ export default function UploadResume() {
                     idx < currentStep 
                       ? 'text-emerald-400' 
                       : idx === currentStep 
-                      ? 'text-blue-400 font-medium' 
-                      : 'text-slate-500'
+                      ? 'text-blue-400' 
+                      : 'text-slate-600'
                   }`}
                 >
                   {idx < currentStep ? (
-                    <CheckCircle2 className="w-4 h-4 mr-2 flex-shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 mr-3 flex-shrink-0" />
                   ) : idx === currentStep ? (
-                    <Loader2 className="w-4 h-4 mr-2 flex-shrink-0 animate-spin" />
+                    <Loader2 className="w-4 h-4 mr-3 flex-shrink-0 animate-spin" />
                   ) : (
-                    <div className="w-4 h-4 mr-2 border-2 border-slate-600 rounded-full flex-shrink-0" />
+                    <div className="w-4 h-4 mr-3 border border-slate-700 rounded-full flex-shrink-0" />
                   )}
                   <span>{step.message}</span>
                 </div>
               ))}
             </div>
-
-            {currentStep === 3 && (
-              <div className="mt-4 p-3 bg-amber-500/10 rounded-lg border border-amber-500/20">
-                <p className="text-xs text-amber-400 flex items-start">
-                  <Info className="w-3 h-3 mr-2 mt-0.5 flex-shrink-0" />
-                  Saving to database... Please don&apos;t close this window.
-                </p>
-              </div>
-            )}
           </div>
         </div>
       )}
 
-      {/* Header */}
-      <div className="glass-card hover-lift">
-        <div className="p-6 text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full mb-4">
-            <FileText className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-3xl font-semibold text-white mb-2">
-            AI Resume Analyzer
-          </h1>
-          <p className="text-slate-400">
-            Get instant AI-powered feedback with multi-agentic analysis
-          </p>
-        </div>
-      </div>
-
-      {/* Features */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="glass-card hover-lift">
-          <div className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-blue-400" />
-              </div>
-              <div>
-                <h3 className="font-medium text-white text-sm">AI-Powered</h3>
-                <p className="text-xs text-slate-400">Multi-agentic system</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="glass-card hover-lift">
-          <div className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-emerald-400" />
-              </div>
-              <div>
-                <h3 className="font-medium text-white text-sm">ATS Optimized</h3>
-                <p className="text-xs text-slate-400">Beat tracking systems</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="glass-card hover-lift">
-          <div className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
-                <Shield className="w-5 h-5 text-purple-400" />
-              </div>
-              <div>
-                <h3 className="font-medium text-white text-sm">Secure & Private</h3>
-                <p className="text-xs text-slate-400">Data protected</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Error */}
-      {error && (
-        <div className="glass-card border border-red-500/20">
-          <div className="p-4">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <h3 className="font-medium text-red-400 mb-1 text-sm">
-                  Analysis Failed
-                </h3>
-                <p className="text-sm text-red-300 mb-3">{error}</p>
-                <button
-                  onClick={() => setError('')}
-                  className="text-sm text-red-300 hover:text-red-200 underline"
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Main Form */}
-      <div className="glass-card">
-        <div className="p-6 border-b border-white/5">
-          <h2 className="text-lg font-semibold text-white mb-1">
-            Resume Analysis Form
-          </h2>
-          <p className="text-sm text-slate-400">
-            Fill in details for personalized feedback
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Analysis Type */}
-          <div>
-            <label className="block text-sm text-slate-400 mb-3">
-              Analysis Type
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {[
-                { value: 'full', label: 'Full Analysis', desc: 'Complete evaluation', time: '~30s' },
-                { value: 'quick', label: 'Quick Scan', desc: 'Key insights', time: '~10s' },
-                { value: 'ats-only', label: 'ATS Only', desc: 'Focus on ATS', time: '~15s' },
-              ].map((type) => (
-                <button
-                  key={type.value}
-                  type="button"
-                  onClick={() => setFormData({ ...formData, analysisType: type.value as 'full' | 'quick' | 'ats-only' })}
-                  className={`p-4 rounded-lg border transition-all ${
-                    formData.analysisType === type.value
-                      ? 'border-blue-500/30 bg-blue-500/10'
-                      : 'border-white/10 hover:border-white/20'
-                  }`}
-                >
-                  <div className="text-left">
-                    <div className="font-medium text-white text-sm">{type.label}</div>
-                    <div className="text-xs text-slate-400 mt-1">{type.desc}</div>
-                    <div className="text-xs text-slate-500 mt-1">{type.time}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Form Fields */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Company Name */}
+      {/* Main Content */}
+      <div className="w-full max-w-7xl h-full flex items-center px-6">
+        <div className="w-full grid grid-cols-2 gap-16 items-center h-full py-8">
+          {/* Left Side - Info */}
+          <div className="space-y-6">
             <div>
-              <label htmlFor="company-name" className="block text-sm text-slate-400 mb-2">
-                Company Name
-                <span className="ml-2 text-xs text-slate-500">Optional</span>
-              </label>
-              <input
-                type="text"
-                id="company-name"
-                value={formData.companyName}
-                onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                placeholder="e.g., Google, Microsoft"
-                className="w-full px-4 py-2.5 glass-input rounded-lg text-white placeholder-slate-500 text-sm"
-              />
-            </div>
-
-            {/* Job Title */}
-            <div>
-              <label htmlFor="job-title" className="block text-sm text-slate-400 mb-2">
-                Job Title
-                <span className="ml-2 text-xs text-slate-500">Optional</span>
-              </label>
-              <input
-                type="text"
-                id="job-title"
-                value={formData.jobTitle}
-                onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
-                placeholder="e.g., Senior Software Engineer"
-                className="w-full px-4 py-2.5 glass-input rounded-lg text-white placeholder-slate-500 text-sm"
-              />
-            </div>
-
-            {/* Job Description */}
-            <div className="lg:col-span-2">
-              <label htmlFor="job-description" className="block text-sm text-slate-400 mb-2">
-                Job Description
-                <span className="ml-2 text-xs text-slate-500">Optional</span>
-              </label>
-              <textarea
-                id="job-description"
-                rows={5}
-                value={formData.jobDescription}
-                onChange={(e) => setFormData({ ...formData, jobDescription: e.target.value })}
-                placeholder="Paste the job description for better keyword matching..."
-                className="w-full px-4 py-2.5 glass-input rounded-lg text-white placeholder-slate-500 text-sm resize-none"
-              />
-              <p className="text-xs text-slate-500 mt-2 flex items-start">
-                <Info className="w-3 h-3 mr-1 mt-0.5 flex-shrink-0" />
-                Including the job description improves analysis accuracy
+              <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl mb-5">
+                <FileText className="w-6 h-6 text-white" />
+              </div>
+              <h1 className="text-4xl font-bold text-white mb-3 leading-tight">
+                AI Resume<br />Analyzer
+              </h1>
+              <p className="text-base text-slate-400 leading-relaxed">
+                Get instant AI-powered feedback and detailed insights to optimize your resume for success
               </p>
             </div>
 
-            {/* File Upload */}
-            <div className="lg:col-span-2">
-              <label className="block text-sm text-slate-400 mb-2">
-                Upload Resume
-                <span className="ml-2 text-xs text-red-400">Required</span>
-              </label>
-              <FileUploader onFileSelect={handleFileSelect} />
-              
-              {file && (
-                <div className="mt-4 p-4 glass-card border border-emerald-500/20">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <FileText className="w-5 h-5 text-emerald-400" />
-                      <div>
-                        <p className="font-medium text-white text-sm">{file.name}</p>
-                        <p className="text-xs text-slate-400">
-                          {(file.size / 1024).toFixed(2)} KB • PDF
-                        </p>
-                      </div>
-                    </div>
-                    <CheckCircle2 className="w-6 h-6 text-emerald-400" />
-                  </div>
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Sparkles className="w-5 h-5 text-blue-400" />
                 </div>
-              )}
+                <div>
+                  <h3 className="text-white font-medium mb-1 text-sm">AI-Powered Analysis</h3>
+                  <p className="text-xs text-slate-400">Advanced multi-agent system evaluates every aspect</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                </div>
+                <div>
+                  <h3 className="text-white font-medium mb-1 text-sm">ATS Optimization</h3>
+                  <p className="text-xs text-slate-400">Pass applicant tracking systems with high scores</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Shield className="w-5 h-5 text-purple-400" />
+                </div>
+                <div>
+                  <h3 className="text-white font-medium mb-1 text-sm">Secure & Private</h3>
+                  <p className="text-xs text-slate-400">Enterprise-grade security and encryption</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4 pt-3">
+              <div>
+                <div className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 mb-1">
+                  6-7s
+                </div>
+                <div className="text-xs text-slate-500">Average review time</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 mb-1">
+                  75%
+                </div>
+                <div className="text-xs text-slate-500">Rejected by ATS</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 mb-1">
+                  2x
+                </div>
+                <div className="text-xs text-slate-500">More interviews</div>
+              </div>
             </div>
           </div>
 
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={!file || isProcessing}
-            className={`w-full py-3 px-6 rounded-lg font-medium transition-all ${
-              !file || isProcessing
-                ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
-                : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white'
-            }`}
-          >
-            {isProcessing ? (
-              <span className="flex items-center justify-center">
-                <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                Analyzing...
-              </span>
-            ) : (
-              <span className="flex items-center justify-center">
-                <Sparkles className="w-5 h-5 mr-2" />
-                Start AI Analysis
-              </span>
+          {/* Right Side - Form */}
+          <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 h-full max-h-full overflow-y-auto custom-scrollbar">
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 mb-4">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <h3 className="font-medium text-red-400 mb-0.5 text-sm">Analysis Failed</h3>
+                    <p className="text-xs text-red-300">{error}</p>
+                  </div>
+                  <button onClick={() => setError('')} className="text-red-400 hover:text-red-300 text-sm">×</button>
+                </div>
+              </div>
             )}
-          </button>
 
-          {/* Security Notice */}
-          <div className="flex items-center justify-center gap-2 text-sm text-slate-400">
-            <Shield className="w-4 h-4" />
-            <span>Your resume is processed securely</span>
-          </div>
-        </form>
-      </div>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Analysis Type
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { value: 'full', label: 'Full', time: '~30s' },
+                    { value: 'quick', label: 'Quick', time: '~10s' },
+                    { value: 'ats-only', label: 'ATS', time: '~15s' },
+                  ].map((type) => (
+                    <button
+                      key={type.value}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, analysisType: type.value as 'full' | 'quick' | 'ats-only' })}
+                      className={`p-2.5 rounded-lg border transition-all text-center ${
+                        formData.analysisType === type.value
+                          ? 'border-blue-500 bg-blue-500/10 text-white'
+                          : 'border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600'
+                      }`}
+                    >
+                      <div className="font-medium text-sm mb-0.5">{type.label}</div>
+                      <div className="text-xs opacity-70">{type.time}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-      {/* Info Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="glass-card">
-          <div className="p-6">
-            <h3 className="font-medium text-white mb-3 flex items-center text-sm">
-              <CheckCircle2 className="w-5 h-5 text-emerald-400 mr-2" />
-              What We Analyze
-            </h3>
-            <ul className="space-y-2 text-sm text-slate-400">
-              <li className="flex items-start">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 mr-2 mt-0.5 flex-shrink-0" />
-                ATS compatibility and keywords
-              </li>
-              <li className="flex items-start">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 mr-2 mt-0.5 flex-shrink-0" />
-                Content quality and metrics
-              </li>
-              <li className="flex items-start">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 mr-2 mt-0.5 flex-shrink-0" />
-                Structure and formatting
-              </li>
-              <li className="flex items-start">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 mr-2 mt-0.5 flex-shrink-0" />
-                Skills alignment
-              </li>
-            </ul>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="company-name" className="block text-sm font-medium text-slate-300 mb-1.5">
+                    Company
+                  </label>
+                  <input
+                    type="text"
+                    id="company-name"
+                    value={formData.companyName}
+                    onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+                    placeholder="e.g., Google"
+                    className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="job-title" className="block text-sm font-medium text-slate-300 mb-1.5">
+                    Job Title
+                  </label>
+                  <input
+                    type="text"
+                    id="job-title"
+                    value={formData.jobTitle}
+                    onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
+                    placeholder="e.g., Software Engineer"
+                    className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="job-description" className="block text-sm font-medium text-slate-300 mb-1.5">
+                  Job Description
+                </label>
+                <textarea
+                  id="job-description"
+                  rows={2}
+                  value={formData.jobDescription}
+                  onChange={(e) => setFormData({ ...formData, jobDescription: e.target.value })}
+                  placeholder="Paste job description for better keyword matching..."
+                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 transition-colors resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                  Upload Resume <span className="text-red-400">*</span>
+                </label>
+                <FileUploader onFileSelect={handleFileSelect} />
+                
+                {file && (
+                  <div className="mt-3 p-3 bg-slate-800/50 border border-slate-700 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-emerald-500/10 rounded-lg flex items-center justify-center">
+                          <FileText className="w-4 h-4 text-emerald-400" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-white text-xs">{file.name}</p>
+                          <p className="text-xs text-slate-400">{(file.size / 1024).toFixed(2)} KB</p>
+                        </div>
+                      </div>
+                      <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                disabled={!file || isProcessing}
+                className={`w-full py-3 px-6 rounded-lg font-medium transition-all ${
+                  !file || isProcessing
+                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white shadow-lg shadow-blue-500/25'
+                }`}
+              >
+                {isProcessing ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Analyzing...
+                  </span>
+                ) : (
+                  <span className="flex items-center justify-center gap-2">
+                    <Upload className="w-5 h-5" />
+                    Analyze Resume
+                  </span>
+                )}
+              </button>
+
+              <div className="text-center pt-1">
+                <p className="text-xs text-slate-500 flex items-center justify-center gap-2">
+                  <Info className="w-3 h-3" />
+                  PDF only • Max 10MB • 10-30 seconds
+                </p>
+              </div>
+            </form>
           </div>
         </div>
-
-        <div className="glass-card">
-          <div className="p-6">
-            <h3 className="font-medium text-white mb-3 flex items-center text-sm">
-              <Info className="w-5 h-5 text-blue-400 mr-2" />
-              File Requirements
-            </h3>
-            <ul className="space-y-2 text-sm text-slate-400">
-              <li className="flex items-start">
-                <Info className="w-4 h-4 text-blue-400 mr-2 mt-0.5 flex-shrink-0" />
-                PDF format only
-              </li>
-              <li className="flex items-start">
-                <Info className="w-4 h-4 text-blue-400 mr-2 mt-0.5 flex-shrink-0" />
-                Maximum size: 10MB
-              </li>
-              <li className="flex items-start">
-                <Info className="w-4 h-4 text-blue-400 mr-2 mt-0.5 flex-shrink-0" />
-                Text-based PDF only
-              </li>
-              <li className="flex items-start">
-                <Info className="w-4 h-4 text-blue-400 mr-2 mt-0.5 flex-shrink-0" />
-                Takes 10-30 seconds
-              </li>
-            </ul>
-          </div>
-        </div>
       </div>
+
+      <style jsx global>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(15, 23, 42, 0.3);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(71, 85, 105, 0.5);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(71, 85, 105, 0.7);
+        }
+      `}</style>
     </div>
   );
 }

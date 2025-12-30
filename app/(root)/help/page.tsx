@@ -20,7 +20,17 @@ import {
   Target,
   Award,
   ChevronRight,
-  Loader2
+  Loader2,
+  Pen,
+  Edit3,
+  Sparkles,
+  PenTool,
+  Shield,
+  Building2,
+  Eye,
+  Calendar,
+  TrendingUp,
+  Zap
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
@@ -75,7 +85,7 @@ export default function HelpSupportPage() {
       id: 1,
       category: 'interviews',
       question: 'How does the AI interview simulation work?',
-      answer: 'Our AI uses Google Gemini 2.0 to generate realistic interview questions based on your role and experience level. The AI evaluates responses in real-time, providing detailed feedback on technical accuracy, communication, and problem-solving skills.',
+      answer: 'Our platform is powered by multi-agentic AI that creates realistic human interview experiences crafted by top industry recruiters. The AI evaluates responses in real-time, providing detailed feedback on technical accuracy, communication, and problem-solving skills.',
       icon: Video,
       gradient: 'gradient-accent'
     },
@@ -89,6 +99,14 @@ export default function HelpSupportPage() {
     },
     {
       id: 3,
+      category: 'cover-letter',
+      question: 'How does the AI Cover Letter Generator work?',
+      answer: 'Our AI conducts comprehensive background research on the company, analyzing their latest projects, news articles, and company culture. It then crafts a personalized cover letter that aligns with the specific job role and description, incorporating relevant company insights to make your application stand out.',
+      icon: Pen,
+      gradient: 'gradient-primary'
+    },
+    {
+      id: 4,
       category: 'planner',
       question: 'How do I create an effective study plan?',
       answer: 'Navigate to the Planner section and click "Create New Plan". Enter your interview date, target role, and skill level. Our AI generates a personalized day-by-day schedule with curated resources and progress tracking.',
@@ -96,7 +114,7 @@ export default function HelpSupportPage() {
       gradient: 'gradient-primary'
     },
     {
-      id: 4,
+      id: 5,
       category: 'general',
       question: 'What are the subscription limits?',
       answer: 'Free users receive 10 interviews and 5 resume analyses per month. Pro users get 50 interviews and 20 analyses. Premium users have unlimited access to all features.',
@@ -104,7 +122,7 @@ export default function HelpSupportPage() {
       gradient: 'gradient-warning'
     },
     {
-      id: 5,
+      id: 6,
       category: 'resume',
       question: 'Can I analyze multiple resumes?',
       answer: 'Yes. You can upload and analyze multiple resume versions. This is useful for tailoring your resume to different job applications. Analyses are saved in your dashboard for easy comparison.',
@@ -112,20 +130,156 @@ export default function HelpSupportPage() {
       gradient: 'gradient-secondary'
     },
     {
-      id: 6,
+      id: 7,
       category: 'interviews',
       question: 'What interview types are supported?',
-      answer: 'We support Technical (coding, algorithms), Behavioral (STAR method), System Design (architecture), and Mixed interviews. Each type includes relevant questions and evaluation criteria.',
+      answer: 'We support Technical (coding, algorithms), Behavioral (STAR method), System Design (architecture), and Mixed interviews. Each type includes relevant questions and evaluation criteria crafted by experienced recruiters.',
       icon: MessageSquare,
       gradient: 'gradient-accent'
     },
     {
-      id: 7,
+      id: 8,
       category: 'planner',
       question: 'What happens when I complete all tasks?',
       answer: 'Upon completing all tasks, you unlock an AI-generated quiz based on your study material. The quiz provides a final readiness assessment with personalized questions.',
       icon: Award,
       gradient: 'gradient-success'
+    },
+    {
+      id: 9,
+      category: 'interviews',
+      question: 'How accurate is the interview feedback?',
+      answer: 'Our multi-agentic AI system combines multiple evaluation models to provide comprehensive feedback. The system is trained on thousands of real interviews conducted by top recruiters from companies like Google, Amazon, and Microsoft.',
+      icon: Target,
+      gradient: 'gradient-primary'
+    },
+    {
+      id: 10,
+      category: 'resume',
+      question: 'Does the AI improve my resume automatically?',
+      answer: 'While our AI provides detailed suggestions and improvement areas, the Resume Writer feature can help you implement changes. You maintain full control over your resume content while getting expert-level guidance.',
+      icon: Edit3,
+      gradient: 'gradient-accent'
+    },
+    {
+      id: 11,
+      category: 'cover-letter',
+      question: 'What information does the AI use to write my cover letter?',
+      answer: 'The AI analyzes your resume, the job description, and conducts real-time research on the company including recent news, projects, values, and culture. This creates a highly personalized letter that demonstrates genuine interest and company knowledge.',
+      icon: Sparkles,
+      gradient: 'gradient-secondary'
+    },
+    {
+      id: 12,
+      category: 'general',
+      question: 'Can I use Preciprocal on mobile devices?',
+      answer: 'Yes! Preciprocal is fully responsive and works on all devices. However, for the best interview simulation experience, we recommend using a desktop or laptop with a webcam and microphone.',
+      icon: HelpCircle,
+      gradient: 'gradient-secondary'
+    },
+    {
+      id: 13,
+      category: 'interviews',
+      question: 'How long does each interview session last?',
+      answer: 'Interview sessions typically last 15-45 minutes depending on the type and difficulty level you select. You can pause and resume sessions at any time, and all progress is automatically saved.',
+      icon: Clock,
+      gradient: 'gradient-warning'
+    },
+    {
+      id: 14,
+      category: 'planner',
+      question: 'Can I customize my study plan?',
+      answer: 'Absolutely! While our AI generates an initial plan based on your interview date and skill level, you can add, remove, or reorder tasks. You can also set custom daily time commitments and mark tasks as complete.',
+      icon: Target,
+      gradient: 'gradient-primary'
+    },
+    {
+      id: 15,
+      category: 'resume',
+      question: 'What file formats are supported for resume upload?',
+      answer: 'We currently support PDF files for resume uploads. PDFs are industry standard and ensure your formatting remains consistent across all systems. Maximum file size is 5MB.',
+      icon: FileText,
+      gradient: 'gradient-success'
+    },
+    {
+      id: 16,
+      category: 'cover-letter',
+      question: 'Can I customize the tone of my cover letter?',
+      answer: 'Yes! You can choose from multiple tone options: Professional, Enthusiastic, Formal, Friendly, or Confident. The AI adapts the writing style while maintaining the researched company insights and personalization.',
+      icon: PenTool,
+      gradient: 'gradient-accent'
+    },
+    {
+      id: 17,
+      category: 'general',
+      question: 'Is my data secure and private?',
+      answer: 'Yes. All data is encrypted in transit and at rest. Your resumes and interview responses are never shared with third parties. We use enterprise-grade Firebase security and comply with GDPR and CCPA regulations.',
+      icon: Shield,
+      gradient: 'gradient-accent'
+    },
+    {
+      id: 18,
+      category: 'interviews',
+      question: 'Can I practice for specific companies?',
+      answer: 'Yes! When creating an interview, you can specify your target company. Our AI adapts questions to match that company\'s known interview style, culture, and technical focus areas based on real interview data from industry recruiters.',
+      icon: Building2,
+      gradient: 'gradient-primary'
+    },
+    {
+      id: 19,
+      category: 'resume',
+      question: 'How does the Recruiter Eye Simulation work?',
+      answer: 'Our AI conducts background research on the target company and role, analyzing the personality and work culture of people in similar positions. It then simulates how recruiters from that specific company would review your resume, providing insights on what catches their attention and generates actionable feedback based on their preferences.',
+      icon: Eye,
+      gradient: 'gradient-secondary'
+    },
+    {
+      id: 20,
+      category: 'planner',
+      question: 'What happens if I miss a day in my plan?',
+      answer: 'No worries! Your plan adapts to your pace. Missed tasks automatically roll over, and you can adjust deadlines as needed. The AI re-calculates your daily workload to keep you on track for your interview date.',
+      icon: Calendar,
+      gradient: 'gradient-warning'
+    },
+    {
+      id: 21,
+      category: 'cover-letter',
+      question: 'How long does it take to generate a cover letter?',
+      answer: 'Cover letter generation typically takes 10-30 seconds. The AI performs real-time company research, analyzes the job description, and crafts a personalized letter. You can save, edit, and download the result in PDF or Word format.',
+      icon: Zap,
+      gradient: 'gradient-success'
+    },
+    {
+      id: 22,
+      category: 'general',
+      question: 'Can I cancel my subscription anytime?',
+      answer: 'Yes, you can cancel your subscription at any time from the Settings page. You\'ll retain access to paid features until the end of your current billing period, and all your data remains accessible.',
+      icon: Award,
+      gradient: 'gradient-accent'
+    },
+    {
+      id: 23,
+      category: 'interviews',
+      question: 'What makes Preciprocal different from other platforms?',
+      answer: 'We combine multi-agentic AI with real recruiter expertise, personalized study planning, comprehensive resume analysis, and intelligent cover letter generation. Our platform adapts to your specific needs and provides actionable feedback, not just generic tips.',
+      icon: Sparkles,
+      gradient: 'gradient-primary'
+    },
+    {
+      id: 24,
+      category: 'resume',
+      question: 'How often should I update my resume analysis?',
+      answer: 'We recommend analyzing your resume after making significant changes or when applying to different industries. Most users analyze 2-3 versions: a general version, and tailored versions for specific roles or companies.',
+      icon: TrendingUp,
+      gradient: 'gradient-success'
+    },
+    {
+      id: 25,
+      category: 'cover-letter',
+      question: 'Does the cover letter use my resume information?',
+      answer: 'Yes! If you have a resume uploaded, the AI automatically incorporates your experience, skills, and achievements into the cover letter. This ensures consistency between your application materials and highlights your most relevant qualifications.',
+      icon: CheckCircle2,
+      gradient: 'gradient-primary'
     }
   ];
 
@@ -133,6 +287,7 @@ export default function HelpSupportPage() {
     { value: 'all', label: 'All', icon: BookOpen },
     { value: 'interviews', label: 'Interviews', icon: Video },
     { value: 'resume', label: 'Resume', icon: FileText },
+    { value: 'cover-letter', label: 'Cover Letter', icon: Pen },
     { value: 'planner', label: 'Planner', icon: Target },
     { value: 'general', label: 'General', icon: HelpCircle }
   ];
@@ -334,7 +489,7 @@ export default function HelpSupportPage() {
                 />
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 {categories.map((cat) => (
                   <button
                     key={cat.value}

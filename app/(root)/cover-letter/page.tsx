@@ -298,17 +298,35 @@ export default function CoverLetterDashboard() {
         throw new Error('PDF generation failed');
       }
 
+      // Extract filename from Content-Disposition header
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = 'cover-letter.pdf';
+      
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?(.+?)"?$/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
+      
+      // Open in new tab
+      window.open(url, '_blank');
+      
+      // Also trigger download
       const link = document.createElement('a');
       link.href = url;
-      link.download = `cover_letter_${letter.jobRole.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+      link.download = filename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      URL.revokeObjectURL(url);
       
-      toast.success('PDF downloaded!');
+      // Clean up after a delay
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      
+      toast.success('PDF downloaded and opened!');
       setShowDownloadMenu(null);
     } catch (error) {
       console.error('Failed to generate PDF:', error);
@@ -333,17 +351,35 @@ export default function CoverLetterDashboard() {
         throw new Error('Word document generation failed');
       }
 
+      // Extract filename from Content-Disposition header
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = 'cover-letter.docx';
+      
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?(.+?)"?$/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
+      
+      // Open in new tab
+      window.open(url, '_blank');
+      
+      // Also trigger download
       const link = document.createElement('a');
       link.href = url;
-      link.download = `cover_letter_${letter.jobRole.replace(/\s+/g, '_')}_${Date.now()}.docx`;
+      link.download = filename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      URL.revokeObjectURL(url);
       
-      toast.success('Word document downloaded!');
+      // Clean up after a delay
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      
+      toast.success('Word document downloaded and opened!');
       setShowDownloadMenu(null);
     } catch (error) {
       console.error('Failed to generate Word document:', error);

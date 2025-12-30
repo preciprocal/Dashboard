@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/firebase/admin";
 import { getCurrentUser } from "@/lib/actions/auth.action";
 
-// FIXED: Updated to latest Stripe API version
+// Initialize Stripe with latest API version
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-07-30.basil",
 });
@@ -13,6 +13,13 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 interface CreateSubscriptionRequest {
   priceId: string;
   billingCycle?: string;
+  promoCode?: string;
+  couponId?: string;
+  customerId?: string;
+  customerEmail?: string;
+  customerName?: string;
+  userId?: string;
+  paymentMethodId?: string;
 }
 
 interface UserData {
@@ -21,7 +28,7 @@ interface UserData {
   };
 }
 
-// FIXED: Add interface for expanded invoice
+// Interface for expanded invoice
 interface ExpandedInvoice extends Stripe.Invoice {
   payment_intent: Stripe.PaymentIntent;
 }
@@ -43,7 +50,13 @@ export async function POST(request: NextRequest) {
     const body = await request.json() as CreateSubscriptionRequest;
     console.log("📝 Request body:", body);
 
-    const { priceId, billingCycle } = body;
+    const { 
+      priceId, 
+      billingCycle, 
+      promoCode, 
+      couponId,
+      paymentMethodId 
+    } = body;
 
     if (!priceId) {
       console.log("❌ No price ID provided");
@@ -55,6 +68,8 @@ export async function POST(request: NextRequest) {
 
     console.log("💰 Price ID:", priceId);
     console.log("📅 Billing cycle:", billingCycle);
+    console.log("🎟️ Promo code:", promoCode);
+    console.log("🎫 Coupon ID:", couponId);
     console.log("👤 User ID:", user.id);
 
     // Get user's current subscription data from Firestore
@@ -74,7 +89,6 @@ export async function POST(request: NextRequest) {
         customer = retrievedCustomer as Stripe.Customer;
         console.log("✅ Found existing customer:", customer.id);
       } catch (error) {
-        // Log the error for debugging but continue with customer creation
         console.log("🆕 Customer not found or error occurred, creating new one:", error instanceof Error ? error.message : 'Unknown error');
         customer = await stripe.customers.create({
           email: user.email,
@@ -118,27 +132,70 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create the subscription with proper metadata
+    // Validate coupon if provided
+    if (couponId) {
+      console.log("🔍 Validating coupon in Stripe...");
+      try {
+        const coupon = await stripe.coupons.retrieve(couponId);
+        if (!coupon.valid) {
+          console.log("❌ Coupon is not valid");
+          return NextResponse.json(
+            { error: "This promo code has expired or is no longer valid" },
+            { status: 400 }
+          );
+        }
+        console.log("✅ Coupon verified:", coupon.id, "-", coupon.percent_off + "% off");
+      } catch (couponError) {
+        console.log("❌ Coupon verification failed:", couponError);
+        return NextResponse.json(
+          { error: "Invalid promo code" },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Create subscription
     console.log("🔄 Creating subscription...");
     try {
-      const subscription = await stripe.subscriptions.create({
+      const subscriptionData: Stripe.SubscriptionCreateParams = {
         customer: customer.id,
         items: [{ price: priceId }],
         payment_behavior: "default_incomplete",
         payment_settings: { save_default_payment_method: "on_subscription" },
         expand: ["latest_invoice.payment_intent"],
         metadata: {
-          userId: user.id, // This is crucial for webhooks!
+          userId: user.id,
           billingCycle: billingCycle || "monthly",
           userEmail: user.email,
           userName: user.name,
+          ...(promoCode && { promoCode }),
         },
-      });
+      };
+
+      // Apply coupon if provided (using discounts array in newer Stripe API)
+      if (couponId) {
+        subscriptionData.discounts = [{ coupon: couponId }];
+        console.log("🎫 Applying coupon via discounts:", couponId);
+      }
+
+      // Add payment method if provided (for Payment Request Button)
+      if (paymentMethodId) {
+        subscriptionData.default_payment_method = paymentMethodId;
+        console.log("💳 Using payment method:", paymentMethodId);
+      }
+
+      const subscription = await stripe.subscriptions.create(subscriptionData);
 
       console.log("✅ Subscription created:", subscription.id);
       console.log("🔗 Subscription metadata:", subscription.metadata);
+      if (subscription.discounts && subscription.discounts.length > 0) {
+        const discount = subscription.discounts[0];
+        if (typeof discount !== 'string' && discount.coupon) {
+          console.log("💰 Discount applied:", typeof discount.coupon === 'string' ? discount.coupon : discount.coupon.id);
+        }
+      }
 
-      // FIXED: Type cast to ExpandedInvoice to access payment_intent
+      // Type cast to ExpandedInvoice to access payment_intent
       const invoice = subscription.latest_invoice as ExpandedInvoice;
       const paymentIntent = invoice.payment_intent;
 
@@ -155,17 +212,42 @@ export async function POST(request: NextRequest) {
       console.log("✅ Client secret created");
 
       // Update user's Stripe customer ID in Firestore immediately
-      await db.collection("users").doc(user.id).update({
+      const updateData: Record<string, string> = {
         "subscription.stripeCustomerId": customer.id,
         "subscription.updatedAt": new Date().toISOString(),
-      });
+      };
 
-      console.log("✅ Updated user with customer ID");
+      // Store applied promo code in user data
+      if (promoCode) {
+        updateData["subscription.appliedPromoCode"] = promoCode;
+        updateData["subscription.promoCodeAppliedAt"] = new Date().toISOString();
+        console.log("📝 Storing promo code in user data:", promoCode);
+      }
+
+      await db.collection("users").doc(user.id).update(updateData);
+
+      console.log("✅ Updated user with customer ID and promo code");
+
+      // Get discount information if applied
+      const hasDiscount = subscription.discounts && subscription.discounts.length > 0;
+      let discountInfo = undefined;
+      
+      if (hasDiscount) {
+        const discount = subscription.discounts[0];
+        if (typeof discount !== 'string' && discount.coupon) {
+          discountInfo = {
+            couponId: typeof discount.coupon === 'string' ? discount.coupon : discount.coupon.id,
+            percentOff: typeof discount.coupon === 'string' ? undefined : discount.coupon.percent_off,
+          };
+        }
+      }
 
       return NextResponse.json({
         subscriptionId: subscription.id,
         clientSecret: paymentIntent.client_secret,
         customerId: customer.id,
+        discountApplied: hasDiscount,
+        ...(discountInfo && { discount: discountInfo }),
       });
     } catch (subscriptionError) {
       console.log("❌ Subscription creation failed:", subscriptionError);
