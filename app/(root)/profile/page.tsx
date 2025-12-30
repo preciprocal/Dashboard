@@ -562,15 +562,15 @@ const ProfilePage = () => {
   // Show authentication required message
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="glass-card hover-lift">
-          <div className="text-center p-12">
-            <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-white mb-2">Authentication Required</h2>
-            <p className="text-slate-400 mb-6">Please log in to view your profile</p>
+      <div className="flex items-center justify-center min-h-[60vh] px-4">
+        <div className="glass-card hover-lift max-w-md w-full">
+          <div className="text-center p-8 sm:p-12">
+            <AlertCircle className="w-12 h-12 sm:w-16 sm:h-16 text-red-400 mx-auto mb-4" />
+            <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">Authentication Required</h2>
+            <p className="text-sm sm:text-base text-slate-400 mb-6">Please log in to view your profile</p>
             <Link 
               href="/sign-in"
-              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 py-3 rounded-lg"
+              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 py-3 rounded-lg w-full sm:w-auto justify-center"
             >
               Go to Login
             </Link>
@@ -583,15 +583,15 @@ const ProfilePage = () => {
   // Show profile error with retry
   if (profileError) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="glass-card hover-lift max-w-md">
-          <div className="text-center p-12">
-            <AlertCircle className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-white mb-2">Profile Load Error</h2>
-            <p className="text-slate-400 mb-6">{profileError}</p>
+      <div className="flex items-center justify-center min-h-[60vh] px-4">
+        <div className="glass-card hover-lift max-w-md w-full">
+          <div className="text-center p-8 sm:p-12">
+            <AlertCircle className="w-12 h-12 sm:w-16 sm:h-16 text-yellow-400 mx-auto mb-4" />
+            <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">Profile Load Error</h2>
+            <p className="text-sm sm:text-base text-slate-400 mb-6">{profileError}</p>
             <button
               onClick={handleRetryError}
-              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 py-3 rounded-lg"
+              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 py-3 rounded-lg w-full sm:w-auto justify-center"
             >
               <RefreshCw className="w-5 h-5" />
               Try Again
@@ -605,15 +605,15 @@ const ProfilePage = () => {
   // Show data not found
   if (!userProfile || !stats) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="glass-card hover-lift max-w-md">
-          <div className="text-center p-12">
-            <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-white mb-2">Profile Not Found</h2>
-            <p className="text-slate-400 mb-6">Unable to load your profile data</p>
+      <div className="flex items-center justify-center min-h-[60vh] px-4">
+        <div className="glass-card hover-lift max-w-md w-full">
+          <div className="text-center p-8 sm:p-12">
+            <AlertCircle className="w-12 h-12 sm:w-16 sm:h-16 text-red-400 mx-auto mb-4" />
+            <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">Profile Not Found</h2>
+            <p className="text-sm sm:text-base text-slate-400 mb-6">Unable to load your profile data</p>
             <button
               onClick={() => window.location.reload()}
-              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 py-3 rounded-lg"
+              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 py-3 rounded-lg w-full sm:w-auto justify-center"
             >
               <RefreshCw className="w-5 h-5" />
               Reload Page
@@ -625,23 +625,23 @@ const ProfilePage = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 px-4 sm:px-0">
       {/* Header */}
       <div className="glass-card hover-lift">
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           <div className="flex items-center justify-between">
             <Link href="/dashboard">
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-slate-300 hover:text-white hover:bg-white/5"
+                className="text-slate-300 hover:text-white hover:bg-white/5 text-xs sm:text-sm"
               >
-                <ArrowLeft className="h-4 w-4 mr-2" />
+                <ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                 Back
               </Button>
             </Link>
-            <h1 className="text-2xl font-semibold text-white">Profile</h1>
-            <div className="w-20"></div>
+            <h1 className="text-xl sm:text-2xl font-semibold text-white">Profile</h1>
+            <div className="w-16 sm:w-20"></div>
           </div>
         </div>
       </div>
@@ -652,36 +652,39 @@ const ProfilePage = () => {
           <div className="flex gap-2">
             <button
               onClick={() => setActiveTab("profile")}
-              className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              className={`flex-1 px-3 sm:px-4 py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
                 activeTab === "profile"
                   ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white"
                   : "text-slate-400 hover:text-white hover:bg-white/5"
               }`}
             >
-              <User className="w-4 h-4 inline mr-2" />
-              Profile
+              <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 inline mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Profile</span>
+              <span className="sm:hidden">Profile</span>
             </button>
             <button
               onClick={() => setActiveTab("saved")}
-              className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              className={`flex-1 px-3 sm:px-4 py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
                 activeTab === "saved"
                   ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white"
                   : "text-slate-400 hover:text-white hover:bg-white/5"
               }`}
             >
-              <Bookmark className="w-4 h-4 inline mr-2" />
-              Saved
+              <Bookmark className="w-3.5 h-3.5 sm:w-4 sm:h-4 inline mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Saved</span>
+              <span className="sm:hidden">Saved</span>
             </button>
             <button
               onClick={() => setActiveTab("settings")}
-              className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              className={`flex-1 px-3 sm:px-4 py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
                 activeTab === "settings"
                   ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white"
                   : "text-slate-400 hover:text-white hover:bg-white/5"
               }`}
             >
-              <Settings className="w-4 h-4 inline mr-2" />
-              Settings
+              <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4 inline mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Settings</span>
+              <span className="sm:hidden">Settings</span>
             </button>
           </div>
         </div>
@@ -692,21 +695,21 @@ const ProfilePage = () => {
         <>
           {/* Profile Header Card */}
           <div className="glass-card hover-lift">
-            <div className="p-6">
-              <div className="flex items-start justify-between mb-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-20 h-20 bg-gradient-to-br from-purple-600 to-blue-600 rounded-2xl flex items-center justify-center text-white text-2xl font-bold">
+            <div className="p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row items-start justify-between gap-4 mb-6">
+                <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-purple-600 to-blue-600 rounded-xl sm:rounded-2xl flex items-center justify-center text-white text-xl sm:text-2xl font-bold flex-shrink-0">
                     {userProfile.name.charAt(0).toUpperCase()}
                   </div>
-                  <div>
-                    <h2 className="text-2xl font-semibold text-white mb-1">
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-lg sm:text-2xl font-semibold text-white mb-1 truncate">
                       {userProfile.name}
                     </h2>
-                    <p className="text-slate-400 text-sm mb-2">{userProfile.email}</p>
+                    <p className="text-slate-400 text-xs sm:text-sm mb-2 truncate">{userProfile.email}</p>
                     {userProfile.targetRole && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Briefcase className="w-4 h-4 text-blue-400" />
-                        <span className="text-slate-300">{userProfile.targetRole}</span>
+                      <div className="flex items-center gap-2 text-xs sm:text-sm">
+                        <Briefcase className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400 flex-shrink-0" />
+                        <span className="text-slate-300 truncate">{userProfile.targetRole}</span>
                       </div>
                     )}
                   </div>
@@ -715,25 +718,25 @@ const ProfilePage = () => {
                 {!isEditing ? (
                   <button
                     onClick={handleEditToggle}
-                    className="glass-button hover-lift flex items-center gap-2 px-4 py-2 rounded-lg"
+                    className="glass-button hover-lift flex items-center gap-2 px-4 py-2 rounded-lg text-sm w-full sm:w-auto justify-center"
                   >
                     <Edit className="w-4 h-4" />
-                    <span className="text-sm">Edit</span>
+                    <span>Edit</span>
                   </button>
                 ) : (
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 w-full sm:w-auto">
                     <button
                       onClick={handleSaveProfile}
                       disabled={isSaving}
-                      className="glass-button-primary hover-lift flex items-center gap-2 px-4 py-2 rounded-lg"
+                      className="glass-button-primary hover-lift flex items-center gap-2 px-4 py-2 rounded-lg text-sm flex-1 sm:flex-initial justify-center"
                     >
                       <Save className="w-4 h-4" />
-                      <span className="text-sm">{isSaving ? 'Saving...' : 'Save'}</span>
+                      <span>{isSaving ? 'Saving...' : 'Save'}</span>
                     </button>
                     <button
                       onClick={handleEditToggle}
                       disabled={isSaving}
-                      className="glass-button hover-lift flex items-center gap-2 px-4 py-2 rounded-lg"
+                      className="glass-button hover-lift flex items-center justify-center gap-2 px-4 py-2 rounded-lg"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -745,7 +748,7 @@ const ProfilePage = () => {
               {isEditing ? (
                 <div className="space-y-4">
                   <div>
-                    <label className="text-sm text-slate-400 mb-2 block">Bio</label>
+                    <label className="text-xs sm:text-sm text-slate-400 mb-2 block">Bio</label>
                     <textarea
                       value={editedProfile.bio || ""}
                       onChange={(e) => setEditedProfile({ ...editedProfile, bio: e.target.value })}
@@ -755,9 +758,9 @@ const ProfilePage = () => {
                     />
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="text-sm text-slate-400 mb-2 block">Phone</label>
+                      <label className="text-xs sm:text-sm text-slate-400 mb-2 block">Phone</label>
                       <input
                         type="tel"
                         value={editedProfile.phone || ""}
@@ -771,7 +774,7 @@ const ProfilePage = () => {
                   {/* UPDATED: New separate address fields */}
                   <div className="space-y-4">
                     <div>
-                      <label className="text-sm text-slate-400 mb-2 block">Street Address</label>
+                      <label className="text-xs sm:text-sm text-slate-400 mb-2 block">Street Address</label>
                       <input
                         type="text"
                         value={editedProfile.streetAddress || ""}
@@ -781,9 +784,9 @@ const ProfilePage = () => {
                       />
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="text-sm text-slate-400 mb-2 block">City</label>
+                        <label className="text-xs sm:text-sm text-slate-400 mb-2 block">City</label>
                         <input
                           type="text"
                           value={editedProfile.city || ""}
@@ -793,7 +796,7 @@ const ProfilePage = () => {
                         />
                       </div>
                       <div>
-                        <label className="text-sm text-slate-400 mb-2 block">State</label>
+                        <label className="text-xs sm:text-sm text-slate-400 mb-2 block">State</label>
                         <input
                           type="text"
                           value={editedProfile.state || ""}
@@ -805,9 +808,9 @@ const ProfilePage = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                      <label className="text-sm text-slate-400 mb-2 block">LinkedIn</label>
+                      <label className="text-xs sm:text-sm text-slate-400 mb-2 block">LinkedIn</label>
                       <input
                         type="url"
                         value={editedProfile.linkedIn || ""}
@@ -817,7 +820,7 @@ const ProfilePage = () => {
                       />
                     </div>
                     <div>
-                      <label className="text-sm text-slate-400 mb-2 block">GitHub</label>
+                      <label className="text-xs sm:text-sm text-slate-400 mb-2 block">GitHub</label>
                       <input
                         type="url"
                         value={editedProfile.github || ""}
@@ -827,7 +830,7 @@ const ProfilePage = () => {
                       />
                     </div>
                     <div>
-                      <label className="text-sm text-slate-400 mb-2 block">Website</label>
+                      <label className="text-xs sm:text-sm text-slate-400 mb-2 block">Website</label>
                       <input
                         type="url"
                         value={editedProfile.website || ""}
@@ -841,24 +844,24 @@ const ProfilePage = () => {
               ) : (
                 <div className="space-y-4">
                   {userProfile.bio && (
-                    <p className="text-slate-300 text-sm leading-relaxed">
+                    <p className="text-slate-300 text-sm leading-relaxed break-words">
                       {userProfile.bio}
                     </p>
                   )}
                   
-                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 pt-4 border-t border-white/5">
                     {userProfile.phone && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Phone className="w-4 h-4 text-slate-400" />
-                        <span className="text-slate-300">{userProfile.phone}</span>
+                      <div className="flex items-center gap-2 text-xs sm:text-sm">
+                        <Phone className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                        <span className="text-slate-300 break-all">{userProfile.phone}</span>
                       </div>
                     )}
                     
                     {/* UPDATED: Display separate address fields */}
                     {(userProfile.streetAddress || userProfile.city || userProfile.state) && (
-                      <div className="flex items-start gap-2 text-sm">
-                        <MapPin className="w-4 h-4 text-slate-400 mt-0.5" />
-                        <div className="text-slate-300">
+                      <div className="flex items-start gap-2 text-xs sm:text-sm">
+                        <MapPin className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                        <div className="text-slate-300 break-words min-w-0">
                           {userProfile.streetAddress && <div>{userProfile.streetAddress}</div>}
                           {(userProfile.city || userProfile.state) && (
                             <div>{userProfile.city}{userProfile.city && userProfile.state ? ', ' : ''}{userProfile.state}</div>
@@ -868,25 +871,25 @@ const ProfilePage = () => {
                     )}
                     
                     {userProfile.linkedIn && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Linkedin className="w-4 h-4 text-slate-400" />
-                        <a href={userProfile.linkedIn} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">
+                      <div className="flex items-center gap-2 text-xs sm:text-sm">
+                        <Linkedin className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                        <a href={userProfile.linkedIn} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 truncate">
                           LinkedIn
                         </a>
                       </div>
                     )}
                     {userProfile.github && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Github className="w-4 h-4 text-slate-400" />
-                        <a href={userProfile.github} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">
+                      <div className="flex items-center gap-2 text-xs sm:text-sm">
+                        <Github className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                        <a href={userProfile.github} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 truncate">
                           GitHub
                         </a>
                       </div>
                     )}
                     {userProfile.website && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Globe className="w-4 h-4 text-slate-400" />
-                        <a href={userProfile.website} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">
+                      <div className="flex items-center gap-2 text-xs sm:text-sm">
+                        <Globe className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                        <a href={userProfile.website} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 truncate">
                           Website
                         </a>
                       </div>
@@ -898,75 +901,75 @@ const ProfilePage = () => {
           </div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <div className="glass-card">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
-                    <FileText className="w-5 h-5 text-blue-400" />
+              <div className="p-4 sm:p-6">
+                <div className="flex items-center justify-between mb-2 sm:mb-3">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                    <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
                   </div>
-                  <span className="text-2xl font-semibold text-white">{stats.totalInterviews}</span>
+                  <span className="text-xl sm:text-2xl font-semibold text-white">{stats.totalInterviews}</span>
                 </div>
-                <p className="text-sm text-slate-400">Total Interviews</p>
+                <p className="text-xs sm:text-sm text-slate-400">Total Interviews</p>
               </div>
             </div>
 
             <div className="glass-card">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center">
-                    <TrendingUp className="w-5 h-5 text-emerald-400" />
+              <div className="p-4 sm:p-6">
+                <div className="flex items-center justify-between mb-2 sm:mb-3">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center">
+                    <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
                   </div>
-                  <span className="text-2xl font-semibold text-white">{stats.averageScore}</span>
+                  <span className="text-xl sm:text-2xl font-semibold text-white">{stats.averageScore}</span>
                 </div>
-                <p className="text-sm text-slate-400">Average Score</p>
+                <p className="text-xs sm:text-sm text-slate-400">Average Score</p>
               </div>
             </div>
 
             <div className="glass-card">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-10 h-10 bg-amber-500/10 rounded-lg flex items-center justify-center">
-                    <Zap className="w-5 h-5 text-amber-400" />
+              <div className="p-4 sm:p-6">
+                <div className="flex items-center justify-between mb-2 sm:mb-3">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-amber-500/10 rounded-lg flex items-center justify-center">
+                    <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
                   </div>
-                  <span className="text-2xl font-semibold text-white">{stats.currentStreak}</span>
+                  <span className="text-xl sm:text-2xl font-semibold text-white">{stats.currentStreak}</span>
                 </div>
-                <p className="text-sm text-slate-400">Current Streak</p>
+                <p className="text-xs sm:text-sm text-slate-400">Current Streak</p>
               </div>
             </div>
 
             <div className="glass-card">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
-                    <Clock className="w-5 h-5 text-purple-400" />
+              <div className="p-4 sm:p-6">
+                <div className="flex items-center justify-between mb-2 sm:mb-3">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
+                    <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
                   </div>
-                  <span className="text-2xl font-semibold text-white">{stats.hoursSpent}h</span>
+                  <span className="text-xl sm:text-2xl font-semibold text-white">{stats.hoursSpent}h</span>
                 </div>
-                <p className="text-sm text-slate-400">Hours Spent</p>
+                <p className="text-xs sm:text-sm text-slate-400">Hours Spent</p>
               </div>
             </div>
           </div>
 
           {/* Additional Stats */}
           <div className="glass-card">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-white mb-4">Performance Metrics</h3>
-              <div className="grid grid-cols-3 gap-4">
+            <div className="p-4 sm:p-6">
+              <h3 className="text-base sm:text-lg font-semibold text-white mb-4">Performance Metrics</h3>
+              <div className="grid grid-cols-3 gap-3 sm:gap-4">
                 <div className="text-center">
-                  <div className="text-2xl font-semibold text-emerald-400 mb-1">
+                  <div className="text-xl sm:text-2xl font-semibold text-emerald-400 mb-1">
                     {stats.successRate}%
                   </div>
                   <p className="text-xs text-slate-400">Success Rate</p>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-semibold text-blue-400 mb-1">
+                  <div className="text-xl sm:text-2xl font-semibold text-blue-400 mb-1">
                     {stats.completionRate}%
                   </div>
                   <p className="text-xs text-slate-400">Completion Rate</p>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-semibold text-purple-400 mb-1">
+                  <div className="text-xl sm:text-2xl font-semibold text-purple-400 mb-1">
                     {stats.longestStreak}
                   </div>
                   <p className="text-xs text-slate-400">Longest Streak</p>

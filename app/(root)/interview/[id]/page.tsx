@@ -27,19 +27,21 @@ export default async function InterviewDetailsPage({ params }: RouteParams) {
   const { default: InterviewDetailsClient } = await import('./InterviewPageClient');
 
   return (
-    <InterviewDetailsClient
-      userName={user?.name ?? "User"}
-      userId={user?.id ?? ""}
-      interviewId={id}
-      interview={{
-        role: interview.role,
-        type: interview.type,
-        level: interview.level ?? "mid",
-        techstack: interview.techstack,
-        questions: interview.questions ?? [],
-      }}
-      feedbackId={feedback?.id}
-      type="interview"
-    />
+    <div className="min-h-screen">
+      <InterviewDetailsClient
+        userName={user?.name ?? "User"}
+        userId={user?.id ?? ""}
+        interviewId={id}
+        interview={{
+          role: interview.role,
+          type: interview.type,
+          level: interview.level ?? "mid",
+          techstack: interview.techstack,
+          questions: interview.questions ?? [],
+        }}
+        feedbackId={feedback?.id}
+        type="interview"
+      />
+    </div>
   );
 }

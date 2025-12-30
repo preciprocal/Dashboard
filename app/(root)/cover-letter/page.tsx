@@ -91,7 +91,6 @@ export default function CoverLetterDashboard() {
     const handleClickOutside = (event: MouseEvent) => {
       if (showDownloadMenu) {
         const target = event.target as HTMLElement;
-        // Check if click is outside dropdown menu
         if (!target.closest('.download-dropdown-menu') && !target.closest('.download-button')) {
           setShowDownloadMenu(null);
         }
@@ -271,7 +270,6 @@ export default function CoverLetterDashboard() {
 
   const handleCopy = async (content: string) => {
     try {
-      // Remove markdown syntax before copying
       const plainText = content.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1: $2');
       await navigator.clipboard.writeText(plainText);
       toast.success('Copied to clipboard!');
@@ -298,7 +296,6 @@ export default function CoverLetterDashboard() {
         throw new Error('PDF generation failed');
       }
 
-      // Extract filename from Content-Disposition header
       const contentDisposition = response.headers.get('Content-Disposition');
       let filename = 'cover-letter.pdf';
       
@@ -312,10 +309,8 @@ export default function CoverLetterDashboard() {
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       
-      // Open in new tab
       window.open(url, '_blank');
       
-      // Also trigger download
       const link = document.createElement('a');
       link.href = url;
       link.download = filename;
@@ -323,7 +318,6 @@ export default function CoverLetterDashboard() {
       link.click();
       document.body.removeChild(link);
       
-      // Clean up after a delay
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       
       toast.success('PDF downloaded and opened!');
@@ -351,7 +345,6 @@ export default function CoverLetterDashboard() {
         throw new Error('Word document generation failed');
       }
 
-      // Extract filename from Content-Disposition header
       const contentDisposition = response.headers.get('Content-Disposition');
       let filename = 'cover-letter.docx';
       
@@ -365,10 +358,8 @@ export default function CoverLetterDashboard() {
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       
-      // Open in new tab
       window.open(url, '_blank');
       
-      // Also trigger download
       const link = document.createElement('a');
       link.href = url;
       link.download = filename;
@@ -376,7 +367,6 @@ export default function CoverLetterDashboard() {
       link.click();
       document.body.removeChild(link);
       
-      // Clean up after a delay
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       
       toast.success('Word document downloaded and opened!');
@@ -445,15 +435,15 @@ export default function CoverLetterDashboard() {
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="glass-card-gradient hover-lift">
-          <div className="glass-card-gradient-inner text-center p-12">
-            <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-white mb-2">Authentication Required</h2>
-            <p className="text-slate-400 mb-6">Please log in to view your cover letters</p>
+      <div className="flex items-center justify-center min-h-[60vh] px-4">
+        <div className="glass-card-gradient hover-lift w-full max-w-md">
+          <div className="glass-card-gradient-inner text-center p-8 sm:p-12">
+            <AlertCircle className="w-12 h-12 sm:w-16 sm:h-16 text-red-400 mx-auto mb-3 sm:mb-4" />
+            <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">Authentication Required</h2>
+            <p className="text-slate-400 mb-4 sm:mb-6 text-sm sm:text-base">Please log in to view your cover letters</p>
             <Link 
               href="/sign-in"
-              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 py-3 rounded-xl"
+              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base"
             >
               Go to Login
             </Link>
@@ -464,23 +454,23 @@ export default function CoverLetterDashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 px-4 sm:px-0">
       {/* Clean Header */}
       <div className="glass-card hover-lift">
-        <div className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold text-white mb-1">
+        <div className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+            <div className="w-full sm:w-auto">
+              <h1 className="text-xl sm:text-2xl font-semibold text-white mb-1">
                 Cover Letter Generator
               </h1>
-              <p className="text-slate-400 text-sm">
+              <p className="text-slate-400 text-xs sm:text-sm">
                 AI-powered professional cover letters
               </p>
             </div>
             
             <Link
               href="/cover-letter/create"
-              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-4 py-2.5 rounded-lg"
+              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm w-full sm:w-auto justify-center"
             >
               <Plus className="w-4 h-4" />
               <span>Generate New</span>
@@ -492,19 +482,19 @@ export default function CoverLetterDashboard() {
       {/* Error Message */}
       {lettersError && (
         <div className="glass-card-gradient hover-lift animate-fade-in-up">
-          <div className="glass-card-gradient-inner">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="text-red-400 text-sm mb-2">{lettersError}</p>
+          <div className="glass-card-gradient-inner p-4 sm:p-5">
+            <div className="flex items-start gap-2 sm:gap-3">
+              <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-red-400 text-xs sm:text-sm mb-2">{lettersError}</p>
                 <button
                   onClick={() => {
                     setLettersError('');
                     loadCoverLetters();
                   }}
-                  className="glass-button hover-lift inline-flex items-center gap-2 px-4 py-2 text-white text-sm font-medium rounded-lg"
+                  className="glass-button hover-lift inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 text-white text-xs sm:text-sm font-medium rounded-lg"
                 >
-                  <RefreshCw className="w-4 h-4" />
+                  <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   Try Again
                 </button>
               </div>
@@ -515,78 +505,78 @@ export default function CoverLetterDashboard() {
 
       {/* Main Content */}
       {coverLetters.length > 0 ? (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Stats Cards - Responsive Grid */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <div className="glass-card hover-lift">
-              <div className="p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
-                    <FileText className="w-5 h-5 text-blue-400" />
+              <div className="p-3.5 sm:p-5">
+                <div className="flex items-center justify-between mb-2 sm:mb-3">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                    <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
                   </div>
-                  <span className="text-2xl font-semibold text-white">{stats.totalLetters}</span>
+                  <span className="text-xl sm:text-2xl font-semibold text-white">{stats.totalLetters}</span>
                 </div>
-                <p className="text-sm text-slate-400">Total Letters</p>
+                <p className="text-xs sm:text-sm text-slate-400">Total Letters</p>
               </div>
             </div>
 
             <div className="glass-card hover-lift">
-              <div className="p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center">
-                    <Zap className="w-5 h-5 text-emerald-400" />
+              <div className="p-3.5 sm:p-5">
+                <div className="flex items-center justify-between mb-2 sm:mb-3">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center">
+                    <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
                   </div>
-                  <span className="text-2xl font-semibold text-white">{stats.averageWordCount}</span>
+                  <span className="text-xl sm:text-2xl font-semibold text-white">{stats.averageWordCount}</span>
                 </div>
-                <p className="text-sm text-slate-400">Avg Word Count</p>
+                <p className="text-xs sm:text-sm text-slate-400">Avg Word Count</p>
               </div>
             </div>
 
             <div className="glass-card hover-lift">
-              <div className="p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
-                    <Building2 className="w-5 h-5 text-purple-400" />
+              <div className="p-3.5 sm:p-5">
+                <div className="flex items-center justify-between mb-2 sm:mb-3">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
+                    <Building2 className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
                   </div>
-                  <span className="text-2xl font-semibold text-white">{stats.companiesApplied}</span>
+                  <span className="text-xl sm:text-2xl font-semibold text-white">{stats.companiesApplied}</span>
                 </div>
-                <p className="text-sm text-slate-400">Companies</p>
+                <p className="text-xs sm:text-sm text-slate-400">Companies</p>
               </div>
             </div>
 
             <div className="glass-card hover-lift">
-              <div className="p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-10 h-10 bg-amber-500/10 rounded-lg flex items-center justify-center">
-                    <TrendingUp className="w-5 h-5 text-amber-400" />
+              <div className="p-3.5 sm:p-5">
+                <div className="flex items-center justify-between mb-2 sm:mb-3">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-amber-500/10 rounded-lg flex items-center justify-center">
+                    <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
                   </div>
-                  <span className="text-2xl font-semibold text-white">{stats.thisMonth}</span>
+                  <span className="text-xl sm:text-2xl font-semibold text-white">{stats.thisMonth}</span>
                 </div>
-                <p className="text-sm text-slate-400">This Month</p>
+                <p className="text-xs sm:text-sm text-slate-400">This Month</p>
               </div>
             </div>
           </div>
 
-          {/* Controls Bar */}
+          {/* Controls Bar - Responsive */}
           <div className="glass-card">
-            <div className="p-5">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="p-4 sm:p-5">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                 <div>
-                  <h2 className="text-lg font-semibold text-white">Your Cover Letters</h2>
-                  <p className="text-slate-400 text-sm mt-0.5">
+                  <h2 className="text-base sm:text-lg font-semibold text-white">Your Cover Letters</h2>
+                  <p className="text-slate-400 text-xs sm:text-sm mt-0.5">
                     {filteredLetters.length} of {coverLetters.length} letters
                   </p>
                 </div>
                 
-                <div className="flex items-center gap-3">
-                  {/* Filter Dropdown */}
-                  <div className="relative">
-                    <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+                <div className="flex items-center gap-2 sm:gap-3">
+                  {/* Filter Dropdown - Responsive */}
+                  <div className="relative flex-1 sm:flex-initial">
+                    <Filter className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500 pointer-events-none" />
                     <select 
                       value={sortFilter} 
                       onChange={(e) => setSortFilter(e.target.value as SortOption)}
-                      className="glass-input pl-10 pr-4 py-2.5 rounded-lg text-white text-sm appearance-none cursor-pointer min-w-[200px]"
+                      className="glass-input pl-8 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 rounded-lg text-white text-xs sm:text-sm appearance-none cursor-pointer w-full sm:min-w-[180px]"
                     >
                       <option value="all">All ({getFilterCount()})</option>
                       <option value="recent">Recent First</option>
@@ -599,25 +589,25 @@ export default function CoverLetterDashboard() {
                   <div className="flex bg-slate-900/50 rounded-lg p-1">
                     <button 
                       onClick={() => setViewMode('grid')}
-                      className={`p-2 rounded transition-all ${
+                      className={`p-1.5 sm:p-2 rounded transition-all ${
                         viewMode === 'grid' 
                           ? 'bg-white/10 text-white' 
                           : 'text-slate-400 hover:text-white'
                       }`}
                       aria-label="Grid view"
                     >
-                      <LayoutGrid className="w-4 h-4" />
+                      <LayoutGrid className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     </button>
                     <button 
                       onClick={() => setViewMode('list')}
-                      className={`p-2 rounded transition-all ${
+                      className={`p-1.5 sm:p-2 rounded transition-all ${
                         viewMode === 'list' 
                           ? 'bg-white/10 text-white' 
                           : 'text-slate-400 hover:text-white'
                       }`}
                       aria-label="List view"
                     >
-                      <List className="w-4 h-4" />
+                      <List className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     </button>
                   </div>
                 </div>
@@ -625,12 +615,12 @@ export default function CoverLetterDashboard() {
             </div>
           </div>
           
-          {/* Cover Letters Grid/List */}
+          {/* Cover Letters Grid/List - Responsive */}
           {filteredLetters.length > 0 ? (
             <div className={
               viewMode === 'grid' 
-                ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6" 
-                : "space-y-4"
+                ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6" 
+                : "space-y-3 sm:space-y-4"
             }>
               {filteredLetters.map((letter, index) => (
                 <div
@@ -638,29 +628,29 @@ export default function CoverLetterDashboard() {
                   className="glass-card hover-lift opacity-0 animate-fadeIn relative"
                   style={{ animationDelay: `${index * 100}ms`, animationFillMode: 'forwards' }}
                 >
-                  <div className="p-5">
+                  <div className="p-4 sm:p-5">
                     {/* Header */}
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex-1">
-                        <h3 className="text-white font-semibold mb-1 line-clamp-1">
+                    <div className="flex items-start justify-between mb-3 sm:mb-4">
+                      <div className="flex-1 min-w-0 pr-2">
+                        <h3 className="text-white font-semibold mb-1 line-clamp-1 text-sm sm:text-base">
                           {letter.jobRole}
                         </h3>
                         {letter.companyName && (
-                          <p className="text-slate-400 text-sm flex items-center gap-1">
-                            <Building2 className="w-3 h-3" />
-                            {letter.companyName}
+                          <p className="text-slate-400 text-xs sm:text-sm flex items-center gap-1">
+                            <Building2 className="w-3 h-3 flex-shrink-0" />
+                            <span className="truncate">{letter.companyName}</span>
                           </p>
                         )}
                       </div>
-                      <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <FileText className="w-5 h-5 text-purple-400" />
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
                       </div>
                     </div>
 
                     {/* Preview */}
-                    <div className="mb-4">
+                    <div className="mb-3 sm:mb-4">
                       <div 
-                        className="text-slate-300 text-sm line-clamp-3"
+                        className="text-slate-300 text-xs sm:text-sm line-clamp-3"
                         dangerouslySetInnerHTML={{ 
                           __html: convertMarkdownLinks(letter.content.substring(0, 150) + '...') 
                         }}
@@ -668,24 +658,24 @@ export default function CoverLetterDashboard() {
                     </div>
 
                     {/* Meta Info */}
-                    <div className="flex items-center gap-4 mb-4 text-xs text-slate-400">
+                    <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4 text-xs text-slate-400">
                       <div className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        {new Date(letter.createdAt).toLocaleDateString()}
+                        <Calendar className="w-3 h-3 flex-shrink-0" />
+                        <span>{new Date(letter.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <FileText className="w-3 h-3" />
-                        {letter.wordCount} words
+                        <FileText className="w-3 h-3 flex-shrink-0" />
+                        <span>{letter.wordCount} words</span>
                       </div>
                     </div>
 
                     {/* Tags */}
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      <span className="px-2 py-1 bg-blue-500/10 text-blue-400 rounded text-xs capitalize">
+                    <div className="flex flex-wrap gap-2 mb-3 sm:mb-4">
+                      <span className="px-2 py-0.5 sm:py-1 bg-blue-500/10 text-blue-400 rounded text-xs capitalize">
                         {letter.tone}
                       </span>
                       {letter.usedResume && (
-                        <span className="px-2 py-1 bg-emerald-500/10 text-emerald-400 rounded text-xs flex items-center gap-1">
+                        <span className="px-2 py-0.5 sm:py-1 bg-emerald-500/10 text-emerald-400 rounded text-xs flex items-center gap-1">
                           <CheckCircle className="w-3 h-3" />
                           Resume
                         </span>
@@ -699,17 +689,17 @@ export default function CoverLetterDashboard() {
                           setSelectedLetter(letter);
                           setShowPreview(true);
                         }}
-                        className="flex-1 glass-button hover-lift px-3 py-2 rounded-lg text-white text-sm flex items-center justify-center gap-2"
+                        className="flex-1 glass-button hover-lift px-3 py-1.5 sm:py-2 rounded-lg text-white text-xs sm:text-sm flex items-center justify-center gap-1.5 sm:gap-2"
                       >
-                        <Eye className="w-4 h-4" />
-                        View
+                        <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                        <span>View</span>
                       </button>
                       <button
                         onClick={() => handleCopy(letter.content)}
-                        className="glass-button hover-lift p-2 rounded-lg"
+                        className="glass-button hover-lift p-1.5 sm:p-2 rounded-lg"
                         title="Copy"
                       >
-                        <Copy className="w-4 h-4 text-slate-300" />
+                        <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-300" />
                       </button>
                       
                       {/* Download Dropdown */}
@@ -719,22 +709,22 @@ export default function CoverLetterDashboard() {
                             e.stopPropagation();
                             setShowDownloadMenu(showDownloadMenu === letter.id ? null : letter.id);
                           }}
-                          className="glass-button hover-lift p-2 rounded-lg download-button"
+                          className="glass-button hover-lift p-1.5 sm:p-2 rounded-lg download-button"
                           title="Download"
                         >
-                          <Download className="w-4 h-4 text-slate-300" />
+                          <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-300" />
                         </button>
                         
                         {showDownloadMenu === letter.id && (
-                          <div className="absolute right-0 bottom-full mb-2 w-48 glass-card rounded-lg shadow-xl z-[101] overflow-hidden download-dropdown-menu">
+                          <div className="absolute right-0 bottom-full mb-2 w-44 sm:w-48 glass-card rounded-lg shadow-xl z-[101] overflow-hidden download-dropdown-menu">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleDownloadPDF(letter);
                               }}
-                              className="w-full px-4 py-3 text-left text-sm text-white hover:bg-white/5 flex items-center gap-3 transition-colors"
+                              className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-left text-xs sm:text-sm text-white hover:bg-white/5 flex items-center gap-2 sm:gap-3 transition-colors"
                             >
-                              <FileDown className="w-4 h-4 text-red-400" />
+                              <FileDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-400" />
                               <span>Download as PDF</span>
                             </button>
                             <div className="h-px bg-white/10" />
@@ -743,9 +733,9 @@ export default function CoverLetterDashboard() {
                                 e.stopPropagation();
                                 handleDownloadWord(letter);
                               }}
-                              className="w-full px-4 py-3 text-left text-sm text-white hover:bg-white/5 flex items-center gap-3 transition-colors"
+                              className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-left text-xs sm:text-sm text-white hover:bg-white/5 flex items-center gap-2 sm:gap-3 transition-colors"
                             >
-                              <FileDown className="w-4 h-4 text-blue-400" />
+                              <FileDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400" />
                               <span>Download as Word</span>
                             </button>
                           </div>
@@ -754,10 +744,10 @@ export default function CoverLetterDashboard() {
                       
                       <button
                         onClick={() => handleDelete(letter.id)}
-                        className="glass-button hover-lift p-2 rounded-lg"
+                        className="glass-button hover-lift p-1.5 sm:p-2 rounded-lg"
                         title="Delete"
                       >
-                        <Trash2 className="w-4 h-4 text-red-400" />
+                        <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-400" />
                       </button>
                     </div>
                   </div>
@@ -767,19 +757,19 @@ export default function CoverLetterDashboard() {
           ) : (
             /* No Results State */
             <div className="glass-card">
-              <div className="text-center py-16 px-6">
-                <div className="w-16 h-16 bg-slate-800/50 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                  <FileText className="w-8 h-8 text-slate-400" />
+              <div className="text-center py-12 sm:py-16 px-4 sm:px-6">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-slate-800/50 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-6">
+                  <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-slate-400" />
                 </div>
-                <h3 className="text-xl font-semibold text-white mb-2">
+                <h3 className="text-lg sm:text-xl font-semibold text-white mb-2">
                   No letters match this filter
                 </h3>
-                <p className="text-slate-400 mb-6">
+                <p className="text-slate-400 mb-4 sm:mb-6 text-sm sm:text-base">
                   Try adjusting your filter or generate a new letter
                 </p>
                 <button
                   onClick={() => setSortFilter('all')}
-                  className="text-sm text-slate-300 hover:text-white underline"
+                  className="text-xs sm:text-sm text-slate-300 hover:text-white underline"
                 >
                   Clear Filter
                 </button>
@@ -788,107 +778,106 @@ export default function CoverLetterDashboard() {
           )}
         </div>
       ) : !lettersError ? (
-        /* Empty State */
+        /* Empty State - Responsive */
         <div className="glass-card">
-          <div className="text-center py-16 px-6">
-            <div className="w-20 h-20 bg-slate-800/50 rounded-2xl flex items-center justify-center mx-auto mb-8">
-              <FileText className="w-10 h-10 text-slate-400" />
+          <div className="text-center py-12 sm:py-16 px-4 sm:px-6">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-800/50 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-6 sm:mb-8">
+              <FileText className="w-8 h-8 sm:w-10 sm:h-10 text-slate-400" />
             </div>
             
-            <h3 className="text-2xl font-semibold text-white mb-3">
+            <h3 className="text-xl sm:text-2xl font-semibold text-white mb-2 sm:mb-3">
               Welcome to Cover Letter Generator
             </h3>
-            <p className="text-slate-400 mb-10 max-w-xl mx-auto">
+            <p className="text-slate-400 mb-8 sm:mb-10 max-w-xl mx-auto text-sm sm:text-base">
               Generate professional, personalized cover letters powered by AI. Stand out from the competition.
             </p>
 
-            {/* Feature Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10 max-w-3xl mx-auto">
+            {/* Feature Grid - Responsive */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-8 sm:mb-10 max-w-3xl mx-auto">
               <div className="text-center">
-                <div className="w-12 h-12 bg-blue-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
-                  <Sparkles className="w-6 h-6 text-blue-400" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-500/10 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3">
+                  <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-blue-400" />
                 </div>
-                <p className="text-sm text-slate-400">AI-Powered</p>
+                <p className="text-xs sm:text-sm text-slate-400">AI-Powered</p>
               </div>
               
               <div className="text-center">
-                <div className="w-12 h-12 bg-purple-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
-                  <Zap className="w-6 h-6 text-purple-400" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-500/10 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3">
+                  <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-purple-400" />
                 </div>
-                <p className="text-sm text-slate-400">Fast Generation</p>
+                <p className="text-xs sm:text-sm text-slate-400">Fast Generation</p>
               </div>
               
               <div className="text-center">
-                <div className="w-12 h-12 bg-emerald-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
-                  <CheckCircle className="w-6 h-6 text-emerald-400" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-emerald-500/10 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3">
+                  <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-400" />
                 </div>
-                <p className="text-sm text-slate-400">Professional</p>
+                <p className="text-xs sm:text-sm text-slate-400">Professional</p>
               </div>
               
               <div className="text-center">
-                <div className="w-12 h-12 bg-amber-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
-                  <FileText className="w-6 h-6 text-amber-400" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-amber-500/10 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3">
+                  <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-amber-400" />
                 </div>
-                <p className="text-sm text-slate-400">Customizable</p>
+                <p className="text-xs sm:text-sm text-slate-400">Customizable</p>
               </div>
             </div>
 
             <Link
               href="/cover-letter/create"
-              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 py-3 rounded-lg"
+              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base"
             >
-              <Plus className="w-5 h-5" />
+              <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
               <span>Generate First Letter</span>
             </Link>
             
-            <p className="text-xs text-slate-500 mt-6">
+            <p className="text-xs text-slate-500 mt-4 sm:mt-6">
               Upload your resume for personalized letters
             </p>
           </div>
         </div>
       ) : null}
 
-      {/* Preview Modal */}
+      {/* Preview Modal - Responsive */}
       {showPreview && selectedLetter && (
         <div 
           className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           onClick={(e) => {
-            // Close if clicking directly on backdrop
             if (e.target === e.currentTarget) {
               setShowPreview(false);
             }
           }}
         >
-          <div className="glass-card max-w-3xl w-full max-h-[80vh] overflow-hidden">
-            <div className="p-6 border-b border-white/10">
+          <div className="glass-card max-w-3xl w-full max-h-[85vh] sm:max-h-[80vh] overflow-hidden">
+            <div className="p-4 sm:p-6 border-b border-white/10">
               <div className="flex items-center justify-between mb-2">
-                <h2 className="text-xl font-semibold text-white">{selectedLetter.jobRole}</h2>
+                <h2 className="text-lg sm:text-xl font-semibold text-white truncate pr-4">{selectedLetter.jobRole}</h2>
                 <button
                   onClick={() => setShowPreview(false)}
-                  className="text-slate-400 hover:text-white transition-colors"
+                  className="text-slate-400 hover:text-white transition-colors flex-shrink-0"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
               {selectedLetter.companyName && (
-                <p className="text-slate-400 text-sm">{selectedLetter.companyName}</p>
+                <p className="text-slate-400 text-sm truncate">{selectedLetter.companyName}</p>
               )}
             </div>
             
-            <div className="p-6 overflow-y-auto max-h-[60vh]">
+            <div className="p-4 sm:p-6 overflow-y-auto max-h-[50vh] sm:max-h-[60vh]">
               <div 
-                className="text-slate-200 text-sm leading-relaxed whitespace-pre-wrap"
+                className="text-slate-200 text-xs sm:text-sm leading-relaxed whitespace-pre-wrap"
                 dangerouslySetInnerHTML={{ __html: convertMarkdownLinks(selectedLetter.content) }}
               />
             </div>
 
-            <div className="p-6 border-t border-white/10 flex gap-3">
+            <div className="p-4 sm:p-6 border-t border-white/10 flex gap-2 sm:gap-3">
               <button
                 onClick={() => handleCopy(selectedLetter.content)}
-                className="flex-1 glass-button hover-lift px-4 py-2.5 rounded-lg text-white flex items-center justify-center gap-2"
+                className="flex-1 glass-button hover-lift px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg text-white flex items-center justify-center gap-2 text-xs sm:text-sm"
               >
-                <Copy className="w-4 h-4" />
-                Copy
+                <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span>Copy</span>
               </button>
               
               {/* Download Dropdown in Modal */}
@@ -898,10 +887,10 @@ export default function CoverLetterDashboard() {
                     e.stopPropagation();
                     setShowDownloadMenu(showDownloadMenu === 'modal' ? null : 'modal');
                   }}
-                  className="w-full glass-button-primary hover-lift px-4 py-2.5 rounded-lg flex items-center justify-center gap-2 download-button"
+                  className="w-full glass-button-primary hover-lift px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg flex items-center justify-center gap-2 download-button text-xs sm:text-sm"
                 >
-                  <Download className="w-4 h-4" />
-                  Download
+                  <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <span>Download</span>
                 </button>
                 
                 {showDownloadMenu === 'modal' && (
@@ -911,9 +900,9 @@ export default function CoverLetterDashboard() {
                         e.stopPropagation();
                         handleDownloadPDF(selectedLetter);
                       }}
-                      className="w-full px-4 py-3 text-left text-sm text-white hover:bg-white/5 flex items-center gap-3 transition-colors"
+                      className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-left text-xs sm:text-sm text-white hover:bg-white/5 flex items-center gap-2 sm:gap-3 transition-colors"
                     >
-                      <FileDown className="w-4 h-4 text-red-400" />
+                      <FileDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-400" />
                       <span>Download as PDF</span>
                     </button>
                     <div className="h-px bg-white/10" />
@@ -922,9 +911,9 @@ export default function CoverLetterDashboard() {
                         e.stopPropagation();
                         handleDownloadWord(selectedLetter);
                       }}
-                      className="w-full px-4 py-3 text-left text-sm text-white hover:bg-white/5 flex items-center gap-3 transition-colors"
+                      className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-left text-xs sm:text-sm text-white hover:bg-white/5 flex items-center gap-2 sm:gap-3 transition-colors"
                     >
-                      <FileDown className="w-4 h-4 text-blue-400" />
+                      <FileDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400" />
                       <span>Download as Word</span>
                     </button>
                   </div>

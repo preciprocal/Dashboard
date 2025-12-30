@@ -70,8 +70,8 @@ const VideoAvatar = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [showVideo, setShowVideo] = useState(false);
 
-  const sizeClasses = size === "small" ? "w-16 h-16 sm:w-20 sm:h-20" : "w-20 h-20 sm:w-24 sm:h-24";
-  const textSize = size === "small" ? "text-lg sm:text-xl" : "text-xl sm:text-2xl";
+  const sizeClasses = size === "small" ? "w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20" : "w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24";
+  const textSize = size === "small" ? "text-base sm:text-lg md:text-xl" : "text-lg sm:text-xl md:text-2xl";
 
   const handleVideoLoad = useCallback(() => {
     setShowVideo(true);
@@ -93,7 +93,7 @@ const VideoAvatar = ({
   }, [isSpeaking, showVideo]);
 
   return (
-    <div className={`relative ${sizeClasses} mx-auto mb-3`}>
+    <div className={`relative ${sizeClasses} mx-auto mb-2 sm:mb-3`}>
       {videoSrc && (
         <video
           ref={videoRef}
@@ -276,15 +276,11 @@ const FullScreenInterviewPanel = ({
   }, [interviewId, interviewRole, callStatus, speakingPersonId, videoSources, userName]);
 
   const handleSpeechStart = useCallback(() => {
-    // Determine who speaks based on interview phase
     if (currentInterviewPhase === "behavioral") {
-      // HR leads behavioral questions
       setSpeakingPersonId("hr");
     } else if (currentInterviewPhase === "technical") {
-      // Lead conducts technical questions
       setSpeakingPersonId("tech_recruiter");
     } else {
-      // Fallback to random for other scenarios
       const interviewers = ["tech_recruiter", "hr", "junior"];
       setSpeakingPersonId(
         interviewers[Math.floor(Math.random() * interviewers.length)]
@@ -339,7 +335,6 @@ const FullScreenInterviewPanel = ({
           variableValues: { username: userName, userid: userId },
         });
       } else {
-        // Determine which agent to use based on interview type
         let selectedAgent;
         let questionsToUse: string[] = [];
 
@@ -352,17 +347,14 @@ const FullScreenInterviewPanel = ({
           questionsToUse = behavioralQuestions || questions;
           setCurrentInterviewPhase("behavioral");
         } else if (interviewType === "mixed") {
-          // For mixed interviews, ALWAYS start with behavioral first
           selectedAgent = behavioralInterviewer;
           questionsToUse = behavioralQuestions || [];
           setCurrentInterviewPhase("behavioral");
           
-          // If no behavioral questions are provided, use first half of general questions
           if (questionsToUse.length === 0 && questions.length > 0) {
             questionsToUse = questions.slice(0, Math.ceil(questions.length / 2));
           }
         } else {
-          // Default fallback to technical
           selectedAgent = interviewer || technicalInterviewer;
           questionsToUse = questions;
         }
@@ -412,7 +404,6 @@ const FullScreenInterviewPanel = ({
   }, [questions, userId, interviewId, autoStartAttempted, startInterview]);
 
   useEffect(() => {
-    // Set total questions based on interview type
     if (interviewType === "mixed") {
       const techCount = technicalQuestions?.length || 0;
       const behavCount = behavioralQuestions?.length || 0;
@@ -551,9 +542,9 @@ const FullScreenInterviewPanel = ({
 
   const getConnectionIcon = () => {
     switch (connectionQuality) {
-      case 'excellent': return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
-      case 'good': return <CheckCircle2 className="w-4 h-4 text-amber-500" />;
-      case 'poor': return <AlertCircle className="w-4 h-4 text-red-500" />;
+      case 'excellent': return <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500" />;
+      case 'good': return <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500" />;
+      case 'poor': return <AlertCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-500" />;
     }
   };
 
@@ -576,52 +567,54 @@ const FullScreenInterviewPanel = ({
 
   return (
     <div className="fixed inset-0 bg-slate-950 z-50 flex flex-col overflow-hidden">
-      {/* Header */}
-      <div className="glass-card border-b border-white/5 px-6 py-3 flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+      {/* Header - Responsive */}
+      <div className="glass-card border-b border-white/5 px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 flex-shrink-0">
+        <div className="flex items-center justify-between gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3 md:gap-4 min-w-0 flex-1">
             <button
               onClick={onExit}
-              className="p-2 rounded-lg text-slate-400"
+              className="p-1.5 sm:p-2 rounded-lg text-slate-400 flex-shrink-0"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
             
-            <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-              <span className="text-white text-sm font-semibold">AI</span>
+            <div className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
+              <span className="text-white text-xs sm:text-sm font-semibold">AI</span>
             </div>
             
-            <div>
-              <h1 className="text-white font-medium text-base">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-white font-medium text-xs sm:text-sm md:text-base truncate">
                 Interview Conference
               </h1>
-              <p className="text-slate-400 text-sm">
+              <p className="text-slate-400 text-xs truncate">
                 {interviewRole} {interviewType && `• ${interviewType.charAt(0).toUpperCase() + interviewType.slice(1)}`}
-                {currentInterviewPhase && ` (${currentInterviewPhase.charAt(0).toUpperCase() + currentInterviewPhase.slice(1)} Round)`}
+                {currentInterviewPhase && (
+                  <span className="hidden sm:inline"> ({currentInterviewPhase.charAt(0).toUpperCase() + currentInterviewPhase.slice(1)} Round)</span>
+                )}
               </p>
             </div>
           </div>
 
-          <div className="hidden sm:flex items-center gap-4 text-sm text-slate-400">
+          <div className="hidden lg:flex items-center gap-3 xl:gap-4 text-xs xl:text-sm text-slate-400 flex-shrink-0">
             {getConnectionIcon()}
-            <span className="capitalize">{connectionQuality}</span>
+            <span className="capitalize hidden xl:inline">{connectionQuality}</span>
             
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4" />
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>{formatDuration(callDuration)}</span>
             </div>
 
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-red-500 rounded-full animate-pulse"></div>
               <span className="text-red-400">Recording</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Video Grid */}
+      {/* Video Grid - Responsive */}
       <div className="flex-1 flex flex-col min-h-0">
-        <div className="flex-1 grid grid-cols-2 gap-4 p-6 min-h-0">
+        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 md:gap-4 p-3 sm:p-4 md:p-6 min-h-0 overflow-y-auto">
           {interviewPanel.map((participant) => {
             const statusInfo = getStatusInfo(
               participant.status,
@@ -632,7 +625,7 @@ const FullScreenInterviewPanel = ({
             return (
               <div
                 key={participant.id}
-                className={`glass-card flex flex-col justify-center items-center p-6 border ${
+                className={`glass-card flex flex-col justify-center items-center p-4 sm:p-5 md:p-6 border relative ${
                   participant.isLead
                     ? "border-blue-500/30"
                     : participant.isCurrentUser
@@ -645,13 +638,13 @@ const FullScreenInterviewPanel = ({
                 }`}
               >
                 {participant.isLead && (
-                  <div className="absolute top-4 right-4 bg-blue-500/90 text-white text-sm px-3 py-1 rounded-full font-medium">
+                  <div className="absolute top-2 sm:top-3 md:top-4 right-2 sm:right-3 md:right-4 bg-blue-500/90 text-white text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1 rounded-full font-medium">
                     Lead
                   </div>
                 )}
 
                 {participant.isCurrentUser && (
-                  <div className="absolute top-4 right-4 bg-purple-500/90 text-white text-sm px-3 py-1 rounded-full font-medium">
+                  <div className="absolute top-2 sm:top-3 md:top-4 right-2 sm:right-3 md:right-4 bg-purple-500/90 text-white text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1 rounded-full font-medium">
                     You
                   </div>
                 )}
@@ -664,14 +657,14 @@ const FullScreenInterviewPanel = ({
                     videoSrc={participant.isCurrentUser ? undefined : participant.videoSrc}
                   />
 
-                  <h3 className={`text-white font-medium text-lg mb-1 ${isCurrentSpeaker ? "text-blue-300" : ""}`}>
+                  <h3 className={`text-white font-medium text-sm sm:text-base md:text-lg mb-0.5 sm:mb-1 ${isCurrentSpeaker ? "text-blue-300" : ""}`}>
                     {participant.name}
                   </h3>
-                  <p className="text-slate-400 text-sm mb-2">
+                  <p className="text-slate-400 text-xs sm:text-sm mb-1.5 sm:mb-2">
                     {participant.role}
                   </p>
 
-                  <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs ${
+                  <div className={`inline-flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs ${
                     statusInfo.color.includes("emerald")
                       ? "text-emerald-400 bg-emerald-500/10"
                       : statusInfo.color.includes("blue")
@@ -683,14 +676,14 @@ const FullScreenInterviewPanel = ({
                     <span>{statusInfo.text}</span>
                   </div>
 
-                  <div className="mt-2 text-xs text-slate-500">
+                  <div className="mt-1.5 sm:mt-2 text-xs text-slate-500">
                     {participant.experience}
                   </div>
                 </div>
 
                 {participant.isCurrentUser && (
-                  <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full border-2 border-slate-900 flex items-center justify-center">
-                    <div className={`w-4 h-4 rounded-full ${
+                  <div className="absolute -bottom-1 -right-1 w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 rounded-full border-2 border-slate-900 flex items-center justify-center">
+                    <div className={`w-3 h-3 sm:w-4 sm:h-4 rounded-full ${
                       callStatus === CallStatus.ACTIVE
                         ? "bg-emerald-500 animate-pulse"
                         : callStatus === CallStatus.CONNECTING
@@ -704,13 +697,13 @@ const FullScreenInterviewPanel = ({
           })}
         </div>
 
-        {/* Control Panel */}
-        <div className="glass-card border-t border-white/5 px-6 py-4 flex-shrink-0">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            {/* Status Info */}
-            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <div className={`w-3 h-3 rounded-full ${
+        {/* Control Panel - Responsive */}
+        <div className="glass-card border-t border-white/5 px-3 sm:px-4 md:px-6 py-3 sm:py-4 flex-shrink-0">
+          <div className="flex flex-col gap-3 sm:gap-4">
+            {/* Status Info - Responsive */}
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 md:gap-4 text-xs sm:text-sm">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${
                   callStatus === CallStatus.ACTIVE
                     ? "bg-emerald-500 animate-pulse"
                     : callStatus === CallStatus.CONNECTING
@@ -721,9 +714,9 @@ const FullScreenInterviewPanel = ({
                 }`}></div>
                 <span className="text-white font-medium">
                   {isGeneratingFeedback
-                    ? "Generating Feedback..."
+                    ? "Generating..."
                     : callStatus === CallStatus.ACTIVE
-                    ? "Interview Active"
+                    ? "Active"
                     : callStatus === CallStatus.CONNECTING
                     ? "Starting..."
                     : callStatus === CallStatus.FINISHED
@@ -735,134 +728,132 @@ const FullScreenInterviewPanel = ({
               </div>
 
               <div className="text-slate-400">
-                Question{" "}
-                {callStatus === CallStatus.ACTIVE ? currentQuestionIndex : 1} of{" "}
-                {totalQuestions}
+                Q {callStatus === CallStatus.ACTIVE ? currentQuestionIndex : 1}/{totalQuestions}
               </div>
 
               {currentSpeaker && (
-                <div className="flex items-center gap-2 bg-blue-500/10 px-3 py-1 rounded-full">
-                  <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
-                  <span className="text-blue-300 text-sm">
-                    {currentSpeaker.name} is speaking
+                <div className="flex items-center gap-1.5 sm:gap-2 bg-blue-500/10 px-2 sm:px-3 py-1 rounded-full">
+                  <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                  <span className="text-blue-300 text-xs sm:text-sm truncate max-w-[150px] sm:max-w-none">
+                    {currentSpeaker.name} speaking
                   </span>
                 </div>
               )}
             </div>
 
-            {/* Controls */}
-            <div className="flex items-center gap-3">
+            {/* Controls - Responsive */}
+            <div className="flex items-center justify-center gap-2 sm:gap-3">
               {callStatus === CallStatus.INACTIVE && autoStartAttempted ? (
                 <button
                   onClick={handleManualStart}
-                  className="px-6 py-2.5 bg-emerald-600 text-white rounded-lg font-medium"
+                  className="px-4 sm:px-6 py-2 sm:py-2.5 bg-emerald-600 text-white rounded-lg font-medium text-xs sm:text-sm"
                 >
                   Start Interview
                 </button>
               ) : (callStatus === CallStatus.INACTIVE && !autoStartAttempted) || callStatus === CallStatus.CONNECTING ? (
-                <div className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                <div className="px-4 sm:px-6 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg font-medium flex items-center gap-2 text-xs sm:text-sm">
+                  <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />
                   <span>Please Wait</span>
                 </div>
               ) : callStatus === CallStatus.ACTIVE && !isGeneratingFeedback ? (
                 <>
                   <button
                     onClick={() => setIsAudioOn(!isAudioOn)}
-                    className={`p-3 rounded-full ${
+                    className={`p-2 sm:p-2.5 md:p-3 rounded-full ${
                       isAudioOn 
                         ? 'bg-slate-700 text-white' 
                         : 'bg-red-600 text-white'
                     }`}
                   >
-                    {isAudioOn ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
+                    {isAudioOn ? <Mic className="w-4 h-4 sm:w-5 sm:h-5" /> : <MicOff className="w-4 h-4 sm:w-5 sm:h-5" />}
                   </button>
 
                   <button
                     onClick={() => setIsVideoOn(!isVideoOn)}
-                    className={`p-3 rounded-full ${
+                    className={`p-2 sm:p-2.5 md:p-3 rounded-full ${
                       isVideoOn 
                         ? 'bg-slate-700 text-white' 
                         : 'bg-red-600 text-white'
                     }`}
                   >
-                    {isVideoOn ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
+                    {isVideoOn ? <Video className="w-4 h-4 sm:w-5 sm:h-5" /> : <VideoOff className="w-4 h-4 sm:w-5 sm:h-5" />}
                   </button>
 
                   <button
                     onClick={handleDisconnect}
-                    className="p-3 rounded-full bg-red-600 text-white"
+                    className="p-2 sm:p-2.5 md:p-3 rounded-full bg-red-600 text-white"
                   >
-                    <PhoneOff className="w-5 h-5" />
+                    <PhoneOff className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
 
                   <button
                     onClick={() => setIsSpeakerOn(!isSpeakerOn)}
-                    className={`p-3 rounded-full ${
+                    className={`p-2 sm:p-2.5 md:p-3 rounded-full ${
                       isSpeakerOn 
                         ? 'bg-slate-700 text-white' 
                         : 'bg-red-600 text-white'
                     }`}
                   >
-                    {isSpeakerOn ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+                    {isSpeakerOn ? <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" /> : <VolumeX className="w-4 h-4 sm:w-5 sm:h-5" />}
                   </button>
                 </>
               ) : isGeneratingFeedback ? (
-                <div className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium flex items-center gap-2">
-                  <Loader2 className="w-5 h-5 animate-spin" />
+                <div className="px-4 sm:px-6 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg font-medium flex items-center gap-2 text-xs sm:text-sm">
+                  <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
                   <span>Processing</span>
                 </div>
               ) : null}
             </div>
-          </div>
 
-          {/* Auto-start notification */}
-          {!autoStartAttempted && callStatus === CallStatus.INACTIVE && (
-            <div className="mt-4 glass-card p-4 border border-blue-500/20">
-              <div className="flex items-center gap-3">
-                <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
-                <div>
-                  <h4 className="text-blue-300 font-medium text-sm">
-                    Preparing Interview
-                  </h4>
-                  <p className="text-blue-200/70 text-xs">
-                    Setting up your {interviewType === "mixed" ? "behavioral round (Part 1 of 2)" : "session"}...
-                  </p>
+            {/* Auto-start notification - Responsive */}
+            {!autoStartAttempted && callStatus === CallStatus.INACTIVE && (
+              <div className="glass-card p-3 sm:p-4 border border-blue-500/20">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400 animate-spin flex-shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-blue-300 font-medium text-xs sm:text-sm">
+                      Preparing Interview
+                    </h4>
+                    <p className="text-blue-200/70 text-xs">
+                      Setting up your {interviewType === "mixed" ? "behavioral round (Part 1 of 2)" : "session"}...
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Feedback Generation */}
-          {isGeneratingFeedback && (
-            <div className="mt-4 glass-card p-4 border border-blue-500/20">
-              <div className="flex items-center gap-3">
-                <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
-                <div className="flex-1">
-                  <h4 className="text-blue-300 font-medium text-sm">
-                    Finalizing Interview
-                  </h4>
-                  <p className="text-blue-200/70 text-xs">
-                    Preparing your personalized feedback...
-                  </p>
+            {/* Feedback Generation - Responsive */}
+            {isGeneratingFeedback && (
+              <div className="glass-card p-3 sm:p-4 border border-blue-500/20">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400 animate-spin flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-blue-300 font-medium text-xs sm:text-sm">
+                      Finalizing Interview
+                    </h4>
+                    <p className="text-blue-200/70 text-xs">
+                      Preparing your personalized feedback...
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-2 sm:mt-3 bg-blue-500/20 rounded-full h-1.5 sm:h-2 overflow-hidden">
+                  <div className="bg-blue-400 h-full rounded-full animate-pulse w-3/4"></div>
                 </div>
               </div>
-              <div className="mt-3 bg-blue-500/20 rounded-full h-2 overflow-hidden">
-                <div className="bg-blue-400 h-full rounded-full animate-pulse w-3/4"></div>
-              </div>
-            </div>
-          )}
+            )}
 
-          {/* Live Transcript */}
-          <div className="mt-4 glass-card p-4 border border-white/5">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-              <span className="text-sm text-slate-400 font-medium">
-                Live Transcript
-              </span>
+            {/* Live Transcript - Responsive */}
+            <div className="glass-card p-3 sm:p-4 border border-white/5">
+              <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                <span className="text-xs sm:text-sm text-slate-400 font-medium">
+                  Live Transcript
+                </span>
+              </div>
+              <p className="text-white text-xs sm:text-sm line-clamp-2">
+                {lastMessage || "Interview session ready..."}
+              </p>
             </div>
-            <p className="text-white text-sm line-clamp-2">
-              {lastMessage || "Interview session ready..."}
-            </p>
           </div>
         </div>
       </div>

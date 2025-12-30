@@ -42,11 +42,9 @@ export default function ResumeDashboard() {
     improvementTips: 0
   });
 
-  // Error states
   const [criticalError, setCriticalError] = useState<CriticalError | null>(null);
   const [resumesError, setResumesError] = useState<string>('');
 
-  // Define loading steps
   const loadingSteps: LoadingStep[] = [
     { name: 'Authenticating user...', weight: 1 },
     { name: 'Loading resume files...', weight: 3 },
@@ -62,21 +60,17 @@ export default function ResumeDashboard() {
     try {
       setLoadingResumes(true);
       setResumesError('');
-      setLoadingStep(0); // Authenticating
+      setLoadingStep(0);
       
-      // Step 1: Loading resume files
       setLoadingStep(1);
       const userResumes = await FirebaseService.getUserResumes(user.uid);
       setResumes(userResumes);
       
-      // Step 2: Analyzing feedback data
       setLoadingStep(2);
       await new Promise(resolve => setTimeout(resolve, 200));
       
-      // Step 3: Calculating statistics
       setLoadingStep(3);
       if (userResumes.length > 0) {
-        // Filter resumes that have feedback
         const resumesWithFeedback = userResumes.filter(resume => resume.feedback);
         
         if (resumesWithFeedback.length > 0) {
@@ -111,11 +105,9 @@ export default function ResumeDashboard() {
         }
       }
 
-      // Step 4: Organizing resumes
       setLoadingStep(4);
       await new Promise(resolve => setTimeout(resolve, 150));
 
-      // Step 5: Finalizing
       setLoadingStep(5);
       await new Promise(resolve => setTimeout(resolve, 150));
       
@@ -123,7 +115,6 @@ export default function ResumeDashboard() {
       console.error('Error loading resumes:', err);
       const error = err instanceof Error ? err : new Error('Unknown error');
       
-      // Check for critical errors
       if (error.message.includes('Firebase') || error.message.includes('firestore')) {
         setCriticalError({
           code: 'DATABASE',
@@ -209,7 +200,6 @@ export default function ResumeDashboard() {
     }
   };
 
-  // Show critical error page
   if (criticalError) {
     return (
       <ErrorPage
@@ -225,7 +215,6 @@ export default function ResumeDashboard() {
     );
   }
 
-  // Show loader during initial auth check or resume loading
   if (loading || loadingResumes) {
     return (
       <AnimatedLoader
@@ -239,18 +228,17 @@ export default function ResumeDashboard() {
     );
   }
 
-  // Show auth required message
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="glass-card-gradient hover-lift">
-          <div className="glass-card-gradient-inner text-center p-12">
-            <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-white mb-2">Authentication Required</h2>
-            <p className="text-slate-400 mb-6">Please log in to view your resumes</p>
+      <div className="flex items-center justify-center min-h-[60vh] px-4">
+        <div className="glass-card-gradient hover-lift w-full max-w-md">
+          <div className="glass-card-gradient-inner text-center p-8 sm:p-12">
+            <AlertCircle className="w-12 h-12 sm:w-16 sm:h-16 text-red-400 mx-auto mb-3 sm:mb-4" />
+            <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">Authentication Required</h2>
+            <p className="text-slate-400 mb-4 sm:mb-6 text-sm sm:text-base">Please log in to view your resumes</p>
             <Link 
               href="/sign-in"
-              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 py-3 rounded-xl"
+              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base"
             >
               Go to Login
             </Link>
@@ -261,23 +249,22 @@ export default function ResumeDashboard() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Clean Header */}
+    <div className="space-y-4 sm:space-y-6 px-4 sm:px-0">
       <div className="glass-card hover-lift">
-        <div className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold text-white mb-1">
+        <div className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+            <div className="w-full sm:w-auto">
+              <h1 className="text-xl sm:text-2xl font-semibold text-white mb-1">
                 Resume Analysis
               </h1>
-              <p className="text-slate-400 text-sm">
+              <p className="text-slate-400 text-xs sm:text-sm">
                 AI-powered resume optimization
               </p>
             </div>
             
             <Link
               href="/resume/upload"
-              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-4 py-2.5 rounded-lg"
+              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm w-full sm:w-auto justify-center"
             >
               <Upload className="w-4 h-4" />
               <span>Upload Resume</span>
@@ -286,22 +273,21 @@ export default function ResumeDashboard() {
         </div>
       </div>
 
-      {/* Resumes Error Message */}
       {resumesError && (
         <div className="glass-card-gradient hover-lift animate-fade-in-up">
-          <div className="glass-card-gradient-inner">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="text-red-400 text-sm mb-2">{resumesError}</p>
+          <div className="glass-card-gradient-inner p-4 sm:p-5">
+            <div className="flex items-start gap-2 sm:gap-3">
+              <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-red-400 text-xs sm:text-sm mb-2">{resumesError}</p>
                 <button
                   onClick={() => {
                     setResumesError('');
                     loadResumes();
                   }}
-                  className="glass-button hover-lift inline-flex items-center gap-2 px-4 py-2 text-white text-sm font-medium rounded-lg"
+                  className="glass-button hover-lift inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 text-white text-xs sm:text-sm font-medium rounded-lg"
                 >
-                  <RefreshCw className="w-4 h-4" />
+                  <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   Try Again
                 </button>
               </div>
@@ -310,68 +296,63 @@ export default function ResumeDashboard() {
         </div>
       )}
 
-      {/* Main Content */}
       {resumes.length > 0 ? (
-        <div className="space-y-6">
-          
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="space-y-4 sm:space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             <div className="glass-card hover-lift">
-              <div className="p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
-                    <FileText className="w-5 h-5 text-blue-400" />
+              <div className="p-4 sm:p-5">
+                <div className="flex items-center justify-between mb-2 sm:mb-3">
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                    <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
                   </div>
-                  <span className="text-2xl font-semibold text-white">{stats.totalResumes}</span>
+                  <span className="text-xl sm:text-2xl font-semibold text-white">{stats.totalResumes}</span>
                 </div>
-                <p className="text-sm text-slate-400">Total Resumes</p>
+                <p className="text-xs sm:text-sm text-slate-400">Total Resumes</p>
               </div>
             </div>
 
             <div className="glass-card hover-lift">
-              <div className="p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center">
-                    <CheckCircle className="w-5 h-5 text-emerald-400" />
+              <div className="p-4 sm:p-5">
+                <div className="flex items-center justify-between mb-2 sm:mb-3">
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center">
+                    <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
                   </div>
-                  <span className="text-2xl font-semibold text-white">{stats.averageScore}%</span>
+                  <span className="text-xl sm:text-2xl font-semibold text-white">{stats.averageScore}%</span>
                 </div>
-                <p className="text-sm text-slate-400">Average Score</p>
+                <p className="text-xs sm:text-sm text-slate-400">Average Score</p>
               </div>
             </div>
 
             <div className="glass-card hover-lift">
-              <div className="p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-10 h-10 bg-amber-500/10 rounded-lg flex items-center justify-center">
-                    <Zap className="w-5 h-5 text-amber-400" />
+              <div className="p-4 sm:p-5">
+                <div className="flex items-center justify-between mb-2 sm:mb-3">
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 bg-amber-500/10 rounded-lg flex items-center justify-center">
+                    <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
                   </div>
-                  <span className="text-2xl font-semibold text-white">{stats.improvementTips}</span>
+                  <span className="text-xl sm:text-2xl font-semibold text-white">{stats.improvementTips}</span>
                 </div>
-                <p className="text-sm text-slate-400">Improvements</p>
+                <p className="text-xs sm:text-sm text-slate-400">Improvements</p>
               </div>
             </div>
           </div>
 
-          {/* Controls Bar */}
           <div className="glass-card">
-            <div className="p-5">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="p-4 sm:p-5">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                 <div>
-                  <h2 className="text-lg font-semibold text-white">Your Resumes</h2>
-                  <p className="text-slate-400 text-sm mt-0.5">
+                  <h2 className="text-base sm:text-lg font-semibold text-white">Your Resumes</h2>
+                  <p className="text-slate-400 text-xs sm:text-sm mt-0.5">
                     {filteredResumes.length} of {resumes.length} resumes
                   </p>
                 </div>
                 
-                <div className="flex items-center gap-3">
-                  {/* Filter Dropdown */}
-                  <div className="relative">
-                    <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="relative flex-1 sm:flex-initial">
+                    <Filter className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500 pointer-events-none" />
                     <select 
                       value={sortFilter} 
                       onChange={(e) => setSortFilter(e.target.value as SortOption)}
-                      className="glass-input pl-10 pr-4 py-2.5 rounded-lg text-white text-sm appearance-none cursor-pointer min-w-[200px]"
+                      className="glass-input pl-8 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 rounded-lg text-white text-xs sm:text-sm appearance-none cursor-pointer w-full sm:min-w-[200px]"
                     >
                       <option value="all">All ({getFilterCount('all')})</option>
                       <option value="high-scores">High Scores ({getFilterCount('high-scores')})</option>
@@ -380,29 +361,28 @@ export default function ResumeDashboard() {
                     </select>
                   </div>
                   
-                  {/* View Toggle */}
                   <div className="flex bg-slate-900/50 rounded-lg p-1">
                     <button 
                       onClick={() => setViewMode('grid')}
-                      className={`p-2 rounded transition-all ${
+                      className={`p-1.5 sm:p-2 rounded transition-all ${
                         viewMode === 'grid' 
                           ? 'bg-white/10 text-white' 
                           : 'text-slate-400 hover:text-white'
                       }`}
                       aria-label="Grid view"
                     >
-                      <LayoutGrid className="w-4 h-4" />
+                      <LayoutGrid className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     </button>
                     <button 
                       onClick={() => setViewMode('list')}
-                      className={`p-2 rounded transition-all ${
+                      className={`p-1.5 sm:p-2 rounded transition-all ${
                         viewMode === 'list' 
                           ? 'bg-white/10 text-white' 
                           : 'text-slate-400 hover:text-white'
                       }`}
                       aria-label="List view"
                     >
-                      <List className="w-4 h-4" />
+                      <List className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     </button>
                   </div>
                 </div>
@@ -410,12 +390,11 @@ export default function ResumeDashboard() {
             </div>
           </div>
           
-          {/* Resume Grid/List */}
           {filteredResumes.length > 0 ? (
             <div className={
               viewMode === 'grid' 
-                ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6" 
-                : "space-y-4"
+                ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6" 
+                : "space-y-3 sm:space-y-4"
             }>
               {filteredResumes.map((resume, index) => (
                 <div
@@ -428,21 +407,20 @@ export default function ResumeDashboard() {
               ))}
             </div>
           ) : (
-            /* No Results State */
             <div className="glass-card">
-              <div className="text-center py-16 px-6">
-                <div className="w-16 h-16 bg-slate-800/50 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                  <FileText className="w-8 h-8 text-slate-400" />
+              <div className="text-center py-12 sm:py-16 px-4 sm:px-6">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-slate-800/50 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-6">
+                  <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-slate-400" />
                 </div>
-                <h3 className="text-xl font-semibold text-white mb-2">
+                <h3 className="text-lg sm:text-xl font-semibold text-white mb-2">
                   No resumes match this filter
                 </h3>
-                <p className="text-slate-400 mb-6">
+                <p className="text-slate-400 mb-4 sm:mb-6 text-sm sm:text-base">
                   Try adjusting your filter or upload a new resume
                 </p>
                 <button
                   onClick={() => setSortFilter('all')}
-                  className="text-sm text-slate-300 hover:text-white underline"
+                  className="text-xs sm:text-sm text-slate-300 hover:text-white underline"
                 >
                   Clear Filter
                 </button>
@@ -451,60 +429,58 @@ export default function ResumeDashboard() {
           )}
         </div>
       ) : !resumesError ? (
-        /* Empty State */
         <div className="glass-card">
-          <div className="text-center py-16 px-6">
-            <div className="w-20 h-20 bg-slate-800/50 rounded-2xl flex items-center justify-center mx-auto mb-8">
-              <FileText className="w-10 h-10 text-slate-400" />
+          <div className="text-center py-12 sm:py-16 px-4 sm:px-6">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-800/50 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-6 sm:mb-8">
+              <FileText className="w-8 h-8 sm:w-10 sm:h-10 text-slate-400" />
             </div>
             
-            <h3 className="text-2xl font-semibold text-white mb-3">
+            <h3 className="text-xl sm:text-2xl font-semibold text-white mb-2 sm:mb-3">
               Welcome to Resume Analysis
             </h3>
-            <p className="text-slate-400 mb-10 max-w-xl mx-auto">
+            <p className="text-slate-400 mb-8 sm:mb-10 max-w-xl mx-auto text-sm sm:text-base">
               Get AI-powered insights, ATS optimization, and personalized recommendations to improve your resume
             </p>
 
-            {/* Feature Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10 max-w-3xl mx-auto">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-8 sm:mb-10 max-w-3xl mx-auto">
               <div className="text-center">
-                <div className="w-12 h-12 bg-blue-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
-                  <CheckCircle className="w-6 h-6 text-blue-400" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-500/10 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3">
+                  <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-blue-400" />
                 </div>
-                <p className="text-sm text-slate-400">ATS Score</p>
+                <p className="text-xs sm:text-sm text-slate-400">ATS Score</p>
               </div>
               
               <div className="text-center">
-                <div className="w-12 h-12 bg-purple-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
-                  <Zap className="w-6 h-6 text-purple-400" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-500/10 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3">
+                  <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-purple-400" />
                 </div>
-                <p className="text-sm text-slate-400">AI Analysis</p>
+                <p className="text-xs sm:text-sm text-slate-400">AI Analysis</p>
               </div>
               
               <div className="text-center">
-                <div className="w-12 h-12 bg-emerald-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
-                  <CheckCircle className="w-6 h-6 text-emerald-400" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-emerald-500/10 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3">
+                  <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-400" />
                 </div>
-                <p className="text-sm text-slate-400">Track Progress</p>
+                <p className="text-xs sm:text-sm text-slate-400">Track Progress</p>
               </div>
               
               <div className="text-center">
-                <div className="w-12 h-12 bg-amber-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
-                  <Zap className="w-6 h-6 text-amber-400" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-amber-500/10 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3">
+                  <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-amber-400" />
                 </div>
-                <p className="text-sm text-slate-400">Instant Feedback</p>
+                <p className="text-xs sm:text-sm text-slate-400">Instant Feedback</p>
               </div>
             </div>
 
             <Link
               href="/resume/upload"
-              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 py-3 rounded-lg"
+              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base"
             >
-              <Upload className="w-5 h-5" />
+              <Upload className="w-4 h-4 sm:w-5 sm:h-5" />
               <span>Upload Resume</span>
             </Link>
             
-            <p className="text-xs text-slate-500 mt-6">
+            <p className="text-xs text-slate-500 mt-4 sm:mt-6">
               Supports PDF, DOC, and DOCX formats
             </p>
           </div>

@@ -249,35 +249,35 @@ export default function UploadResume() {
   }
 
   return (
-    <div className="h-[calc(100vh-73px-3rem)] flex items-center justify-center overflow-hidden">
+    <div className="h-[calc(100vh-73px)] lg:h-[calc(100vh-73px-3rem)] flex items-center justify-center p-4 lg:p-0 overflow-y-auto lg:overflow-hidden">
       {/* Processing Loader */}
       {isProcessing && (
         <div className="fixed inset-0 bg-slate-950/95 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900/90 border border-slate-800 rounded-xl max-w-md w-full p-8">
-            <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg mb-4">
-                <Sparkles className="w-7 h-7 text-white" />
+          <div className="bg-slate-900/90 border border-slate-800 rounded-xl max-w-md w-full p-6 sm:p-8">
+            <div className="text-center mb-6 sm:mb-8">
+              <div className="inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg mb-4">
+                <Sparkles className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
               </div>
-              <h3 className="text-lg font-medium text-white mb-3">
+              <h3 className="text-base sm:text-lg font-medium text-white mb-2 sm:mb-3">
                 {PROCESSING_STEPS[currentStep]?.message}
               </h3>
-              <p className="text-sm text-slate-400 leading-relaxed">
+              <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
                 {RESUME_FACTS[currentFactIndex]}
               </p>
             </div>
 
-            <div className="relative w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mb-6">
+            <div className="relative w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mb-4 sm:mb-6">
               <div 
                 className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-500 to-purple-600 transition-all duration-500"
                 style={{ width: `${PROCESSING_STEPS[currentStep]?.progress || 0}%` }}
               />
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               {PROCESSING_STEPS.map((step, idx) => (
                 <div 
                   key={idx}
-                  className={`flex items-center text-sm ${
+                  className={`flex items-center text-xs sm:text-sm ${
                     idx < currentStep 
                       ? 'text-emerald-400' 
                       : idx === currentStep 
@@ -301,69 +301,69 @@ export default function UploadResume() {
       )}
 
       {/* Main Content */}
-      <div className="w-full max-w-7xl h-full flex items-center px-6">
-        <div className="w-full grid grid-cols-2 gap-16 items-center h-full py-8">
+      <div className="w-full max-w-7xl lg:h-full flex items-center lg:px-6">
+        <div className="w-full grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-16 items-start lg:items-center lg:h-full lg:py-8">
           {/* Left Side - Info */}
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6 order-2 lg:order-1">
             <div>
-              <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl mb-5">
-                <FileText className="w-6 h-6 text-white" />
+              <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl mb-4 sm:mb-5">
+                <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
-              <h1 className="text-4xl font-bold text-white mb-3 leading-tight">
+              <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2 sm:mb-3 leading-tight">
                 AI Resume<br />Analyzer
               </h1>
-              <p className="text-base text-slate-400 leading-relaxed">
+              <p className="text-sm sm:text-base text-slate-400 leading-relaxed">
                 Get instant AI-powered feedback and detailed insights to optimize your resume for success
               </p>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2.5 sm:space-y-3">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Sparkles className="w-5 h-5 text-blue-400" />
+                <div className="w-9 h-9 sm:w-10 sm:h-10 bg-blue-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
                 </div>
                 <div>
-                  <h3 className="text-white font-medium mb-1 text-sm">AI-Powered Analysis</h3>
+                  <h3 className="text-white font-medium mb-0.5 sm:mb-1 text-sm">AI-Powered Analysis</h3>
                   <p className="text-xs text-slate-400">Advanced multi-agent system evaluates every aspect</p>
                 </div>
               </div>
 
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                <div className="w-9 h-9 sm:w-10 sm:h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
                 </div>
                 <div>
-                  <h3 className="text-white font-medium mb-1 text-sm">ATS Optimization</h3>
+                  <h3 className="text-white font-medium mb-0.5 sm:mb-1 text-sm">ATS Optimization</h3>
                   <p className="text-xs text-slate-400">Pass applicant tracking systems with high scores</p>
                 </div>
               </div>
 
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Shield className="w-5 h-5 text-purple-400" />
+                <div className="w-9 h-9 sm:w-10 sm:h-10 bg-purple-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
                 </div>
                 <div>
-                  <h3 className="text-white font-medium mb-1 text-sm">Secure & Private</h3>
+                  <h3 className="text-white font-medium mb-0.5 sm:mb-1 text-sm">Secure & Private</h3>
                   <p className="text-xs text-slate-400">Enterprise-grade security and encryption</p>
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4 pt-3">
+            <div className="grid grid-cols-3 gap-3 sm:gap-4 pt-2 sm:pt-3">
               <div>
-                <div className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 mb-1">
+                <div className="text-xl sm:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 mb-1">
                   6-7s
                 </div>
                 <div className="text-xs text-slate-500">Average review time</div>
               </div>
               <div>
-                <div className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 mb-1">
+                <div className="text-xl sm:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 mb-1">
                   75%
                 </div>
                 <div className="text-xs text-slate-500">Rejected by ATS</div>
               </div>
               <div>
-                <div className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 mb-1">
+                <div className="text-xl sm:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 mb-1">
                   2x
                 </div>
                 <div className="text-xs text-slate-500">More interviews</div>
@@ -372,21 +372,21 @@ export default function UploadResume() {
           </div>
 
           {/* Right Side - Form */}
-          <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 h-full max-h-full overflow-y-auto custom-scrollbar">
+          <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-4 sm:p-6 max-h-[70vh] lg:max-h-[calc(100vh-200px)] overflow-y-auto custom-scrollbar order-1 lg:order-2">
             {error && (
               <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 mb-4">
                 <div className="flex items-start gap-3">
                   <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <h3 className="font-medium text-red-400 mb-0.5 text-sm">Analysis Failed</h3>
-                    <p className="text-xs text-red-300">{error}</p>
+                    <p className="text-xs text-red-300 break-words">{error}</p>
                   </div>
-                  <button onClick={() => setError('')} className="text-red-400 hover:text-red-300 text-sm">×</button>
+                  <button onClick={() => setError('')} className="text-red-400 hover:text-red-300 text-lg leading-none flex-shrink-0">×</button>
                 </div>
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Analysis Type
@@ -414,7 +414,7 @@ export default function UploadResume() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label htmlFor="company-name" className="block text-sm font-medium text-slate-300 mb-1.5">
                     Company
@@ -466,17 +466,17 @@ export default function UploadResume() {
                 
                 {file && (
                   <div className="mt-3 p-3 bg-slate-800/50 border border-slate-700 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-emerald-500/10 rounded-lg flex items-center justify-center">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <div className="w-8 h-8 bg-emerald-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
                           <FileText className="w-4 h-4 text-emerald-400" />
                         </div>
-                        <div>
-                          <p className="font-medium text-white text-xs">{file.name}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-white text-xs truncate">{file.name}</p>
                           <p className="text-xs text-slate-400">{(file.size / 1024).toFixed(2)} KB</p>
                         </div>
                       </div>
-                      <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                      <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
                     </div>
                   </div>
                 )}
@@ -485,7 +485,7 @@ export default function UploadResume() {
               <button
                 type="submit"
                 disabled={!file || isProcessing}
-                className={`w-full py-3 px-6 rounded-lg font-medium transition-all ${
+                className={`w-full py-2.5 sm:py-3 px-6 rounded-lg font-medium transition-all text-sm sm:text-base ${
                   !file || isProcessing
                     ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
                     : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white shadow-lg shadow-blue-500/25'
@@ -493,12 +493,12 @@ export default function UploadResume() {
               >
                 {isProcessing ? (
                   <span className="flex items-center justify-center gap-2">
-                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
                     Analyzing...
                   </span>
                 ) : (
                   <span className="flex items-center justify-center gap-2">
-                    <Upload className="w-5 h-5" />
+                    <Upload className="w-4 h-4 sm:w-5 sm:h-5" />
                     Analyze Resume
                   </span>
                 )}
@@ -506,8 +506,8 @@ export default function UploadResume() {
 
               <div className="text-center pt-1">
                 <p className="text-xs text-slate-500 flex items-center justify-center gap-2">
-                  <Info className="w-3 h-3" />
-                  PDF only • Max 10MB • 10-30 seconds
+                  <Info className="w-3 h-3 flex-shrink-0" />
+                  <span>PDF only • Max 10MB • 10-30 seconds</span>
                 </p>
               </div>
             </form>

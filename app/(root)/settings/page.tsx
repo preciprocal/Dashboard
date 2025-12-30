@@ -265,56 +265,56 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-4 sm:space-y-6 px-4 sm:px-0">
+      {/* Header - Responsive */}
       <div className="glass-card hover-lift">
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           <Link
             href="/dashboard"
-            className="inline-flex items-center text-sm text-slate-400 hover:text-white mb-4 transition-colors"
+            className="inline-flex items-center text-xs sm:text-sm text-slate-400 hover:text-white mb-3 sm:mb-4 transition-colors"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Dashboard
           </Link>
           
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-blue-500/10 rounded-lg flex items-center justify-center">
-                <Settings className="h-6 w-6 text-blue-400" />
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                <Settings className="h-5 w-5 sm:h-6 sm:w-6 text-blue-400" />
               </div>
               <div>
-                <h1 className="text-2xl font-semibold text-white mb-1">
+                <h1 className="text-xl sm:text-2xl font-semibold text-white mb-0.5 sm:mb-1">
                   App Settings
                 </h1>
-                <p className="text-slate-400 text-sm">
+                <p className="text-slate-400 text-xs sm:text-sm">
                   Customize your Preciprocal experience
                 </p>
               </div>
             </div>
 
             {hasChanges && (
-              <div className="flex gap-3">
+              <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
                 <button
                   onClick={handleReset}
-                  className="glass-button hover-lift text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm"
+                  className="flex-1 sm:flex-initial glass-button hover-lift text-white px-3 sm:px-4 py-2 rounded-lg flex items-center justify-center gap-2 text-xs sm:text-sm"
                 >
-                  <RotateCcw className="w-4 h-4" />
-                  Reset
+                  <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <span className="hidden xs:inline">Reset</span>
                 </button>
                 <button
                   onClick={handleSave}
                   disabled={isSaving}
-                  className="glass-button-primary hover-lift px-4 py-2 rounded-lg flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 sm:flex-initial glass-button-primary hover-lift px-3 sm:px-4 py-2 rounded-lg flex items-center justify-center gap-2 text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSaving ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Saving...
+                      <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />
+                      <span className="hidden xs:inline">Saving...</span>
                     </>
                   ) : (
                     <>
-                      <Save className="w-4 h-4" />
-                      Save Changes
+                      <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      <span>Save</span>
                     </>
                   )}
                 </button>
@@ -324,25 +324,25 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Settings Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Sidebar */}
+      {/* Settings Layout - Responsive */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
+        {/* Sidebar - Responsive */}
         <div className="lg:col-span-1">
-          <div className="glass-card p-4">
-            <nav className="space-y-2">
+          <div className="glass-card p-3 sm:p-4">
+            <nav className="space-y-1 sm:space-y-2">
               {sections.map((section) => (
                 <button
                   key={section.id}
                   onClick={() => setActiveSection(section.id)}
-                  className={`w-full text-left p-3 rounded-lg transition-all ${
+                  className={`w-full text-left p-2.5 sm:p-3 rounded-lg transition-all ${
                     activeSection === section.id
                       ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
                       : 'text-slate-400 hover:text-white hover:bg-white/5'
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <section.icon className="w-4 h-4" />
-                    <span className="font-medium text-sm">{section.label}</span>
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <section.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                    <span className="font-medium text-xs sm:text-sm">{section.label}</span>
                   </div>
                 </button>
               ))}
@@ -350,25 +350,25 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Main Content */}
-        <div className="lg:col-span-3 space-y-6">
+        {/* Main Content - Responsive */}
+        <div className="lg:col-span-3 space-y-4 sm:space-y-6">
           
           {/* Notifications */}
           {activeSection === 'notifications' && (
             <div className="glass-card">
-              <div className="p-6 border-b border-white/5">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center">
-                    <Bell className="h-5 w-5 text-emerald-400" />
+              <div className="p-4 sm:p-6 border-b border-white/5">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center">
+                    <Bell className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-400" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-white">Notification Settings</h3>
-                    <p className="text-slate-400 text-sm">Manage how you receive updates</p>
+                    <h3 className="text-base sm:text-lg font-semibold text-white">Notification Settings</h3>
+                    <p className="text-slate-400 text-xs sm:text-sm">Manage how you receive updates</p>
                   </div>
                 </div>
               </div>
 
-              <div className="p-6 space-y-4">
+              <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
                 {[
                   { key: 'email', label: 'Email Notifications', desc: 'Receive updates via email' },
                   { key: 'push', label: 'Push Notifications', desc: 'Browser push notifications' },
@@ -377,19 +377,19 @@ export default function SettingsPage() {
                   { key: 'aiRecommendations', label: 'AI Recommendations', desc: 'Personalized study suggestions' },
                   { key: 'systemUpdates', label: 'System Updates', desc: 'Important platform announcements' },
                 ].map((item) => (
-                  <div key={item.key} className="flex items-center justify-between p-4 rounded-lg border border-white/5">
-                    <div>
-                      <h4 className="text-white font-medium text-sm">{item.label}</h4>
+                  <div key={item.key} className="flex items-center justify-between p-3 sm:p-4 rounded-lg border border-white/5 gap-3">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-white font-medium text-xs sm:text-sm">{item.label}</h4>
                       <p className="text-slate-400 text-xs">{item.desc}</p>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
+                    <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
                       <input
                         type="checkbox"
                         checked={settings.notifications[item.key as keyof typeof settings.notifications]}
                         onChange={(e) => updateSettings('notifications', item.key, e.target.checked)}
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                      <div className="w-10 h-5 sm:w-11 sm:h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 sm:after:h-5 sm:after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
                     </label>
                   </div>
                 ))}
@@ -399,40 +399,38 @@ export default function SettingsPage() {
 
           {/* Privacy & Security */}
           {activeSection === 'privacy' && (
-            <div className="space-y-6">
-              {/* Privacy Settings Card */}
+            <div className="space-y-4 sm:space-y-6">
               <div className="glass-card">
-                <div className="p-6 border-b border-white/5">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-orange-500/10 rounded-lg flex items-center justify-center">
-                      <Shield className="h-5 w-5 text-orange-400" />
+                <div className="p-4 sm:p-6 border-b border-white/5">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 bg-orange-500/10 rounded-lg flex items-center justify-center">
+                      <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-orange-400" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-white">Privacy Settings</h3>
-                      <p className="text-slate-400 text-sm">Control your data and privacy</p>
+                      <h3 className="text-base sm:text-lg font-semibold text-white">Privacy Settings</h3>
+                      <p className="text-slate-400 text-xs sm:text-sm">Control your data and privacy</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="p-6 space-y-6">
-                  {/* Privacy Toggles */}
+                <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
                   {[
                     { key: 'shareAnalytics', label: 'Share Analytics', desc: 'Help improve the platform with anonymized data' },
                     { key: 'allowDataCollection', label: 'Data Collection', desc: 'Allow usage data collection for personalization' },
                   ].map((item) => (
-                    <div key={item.key} className="flex items-center justify-between p-4 rounded-lg border border-white/5">
-                      <div>
-                        <h4 className="text-white font-medium text-sm">{item.label}</h4>
+                    <div key={item.key} className="flex items-center justify-between p-3 sm:p-4 rounded-lg border border-white/5 gap-3">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-white font-medium text-xs sm:text-sm">{item.label}</h4>
                         <p className="text-slate-400 text-xs">{item.desc}</p>
                       </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
+                      <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
                         <input
                           type="checkbox"
                           checked={settings.privacy[item.key as keyof typeof settings.privacy] as boolean}
                           onChange={(e) => updateSettings('privacy', item.key, e.target.checked)}
                           className="sr-only peer"
                         />
-                        <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
+                        <div className="w-10 h-5 sm:w-11 sm:h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 sm:after:h-5 sm:after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
                       </label>
                     </div>
                   ))}
@@ -441,33 +439,33 @@ export default function SettingsPage() {
 
               {/* Security Card */}
               <div className="glass-card">
-                <div className="p-6 border-b border-white/5">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center">
-                      <Key className="h-5 w-5 text-emerald-400" />
+                <div className="p-4 sm:p-6 border-b border-white/5">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center">
+                      <Key className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-400" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-white">Security</h3>
-                      <p className="text-slate-400 text-sm">Protect your account</p>
+                      <h3 className="text-base sm:text-lg font-semibold text-white">Security</h3>
+                      <p className="text-slate-400 text-xs sm:text-sm">Protect your account</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="p-6">
-                  <div className="glass-card p-4 border border-emerald-500/20">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center">
-                          <Key className="h-5 w-5 text-emerald-400" />
+                <div className="p-4 sm:p-6">
+                  <div className="glass-card p-3 sm:p-4 border border-emerald-500/20">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                      <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <Key className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-400" />
                         </div>
-                        <div>
-                          <h4 className="text-white font-medium text-sm">Two-Factor Authentication</h4>
+                        <div className="min-w-0">
+                          <h4 className="text-white font-medium text-xs sm:text-sm">Two-Factor Authentication</h4>
                           <p className="text-slate-400 text-xs">Add an extra layer of security</p>
                         </div>
                       </div>
                       <button
                         onClick={() => toast.info('2FA setup coming soon')}
-                        className="glass-button-primary hover-lift px-4 py-2 rounded-lg text-sm"
+                        className="glass-button-primary hover-lift px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm w-full sm:w-auto"
                       >
                         Enable
                       </button>
@@ -478,28 +476,28 @@ export default function SettingsPage() {
 
               {/* Data Management Card */}
               <div className="glass-card">
-                <div className="p-6 border-b border-white/5">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
-                      <Database className="h-5 w-5 text-blue-400" />
+                <div className="p-4 sm:p-6 border-b border-white/5">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                      <Database className="h-4 w-4 sm:h-5 sm:w-5 text-blue-400" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-white">Your Data</h3>
-                      <p className="text-slate-400 text-sm">Export or delete your data</p>
+                      <h3 className="text-base sm:text-lg font-semibold text-white">Your Data</h3>
+                      <p className="text-slate-400 text-xs sm:text-sm">Export or delete your data</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="p-6 space-y-6">
+                <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
                   {/* Export Data */}
-                  <div className="glass-card p-4 border border-blue-500/20">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3 flex-1">
-                        <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
-                          <Download className="h-5 w-5 text-blue-400" />
+                  <div className="glass-card p-3 sm:p-4 border border-blue-500/20">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                      <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 bg-blue-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <Download className="h-4 w-4 sm:h-5 sm:w-5 text-blue-400" />
                         </div>
-                        <div>
-                          <h4 className="text-white font-medium text-sm mb-1">
+                        <div className="min-w-0">
+                          <h4 className="text-white font-medium text-xs sm:text-sm mb-0.5 sm:mb-1">
                             Request Data Report
                           </h4>
                           <p className="text-slate-400 text-xs">
@@ -510,17 +508,17 @@ export default function SettingsPage() {
                       <button
                         onClick={handleExportData}
                         disabled={isExporting}
-                        className="glass-button-primary hover-lift px-4 py-2 rounded-lg text-sm font-medium ml-4 flex items-center gap-2 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="glass-button-primary hover-lift px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium flex items-center gap-2 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto justify-center"
                       >
                         {isExporting ? (
                           <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            Submitting...
+                            <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />
+                            <span className="hidden xs:inline">Submitting...</span>
                           </>
                         ) : (
                           <>
-                            <Download className="w-4 h-4" />
-                            Request Report
+                            <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            <span>Request</span>
                           </>
                         )}
                       </button>
@@ -528,15 +526,15 @@ export default function SettingsPage() {
                   </div>
 
                   {/* Danger Zone */}
-                  <div className="border-t border-white/5 pt-6">
-                    <h4 className="text-red-400 font-medium mb-4 flex items-center text-sm">
-                      <AlertCircle className="h-4 w-4 mr-2" />
+                  <div className="border-t border-white/5 pt-4 sm:pt-6">
+                    <h4 className="text-red-400 font-medium mb-3 sm:mb-4 flex items-center text-xs sm:text-sm">
+                      <AlertCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-2" />
                       Danger Zone
                     </h4>
-                    <div className="glass-card p-4 border border-red-500/20">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h5 className="text-white font-medium mb-1 text-sm">
+                    <div className="glass-card p-3 sm:p-4 border border-red-500/20">
+                      <div className="flex flex-col sm:flex-row items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <h5 className="text-white font-medium mb-1 text-xs sm:text-sm">
                             Delete All Data
                           </h5>
                           <p className="text-slate-400 text-xs">
@@ -545,9 +543,9 @@ export default function SettingsPage() {
                         </div>
                         <button
                           onClick={handleDeleteAllData}
-                          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium ml-4 flex items-center gap-2 whitespace-nowrap"
+                          className="bg-red-600 hover:bg-red-700 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium flex items-center gap-2 whitespace-nowrap w-full sm:w-auto justify-center"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                           Delete All
                         </button>
                       </div>
@@ -561,25 +559,25 @@ export default function SettingsPage() {
           {/* Appearance */}
           {activeSection === 'appearance' && (
             <div className="glass-card">
-              <div className="p-6 border-b border-white/5">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
-                    <Eye className="h-5 w-5 text-purple-400" />
+              <div className="p-4 sm:p-6 border-b border-white/5">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
+                    <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-purple-400" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-white">Appearance</h3>
-                    <p className="text-slate-400 text-sm">Customize the interface</p>
+                    <h3 className="text-base sm:text-lg font-semibold text-white">Appearance</h3>
+                    <p className="text-slate-400 text-xs sm:text-sm">Customize the interface</p>
                   </div>
                 </div>
               </div>
 
-              <div className="p-6 space-y-6">
+              <div className="p-4 sm:p-6 space-y-5 sm:space-y-6">
                 {/* Theme */}
                 <div>
-                  <label className="block text-sm text-slate-400 mb-3">
+                  <label className="block text-xs sm:text-sm text-slate-400 mb-2 sm:mb-3">
                     Theme
                   </label>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
                     {[
                       { value: 'light', label: 'Light', icon: Sun },
                       { value: 'dark', label: 'Dark', icon: Moon },
@@ -588,14 +586,14 @@ export default function SettingsPage() {
                       <button
                         key={theme.value}
                         onClick={() => updateSettings('appearance', 'theme', theme.value)}
-                        className={`p-4 rounded-lg border transition-all ${
+                        className={`p-3 sm:p-4 rounded-lg border transition-all ${
                           settings.appearance.theme === theme.value
                             ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white border-purple-500/30'
                             : 'bg-white/5 text-slate-300 hover:bg-white/10 border-white/10'
                         }`}
                       >
-                        <theme.icon className="w-6 h-6 mx-auto mb-2" />
-                        <span className="text-sm font-medium">{theme.label}</span>
+                        <theme.icon className="w-5 h-5 sm:w-6 sm:h-6 mx-auto mb-1.5 sm:mb-2" />
+                        <span className="text-xs sm:text-sm font-medium block">{theme.label}</span>
                       </button>
                     ))}
                   </div>
@@ -603,10 +601,10 @@ export default function SettingsPage() {
 
                 {/* Font Size */}
                 <div>
-                  <label className="block text-sm text-slate-400 mb-3">
+                  <label className="block text-xs sm:text-sm text-slate-400 mb-2 sm:mb-3">
                     Font Size
                   </label>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
                     {[
                       { value: 'small', label: 'Small' },
                       { value: 'medium', label: 'Medium' },
@@ -615,7 +613,7 @@ export default function SettingsPage() {
                       <button
                         key={size.value}
                         onClick={() => updateSettings('appearance', 'fontSize', size.value)}
-                        className={`px-4 py-3 rounded-lg text-sm font-medium transition-all ${
+                        className={`px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-xs sm:text-sm font-medium transition-all ${
                           settings.appearance.fontSize === size.value
                             ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
                             : 'bg-white/5 text-slate-300 hover:bg-white/10 border border-white/10'
@@ -629,15 +627,15 @@ export default function SettingsPage() {
 
                 {/* Language */}
                 <div>
-                  <label className="block text-sm text-slate-400 mb-2">
+                  <label className="block text-xs sm:text-sm text-slate-400 mb-2">
                     Language
                   </label>
                   <div className="relative">
-                    <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+                    <Globe className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500 pointer-events-none" />
                     <select
                       value={settings.appearance.language}
                       onChange={(e) => updateSettings('appearance', 'language', e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 glass-input rounded-lg text-white text-sm"
+                      className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 glass-input rounded-lg text-white text-xs sm:text-sm"
                     >
                       <option value="en">English</option>
                       <option value="es">Español</option>
@@ -649,19 +647,19 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Reduced Motion */}
-                <div className="flex items-center justify-between p-4 rounded-lg border border-white/5">
-                  <div>
-                    <h4 className="text-white font-medium text-sm">Reduced Motion</h4>
+                <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border border-white/5 gap-3">
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-white font-medium text-xs sm:text-sm">Reduced Motion</h4>
                     <p className="text-slate-400 text-xs">Minimize animations</p>
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
+                  <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
                     <input
                       type="checkbox"
                       checked={settings.appearance.reducedMotion}
                       onChange={(e) => updateSettings('appearance', 'reducedMotion', e.target.checked)}
                       className="sr-only peer"
                     />
-                    <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                    <div className="w-10 h-5 sm:w-11 sm:h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 sm:after:h-5 sm:after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
                   </label>
                 </div>
               </div>
@@ -671,25 +669,25 @@ export default function SettingsPage() {
           {/* Preferences */}
           {activeSection === 'preferences' && (
             <div className="glass-card">
-              <div className="p-6 border-b border-white/5">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
-                    <Settings className="h-5 w-5 text-blue-400" />
+              <div className="p-4 sm:p-6 border-b border-white/5">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                    <Settings className="h-4 w-4 sm:h-5 sm:w-5 text-blue-400" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-white">App Preferences</h3>
-                    <p className="text-slate-400 text-sm">Configure default behaviors</p>
+                    <h3 className="text-base sm:text-lg font-semibold text-white">App Preferences</h3>
+                    <p className="text-slate-400 text-xs sm:text-sm">Configure default behaviors</p>
                   </div>
                 </div>
               </div>
 
-              <div className="p-6 space-y-6">
+              <div className="p-4 sm:p-6 space-y-5 sm:space-y-6">
                 {/* Default Interview Type */}
                 <div>
-                  <label className="block text-sm text-slate-400 mb-3">
+                  <label className="block text-xs sm:text-sm text-slate-400 mb-2 sm:mb-3">
                     Default Interview Type
                   </label>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
                     {[
                       { value: 'technical', label: 'Technical' },
                       { value: 'behavioral', label: 'Behavioral' },
@@ -698,7 +696,7 @@ export default function SettingsPage() {
                       <button
                         key={type.value}
                         onClick={() => updateSettings('preferences', 'defaultInterviewType', type.value)}
-                        className={`px-4 py-3 rounded-lg text-sm font-medium transition-all ${
+                        className={`px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-xs sm:text-sm font-medium transition-all ${
                           settings.preferences.defaultInterviewType === type.value
                             ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
                             : 'bg-white/5 text-slate-300 hover:bg-white/10 border border-white/10'
@@ -712,15 +710,15 @@ export default function SettingsPage() {
 
                 {/* Email Frequency */}
                 <div>
-                  <label className="block text-sm text-slate-400 mb-2">
+                  <label className="block text-xs sm:text-sm text-slate-400 mb-2">
                     Email Frequency
                   </label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+                    <Mail className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500 pointer-events-none" />
                     <select
                       value={settings.preferences.emailFrequency}
                       onChange={(e) => updateSettings('preferences', 'emailFrequency', e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 glass-input rounded-lg text-white text-sm"
+                      className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 glass-input rounded-lg text-white text-xs sm:text-sm"
                     >
                       <option value="realtime">Real-time</option>
                       <option value="daily">Daily Digest</option>
@@ -736,19 +734,19 @@ export default function SettingsPage() {
                   { key: 'soundEffects', label: 'Sound Effects', desc: 'Play sounds for actions' },
                   { key: 'practiceReminders', label: 'Practice Reminders', desc: 'Daily reminders to practice' },
                 ].map((item) => (
-                  <div key={item.key} className="flex items-center justify-between p-4 rounded-lg border border-white/5">
-                    <div>
-                      <h4 className="text-white font-medium text-sm">{item.label}</h4>
+                  <div key={item.key} className="flex items-center justify-between p-3 sm:p-4 rounded-lg border border-white/5 gap-3">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-white font-medium text-xs sm:text-sm">{item.label}</h4>
                       <p className="text-slate-400 text-xs">{item.desc}</p>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
+                    <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
                       <input
                         type="checkbox"
                         checked={settings.preferences[item.key as keyof typeof settings.preferences] as boolean}
                         onChange={(e) => updateSettings('preferences', item.key, e.target.checked)}
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      <div className="w-10 h-5 sm:w-11 sm:h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 sm:after:h-5 sm:after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                     </label>
                   </div>
                 ))}
@@ -756,20 +754,20 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* Changes Indicator */}
+          {/* Changes Indicator - Responsive */}
           {hasChanges && (
             <div className="glass-card border border-blue-500/20">
-              <div className="p-4">
-                <div className="flex items-center gap-3">
-                  <AlertCircle className="w-5 h-5 text-blue-400" />
-                  <div className="flex-1">
-                    <p className="text-blue-400 text-sm font-medium">Unsaved Changes</p>
+              <div className="p-3 sm:p-4">
+                <div className="flex flex-col xs:flex-row items-start xs:items-center gap-3">
+                  <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-blue-400 text-xs sm:text-sm font-medium">Unsaved Changes</p>
                     <p className="text-slate-400 text-xs">Remember to save your settings</p>
                   </div>
                   <button
                     onClick={handleSave}
                     disabled={isSaving}
-                    className="glass-button-primary hover-lift px-4 py-2 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="glass-button-primary hover-lift px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed w-full xs:w-auto"
                   >
                     {isSaving ? 'Saving...' : 'Save Now'}
                   </button>

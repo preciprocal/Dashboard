@@ -150,7 +150,7 @@ export default function PlanDetailPage() {
     : baseTabs;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 px-4 sm:px-0">
       
       {/* Back Button */}
       <Link
@@ -163,53 +163,66 @@ export default function PlanDetailPage() {
 
       {/* Header */}
       <div className="glass-card hover-lift">
-        <div className="p-6">
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-2xl font-semibold text-white">
+        <div className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row items-start justify-between gap-4 mb-4">
+            <div className="flex-1 w-full sm:w-auto">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
+                <h1 className="text-xl sm:text-2xl font-semibold text-white break-words">
                   {plan.role}
                 </h1>
                 {plan.company && (
-                  <span className="text-slate-400">
+                  <span className="text-sm sm:text-base text-slate-400">
                     at {plan.company}
                   </span>
                 )}
               </div>
               
-              <div className="flex items-center gap-4 text-sm">
+              <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs sm:text-sm">
                 <div className="flex items-center gap-1.5 text-slate-400">
-                  <Calendar className="w-4 h-4" />
-                  {interviewDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <span className="whitespace-nowrap">
+                    {interviewDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
                 </div>
                 
-                <div className="w-1 h-1 rounded-full bg-slate-600"></div>
+                <div className="w-1 h-1 rounded-full bg-slate-600 hidden sm:block"></div>
                 
                 <div className="flex items-center gap-1.5 text-slate-400">
-                  <Clock className="w-4 h-4" />
-                  {daysRemaining}d remaining
+                  <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <span className="whitespace-nowrap">{daysRemaining}d remaining</span>
                 </div>
                 
-                <div className="w-1 h-1 rounded-full bg-slate-600"></div>
+                <div className="w-1 h-1 rounded-full bg-slate-600 hidden sm:block"></div>
                 
                 <div className="flex items-center gap-1.5 text-slate-400">
-                  <Target className="w-4 h-4" />
-                  {plan.progress.completedTasks}/{plan.progress.totalTasks}
+                  <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <span className="whitespace-nowrap">
+                    {plan.progress.completedTasks}/{plan.progress.totalTasks}
+                  </span>
                 </div>
               </div>
             </div>
 
             {/* Progress Circle */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 sm:gap-4 self-end sm:self-auto">
               <div className="text-right">
-                <div className="text-3xl font-semibold text-white mb-0.5">
+                <div className="text-2xl sm:text-3xl font-semibold text-white mb-0.5">
                   {plan.progress.percentage}%
                 </div>
                 <div className="text-xs text-slate-500">Complete</div>
               </div>
               
-              <div className="relative w-16 h-16">
-                <svg className="w-16 h-16 transform -rotate-90">
+              <div className="relative w-14 h-14 sm:w-16 sm:h-16">
+                <svg className="w-14 h-14 sm:w-16 sm:h-16 transform -rotate-90">
+                  <circle
+                    cx="28"
+                    cy="28"
+                    r="24"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    fill="none"
+                    className="text-slate-800 sm:hidden"
+                  />
                   <circle
                     cx="32"
                     cy="32"
@@ -217,7 +230,19 @@ export default function PlanDetailPage() {
                     stroke="currentColor"
                     strokeWidth="4"
                     fill="none"
-                    className="text-slate-800"
+                    className="text-slate-800 hidden sm:block"
+                  />
+                  <circle
+                    cx="28"
+                    cy="28"
+                    r="24"
+                    stroke={allTasksComplete ? "#10b981" : "#8b5cf6"}
+                    strokeWidth="3"
+                    fill="none"
+                    strokeDasharray={`${2 * Math.PI * 24}`}
+                    strokeDashoffset={`${2 * Math.PI * 24 * (1 - plan.progress.percentage / 100)}`}
+                    className="transition-all duration-500 sm:hidden"
+                    strokeLinecap="round"
                   />
                   <circle
                     cx="32"
@@ -228,7 +253,7 @@ export default function PlanDetailPage() {
                     fill="none"
                     strokeDasharray={`${2 * Math.PI * 28}`}
                     strokeDashoffset={`${2 * Math.PI * 28 * (1 - plan.progress.percentage / 100)}`}
-                    className="transition-all duration-500"
+                    className="transition-all duration-500 hidden sm:block"
                     strokeLinecap="round"
                   />
                 </svg>
@@ -237,7 +262,7 @@ export default function PlanDetailPage() {
           </div>
 
           {/* Tabs */}
-          <div className="flex items-center gap-2 border-t border-white/5 pt-4 mt-4">
+          <div className="flex items-center gap-1.5 sm:gap-2 border-t border-white/5 pt-3 sm:pt-4 mt-3 sm:mt-4 overflow-x-auto scrollbar-hide">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -245,14 +270,15 @@ export default function PlanDetailPage() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as TabType)}
-                  className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  className={`relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 ${
                     isActive
                       ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
                       : 'text-slate-400 hover:text-white hover:bg-white/5'
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
-                  <span>{tab.label}</span>
+                  <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">{tab.label}</span>
+                  <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
                   {tab.id === 'quiz' && (
                     <span className="absolute -top-1 -right-1 w-2 h-2 bg-emerald-500 rounded-full"></span>
                   )}
@@ -266,9 +292,9 @@ export default function PlanDetailPage() {
       {/* Quiz Unlock Banner */}
       {allTasksComplete && activeTab !== 'quiz' && (
         <div className="glass-card hover-lift">
-          <div className="p-5 flex items-center justify-between">
+          <div className="p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-emerald-500 rounded-lg flex items-center justify-center">
+              <div className="w-10 h-10 bg-emerald-500 rounded-lg flex items-center justify-center flex-shrink-0">
                 <CheckCircle2 className="w-5 h-5 text-white" />
               </div>
               <div>
@@ -278,7 +304,7 @@ export default function PlanDetailPage() {
             </div>
             <button
               onClick={() => setActiveTab('quiz')}
-              className="glass-button-primary hover-lift px-4 py-2 rounded-lg text-sm font-medium inline-flex items-center gap-2"
+              className="glass-button-primary hover-lift px-4 py-2 rounded-lg text-sm font-medium inline-flex items-center gap-2 w-full sm:w-auto justify-center"
             >
               Start Quiz
               <ChevronRight className="w-4 h-4" />
@@ -290,7 +316,7 @@ export default function PlanDetailPage() {
       {/* Tab Content */}
       <div>
         {activeTab === 'overview' && (
-          <div className="space-y-3">
+          <div className="space-y-2 sm:space-y-3">
             {plan.dailyPlans.map((dailyPlan) => (
               <DayView
                 key={dailyPlan.day}
@@ -328,9 +354,9 @@ export default function PlanDetailPage() {
       {/* Quiz Progress Indicator */}
       {!allTasksComplete && plan.progress.percentage > 0 && (
         <div className="glass-card hover-lift">
-          <div className="p-5">
+          <div className="p-4 sm:p-5">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-8 h-8 bg-purple-500/10 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-purple-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
                 <Brain className="w-4 h-4 text-purple-400" />
               </div>
               <div>

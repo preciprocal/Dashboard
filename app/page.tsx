@@ -889,14 +889,14 @@ export default function Dashboard() {
 
   if (!userProfile || !stats) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center glass-card p-8">
-          <div className="text-red-400 text-lg mb-4 font-medium">
+      <div className="flex items-center justify-center min-h-[60vh] px-4">
+        <div className="text-center glass-card p-6 sm:p-8 max-w-md w-full">
+          <div className="text-red-400 text-base sm:text-lg mb-4 font-medium">
             Failed to load dashboard data
           </div>
           <Button
             onClick={() => window.location.reload()}
-            className="glass-button-primary"
+            className="glass-button-primary w-full sm:w-auto"
           >
             Retry
           </Button>
@@ -907,7 +907,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Glass Header Card */}
+      {/* Glass Header Card - Fully Responsive */}
       <div className="glass-card p-6 hover-lift animate-fade-in-up">
         <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
           <div className="flex items-center space-x-4">
@@ -936,8 +936,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* 8 Enhanced KPI Cards with Planner */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in-up">
+      {/* 8 Enhanced KPI Cards - Desktop preserved, Mobile/Tablet responsive */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in-up">
         {/* Interview Readiness Score */}
         <div className="glass-card p-5 hover-lift group">
           <div className="flex items-center justify-between mb-4">
