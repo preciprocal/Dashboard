@@ -227,6 +227,30 @@ export default function InterviewGeneratorForm({
     }
   };
 
+  const updateUsageCounter = async () => {
+    try {
+      // Get current usage data
+      const usageResponse = await fetch('/api/user/update-usage');
+      const usageData = await usageResponse.json();
+      
+      // Only increment for free tier users
+      if (usageData.plan === 'starter') {
+        await fetch('/api/user/update-usage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            type: 'interview',
+            increment: 1
+          })
+        });
+        console.log('✅ Usage counter updated');
+      }
+    } catch (error) {
+      console.error('Failed to update usage counter:', error);
+      // Don't block user flow if usage tracking fails
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsGenerating(true);
@@ -248,7 +272,7 @@ export default function InterviewGeneratorForm({
                   role: formData.role,
                   level: formData.level,
                   type: "technical",
-                  amount: Math.ceil(formData.amount / 2), // Split questions between technical and behavioral
+                  amount: Math.ceil(formData.amount / 2),
                   techstack: formData.techstack,
                   jobDescription: formData.jobDescription,
                   userid: userId,
@@ -277,7 +301,7 @@ export default function InterviewGeneratorForm({
                   role: formData.role,
                   level: formData.level,
                   type: "behavioural",
-                  amount: Math.floor(formData.amount / 2), // Remaining questions
+                  amount: Math.floor(formData.amount / 2),
                   techstack: formData.techstack,
                   jobDescription: formData.jobDescription,
                   userid: userId,
@@ -293,6 +317,9 @@ export default function InterviewGeneratorForm({
         }
 
         const behavioralResult = await behavioralResponse.json() as APIResponse;
+
+        // Update usage counter after successful generation
+        await updateUsageCounter();
 
         // Navigate to the first interview (technical)
         if (technicalResult.result?.interview?.id) {
@@ -329,6 +356,10 @@ export default function InterviewGeneratorForm({
 
         if (response.ok) {
           const result = await response.json() as APIResponse;
+          
+          // Update usage counter after successful generation
+          await updateUsageCounter();
+          
           if (result.result?.interview?.id) {
             router.push(`/interview/${result.result.interview.id}`);
           } else {
@@ -384,22 +415,22 @@ export default function InterviewGeneratorForm({
                 <span className="text-white text-lg">🤖</span>
               </div>
               <div>
-                <h3 className="text-base font-semibold text-slate-900 dark:text-white">AI Job Analysis</h3>
-                <p className="text-blue-600 dark:text-blue-400 text-xs">Powered by Gemini</p>
+                <h3 className="text-base font-semibold text-white">AI Job Analysis</h3>
+                <p className="text-blue-400 text-xs">Powered by Gemini</p>
               </div>
             </div>
             {(uploadedFile || formData.jobDescription) && (
               <button
                 type="button"
                 onClick={clearFile}
-                className="px-3 py-1.5 bg-red-500/10 border border-red-500/30 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-500/20 transition-all text-xs font-medium cursor-pointer"
+                className="px-3 py-1.5 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 hover:bg-red-500/20 transition-all text-xs font-medium cursor-pointer"
               >
                 Clear
               </button>
             )}
           </div>
 
-          <p className="text-slate-600 dark:text-slate-400 mb-4 text-sm">
+          <p className="text-slate-400 mb-4 text-sm">
             Upload your job description or paste it below for intelligent AI analysis
           </p>
 
@@ -407,7 +438,7 @@ export default function InterviewGeneratorForm({
           <div className="grid lg:grid-cols-2 gap-4">
             {/* File Upload */}
             <div className="space-y-3">
-              <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">Upload File</h4>
+              <h4 className="text-sm font-medium text-slate-300">Upload File</h4>
 
               <input
                 ref={fileInputRef}
@@ -420,27 +451,27 @@ export default function InterviewGeneratorForm({
 
               <label
                 htmlFor="jobDescFile"
-                className="group cursor-pointer block w-full p-5 border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500/50 dark:hover:border-blue-500/50 rounded-lg bg-slate-50 dark:bg-slate-800/30 hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-all"
+                className="group cursor-pointer block w-full p-5 border-2 border-dashed border-slate-700 hover:border-blue-500/50 rounded-lg bg-slate-800/30 hover:bg-slate-800/50 transition-all"
               >
                 <div className="text-center">
-                  <div className="w-10 h-10 bg-blue-500/10 dark:bg-blue-500/20 rounded-lg flex items-center justify-center mx-auto mb-2 group-hover:bg-blue-500/20 dark:group-hover:bg-blue-500/30 transition-colors">
-                    <span className="text-blue-600 dark:text-blue-400 text-lg">📎</span>
+                  <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center mx-auto mb-2 group-hover:bg-blue-500/30 transition-colors">
+                    <span className="text-blue-400 text-lg">📎</span>
                   </div>
-                  <div className="text-slate-900 dark:text-white font-medium text-sm mb-1">
+                  <div className="text-white font-medium text-sm mb-1">
                     {uploadedFile ? "Change File" : "Drop file or browse"}
                   </div>
-                  <div className="text-slate-500 dark:text-slate-400 text-xs">PDF, DOCX, TXT (max 5MB)</div>
+                  <div className="text-slate-400 text-xs">PDF, DOCX, TXT (max 5MB)</div>
                 </div>
               </label>
 
               {uploadedFile && (
-                <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/30 rounded-lg">
-                  <span className="text-green-600 dark:text-green-400">✅</span>
+                <div className="flex items-center gap-3 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+                  <span className="text-green-400">✅</span>
                   <div className="flex-1 min-w-0">
-                    <div className="text-green-700 dark:text-green-300 font-medium text-sm truncate">
+                    <div className="text-green-300 font-medium text-sm truncate">
                       {uploadedFile.name}
                     </div>
-                    <div className="text-green-600 dark:text-green-400 text-xs">
+                    <div className="text-green-400 text-xs">
                       {Math.round(uploadedFile.size / 1024)}KB uploaded
                     </div>
                   </div>
@@ -451,7 +482,7 @@ export default function InterviewGeneratorForm({
             {/* Manual Input */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">Paste Manually</h4>
+                <h4 className="text-sm font-medium text-slate-300">Paste Manually</h4>
                 {formData.jobDescription && formData.jobDescription.length > 20 && (
                   <button
                     type="button"
@@ -477,16 +508,16 @@ export default function InterviewGeneratorForm({
                 value={formData.jobDescription}
                 onChange={handleInputChange}
                 placeholder="Paste your job description here for AI analysis..."
-                className="w-full h-[120px] px-3 py-2.5 bg-white dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all resize-none text-sm"
+                className="w-full h-[120px] px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all resize-none text-sm"
               />
             </div>
           </div>
 
           {/* Processing Indicator */}
           {(isProcessingFile || isAnalyzing) && (
-            <div className="mt-4 flex items-center justify-center gap-3 p-3 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-lg">
-              <div className="animate-spin w-4 h-4 border-2 border-blue-600 dark:border-blue-400 border-t-transparent rounded-full"></div>
-              <span className="text-blue-700 dark:text-blue-300 font-medium text-sm">
+            <div className="mt-4 flex items-center justify-center gap-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+              <div className="animate-spin w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full"></div>
+              <span className="text-blue-300 font-medium text-sm">
                 {isProcessingFile ? "Processing file..." : "AI analyzing..."}
               </span>
             </div>
@@ -495,15 +526,15 @@ export default function InterviewGeneratorForm({
 
         {/* AI Analysis Results */}
         {geminiAnalysis && (
-          <div className="bg-gradient-to-br from-emerald-500/5 via-green-500/5 to-transparent border border-emerald-500/30 dark:border-emerald-500/20 rounded-xl p-4">
+          <div className="bg-gradient-to-br from-emerald-500/5 via-green-500/5 to-transparent border border-emerald-500/20 rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-gradient-to-br from-emerald-600 to-green-600 rounded-lg flex items-center justify-center">
                   <span className="text-white text-sm">🧠</span>
                 </div>
                 <div>
-                  <h4 className="text-base font-semibold text-slate-900 dark:text-white">Analysis Complete</h4>
-                  <p className="text-emerald-600 dark:text-emerald-400 text-xs">
+                  <h4 className="text-base font-semibold text-white">Analysis Complete</h4>
+                  <p className="text-emerald-400 text-xs">
                     {Math.round(geminiAnalysis.confidence * 100)}% confidence
                   </p>
                 </div>
@@ -511,27 +542,27 @@ export default function InterviewGeneratorForm({
             </div>
 
             <div className="grid sm:grid-cols-3 gap-3 mb-3">
-              <div className="flex items-center gap-2 p-2.5 bg-white dark:bg-emerald-500/5 border border-emerald-200 dark:border-emerald-500/20 rounded-lg">
+              <div className="flex items-center gap-2 p-2.5 bg-emerald-500/5 border border-emerald-500/20 rounded-lg">
                 <span className="text-lg">💼</span>
                 <div>
-                  <div className="text-emerald-600 dark:text-emerald-400 text-xs font-medium">Role</div>
-                  <div className="text-slate-900 dark:text-white font-semibold text-xs">{geminiAnalysis.role}</div>
+                  <div className="text-emerald-400 text-xs font-medium">Role</div>
+                  <div className="text-white font-semibold text-xs">{geminiAnalysis.role}</div>
                 </div>
               </div>
-              <div className="flex items-center gap-2 p-2.5 bg-white dark:bg-emerald-500/5 border border-emerald-200 dark:border-emerald-500/20 rounded-lg">
+              <div className="flex items-center gap-2 p-2.5 bg-emerald-500/5 border border-emerald-500/20 rounded-lg">
                 <span className="text-lg">📊</span>
                 <div>
-                  <div className="text-emerald-600 dark:text-emerald-400 text-xs font-medium">Level</div>
-                  <div className="text-slate-900 dark:text-white font-semibold text-xs">
+                  <div className="text-emerald-400 text-xs font-medium">Level</div>
+                  <div className="text-white font-semibold text-xs">
                     {geminiAnalysis.level.charAt(0).toUpperCase() + geminiAnalysis.level.slice(1)}
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2 p-2.5 bg-white dark:bg-emerald-500/5 border border-emerald-200 dark:border-emerald-500/20 rounded-lg">
+              <div className="flex items-center gap-2 p-2.5 bg-emerald-500/5 border border-emerald-500/20 rounded-lg">
                 <span className="text-lg">🎯</span>
                 <div>
-                  <div className="text-emerald-600 dark:text-emerald-400 text-xs font-medium">Type</div>
-                  <div className="text-slate-900 dark:text-white font-semibold text-xs">
+                  <div className="text-emerald-400 text-xs font-medium">Type</div>
+                  <div className="text-white font-semibold text-xs">
                     {geminiAnalysis.type.charAt(0).toUpperCase() + geminiAnalysis.type.slice(1)}
                   </div>
                 </div>
@@ -540,20 +571,20 @@ export default function InterviewGeneratorForm({
 
             {geminiAnalysis.techstack.length > 0 && (
               <div>
-                <div className="text-emerald-700 dark:text-emerald-400 font-medium text-xs mb-2">
+                <div className="text-emerald-400 font-medium text-xs mb-2">
                   Technologies Detected
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {geminiAnalysis.techstack.slice(0, 6).map((tech, index) => (
                     <span
                       key={index}
-                      className="px-2 py-0.5 bg-blue-500/10 dark:bg-blue-500/20 border border-blue-500/30 dark:border-blue-500/40 text-blue-700 dark:text-blue-300 rounded-md text-xs font-medium"
+                      className="px-2 py-0.5 bg-blue-500/20 border border-blue-500/40 text-blue-300 rounded-md text-xs font-medium"
                     >
                       {tech}
                     </span>
                   ))}
                   {geminiAnalysis.techstack.length > 6 && (
-                    <span className="px-2 py-0.5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-md text-xs">
+                    <span className="px-2 py-0.5 bg-slate-700 text-slate-300 rounded-md text-xs">
                       +{geminiAnalysis.techstack.length - 6}
                     </span>
                   )}
@@ -569,11 +600,11 @@ export default function InterviewGeneratorForm({
             {/* Left Column */}
             <div className="space-y-3">
               <div className="space-y-2">
-                <label htmlFor="role" className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                <label htmlFor="role" className="flex items-center gap-2 text-sm font-medium text-slate-300">
                   <span>Job Role</span>
                   <span className="text-red-500">*</span>
                   {geminiAnalysis && (
-                    <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs rounded-full">
+                    <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full">
                       AI
                     </span>
                   )}
@@ -586,17 +617,17 @@ export default function InterviewGeneratorForm({
                   value={formData.role}
                   onChange={handleInputChange}
                   placeholder="e.g., Senior Frontend Developer"
-                  className="w-full px-3 py-2.5 bg-white dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
+                  className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
                 />
               </div>
 
               {/* Experience Level Dropdown */}
               <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-300">
                   <span>Experience Level</span>
                   <span className="text-red-500">*</span>
                   {geminiAnalysis && (
-                    <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs rounded-full">
+                    <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full">
                       AI
                     </span>
                   )}
@@ -605,14 +636,14 @@ export default function InterviewGeneratorForm({
                   <button
                     type="button"
                     onClick={() => setShowLevelMenu(!showLevelMenu)}
-                    className="w-full px-4 py-2.5 bg-white dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white text-sm text-left flex items-center justify-between cursor-pointer hover:border-slate-400 dark:hover:border-slate-600 transition-all"
+                    className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white text-sm text-left flex items-center justify-between cursor-pointer hover:border-slate-600 transition-all"
                   >
                     <span>{getLevelLabel(formData.level)}</span>
-                    <ChevronDown className={`w-4 h-4 text-slate-500 dark:text-slate-400 transition-transform ${showLevelMenu ? 'rotate-180' : ''}`} />
+                    <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showLevelMenu ? 'rotate-180' : ''}`} />
                   </button>
                   
                   {showLevelMenu && (
-                    <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-20 overflow-hidden">
+                    <div className="absolute left-0 right-0 top-full mt-2 bg-slate-900/95 backdrop-blur-xl border border-slate-700 rounded-lg shadow-xl z-20 overflow-hidden">
                       <button
                         type="button"
                         onClick={() => {
@@ -621,8 +652,8 @@ export default function InterviewGeneratorForm({
                         }}
                         className={`w-full px-4 py-2.5 text-left text-sm transition-colors cursor-pointer ${
                           formData.level === 'entry' 
-                            ? 'bg-blue-50 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300' 
-                            : 'text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5'
+                            ? 'bg-blue-500/20 text-blue-300' 
+                            : 'text-white hover:bg-white/5'
                         }`}
                       >
                         Entry Level (0-2 years)
@@ -635,8 +666,8 @@ export default function InterviewGeneratorForm({
                         }}
                         className={`w-full px-4 py-2.5 text-left text-sm transition-colors cursor-pointer ${
                           formData.level === 'mid' 
-                            ? 'bg-blue-50 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300' 
-                            : 'text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5'
+                            ? 'bg-blue-500/20 text-blue-300' 
+                            : 'text-white hover:bg-white/5'
                         }`}
                       >
                         Mid Level (2-5 years)
@@ -649,8 +680,8 @@ export default function InterviewGeneratorForm({
                         }}
                         className={`w-full px-4 py-2.5 text-left text-sm transition-colors cursor-pointer ${
                           formData.level === 'senior' 
-                            ? 'bg-blue-50 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300' 
-                            : 'text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5'
+                            ? 'bg-blue-500/20 text-blue-300' 
+                            : 'text-white hover:bg-white/5'
                         }`}
                       >
                         Senior Level (5+ years)
@@ -661,7 +692,7 @@ export default function InterviewGeneratorForm({
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="amount" className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                <label htmlFor="amount" className="flex items-center gap-2 text-sm font-medium text-slate-300">
                   <span>Number of Questions</span>
                   <span className="text-red-500">*</span>
                 </label>
@@ -674,9 +705,9 @@ export default function InterviewGeneratorForm({
                   max="10"
                   value={formData.amount}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2.5 bg-white dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
+                  className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
                 />
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <p className="text-xs text-slate-400">
                   {formData.type === 'mixed' 
                     ? `Will generate ${Math.ceil(formData.amount / 2)} technical + ${Math.floor(formData.amount / 2)} behavioral`
                     : 'Recommended: 5-10 questions'}
@@ -688,11 +719,11 @@ export default function InterviewGeneratorForm({
             <div className="space-y-3">
               {/* Interview Type Dropdown */}
               <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-300">
                   <span>Interview Type</span>
                   <span className="text-red-500">*</span>
                   {geminiAnalysis && (
-                    <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs rounded-full">
+                    <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full">
                       AI
                     </span>
                   )}
@@ -701,14 +732,14 @@ export default function InterviewGeneratorForm({
                   <button
                     type="button"
                     onClick={() => setShowTypeMenu(!showTypeMenu)}
-                    className="w-full px-4 py-2.5 bg-white dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white text-sm text-left flex items-center justify-between cursor-pointer hover:border-slate-400 dark:hover:border-slate-600 transition-all"
+                    className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white text-sm text-left flex items-center justify-between cursor-pointer hover:border-slate-600 transition-all"
                   >
                     <span>{getTypeLabel(formData.type)}</span>
-                    <ChevronDown className={`w-4 h-4 text-slate-500 dark:text-slate-400 transition-transform ${showTypeMenu ? 'rotate-180' : ''}`} />
+                    <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showTypeMenu ? 'rotate-180' : ''}`} />
                   </button>
                   
                   {showTypeMenu && (
-                    <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-20 overflow-hidden">
+                    <div className="absolute left-0 right-0 top-full mt-2 bg-slate-900/95 backdrop-blur-xl border border-slate-700 rounded-lg shadow-xl z-20 overflow-hidden">
                       <button
                         type="button"
                         onClick={() => {
@@ -717,8 +748,8 @@ export default function InterviewGeneratorForm({
                         }}
                         className={`w-full px-4 py-2.5 text-left text-sm transition-colors cursor-pointer ${
                           formData.type === 'technical' 
-                            ? 'bg-blue-50 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300' 
-                            : 'text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5'
+                            ? 'bg-blue-500/20 text-blue-300' 
+                            : 'text-white hover:bg-white/5'
                         }`}
                       >
                         Technical Questions
@@ -731,8 +762,8 @@ export default function InterviewGeneratorForm({
                         }}
                         className={`w-full px-4 py-2.5 text-left text-sm transition-colors cursor-pointer ${
                           formData.type === 'behavioural' 
-                            ? 'bg-blue-50 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300' 
-                            : 'text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5'
+                            ? 'bg-blue-500/20 text-blue-300' 
+                            : 'text-white hover:bg-white/5'
                         }`}
                       >
                         Behavioral Questions
@@ -745,8 +776,8 @@ export default function InterviewGeneratorForm({
                         }}
                         className={`w-full px-4 py-2.5 text-left text-sm transition-colors cursor-pointer ${
                           formData.type === 'mixed' 
-                            ? 'bg-blue-50 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300' 
-                            : 'text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5'
+                            ? 'bg-blue-500/20 text-blue-300' 
+                            : 'text-white hover:bg-white/5'
                         }`}
                       >
                         Mixed (Technical + Behavioral)
@@ -757,11 +788,11 @@ export default function InterviewGeneratorForm({
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="techstack" className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                <label htmlFor="techstack" className="flex items-center gap-2 text-sm font-medium text-slate-300">
                   <span>Technologies & Skills</span>
                   <span className="text-red-500">*</span>
                   {geminiAnalysis && (
-                    <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs rounded-full">
+                    <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full">
                       AI
                     </span>
                   )}
@@ -774,9 +805,9 @@ export default function InterviewGeneratorForm({
                   onChange={handleInputChange}
                   placeholder="e.g., React, Node.js, TypeScript, PostgreSQL, AWS"
                   rows={3}
-                  className="w-full px-3 py-2.5 bg-white dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all resize-none text-sm"
+                  className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all resize-none text-sm"
                 />
-                <p className="text-xs text-slate-500 dark:text-slate-400">Separate technologies with commas</p>
+                <p className="text-xs text-slate-400">Separate technologies with commas</p>
               </div>
             </div>
           </div>

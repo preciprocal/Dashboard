@@ -1,13 +1,12 @@
 // components/LayoutClient.tsx
 "use client"
-import React, { useState, useEffect, createContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import NextImage from 'next/image';
 import logo from "@/public/logo.png";
 import { 
   Search, 
-  Bell, 
   Menu,
   X,
   ChevronDown,
@@ -30,13 +29,10 @@ import { signOut } from "@/lib/actions/auth.action";
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/firebase/client';
 import { FirebaseService } from '@/lib/services/firebase-service';
+import { useNotifications } from '@/lib/hooks/useNotifications';
+import NotificationCenter from '@/components/Notifications';
 import type { LucideIcon } from 'lucide-react';
 import { Toaster } from 'sonner';
-
-interface ThemeContextType {
-  darkMode: boolean;
-  toggleTheme: () => void;
-}
 
 interface LayoutClientProps {
   children: React.ReactNode;
@@ -112,40 +108,6 @@ const PUBLIC_ROUTES = [
 // Define routes that should redirect authenticated users
 const AUTH_ROUTES = ['/sign-in', '/sign-up', '/forgot-password'];
 
-const ThemeContext = createContext<ThemeContextType | null>(null);
-
-const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
-  const [darkMode, setDarkMode] = useState(true);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    const savedTheme = localStorage.getItem('theme');
-    const isDark = savedTheme ? savedTheme === 'dark' : true;
-    setDarkMode(isDark);
-    document.documentElement.classList.toggle('dark', isDark);
-  }, []);
-
-  useEffect(() => {
-    if (mounted) {
-      document.documentElement.classList.toggle('dark', darkMode);
-    }
-  }, [darkMode, mounted]);
-
-  const toggleTheme = () => {
-    const newMode = !darkMode;
-    setDarkMode(newMode);
-    localStorage.setItem('theme', newMode ? 'dark' : 'light');
-    document.documentElement.classList.toggle('dark', newMode);
-  };
-
-  return (
-    <ThemeContext.Provider value={{ darkMode, toggleTheme }}>
-      {mounted ? children : <div className="min-h-screen bg-white dark:bg-slate-900" />}
-    </ThemeContext.Provider>
-  );
-};
-
 const useResumeCount = () => {
   const [user] = useAuthState(auth);
   const [resumeCount, setResumeCount] = useState(0);
@@ -190,7 +152,7 @@ const getPlanInfo = (subscription: UserData['subscription']): PlanInfo => {
       text: "Free",
       displayName: "Free Plan",
       icon: Shield,
-      style: "text-green-600 dark:text-green-400",
+      style: "text-green-400",
       badgeClass: "bg-green-500/10 border-green-500/20 text-green-400",
       showUpgrade: true
     };
@@ -202,7 +164,7 @@ const getPlanInfo = (subscription: UserData['subscription']): PlanInfo => {
         text: subscription.status === "trial" ? "Starter Trial" : "Starter",
         displayName: subscription.status === "trial" ? "Starter Trial" : "Starter Plan",
         icon: Star,
-        style: "text-blue-600 dark:text-blue-400",
+        style: "text-blue-400",
         badgeClass: "bg-blue-500/10 border-blue-500/20 text-blue-400",
         showUpgrade: true
       };
@@ -211,7 +173,7 @@ const getPlanInfo = (subscription: UserData['subscription']): PlanInfo => {
         text: subscription.status === "trial" ? "Pro Trial" : "Pro",
         displayName: subscription.status === "trial" ? "Pro Trial" : "Pro Plan",
         icon: Star,
-        style: "text-purple-600 dark:text-purple-400",
+        style: "text-purple-400",
         badgeClass: "bg-purple-500/10 border-purple-500/20 text-purple-400",
         showUpgrade: false
       };
@@ -220,7 +182,7 @@ const getPlanInfo = (subscription: UserData['subscription']): PlanInfo => {
         text: "Premium",
         displayName: "Premium Plan",
         icon: Crown,
-        style: "text-yellow-600 dark:text-yellow-400",
+        style: "text-yellow-400",
         badgeClass: "bg-yellow-500/10 border-yellow-500/20 text-yellow-400",
         showUpgrade: false
       };
@@ -229,7 +191,7 @@ const getPlanInfo = (subscription: UserData['subscription']): PlanInfo => {
         text: "Free",
         displayName: "Free Plan",
         icon: Shield,
-        style: "text-green-600 dark:text-green-400",
+        style: "text-green-400",
         badgeClass: "bg-green-500/10 border-green-500/20 text-green-400",
         showUpgrade: true
       };
@@ -262,7 +224,7 @@ const ProgressBar = ({ used, limit }: { used: number; limit: number }) => {
   const percentage = Math.min((used / limit) * 100, 100);
   
   return (
-    <div className="w-full bg-slate-200 dark:bg-slate-700/50 rounded-full h-2 overflow-hidden">
+    <div className="w-full bg-slate-700/50 rounded-full h-2 overflow-hidden">
       <div 
         className="h-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all duration-300"
         style={{ width: `${percentage}%` }}
@@ -316,7 +278,7 @@ const SearchDropdown = () => {
   return (
     <div id="search-container" className="relative">
       <div className="relative">
-        <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-500 dark:text-slate-400 w-5 h-5" />
+        <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
         <input
           type="text"
           placeholder="Search or jump to..."
@@ -324,26 +286,26 @@ const SearchDropdown = () => {
           onChange={(e) => setSearchQuery(e.target.value)}
           onFocus={() => setIsOpen(true)}
           className="w-full pl-12 pr-4 py-2.5 text-sm glass-input rounded-xl 
-                     bg-white/80 dark:bg-slate-800/50 
-                     border border-slate-200 dark:border-white/10
-                     text-slate-900 dark:text-white 
-                     placeholder-slate-500 dark:placeholder-slate-400 
+                     bg-slate-800/50 
+                     border border-white/10
+                     text-white 
+                     placeholder-slate-400 
                      focus:outline-none focus:ring-2 focus:ring-purple-500/50"
         />
       </div>
 
       {isOpen && (
         <div className="absolute top-full left-0 right-0 mt-2 
-                       bg-white dark:bg-slate-800/95 
-                       border border-slate-200 dark:border-white/10
+                       bg-slate-800/95 
+                       border border-white/10
                        backdrop-blur-xl rounded-xl shadow-xl
                        max-h-96 overflow-y-auto glass-scrollbar z-50 animate-fade-in-up">
           {Object.keys(groupedItems).length === 0 ? (
-            <div className="p-4 text-center text-slate-500 dark:text-slate-400">No results found</div>
+            <div className="p-4 text-center text-slate-400">No results found</div>
           ) : (
             Object.entries(groupedItems).map(([category, items]) => (
               <div key={category} className="py-2">
-                <div className="px-4 py-2 text-xs font-semibold text-slate-500 dark:text-slate-500 uppercase tracking-wider">
+                <div className="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                   {category}
                 </div>
                 <div className="py-1">
@@ -358,12 +320,12 @@ const SearchDropdown = () => {
                           setSearchQuery('');
                         }}
                         className="flex items-center space-x-3 px-4 py-3 
-                                 hover:bg-slate-100 dark:hover:bg-white/5 
+                                 hover:bg-white/5 
                                  transition-colors 
-                                 text-slate-700 dark:text-slate-300 
-                                 hover:text-slate-900 dark:hover:text-white"
+                                 text-slate-300 
+                                 hover:text-white"
                       >
-                        <Icon className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                        <Icon className="w-4 h-4 text-slate-400" />
                         <span className="text-sm">{item.label}</span>
                       </Link>
                     );
@@ -386,8 +348,19 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
   const [savedAccounts, setSavedAccounts] = useState<Array<{email: string, name: string}>>([]);
   const pathname = usePathname();
   const router = useRouter();
+  const [currentUser] = useAuthState(auth);
 
   const { resumeCount, latestResume, loading: resumeLoading } = useResumeCount();
+  
+  // Real-time notifications hook
+  const {
+    notifications,
+    unreadCount,
+    loading: notificationsLoading,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+  } = useNotifications(currentUser?.uid);
 
   // Load saved accounts from localStorage
   useEffect(() => {
@@ -464,10 +437,10 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
   const isPublicRoute = PUBLIC_ROUTES.some(route => pathname.startsWith(route));
   if (!user && !isPublicRoute) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-600 dark:text-slate-400">Redirecting to sign in...</p>
+          <p className="text-slate-400">Redirecting to sign in...</p>
         </div>
       </div>
     );
@@ -518,30 +491,30 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      <div className="fixed inset-0 bg-gradient-to-br from-slate-50 via-purple-50/30 to-blue-50/20 dark:bg-gradient-to-br dark:from-slate-900/95 dark:via-purple-900/90 dark:to-slate-900/95 -z-10" />
+      <div className="fixed inset-0 bg-gradient-to-br from-slate-900/95 via-purple-900/90 to-slate-900/95 -z-10" />
       
       {sidebarOpen && (
         <div 
-          className="fixed inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm z-40 lg:hidden"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       <aside className={`fixed left-0 top-0 h-full w-64 
-                        bg-white/95 dark:bg-slate-900/95 
+                        bg-slate-900/95 
                         backdrop-blur-xl
-                        border-r border-slate-200 dark:border-white/10
+                        border-r border-white/10
                         shadow-xl
                         z-50 transition-transform duration-300 overflow-y-auto scrollbar-hide ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
       }`}>
-        <div className="p-4 border-b border-slate-200 dark:border-white/10">
+        <div className="p-4 border-b border-white/10">
           <div className="flex items-center justify-between h-[57px]">
             <Link href="/" className="flex items-center space-x-3 group" onClick={handleLinkClick}>
               <NextImage src={logo} alt="Preciprocal" width={36} height={36} className="rounded-lg" priority />
-              <span className="text-xl font-bold text-slate-900 dark:text-white" style={{ fontFamily: "'Inter', sans-serif", letterSpacing: '-0.02em', fontWeight: 700 }}>Preciprocal</span>
+              <span className="text-xl font-bold text-white" style={{ fontFamily: "'Inter', sans-serif", letterSpacing: '-0.02em', fontWeight: 700 }}>Preciprocal</span>
             </Link>
-            <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+            <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-slate-400 hover:text-white">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -550,21 +523,21 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
             id="account-menu-container"
             onClick={() => setShowAccountMenu(!showAccountMenu)}
             className="w-full flex items-center space-x-3 mt-4
-                       bg-slate-100/80 dark:bg-slate-800/50 
-                       border border-slate-200 dark:border-white/10
+                       bg-slate-800/50 
+                       border border-white/10
                        p-3 rounded-xl relative cursor-pointer
-                       hover:bg-slate-200/80 dark:hover:bg-slate-800/70
+                       hover:bg-slate-800/70
                        transition-colors"
           >
             <div className="relative">
               <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center text-white font-semibold">
                 {userInitials}
               </div>
-              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white dark:border-slate-900" />
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-slate-900" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-slate-900 dark:text-white font-medium text-sm truncate text-left">{safeUser?.name || 'User'}</p>
-              <div className="flex items-center space-x-1 text-slate-600 dark:text-slate-400 text-xs">
+              <p className="text-white font-medium text-sm truncate text-left">{safeUser?.name || 'User'}</p>
+              <div className="flex items-center space-x-1 text-slate-400 text-xs">
                 <span className="truncate text-left">{safeUser?.email || 'user@example.com'}</span>
                 <ChevronDown className={`w-3 h-3 flex-shrink-0 transition-transform ${showAccountMenu ? 'rotate-180' : ''}`} />
               </div>
@@ -573,28 +546,28 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
             {/* Account Menu Dropdown */}
             {showAccountMenu && (
               <div 
-                className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800/95 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-xl shadow-xl z-50 overflow-hidden"
+                className="absolute top-full left-0 right-0 mt-2 bg-slate-800/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-xl z-50 overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="p-2">
                   {/* Current Account */}
-                  <div className="px-3 py-2 border-b border-slate-200 dark:border-white/10">
-                    <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Current Account</p>
-                    <div className="flex items-center gap-3 p-2 bg-slate-100 dark:bg-slate-800/50 rounded-lg">
+                  <div className="px-3 py-2 border-b border-white/10">
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Current Account</p>
+                    <div className="flex items-center gap-3 p-2 bg-slate-800/50 rounded-lg">
                       <div className="w-8 h-8 rounded-full gradient-primary flex items-center justify-center text-white font-semibold text-sm">
                         {userInitials}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{safeUser?.name || 'User'}</p>
-                        <p className="text-xs text-slate-600 dark:text-slate-400 truncate">{safeUser?.email || 'user@example.com'}</p>
+                        <p className="text-sm font-medium text-white truncate">{safeUser?.name || 'User'}</p>
+                        <p className="text-xs text-slate-400 truncate">{safeUser?.email || 'user@example.com'}</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Saved Accounts */}
                   {savedAccounts.length > 0 && (
-                    <div className="px-3 py-2 border-b border-slate-200 dark:border-white/10">
-                      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Switch Account</p>
+                    <div className="px-3 py-2 border-b border-white/10">
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Switch Account</p>
                       {savedAccounts.map((account, index) => {
                         const accountInitials = getInitials(account.name);
                         return (
@@ -604,14 +577,14 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
                               console.log('Switch to:', account.email);
                               setShowAccountMenu(false);
                             }}
-                            className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors mb-1 cursor-pointer"
+                            className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors mb-1 cursor-pointer"
                           >
                             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-semibold text-sm">
                               {accountInitials}
                             </div>
                             <div className="flex-1 min-w-0 text-left">
-                              <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{account.name}</p>
-                              <p className="text-xs text-slate-600 dark:text-slate-400 truncate">{account.email}</p>
+                              <p className="text-sm font-medium text-white truncate">{account.name}</p>
+                              <p className="text-xs text-slate-400 truncate">{account.email}</p>
                             </div>
                           </button>
                         );
@@ -620,14 +593,14 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
                   )}
 
                   {/* Switch Account */}
-                  <div className="p-2 border-b border-slate-200 dark:border-white/10">
+                  <div className="p-2 border-b border-white/10">
                     <Link
                       href="/sign-in"
                       onClick={() => {
                         setShowAccountMenu(false);
                         handleLinkClick();
                       }}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors text-slate-700 dark:text-slate-300 cursor-pointer"
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors text-slate-300 cursor-pointer"
                     >
                       <ArrowLeftRight className="w-4 h-4" />
                       <span className="text-sm">Switch Account</span>
@@ -642,7 +615,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
                         setShowAccountMenu(false);
                         handleLinkClick();
                       }}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors text-slate-700 dark:text-slate-300 cursor-pointer"
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors text-slate-300 cursor-pointer"
                     >
                       <Settings className="w-4 h-4" />
                       <span className="text-sm">Account Settings</span>
@@ -654,13 +627,13 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
                         setShowAccountMenu(false);
                         handleLinkClick();
                       }}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors text-slate-700 dark:text-slate-300 cursor-pointer"
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors text-slate-300 cursor-pointer"
                     >
                       <Crown className="w-4 h-4" />
                       <span className="text-sm">Manage Subscription</span>
                     </Link>
 
-                    <div className="h-px bg-slate-200 dark:bg-white/10 my-2" />
+                    <div className="h-px bg-white/10 my-2" />
 
                     <button
                       onClick={() => {
@@ -668,7 +641,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
                         handleLogout();
                       }}
                       disabled={isLoggingOut}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors text-red-600 dark:text-red-400 text-sm disabled:opacity-50 cursor-pointer"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-red-500/10 transition-colors text-red-400 text-sm disabled:opacity-50 cursor-pointer"
                     >
                       <LogOut className="w-4 h-4" />
                       <span>{isLoggingOut ? 'Logging out...' : 'Sign Out'}</span>
@@ -696,10 +669,10 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
             href="/resume/upload"
             onClick={handleLinkClick}
             className="w-full px-4 py-3 rounded-xl hover-lift flex items-center justify-center group
-                       bg-slate-100 dark:bg-slate-800/50 
-                       border border-slate-200 dark:border-white/10
-                       hover:bg-slate-200 dark:hover:bg-slate-800
-                       text-slate-900 dark:text-white
+                       bg-slate-800/50 
+                       border border-white/10
+                       hover:bg-slate-800
+                       text-white
                        shadow-sm hover:shadow-md cursor-pointer"
           >
             <FileText className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform duration-200" />
@@ -709,7 +682,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
 
         <nav className="p-3 space-y-1">
           <div className="px-3 py-2">
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Menu</p>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Menu</p>
           </div>
           
           {mainNavItems.map((item) => {
@@ -722,12 +695,12 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
                 onClick={handleLinkClick}
                 className={`group flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 cursor-pointer ${
                   active 
-                    ? 'bg-purple-100 dark:bg-white/10 text-purple-700 dark:text-white shadow-sm' 
-                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'
+                    ? 'bg-white/10 text-white shadow-sm' 
+                    : 'text-slate-300 hover:bg-white/5 hover:text-white'
                 }`}
               >
                 <div className="flex items-center space-x-3">
-                  <Icon className={`w-5 h-5 ${active ? 'text-purple-600 dark:text-purple-400' : 'text-slate-500 dark:text-slate-400'}`} />
+                  <Icon className={`w-5 h-5 ${active ? 'text-purple-400' : 'text-slate-400'}`} />
                   <span className="font-medium text-sm">{item.label}</span>
                 </div>
               </Link>
@@ -736,7 +709,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
 
           <div className="pt-6">
             <div className="flex items-center justify-between px-3 py-2">
-              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Resources</p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Resources</p>
             </div>
             {teamSpaces.map((item) => {
               const Icon = item.icon;
@@ -746,12 +719,12 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
                   href={item.href}
                   onClick={handleLinkClick}
                   className="group flex items-center space-x-3 px-3 py-2.5 rounded-lg 
-                           text-slate-700 dark:text-slate-300 
-                           hover:bg-slate-100 dark:hover:bg-white/5 
-                           hover:text-slate-900 dark:hover:text-white 
+                           text-slate-300 
+                           hover:bg-white/5 
+                           hover:text-white 
                            transition-all duration-200 cursor-pointer"
                 >
-                  <Icon className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+                  <Icon className="w-5 h-5 text-slate-400" />
                   <span className="font-medium text-sm">{item.label}</span>
                 </Link>
               );
@@ -761,15 +734,15 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
           {resumeCount > 0 && latestResume && !resumeLoading && (
             <div className="pt-4">
               <div className="px-3 py-2">
-                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Recent</p>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Recent</p>
               </div>
               <Link
                 href={`/resume/${latestResume.id}`}
                 onClick={handleLinkClick}
-                className="bg-slate-100 dark:bg-slate-800/50 
-                         border border-slate-200 dark:border-white/10
+                className="bg-slate-800/50 
+                         border border-white/10
                          mx-2 p-3 rounded-xl
-                         hover:bg-slate-200 dark:hover:bg-slate-800
+                         hover:bg-slate-800
                          hover:shadow-md transition-all duration-200 cursor-pointer"
               >
                 <div className="flex items-center space-x-3">
@@ -777,10 +750,10 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
                     <FileText className="w-4 h-4 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
+                    <p className="text-sm font-medium text-white truncate">
                       {latestResume.companyName || latestResume.jobTitle || 'Resume'}
                     </p>
-                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                    <p className="text-xs text-slate-400">
                       Score: {latestResume.feedback?.overallScore || '...'}%
                     </p>
                   </div>
@@ -791,7 +764,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
 
           <div className="pt-6">
             <div className="px-3 py-2">
-              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Other</p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Other</p>
             </div>
             {otherItems.map((item) => {
               const Icon = item.icon;
@@ -801,12 +774,12 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
                   href={item.href}
                   onClick={handleLinkClick}
                   className="group flex items-center space-x-3 px-3 py-2.5 rounded-lg 
-                           text-slate-700 dark:text-slate-300 
-                           hover:bg-slate-100 dark:hover:bg-white/5 
-                           hover:text-slate-900 dark:hover:text-white 
+                           text-slate-300 
+                           hover:bg-white/5 
+                           hover:text-white 
                            transition-all duration-200 cursor-pointer"
                 >
-                  <Icon className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+                  <Icon className="w-5 h-5 text-slate-400" />
                   <span className="font-medium text-sm">{item.label}</span>
                 </Link>
               );
@@ -814,12 +787,12 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
           </div>
         </nav>
 
-        <div className="p-4 mt-4 border-t border-slate-200 dark:border-white/10">
-          <div className="bg-slate-100 dark:bg-slate-800/50 
-                         border border-slate-200 dark:border-white/10
+        <div className="p-4 mt-4 border-t border-white/10">
+          <div className="bg-slate-800/50 
+                         border border-white/10
                          rounded-xl p-4 space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-slate-900 dark:text-white">Plan</span>
+              <span className="text-sm font-medium text-white">Plan</span>
               <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${planInfo.badgeClass} text-xs font-medium`}>
                 <PlanIcon className="w-3.5 h-3.5" />
                 <span>{planInfo.text}</span>
@@ -828,8 +801,8 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
 
             <div>
               <div className="flex justify-between items-center mb-2">
-                <span className="text-sm text-slate-600 dark:text-slate-400">Interviews</span>
-                <span className="text-sm font-medium text-slate-900 dark:text-white">
+                <span className="text-sm text-slate-400">Interviews</span>
+                <span className="text-sm font-medium text-white">
                   {updatedStats.interviewsUsed}/{updatedStats.interviewsLimit}
                 </span>
               </div>
@@ -838,8 +811,8 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
 
             <div>
               <div className="flex justify-between items-center mb-2">
-                <span className="text-sm text-slate-600 dark:text-slate-400">Resumes</span>
-                <span className="text-sm font-medium text-slate-900 dark:text-white">
+                <span className="text-sm text-slate-400">Resumes</span>
+                <span className="text-sm font-medium text-white">
                   {resumeLoading ? '...' : `${updatedStats.resumesUsed}/${updatedStats.resumesLimit}`}
                 </span>
               </div>
@@ -861,14 +834,14 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
           </div>
         </div>
 
-        <div className="p-4 border-t border-slate-200 dark:border-white/10">
+        <div className="p-4 border-t border-white/10">
           <button
             onClick={handleLogout}
             disabled={isLoggingOut}
             className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg 
-                     text-red-600 dark:text-red-400 
-                     hover:bg-red-50 dark:hover:bg-red-500/10 
-                     hover:text-red-700 dark:hover:text-red-300 
+                     text-red-400 
+                     hover:bg-red-500/10 
+                     hover:text-red-300 
                      transition-all duration-200 text-sm disabled:opacity-50 cursor-pointer"
           >
             <LogOut className="w-5 h-5" />
@@ -879,22 +852,22 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
 
       <div className="lg:pl-64 min-h-screen flex flex-col">
         <header className={`fixed top-0 right-0 left-0 lg:left-64 z-40 
-                          border-b border-slate-200 dark:border-white/10 
+                          border-b border-white/10 
                           backdrop-blur-xl transition-all duration-300 ${
           scrolled 
-            ? 'bg-white/95 dark:bg-slate-900/95 shadow-lg' 
-            : 'bg-white/80 dark:bg-slate-900/80 shadow-sm'
+            ? 'bg-slate-900/95 shadow-lg' 
+            : 'bg-slate-900/80 shadow-sm'
         }`}>
           <div className="flex items-center justify-between px-6 py-4">
             <div className="flex items-center space-x-4 flex-1">
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
                 className="lg:hidden 
-                         bg-slate-100 dark:bg-slate-800/50 
-                         border border-slate-200 dark:border-white/10
+                         bg-slate-800/50 
+                         border border-white/10
                          p-2 rounded-lg hover-lift cursor-pointer"
               >
-                <Menu className="w-6 h-6 text-slate-900 dark:text-white" />
+                <Menu className="w-6 h-6 text-white" />
               </button>
               
               <div className="hidden lg:block flex-1 max-w-2xl">
@@ -903,18 +876,20 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
             </div>
 
             <div className="flex items-center space-x-3">
-              <button className="bg-slate-100 dark:bg-slate-800/50 
-                               border border-slate-200 dark:border-white/10
-                               p-2 rounded-lg hover-lift relative
-                               hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer">
-                <Bell className="w-5 h-5 text-slate-600 dark:text-slate-300" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-              </button>
+              {/* Real-time Notification Center */}
+              <NotificationCenter
+                notifications={notifications}
+                unreadCount={unreadCount}
+                loading={notificationsLoading}
+                onMarkAsRead={markAsRead}
+                onMarkAllAsRead={markAllAsRead}
+                onDelete={deleteNotification}
+              />
 
-              <Link href="/profile" className="bg-slate-100 dark:bg-slate-800/50 
-                                              border border-slate-200 dark:border-white/10
+              <Link href="/profile" className="bg-slate-800/50 
+                                              border border-white/10
                                               p-1 rounded-lg hover-lift
-                                              hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer">
+                                              hover:bg-slate-800 cursor-pointer">
                 <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center text-white text-sm font-semibold">
                   {userInitials}
                 </div>
@@ -955,10 +930,10 @@ export default function LayoutClient({ children, user, userStats }: LayoutClient
   const isPublicRoute = PUBLIC_ROUTES.some(route => pathname.startsWith(route));
   if (!user && !isPublicRoute) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-600 dark:text-slate-400">Redirecting to sign in...</p>
+          <p className="text-slate-400">Redirecting to sign in...</p>
         </div>
       </div>
     );
@@ -976,11 +951,9 @@ export default function LayoutClient({ children, user, userStats }: LayoutClient
   return (
     <>
       <Toaster position="top-right" richColors />
-      <ThemeProvider>
-        <LayoutContent user={user} userStats={userStats}>
-          {children}
-        </LayoutContent>
-      </ThemeProvider>
+      <LayoutContent user={user} userStats={userStats}>
+        {children}
+      </LayoutContent>
     </>
   );
 }

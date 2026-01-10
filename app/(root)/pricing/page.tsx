@@ -414,44 +414,68 @@ function StripeCheckoutForm({
         onError={onError}
       />
 
-      <div className="space-y-3 sm:space-y-4">
-        <div className="p-3 sm:p-4 bg-gray-100 dark:bg-white/5 rounded-lg border border-gray-200 dark:border-white/10">
-          <CardElement
-            options={{
-              style: {
-                base: {
-                  fontSize: "16px",
-                  color: "#171717",
-                  "::placeholder": { color: "#94a3b8" },
+      <div className="space-y-5">
+        {/* Card Input Section */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
+            Card Information
+          </label>
+          <div className="p-4 bg-white dark:bg-white/5 rounded-xl border border-gray-300 dark:border-white/10 focus-within:border-gray-400 dark:focus-within:border-white/20 transition-colors">
+            <CardElement
+              options={{
+                style: {
+                  base: {
+                    fontSize: "16px",
+                    color: "#ffffff",
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                    "::placeholder": { color: "#94a3b8" },
+                    iconColor: "#94a3b8",
+                  },
+                  invalid: {
+                    color: "#ef4444",
+                    iconColor: "#ef4444",
+                  },
                 },
-              },
-            }}
-          />
+              }}
+            />
+          </div>
+          <p className="mt-2 text-xs text-gray-500 dark:text-slate-500 flex items-center">
+            <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+            </svg>
+            Your card details are encrypted and secure
+          </p>
         </div>
 
+        {/* Submit Button */}
         <button
           onClick={handleSubmit}
           disabled={!stripe || loading}
-          className="w-full py-2.5 sm:py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-sm sm:text-base"
+          className="w-full py-3.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
         >
           {loading ? (
             <div className="flex items-center justify-center space-x-2">
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-              <span>Processing...</span>
+              <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin"></div>
+              <span>Processing Payment...</span>
             </div>
           ) : (
-            `Subscribe - $${displayPrice}/${billingCycle === "yearly" ? "year" : "month"}`
+            <div className="flex items-center justify-center space-x-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              <span>Pay ${displayPrice}/{billingCycle === "yearly" ? "year" : "month"}</span>
+            </div>
           )}
         </button>
 
         {/* Divider */}
-        <div className="relative my-4 sm:my-6">
+        <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-gray-200 dark:border-white/10"></div>
           </div>
-          <div className="relative flex justify-center text-xs sm:text-sm">
-            <span className="px-4 bg-white dark:bg-slate-950 text-gray-600 dark:text-slate-400">
-              Or pay with
+          <div className="relative flex justify-center text-sm">
+            <span className="px-4 bg-gray-50 dark:bg-slate-950 text-gray-500 dark:text-slate-500 font-medium">
+              Alternative Payment
             </span>
           </div>
         </div>
@@ -459,14 +483,31 @@ function StripeCheckoutForm({
         {/* PayPal Button */}
         <button
           onClick={handlePayPalClick}
-          className="w-full py-2.5 sm:py-3 bg-[#0070ba] hover:bg-[#005ea6] text-white font-medium rounded-lg transition-all cursor-pointer flex items-center justify-center space-x-2 text-sm sm:text-base"
+          className="w-full py-3 bg-[#0070ba] hover:bg-[#005ea6] text-white font-semibold rounded-xl transition-all cursor-pointer flex items-center justify-center space-x-2"
         >
-          <svg className="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="currentColor">
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
             <path d="M8.32 21.97a.546.546 0 01-.26-.32c-.03-.15-.01-.3.06-.44l2.12-6.43H6.48L8.05 9.2a.51.51 0 01.5-.39h6.19c2.39 0 3.94.48 4.91 1.52.82.87 1.14 2.07 1.01 3.79-.18 2.39-1.18 4.09-3.04 5.2-1.19.71-2.87 1.07-5.01 1.07h-1.59c-.21 0-.41.13-.48.33l-.44 1.33a.55.55 0 01-.52.39h-1.26z"/>
             <path d="M9.07 7.04c.18-1.15.96-2.04 2.37-2.04h5.59c.72 0 1.34.1 1.86.3.52.19.94.48 1.27.85.66.73.92 1.73.79 3.06-.18 1.87-.99 3.23-2.43 4.06-1.02.58-2.42.89-4.17.89h-1.11c-.21 0-.4.13-.47.33l-.63 1.91c-.03.09-.09.18-.17.23-.08.06-.18.09-.28.09H9.91c-.17 0-.32-.11-.38-.28-.06-.16-.03-.34.07-.47l2.13-6.41z"/>
           </svg>
           <span>PayPal (Coming Soon)</span>
         </button>
+
+        {/* Trust Badges */}
+        <div className="flex items-center justify-center space-x-4 pt-2">
+          <div className="flex items-center text-xs text-gray-500 dark:text-slate-500">
+            <svg className="w-4 h-4 mr-1 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            <span>Cancel anytime</span>
+          </div>
+          <div className="w-px h-4 bg-gray-300 dark:bg-white/10"></div>
+          <div className="flex items-center text-xs text-gray-500 dark:text-slate-500">
+            <svg className="w-4 h-4 mr-1 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            <span>Instant access</span>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -704,145 +745,240 @@ export default function SubscriptionPage() {
     const discount = basePrice - finalPrice;
 
     return (
-      <div className="px-4 sm:px-0">
-        <div className="max-w-4xl mx-auto">
+      <div className="px-4 sm:px-0 py-6 sm:py-8">
+        <div className="max-w-5xl mx-auto">
           {/* Header - Responsive */}
-          <div className="flex flex-col xs:flex-row items-start xs:items-center justify-between mb-4 sm:mb-6 gap-3">
-            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">
-              Complete Your Subscription
-            </h1>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 gap-3">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-1">
+                Complete Your Subscription
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-slate-400">
+                Secure checkout powered by Stripe
+              </p>
+            </div>
             <button
               onClick={() => {
                 setShowCheckout(false);
                 setPromoCode(null);
                 setPromoError("");
               }}
-              className="text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer text-sm sm:text-base"
+              className="inline-flex items-center text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer text-sm sm:text-base group"
             >
-              ← Back
+              <svg className="w-4 h-4 mr-2 transform group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Back to Plans
             </button>
           </div>
 
-          <div className="grid lg:grid-cols-2 gap-4 sm:gap-6">
+          <div className="grid lg:grid-cols-5 gap-6">
             {/* Order Summary - Responsive */}
-            <div className="bg-gray-50 dark:bg-white/5 backdrop-blur-xl rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-gray-200 dark:border-white/10 h-fit">
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4">
-                Order Summary
-              </h3>
-
-              <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-700 dark:text-slate-300 text-sm sm:text-base">{plan?.name}</span>
-                  <span className="text-gray-900 dark:text-white font-medium text-sm sm:text-base">
-                    ${basePrice}
-                    /{billingCycle === "yearly" ? "year" : "month"}
-                  </span>
+            <div className="lg:col-span-2 space-y-4">
+              {/* Plan Details Card */}
+              <div className="bg-gradient-to-br from-purple-500/10 via-blue-500/10 to-purple-500/10 dark:from-purple-500/5 dark:via-blue-500/5 dark:to-purple-500/5 backdrop-blur-xl rounded-2xl p-6 border border-purple-200/50 dark:border-purple-500/20">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+                      {plan?.name} Plan
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-slate-400">
+                      {plan?.description}
+                    </p>
+                  </div>
+                  <div className="bg-gradient-to-br from-purple-600 to-blue-600 text-white px-3 py-1 rounded-full text-xs font-medium">
+                    {plan?.interviewLimit} interviews
+                  </div>
                 </div>
 
-                {billingCycle === "yearly" && (
-                  <div className="flex justify-between items-center text-green-600 dark:text-green-400 text-xs sm:text-sm">
-                    <span>Annual discount (20% off)</span>
-                    <span>-${Math.round((plan?.price || 0) * 12 * 0.2)}/year</span>
+                {/* Billing Cycle Toggle */}
+                <div className="mb-6">
+                  <label className="text-xs font-medium text-gray-700 dark:text-slate-300 mb-2 block">
+                    Billing Cycle
+                  </label>
+                  <div className="grid grid-cols-2 gap-2 bg-gray-100 dark:bg-white/5 rounded-lg p-1">
+                    <button
+                      onClick={() => setBillingCycle("monthly")}
+                      className={`px-4 py-2.5 rounded-md font-medium transition-all cursor-pointer text-sm ${
+                        billingCycle === "monthly"
+                          ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg"
+                          : "text-gray-700 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
+                      }`}
+                    >
+                      Monthly
+                    </button>
+                    <button
+                      onClick={() => setBillingCycle("yearly")}
+                      className={`px-4 py-2.5 rounded-md font-medium transition-all relative cursor-pointer text-sm ${
+                        billingCycle === "yearly"
+                          ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg"
+                          : "text-gray-700 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
+                      }`}
+                    >
+                      Yearly
+                      <span className="absolute -top-2 -right-2 bg-green-500 text-xs px-2 py-0.5 rounded-full text-white font-bold shadow-lg">
+                        -20%
+                      </span>
+                    </button>
                   </div>
-                )}
+                </div>
 
-                {promoCode && promoCode.valid && discount > 0 && (
-                  <div className="flex justify-between items-center text-purple-600 dark:text-purple-400 text-xs sm:text-sm">
-                    <span>Promo code ({promoCode.discountPercent}% off)</span>
-                    <span>-${discount}</span>
-                  </div>
-                )}
-
-                <div className="border-t border-gray-200 dark:border-white/10 pt-3 sm:pt-4">
-                  <div className="flex justify-between items-center text-base sm:text-lg font-semibold">
-                    <span className="text-gray-900 dark:text-white">Total</span>
-                    <span className="text-gray-900 dark:text-white">
-                      ${finalPrice}/{billingCycle === "yearly" ? "year" : "month"}
+                {/* Price Breakdown */}
+                <div className="space-y-3 pb-4 border-b border-gray-200 dark:border-white/10">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-700 dark:text-slate-300">
+                      {plan?.name} ({billingCycle})
                     </span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">
+                      ${basePrice}
+                    </span>
+                  </div>
+
+                  {billingCycle === "yearly" && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-green-600 dark:text-green-400">
+                        Annual savings
+                      </span>
+                      <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                        -${Math.round((plan?.price || 0) * 12 * 0.2)}
+                      </span>
+                    </div>
+                  )}
+
+                  {promoCode && promoCode.valid && discount > 0 && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-purple-600 dark:text-purple-400">
+                        Promo discount ({promoCode.discountPercent}%)
+                      </span>
+                      <span className="text-sm font-medium text-purple-600 dark:text-purple-400">
+                        -${discount}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Total */}
+                <div className="flex justify-between items-center pt-4">
+                  <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Total Due
+                  </span>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                      ${finalPrice}
+                    </div>
+                    <div className="text-xs text-gray-600 dark:text-slate-400">
+                      per {billingCycle === "yearly" ? "year" : "month"}
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Promo Code Input */}
-              <div className="mb-4 sm:mb-6">
+              {/* Promo Code Card */}
+              <div className="bg-gray-50 dark:bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-gray-200 dark:border-white/10">
                 <PromoCodeInput
                   onApply={handleApplyPromo}
                   appliedPromo={promoCode}
                   isLoading={false}
                 />
                 {promoError && (
-                  <p className="text-red-600 dark:text-red-400 text-xs sm:text-sm mt-2">{promoError}</p>
+                  <p className="text-red-600 dark:text-red-400 text-xs mt-2 flex items-center">
+                    <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                    {promoError}
+                  </p>
                 )}
               </div>
 
-              {/* Billing Cycle Toggle */}
-              <div className="mb-4 sm:mb-6">
-                <div className="flex items-center space-x-2 bg-gray-100 dark:bg-white/5 rounded-lg p-1">
-                  <button
-                    onClick={() => setBillingCycle("monthly")}
-                    className={`flex-1 px-3 sm:px-4 py-1.5 sm:py-2 rounded-md font-medium transition-all cursor-pointer text-xs sm:text-sm ${
-                      billingCycle === "monthly"
-                        ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white"
-                        : "text-gray-700 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
-                    }`}
-                  >
-                    Monthly
-                  </button>
-                  <button
-                    onClick={() => setBillingCycle("yearly")}
-                    className={`flex-1 px-3 sm:px-4 py-1.5 sm:py-2 rounded-md font-medium transition-all relative cursor-pointer text-xs sm:text-sm ${
-                      billingCycle === "yearly"
-                        ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white"
-                        : "text-gray-700 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
-                    }`}
-                  >
-                    Yearly
-                    {billingCycle !== "yearly" && (
-                      <span className="absolute -top-1 -right-1 bg-green-500 text-xs px-1.5 py-0.5 rounded-full text-white">
-                        20%
-                      </span>
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {/* Features */}
-              <div>
-                <h4 className="text-gray-900 dark:text-white font-medium mb-2 sm:mb-3 text-sm sm:text-base">
-                  What&apos;s included:
+              {/* Features Preview */}
+              <div className="bg-gray-50 dark:bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-gray-200 dark:border-white/10">
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                  <svg className="w-4 h-4 mr-2 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                    <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
+                  </svg>
+                  What&apos;s included
                 </h4>
-                <ul className="space-y-1.5 sm:space-y-2">
-                  {plan?.features.map((feature, index) => (
-                    <li key={index} className="flex items-start text-gray-700 dark:text-slate-300 text-xs sm:text-sm">
-                      <span className="w-1.5 h-1.5 bg-green-400 rounded-full mr-2 sm:mr-3 mt-1.5 flex-shrink-0"></span>
+                <ul className="space-y-2">
+                  {plan?.features.slice(0, 4).map((feature, index) => (
+                    <li key={index} className="flex items-start text-xs text-gray-700 dark:text-slate-300">
+                      <svg className="w-4 h-4 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
                       <span>{feature}</span>
                     </li>
                   ))}
+                  {plan && plan.features.length > 4 && (
+                    <li className="text-xs text-purple-600 dark:text-purple-400 ml-6 font-medium">
+                      + {plan.features.length - 4} more features
+                    </li>
+                  )}
                 </ul>
               </div>
             </div>
 
             {/* Payment Form - Responsive */}
-            <div className="bg-gray-50 dark:bg-white/5 backdrop-blur-xl rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-gray-200 dark:border-white/10">
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-4 sm:mb-6">
-                Payment Details
-              </h3>
-              <Elements stripe={stripePromise}>
-                <StripeCheckoutForm
-                  planId={selectedPlan}
-                  billingCycle={billingCycle}
-                  user={user}
-                  promoCode={promoCode}
-                  onSuccess={handlePaymentSuccess}
-                  onError={handlePaymentError}
-                />
-              </Elements>
+            <div className="lg:col-span-3">
+              <div className="bg-gray-50 dark:bg-white/5 backdrop-blur-xl rounded-2xl p-6 sm:p-8 border border-gray-200 dark:border-white/10 h-full">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Payment Method
+                  </h3>
+                  <div className="flex items-center space-x-2">
+                    <svg className="w-8 h-8 text-gray-400" viewBox="0 0 48 32" fill="none">
+                      <rect width="48" height="32" rx="4" fill="currentColor" opacity="0.1"/>
+                      <path d="M18 12h12v2H18v-2zm0 4h12v2H18v-2zm0 4h8v2h-8v-2z" fill="currentColor" opacity="0.3"/>
+                    </svg>
+                    <svg className="w-8 h-8" viewBox="0 0 48 32">
+                      <rect width="48" height="32" rx="4" fill="#1434CB"/>
+                      <circle cx="18" cy="16" r="6" fill="#EB001B"/>
+                      <circle cx="30" cy="16" r="6" fill="#F79E1B"/>
+                      <path d="M24 11a7.97 7.97 0 00-3 5.5 7.97 7.97 0 003 5.5 7.97 7.97 0 003-5.5 7.97 7.97 0 00-3-5.5z" fill="#FF5F00"/>
+                    </svg>
+                    <svg className="w-8 h-8" viewBox="0 0 48 32">
+                      <rect width="48" height="32" rx="4" fill="#0066B2"/>
+                      <path d="M24 10l2.5 7.5h8l-6.5 4.5 2.5 7.5-6.5-4.5-6.5 4.5 2.5-7.5-6.5-4.5h8z" fill="#FFFFFF" opacity="0.3"/>
+                    </svg>
+                  </div>
+                </div>
 
-              <div className="mt-3 sm:mt-4 flex items-center justify-center space-x-2 text-gray-600 dark:text-slate-400 text-xs">
-                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-                </svg>
-                <span>Secured by Stripe • 256-bit SSL encryption</span>
+                <Elements stripe={stripePromise}>
+                  <StripeCheckoutForm
+                    planId={selectedPlan}
+                    billingCycle={billingCycle}
+                    user={user}
+                    promoCode={promoCode}
+                    onSuccess={handlePaymentSuccess}
+                    onError={handlePaymentError}
+                  />
+                </Elements>
+
+                {/* Security Footer */}
+                <div className="mt-6 pt-6 border-t border-gray-200 dark:border-white/10">
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div className="flex flex-col items-center">
+                      <svg className="w-6 h-6 text-gray-400 dark:text-slate-500 mb-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-xs text-gray-600 dark:text-slate-400">SSL Secured</span>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <svg className="w-6 h-6 text-gray-400 dark:text-slate-500 mb-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-xs text-gray-600 dark:text-slate-400">256-bit Encrypted</span>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <svg className="w-6 h-6 text-gray-400 dark:text-slate-500 mb-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10 2a5 5 0 00-5 5v2a2 2 0 00-2 2v5a2 2 0 002 2h10a2 2 0 002-2v-5a2 2 0 00-2-2H7V7a3 3 0 015.905-.75 1 1 0 001.937-.5A5.002 5.002 0 0010 2z" />
+                      </svg>
+                      <span className="text-xs text-gray-600 dark:text-slate-400">PCI Compliant</span>
+                    </div>
+                  </div>
+                  <p className="text-center text-xs text-gray-500 dark:text-slate-500 mt-4">
+                    Powered by <span className="font-semibold">Stripe</span> • Your payment info is never stored on our servers
+                  </p>
+                </div>
               </div>
             </div>
           </div>

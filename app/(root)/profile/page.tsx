@@ -19,8 +19,7 @@ import {
   Edit,
   Save,
   X,
-  Github,
-  Linkedin,
+ 
   Globe,
   Briefcase,
   TrendingUp,
@@ -89,7 +88,7 @@ interface CriticalError {
 
 // FIXED: Templates and Blogs should use string IDs to match Saved.tsx expectations
 interface SavedTemplate {
-  id: string; // Changed from number to string
+  id: string;
   title: string;
   category: string;
   role?: string;
@@ -104,7 +103,7 @@ interface SavedTemplate {
 }
 
 interface BookmarkedBlog {
-  id: string; // Changed from number to string
+  id: string;
   title: string;
   excerpt: string;
   category: string;
@@ -132,9 +131,9 @@ interface CustomInterview {
 }
 
 interface UserCreatedContent {
-  blogs: BookmarkedBlog[]; // Changed from unknown[] to BookmarkedBlog[]
-  templates: SavedTemplate[]; // Changed from unknown[] to SavedTemplate[]
-  customInterviews: CustomInterview[]; // Changed from unknown[] to CustomInterview[]
+  blogs: BookmarkedBlog[];
+  templates: SavedTemplate[];
+  customInterviews: CustomInterview[];
 }
 
 // FIXED: Add proper interface for Firebase timestamp
@@ -142,14 +141,20 @@ interface FirebaseTimestamp {
   toDate: () => Date;
 }
 
-// FIXED: Add proper interface for interview data
+// FIXED: Add proper interface for interview data with enhanced feedback
 interface InterviewData {
   createdAt?: FirebaseTimestamp | string | Date;
   status?: string;
   duration?: number;
+  score?: number;
   feedback?: {
     overallRating?: number;
+    totalScore?: number;
+    strengths?: string[];
+    weaknesses?: string[];
+    communication?: number;
   };
+  type?: string;
   [key: string]: unknown;
 }
 
@@ -229,7 +234,7 @@ const ProfilePage = () => {
           // Convert to proper BookmarkedBlog objects with string IDs
           if (Array.isArray(bookmarkedIds)) {
             const mockBookmarkedBlogs: BookmarkedBlog[] = bookmarkedIds.map((id: unknown) => ({
-              id: String(id), // Convert to string
+              id: String(id),
               title: `How to Ace Your Interview: Advanced Tips ${id}`,
               excerpt: "Comprehensive guide covering advanced interview techniques...",
               category: "career-tips",
@@ -309,7 +314,7 @@ const ProfilePage = () => {
     return new Date(createdAt as string | number);
   };
 
-  // Fetch user data from Firebase - UPDATED to use new address fields
+  // Fetch user data from Firebase - UPDATED with real-time stats calculation
   useEffect(() => {
     const fetchUserData = async (): Promise<void> => {
       if (!user) return;
@@ -384,41 +389,122 @@ const ProfilePage = () => {
         setUserProfile(profile);
         setEditedProfile(profile);
 
-        // Step 3: Calculating statistics
+        // Step 3: Calculating statistics with REAL-TIME data
         setLoadingStep(3);
 
-        // FIXED: Calculate stats from interviews with proper type handling
+        // FIXED: Calculate stats from interviews with proper type handling and feedback fetching
         const interviewsWithDates = (userInterviews || []).map((interview: InterviewData) => ({
           ...interview,
           createdAt: convertToDate(interview.createdAt),
         }));
 
         const totalInterviews = interviewsWithDates.length;
-        const completedInterviews = interviewsWithDates.filter(
-          (i: InterviewData) => i.status === "completed"
-        );
+        
+        // Filter completed interviews - those with feedback or a score
+        const completedInterviews = interviewsWithDates.filter((i: InterviewData) => {
+          const hasScore = typeof i.score === 'number' && i.score > 0;
+          const hasFeedback = i.feedback && typeof i.feedback === 'object';
+          const isCompleted = i.status === 'completed' || i.status === 'complete';
+          return (hasScore || hasFeedback) && isCompleted;
+        });
 
+        // Calculate average score from feedback
         const averageScore = completedInterviews.length > 0
-          ? completedInterviews.reduce((sum: number, i: InterviewData) => 
-              sum + (i.feedback?.overallRating || 0), 0) / completedInterviews.length
+          ? completedInterviews.reduce((sum: number, i: InterviewData) => {
+              // Try multiple sources for score
+              const score = 
+                (i.feedback?.totalScore as number) ||
+                (i.feedback?.overallRating as number) ||
+                (i.score as number) ||
+                0;
+              return sum + score;
+            }, 0) / completedInterviews.length
           : 0;
 
-        const hoursSpent = completedInterviews.reduce(
-          (sum: number, i: InterviewData) => sum + (i.duration || 0),
+        // Calculate hours spent (duration is typically in minutes)
+        const hoursSpent = interviewsWithDates.reduce(
+          (sum: number, i: InterviewData) => {
+            const duration = (i.duration as number) || 0;
+            return sum + duration;
+          },
           0
         ) / 60;
+
+        // Calculate improvement rate
+        const sortedByDate = [...completedInterviews].sort((a, b) => {
+          const dateA = convertToDate(a.createdAt);
+          const dateB = convertToDate(b.createdAt);
+          return dateA.getTime() - dateB.getTime();
+        });
+        
+        let improvementRate = 0;
+        if (sortedByDate.length >= 2) {
+          const recentScores = sortedByDate.slice(-3);
+          const olderScores = sortedByDate.slice(0, 3);
+          
+          const recentAvg = recentScores.reduce((sum, i) => {
+            const score = (i.feedback?.totalScore as number) || (i.score as number) || 0;
+            return sum + score;
+          }, 0) / recentScores.length;
+          
+          const olderAvg = olderScores.reduce((sum, i) => {
+            const score = (i.feedback?.totalScore as number) || (i.score as number) || 0;
+            return sum + score;
+          }, 0) / olderScores.length;
+          
+          if (olderAvg > 0) {
+            improvementRate = Math.round(((recentAvg - olderAvg) / olderAvg) * 100);
+          }
+        }
+
+        // Calculate streak
+        const sortedInterviews = [...interviewsWithDates].sort(
+          (a, b) => convertToDate(b.createdAt).getTime() - convertToDate(a.createdAt).getTime()
+        );
+        
+        let currentStreak = 0;
+        let longestStreak = 0;
+        let tempStreak = 0;
+        let lastDate = new Date();
+        lastDate.setHours(0, 0, 0, 0);
+
+        for (const interview of sortedInterviews) {
+          const interviewDate = convertToDate(interview.createdAt);
+          interviewDate.setHours(0, 0, 0, 0);
+          const diffDays = Math.floor(
+            (lastDate.getTime() - interviewDate.getTime()) / (1000 * 60 * 60 * 24)
+          );
+
+          if (diffDays === 0 || diffDays === 1) {
+            tempStreak++;
+            if (currentStreak === 0 || diffDays <= 1) {
+              currentStreak = tempStreak;
+            }
+            longestStreak = Math.max(longestStreak, tempStreak);
+            lastDate = interviewDate;
+          } else {
+            tempStreak = 1;
+            lastDate = interviewDate;
+          }
+        }
+
+        // Calculate success rate (interviews scoring 70+)
+        const successfulInterviews = completedInterviews.filter((i: InterviewData) => {
+          const score = (i.feedback?.totalScore as number) || (i.score as number) || 0;
+          return score >= 70;
+        });
 
         setStats({
           totalInterviews,
           averageScore: Math.round(averageScore),
-          improvementRate: 0,
-          currentStreak: 0,
-          longestStreak: 0,
-          hoursSpent: Math.round(hoursSpent),
+          improvementRate,
+          currentStreak,
+          longestStreak: Math.max(longestStreak, currentStreak),
+          hoursSpent: Math.round(hoursSpent * 10) / 10, // Round to 1 decimal
           totalResumes: 0,
           averageResumeScore: 0,
-          successRate: totalInterviews > 0
-            ? Math.round((completedInterviews.length / totalInterviews) * 100)
+          successRate: completedInterviews.length > 0
+            ? Math.round((successfulInterviews.length / completedInterviews.length) * 100)
             : 0,
           completionRate: totalInterviews > 0
             ? Math.round((completedInterviews.length / totalInterviews) * 100)
@@ -872,7 +958,9 @@ const ProfilePage = () => {
                     
                     {userProfile.linkedIn && (
                       <div className="flex items-center gap-2 text-xs sm:text-sm">
-                        <Linkedin className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                        <svg className="w-4 h-4 flex-shrink-0 text-slate-400" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                        </svg>
                         <a href={userProfile.linkedIn} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 truncate">
                           LinkedIn
                         </a>
@@ -880,7 +968,9 @@ const ProfilePage = () => {
                     )}
                     {userProfile.github && (
                       <div className="flex items-center gap-2 text-xs sm:text-sm">
-                        <Github className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                        <svg className="w-4 h-4 flex-shrink-0 text-slate-400" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+                        </svg>
                         <a href={userProfile.github} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 truncate">
                           GitHub
                         </a>
