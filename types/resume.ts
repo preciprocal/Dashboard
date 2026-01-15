@@ -11,27 +11,100 @@ export interface ResumeSection {
   }>;
 }
 
+// CategoryScore type that gemini-parser expects
+export interface CategoryScore {
+  score: number;
+  weight: number;
+  tips: Array<{
+    type: 'good' | 'warning' | 'critical';
+    message: string;
+    explanation?: string;
+    tip: string;
+  }>;
+  issues: Issue[];
+  metrics: Record<string, string | number>;
+}
+
+// Issue type for tracking critical issues
+export interface Issue {
+  severity: 'critical' | 'major' | 'minor';
+  category: 'ATS' | 'Content' | 'Structure' | 'Skills' | 'Impact' | 'Grammar';
+  description: string;
+  location?: string;
+  impact?: string;
+  fix: string;
+  example?: string;
+}
+
+// Suggestion type for improvement recommendations
+export interface Suggestion {
+  id: string;
+  category: string;
+  title: string;
+  description: string;
+  impact: 'high' | 'medium' | 'low';
+  effort: 'quick' | 'moderate' | 'extensive';
+  before?: string;
+  after?: string;
+  priority: number;
+}
+
 export interface ResumeFeedback {
   overallScore: number;
-  // Support both uppercase and lowercase ATS for backwards compatibility
+  
+  // Category scores (new structure from gemini-parser)
+  ats?: CategoryScore;
+  content?: CategoryScore;
+  structure?: CategoryScore;
+  skills?: CategoryScore;
+  impact?: CategoryScore;
+  grammar?: CategoryScore;
+  
+  // Legacy support for old structure
   ATS?: ResumeSection;
-  ats?: ResumeSection;
-  content: ResumeSection;
-  structure: ResumeSection;
-  skills: ResumeSection;
-  toneAndStyle: ResumeSection;
+  toneAndStyle?: ResumeSection;
+  
+  // Analysis results
+  strengths?: string[];
+  weaknesses?: string[];
+  criticalIssues?: Issue[];
+  suggestions?: Suggestion[];
+  
+  // ATS Keywords
+  atsKeywords?: {
+    matched: string[];
+    missing: string[];
+    score: number;
+  };
+  
+  // Roadmap (new structure)
   roadmap?: {
     quickWins?: Array<{
       action: string;
       timeToComplete: string;
       impact: 'high' | 'medium' | 'low';
+      priority: number;
+      category?: string;
+      estimatedScoreIncrease?: number;
     }>;
-    mediumTermGoals?: Array<{
+    mediumTerm?: Array<{
       action: string;
       timeToComplete: string;
       impact: 'high' | 'medium' | 'low';
+      priority: number;
+      category?: string;
+      estimatedScoreIncrease?: number;
     }>;
-    mediumTerm?: Array<{
+    longTerm?: Array<{
+      action: string;
+      timeToComplete: string;
+      impact: 'high' | 'medium' | 'low';
+      priority: number;
+      category?: string;
+      estimatedScoreIncrease?: number;
+    }>;
+    // Legacy field names for backwards compatibility
+    mediumTermGoals?: Array<{
       action: string;
       timeToComplete: string;
       impact: 'high' | 'medium' | 'low';
@@ -41,12 +114,9 @@ export interface ResumeFeedback {
       timeToComplete: string;
       impact: 'high' | 'medium' | 'low';
     }>;
-    longTerm?: Array<{
-      action: string;
-      timeToComplete: string;
-      impact: 'high' | 'medium' | 'low';
-    }>;
   };
+  
+  // Legacy roadmap support
   improvementRoadmap?: {
     quickWins?: Array<{
       action: string;
@@ -64,6 +134,15 @@ export interface ResumeFeedback {
       impact: 'high' | 'medium' | 'low';
     }>;
   };
+  
+  // Job matching
+  jobMatch?: {
+    score: number;
+    matchedSkills: string[];
+    missingSkills: string[];
+    recommendations: string[];
+  };
+  
   resumeText?: string; // Extracted text from resume for job matching
 }
 
@@ -87,7 +166,6 @@ export interface Resume {
   analyzedAt?: string | Date;
   error?: string;
   score?: number;
-  
 }
 
 export interface ResumeStats {
