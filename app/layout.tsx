@@ -1,4 +1,5 @@
 // app/layout.tsx
+import { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import {
@@ -20,6 +21,43 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+
+// Metadata configuration
+export const metadata: Metadata = {
+  title: "Preciprocal | Tired of AI Taking Your Job? Use AI to Take It Back",
+  description: "Stop stressing about AI replacing you. Level up your career game with AI that actually works for YOU. Ace interviews, flex that resume, and land the bag. No cap.",
+  keywords: [
+    "AI career prep",
+    "interview practice",
+    "resume optimization",
+    "job search",
+    "career development",
+    "interview coach",
+    "ATS resume checker",
+    "job prep tools",
+  ],
+  authors: [{ name: "Preciprocal" }],
+  openGraph: {
+    title: "Preciprocal | Tired of AI Taking Your Job? Use AI to Take It Back",
+    description: "Stop stressing about AI replacing you. Use AI to level up your career game instead. Ace interviews, optimize your resume, land the bag. 💼✨",
+    type: "website",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Preciprocal | AI Taking Your Job? Take It Back",
+    description: "Stop stressing. Start winning. Use AI to ace interviews and land the bag. 💼✨",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 5,
+  },
+};
 
 // Define interfaces
 interface Interview {
