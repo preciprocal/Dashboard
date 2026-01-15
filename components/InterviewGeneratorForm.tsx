@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ChevronDown } from "lucide-react";
+import { useUsageTracking } from "@/lib/hooks/useUsageTracking";
+import { toast } from "sonner";
 
 interface InterviewGeneratorFormProps {
   userId: string;
@@ -56,6 +58,12 @@ export default function InterviewGeneratorForm({
     techstack: "",
     jobDescription: "",
   });
+
+  // Usage tracking hook
+  const {
+    canUseFeature,
+    incrementUsage,
+  } = useUsageTracking();
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -151,12 +159,12 @@ export default function InterviewGeneratorForm({
     ];
 
     if (!allowedTypes.includes(file.type)) {
-      alert("Please upload a valid file format (.txt, .pdf, .doc, .docx)");
+      toast.error("Please upload a valid file format (.txt, .pdf, .doc, .docx)");
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      alert("File size should be less than 5MB");
+      toast.error("File size should be less than 5MB");
       return;
     }
 
@@ -178,11 +186,11 @@ export default function InterviewGeneratorForm({
           }
         }
       } else {
-        alert("PDF and DOC files are supported. Please paste the job description manually for now.");
+        toast.info("PDF and DOC files are supported. Please paste the job description manually for now.");
       }
     } catch (error) {
       console.error("File processing error:", error);
-      alert("Could not process file. Please paste content manually.");
+      toast.error("Could not process file. Please paste content manually.");
     } finally {
       setIsProcessingFile(false);
     }
@@ -200,7 +208,7 @@ export default function InterviewGeneratorForm({
 
   const handleManualAnalysis = async () => {
     if (!formData.jobDescription || formData.jobDescription.trim().length < 20) {
-      alert("Please enter a job description first");
+      toast.error("Please enter a job description first");
       return;
     }
 
@@ -227,32 +235,15 @@ export default function InterviewGeneratorForm({
     }
   };
 
-  const updateUsageCounter = async () => {
-    try {
-      // Get current usage data
-      const usageResponse = await fetch('/api/user/update-usage');
-      const usageData = await usageResponse.json();
-      
-      // Only increment for free tier users
-      if (usageData.plan === 'starter') {
-        await fetch('/api/user/update-usage', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            type: 'interview',
-            increment: 1
-          })
-        });
-        console.log('✅ Usage counter updated');
-      }
-    } catch (error) {
-      console.error('Failed to update usage counter:', error);
-      // Don't block user flow if usage tracking fails
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Check usage limit BEFORE starting generation
+    if (!canUseFeature('interviews')) {
+      toast.error('You have reached your interview limit. Please upgrade to continue.');
+      return;
+    }
+
     setIsGenerating(true);
 
     try {
@@ -318,8 +309,9 @@ export default function InterviewGeneratorForm({
 
         const behavioralResult = await behavioralResponse.json() as APIResponse;
 
-        // Update usage counter after successful generation
-        await updateUsageCounter();
+        // Increment usage counter after successful generation
+        await incrementUsage('interviews');
+        toast.success('Interview sessions generated successfully!');
 
         // Navigate to the first interview (technical)
         if (technicalResult.result?.interview?.id) {
@@ -357,8 +349,9 @@ export default function InterviewGeneratorForm({
         if (response.ok) {
           const result = await response.json() as APIResponse;
           
-          // Update usage counter after successful generation
-          await updateUsageCounter();
+          // Increment usage counter after successful generation
+          await incrementUsage('interviews');
+          toast.success('Interview session generated successfully!');
           
           if (result.result?.interview?.id) {
             router.push(`/interview/${result.result.interview.id}`);
@@ -372,7 +365,8 @@ export default function InterviewGeneratorForm({
       }
     } catch (error) {
       console.error("Error generating interview:", error);
-      alert(error instanceof Error ? error.message : "Failed to generate interview. Please try again.");
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate interview. Please try again.";
+      toast.error(errorMessage);
     } finally {
       setIsGenerating(false);
     }

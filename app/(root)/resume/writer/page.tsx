@@ -233,14 +233,14 @@ export default function ResumeWriterPage() {
   if (!user) {
     return (
       <div className="fixed inset-0 bg-slate-950 z-50 flex items-center justify-center">
-        <div className="glass-card hover-lift max-w-md">
+        <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800 hover:border-slate-700 transition-all duration-300 max-w-md">
           <div className="text-center p-12">
             <FileText className="w-16 h-16 text-slate-600 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-white mb-2">Authentication Required</h2>
-            <p className="text-slate-400 mb-6">Please sign in to continue</p>
+            <p className="text-slate-500 mb-6">Please sign in to continue</p>
             <Link 
               href="/sign-in"
-              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 py-3 rounded-lg"
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 inline-flex items-center gap-2 px-6 py-3 rounded-lg text-white transition-all duration-300"
             >
               Go to Login
             </Link>
@@ -253,13 +253,13 @@ export default function ResumeWriterPage() {
   if (!resumeId) {
     return (
       <div className="fixed inset-0 bg-slate-950 z-50 flex items-center justify-center">
-        <div className="glass-card hover-lift max-w-md">
+        <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800 hover:border-slate-700 transition-all duration-300 max-w-md">
           <div className="text-center p-12">
             <AlertCircle className="w-16 h-16 text-amber-400 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-white mb-2">No Resume Selected</h2>
-            <p className="text-slate-400 mb-6">Please select a resume to edit</p>
+            <p className="text-slate-500 mb-6">Please select a resume to edit</p>
             <Link href="/resume">
-              <button className="glass-button-primary hover-lift px-6 py-3 text-white rounded-lg font-medium">
+              <button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 px-6 py-3 text-white rounded-lg font-medium transition-all duration-300">
                 View Resumes
               </button>
             </Link>
@@ -272,20 +272,20 @@ export default function ResumeWriterPage() {
   if (!isLoadingResume && !isInitialLoad && (error || !resumeData)) {
     return (
       <div className="fixed inset-0 bg-slate-950 z-50 flex items-center justify-center">
-        <div className="glass-card hover-lift max-w-md">
+        <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800 hover:border-slate-700 transition-all duration-300 max-w-md">
           <div className="text-center p-12">
             <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
             <h2 className="text-2xl font-semibold text-white mb-3">Resume Not Found</h2>
-            <p className="text-slate-400 mb-8">{error || 'Could not load resume'}</p>
+            <p className="text-slate-500 mb-8">{error || 'Could not load resume'}</p>
             <div className="flex gap-4 justify-center">
               <button 
                 onClick={() => window.location.reload()} 
-                className="glass-button-primary hover-lift px-6 py-3 text-white rounded-lg font-medium"
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 px-6 py-3 text-white rounded-lg font-medium transition-all duration-300"
               >
                 Try Again
               </button>
               <Link href="/resume">
-                <button className="glass-button hover-lift px-6 py-3 text-white rounded-lg font-medium">
+                <button className="bg-slate-800/60 hover:bg-slate-700/60 backdrop-blur-xl px-6 py-3 text-white rounded-lg font-medium border border-slate-700 transition-all duration-300">
                   Back to Resumes
                 </button>
               </Link>
@@ -298,18 +298,18 @@ export default function ResumeWriterPage() {
 
   return (
     <div className="fixed inset-0 bg-slate-950 z-50 flex flex-col overflow-hidden">
-      {/* Header */}
-      <div className="glass-card border-b border-white/5 px-6 py-3 flex-shrink-0">
+      {/* Header - Dark Mode */}
+      <div className="bg-slate-900/95 backdrop-blur-xl border-b border-slate-800 px-6 py-3 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
               onClick={handleExit}
-              className="p-2 rounded-lg text-slate-400 hover:bg-white/5 transition-colors"
+              className="p-2 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-slate-800/50 transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
             
-            <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-purple-500/20">
               <Sparkles className="w-4 h-4 text-white" />
             </div>
             
@@ -317,7 +317,7 @@ export default function ResumeWriterPage() {
               <h1 className="text-white font-medium text-base">
                 Resume AI Writer
               </h1>
-              <p className="text-slate-400 text-sm">
+              <p className="text-slate-500 text-sm">
                 {resumeData?.fileName || 'AI-powered editor'}
               </p>
             </div>
@@ -326,21 +326,21 @@ export default function ResumeWriterPage() {
           <div className="flex items-center gap-3">
             {resumeData?.imagePath && (
               <a href={resumeData.imagePath} target="_blank" rel="noopener noreferrer">
-                <button className="px-4 py-2 glass-button hover-lift text-white rounded-lg flex items-center gap-2 text-sm">
+                <button className="px-4 py-2 bg-slate-800/60 hover:bg-slate-700/60 backdrop-blur-xl text-white rounded-lg flex items-center gap-2 text-sm border border-slate-700 transition-all duration-300">
                   <Eye className="w-4 h-4" />
                   <span className="hidden sm:inline">View Original</span>
                 </button>
               </a>
             )}
             <Link href={`/resume/${resumeId}`}>
-              <button className="px-4 py-2 glass-button hover-lift text-white rounded-lg flex items-center gap-2 text-sm">
+              <button className="px-4 py-2 bg-slate-800/60 hover:bg-slate-700/60 backdrop-blur-xl text-white rounded-lg flex items-center gap-2 text-sm border border-slate-700 transition-all duration-300">
                 <FileText className="w-4 h-4" />
                 <span className="hidden sm:inline">Analysis</span>
               </button>
             </Link>
             <button
               onClick={handleExit}
-              className="p-2 rounded-lg text-slate-400 hover:bg-white/5 transition-colors"
+              className="p-2 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-slate-800/50 transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -348,15 +348,7 @@ export default function ResumeWriterPage() {
         </div>
       </div>
 
-      {/* Info Banner */}
-      <div className="glass-card border-b border-emerald-500/20 px-6 py-2.5 flex items-center gap-3 flex-shrink-0">
-        <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-        <p className="text-sm text-emerald-300">
-          Edit your resume with Word-like features • Copy text to AI panel for improvements
-        </p>
-      </div>
-
-      {/* Editor Panels - Full Screen */}
+      {/* Editor Panels - Full Screen Dark Mode */}
       <div className="flex-1 flex overflow-hidden min-h-0">
         <CustomEditorPanel
           initialContent={resumeContent}

@@ -7,7 +7,8 @@ import {
   Settings, CheckCircle2, XCircle, RefreshCw, ChevronDown,
   Save,
   History,
-  FileDown
+  FileDown,
+  ArrowRight,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -15,6 +16,8 @@ import { auth, db } from '@/firebase/client';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import { toast } from 'sonner';
+import FeedbackSurveyModal, { FeedbackData } from '@/components/FeedbackSurveyModal';
+import { useUsageTracking } from '@/lib/hooks/useUsageTracking';
 
 interface CoverLetterMetadata {
   usedResume: boolean;
@@ -53,7 +56,21 @@ export default function CoverLetterGeneratorPage() {
   const [currentFactIndex, setCurrentFactIndex] = useState(0);
   const [showToneMenu, setShowToneMenu] = useState(false);
 
-  // Fun facts about cover letters - useful tips in an engaging way
+  // Usage tracking states
+  const [showSurvey, setShowSurvey] = useState(false);
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
+
+  // Usage tracking hook
+  const {
+    canUseFeature,
+    getRemainingCount,
+    getLimit,
+    incrementUsage,
+    checkAndShowSurvey,
+    loading: usageLoading,
+  } = useUsageTracking();
+
+  // Fun facts about cover letters
   const coverLetterFacts = [
     "🎯 Recruiters spend just 7.4 seconds on your cover letter - start with a bang, not 'I am writing to apply...'",
     "🔥 The magic formula: Problem they have → Your solution → Proof it worked. That's it!",
@@ -178,6 +195,16 @@ export default function CoverLetterGeneratorPage() {
       return;
     }
 
+    // Check usage limit FIRST
+    if (!canUseFeature('coverLetters')) {
+      if (checkAndShowSurvey('coverLetters')) {
+        setShowSurvey(true);
+      } else {
+        setShowUpgradePrompt(true);
+      }
+      return;
+    }
+
     setIsGenerating(true);
     setError('');
     setGeneratedLetter('');
@@ -207,6 +234,10 @@ export default function CoverLetterGeneratorPage() {
       if (data.success && data.coverLetter) {
         setGeneratedLetter(data.coverLetter.content);
         setMetadata(data.metadata || null);
+        
+        // Increment usage count after successful generation
+        await incrementUsage('coverLetters');
+        
         toast.success('Cover letter generated successfully!');
       } else {
         throw new Error('Invalid response format');
@@ -256,7 +287,6 @@ export default function CoverLetterGeneratorPage() {
 
   const handleCopy = async () => {
     try {
-      // Remove markdown syntax before copying
       const plainText = generatedLetter.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1: $2');
       await navigator.clipboard.writeText(plainText);
       setCopied(true);
@@ -349,6 +379,28 @@ export default function CoverLetterGeneratorPage() {
     setIsSaved(false);
   };
 
+  const handleFeedbackSubmit = async (feedback: FeedbackData) => {
+    try {
+      const response = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(feedback),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit feedback');
+      }
+
+      setShowSurvey(false);
+      setShowUpgradePrompt(true);
+    } catch (error) {
+      console.error('Error submitting feedback:', error);
+      throw error;
+    }
+  };
+
   if (loading || profileStatus.loading) {
     return (
       <AnimatedLoader 
@@ -379,6 +431,9 @@ export default function CoverLetterGeneratorPage() {
     );
   }
 
+  const remainingCount = getRemainingCount('coverLetters');
+  const limit = getLimit('coverLetters');
+
   return (
     <div className="space-y-4 sm:space-y-6 px-4 sm:px-0">
       {/* Header */}
@@ -393,9 +448,22 @@ export default function CoverLetterGeneratorPage() {
               <h1 className="text-xl sm:text-2xl font-semibold text-white mb-1">
                 Cover Letter Generator
               </h1>
-              <p className="text-slate-400 text-xs sm:text-sm">
-                Generate personalized, professional cover letters
-              </p>
+              <div className="flex items-center gap-3">
+                <p className="text-slate-400 text-xs sm:text-sm">
+                  Generate personalized, professional cover letters
+                </p>
+                {!usageLoading && user && (
+                  <div className="text-xs text-slate-400">
+                    {remainingCount === -1 ? (
+                      <span className="text-emerald-400 font-medium">✨ Unlimited</span>
+                    ) : (
+                      <span>
+                        <span className="font-medium text-white">{remainingCount}</span> of {limit} remaining
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
             
             <Link
@@ -615,7 +683,7 @@ export default function CoverLetterGeneratorPage() {
                 )}
               </div>
 
-              {/* What Makes a Great Cover Letter - Show only when letter is generated */}
+              {/* What Makes a Great Cover Letter */}
               {generatedLetter && (
                 <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-white/5">
                   <h3 className="text-xs sm:text-sm font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
@@ -675,7 +743,6 @@ export default function CoverLetterGeneratorPage() {
 
                 {generatedLetter && (
                   <div className="flex items-center gap-2 w-full xs:w-auto">
-                    {/* Save Button */}
                     {!isSaved ? (
                       <button
                         onClick={handleSave}
@@ -714,7 +781,6 @@ export default function CoverLetterGeneratorPage() {
                       )}
                     </button>
                     
-                    {/* Download Dropdown */}
                     <div className="relative download-dropdown">
                       <button
                         onClick={() => setShowDownloadMenu(!showDownloadMenu)}
@@ -856,6 +922,85 @@ export default function CoverLetterGeneratorPage() {
           </div>
         </div>
       </div>
+
+      {/* Feedback Survey Modal */}
+      {user && (
+        <FeedbackSurveyModal
+          isOpen={showSurvey}
+          onClose={() => {
+            setShowSurvey(false);
+            setShowUpgradePrompt(true);
+          }}
+          onSubmit={handleFeedbackSubmit}
+          featureType="coverLetters"
+          userId={user.uid}
+        />
+      )}
+
+      {/* Upgrade Prompt Modal */}
+      {showUpgradePrompt && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Sparkles className="w-8 h-8 text-white" />
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-2">
+                Limit Reached
+              </h2>
+              <p className="text-slate-400">
+                You&apos;ve used all {limit} of your free cover letters this month
+              </p>
+            </div>
+
+            <div className="space-y-3 mb-6">
+              <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-white font-medium mb-1">Unlimited Access</p>
+                    <p className="text-sm text-slate-400">Generate unlimited cover letters</p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-white font-medium mb-1">All Premium Features</p>
+                    <p className="text-sm text-slate-400">Resume analysis, interviews, and more</p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-white font-medium mb-1">Priority Support</p>
+                    <p className="text-sm text-slate-400">Get help when you need it</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <Link
+                href="/subscription"
+                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white rounded-lg font-medium transition-all"
+              >
+                Upgrade Now
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <button
+                onClick={() => setShowUpgradePrompt(false)}
+                className="w-full px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-medium transition-colors"
+              >
+                Maybe Later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
+import { getStorage } from "firebase-admin/storage";
 
 // Initialize Firebase Admin SDK
 function initFirebaseAdmin() {
@@ -14,13 +15,15 @@ function initFirebaseAdmin() {
         // Replace newlines in the private key
         privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
       }),
+      storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
     });
   }
 
   return {
     auth: getAuth(),
     db: getFirestore(),
+    storage: getStorage(),
   };
 }
 
-export const { auth, db } = initFirebaseAdmin();
+export const { auth, db, storage } = initFirebaseAdmin();

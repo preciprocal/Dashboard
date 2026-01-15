@@ -213,14 +213,14 @@ export default function PlannerPage() {
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-[60vh] px-4">
-        <div className="glass-card-gradient hover-lift max-w-md w-full">
-          <div className="glass-card-gradient-inner text-center p-8 sm:p-12">
+        <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800 hover:border-slate-700 transition-all duration-300 max-w-md w-full">
+          <div className="text-center p-8 sm:p-12">
             <AlertCircle className="w-12 h-12 sm:w-16 sm:h-16 text-red-400 mx-auto mb-4" />
             <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">Authentication Required</h2>
-            <p className="text-sm sm:text-base text-slate-400 mb-6">Please log in to access your preparation plans</p>
+            <p className="text-sm sm:text-base text-slate-500 mb-6">Please log in to access your preparation plans</p>
             <Link 
               href="/sign-in"
-              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 py-3 rounded-xl w-full sm:w-auto justify-center"
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 inline-flex items-center gap-2 px-6 py-3 rounded-xl w-full sm:w-auto justify-center text-white transition-all duration-300"
             >
               Go to Login
             </Link>
@@ -232,21 +232,21 @@ export default function PlannerPage() {
 
   return (
     <div className="space-y-4 sm:space-y-6 px-4 sm:px-0">
-      {/* Clean Header */}
-      <div className="glass-card hover-lift">
+      {/* Clean Header - Dark Mode */}
+      <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800 hover:border-slate-700 transition-all duration-300">
         <div className="p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-xl sm:text-2xl font-semibold text-white mb-1">
                 Interview Planner
               </h1>
-              <p className="text-slate-400 text-xs sm:text-sm">
+              <p className="text-slate-500 text-xs sm:text-sm">
                 Manage your preparation plans
               </p>
             </div>
             <Link
               href="/planner/create"
-              className="glass-button-primary hover-lift flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm w-full sm:w-auto justify-center"
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm w-full sm:w-auto justify-center text-white transition-all duration-300"
             >
               <Plus className="w-4 h-4" />
               <span>New Plan</span>
@@ -255,9 +255,9 @@ export default function PlannerPage() {
         </div>
       </div>
 
-      {/* Plans Error */}
+      {/* Plans Error - Dark Mode */}
       {plansError && (
-        <div className="glass-card hover-lift">
+        <div className="bg-red-500/10 backdrop-blur-xl rounded-2xl border border-red-500/30">
           <div className="p-4">
             <div className="flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
@@ -268,7 +268,7 @@ export default function PlannerPage() {
                     setPlansError('');
                     loadUserPlans();
                   }}
-                  className="text-red-400 hover:text-red-300 text-xs sm:text-sm font-medium inline-flex items-center gap-2"
+                  className="text-red-400 hover:text-red-300 text-xs sm:text-sm font-medium inline-flex items-center gap-2 transition-colors"
                 >
                   <RefreshCw className="w-4 h-4" />
                   Try Again
@@ -279,70 +279,70 @@ export default function PlannerPage() {
         </div>
       )}
 
-      {/* Stats Grid */}
+      {/* Stats Grid - Dark Mode */}
       {!statsError && stats && plans.length > 0 && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <div className="glass-card hover-lift">
+          <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800 hover:border-slate-700 transition-all duration-300">
             <div className="p-4 sm:p-5">
               <div className="flex items-center justify-between mb-2 sm:mb-3">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-500/10 rounded-lg flex items-center justify-center border border-blue-500/20">
                   <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
                 </div>
                 <span className="text-xl sm:text-2xl font-semibold text-white">
                   {stats.activePlans}
                 </span>
               </div>
-              <p className="text-xs sm:text-sm text-slate-400">Active Plans</p>
+              <p className="text-xs sm:text-sm text-slate-500">Active Plans</p>
             </div>
           </div>
 
-          <div className="glass-card hover-lift">
+          <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800 hover:border-slate-700 transition-all duration-300">
             <div className="p-4 sm:p-5">
               <div className="flex items-center justify-between mb-2 sm:mb-3">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-orange-500/10 rounded-lg flex items-center justify-center">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-orange-500/10 rounded-lg flex items-center justify-center border border-orange-500/20">
                   <Flame className="w-4 h-4 sm:w-5 sm:h-5 text-orange-400" />
                 </div>
                 <span className="text-xl sm:text-2xl font-semibold text-white">
                   {stats.currentStreak}
                 </span>
               </div>
-              <p className="text-xs sm:text-sm text-slate-400">Day Streak</p>
+              <p className="text-xs sm:text-sm text-slate-500">Day Streak</p>
             </div>
           </div>
 
-          <div className="glass-card hover-lift">
+          <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800 hover:border-slate-700 transition-all duration-300">
             <div className="p-4 sm:p-5">
               <div className="flex items-center justify-between mb-2 sm:mb-3">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center border border-emerald-500/20">
                   <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
                 </div>
                 <span className="text-xl sm:text-2xl font-semibold text-white">
                   {stats.tasksCompleted}
                 </span>
               </div>
-              <p className="text-xs sm:text-sm text-slate-400">Completed</p>
+              <p className="text-xs sm:text-sm text-slate-500">Completed</p>
             </div>
           </div>
 
-          <div className="glass-card hover-lift">
+          <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800 hover:border-slate-700 transition-all duration-300">
             <div className="p-4 sm:p-5">
               <div className="flex items-center justify-between mb-2 sm:mb-3">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-500/10 rounded-lg flex items-center justify-center border border-purple-500/20">
                   <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
                 </div>
                 <span className="text-xl sm:text-2xl font-semibold text-white">
                   {stats.totalStudyHours}h
                 </span>
               </div>
-              <p className="text-xs sm:text-sm text-slate-400">Study Hours</p>
+              <p className="text-xs sm:text-sm text-slate-500">Study Hours</p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Stats Error */}
+      {/* Stats Error - Dark Mode */}
       {statsError && plans.length > 0 && (
-        <div className="glass-card hover-lift">
+        <div className="bg-yellow-500/10 backdrop-blur-xl rounded-2xl border border-yellow-500/30">
           <div className="p-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
               <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -354,7 +354,7 @@ export default function PlannerPage() {
                   setStatsError('');
                   loadUserStats();
                 }}
-                className="text-yellow-400 hover:text-yellow-300 text-xs sm:text-sm font-medium whitespace-nowrap"
+                className="text-yellow-400 hover:text-yellow-300 text-xs sm:text-sm font-medium whitespace-nowrap transition-colors"
               >
                 Retry
               </button>
@@ -363,28 +363,28 @@ export default function PlannerPage() {
         </div>
       )}
 
-      {/* Search & Filter */}
+      {/* Search & Filter - Dark Mode */}
       {plans.length > 0 && (
-        <div className="glass-card">
+        <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800">
           <div className="p-4 sm:p-5">
             <div className="flex flex-col sm:flex-row gap-3 mb-4">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search by role or company..."
-                  className="glass-input w-full pl-10 pr-4 py-2.5 rounded-lg text-white placeholder-slate-500 text-sm"
+                  className="bg-slate-800/60 backdrop-blur-xl border border-slate-700 w-full pl-10 pr-4 py-2.5 rounded-lg text-white placeholder-slate-600 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                 />
               </div>
 
               <div className="relative">
-                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600 pointer-events-none" />
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as 'date' | 'progress' | 'name')}
-                  className="glass-input pl-10 pr-4 py-2.5 rounded-lg text-white text-sm appearance-none cursor-pointer w-full sm:min-w-[160px]"
+                  className="bg-slate-800/60 backdrop-blur-xl border border-slate-700 pl-10 pr-4 py-2.5 rounded-lg text-white text-sm appearance-none cursor-pointer w-full sm:min-w-[160px] focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                 >
                   <option value="date">Latest First</option>
                   <option value="progress">By Progress</option>
@@ -393,7 +393,7 @@ export default function PlannerPage() {
               </div>
             </div>
 
-            {/* Filter Tabs */}
+            {/* Filter Tabs - Dark Mode */}
             <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1">
               {[
                 { value: 'all' as const, label: 'All', count: plans.length },
@@ -406,7 +406,7 @@ export default function PlannerPage() {
                   className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 ${
                     filter === tab.value
                       ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
-                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                      : 'text-slate-500 hover:text-white hover:bg-slate-800/60'
                   }`}
                 >
                   {tab.label} <span className="opacity-60">({tab.count})</span>
@@ -417,12 +417,12 @@ export default function PlannerPage() {
         </div>
       )}
 
-      {/* Plans Grid or Empty State */}
+      {/* Plans Grid or Empty State - Dark Mode */}
       {filteredPlans.length === 0 ? (
-        <div className="glass-card">
+        <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800">
           <div className="text-center py-12 sm:py-16 px-4 sm:px-6">
-            <div className="w-14 h-14 sm:w-16 sm:h-16 bg-slate-800/50 rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-6">
-              {searchQuery ? <Search className="w-7 h-7 sm:w-8 sm:h-8 text-slate-400" /> : <Calendar className="w-7 h-7 sm:w-8 sm:h-8 text-slate-400" />}
+            <div className="w-14 h-14 sm:w-16 sm:h-16 bg-slate-800/60 rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-6 border border-slate-700">
+              {searchQuery ? <Search className="w-7 h-7 sm:w-8 sm:h-8 text-slate-500" /> : <Calendar className="w-7 h-7 sm:w-8 sm:h-8 text-slate-500" />}
             </div>
             <h3 className="text-lg sm:text-xl font-semibold text-white mb-2">
               {searchQuery 
@@ -431,7 +431,7 @@ export default function PlannerPage() {
                   ? 'No plans yet' 
                   : `No ${filter} plans`}
             </h3>
-            <p className="text-sm sm:text-base text-slate-400 mb-6 sm:mb-8 max-w-md mx-auto">
+            <p className="text-sm sm:text-base text-slate-500 mb-6 sm:mb-8 max-w-md mx-auto">
               {searchQuery 
                 ? 'Try adjusting your search criteria'
                 : filter === 'all' 
@@ -441,7 +441,7 @@ export default function PlannerPage() {
             {filter === 'all' && !searchQuery && (
               <Link
                 href="/planner/create"
-                className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 py-3 rounded-lg text-sm w-full sm:w-auto justify-center max-w-xs mx-auto sm:mx-0"
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 inline-flex items-center gap-2 px-6 py-3 rounded-lg text-sm w-full sm:w-auto justify-center max-w-xs mx-auto sm:mx-0 text-white transition-all duration-300"
               >
                 <Plus className="w-5 h-5" />
                 <span>Create Plan</span>
@@ -461,19 +461,19 @@ export default function PlannerPage() {
         </div>
       )}
 
-      {/* Upcoming Interviews Alert */}
+      {/* Upcoming Interviews Alert - Dark Mode */}
       {stats && stats.upcomingInterviews > 0 && (
-        <div className="glass-card hover-lift">
+        <div className="bg-amber-500/10 backdrop-blur-xl rounded-2xl border border-amber-500/30">
           <div className="p-4 sm:p-5">
             <div className="flex items-start gap-3 sm:gap-4">
-              <div className="w-10 h-10 bg-amber-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+              <div className="w-10 h-10 bg-amber-500/20 rounded-lg flex items-center justify-center flex-shrink-0 border border-amber-500/30">
                 <Calendar className="w-5 h-5 text-amber-400" />
               </div>
               <div className="min-w-0 flex-1">
                 <h4 className="font-medium text-white mb-1 text-sm sm:text-base">
                   Upcoming Interviews
                 </h4>
-                <p className="text-slate-400 text-xs sm:text-sm break-words">
+                <p className="text-amber-400/90 text-xs sm:text-sm break-words">
                   You have {stats.upcomingInterviews} interview{stats.upcomingInterviews > 1 ? 's' : ''} scheduled. Stay consistent with your preparation.
                 </p>
               </div>
@@ -482,9 +482,9 @@ export default function PlannerPage() {
         </div>
       )}
 
-      {/* Feature Overview for Empty State */}
+      {/* Feature Overview for Empty State - Dark Mode */}
       {plans.length === 0 && (
-        <div className="glass-card">
+        <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800">
           <div className="p-4 sm:p-6">
             <h3 className="text-base sm:text-lg font-semibold text-white mb-4 sm:mb-6 text-center">
               What you can do with Interview Planner
@@ -508,11 +508,11 @@ export default function PlannerPage() {
                 }
               ].map((feature, index) => (
                 <div key={index} className="text-center">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-800/50 rounded-lg flex items-center justify-center mx-auto mb-3">
-                    <feature.icon className="w-5 h-5 sm:w-6 sm:h-6 text-slate-400" />
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-800/60 rounded-lg flex items-center justify-center mx-auto mb-3 border border-slate-700">
+                    <feature.icon className="w-5 h-5 sm:w-6 sm:h-6 text-slate-500" />
                   </div>
                   <h4 className="font-medium text-white text-sm mb-2">{feature.title}</h4>
-                  <p className="text-slate-400 text-xs leading-relaxed">{feature.description}</p>
+                  <p className="text-slate-500 text-xs leading-relaxed">{feature.description}</p>
                 </div>
               ))}
             </div>

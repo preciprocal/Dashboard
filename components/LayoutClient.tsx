@@ -1,6 +1,6 @@
 // components/LayoutClient.tsx
 "use client"
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, createContext } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import NextImage from 'next/image';
@@ -33,6 +33,11 @@ import { useNotifications } from '@/lib/hooks/useNotifications';
 import NotificationCenter from '@/components/Notifications';
 import type { LucideIcon } from 'lucide-react';
 import { Toaster } from 'sonner';
+
+interface ThemeContextType {
+  darkMode: boolean;
+  toggleTheme: () => void;
+}
 
 interface LayoutClientProps {
   children: React.ReactNode;
@@ -107,6 +112,40 @@ const PUBLIC_ROUTES = [
 
 // Define routes that should redirect authenticated users
 const AUTH_ROUTES = ['/sign-in', '/sign-up', '/forgot-password'];
+
+const ThemeContext = createContext<ThemeContextType | null>(null);
+
+const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
+  const [darkMode, setDarkMode] = useState(true);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const savedTheme = localStorage.getItem('theme');
+    const isDark = savedTheme ? savedTheme === 'dark' : true;
+    setDarkMode(isDark);
+    document.documentElement.classList.toggle('dark', isDark);
+  }, []);
+
+  useEffect(() => {
+    if (mounted) {
+      document.documentElement.classList.toggle('dark', darkMode);
+    }
+  }, [darkMode, mounted]);
+
+  const toggleTheme = () => {
+    const newMode = !darkMode;
+    setDarkMode(newMode);
+    localStorage.setItem('theme', newMode ? 'dark' : 'light');
+    document.documentElement.classList.toggle('dark', newMode);
+  };
+
+  return (
+    <ThemeContext.Provider value={{ darkMode, toggleTheme }}>
+      {mounted ? children : <div className="min-h-screen bg-slate-900" />}
+    </ThemeContext.Provider>
+  );
+};
 
 const useResumeCount = () => {
   const [user] = useAuthState(auth);
@@ -951,9 +990,11 @@ export default function LayoutClient({ children, user, userStats }: LayoutClient
   return (
     <>
       <Toaster position="top-right" richColors />
-      <LayoutContent user={user} userStats={userStats}>
-        {children}
-      </LayoutContent>
+      <ThemeProvider>
+        <LayoutContent user={user} userStats={userStats}>
+          {children}
+        </LayoutContent>
+      </ThemeProvider>
     </>
   );
 }

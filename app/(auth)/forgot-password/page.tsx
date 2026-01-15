@@ -95,9 +95,9 @@ const ForgotPasswordPage = () => {
                 className="rounded-2xl shadow-2xl"
                 priority
               />
-              <h1 className="text-5xl font-black tracking-tight">Preciprocal</h1>
+              <h1 className="text-5xl font-black tracking-tight text-white">Preciprocal</h1>
             </div>
-            <h2 className="text-4xl font-bold mb-5 leading-tight tracking-tight">
+            <h2 className="text-4xl font-bold mb-5 leading-tight tracking-tight text-white">
               Secure Password Recovery
             </h2>
             <p className="text-lg text-slate-400 leading-relaxed max-w-lg">

@@ -1,25 +1,48 @@
 // app/api/feedback/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import { getFeedbackByInterviewId } from "@/lib/actions/general.action";
+import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/firebase/admin';
+import { getCurrentUser } from '@/lib/actions/auth.action';
 
 export async function POST(request: NextRequest) {
   try {
-    const { interviewId, userId } = await request.json();
+    const user = await getCurrentUser();
 
-    if (!interviewId || !userId) {
+    if (!user) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const feedbackData = await request.json();
+
+    if (!feedbackData.featureType || !feedbackData.rating) {
+      return NextResponse.json(
+        { error: 'Missing required fields' },
         { status: 400 }
       );
     }
 
-    const feedback = await getFeedbackByInterviewId({ interviewId, userId });
+    // Save feedback to Firestore
+    const feedbackRef = db.collection('feedback').doc();
+    await feedbackRef.set({
+      ...feedbackData,
+      userId: user.id,
+      timestamp: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+    });
 
-    return NextResponse.json({ feedback });
+    // Optionally: Send notification to admin/slack
+    // await sendSlackNotification(feedbackData);
+
+    return NextResponse.json({
+      success: true,
+      message: 'Feedback submitted successfully',
+    });
   } catch (error) {
-    console.error("Error fetching feedback:", error);
+    console.error('Error saving feedback:', error);
     return NextResponse.json(
-      { error: "Internal Server Error" },
+      { error: 'Failed to save feedback' },
       { status: 500 }
     );
   }

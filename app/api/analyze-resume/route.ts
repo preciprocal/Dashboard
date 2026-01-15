@@ -186,9 +186,12 @@ async function performResumeAnalysisWithTextExtraction(dataUrl: string, jobTitle
     console.log('⚠️ No API key found - using enhanced mock analysis with text');
     
     const mockFeedback = createDetailedMockAnalysis(jobTitle, jobDescription);
+    const mockText = generateMockExtractedText();
+    
     return NextResponse.json({ 
       feedback: mockFeedback,
-      extractedText: generateMockExtractedText(),
+      extractedText: mockText,
+      resumeText: mockText, // Add this for compatibility
       meta: {
         timestamp: new Date().toISOString(),
         model: 'professional-comprehensive-mock-with-text',
@@ -200,22 +203,41 @@ async function performResumeAnalysisWithTextExtraction(dataUrl: string, jobTitle
   }
 
   try {
-    console.log('🤖 Extracting text content with Gemini...');
+    console.log('🤖 Extracting comprehensive resume data with Gemini...');
 
-    // Step 1: Extract complete text from resume image
+    // ENHANCED: Extract complete text with better structure preservation
     const textExtractionPrompt = `
-Extract ALL readable text from this resume image with complete accuracy.
+Extract ALL text from this resume image with MAXIMUM accuracy and detail.
 
-INSTRUCTIONS:
-- Capture every word, number, date, and detail exactly as written
-- Preserve original structure and formatting
-- Include section headers, job titles, dates, descriptions
-- Maintain line breaks and organization
-- Don't interpret or modify - just extract exactly what's visible
-- Include contact information, skills lists, education details
-- Capture all bullet points and descriptions completely
+CRITICAL INSTRUCTIONS:
+1. Capture EVERY word, number, date, email, phone number, URL exactly as shown
+2. Preserve ALL section headers (Education, Experience, Skills, Projects, etc.)
+3. Include ALL job titles, company names, dates, locations
+4. Extract ALL bullet points and descriptions completely
+5. Capture ALL technical skills, tools, frameworks, languages
+6. Include ALL education details (degrees, universities, GPAs, dates)
+7. Extract ALL project names, descriptions, and technologies used
+8. Maintain original structure and hierarchy
+9. Include contact information (name, email, phone, LinkedIn, GitHub, etc.)
+10. Preserve all formatting cues (bullets, dates, locations)
 
-Return only the extracted text, maintaining the original structure.
+OUTPUT FORMAT:
+Return the text maintaining clear structure with:
+- Section headers on their own lines
+- Job/education entries with company/school, title/degree, location, dates
+- Bullet points clearly marked
+- Skills grouped together
+- All content verbatim from the image
+
+COMPLETENESS CHECK:
+- Did you get the person's name?
+- Did you get contact info (email, phone)?
+- Did you get ALL job experiences with dates?
+- Did you get ALL education entries?
+- Did you get ALL technical skills?
+- Did you get ALL projects?
+
+Return ONLY the extracted text with complete accuracy.
     `;
 
     const textResponse = await generateText({
@@ -228,54 +250,106 @@ Return only the extracted text, maintaining the original structure.
             { type: "image", image: dataUrl }
           ]
         }
-      ]
+      ],
+      maxTokens: 4096, // Increase token limit for longer resumes
+      temperature: 0.1 // Lower temperature for more accurate extraction
     });
 
     const extractedText = textResponse.text.trim();
     console.log('📝 Text extracted successfully. Length:', extractedText.length);
+    console.log('📝 Preview:', extractedText.substring(0, 200) + '...');
+
+    // Validate extraction quality
+    if (extractedText.length < 100) {
+      console.warn('⚠️ Extracted text seems too short, may be incomplete');
+    }
 
     // Step 2: Analyze the resume using both image and extracted text
     const analysisPrompt = `
-Analyze this resume comprehensively as an expert recruiter.
+Analyze this resume comprehensively as an expert recruiter and career coach.
 
-EXTRACTED RESUME TEXT:
+COMPLETE RESUME TEXT:
 ${extractedText}
 
-ANALYSIS CONTEXT:
-Target Role: ${jobTitle || 'Professional position'}
-Job Requirements: ${jobDescription || 'Standard professional requirements'}
+TARGET POSITION CONTEXT:
+${jobTitle ? `Target Role: ${jobTitle}` : 'General professional position'}
+${jobDescription ? `Job Requirements:\n${jobDescription}` : 'Standard professional requirements'}
 
-EVALUATION FRAMEWORK:
+COMPREHENSIVE EVALUATION FRAMEWORK:
 
-ATS COMPATIBILITY (0-100): 
-Examine formatting, keywords, structure for ATS parsing. Check section headers, bullet formatting, date consistency, contact info, and keyword placement.
+1. ATS COMPATIBILITY (0-100):
+Examine formatting, keywords, structure for ATS parsing success.
+Check:
+- Section headers (clear and standard?)
+- Bullet formatting (consistent?)
+- Date formatting (uniform?)
+- Contact information (complete and correct?)
+- Keyword placement (strategic and relevant?)
+- File parsability (clean structure?)
 
-CONTENT QUALITY (0-100): 
-Evaluate achievements, metrics, relevance, impact. Analyze action verbs, quantifiable results, technical depth, career progression, role alignment.
+2. CONTENT QUALITY (0-100):
+Evaluate achievements, metrics, relevance, and impact.
+Analyze:
+- Action verbs (strong and varied?)
+- Quantifiable results (specific numbers and percentages?)
+- Technical depth (detailed and current?)
+- Career progression (clear advancement?)
+- Role alignment (matches target job?)
+- Achievement statements (compelling?)
 
-STRUCTURE (0-100): 
-Assess layout, consistency, visual hierarchy, readability. Review information flow, formatting consistency, white space, professional appearance.
+3. STRUCTURE (0-100):
+Assess layout, consistency, visual hierarchy, and readability.
+Review:
+- Information flow (logical order?)
+- Formatting consistency (uniform throughout?)
+- White space (optimal balance?)
+- Professional appearance (polished and clean?)
+- Section organization (intuitive?)
+- Length (appropriate for experience level?)
 
-SKILLS (0-100): 
-Review keyword optimization, organization, relevance. Evaluate job matching, skill categorization, technology currency, industry standards.
+4. SKILLS (0-100):
+Review keyword optimization, organization, and relevance.
+Evaluate:
+- Job matching (aligns with target role?)
+- Skill categorization (well organized?)
+- Technology currency (up-to-date tools?)
+- Industry standards (includes expected skills?)
+- Depth indicators (proficiency levels?)
+- Completeness (comprehensive coverage?)
 
-TONE & STYLE (0-100): 
-Analyze language, grammar, professional communication. Check consistency, clarity, appropriate terminology, confidence.
+5. TONE & STYLE (0-100):
+Analyze language, grammar, and professional communication.
+Check:
+- Consistency (uniform throughout?)
+- Clarity (easy to understand?)
+- Professional terminology (appropriate language?)
+- Confidence (strong without arrogance?)
+- Grammar (error-free?)
+- Conciseness (no fluff?)
 
 SCORING STANDARDS:
-- 90+: Exceptional, FAANG-ready
-- 80-89: Excellent, minor improvements  
-- 70-79: Good foundation, several updates needed
-- 60-69: Average, significant work required
-- <60: Major overhaul needed
+- 90-100: Exceptional, FAANG-ready, minimal improvements needed
+- 80-89: Excellent, strong candidate, minor polish required
+- 70-79: Good foundation, several improvements will enhance results
+- 60-69: Average, significant work needed for competitive advantage
+- 50-59: Below average, major overhaul required
+- <50: Needs complete restructuring
 
-Provide exactly 4-5 tips per category with honest scoring. Be specific and actionable.
+FEEDBACK REQUIREMENTS:
+- Provide exactly 4-5 actionable tips per category
+- Be specific with concrete examples where possible
+- Be honest and realistic with scoring
+- Focus on high-impact improvements
+- Consider the target role context
+- Prioritize changes that matter most
+
+Generate comprehensive, professional feedback that helps improve interview chances.
     `;
 
     const { object } = await generateObject({
       model: google("gemini-2.5-flash"),
       schema: resumeFeedbackSchema,
-      system: "You are Sarah Chen, a senior resume analyst with 15+ years of recruiting experience at top tech companies like Google, Amazon, and Microsoft. Provide detailed, actionable feedback with honest scoring based on industry standards.",
+      system: "You are Sarah Chen, a senior resume analyst with 15+ years of recruiting experience at top tech companies like Google, Amazon, Microsoft, and Meta. You've reviewed over 50,000 resumes and know exactly what gets interviews. Provide detailed, actionable feedback with honest scoring based on real industry standards. Be thorough, professional, and genuinely helpful.",
       messages: [
         {
           role: "user", 
@@ -284,44 +358,61 @@ Provide exactly 4-5 tips per category with honest scoring. Be specific and actio
             { type: "image", image: dataUrl }
           ]
         }
-      ]
+      ],
+      temperature: 0.3 // Balanced for quality analysis
     });
 
     const processedObject = processAnalysisObject(object);
     
-    console.log('✅ Analysis completed successfully with text extraction');
+    // Store the extracted text in the feedback object for later use
+    const feedbackWithText = {
+      ...processedObject,
+      resumeText: extractedText // Store for job recommendations
+    };
+    
+    console.log('✅ Analysis completed successfully with comprehensive text extraction');
     
     return NextResponse.json({ 
-      feedback: processedObject,
+      feedback: feedbackWithText,
       extractedText: extractedText,
+      resumeText: extractedText, // Duplicate for compatibility
       meta: {
         timestamp: new Date().toISOString(),
         model: 'gemini-2.5-flash',
-        version: '5.0-with-text-extraction',
-        type: 'expert-ai-analysis',
+        version: '6.0-enhanced-extraction',
+        type: 'expert-ai-analysis-comprehensive',
         textExtracted: true,
         textLength: extractedText.length,
-        hasJobContext: !!(jobTitle || jobDescription)
+        hasJobContext: !!(jobTitle || jobDescription),
+        extractionQuality: extractedText.length >= 500 ? 'excellent' : 
+                          extractedText.length >= 200 ? 'good' : 'needs_review'
       }
     });
 
   } catch (error) {
     console.error('❌ AI analysis failed:', error);
     
-    // Fallback with realistic extracted text
+    // Enhanced fallback with realistic extracted text
     const fallbackAnalysis = createDetailedMockAnalysis(jobTitle, jobDescription);
     const mockText = generateMockExtractedText();
     
+    const fallbackWithText = {
+      ...fallbackAnalysis,
+      resumeText: mockText
+    };
+    
     return NextResponse.json({ 
-      feedback: fallbackAnalysis,
+      feedback: fallbackWithText,
       extractedText: mockText,
+      resumeText: mockText,
       meta: {
         timestamp: new Date().toISOString(),
-        model: 'professional-fallback-with-text',
+        model: 'professional-fallback-enhanced',
         type: 'ai-error-recovery',
         note: 'AI service issue - professional analysis with text provided',
         textExtracted: true,
-        textLength: mockText.length
+        textLength: mockText.length,
+        fallback: true
       }
     });
   }
@@ -591,6 +682,13 @@ function processAnalysisObject(object: z.infer<typeof resumeFeedbackSchema>) {
         ...tip,
         explanation: tip.explanation || `${tip.tip} - Skills optimization advice.`
       }))
+    },
+    ATS: {
+      ...object.ATS,
+      tips: object.ATS.tips.map((tip) => ({
+        ...tip,
+        explanation: tip.explanation || `${tip.tip} - ATS compatibility improvement.`
+      }))
     }
   };
 
@@ -618,23 +716,30 @@ function createDetailedMockAnalysis(jobTitle: string, jobDescription: string) {
       tips: [
         {
           type: "good" as const,
-          tip: "Standard section headers used correctly"
+          tip: "Standard section headers used correctly",
+          explanation: "Resume uses industry-standard headers like 'Experience', 'Education', 'Skills' that ATS systems easily recognize and parse."
         },
         {
           type: "improve" as const,
-          tip: "Add more keywords from job description"
+          tip: "Add more keywords from job description",
+          explanation: "Increase keyword density by incorporating exact terms from job postings. This improves ATS matching scores significantly."
         },
         {
           type: "improve" as const, 
-          tip: hasJobContext ? `Include ${jobTitle} specific terminology` : "Include more industry-specific terminology"
+          tip: hasJobContext ? `Include ${jobTitle} specific terminology` : "Include more industry-specific terminology",
+          explanation: hasJobContext ? 
+            `Add technical terms and phrases specific to ${jobTitle} roles to improve relevance scoring in ATS systems.` :
+            "Use industry-standard terminology and acronyms that hiring managers expect to see in your field."
         },
         {
           type: "good" as const,
-          tip: "Professional contact information format"
+          tip: "Professional contact information format",
+          explanation: "Contact details are clearly formatted and include essential information for recruiter outreach."
         },
         {
           type: "improve" as const,
-          tip: "Ensure consistent date formatting throughout"
+          tip: "Ensure consistent date formatting throughout",
+          explanation: "Use uniform date format (e.g., 'Jan 2022 - Present' or 'January 2022 - Present') across all sections for better ATS parsing."
         }
       ]
     },
@@ -687,6 +792,11 @@ function createDetailedMockAnalysis(jobTitle: string, jobDescription: string) {
           explanation: hasJobContext ? 
             `Focus on experience directly relevant to ${jobTitle} role requirements and technologies mentioned in the job description.` :
             "Emphasize technical projects, leadership experience, and achievements most relevant to your target industry."
+        },
+        {
+          type: "improve" as const,
+          tip: "Use STAR method for achievement descriptions",
+          explanation: "Structure bullets using Situation-Task-Action-Result format to demonstrate problem-solving and quantifiable impact."
         }
       ]
     },
@@ -739,6 +849,11 @@ function createDetailedMockAnalysis(jobTitle: string, jobDescription: string) {
           type: "improve" as const,
           tip: "Add proficiency context",
           explanation: "Include experience levels: 'Python (Expert, 5+ years)', 'React (Advanced, 3+ years)' for credibility."
+        },
+        {
+          type: "improve" as const,
+          tip: "Include certifications and training",
+          explanation: "Add relevant certifications like AWS Certified, PMP, or industry-specific credentials to strengthen technical credibility."
         }
       ]
     }
@@ -747,63 +862,78 @@ function createDetailedMockAnalysis(jobTitle: string, jobDescription: string) {
 
 function generateMockExtractedText(): string {
   return `NEERAJ KOLANER
-Software Engineer | neeraj.k@gmail.com | (617) 555-0123 | LinkedIn: linkedin.com/in/neerajkolaner
+Software Engineer | neeraj.k@gmail.com | (617) 555-0123
+LinkedIn: linkedin.com/in/neerajkolaner | GitHub: github.com/neerajkolaner
 
 EDUCATION
+
 Northeastern University, Boston, MA
 Bachelor of Science in Computer Science | Expected May 2024
-Relevant Coursework: Data Structures, Algorithms, Database Systems, Software Engineering
+Relevant Coursework: Data Structures, Algorithms, Database Systems, Software Engineering, Web Development
 GPA: 3.7/4.0
 
 Sardar Patel Institute of Technology, Mumbai, India
 Bachelor of Engineering in Computer Engineering | July 2024
 
 TECHNICAL SKILLS
-Programming Languages: Java, Python, JavaScript, C++, SQL, HTML, CSS
-Frameworks & Libraries: React, Node.js, Express, Spring Boot, Django
-Tools & Technologies: Git, Docker, AWS, MongoDB, PostgreSQL, MySQL
-Development: RESTful APIs, Microservices, Agile Development, CI/CD
+
+Programming Languages: Java, Python, JavaScript, TypeScript, C++, SQL, HTML5, CSS3
+Frameworks & Libraries: React, Node.js, Express, Spring Boot, Django, Flask, Next.js
+Tools & Technologies: Git, Docker, Kubernetes, AWS, MongoDB, PostgreSQL, MySQL, Redis
+Development Practices: RESTful APIs, Microservices Architecture, Agile Development, CI/CD, Test-Driven Development
 
 PROFESSIONAL EXPERIENCE
+
 Software Engineering Intern | ABC Tech Solutions, Boston, MA | June 2023 - Present
-- Developed and maintained web applications using React and Node.js
-- Collaborated with cross-functional teams to deliver features ahead of schedule
-- Implemented RESTful APIs for data processing and user management
-- Optimized database queries resulting in 30% performance improvement
-- Participated in code reviews and maintained high code quality standards
+- Developed and maintained full-stack web applications using React, Node.js, and PostgreSQL serving 10,000+ users
+- Collaborated with cross-functional teams of 8 members to deliver 5 major features ahead of schedule
+- Implemented RESTful APIs for data processing and user management handling 50,000+ requests daily
+- Optimized database queries resulting in 30% performance improvement and reduced server costs by $5,000/month
+- Participated in code reviews and maintained 95% code quality standards across the development team
+- Built automated testing suite achieving 85% code coverage and reducing bug reports by 40%
 
 Logistics & Operations Assistant | XYZ Development Services, Boston, MA | Feb 2023 - June 2023
-- Managed inventory tracking systems and coordinated supply chain operations
-- Developed automated reporting tools using Python for operational efficiency
-- Analyzed data trends and provided insights for process improvement
-- Supported project management activities for construction projects
+- Managed inventory tracking systems and coordinated supply chain operations for 15+ active construction projects
+- Developed automated reporting tools using Python reducing manual data entry time by 60%
+- Analyzed operational data trends and provided insights that improved process efficiency by 25%
+- Supported project management activities ensuring on-time delivery of materials for projects worth $2M+
+- Created Excel dashboards for real-time inventory monitoring used by 12 team members daily
 
 PROJECTS
+
 E-commerce Web Application | Personal Project | Mar 2023 - May 2023
-- Built full-stack e-commerce platform using MERN stack
-- Implemented user authentication, payment processing, and inventory management
-- Deployed on AWS with CI/CD pipeline using GitHub Actions
-- Achieved 99.9% uptime with responsive design for mobile and desktop
+- Built comprehensive full-stack e-commerce platform using MERN stack (MongoDB, Express, React, Node.js)
+- Implemented user authentication with JWT, payment processing with Stripe, and real-time inventory management
+- Deployed on AWS EC2 with CI/CD pipeline using GitHub Actions achieving 99.9% uptime
+- Developed responsive design supporting mobile, tablet, and desktop with 500+ product listings
+- Integrated email notifications and order tracking system for enhanced user experience
 
 Task Management System | University Project | Jan 2023 - Mar 2023
-- Designed and developed collaborative task management application
-- Used React frontend with Node.js backend and PostgreSQL database
-- Implemented real-time updates using WebSocket technology
-- Led team of 4 developers using Agile methodologies
+- Designed and developed collaborative task management application for team coordination
+- Used React frontend with Node.js backend and PostgreSQL database supporting 100+ concurrent users
+- Implemented real-time updates using WebSocket technology for instant task synchronization
+- Led team of 4 developers using Agile methodologies with 2-week sprint cycles
+- Achieved 95% project completion rate and received A+ grade for technical implementation
 
-RELEVANT COURSEWORK & CERTIFICATIONS
-- Data Structures and Algorithms (Advanced)
-- Database Design and Management
-- Software Engineering Principles
-- Web Development Technologies
-- Cloud Computing Fundamentals
-- AWS Cloud Practitioner Certification (In Progress)
+Machine Learning Model Deployment | Academic Project | Sep 2022 - Dec 2022
+- Built and deployed predictive machine learning model using Python, TensorFlow, and scikit-learn
+- Processed dataset of 50,000+ records achieving 92% accuracy in classification tasks
+- Created Flask REST API for model serving with Docker containerization
+- Implemented data preprocessing pipeline reducing inference time by 40%
 
-ACHIEVEMENTS
+CERTIFICATIONS & ACHIEVEMENTS
+
+- AWS Certified Cloud Practitioner (In Progress - Expected Feb 2024)
 - Dean's List recognition for academic excellence (Fall 2022, Spring 2023)
 - Hackathon Winner - "Best Technical Innovation" at TechFest 2023
-- Active member of Computer Science Student Association
-- Volunteer tutor for introductory programming courses`;
+- Active member of Northeastern Computer Science Student Association
+- Volunteer tutor for introductory programming courses (CS1210, CS2500)
+
+ADDITIONAL INFORMATION
+
+Languages: English (Fluent), Hindi (Native), Marathi (Conversational)
+Interests: Open source contribution, Technical blogging, Competitive programming
+Portfolio: neerajkolaner.dev`;
 }
 
 interface MockFix {
@@ -822,13 +952,13 @@ function generateMockFixes(resumeContent: string): MockFix[] {
   // Generate realistic mock fixes based on the content
   const fixes: MockFix[] = [];
   
-  if (resumeContent.includes('responsible for')) {
+  if (resumeContent.toLowerCase().includes('responsible for')) {
     fixes.push({
       id: 'weak-verb-1',
       category: 'Content Enhancement',
       issue: 'Weak action verb reduces impact of achievements',
       originalText: 'responsible for managing software projects',
-      improvedText: 'Led cross-functional software development teams, delivering 8 projects ahead of schedule',
+      improvedText: 'Led cross-functional software development teams, delivering 8 projects ahead of schedule with 95% stakeholder satisfaction',
       explanation: 'Strong action verbs like "Led" demonstrate leadership and proactive ownership rather than passive responsibility',
       priority: 'high',
       impact: 'Increases perceived leadership capability by 60%',
@@ -836,7 +966,7 @@ function generateMockFixes(resumeContent: string): MockFix[] {
     });
   }
   
-  if (!resumeContent.includes('%') && !resumeContent.includes('$')) {
+  if (!resumeContent.includes('%') || resumeContent.split('%').length < 3) {
     fixes.push({
       id: 'missing-metrics-1',
       category: 'Content Enhancement',
@@ -862,17 +992,41 @@ function generateMockFixes(resumeContent: string): MockFix[] {
     });
   }
 
-  // Add a default fix if none were generated
+  if (resumeContent.toLowerCase().includes('worked on')) {
+    fixes.push({
+      id: 'weak-verb-2',
+      category: 'Content Enhancement',
+      issue: 'Passive language weakens achievement presentation',
+      originalText: 'Worked on web development projects',
+      improvedText: 'Architected and deployed 5 responsive web applications serving 10,000+ users with 99.9% uptime',
+      explanation: 'Specific achievements with metrics replace vague descriptions, demonstrating clear value delivery',
+      priority: 'high',
+      impact: 'Transforms generic statement into compelling accomplishment'
+    });
+  }
+
+  // Add default fixes if none were generated
   if (fixes.length === 0) {
     fixes.push({
       id: 'general-improvement-1',
       category: 'Content Enhancement',
       issue: 'Generic descriptions lack specific impact',
       originalText: 'Worked on various projects',
-      improvedText: 'Led development of 5 high-priority projects, resulting in 30% efficiency improvement',
+      improvedText: 'Led development of 5 high-priority projects, resulting in 30% efficiency improvement and $50K cost savings',
       explanation: 'Specific numbers and outcomes demonstrate tangible value and measurable contributions',
       priority: 'high',
       impact: 'Increases resume impact and memorability'
+    });
+    
+    fixes.push({
+      id: 'skill-organization-1',
+      category: 'Skills Optimization',
+      issue: 'Skills not optimally organized for ATS',
+      originalText: 'Skills: Python, JavaScript, React, AWS, SQL',
+      improvedText: 'Technical Skills: Languages: Python, JavaScript, SQL | Frameworks: React, Node.js | Cloud: AWS, Docker',
+      explanation: 'Categorized skills improve ATS parsing and make it easier for recruiters to quickly identify relevant expertise',
+      priority: 'medium',
+      impact: 'Improves ATS compatibility score by 15-20%'
     });
   }
 

@@ -339,11 +339,11 @@ const AuthForm = ({ type }: { type: FormType }) => {
                 className="rounded-2xl shadow-2xl"
                 priority
               />
-              <h1 className="text-5xl font-black tracking-tight">
+              <h1 className="text-5xl font-black tracking-tight text-white">
                 Preciprocal
               </h1>
             </div>
-            <h2 className="text-4xl font-bold mb-5 leading-tight tracking-tight">
+            <h2 className="text-4xl font-bold mb-5 leading-tight tracking-tight text-white">
               Tired of AI Taking Your Job?
               <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400">
@@ -640,7 +640,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
                       type="checkbox"
                       checked={rememberMe}
                       onChange={(e) => setRememberMe(e.target.checked)}
-                      className="w-4 h-4 text-purple-600 bg-slate-900 border-slate-700 rounded  cursor-pointer accent-purple-600"
+                      className="w-4 h-4 text-purple-600 bg-slate-900 border-slate-700 rounded cursor-pointer accent-purple-600"
                       style={{
                         colorScheme: "dark",
                       }}
@@ -651,7 +651,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
                   </label>
                   <Link
                     href="/forgot-password"
-                    className="text-sm text-purple-500 hover:text-purple-400 font-medium"
+                    className="text-sm text-purple-400 hover:text-purple-300 font-medium"
                   >
                     Forgot password?
                   </Link>
@@ -690,7 +690,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
                   ? `/sign-up?redirect=${encodeURIComponent(redirectUrl)}`
                   : "/sign-up"
               }
-              className="ml-1 text-purple-500 hover:text-purple-400 font-semibold"
+              className="ml-1 text-purple-400 hover:text-purple-300 font-semibold"
             >
               {!isSignIn ? "Sign in" : "Sign up"}
             </Link>

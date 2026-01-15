@@ -36,6 +36,15 @@ interface Subscription {
   lastPaymentAt: string | null;
 }
 
+interface Usage {
+  coverLettersUsed: number;
+  resumesUsed: number;
+  studyPlansUsed: number;
+  interviewsUsed: number;
+  lastReset: string;
+  lastUpdated?: string;
+}
+
 interface User {
   id: string;
   name: string;
@@ -45,11 +54,13 @@ interface User {
   updatedAt: string;
   lastLogin?: string;
   subscription?: Subscription;
+  usage?: Usage;
 }
 
 interface FirebaseTimestamp {
   toDate?: () => Date;
   _seconds?: number;
+  _nanoseconds?: number;
 }
 
 interface FirebaseError extends Error {
@@ -64,14 +75,15 @@ function convertTimestampToISO(timestamp: FirebaseTimestamp | Date | string | nu
     return new Date().toISOString();
   }
 
-  // Handle Firestore Timestamp object
+  // Handle Firestore Timestamp object with toDate method
   if (typeof timestamp === 'object' && 'toDate' in timestamp && typeof timestamp.toDate === 'function') {
     return timestamp.toDate().toISOString();
   }
 
   // Handle raw timestamp object with _seconds
   if (typeof timestamp === 'object' && '_seconds' in timestamp && timestamp._seconds !== undefined) {
-    return new Date(timestamp._seconds * 1000).toISOString();
+    const milliseconds = timestamp._seconds * 1000 + (timestamp._nanoseconds || 0) / 1000000;
+    return new Date(milliseconds).toISOString();
   }
 
   // Handle Date object
@@ -126,7 +138,7 @@ export async function signUp(params: SignUpParams) {
         message: "User already exists. Please sign in.",
       };
 
-    // save user to db with subscription data
+    // save user to db with subscription data AND usage tracking
     await db
       .collection("users")
       .doc(uid)
@@ -151,6 +163,14 @@ export async function signUp(params: SignUpParams) {
           currentPeriodEnd: null,
           canceledAt: null,
           lastPaymentAt: null,
+        },
+        // Initialize usage tracking for new users
+        usage: {
+          coverLettersUsed: 0,
+          resumesUsed: 0,
+          studyPlansUsed: 0,
+          interviewsUsed: 0,
+          lastReset: new Date().toISOString(),
         },
       });
 
@@ -237,6 +257,14 @@ export async function signIn(params: SignInParams) {
               canceledAt: null,
               lastPaymentAt: null,
             },
+            // Initialize usage tracking for OAuth users
+            usage: {
+              coverLettersUsed: 0,
+              resumesUsed: 0,
+              studyPlansUsed: 0,
+              interviewsUsed: 0,
+              lastReset: new Date().toISOString(),
+            },
           };
 
           await db.collection("users").doc(decodedToken.uid).set(userData);
@@ -259,6 +287,21 @@ export async function signIn(params: SignInParams) {
       }
     } else {
       console.log("User already exists in database");
+      
+      // Check if user has usage object, if not initialize it
+      const existingData = userRecord.data();
+      if (!existingData?.usage) {
+        console.log("Initializing usage tracking for existing user");
+        await db.collection("users").doc(decodedToken.uid).update({
+          usage: {
+            coverLettersUsed: 0,
+            resumesUsed: 0,
+            studyPlansUsed: 0,
+            interviewsUsed: 0,
+            lastReset: new Date().toISOString(),
+          },
+        });
+      }
     }
 
     // Set the session cookie
@@ -329,25 +372,69 @@ export async function getCurrentUser(): Promise<User | null> {
 
     const userData = userRecord.data();
 
-    // Serialize all timestamp fields to ISO strings
-    return {
-      ...userData,
+    // If usage doesn't exist, initialize it
+    if (userData && !userData.usage) {
+      console.log("⚠️ Usage data missing for user, initializing...");
+      const initialUsage = {
+        coverLettersUsed: 0,
+        resumesUsed: 0,
+        studyPlansUsed: 0,
+        interviewsUsed: 0,
+        lastReset: new Date().toISOString(),
+      };
+      
+      await db.collection("users").doc(decodedClaims.uid).update({
+        usage: initialUsage,
+      });
+      
+      userData.usage = initialUsage;
+    }
+
+    // Return null if userData doesn't exist
+    if (!userData) return null;
+
+    // Serialize all timestamp fields to ISO strings using helper
+    const serializedUser: User = {
       id: userRecord.id,
-      createdAt: convertTimestampToISO(userData?.createdAt),
-      updatedAt: convertTimestampToISO(userData?.updatedAt),
-      lastLogin: convertTimestampToISO(userData?.lastLogin),
-      subscription: userData?.subscription ? {
-        ...userData.subscription,
+      name: userData.name || '',
+      email: userData.email || '',
+      provider: userData.provider || 'email',
+      createdAt: convertTimestampToISO(userData.createdAt),
+      updatedAt: convertTimestampToISO(userData.updatedAt),
+      lastLogin: userData.lastLogin ? convertTimestampToISO(userData.lastLogin) : undefined,
+      subscription: userData.subscription ? {
+        plan: userData.subscription.plan || 'starter',
+        status: userData.subscription.status || 'active',
+        interviewsUsed: userData.subscription.interviewsUsed || 0,
+        interviewsLimit: userData.subscription.interviewsLimit || 10,
         createdAt: convertTimestampToISO(userData.subscription.createdAt),
         updatedAt: convertTimestampToISO(userData.subscription.updatedAt),
         trialEndsAt: userData.subscription.trialEndsAt ? convertTimestampToISO(userData.subscription.trialEndsAt) : null,
         subscriptionEndsAt: userData.subscription.subscriptionEndsAt ? convertTimestampToISO(userData.subscription.subscriptionEndsAt) : null,
+        stripeCustomerId: userData.subscription.stripeCustomerId || null,
+        stripeSubscriptionId: userData.subscription.stripeSubscriptionId || null,
         currentPeriodStart: userData.subscription.currentPeriodStart ? convertTimestampToISO(userData.subscription.currentPeriodStart) : null,
         currentPeriodEnd: userData.subscription.currentPeriodEnd ? convertTimestampToISO(userData.subscription.currentPeriodEnd) : null,
         canceledAt: userData.subscription.canceledAt ? convertTimestampToISO(userData.subscription.canceledAt) : null,
         lastPaymentAt: userData.subscription.lastPaymentAt ? convertTimestampToISO(userData.subscription.lastPaymentAt) : null,
       } : undefined,
-    } as User;
+      usage: userData.usage ? {
+        coverLettersUsed: userData.usage.coverLettersUsed || 0,
+        resumesUsed: userData.usage.resumesUsed || 0,
+        studyPlansUsed: userData.usage.studyPlansUsed || 0,
+        interviewsUsed: userData.usage.interviewsUsed || 0,
+        lastReset: convertTimestampToISO(userData.usage.lastReset),
+        lastUpdated: userData.usage.lastUpdated ? convertTimestampToISO(userData.usage.lastUpdated) : undefined,
+      } : {
+        coverLettersUsed: 0,
+        resumesUsed: 0,
+        studyPlansUsed: 0,
+        interviewsUsed: 0,
+        lastReset: new Date().toISOString(),
+      },
+    };
+
+    return serializedUser;
   } catch (error) {
     console.log("Error verifying session:", error);
     return null;
@@ -367,12 +454,13 @@ export async function updateUserProfile(
 ) {
   try {
     // Remove fields that shouldn't be updated
-    const { id, createdAt, subscription, ...updateData } = profileData;
+    const { id, createdAt, subscription, usage, ...updateData } = profileData;
     
     // Suppress unused variable warnings
     void id;
     void createdAt;
     void subscription;
+    void usage;
 
     // Add updatedAt timestamp
     const dataToUpdate = {
@@ -406,25 +494,51 @@ export async function getUserProfile(userId: string): Promise<User | null> {
 
     const userData = userDoc.data();
 
+    // Return null if userData doesn't exist
+    if (!userData) return null;
+
     // Serialize all timestamp fields to ISO strings
-    return {
-      ...userData,
+    const serializedUser: User = {
       id: userDoc.id,
-      createdAt: convertTimestampToISO(userData?.createdAt),
-      updatedAt: convertTimestampToISO(userData?.updatedAt),
-      lastLogin: convertTimestampToISO(userData?.lastLogin),
-      subscription: userData?.subscription ? {
-        ...userData.subscription,
+      name: userData.name || '',
+      email: userData.email || '',
+      provider: userData.provider || 'email',
+      createdAt: convertTimestampToISO(userData.createdAt),
+      updatedAt: convertTimestampToISO(userData.updatedAt),
+      lastLogin: userData.lastLogin ? convertTimestampToISO(userData.lastLogin) : undefined,
+      subscription: userData.subscription ? {
+        plan: userData.subscription.plan || 'starter',
+        status: userData.subscription.status || 'active',
+        interviewsUsed: userData.subscription.interviewsUsed || 0,
+        interviewsLimit: userData.subscription.interviewsLimit || 10,
         createdAt: convertTimestampToISO(userData.subscription.createdAt),
         updatedAt: convertTimestampToISO(userData.subscription.updatedAt),
         trialEndsAt: userData.subscription.trialEndsAt ? convertTimestampToISO(userData.subscription.trialEndsAt) : null,
         subscriptionEndsAt: userData.subscription.subscriptionEndsAt ? convertTimestampToISO(userData.subscription.subscriptionEndsAt) : null,
+        stripeCustomerId: userData.subscription.stripeCustomerId || null,
+        stripeSubscriptionId: userData.subscription.stripeSubscriptionId || null,
         currentPeriodStart: userData.subscription.currentPeriodStart ? convertTimestampToISO(userData.subscription.currentPeriodStart) : null,
         currentPeriodEnd: userData.subscription.currentPeriodEnd ? convertTimestampToISO(userData.subscription.currentPeriodEnd) : null,
         canceledAt: userData.subscription.canceledAt ? convertTimestampToISO(userData.subscription.canceledAt) : null,
         lastPaymentAt: userData.subscription.lastPaymentAt ? convertTimestampToISO(userData.subscription.lastPaymentAt) : null,
       } : undefined,
-    } as User;
+      usage: userData.usage ? {
+        coverLettersUsed: userData.usage.coverLettersUsed || 0,
+        resumesUsed: userData.usage.resumesUsed || 0,
+        studyPlansUsed: userData.usage.studyPlansUsed || 0,
+        interviewsUsed: userData.usage.interviewsUsed || 0,
+        lastReset: convertTimestampToISO(userData.usage.lastReset),
+        lastUpdated: userData.usage.lastUpdated ? convertTimestampToISO(userData.usage.lastUpdated) : undefined,
+      } : {
+        coverLettersUsed: 0,
+        resumesUsed: 0,
+        studyPlansUsed: 0,
+        interviewsUsed: 0,
+        lastReset: new Date().toISOString(),
+      },
+    };
+
+    return serializedUser;
   } catch (error) {
     console.error("Error getting user profile:", error);
     return null;

@@ -266,12 +266,12 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-4 sm:space-y-6 px-4 sm:px-0">
-      {/* Header - Responsive */}
-      <div className="glass-card hover-lift">
+      {/* Header - Dark Mode */}
+      <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800 hover:border-slate-700 transition-all duration-300">
         <div className="p-4 sm:p-6">
           <Link
             href="/dashboard"
-            className="inline-flex items-center text-xs sm:text-sm text-slate-400 hover:text-white mb-3 sm:mb-4 transition-colors"
+            className="inline-flex items-center text-xs sm:text-sm text-slate-500 hover:text-slate-300 mb-3 sm:mb-4 transition-colors"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Dashboard
@@ -279,14 +279,14 @@ export default function SettingsPage() {
           
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
             <div className="flex items-center gap-3 sm:gap-4">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-500/10 rounded-lg flex items-center justify-center">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-500/10 rounded-lg flex items-center justify-center border border-blue-500/20">
                 <Settings className="h-5 w-5 sm:h-6 sm:w-6 text-blue-400" />
               </div>
               <div>
                 <h1 className="text-xl sm:text-2xl font-semibold text-white mb-0.5 sm:mb-1">
                   App Settings
                 </h1>
-                <p className="text-slate-400 text-xs sm:text-sm">
+                <p className="text-slate-500 text-xs sm:text-sm">
                   Customize your Preciprocal experience
                 </p>
               </div>
@@ -296,7 +296,7 @@ export default function SettingsPage() {
               <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
                 <button
                   onClick={handleReset}
-                  className="flex-1 sm:flex-initial glass-button hover-lift text-white px-3 sm:px-4 py-2 rounded-lg flex items-center justify-center gap-2 text-xs sm:text-sm"
+                  className="flex-1 sm:flex-initial bg-slate-800/60 hover:bg-slate-700/60 backdrop-blur-xl text-white px-3 sm:px-4 py-2 rounded-lg flex items-center justify-center gap-2 text-xs sm:text-sm border border-slate-700 transition-all duration-300"
                 >
                   <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   <span className="hidden xs:inline">Reset</span>
@@ -304,7 +304,7 @@ export default function SettingsPage() {
                 <button
                   onClick={handleSave}
                   disabled={isSaving}
-                  className="flex-1 sm:flex-initial glass-button-primary hover-lift px-3 sm:px-4 py-2 rounded-lg flex items-center justify-center gap-2 text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 sm:flex-initial bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 px-3 sm:px-4 py-2 rounded-lg flex items-center justify-center gap-2 text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed text-white transition-all duration-300"
                 >
                   {isSaving ? (
                     <>
@@ -324,11 +324,11 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Settings Layout - Responsive */}
+      {/* Settings Layout - Dark Mode */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
-        {/* Sidebar - Responsive */}
+        {/* Sidebar - Dark Mode */}
         <div className="lg:col-span-1">
-          <div className="glass-card p-3 sm:p-4">
+          <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800 p-3 sm:p-4">
             <nav className="space-y-1 sm:space-y-2">
               {sections.map((section) => (
                 <button
@@ -337,7 +337,7 @@ export default function SettingsPage() {
                   className={`w-full text-left p-2.5 sm:p-3 rounded-lg transition-all ${
                     activeSection === section.id
                       ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
-                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                      : 'text-slate-500 hover:text-white hover:bg-slate-800/60'
                   }`}
                 >
                   <div className="flex items-center gap-2 sm:gap-3">
@@ -350,20 +350,20 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Main Content - Responsive */}
+        {/* Main Content - Dark Mode */}
         <div className="lg:col-span-3 space-y-4 sm:space-y-6">
           
           {/* Notifications */}
           {activeSection === 'notifications' && (
-            <div className="glass-card">
-              <div className="p-4 sm:p-6 border-b border-white/5">
+            <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800">
+              <div className="p-4 sm:p-6 border-b border-slate-800">
                 <div className="flex items-center gap-2 sm:gap-3">
-                  <div className="w-9 h-9 sm:w-10 sm:h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center">
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center border border-emerald-500/20">
                     <Bell className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-400" />
                   </div>
                   <div>
                     <h3 className="text-base sm:text-lg font-semibold text-white">Notification Settings</h3>
-                    <p className="text-slate-400 text-xs sm:text-sm">Manage how you receive updates</p>
+                    <p className="text-slate-500 text-xs sm:text-sm">Manage how you receive updates</p>
                   </div>
                 </div>
               </div>
@@ -377,10 +377,10 @@ export default function SettingsPage() {
                   { key: 'aiRecommendations', label: 'AI Recommendations', desc: 'Personalized study suggestions' },
                   { key: 'systemUpdates', label: 'System Updates', desc: 'Important platform announcements' },
                 ].map((item) => (
-                  <div key={item.key} className="flex items-center justify-between p-3 sm:p-4 rounded-lg border border-white/5 gap-3">
+                  <div key={item.key} className="flex items-center justify-between p-3 sm:p-4 rounded-lg border border-slate-800 gap-3 bg-slate-800/30">
                     <div className="flex-1 min-w-0">
                       <h4 className="text-white font-medium text-xs sm:text-sm">{item.label}</h4>
-                      <p className="text-slate-400 text-xs">{item.desc}</p>
+                      <p className="text-slate-500 text-xs">{item.desc}</p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
                       <input
@@ -400,15 +400,15 @@ export default function SettingsPage() {
           {/* Privacy & Security */}
           {activeSection === 'privacy' && (
             <div className="space-y-4 sm:space-y-6">
-              <div className="glass-card">
-                <div className="p-4 sm:p-6 border-b border-white/5">
+              <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800">
+                <div className="p-4 sm:p-6 border-b border-slate-800">
                   <div className="flex items-center gap-2 sm:gap-3">
-                    <div className="w-9 h-9 sm:w-10 sm:h-10 bg-orange-500/10 rounded-lg flex items-center justify-center">
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 bg-orange-500/10 rounded-lg flex items-center justify-center border border-orange-500/20">
                       <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-orange-400" />
                     </div>
                     <div>
                       <h3 className="text-base sm:text-lg font-semibold text-white">Privacy Settings</h3>
-                      <p className="text-slate-400 text-xs sm:text-sm">Control your data and privacy</p>
+                      <p className="text-slate-500 text-xs sm:text-sm">Control your data and privacy</p>
                     </div>
                   </div>
                 </div>
@@ -418,10 +418,10 @@ export default function SettingsPage() {
                     { key: 'shareAnalytics', label: 'Share Analytics', desc: 'Help improve the platform with anonymized data' },
                     { key: 'allowDataCollection', label: 'Data Collection', desc: 'Allow usage data collection for personalization' },
                   ].map((item) => (
-                    <div key={item.key} className="flex items-center justify-between p-3 sm:p-4 rounded-lg border border-white/5 gap-3">
+                    <div key={item.key} className="flex items-center justify-between p-3 sm:p-4 rounded-lg border border-slate-800 gap-3 bg-slate-800/30">
                       <div className="flex-1 min-w-0">
                         <h4 className="text-white font-medium text-xs sm:text-sm">{item.label}</h4>
-                        <p className="text-slate-400 text-xs">{item.desc}</p>
+                        <p className="text-slate-500 text-xs">{item.desc}</p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
                         <input
@@ -438,34 +438,34 @@ export default function SettingsPage() {
               </div>
 
               {/* Security Card */}
-              <div className="glass-card">
-                <div className="p-4 sm:p-6 border-b border-white/5">
+              <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800">
+                <div className="p-4 sm:p-6 border-b border-slate-800">
                   <div className="flex items-center gap-2 sm:gap-3">
-                    <div className="w-9 h-9 sm:w-10 sm:h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center">
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center border border-emerald-500/20">
                       <Key className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-400" />
                     </div>
                     <div>
                       <h3 className="text-base sm:text-lg font-semibold text-white">Security</h3>
-                      <p className="text-slate-400 text-xs sm:text-sm">Protect your account</p>
+                      <p className="text-slate-500 text-xs sm:text-sm">Protect your account</p>
                     </div>
                   </div>
                 </div>
 
                 <div className="p-4 sm:p-6">
-                  <div className="glass-card p-3 sm:p-4 border border-emerald-500/20">
+                  <div className="bg-slate-800/60 backdrop-blur-xl rounded-xl p-3 sm:p-4 border border-emerald-500/20">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                       <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
-                        <div className="w-9 h-9 sm:w-10 sm:h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center flex-shrink-0 border border-emerald-500/20">
                           <Key className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-400" />
                         </div>
                         <div className="min-w-0">
                           <h4 className="text-white font-medium text-xs sm:text-sm">Two-Factor Authentication</h4>
-                          <p className="text-slate-400 text-xs">Add an extra layer of security</p>
+                          <p className="text-slate-500 text-xs">Add an extra layer of security</p>
                         </div>
                       </div>
                       <button
                         onClick={() => toast.info('2FA setup coming soon')}
-                        className="glass-button-primary hover-lift px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm w-full sm:w-auto"
+                        className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm w-full sm:w-auto text-white transition-all duration-300"
                       >
                         Enable
                       </button>
@@ -475,32 +475,32 @@ export default function SettingsPage() {
               </div>
 
               {/* Data Management Card */}
-              <div className="glass-card">
-                <div className="p-4 sm:p-6 border-b border-white/5">
+              <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800">
+                <div className="p-4 sm:p-6 border-b border-slate-800">
                   <div className="flex items-center gap-2 sm:gap-3">
-                    <div className="w-9 h-9 sm:w-10 sm:h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 bg-blue-500/10 rounded-lg flex items-center justify-center border border-blue-500/20">
                       <Database className="h-4 w-4 sm:h-5 sm:w-5 text-blue-400" />
                     </div>
                     <div>
                       <h3 className="text-base sm:text-lg font-semibold text-white">Your Data</h3>
-                      <p className="text-slate-400 text-xs sm:text-sm">Export or delete your data</p>
+                      <p className="text-slate-500 text-xs sm:text-sm">Export or delete your data</p>
                     </div>
                   </div>
                 </div>
 
                 <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
                   {/* Export Data */}
-                  <div className="glass-card p-3 sm:p-4 border border-blue-500/20">
+                  <div className="bg-slate-800/60 backdrop-blur-xl rounded-xl p-3 sm:p-4 border border-blue-500/20">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                       <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
-                        <div className="w-9 h-9 sm:w-10 sm:h-10 bg-blue-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 bg-blue-500/10 rounded-lg flex items-center justify-center flex-shrink-0 border border-blue-500/20">
                           <Download className="h-4 w-4 sm:h-5 sm:w-5 text-blue-400" />
                         </div>
                         <div className="min-w-0">
                           <h4 className="text-white font-medium text-xs sm:text-sm mb-0.5 sm:mb-1">
                             Request Data Report
                           </h4>
-                          <p className="text-slate-400 text-xs">
+                          <p className="text-slate-500 text-xs">
                             Request a complete PDF report of all your data. You will receive it via email within 24 hours.
                           </p>
                         </div>
@@ -508,7 +508,7 @@ export default function SettingsPage() {
                       <button
                         onClick={handleExportData}
                         disabled={isExporting}
-                        className="glass-button-primary hover-lift px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium flex items-center gap-2 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto justify-center"
+                        className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium flex items-center gap-2 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto justify-center text-white transition-all duration-300"
                       >
                         {isExporting ? (
                           <>
@@ -526,24 +526,24 @@ export default function SettingsPage() {
                   </div>
 
                   {/* Danger Zone */}
-                  <div className="border-t border-white/5 pt-4 sm:pt-6">
+                  <div className="border-t border-slate-800 pt-4 sm:pt-6">
                     <h4 className="text-red-400 font-medium mb-3 sm:mb-4 flex items-center text-xs sm:text-sm">
                       <AlertCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-2" />
                       Danger Zone
                     </h4>
-                    <div className="glass-card p-3 sm:p-4 border border-red-500/20">
+                    <div className="bg-slate-800/60 backdrop-blur-xl rounded-xl p-3 sm:p-4 border border-red-500/20">
                       <div className="flex flex-col sm:flex-row items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <h5 className="text-white font-medium mb-1 text-xs sm:text-sm">
                             Delete All Data
                           </h5>
-                          <p className="text-slate-400 text-xs">
+                          <p className="text-slate-500 text-xs">
                             Permanently remove all your interviews, resumes, plans, and account data. This action cannot be undone.
                           </p>
                         </div>
                         <button
                           onClick={handleDeleteAllData}
-                          className="bg-red-600 hover:bg-red-700 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium flex items-center gap-2 whitespace-nowrap w-full sm:w-auto justify-center"
+                          className="bg-red-600 hover:bg-red-700 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium flex items-center gap-2 whitespace-nowrap w-full sm:w-auto justify-center transition-all duration-300"
                         >
                           <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                           Delete All
@@ -558,15 +558,15 @@ export default function SettingsPage() {
 
           {/* Appearance */}
           {activeSection === 'appearance' && (
-            <div className="glass-card">
-              <div className="p-4 sm:p-6 border-b border-white/5">
+            <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800">
+              <div className="p-4 sm:p-6 border-b border-slate-800">
                 <div className="flex items-center gap-2 sm:gap-3">
-                  <div className="w-9 h-9 sm:w-10 sm:h-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 bg-purple-500/10 rounded-lg flex items-center justify-center border border-purple-500/20">
                     <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-purple-400" />
                   </div>
                   <div>
                     <h3 className="text-base sm:text-lg font-semibold text-white">Appearance</h3>
-                    <p className="text-slate-400 text-xs sm:text-sm">Customize the interface</p>
+                    <p className="text-slate-500 text-xs sm:text-sm">Customize the interface</p>
                   </div>
                 </div>
               </div>
@@ -574,7 +574,7 @@ export default function SettingsPage() {
               <div className="p-4 sm:p-6 space-y-5 sm:space-y-6">
                 {/* Theme */}
                 <div>
-                  <label className="block text-xs sm:text-sm text-slate-400 mb-2 sm:mb-3">
+                  <label className="block text-xs sm:text-sm text-slate-500 mb-2 sm:mb-3">
                     Theme
                   </label>
                   <div className="grid grid-cols-3 gap-2 sm:gap-3">
@@ -589,7 +589,7 @@ export default function SettingsPage() {
                         className={`p-3 sm:p-4 rounded-lg border transition-all ${
                           settings.appearance.theme === theme.value
                             ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white border-purple-500/30'
-                            : 'bg-white/5 text-slate-300 hover:bg-white/10 border-white/10'
+                            : 'bg-slate-800/30 text-slate-400 hover:bg-slate-800/60 border-slate-800'
                         }`}
                       >
                         <theme.icon className="w-5 h-5 sm:w-6 sm:h-6 mx-auto mb-1.5 sm:mb-2" />
@@ -601,7 +601,7 @@ export default function SettingsPage() {
 
                 {/* Font Size */}
                 <div>
-                  <label className="block text-xs sm:text-sm text-slate-400 mb-2 sm:mb-3">
+                  <label className="block text-xs sm:text-sm text-slate-500 mb-2 sm:mb-3">
                     Font Size
                   </label>
                   <div className="grid grid-cols-3 gap-2 sm:gap-3">
@@ -616,7 +616,7 @@ export default function SettingsPage() {
                         className={`px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-xs sm:text-sm font-medium transition-all ${
                           settings.appearance.fontSize === size.value
                             ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
-                            : 'bg-white/5 text-slate-300 hover:bg-white/10 border border-white/10'
+                            : 'bg-slate-800/30 text-slate-400 hover:bg-slate-800/60 border border-slate-800'
                         }`}
                       >
                         {size.label}
@@ -627,15 +627,15 @@ export default function SettingsPage() {
 
                 {/* Language */}
                 <div>
-                  <label className="block text-xs sm:text-sm text-slate-400 mb-2">
+                  <label className="block text-xs sm:text-sm text-slate-500 mb-2">
                     Language
                   </label>
                   <div className="relative">
-                    <Globe className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500 pointer-events-none" />
+                    <Globe className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-600 pointer-events-none" />
                     <select
                       value={settings.appearance.language}
                       onChange={(e) => updateSettings('appearance', 'language', e.target.value)}
-                      className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 glass-input rounded-lg text-white text-xs sm:text-sm"
+                      className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 bg-slate-800/60 backdrop-blur-xl border border-slate-700 rounded-lg text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
                     >
                       <option value="en">English</option>
                       <option value="es">Español</option>
@@ -647,10 +647,10 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Reduced Motion */}
-                <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border border-white/5 gap-3">
+                <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border border-slate-800 gap-3 bg-slate-800/30">
                   <div className="flex-1 min-w-0">
                     <h4 className="text-white font-medium text-xs sm:text-sm">Reduced Motion</h4>
-                    <p className="text-slate-400 text-xs">Minimize animations</p>
+                    <p className="text-slate-500 text-xs">Minimize animations</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
                     <input
@@ -668,15 +668,15 @@ export default function SettingsPage() {
 
           {/* Preferences */}
           {activeSection === 'preferences' && (
-            <div className="glass-card">
-              <div className="p-4 sm:p-6 border-b border-white/5">
+            <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800">
+              <div className="p-4 sm:p-6 border-b border-slate-800">
                 <div className="flex items-center gap-2 sm:gap-3">
-                  <div className="w-9 h-9 sm:w-10 sm:h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 bg-blue-500/10 rounded-lg flex items-center justify-center border border-blue-500/20">
                     <Settings className="h-4 w-4 sm:h-5 sm:w-5 text-blue-400" />
                   </div>
                   <div>
                     <h3 className="text-base sm:text-lg font-semibold text-white">App Preferences</h3>
-                    <p className="text-slate-400 text-xs sm:text-sm">Configure default behaviors</p>
+                    <p className="text-slate-500 text-xs sm:text-sm">Configure default behaviors</p>
                   </div>
                 </div>
               </div>
@@ -684,7 +684,7 @@ export default function SettingsPage() {
               <div className="p-4 sm:p-6 space-y-5 sm:space-y-6">
                 {/* Default Interview Type */}
                 <div>
-                  <label className="block text-xs sm:text-sm text-slate-400 mb-2 sm:mb-3">
+                  <label className="block text-xs sm:text-sm text-slate-500 mb-2 sm:mb-3">
                     Default Interview Type
                   </label>
                   <div className="grid grid-cols-3 gap-2 sm:gap-3">
@@ -699,7 +699,7 @@ export default function SettingsPage() {
                         className={`px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-xs sm:text-sm font-medium transition-all ${
                           settings.preferences.defaultInterviewType === type.value
                             ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
-                            : 'bg-white/5 text-slate-300 hover:bg-white/10 border border-white/10'
+                            : 'bg-slate-800/30 text-slate-400 hover:bg-slate-800/60 border border-slate-800'
                         }`}
                       >
                         {type.label}
@@ -710,15 +710,15 @@ export default function SettingsPage() {
 
                 {/* Email Frequency */}
                 <div>
-                  <label className="block text-xs sm:text-sm text-slate-400 mb-2">
+                  <label className="block text-xs sm:text-sm text-slate-500 mb-2">
                     Email Frequency
                   </label>
                   <div className="relative">
-                    <Mail className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500 pointer-events-none" />
+                    <Mail className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-600 pointer-events-none" />
                     <select
                       value={settings.preferences.emailFrequency}
                       onChange={(e) => updateSettings('preferences', 'emailFrequency', e.target.value)}
-                      className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 glass-input rounded-lg text-white text-xs sm:text-sm"
+                      className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 bg-slate-800/60 backdrop-blur-xl border border-slate-700 rounded-lg text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                     >
                       <option value="realtime">Real-time</option>
                       <option value="daily">Daily Digest</option>
@@ -734,10 +734,10 @@ export default function SettingsPage() {
                   { key: 'soundEffects', label: 'Sound Effects', desc: 'Play sounds for actions' },
                   { key: 'practiceReminders', label: 'Practice Reminders', desc: 'Daily reminders to practice' },
                 ].map((item) => (
-                  <div key={item.key} className="flex items-center justify-between p-3 sm:p-4 rounded-lg border border-white/5 gap-3">
+                  <div key={item.key} className="flex items-center justify-between p-3 sm:p-4 rounded-lg border border-slate-800 gap-3 bg-slate-800/30">
                     <div className="flex-1 min-w-0">
                       <h4 className="text-white font-medium text-xs sm:text-sm">{item.label}</h4>
-                      <p className="text-slate-400 text-xs">{item.desc}</p>
+                      <p className="text-slate-500 text-xs">{item.desc}</p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
                       <input
@@ -754,20 +754,20 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* Changes Indicator - Responsive */}
+          {/* Changes Indicator */}
           {hasChanges && (
-            <div className="glass-card border border-blue-500/20">
+            <div className="bg-blue-500/10 backdrop-blur-xl rounded-2xl border border-blue-500/30">
               <div className="p-3 sm:p-4">
                 <div className="flex flex-col xs:flex-row items-start xs:items-center gap-3">
                   <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-blue-400 text-xs sm:text-sm font-medium">Unsaved Changes</p>
-                    <p className="text-slate-400 text-xs">Remember to save your settings</p>
+                    <p className="text-blue-300/70 text-xs">Remember to save your settings</p>
                   </div>
                   <button
                     onClick={handleSave}
                     disabled={isSaving}
-                    className="glass-button-primary hover-lift px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed w-full xs:w-auto"
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed w-full xs:w-auto text-white transition-all duration-300"
                   >
                     {isSaving ? 'Saving...' : 'Save Now'}
                   </button>

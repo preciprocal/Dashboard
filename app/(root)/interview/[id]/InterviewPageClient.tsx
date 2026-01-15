@@ -25,7 +25,7 @@ import FullScreenInterviewPanel from "./FullScreenInterviewpanel";
 
 const TechStackDisplay = ({ techStack }: { techStack: string[] }) => {
   if (!techStack || techStack.length === 0) {
-    return <span className="text-slate-400 text-xs sm:text-sm">No technologies specified</span>;
+    return <span className="text-slate-500 text-xs sm:text-sm">No technologies specified</span>;
   }
 
   return (
@@ -315,14 +315,14 @@ const InterviewDetailsClient = ({
   const getDeviceStatusIcon = (status: string) => {
     switch (status) {
       case "ready":
-        return <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500" />;
+        return <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" />;
       case "checking":
-        return <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-500 animate-spin" />;
+        return <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400 animate-spin" />;
       case "denied":
       case "error":
-        return <AlertCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-500" />;
+        return <AlertCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-400" />;
       default:
-        return <AlertCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500" />;
+        return <AlertCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-600" />;
     }
   };
 
@@ -360,20 +360,20 @@ const InterviewDetailsClient = ({
   }
 
   return (
-    <div className="min-h-screen">
-      {/* Navigation - Responsive */}
-      <div className="glass-card border-b border-white/5">
+    <div className="min-h-screen bg-slate-950">
+      {/* Navigation - Dark Mode */}
+      <div className="bg-slate-900/95 backdrop-blur-xl border-b border-slate-800">
         <div className="px-4 sm:px-6 py-2.5 sm:py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-400">
-              <Link href="/" className="hover:text-white transition-colors">
+            <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-500">
+              <Link href="/" className="hover:text-slate-300 transition-colors">
                 Dashboard
               </Link>
               <span>/</span>
-              <span className="text-white truncate">Waiting Room</span>
+              <span className="text-slate-300 truncate">Waiting Room</span>
             </div>
 
-            <div className="text-xs sm:text-sm text-slate-400">
+            <div className="text-xs sm:text-sm text-slate-500">
               {currentTime.toLocaleTimeString([], {
                 hour: "2-digit",
                 minute: "2-digit",
@@ -385,14 +385,14 @@ const InterviewDetailsClient = ({
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6 md:py-8">
         <div className="grid lg:grid-cols-3 gap-4 sm:gap-6">
-          {/* Main Panel */}
+          {/* Main Panel - Dark Mode */}
           <div className="lg:col-span-2 space-y-4 sm:space-y-6">
-            {/* Header - Responsive */}
-            <div className="glass-card hover-lift">
+            {/* Header */}
+            <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800 hover:border-slate-700 transition-all duration-300">
               <div className="p-4 sm:p-6">
                 <Link
                   href="/dashboard"
-                  className="inline-flex items-center text-xs sm:text-sm text-slate-400 hover:text-white mb-3 sm:mb-4 transition-colors"
+                  className="inline-flex items-center text-xs sm:text-sm text-slate-500 hover:text-slate-300 mb-3 sm:mb-4 transition-colors"
                 >
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Back to Dashboard
@@ -406,7 +406,7 @@ const InterviewDetailsClient = ({
                     <h1 className="text-xl sm:text-2xl font-semibold text-white mb-0.5 sm:mb-1 truncate">
                       {interview.role}
                     </h1>
-                    <p className="text-slate-400 text-xs sm:text-sm truncate">
+                    <p className="text-slate-500 text-xs sm:text-sm truncate">
                       Panel Interview • {interview.questions.length} Questions • {Math.ceil(interview.questions.length * 3)} min
                     </p>
                   </div>
@@ -421,24 +421,24 @@ const InterviewDetailsClient = ({
                   </div>
                 </div>
 
-                <div className="mt-3 sm:mt-4 glass-card p-3 sm:p-4 border border-white/5">
+                <div className="mt-3 sm:mt-4 bg-slate-800/60 backdrop-blur-xl rounded-xl p-3 sm:p-4 border border-slate-700">
                   <div className="flex flex-col xs:flex-row items-start xs:items-center gap-2 xs:gap-3">
-                    <span className="text-slate-400 text-xs sm:text-sm flex-shrink-0">Technologies:</span>
+                    <span className="text-slate-500 text-xs sm:text-sm flex-shrink-0">Technologies:</span>
                     <TechStackDisplay techStack={interview.techstack} />
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Video Preview - Responsive */}
-            <div className="glass-card">
+            {/* Video Preview - Dark Mode */}
+            <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800">
               <div className="p-4 sm:p-6">
                 <h3 className="text-white font-medium mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
                   <Camera className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
                   <span>Camera Preview</span>
                 </h3>
 
-                <div className="relative aspect-video bg-slate-900 rounded-lg overflow-hidden border border-white/5">
+                <div className="relative aspect-video bg-slate-950 rounded-lg overflow-hidden border border-slate-800">
                   {isVideoOn && deviceStatus.camera === "ready" ? (
                     <video
                       ref={videoRef}
@@ -455,21 +455,21 @@ const InterviewDetailsClient = ({
                             {userName?.charAt(0)?.toUpperCase() || "C"}
                           </span>
                         </div>
-                        <p className="text-slate-400 text-sm sm:text-base">
+                        <p className="text-slate-500 text-sm sm:text-base">
                           {!isVideoOn ? "Camera is off" : "Camera not available"}
                         </p>
                       </div>
                     </div>
                   )}
 
-                  {/* Controls - Responsive */}
+                  {/* Controls - Dark Mode */}
                   <div className="absolute bottom-3 sm:bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2 sm:gap-3">
                     <button
                       onClick={toggleVideo}
-                      className={`p-2 sm:p-2.5 md:p-3 rounded-full transition-all ${
+                      className={`p-2 sm:p-2.5 md:p-3 rounded-full transition-all backdrop-blur-sm ${
                         isVideoOn
-                          ? 'bg-slate-800/80 hover:bg-slate-700/80 text-white'
-                          : 'bg-red-600/80 hover:bg-red-700/80 text-white'
+                          ? 'bg-slate-800/90 hover:bg-slate-700/90 text-white'
+                          : 'bg-red-600/90 hover:bg-red-700/90 text-white'
                       }`}
                     >
                       {isVideoOn ? <Video className="w-4 h-4 sm:w-5 sm:h-5" /> : <VideoOff className="w-4 h-4 sm:w-5 sm:h-5" />}
@@ -477,10 +477,10 @@ const InterviewDetailsClient = ({
 
                     <button
                       onClick={() => setIsAudioOn(!isAudioOn)}
-                      className={`p-2 sm:p-2.5 md:p-3 rounded-full transition-all ${
+                      className={`p-2 sm:p-2.5 md:p-3 rounded-full transition-all backdrop-blur-sm ${
                         isAudioOn
-                          ? 'bg-slate-800/80 hover:bg-slate-700/80 text-white'
-                          : 'bg-red-600/80 hover:bg-red-700/80 text-white'
+                          ? 'bg-slate-800/90 hover:bg-slate-700/90 text-white'
+                          : 'bg-red-600/90 hover:bg-red-700/90 text-white'
                       }`}
                     >
                       {isAudioOn ? <Mic className="w-4 h-4 sm:w-5 sm:h-5" /> : <MicOff className="w-4 h-4 sm:w-5 sm:h-5" />}
@@ -488,10 +488,10 @@ const InterviewDetailsClient = ({
 
                     <button
                       onClick={() => setIsSpeakerOn(!isSpeakerOn)}
-                      className={`p-2 sm:p-2.5 md:p-3 rounded-full transition-all ${
+                      className={`p-2 sm:p-2.5 md:p-3 rounded-full transition-all backdrop-blur-sm ${
                         isSpeakerOn
-                          ? 'bg-slate-800/80 hover:bg-slate-700/80 text-white'
-                          : 'bg-red-600/80 hover:bg-red-700/80 text-white'
+                          ? 'bg-slate-800/90 hover:bg-slate-700/90 text-white'
+                          : 'bg-red-600/90 hover:bg-red-700/90 text-white'
                       }`}
                     >
                       {isSpeakerOn ? <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" /> : <VolumeX className="w-4 h-4 sm:w-5 sm:h-5" />}
@@ -499,49 +499,49 @@ const InterviewDetailsClient = ({
 
                     <button
                       onClick={() => setShowDeviceSettings(!showDeviceSettings)}
-                      className="p-2 sm:p-2.5 md:p-3 rounded-full bg-slate-800/80 hover:bg-slate-700/80 text-white transition-all"
+                      className="p-2 sm:p-2.5 md:p-3 rounded-full bg-slate-800/90 hover:bg-slate-700/90 text-white transition-all backdrop-blur-sm"
                     >
                       <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
                   </div>
                 </div>
 
-                {/* Device Status - Responsive */}
+                {/* Device Status - Dark Mode */}
                 <div className="mt-3 sm:mt-4 grid grid-cols-3 gap-2 sm:gap-3 md:gap-4">
-                  <div className="glass-card p-2.5 sm:p-3 border border-white/5">
+                  <div className="bg-slate-800/60 backdrop-blur-xl rounded-xl p-2.5 sm:p-3 border border-slate-700">
                     <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
                       {getDeviceStatusIcon(deviceStatus.camera)}
                       <span className="text-xs sm:text-sm text-white">Camera</span>
                     </div>
-                    <p className="text-xs text-slate-400 capitalize">{deviceStatus.camera}</p>
+                    <p className="text-xs text-slate-500 capitalize">{deviceStatus.camera}</p>
                   </div>
 
-                  <div className="glass-card p-2.5 sm:p-3 border border-white/5">
+                  <div className="bg-slate-800/60 backdrop-blur-xl rounded-xl p-2.5 sm:p-3 border border-slate-700">
                     <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
                       {getDeviceStatusIcon(deviceStatus.microphone)}
                       <span className="text-xs sm:text-sm text-white">Mic</span>
                     </div>
-                    <p className="text-xs text-slate-400 capitalize">{deviceStatus.microphone}</p>
+                    <p className="text-xs text-slate-500 capitalize">{deviceStatus.microphone}</p>
                   </div>
 
-                  <div className="glass-card p-2.5 sm:p-3 border border-white/5">
+                  <div className="bg-slate-800/60 backdrop-blur-xl rounded-xl p-2.5 sm:p-3 border border-slate-700">
                     <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
                       {getDeviceStatusIcon(deviceStatus.speaker)}
                       <span className="text-xs sm:text-sm text-white">Speaker</span>
                     </div>
-                    <p className="text-xs text-slate-400 capitalize">{deviceStatus.speaker}</p>
+                    <p className="text-xs text-slate-500 capitalize">{deviceStatus.speaker}</p>
                   </div>
                 </div>
 
-                {/* Join Button - Responsive */}
+                {/* Join Button - Dark Mode */}
                 <div className="mt-4 sm:mt-6">
                   <button
                     onClick={handleJoinInterview}
                     disabled={!isDeviceReady || isJoining}
                     className={`w-full py-2.5 sm:py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 sm:gap-3 text-sm sm:text-base ${
                       isDeviceReady && !isJoining
-                        ? 'bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white'
-                        : 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                        ? 'bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-lg shadow-emerald-500/20'
+                        : 'bg-slate-800 text-slate-500 cursor-not-allowed'
                     }`}
                   >
                     {isJoining ? (
@@ -561,10 +561,10 @@ const InterviewDetailsClient = ({
             </div>
           </div>
 
-          {/* Sidebar - Responsive */}
+          {/* Sidebar - Dark Mode */}
           <div className="space-y-4 sm:space-y-6">
             {/* Interview Panel */}
-            <div className="glass-card">
+            <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800">
               <div className="p-4 sm:p-6">
                 <h3 className="text-white font-medium mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
                   <Users className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
@@ -587,7 +587,7 @@ const InterviewDetailsClient = ({
                             <Crown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500 flex-shrink-0" />
                           )}
                         </div>
-                        <p className="text-slate-400 text-xs truncate">{panelist.role}</p>
+                        <p className="text-slate-500 text-xs truncate">{panelist.role}</p>
                       </div>
 
                       <div className="flex items-center gap-1 flex-shrink-0">
@@ -600,15 +600,15 @@ const InterviewDetailsClient = ({
               </div>
             </div>
 
-            {/* Tips - Responsive */}
-            <div className="glass-card">
+            {/* Tips - Dark Mode */}
+            <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800">
               <div className="p-4 sm:p-6">
                 <h3 className="text-white font-medium mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
                   <Headphones className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
                   <span>Interview Tips</span>
                 </h3>
 
-                <ul className="space-y-2 sm:space-y-3 text-xs sm:text-sm text-slate-300">
+                <ul className="space-y-2 sm:space-y-3 text-xs sm:text-sm text-slate-400">
                   {[
                     "Ensure you're in a quiet, well-lit environment",
                     "Test your audio and video before joining",
@@ -625,8 +625,8 @@ const InterviewDetailsClient = ({
               </div>
             </div>
 
-            {/* Session Info - Responsive */}
-            <div className="glass-card">
+            {/* Session Info - Dark Mode */}
+            <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800">
               <div className="p-4 sm:p-6">
                 <h3 className="text-white font-medium mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
                   <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
@@ -640,7 +640,7 @@ const InterviewDetailsClient = ({
                     { label: "Panel Size", value: (interviewPanel.length + 1).toString() },
                     { label: "Format", value: "Panel Interview" }
                   ].map((item, index) => (
-                    <div key={index} className="flex justify-between text-slate-300">
+                    <div key={index} className="flex justify-between text-slate-400">
                       <span>{item.label}:</span>
                       <span className="text-white font-medium">{item.value}</span>
                     </div>
@@ -650,7 +650,7 @@ const InterviewDetailsClient = ({
                 {feedbackId && (
                   <Link
                     href={`/feedback/${interviewId}`}
-                    className="mt-3 sm:mt-4 block w-full px-4 py-2 sm:py-2.5 glass-button hover-lift text-white text-center rounded-lg text-xs sm:text-sm"
+                    className="mt-3 sm:mt-4 block w-full px-4 py-2 sm:py-2.5 bg-slate-800/60 backdrop-blur-xl hover:bg-slate-700/60 text-white text-center rounded-lg text-xs sm:text-sm border border-slate-700 transition-all duration-300"
                   >
                     View Previous Results
                   </Link>

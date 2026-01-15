@@ -8,7 +8,6 @@ import { auth } from '@/firebase/client';
 import { FirebaseService } from '@/lib/services/firebase-service';
 import FileUploader from '@/components/resume/FileUploader';
 import { Resume, ResumeFeedback } from '@/types/resume';
-
 import { 
   FileText, 
   Sparkles, 
@@ -17,10 +16,15 @@ import {
   AlertCircle,
   Info,
   Loader2,
-  Upload
+  Upload,
+  ArrowRight
 } from 'lucide-react';
 import { compressPDF, validatePDF } from '@/lib/resume/pdf-compression';
 import { convertPdfToImage } from '@/lib/resume/pdf2img';
+import FeedbackSurveyModal, { FeedbackData } from '@/components/FeedbackSurveyModal';
+import { useUsageTracking } from '@/lib/hooks/useUsageTracking';
+import { toast } from 'sonner';
+import Link from 'next/link';
 
 const PROCESSING_STEPS = [
   { step: 0, message: 'Compressing file...', progress: 10 },
@@ -71,6 +75,20 @@ export default function UploadResume() {
     analysisType: 'full',
   });
 
+  // Usage tracking states
+  const [showSurvey, setShowSurvey] = useState(false);
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
+
+  // Usage tracking hook
+  const {
+    canUseFeature,
+    getRemainingCount,
+    getLimit,
+    incrementUsage,
+    checkAndShowSurvey,
+    loading: usageLoading,
+  } = useUsageTracking();
+
   const handleFileSelect = (selectedFile: File | null) => {
     setFile(selectedFile);
     setError('');
@@ -87,11 +105,20 @@ export default function UploadResume() {
       return;
     }
 
+    // Check usage limit FIRST
+    if (!canUseFeature('resumes')) {
+      if (checkAndShowSurvey('resumes')) {
+        setShowSurvey(true);
+      } else {
+        setShowUpgradePrompt(true);
+      }
+      return;
+    }
+
     setIsProcessing(true);
     setError('');
     setCurrentFactIndex(Math.floor(Math.random() * RESUME_FACTS.length));
     
-    // Rotate facts every 4 seconds
     const factInterval = setInterval(() => {
       setCurrentFactIndex(prev => (prev + 1) % RESUME_FACTS.length);
     }, 4000);
@@ -188,6 +215,9 @@ export default function UploadResume() {
 
       console.log('Saved successfully');
 
+      // Increment usage count after successful analysis
+      await incrementUsage('resumes');
+
       // Step 4: Complete
       updateProgress(4);
       console.log('🎉 Complete! Redirecting...');
@@ -212,6 +242,7 @@ export default function UploadResume() {
       setError(errorMessage);
       setIsProcessing(false);
       setCurrentStep(0);
+      toast.error('Failed to analyze resume');
     } finally {
       clearInterval(factInterval);
     }
@@ -235,10 +266,32 @@ export default function UploadResume() {
     await handleAnalyze();
   };
 
+  const handleFeedbackSubmit = async (feedback: FeedbackData) => {
+    try {
+      const response = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(feedback),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit feedback');
+      }
+
+      setShowSurvey(false);
+      setShowUpgradePrompt(true);
+    } catch (error) {
+      console.error('Error submitting feedback:', error);
+      throw error;
+    }
+  };
+
   if (loading) {
     return (
       <div className="h-[calc(100vh-73px)] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+        <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
       </div>
     );
   }
@@ -247,6 +300,9 @@ export default function UploadResume() {
     router.push('/auth');
     return null;
   }
+
+  const remainingCount = getRemainingCount('resumes');
+  const limit = getLimit('resumes');
 
   return (
     <div className="h-[calc(100vh-73px)] lg:h-[calc(100vh-73px-3rem)] flex items-center justify-center p-4 lg:p-0 overflow-y-auto lg:overflow-hidden">
@@ -312,9 +368,22 @@ export default function UploadResume() {
               <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2 sm:mb-3 leading-tight">
                 AI Resume<br />Analyzer
               </h1>
-              <p className="text-sm sm:text-base text-slate-400 leading-relaxed">
-                Get instant AI-powered feedback and detailed insights to optimize your resume for success
-              </p>
+              <div className="flex items-center gap-3 mb-2">
+                <p className="text-sm sm:text-base text-slate-400 leading-relaxed">
+                  Get instant AI-powered feedback and detailed insights to optimize your resume
+                </p>
+              </div>
+              {!usageLoading && user && (
+                <div className="text-xs text-slate-400 mt-2">
+                  {remainingCount === -1 ? (
+                    <span className="text-emerald-400 font-medium">✨ Unlimited analyses</span>
+                  ) : (
+                    <span>
+                      <span className="font-medium text-white">{remainingCount}</span> of {limit} remaining this month
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="space-y-2.5 sm:space-y-3">
@@ -514,6 +583,85 @@ export default function UploadResume() {
           </div>
         </div>
       </div>
+
+      {/* Feedback Survey Modal */}
+      {user && (
+        <FeedbackSurveyModal
+          isOpen={showSurvey}
+          onClose={() => {
+            setShowSurvey(false);
+            setShowUpgradePrompt(true);
+          }}
+          onSubmit={handleFeedbackSubmit}
+          featureType="resumes"
+          userId={user.uid}
+        />
+      )}
+
+      {/* Upgrade Prompt Modal */}
+      {showUpgradePrompt && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Sparkles className="w-8 h-8 text-white" />
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-2">
+                Limit Reached
+              </h2>
+              <p className="text-slate-400">
+                You&apos;ve used all {limit} of your free resume analyses this month
+              </p>
+            </div>
+
+            <div className="space-y-3 mb-6">
+              <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-white font-medium mb-1">Unlimited Analyses</p>
+                    <p className="text-sm text-slate-400">Analyze unlimited resumes</p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-white font-medium mb-1">All Premium Features</p>
+                    <p className="text-sm text-slate-400">Interviews, cover letters, and more</p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-white font-medium mb-1">Priority Support</p>
+                    <p className="text-sm text-slate-400">Get help when you need it</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <Link
+                href="/subscription"
+                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white rounded-lg font-medium transition-all"
+              >
+                Upgrade Now
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <button
+                onClick={() => setShowUpgradePrompt(false)}
+                className="w-full px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-medium transition-colors"
+              >
+                Maybe Later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar {

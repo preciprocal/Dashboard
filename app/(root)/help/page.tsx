@@ -577,11 +577,11 @@ export default function HelpSupportPage() {
                     <select
                       value={category}
                       onChange={(e) => setCategory(e.target.value)}
-                      className="glass-input w-full px-3 py-2 sm:py-2.5 rounded-lg text-white text-xs sm:text-sm"
+                      className="glass-input w-full px-3 py-2 sm:py-2.5 rounded-lg text-white text-xs sm:text-sm bg-slate-900"
                       required
                     >
                       {ticketCategories.map(cat => (
-                        <option key={cat.value} value={cat.value}>{cat.label}</option>
+                        <option key={cat.value} value={cat.value} className="bg-slate-900 text-white">{cat.label}</option>
                       ))}
                     </select>
                   </div>

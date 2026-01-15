@@ -371,14 +371,14 @@ export default function InterviewsDashboard() {
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-[60vh] px-4">
-        <div className="glass-card-gradient hover-lift w-full max-w-md">
-          <div className="glass-card-gradient-inner text-center p-8 sm:p-12">
+        <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800 hover:border-slate-700 transition-all duration-300 w-full max-w-md">
+          <div className="text-center p-8 sm:p-12">
             <AlertCircle className="w-12 h-12 sm:w-16 sm:h-16 text-red-400 mx-auto mb-3 sm:mb-4" />
             <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">Authentication Required</h2>
-            <p className="text-slate-400 mb-4 sm:mb-6 text-sm sm:text-base">Please log in to view your interviews</p>
+            <p className="text-slate-500 mb-4 sm:mb-6 text-sm sm:text-base">Please log in to view your interviews</p>
             <Link 
               href="/sign-in"
-              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base"
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base text-white transition-all duration-300"
             >
               Go to Login
             </Link>
@@ -390,22 +390,22 @@ export default function InterviewsDashboard() {
 
   return (
     <div className="space-y-4 sm:space-y-6 px-4 sm:px-0">
-      {/* Clean Header - Responsive */}
-      <div className="glass-card hover-lift">
+      {/* Clean Header - Dark Mode */}
+      <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800 hover:border-slate-700 transition-all duration-300">
         <div className="p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
             <div className="w-full sm:w-auto">
               <h1 className="text-xl sm:text-2xl font-semibold text-white mb-1">
                 Interview Practice
               </h1>
-              <p className="text-slate-400 text-xs sm:text-sm">
+              <p className="text-slate-500 text-xs sm:text-sm">
                 AI-powered interview preparation
               </p>
             </div>
             
             <Link
               href="/interview/create"
-              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm w-full sm:w-auto justify-center"
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm w-full sm:w-auto justify-center text-white transition-all duration-300"
             >
               <Plus className="w-4 h-4" />
               <span>New Interview</span>
@@ -414,10 +414,10 @@ export default function InterviewsDashboard() {
         </div>
       </div>
 
-      {/* Interviews Error Message */}
+      {/* Interviews Error Message - Dark Mode */}
       {interviewsError && (
-        <div className="glass-card-gradient hover-lift animate-fade-in-up">
-          <div className="glass-card-gradient-inner p-4 sm:p-5">
+        <div className="bg-red-500/10 backdrop-blur-xl rounded-2xl border border-red-500/30 animate-fade-in-up">
+          <div className="p-4 sm:p-5">
             <div className="flex items-start gap-2 sm:gap-3">
               <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-400 flex-shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
@@ -427,7 +427,7 @@ export default function InterviewsDashboard() {
                     setInterviewsError('');
                     loadInterviews();
                   }}
-                  className="glass-button hover-lift inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 text-white text-xs sm:text-sm font-medium rounded-lg"
+                  className="bg-slate-800/60 hover:bg-slate-700/60 backdrop-blur-xl inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 text-white text-xs sm:text-sm font-medium rounded-lg transition-all duration-300"
                 >
                   <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   Try Again
@@ -442,76 +442,76 @@ export default function InterviewsDashboard() {
       {interviews.length > 0 ? (
         <div className="space-y-4 sm:space-y-6">
           
-          {/* Stats Cards - Responsive */}
+          {/* Stats Cards - Dark Mode */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            <div className="glass-card hover-lift">
+            <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800 hover:border-slate-700 transition-all duration-300">
               <div className="p-3.5 sm:p-5">
                 <div className="flex items-center justify-between mb-2 sm:mb-3">
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-500/10 rounded-lg flex items-center justify-center border border-blue-500/20">
                     <Target className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
                   </div>
                   <span className="text-xl sm:text-2xl font-semibold text-white">{stats.totalInterviews}</span>
                 </div>
-                <p className="text-xs sm:text-sm text-slate-400">Total Interviews</p>
+                <p className="text-xs sm:text-sm text-slate-500">Total Interviews</p>
               </div>
             </div>
 
-            <div className="glass-card hover-lift">
+            <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800 hover:border-slate-700 transition-all duration-300">
               <div className="p-3.5 sm:p-5">
                 <div className="flex items-center justify-between mb-2 sm:mb-3">
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center border border-emerald-500/20">
                     <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
                   </div>
                   <span className="text-xl sm:text-2xl font-semibold text-white">{stats.averageScore}%</span>
                 </div>
-                <p className="text-xs sm:text-sm text-slate-400">Average Score</p>
+                <p className="text-xs sm:text-sm text-slate-500">Average Score</p>
               </div>
             </div>
 
-            <div className="glass-card hover-lift">
+            <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800 hover:border-slate-700 transition-all duration-300">
               <div className="p-3.5 sm:p-5">
                 <div className="flex items-center justify-between mb-2 sm:mb-3">
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-500/10 rounded-lg flex items-center justify-center border border-purple-500/20">
                     <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
                   </div>
                   <span className="text-xl sm:text-2xl font-semibold text-white">{stats.totalHours}h</span>
                 </div>
-                <p className="text-xs sm:text-sm text-slate-400">Practice Time</p>
+                <p className="text-xs sm:text-sm text-slate-500">Practice Time</p>
               </div>
             </div>
 
-            <div className="glass-card hover-lift">
+            <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800 hover:border-slate-700 transition-all duration-300">
               <div className="p-3.5 sm:p-5">
                 <div className="flex items-center justify-between mb-2 sm:mb-3">
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-amber-500/10 rounded-lg flex items-center justify-center">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-amber-500/10 rounded-lg flex items-center justify-center border border-amber-500/20">
                     <Award className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
                   </div>
                   <span className="text-xl sm:text-2xl font-semibold text-white">{stats.completionRate}%</span>
                 </div>
-                <p className="text-xs sm:text-sm text-slate-400">Completion Rate</p>
+                <p className="text-xs sm:text-sm text-slate-500">Completion Rate</p>
               </div>
             </div>
           </div>
 
-          {/* Controls Bar - Responsive */}
-          <div className="glass-card">
+          {/* Controls Bar - Dark Mode */}
+          <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800">
             <div className="p-4 sm:p-5">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                 <div>
                   <h2 className="text-base sm:text-lg font-semibold text-white">Your Interviews</h2>
-                  <p className="text-slate-400 text-xs sm:text-sm mt-0.5">
+                  <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
                     {filteredInterviews.length} of {interviews.length} interviews
                   </p>
                 </div>
                 
                 <div className="flex items-center gap-2 sm:gap-3">
-                  {/* Filter Dropdown - Responsive */}
+                  {/* Filter Dropdown - Dark Mode */}
                   <div className="relative flex-1 sm:flex-initial">
-                    <Filter className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500 pointer-events-none" />
+                    <Filter className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-600 pointer-events-none" />
                     <select 
                       value={sortFilter} 
                       onChange={(e) => setSortFilter(e.target.value as SortOption)}
-                      className="glass-input pl-8 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 rounded-lg text-white text-xs sm:text-sm appearance-none cursor-pointer w-full sm:min-w-[200px]"
+                      className="bg-slate-800/60 backdrop-blur-xl border border-slate-700 pl-8 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 rounded-lg text-white text-xs sm:text-sm appearance-none cursor-pointer w-full sm:min-w-[200px] focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                     >
                       <option value="all">All ({getFilterCount('all')})</option>
                       <option value="high-scores">High Scores ({getFilterCount('high-scores')})</option>
@@ -522,14 +522,14 @@ export default function InterviewsDashboard() {
                     </select>
                   </div>
                   
-                  {/* View Toggle */}
-                  <div className="flex bg-slate-900/50 rounded-lg p-1">
+                  {/* View Toggle - Dark Mode */}
+                  <div className="flex bg-slate-800/60 backdrop-blur-xl rounded-lg p-1 border border-slate-700">
                     <button 
                       onClick={() => setViewMode('grid')}
                       className={`p-1.5 sm:p-2 rounded transition-all ${
                         viewMode === 'grid' 
-                          ? 'bg-white/10 text-white' 
-                          : 'text-slate-400 hover:text-white'
+                          ? 'bg-slate-700/60 text-white' 
+                          : 'text-slate-500 hover:text-white'
                       }`}
                       aria-label="Grid view"
                     >
@@ -539,8 +539,8 @@ export default function InterviewsDashboard() {
                       onClick={() => setViewMode('list')}
                       className={`p-1.5 sm:p-2 rounded transition-all ${
                         viewMode === 'list' 
-                          ? 'bg-white/10 text-white' 
-                          : 'text-slate-400 hover:text-white'
+                          ? 'bg-slate-700/60 text-white' 
+                          : 'text-slate-500 hover:text-white'
                       }`}
                       aria-label="List view"
                     >
@@ -552,7 +552,7 @@ export default function InterviewsDashboard() {
             </div>
           </div>
           
-          {/* Interview Grid/List - Responsive */}
+          {/* Interview Grid/List */}
           {filteredInterviews.length > 0 ? (
             <div className={
               viewMode === 'grid' 
@@ -570,20 +570,20 @@ export default function InterviewsDashboard() {
               ))}
             </div>
           ) : (
-            <div className="glass-card">
+            <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800">
               <div className="text-center py-12 sm:py-16 px-4 sm:px-6">
-                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-slate-800/50 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-6">
-                  <Target className="w-6 h-6 sm:w-8 sm:h-8 text-slate-400" />
+                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-slate-800/60 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-6 border border-slate-700">
+                  <Target className="w-6 h-6 sm:w-8 sm:h-8 text-slate-500" />
                 </div>
                 <h3 className="text-lg sm:text-xl font-semibold text-white mb-2">
                   No interviews match this filter
                 </h3>
-                <p className="text-slate-400 mb-4 sm:mb-6 text-sm sm:text-base">
+                <p className="text-slate-500 mb-4 sm:mb-6 text-sm sm:text-base">
                   Try adjusting your filter or start a new interview
                 </p>
                 <button
                   onClick={() => setSortFilter('all')}
-                  className="text-xs sm:text-sm text-slate-300 hover:text-white underline"
+                  className="text-xs sm:text-sm text-slate-400 hover:text-white underline transition-colors"
                 >
                   Clear Filter
                 </button>
@@ -592,59 +592,59 @@ export default function InterviewsDashboard() {
           )}
         </div>
       ) : !interviewsError ? (
-        <div className="glass-card">
+        <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800">
           <div className="text-center py-12 sm:py-16 px-4 sm:px-6">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-800/50 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-6 sm:mb-8">
-              <Target className="w-8 h-8 sm:w-10 sm:h-10 text-slate-400" />
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-800/60 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-6 sm:mb-8 border border-slate-700">
+              <Target className="w-8 h-8 sm:w-10 sm:h-10 text-slate-500" />
             </div>
             
             <h3 className="text-xl sm:text-2xl font-semibold text-white mb-2 sm:mb-3">
               Welcome to Interview Practice
             </h3>
-            <p className="text-slate-400 mb-8 sm:mb-10 max-w-xl mx-auto text-sm sm:text-base">
+            <p className="text-slate-500 mb-8 sm:mb-10 max-w-xl mx-auto text-sm sm:text-base">
               Get AI-powered mock interviews, personalized feedback, and track your progress to ace your next interview
             </p>
 
-            {/* Feature Grid - Responsive */}
+            {/* Feature Grid - Dark Mode */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-8 sm:mb-10 max-w-3xl mx-auto">
               <div className="text-center">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-500/10 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-500/10 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3 border border-blue-500/20">
                   <Brain className="w-5 h-5 sm:w-6 sm:h-6 text-blue-400" />
                 </div>
-                <p className="text-xs sm:text-sm text-slate-400">AI Feedback</p>
+                <p className="text-xs sm:text-sm text-slate-500">AI Feedback</p>
               </div>
               
               <div className="text-center">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-500/10 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-500/10 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3 border border-purple-500/20">
                   <Award className="w-5 h-5 sm:w-6 sm:h-6 text-purple-400" />
                 </div>
-                <p className="text-xs sm:text-sm text-slate-400">Performance Score</p>
+                <p className="text-xs sm:text-sm text-slate-500">Performance Score</p>
               </div>
               
               <div className="text-center">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-emerald-500/10 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-emerald-500/10 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3 border border-emerald-500/20">
                   <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-400" />
                 </div>
-                <p className="text-xs sm:text-sm text-slate-400">Track Progress</p>
+                <p className="text-xs sm:text-sm text-slate-500">Track Progress</p>
               </div>
               
               <div className="text-center">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-amber-500/10 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-amber-500/10 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3 border border-amber-500/20">
                   <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-amber-400" />
                 </div>
-                <p className="text-xs sm:text-sm text-slate-400">Real-time Practice</p>
+                <p className="text-xs sm:text-sm text-slate-500">Real-time Practice</p>
               </div>
             </div>
 
             <Link
               href="/createinterview"
-              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base"
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base text-white transition-all duration-300"
             >
               <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
               <span>Start First Interview</span>
             </Link>
             
-            <p className="text-xs text-slate-500 mt-4 sm:mt-6">
+            <p className="text-xs text-slate-600 mt-4 sm:mt-6">
               Choose from Technical, Behavioral, or System Design interviews
             </p>
           </div>
