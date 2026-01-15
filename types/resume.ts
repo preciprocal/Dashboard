@@ -1,4 +1,5 @@
 // types/resume.ts
+
 export interface PdfConversionResult {
   success: boolean;
   file?: File;
@@ -11,6 +12,42 @@ export interface PdfConversionResult {
     pages?: number;
   };
 }
+
+/**
+ * Unified Tip Type (supports both old and new formats)
+ */
+export type TipType = 'good' | 'improve' | 'warning' | 'critical';
+export type Priority = 'high' | 'medium' | 'low';
+
+/**
+ * Legacy Resume Section (for backward compatibility)
+ */
+export interface ResumeSection {
+  score: number;
+  tips: Array<{
+    type: 'good' | 'improve' | 'warning' | 'critical'; // Updated to support all types
+    tip?: string;
+    message?: string;
+    explanation?: string;
+    priority?: 'high' | 'medium' | 'low';
+  }>;
+}
+
+/**
+ * Individual Tip/Recommendation
+ */
+export interface ResumeTip {
+  type: TipType;
+  message: string;
+  explanation?: string;
+  priority?: Priority;
+  location?: string;
+  fix?: string;
+  
+  // For backward compatibility
+  tip?: string;
+}
+
 /**
  * Main Resume Document
  */
@@ -72,6 +109,10 @@ export interface ResumeFeedback {
   impact: CategoryScore;
   grammar: CategoryScore;
 
+  // Legacy support for old structure
+  ATS?: ResumeSection;
+  toneAndStyle?: ResumeSection;
+
   // Summary Lists
   strengths: string[];
   weaknesses: string[];
@@ -87,10 +128,31 @@ export interface ResumeFeedback {
   // Improvement Roadmap
   roadmap: ImprovementRoadmap;
 
+  // Legacy roadmap support
+  improvementRoadmap?: {
+    quickWins?: Array<{
+      action: string;
+      timeToComplete: string;
+      impact: 'high' | 'medium' | 'low';
+    }>;
+    mediumTermGoals?: Array<{
+      action: string;
+      timeToComplete: string;
+      impact: 'high' | 'medium' | 'low';
+    }>;
+    longTermStrategies?: Array<{
+      action: string;
+      timeToComplete: string;
+      impact: 'high' | 'medium' | 'low';
+    }>;
+  };
+
   // Optional Advanced Features
   benchmarking?: RoleBenchmarking;
   recruiterSimulation?: RecruiterSimulation;
   portfolioSummary?: PortfolioSummary;
+  
+  resumeText?: string; // Extracted text from resume for job matching
 }
 
 /**
@@ -109,24 +171,6 @@ export interface CategoryScore {
   strengths?: string[];
   improvements?: string[];
 }
-
-/**
- * Individual Tip/Recommendation
- */
-export interface ResumeTip {
-  type: TipType;
-  message: string;
-  explanation?: string;
-  priority?: Priority;
-  location?: string;
-  fix?: string;
-  
-  // For backward compatibility
-  tip?: string;
-}
-
-export type TipType = 'good' | 'warning' | 'critical';
-export type Priority = 'high' | 'medium' | 'low';
 
 /**
  * Specific Issue Identified
@@ -418,6 +462,7 @@ export interface ResumeStats {
   resumesLimit: number;
   improvementRate?: number;
   scoreDistribution?: ScoreDistribution;
+  improvementTips?: number; // For backward compatibility
 }
 
 export interface ScoreDistribution {
@@ -619,6 +664,10 @@ export interface ResumeSortOptions {
 export type ResumeSortField = 'createdAt' | 'updatedAt' | 'score' | 'companyName' | 'jobTitle';
 export type SortOrder = 'asc' | 'desc';
 
+// For backward compatibility
+export type SortOption = 'all' | 'recent' | 'top-rated' | 'needs-work';
+export type ViewMode = 'grid' | 'list';
+
 /**
  * Validation Schemas (for use with Zod or similar)
  */
@@ -631,6 +680,16 @@ export interface ValidationError {
 export interface ValidationResult {
   valid: boolean;
   errors: ValidationError[];
+}
+
+/**
+ * Error Types
+ */
+export interface CriticalError {
+  code: 'DATABASE' | 'NETWORK' | 'AUTHENTICATION' | 'UNKNOWN';
+  title: string;
+  message: string;
+  details?: string;
 }
 
 /**
@@ -697,6 +756,14 @@ export function hasJobMatch(feedback: ResumeFeedback): feedback is ResumeFeedbac
 
 export function isSuccessResponse<T>(response: ApiResponse<T>): response is ApiResponse<T> & { data: T } {
   return response.success && !!response.data;
+}
+
+export function isCategoryScore(section: ResumeSection | CategoryScore | undefined): section is CategoryScore {
+  return section !== undefined && 'weight' in section && 'issues' in section && 'metrics' in section;
+}
+
+export function isResumeSection(section: ResumeSection | CategoryScore | undefined): section is ResumeSection {
+  return section !== undefined && !isCategoryScore(section);
 }
 
 /**
