@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/firebase/client';
 import { FirebaseService } from '@/lib/services/firebase-service';
-import { Resume } from '@/types/resume';
+import { Resume, ResumeSection } from '@/types/resume';
 import { 
   ArrowLeft, 
   Download, 
@@ -125,8 +125,10 @@ function DetailedAnalysisSection({
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   
-  const goodTips = tips.filter((tip: Tip) => tip.type === 'good');
-  const improveTips = tips.filter((tip: Tip) => tip.type !== 'good');
+  // Ensure tips is always an array
+  const safeTips = Array.isArray(tips) ? tips : [];
+  const goodTips = safeTips.filter((tip: Tip) => tip.type === 'good');
+  const improveTips = safeTips.filter((tip: Tip) => tip.type !== 'good');
 
   return (
     <div className="glass-card-gradient hover-lift">
@@ -155,7 +157,7 @@ function DetailedAnalysisSection({
 
         <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-3 sm:mb-4">
           <div className="glass-morphism rounded-lg p-2.5 sm:p-3 text-center border border-white/5">
-            <div className="text-sm sm:text-base font-bold text-white">{tips.length}</div>
+            <div className="text-sm sm:text-base font-bold text-white">{safeTips.length}</div>
             <div className="text-xs text-slate-400">Tips</div>
           </div>
           <div className="glass-morphism rounded-lg p-2.5 sm:p-3 text-center border border-white/5">
@@ -176,10 +178,11 @@ function DetailedAnalysisSection({
           <ChevronDown className={`w-4 h-4 transform transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
         </button>
 
-        {isExpanded && (
+        {isExpanded && safeTips.length > 0 && (
           <div className="mt-4 sm:mt-5 space-y-2.5 sm:space-y-3">
-            {tips.map((tip: Tip, index: number) => {
+            {safeTips.map((tip: Tip, index: number) => {
               const tipText = tip.tip || tip.message || '';
+              const tipExplanation = tip.explanation || '';
               const isGood = tip.type === 'good';
               
               return (
@@ -201,15 +204,21 @@ function DetailedAnalysisSection({
                     </div>
                     
                     <div className="flex-1 min-w-0">
-                      <p className={`text-xs sm:text-sm font-medium mb-1 ${
+                      <p className={`text-xs sm:text-sm font-medium mb-1.5 ${
                         isGood ? 'text-emerald-300' : 'text-amber-300'
                       }`}>
                         {tipText}
                       </p>
                       
-                      {tip.explanation && (
+                      {tipExplanation && (
                         <p className="text-xs text-slate-400 leading-relaxed">
-                          {tip.explanation}
+                          {tipExplanation}
+                        </p>
+                      )}
+                      
+                      {!tipExplanation && !isGood && (
+                        <p className="text-xs text-slate-400 leading-relaxed italic">
+                          Consider addressing this to improve your resume&apos;s effectiveness.
                         </p>
                       )}
                     </div>
@@ -227,6 +236,12 @@ function DetailedAnalysisSection({
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {isExpanded && safeTips.length === 0 && (
+          <div className="mt-4 text-center py-4 glass-morphism rounded-lg">
+            <p className="text-slate-400 text-sm">No tips available for this section</p>
           </div>
         )}
       </div>
@@ -345,8 +360,40 @@ export default function ResumeDetailsPage() {
   const [loadingResume, setLoadingResume] = useState(true);
   const [error, setError] = useState<string>('');
   const [imageUrl, setImageUrl] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'analysis' | 'jobmatch' | 'recruiter' | 'rewriter'>('analysis');
+  const [activeTab, setActiveTab] = useState<'analysis' | 'jobmatch' | 'recruiter'>('analysis');
   const [showPreview, setShowPreview] = useState(false);
+
+  // Normalize feedback data to handle casing inconsistencies from Firebase
+  const normalizeFeedback = (feedbackData: Resume['feedback']): Resume['feedback'] | undefined => {
+    if (!feedbackData) return undefined;
+
+    console.log('Normalizing feedback, original keys:', Object.keys(feedbackData));
+
+    // Create a normalized version with proper casing
+    const normalized: Partial<Resume['feedback']> = { ...feedbackData };
+
+    // Handle ATS specifically - Firebase might change the casing
+    // Check if we have lowercase 'ats' and need to convert to 'ATS'
+    const feedbackObj = feedbackData as unknown as Record<string, unknown>;
+    if (!normalized.ATS && feedbackObj['ats']) {
+      normalized.ATS = feedbackObj['ats'] as ResumeSection;
+      delete feedbackObj['ats'];
+    }
+    
+    // Also check for other potential casing issues
+    if (!normalized.toneAndStyle) {
+      if (feedbackObj['toneandstyle']) {
+        normalized.toneAndStyle = feedbackObj['toneandstyle'] as ResumeSection;
+      } else if (feedbackObj['ToneAndStyle']) {
+        normalized.toneAndStyle = feedbackObj['ToneAndStyle'] as ResumeSection;
+      }
+    }
+
+    console.log('Normalized feedback keys:', Object.keys(normalized));
+    console.log('ATS data after normalization:', normalized.ATS);
+
+    return normalized as Resume['feedback'];
+  };
 
   useEffect(() => {
     const loadResume = async () => {
@@ -366,10 +413,21 @@ export default function ResumeDetailsPage() {
           setError('Access denied');
           setResume(null);
         } else {
+          // Normalize feedback before setting resume
+          if (resumeData.feedback) {
+            const normalizedFeedback = normalizeFeedback(resumeData.feedback);
+            resumeData.feedback = normalizedFeedback;
+          }
+          
           setResume(resumeData);
           if (resumeData.imagePath) {
             setImageUrl(resumeData.imagePath);
           }
+          
+          // Debug log to see the feedback structure
+          console.log('Resume Feedback Structure:', resumeData.feedback);
+          console.log('Feedback keys:', resumeData.feedback ? Object.keys(resumeData.feedback) : 'none');
+          console.log('ATS data:', resumeData.feedback?.ATS);
         }
       } catch (err) {
         console.error('Error loading resume:', err);
@@ -475,6 +533,55 @@ export default function ResumeDetailsPage() {
   }
 
   const feedback = resume.feedback;
+
+  // Helper function to safely get section data with proper fallback
+  const getSectionData = (sectionName: 'ATS' | 'content' | 'structure' | 'skills' | 'toneAndStyle'): { score: number; tips: Tip[] } => {
+    if (!feedback) {
+      console.log('No feedback data available');
+      return { score: 0, tips: [] };
+    }
+    
+    let section: ResumeSection | undefined;
+    
+    // Get the section data (should already be normalized)
+    switch (sectionName) {
+      case 'ATS':
+        section = feedback.ATS as ResumeSection | undefined;
+        console.log('Getting ATS data:', section);
+        break;
+      case 'content':
+        section = feedback.content as ResumeSection | undefined;
+        break;
+      case 'structure':
+        section = feedback.structure as ResumeSection | undefined;
+        break;
+      case 'skills':
+        section = feedback.skills as ResumeSection | undefined;
+        break;
+      case 'toneAndStyle':
+        section = feedback.toneAndStyle as ResumeSection | undefined;
+        break;
+      default:
+        return { score: 0, tips: [] };
+    }
+    
+    if (!section) {
+      console.warn(`Section ${sectionName} not found in feedback. Available keys:`, feedback ? Object.keys(feedback) : []);
+      return { score: 0, tips: [] };
+    }
+    
+    return {
+      score: section?.score || 0,
+      tips: Array.isArray(section?.tips) ? section.tips : []
+    };
+  };
+
+  // Get all section data safely
+  const atsData = getSectionData('ATS');
+  const contentData = getSectionData('content');
+  const structureData = getSectionData('structure');
+  const skillsData = getSectionData('skills');
+  const toneData = getSectionData('toneAndStyle');
 
   return (
     <>
@@ -606,31 +713,40 @@ export default function ResumeDetailsPage() {
             <DetailedAnalysisSection
               title="ATS Compatibility"
               description="Applicant tracking system optimization"
-              score={feedback.ats?.score || 0}
-              tips={feedback.ats?.tips || []}
+              score={atsData.score}
+              tips={atsData.tips}
               icon={<Shield className="w-4 h-4 sm:w-5 sm:h-5 text-white" />}
             />
             <DetailedAnalysisSection
               title="Content Quality"
               description="Relevance and impact of content"
-              score={feedback.content?.score || 0}
-              tips={feedback.content?.tips || []}
+              score={contentData.score}
+              tips={contentData.tips}
               icon={<FileText className="w-4 h-4 sm:w-5 sm:h-5 text-white" />}
             />
             <DetailedAnalysisSection
               title="Structure & Format"
               description="Organization and visual appeal"
-              score={feedback.structure?.score || 0}
-              tips={feedback.structure?.tips || []}
+              score={structureData.score}
+              tips={structureData.tips}
               icon={<Edit3 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />}
             />
             <DetailedAnalysisSection
               title="Skills & Keywords"
               description="Technical and soft skills presentation"
-              score={feedback.skills?.score || 0}
-              tips={feedback.skills?.tips || []}
+              score={skillsData.score}
+              tips={skillsData.tips}
               icon={<Star className="w-4 h-4 sm:w-5 sm:h-5 text-white" />}
             />
+            {toneData.score > 0 && (
+              <DetailedAnalysisSection
+                title="Tone & Style"
+                description="Professional writing quality"
+                score={toneData.score}
+                tips={toneData.tips}
+                icon={<Edit3 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />}
+              />
+            )}
             {feedback.roadmap && <ImprovementRoadmap roadmap={feedback.roadmap} />}
           </div>
         )}
@@ -788,31 +904,40 @@ export default function ResumeDetailsPage() {
                   <DetailedAnalysisSection
                     title="ATS Compatibility"
                     description="Applicant tracking system optimization"
-                    score={feedback.ats?.score || 0}
-                    tips={feedback.ats?.tips || []}
+                    score={atsData.score}
+                    tips={atsData.tips}
                     icon={<Shield className="w-5 h-5 text-white" />}
                   />
                   <DetailedAnalysisSection
                     title="Content Quality"
                     description="Relevance and impact of content"
-                    score={feedback.content?.score || 0}
-                    tips={feedback.content?.tips || []}
+                    score={contentData.score}
+                    tips={contentData.tips}
                     icon={<FileText className="w-5 h-5 text-white" />}
                   />
                   <DetailedAnalysisSection
                     title="Structure & Format"
                     description="Organization and visual appeal"
-                    score={feedback.structure?.score || 0}
-                    tips={feedback.structure?.tips || []}
+                    score={structureData.score}
+                    tips={structureData.tips}
                     icon={<Edit3 className="w-5 h-5 text-white" />}
                   />
                   <DetailedAnalysisSection
                     title="Skills & Keywords"
                     description="Technical and soft skills presentation"
-                    score={feedback.skills?.score || 0}
-                    tips={feedback.skills?.tips || []}
+                    score={skillsData.score}
+                    tips={skillsData.tips}
                     icon={<Star className="w-5 h-5 text-white" />}
                   />
+                  {toneData.score > 0 && (
+                    <DetailedAnalysisSection
+                      title="Tone & Style"
+                      description="Professional writing quality"
+                      score={toneData.score}
+                      tips={toneData.tips}
+                      icon={<Edit3 className="w-5 h-5 text-white" />}
+                    />
+                  )}
                   {feedback.roadmap && <ImprovementRoadmap roadmap={feedback.roadmap} />}
                 </div>
               )}

@@ -1,7 +1,7 @@
 // app/planner/create/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/firebase/client';
@@ -15,7 +15,9 @@ import {
   TrendingUp,
   Loader2,
   CheckCircle2,
-  ArrowRight
+  ArrowRight,
+  Search,
+  X
 } from 'lucide-react';
 import Link from 'next/link';
 import FeedbackSurveyModal, { FeedbackData } from '@/components/FeedbackSurveyModal';
@@ -30,6 +32,502 @@ const PROCESSING_STEPS = [
   { step: 4, message: 'Complete!', progress: 100 },
 ];
 
+// Comprehensive focus areas organized by category - ALL INDUSTRIES
+const FOCUS_AREAS_BY_CATEGORY = {
+  // TECHNOLOGY & ENGINEERING
+  'Data Structures & Algorithms': [
+    'Arrays & Strings',
+    'Linked Lists',
+    'Stacks & Queues',
+    'Hash Tables',
+    'Trees & Binary Search Trees',
+    'Heaps & Priority Queues',
+    'Graphs & Graph Algorithms',
+    'Dynamic Programming',
+    'Greedy Algorithms',
+    'Backtracking',
+    'Divide & Conquer',
+    'Bit Manipulation',
+    'Sorting Algorithms',
+    'Search Algorithms',
+    'Recursion',
+  ],
+  'System Design': [
+    'Scalability & Performance',
+    'Database Design',
+    'Distributed Systems',
+    'Microservices Architecture',
+    'API Design',
+    'Load Balancing',
+    'Caching Strategies',
+    'Message Queues',
+    'CAP Theorem',
+    'Consistency Models',
+    'Sharding & Partitioning',
+    'CDN & Edge Computing',
+    'Service Mesh',
+    'Event-Driven Architecture',
+  ],
+  'Software Development': [
+    'Frontend Development',
+    'Backend Development',
+    'Full-Stack Development',
+    'Mobile Development',
+    'Game Development',
+    'Embedded Systems',
+    'Desktop Applications',
+    'Cloud-Native Development',
+    'API Development',
+    'Microservices',
+  ],
+  'Programming & Languages': [
+    'Python',
+    'JavaScript/TypeScript',
+    'Java',
+    'C/C++',
+    'Go',
+    'Rust',
+    'C#',
+    'Ruby',
+    'PHP',
+    'Swift',
+    'Kotlin',
+    'SQL',
+    'R',
+    'MATLAB',
+  ],
+  
+  // BUSINESS & MANAGEMENT
+  'Business Strategy': [
+    'Strategic Planning',
+    'Competitive Analysis',
+    'Market Entry Strategy',
+    'Business Model Innovation',
+    'Growth Strategy',
+    'Digital Transformation',
+    'Change Management',
+    'Risk Management',
+    'Corporate Strategy',
+    'M&A Strategy',
+  ],
+  'Product Management': [
+    'Product Strategy',
+    'Product Roadmap',
+    'User Research',
+    'A/B Testing',
+    'Product Analytics',
+    'Feature Prioritization',
+    'Stakeholder Management',
+    'Go-to-Market Strategy',
+    'Product-Market Fit',
+    'Agile Product Development',
+  ],
+  'Project Management': [
+    'Agile & Scrum',
+    'Waterfall Methodology',
+    'Risk Management',
+    'Budget Management',
+    'Resource Allocation',
+    'Stakeholder Communication',
+    'Timeline Planning',
+    'Quality Assurance',
+    'Team Coordination',
+    'Project Documentation',
+  ],
+  'Operations Management': [
+    'Process Optimization',
+    'Supply Chain Management',
+    'Inventory Management',
+    'Quality Control',
+    'Lean Six Sigma',
+    'Logistics & Distribution',
+    'Vendor Management',
+    'Production Planning',
+    'Performance Metrics',
+    'Continuous Improvement',
+  ],
+  
+  // FINANCE & ACCOUNTING
+  'Financial Analysis': [
+    'Financial Modeling',
+    'Valuation Methods',
+    'DCF Analysis',
+    'Ratio Analysis',
+    'Cash Flow Analysis',
+    'Budget Planning',
+    'Forecasting',
+    'Investment Analysis',
+    'Risk Assessment',
+    'Financial Reporting',
+  ],
+  'Accounting': [
+    'Financial Accounting',
+    'Management Accounting',
+    'Cost Accounting',
+    'Tax Accounting',
+    'Auditing',
+    'GAAP & IFRS',
+    'Bookkeeping',
+    'Financial Statements',
+    'Accounts Payable/Receivable',
+    'Reconciliation',
+  ],
+  'Investment Banking & Finance': [
+    'M&A',
+    'Capital Markets',
+    'Equity Research',
+    'Debt Financing',
+    'IPO Process',
+    'Due Diligence',
+    'Deal Structuring',
+    'Pitch Book Creation',
+    'Industry Analysis',
+    'Financial Restructuring',
+  ],
+  
+  // MARKETING & SALES
+  'Digital Marketing': [
+    'SEO & SEM',
+    'Content Marketing',
+    'Social Media Marketing',
+    'Email Marketing',
+    'PPC Advertising',
+    'Marketing Analytics',
+    'Conversion Optimization',
+    'Growth Hacking',
+    'Influencer Marketing',
+    'Marketing Automation',
+  ],
+  'Sales & Business Development': [
+    'Sales Strategy',
+    'Lead Generation',
+    'Prospecting',
+    'Negotiation Skills',
+    'Pipeline Management',
+    'CRM Systems',
+    'Account Management',
+    'Cold Calling',
+    'Sales Presentations',
+    'Closing Techniques',
+  ],
+  'Brand Management': [
+    'Brand Strategy',
+    'Brand Positioning',
+    'Brand Identity',
+    'Brand Guidelines',
+    'Competitive Analysis',
+    'Market Research',
+    'Consumer Insights',
+    'Brand Messaging',
+    'Brand Experience',
+    'Reputation Management',
+  ],
+  
+  // DATA & ANALYTICS
+  'Data Science': [
+    'Statistical Analysis',
+    'Machine Learning',
+    'Data Mining',
+    'Predictive Modeling',
+    'Feature Engineering',
+    'Model Evaluation',
+    'A/B Testing',
+    'Experimental Design',
+    'Data Visualization',
+    'Big Data Technologies',
+  ],
+  'Business Intelligence': [
+    'Data Warehousing',
+    'ETL Processes',
+    'Dashboard Design',
+    'KPI Development',
+    'Reporting & Analytics',
+    'SQL Queries',
+    'Data Visualization Tools',
+    'Business Metrics',
+    'Trend Analysis',
+    'Predictive Analytics',
+  ],
+  'Data Engineering': [
+    'Data Pipeline Design',
+    'ETL/ELT',
+    'Database Management',
+    'Cloud Data Platforms',
+    'Data Modeling',
+    'Data Quality',
+    'Stream Processing',
+    'Batch Processing',
+    'Data Governance',
+    'Data Security',
+  ],
+  
+  // DESIGN & CREATIVE
+  'UX/UI Design': [
+    'User Research',
+    'Wireframing & Prototyping',
+    'Information Architecture',
+    'Interaction Design',
+    'Visual Design',
+    'Usability Testing',
+    'Design Systems',
+    'Accessibility',
+    'Mobile Design',
+    'Responsive Design',
+  ],
+  'Graphic Design': [
+    'Typography',
+    'Color Theory',
+    'Layout & Composition',
+    'Branding & Identity',
+    'Print Design',
+    'Digital Design',
+    'Illustration',
+    'Adobe Creative Suite',
+    'Design Principles',
+    'Visual Communication',
+  ],
+  'Content Creation': [
+    'Copywriting',
+    'Content Strategy',
+    'SEO Writing',
+    'Storytelling',
+    'Video Production',
+    'Photography',
+    'Audio Production',
+    'Social Media Content',
+    'Blog Writing',
+    'Technical Writing',
+  ],
+  
+  // HEALTHCARE & MEDICAL
+  'Clinical Medicine': [
+    'Patient Assessment',
+    'Diagnosis & Treatment',
+    'Medical Procedures',
+    'Pharmacology',
+    'Evidence-Based Medicine',
+    'Clinical Guidelines',
+    'Patient Safety',
+    'Medical Ethics',
+    'Differential Diagnosis',
+    'Emergency Care',
+  ],
+  'Nursing': [
+    'Patient Care',
+    'Medication Administration',
+    'Clinical Documentation',
+    'Vital Signs Monitoring',
+    'Wound Care',
+    'IV Therapy',
+    'Patient Education',
+    'Care Planning',
+    'Infection Control',
+    'Critical Care',
+  ],
+  'Healthcare Administration': [
+    'Healthcare Policy',
+    'Hospital Management',
+    'Healthcare Finance',
+    'Quality Improvement',
+    'Healthcare Compliance',
+    'Revenue Cycle Management',
+    'Healthcare IT',
+    'Patient Experience',
+    'Staff Management',
+    'Healthcare Analytics',
+  ],
+  'Public Health': [
+    'Epidemiology',
+    'Health Policy',
+    'Disease Prevention',
+    'Health Education',
+    'Community Health',
+    'Biostatistics',
+    'Environmental Health',
+    'Global Health',
+    'Health Promotion',
+    'Program Evaluation',
+  ],
+  
+  // LEGAL & COMPLIANCE
+  'Corporate Law': [
+    'Contract Law',
+    'M&A Law',
+    'Securities Law',
+    'Corporate Governance',
+    'Commercial Transactions',
+    'Intellectual Property',
+    'Employment Law',
+    'Regulatory Compliance',
+    'Corporate Finance Law',
+    'Business Formation',
+  ],
+  'Litigation': [
+    'Trial Strategy',
+    'Evidence & Discovery',
+    'Legal Research',
+    'Brief Writing',
+    'Oral Arguments',
+    'Witness Examination',
+    'Settlement Negotiation',
+    'Motion Practice',
+    'Appellate Practice',
+    'Case Management',
+  ],
+  'Compliance & Risk': [
+    'Regulatory Compliance',
+    'Risk Assessment',
+    'Policy Development',
+    'Audit & Monitoring',
+    'Ethics Programs',
+    'Data Privacy',
+    'Anti-Money Laundering',
+    'Internal Controls',
+    'Compliance Training',
+    'Incident Response',
+  ],
+  
+  // HUMAN RESOURCES
+  'Talent Acquisition': [
+    'Recruiting Strategy',
+    'Sourcing Techniques',
+    'Candidate Screening',
+    'Interviewing Skills',
+    'Employer Branding',
+    'Assessment Methods',
+    'Offer Negotiation',
+    'Onboarding',
+    'Recruitment Marketing',
+    'ATS Management',
+  ],
+  'HR Operations': [
+    'HRIS Systems',
+    'Payroll Management',
+    'Benefits Administration',
+    'Employee Relations',
+    'Performance Management',
+    'Compensation & Benefits',
+    'HR Policies',
+    'Employee Engagement',
+    'HR Metrics & Analytics',
+    'Compliance & Labor Law',
+  ],
+  'Learning & Development': [
+    'Training Needs Analysis',
+    'Curriculum Design',
+    'Leadership Development',
+    'Coaching & Mentoring',
+    'Performance Improvement',
+    'E-Learning',
+    'Career Development',
+    'Succession Planning',
+    'Training Delivery',
+    'Learning Technology',
+  ],
+  
+  // EDUCATION & TEACHING
+  'Teaching Methods': [
+    'Curriculum Development',
+    'Lesson Planning',
+    'Classroom Management',
+    'Assessment & Evaluation',
+    'Differentiated Instruction',
+    'Educational Technology',
+    'Student Engagement',
+    'Special Education',
+    'Learning Styles',
+    'Instructional Design',
+  ],
+  'Educational Leadership': [
+    'School Administration',
+    'Educational Policy',
+    'Budget Management',
+    'Staff Development',
+    'Student Affairs',
+    'Curriculum Oversight',
+    'Accreditation',
+    'Community Relations',
+    'Strategic Planning',
+    'Educational Assessment',
+  ],
+  
+  // RESEARCH & SCIENCE
+  'Research Methodology': [
+    'Experimental Design',
+    'Data Collection',
+    'Statistical Analysis',
+    'Literature Review',
+    'Hypothesis Testing',
+    'Research Ethics',
+    'Qualitative Methods',
+    'Quantitative Methods',
+    'Publication Writing',
+    'Grant Writing',
+  ],
+  'Laboratory Techniques': [
+    'Molecular Biology',
+    'Cell Culture',
+    'Microscopy',
+    'Chromatography',
+    'Spectroscopy',
+    'PCR & DNA Analysis',
+    'Protein Purification',
+    'Lab Safety',
+    'Quality Control',
+    'Data Recording',
+  ],
+  
+  // BEHAVIORAL & SOFT SKILLS (UNIVERSAL)
+  'Leadership & Management': [
+    'Team Leadership',
+    'Strategic Thinking',
+    'Decision Making',
+    'Conflict Resolution',
+    'Performance Management',
+    'Change Management',
+    'Delegation',
+    'Mentorship',
+    'Vision Setting',
+    'Motivation',
+  ],
+  'Communication Skills': [
+    'Public Speaking',
+    'Written Communication',
+    'Active Listening',
+    'Presentation Skills',
+    'Interpersonal Communication',
+    'Cross-Cultural Communication',
+    'Negotiation',
+    'Persuasion',
+    'Feedback Delivery',
+    'Storytelling',
+  ],
+  'Problem Solving': [
+    'Analytical Thinking',
+    'Critical Thinking',
+    'Creative Problem Solving',
+    'Root Cause Analysis',
+    'Decision Making',
+    'Systems Thinking',
+    'Innovation',
+    'Troubleshooting',
+    'Strategic Analysis',
+    'Solution Design',
+  ],
+  'Professional Development': [
+    'Time Management',
+    'Goal Setting',
+    'Self-Motivation',
+    'Adaptability',
+    'Continuous Learning',
+    'Emotional Intelligence',
+    'Work-Life Balance',
+    'Networking',
+    'Career Planning',
+    'Personal Branding',
+  ],
+};
+
 export default function CreatePlanPage() {
   const [user, loading] = useAuthState(auth);
   const router = useRouter();
@@ -37,6 +535,7 @@ export default function CreatePlanPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [error, setError] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [formData, setFormData] = useState({
     role: '',
@@ -62,26 +561,34 @@ export default function CreatePlanPage() {
     loading: usageLoading,
   } = useUsageTracking();
 
-  const commonFocusAreas = [
-    'Data Structures & Algorithms',
-    'System Design',
-    'Behavioral Questions',
-    'Database Design',
-    'API Design',
-    'Frontend Development',
-    'Backend Development',
-    'DevOps & Cloud',
-    'Testing & QA',
-    'Problem Solving',
-    'Communication Skills',
-    'Leadership Questions'
-  ];
-
   useEffect(() => {
     if (!loading && !user) {
       router.push('/sign-in');
     }
   }, [loading, user, router]);
+
+  // Filter focus areas based on search
+  const filteredCategories = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return FOCUS_AREAS_BY_CATEGORY;
+    }
+
+    const query = searchQuery.toLowerCase();
+    const filtered: Partial<typeof FOCUS_AREAS_BY_CATEGORY> = {};
+
+    Object.entries(FOCUS_AREAS_BY_CATEGORY).forEach(([category, areas]) => {
+      const matchingAreas = areas.filter(area => 
+        area.toLowerCase().includes(query) || 
+        category.toLowerCase().includes(query)
+      );
+      
+      if (matchingAreas.length > 0) {
+        filtered[category as keyof typeof FOCUS_AREAS_BY_CATEGORY] = matchingAreas;
+      }
+    });
+
+    return filtered;
+  }, [searchQuery]);
 
   const toggleFocusArea = (area: string) => {
     setFormData(prev => ({
@@ -90,6 +597,10 @@ export default function CreatePlanPage() {
         ? prev.focusAreas.filter(a => a !== area)
         : [...prev.focusAreas, area]
     }));
+  };
+
+  const clearSearch = () => {
+    setSearchQuery('');
   };
 
   const calculateDaysUntilInterview = () => {
@@ -361,19 +872,46 @@ export default function CreatePlanPage() {
                 <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1.5">
                   Interview Date <span className="text-red-400">*</span>
                 </label>
-                <input
-                  type="date"
-                  value={formData.interviewDate}
-                  onChange={(e) => setFormData({ ...formData, interviewDate: e.target.value })}
-                  min={new Date().toISOString().split('T')[0]}
-                  max={new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
-                  className="w-full px-3 sm:px-3.5 py-2 sm:py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-xs sm:text-sm"
-                  required
-                />
+                <div className="relative group">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none z-10 group-focus-within:text-blue-400 transition-colors" />
+                  <input
+                    type="date"
+                    value={formData.interviewDate}
+                    onChange={(e) => setFormData({ ...formData, interviewDate: e.target.value })}
+                    min={new Date().toISOString().split('T')[0]}
+                    max={new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+                    className="w-full pl-10 pr-4 py-2.5 
+                    bg-slate-800/50 border border-slate-700 rounded-lg 
+                    text-white placeholder-slate-500
+                    hover:bg-slate-800/70 hover:border-slate-600
+                    focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-slate-800/70
+                    transition-all text-sm
+                    cursor-pointer
+                    [color-scheme:dark]"
+                    required
+                  />
+                </div>
                 {formData.interviewDate && (
-                  <div className="mt-1.5 sm:mt-2 flex items-center gap-1.5 text-xs sm:text-sm text-slate-400">
-                    <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                    <span>{calculateDaysUntilInterview()} days until interview</span>
+                  <div className="mt-2 flex items-center gap-3 px-3 py-2.5 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-lg backdrop-blur-sm">
+                    <div className="flex-shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                      <Calendar className="w-4 h-4 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-xs text-slate-400 mb-0.5">Time until interview</p>
+                      <p className="text-sm font-semibold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                        {calculateDaysUntilInterview()} {calculateDaysUntilInterview() === 1 ? 'day' : 'days'} to prepare
+                      </p>
+                    </div>
+                    <div className="flex-shrink-0 text-right">
+                      <p className="text-xs text-slate-500 mb-0.5">Target Date</p>
+                      <p className="text-xs font-medium text-slate-300">
+                        {new Date(formData.interviewDate).toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -413,24 +951,83 @@ export default function CreatePlanPage() {
               </h2>
             </div>
             <p className="text-xs sm:text-sm text-slate-400 mb-3 sm:mb-4">
-              Select areas you&apos;d like to prioritize
+              Select topics you&apos;d like to prioritize in your preparation
             </p>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 sm:gap-2.5">
-              {commonFocusAreas.map((area) => (
+            {/* Search Bar */}
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search focus areas..."
+                className="w-full pl-10 pr-10 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm"
+              />
+              {searchQuery && (
                 <button
-                  key={area}
                   type="button"
-                  onClick={() => toggleFocusArea(area)}
-                  className={`px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs font-medium transition-all text-left ${
-                    formData.focusAreas.includes(area)
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-slate-800/50 text-slate-300 hover:bg-slate-800 border border-slate-700'
-                  }`}
+                  onClick={clearSearch}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
                 >
-                  {area}
+                  <X className="w-4 h-4" />
                 </button>
-              ))}
+              )}
+            </div>
+
+            {/* Selected Count */}
+            {formData.focusAreas.length > 0 && (
+              <div className="mb-3 flex items-center gap-2 text-sm">
+                <span className="text-slate-400">Selected:</span>
+                <span className="px-2 py-0.5 bg-blue-500/20 border border-blue-500/30 rounded text-blue-400 font-medium">
+                  {formData.focusAreas.length}
+                </span>
+              </div>
+            )}
+
+            {/* Categories with Areas */}
+            <div className="space-y-6 max-h-96 overflow-y-auto scrollbar-hide">
+              {Object.entries(filteredCategories).length > 0 ? (
+                Object.entries(filteredCategories).map(([category, areas]) => (
+                  <div key={category}>
+                    <h3 className="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
+                      <div className="h-px flex-1 bg-slate-700" />
+                      <span>{category}</span>
+                      <div className="h-px flex-1 bg-slate-700" />
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                      {areas.map((area) => (
+                        <button
+                          key={area}
+                          type="button"
+                          onClick={() => toggleFocusArea(area)}
+                          className={`px-3 py-2 rounded-lg text-xs font-medium transition-all text-left ${
+                            formData.focusAreas.includes(area)
+                              ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
+                              : 'bg-slate-800/50 text-slate-300 hover:bg-slate-800 border border-slate-700'
+                          }`}
+                        >
+                          {area}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8">
+                  <Target className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                  <p className="text-slate-400 text-sm">
+                    No focus areas found matching &quot;{searchQuery}&quot;
+                  </p>
+                  <button
+                    type="button"
+                    onClick={clearSearch}
+                    className="mt-3 text-blue-400 hover:text-blue-300 text-sm font-medium"
+                  >
+                    Clear search
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
