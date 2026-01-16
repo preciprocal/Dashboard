@@ -108,6 +108,7 @@ const PUBLIC_ROUTES = [
   '/reset-password',
   '/verify-email',
   '/onboarding',
+  '/auth/action',
 ];
 
 // Define routes that should redirect authenticated users
@@ -470,7 +471,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
     { id: 'help', label: 'Support', icon: HelpCircle, href: '/help' },
   ];
 
-  const authPages = ['/sign-in', '/sign-up', '/forgot-password', '/reset-password', '/verify-email', '/onboarding'];
+  const authPages = ['/sign-in', '/sign-up', '/forgot-password', '/reset-password', '/verify-email', '/onboarding', '/auth/action'];
   const isAuthPage = authPages.some(page => pathname.startsWith(page));
 
   const isPublicRoute = PUBLIC_ROUTES.some(route => pathname.startsWith(route));
@@ -963,7 +964,7 @@ export default function LayoutClient({ children, user, userStats }: LayoutClient
     }
   }, [user, pathname, router]);
 
-  const authPages = ['/sign-in', '/sign-up', '/forgot-password', '/reset-password', '/verify-email', '/onboarding'];
+  const authPages = ['/sign-in', '/sign-up', '/forgot-password', '/reset-password', '/verify-email', '/onboarding', '/auth/action'];
   const isAuthPage = authPages.some(page => pathname.startsWith(page));
 
   const isPublicRoute = PUBLIC_ROUTES.some(route => pathname.startsWith(route));
