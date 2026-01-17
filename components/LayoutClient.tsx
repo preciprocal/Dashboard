@@ -109,6 +109,10 @@ const PUBLIC_ROUTES = [
   '/verify-email',
   '/onboarding',
   '/auth/action',
+  '/help',
+  '/terms',
+  '/privacy',
+  '/subscription', // Newsletter page
 ];
 
 // Define routes that should redirect authenticated users
@@ -474,6 +478,10 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
   const authPages = ['/sign-in', '/sign-up', '/forgot-password', '/reset-password', '/verify-email', '/onboarding', '/auth/action'];
   const isAuthPage = authPages.some(page => pathname.startsWith(page));
 
+  // Check if current page is a public page
+  const publicPages = ['/help', '/terms', '/privacy', '/subscription'];
+  const isPublicPage = publicPages.some(page => pathname.startsWith(page));
+
   const isPublicRoute = PUBLIC_ROUTES.some(route => pathname.startsWith(route));
   if (!user && !isPublicRoute) {
     return (
@@ -486,7 +494,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
     );
   }
 
-  if (isAuthPage) {
+  if (isAuthPage || isPublicPage) {
     return <div className="min-h-screen">{children}</div>;
   }
 
@@ -662,7 +670,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
                     </Link>
                     
                     <Link
-                      href="/pricing"
+                      href="/subscription"
                       onClick={() => {
                         setShowAccountMenu(false);
                         handleLinkClick();
@@ -861,7 +869,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
 
             {planInfo.showUpgrade && (
               <Link 
-                href="/pricing"
+                href="/subscription"
                 onClick={handleLinkClick}
                 className="glass-button-primary w-full px-4 py-2.5 rounded-lg hover-lift flex items-center justify-center text-white text-sm font-medium
                            bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700
@@ -967,6 +975,10 @@ export default function LayoutClient({ children, user, userStats }: LayoutClient
   const authPages = ['/sign-in', '/sign-up', '/forgot-password', '/reset-password', '/verify-email', '/onboarding', '/auth/action'];
   const isAuthPage = authPages.some(page => pathname.startsWith(page));
 
+  // Check if current page is a public page (help, terms, privacy, subscription)
+  const publicPages = ['/help', '/terms', '/privacy', '/subscription'];
+  const isPublicPage = publicPages.some(page => pathname.startsWith(page));
+
   const isPublicRoute = PUBLIC_ROUTES.some(route => pathname.startsWith(route));
   if (!user && !isPublicRoute) {
     return (
@@ -979,7 +991,7 @@ export default function LayoutClient({ children, user, userStats }: LayoutClient
     );
   }
 
-  if (isAuthPage) {
+  if (isAuthPage || isPublicPage) {
     return (
       <>
         <Toaster position="top-right" richColors />

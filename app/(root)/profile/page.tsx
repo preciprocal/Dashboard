@@ -19,7 +19,6 @@ import {
   Edit,
   Save,
   X,
- 
   Globe,
   Briefcase,
   TrendingUp,
@@ -314,7 +313,7 @@ const ProfilePage = () => {
     return new Date(createdAt as string | number);
   };
 
-  // Fetch user data from Firebase - UPDATED with real-time stats calculation
+  // Fetch user data from Firebase - UPDATED with authentication headers
   useEffect(() => {
     const fetchUserData = async (): Promise<void> => {
       if (!user) return;
@@ -326,7 +325,16 @@ const ProfilePage = () => {
       try {
         // Step 1: Loading profile data
         setLoadingStep(1);
-        const profileResponse = await fetch("/api/profile");
+        
+        // Get the ID token for authentication
+        const idToken = await user.getIdToken();
+        
+        const profileResponse = await fetch("/api/profile", {
+          headers: {
+            "Authorization": `Bearer ${idToken}`,
+            "Content-Type": "application/json"
+          }
+        });
         
         if (!profileResponse.ok) {
           if (profileResponse.status === 401) {
@@ -351,6 +359,9 @@ const ProfilePage = () => {
         }
 
         const { user: currentUser, interviews: userInterviews } = await profileResponse.json();
+
+        console.log("Fetched user data:", currentUser); // Debug log
+        console.log("Fetched interviews:", userInterviews); // Debug log
 
         if (!currentUser) {
           router.push("/sign-in");
@@ -716,7 +727,7 @@ const ProfilePage = () => {
       <div className="glass-card hover-lift">
         <div className="p-4 sm:p-6">
           <div className="flex items-center justify-between">
-            <Link href="/dashboard">
+            <Link href="/">
               <Button
                 variant="ghost"
                 size="sm"
