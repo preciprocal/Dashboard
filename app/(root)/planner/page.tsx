@@ -18,7 +18,8 @@ import {
   AlertCircle,
   RefreshCw,
   Search,
-  Filter
+  Filter,
+  ChevronDown
 } from 'lucide-react';
 import PlanCard from '@/components/planner/PlanCard';
 import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
@@ -42,6 +43,7 @@ export default function PlannerPage() {
   const [sortBy, setSortBy] = useState<'date' | 'progress' | 'name'>('date');
   const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [showSortMenu, setShowSortMenu] = useState(false);
   
   // Error states
   const [criticalError, setCriticalError] = useState<CriticalError | null>(null);
@@ -56,6 +58,25 @@ export default function PlannerPage() {
     { name: 'Organizing data...', weight: 1 },
     { name: 'Finalizing planner...', weight: 1 }
   ];
+
+  // Handle click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      
+      if (showSortMenu && !target.closest('.sort-dropdown')) {
+        setShowSortMenu(false);
+      }
+    };
+
+    if (showSortMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showSortMenu]);
 
   const loadUserPlans = useCallback(async (): Promise<void> => {
     if (!user) return;
@@ -181,6 +202,19 @@ export default function PlannerPage() {
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       }
     });
+
+  const getSortLabel = (value: 'date' | 'progress' | 'name'): string => {
+    switch (value) {
+      case 'date':
+        return 'Latest First';
+      case 'progress':
+        return 'By Progress';
+      case 'name':
+        return 'Alphabetical';
+      default:
+        return 'Latest First';
+    }
+  };
 
   if (criticalError) {
     return (
@@ -363,7 +397,7 @@ export default function PlannerPage() {
         </div>
       )}
 
-      {/* Search & Filter - Dark Mode */}
+      {/* Search & Filter - Dark Mode with Custom Dropdown */}
       {plans.length > 0 && (
         <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800">
           <div className="p-4 sm:p-5">
@@ -379,17 +413,66 @@ export default function PlannerPage() {
                 />
               </div>
 
-              <div className="relative">
-                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600 pointer-events-none" />
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as 'date' | 'progress' | 'name')}
-                  className="bg-slate-800/60 backdrop-blur-xl border border-slate-700 pl-10 pr-4 py-2.5 rounded-lg text-white text-sm appearance-none cursor-pointer w-full sm:min-w-[160px] focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+              {/* Sort Dropdown - Custom Styled */}
+              <div className="relative sort-dropdown sm:min-w-[160px]">
+                <button
+                  type="button"
+                  onClick={() => setShowSortMenu(!showSortMenu)}
+                  className="glass-input w-full px-4 py-2.5 rounded-lg text-white text-sm text-left flex items-center justify-between cursor-pointer"
                 >
-                  <option value="date">Latest First</option>
-                  <option value="progress">By Progress</option>
-                  <option value="name">Alphabetical</option>
-                </select>
+                  <span className="flex items-center gap-2">
+                    <Filter className="w-4 h-4 text-slate-400" />
+                    <span>{getSortLabel(sortBy)}</span>
+                  </span>
+                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showSortMenu ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {showSortMenu && (
+                  <div className="absolute left-0 right-0 top-full mt-2 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-lg shadow-xl z-20 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSortBy('date');
+                        setShowSortMenu(false);
+                      }}
+                      className={`w-full px-4 py-2.5 text-left text-sm transition-colors ${
+                        sortBy === 'date'
+                          ? 'bg-blue-500/30 text-blue-300'
+                          : 'text-white hover:bg-white/5'
+                      }`}
+                    >
+                      Latest First
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSortBy('progress');
+                        setShowSortMenu(false);
+                      }}
+                      className={`w-full px-4 py-2.5 text-left text-sm transition-colors ${
+                        sortBy === 'progress'
+                          ? 'bg-blue-500/30 text-blue-300'
+                          : 'text-white hover:bg-white/5'
+                      }`}
+                    >
+                      By Progress
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSortBy('name');
+                        setShowSortMenu(false);
+                      }}
+                      className={`w-full px-4 py-2.5 text-left text-sm transition-colors ${
+                        sortBy === 'name'
+                          ? 'bg-blue-500/30 text-blue-300'
+                          : 'text-white hover:bg-white/5'
+                      }`}
+                    >
+                      Alphabetical
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 

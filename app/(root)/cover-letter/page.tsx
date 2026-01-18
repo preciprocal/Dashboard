@@ -28,7 +28,8 @@ import {
   Calendar,
   TrendingUp,
   X,
-  FileDown
+  FileDown,
+  ChevronDown
 } from 'lucide-react';
 
 type SortOption = 'all' | 'recent' | 'by-company' | 'by-role';
@@ -68,6 +69,7 @@ export default function CoverLetterDashboard() {
   const [loadingStep, setLoadingStep] = useState(0);
   const [sortFilter, setSortFilter] = useState<SortOption>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [stats, setStats] = useState<CoverLetterStats>({
     totalLetters: 0,
     averageWordCount: 0,
@@ -86,25 +88,28 @@ export default function CoverLetterDashboard() {
     return text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 underline">$1</a>');
   };
 
-  // Handle click outside to close download dropdown
+  // Handle click outside to close dropdowns
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (showDownloadMenu) {
-        const target = event.target as HTMLElement;
-        if (!target.closest('.download-dropdown-menu') && !target.closest('.download-button')) {
-          setShowDownloadMenu(null);
-        }
+      const target = event.target as HTMLElement;
+      
+      if (showDownloadMenu && !target.closest('.download-dropdown-menu') && !target.closest('.download-button')) {
+        setShowDownloadMenu(null);
+      }
+      
+      if (showFilterMenu && !target.closest('.filter-dropdown')) {
+        setShowFilterMenu(false);
       }
     };
 
-    if (showDownloadMenu) {
+    if (showDownloadMenu || showFilterMenu) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showDownloadMenu]);
+  }, [showDownloadMenu, showFilterMenu]);
 
   // Define loading steps
   const loadingSteps: LoadingStep[] = [
@@ -405,6 +410,21 @@ export default function CoverLetterDashboard() {
     return coverLetters.length;
   };
 
+  const getFilterLabel = (option: SortOption): string => {
+    switch (option) {
+      case 'all':
+        return `All (${getFilterCount()})`;
+      case 'recent':
+        return 'Recent First';
+      case 'by-company':
+        return 'By Company';
+      case 'by-role':
+        return 'By Role';
+      default:
+        return 'All';
+    }
+  };
+
   if (criticalError) {
     return (
       <ErrorPage
@@ -570,19 +590,80 @@ export default function CoverLetterDashboard() {
                 </div>
                 
                 <div className="flex items-center gap-2 sm:gap-3">
-                  {/* Filter Dropdown - Responsive */}
-                  <div className="relative flex-1 sm:flex-initial">
-                    <Filter className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500 pointer-events-none" />
-                    <select 
-                      value={sortFilter} 
-                      onChange={(e) => setSortFilter(e.target.value as SortOption)}
-                      className="glass-input pl-8 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 rounded-lg text-white text-xs sm:text-sm appearance-none cursor-pointer w-full sm:min-w-[180px]"
+                  {/* Filter Dropdown - Custom Styled */}
+                  <div className="relative filter-dropdown flex-1 sm:flex-initial sm:min-w-[180px]">
+                    <button
+                      type="button"
+                      onClick={() => setShowFilterMenu(!showFilterMenu)}
+                      className="glass-input w-full px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg text-white text-sm text-left flex items-center justify-between cursor-pointer"
                     >
-                      <option value="all">All ({getFilterCount()})</option>
-                      <option value="recent">Recent First</option>
-                      <option value="by-company">By Company</option>
-                      <option value="by-role">By Role</option>
-                    </select>
+                      <span className="flex items-center gap-2">
+                        <Filter className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400" />
+                        <span>{getFilterLabel(sortFilter)}</span>
+                      </span>
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showFilterMenu ? 'rotate-180' : ''}`} />
+                    </button>
+                    
+                    {showFilterMenu && (
+                      <div className="absolute left-0 right-0 top-full mt-2 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-lg shadow-xl z-20 overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSortFilter('all');
+                            setShowFilterMenu(false);
+                          }}
+                          className={`w-full px-3 sm:px-4 py-2 sm:py-2.5 text-left text-sm transition-colors ${
+                            sortFilter === 'all' 
+                              ? 'bg-blue-500/30 text-blue-300' 
+                              : 'text-white hover:bg-white/5'
+                          }`}
+                        >
+                          All ({getFilterCount()})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSortFilter('recent');
+                            setShowFilterMenu(false);
+                          }}
+                          className={`w-full px-3 sm:px-4 py-2 sm:py-2.5 text-left text-sm transition-colors ${
+                            sortFilter === 'recent' 
+                              ? 'bg-blue-500/30 text-blue-300' 
+                              : 'text-white hover:bg-white/5'
+                          }`}
+                        >
+                          Recent First
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSortFilter('by-company');
+                            setShowFilterMenu(false);
+                          }}
+                          className={`w-full px-3 sm:px-4 py-2 sm:py-2.5 text-left text-sm transition-colors ${
+                            sortFilter === 'by-company' 
+                              ? 'bg-blue-500/30 text-blue-300' 
+                              : 'text-white hover:bg-white/5'
+                          }`}
+                        >
+                          By Company
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSortFilter('by-role');
+                            setShowFilterMenu(false);
+                          }}
+                          className={`w-full px-3 sm:px-4 py-2 sm:py-2.5 text-left text-sm transition-colors ${
+                            sortFilter === 'by-role' 
+                              ? 'bg-blue-500/30 text-blue-300' 
+                              : 'text-white hover:bg-white/5'
+                          }`}
+                        >
+                          By Role
+                        </button>
+                      </div>
+                    )}
                   </div>
                   
                   {/* View Toggle */}

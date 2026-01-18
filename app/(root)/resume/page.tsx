@@ -10,7 +10,7 @@ import ResumeCard from '@/components/resume/ResumeCard';
 import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
 import ErrorPage from '@/components/Error';
 import { Resume } from '@/types/resume';
-import { FileText, Upload, Zap, LayoutGrid, List, Filter, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { FileText, Upload, Zap, LayoutGrid, List, Filter, CheckCircle, AlertCircle, RefreshCw, ChevronDown } from 'lucide-react';
 
 type SortOption = 'all' | 'high-scores' | 'needs-improvement' | 'recent';
 type ViewMode = 'grid' | 'list';
@@ -36,6 +36,7 @@ export default function ResumeDashboard() {
   const [loadingStep, setLoadingStep] = useState(0);
   const [sortFilter, setSortFilter] = useState<SortOption>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [stats, setStats] = useState<ResumeStats>({
     averageScore: 0,
     totalResumes: 0,
@@ -53,6 +54,25 @@ export default function ResumeDashboard() {
     { name: 'Organizing resumes...', weight: 1 },
     { name: 'Finalizing dashboard...', weight: 1 }
   ];
+
+  // Handle click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      
+      if (showFilterMenu && !target.closest('.filter-dropdown')) {
+        setShowFilterMenu(false);
+      }
+    };
+
+    if (showFilterMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showFilterMenu]);
 
   const loadResumes = useCallback(async (): Promise<void> => {
     if (!user) return;
@@ -197,6 +217,21 @@ export default function ResumeDashboard() {
       case 'all':
       default:
         return resumes.length;
+    }
+  };
+
+  const getFilterLabel = (option: SortOption): string => {
+    switch (option) {
+      case 'all':
+        return `All (${getFilterCount('all')})`;
+      case 'high-scores':
+        return `High Scores (${getFilterCount('high-scores')})`;
+      case 'needs-improvement':
+        return `Needs Work (${getFilterCount('needs-improvement')})`;
+      case 'recent':
+        return `Recent (${getFilterCount('recent')})`;
+      default:
+        return 'All';
     }
   };
 
@@ -347,18 +382,79 @@ export default function ResumeDashboard() {
                 </div>
                 
                 <div className="flex items-center gap-2 sm:gap-3">
-                  <div className="relative flex-1 sm:flex-initial">
-                    <Filter className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500 pointer-events-none" />
-                    <select 
-                      value={sortFilter} 
-                      onChange={(e) => setSortFilter(e.target.value as SortOption)}
-                      className="glass-input pl-8 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 rounded-lg text-white text-xs sm:text-sm appearance-none cursor-pointer w-full sm:min-w-[200px]"
+                  <div className="relative filter-dropdown flex-1 sm:flex-initial sm:min-w-[200px]">
+                    <button
+                      type="button"
+                      onClick={() => setShowFilterMenu(!showFilterMenu)}
+                      className="glass-input w-full px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg text-white text-sm text-left flex items-center justify-between cursor-pointer"
                     >
-                      <option value="all">All ({getFilterCount('all')})</option>
-                      <option value="high-scores">High Scores ({getFilterCount('high-scores')})</option>
-                      <option value="needs-improvement">Needs Work ({getFilterCount('needs-improvement')})</option>
-                      <option value="recent">Recent ({getFilterCount('recent')})</option>
-                    </select>
+                      <span className="flex items-center gap-2">
+                        <Filter className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400" />
+                        <span>{getFilterLabel(sortFilter)}</span>
+                      </span>
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showFilterMenu ? 'rotate-180' : ''}`} />
+                    </button>
+                    
+                    {showFilterMenu && (
+                      <div className="absolute left-0 right-0 top-full mt-2 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-lg shadow-xl z-20 overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSortFilter('all');
+                            setShowFilterMenu(false);
+                          }}
+                          className={`w-full px-3 sm:px-4 py-2 sm:py-2.5 text-left text-sm transition-colors ${
+                            sortFilter === 'all' 
+                              ? 'bg-blue-500/30 text-blue-300' 
+                              : 'text-white hover:bg-white/5'
+                          }`}
+                        >
+                          All ({getFilterCount('all')})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSortFilter('high-scores');
+                            setShowFilterMenu(false);
+                          }}
+                          className={`w-full px-3 sm:px-4 py-2 sm:py-2.5 text-left text-sm transition-colors ${
+                            sortFilter === 'high-scores' 
+                              ? 'bg-blue-500/30 text-blue-300' 
+                              : 'text-white hover:bg-white/5'
+                          }`}
+                        >
+                          High Scores ({getFilterCount('high-scores')})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSortFilter('needs-improvement');
+                            setShowFilterMenu(false);
+                          }}
+                          className={`w-full px-3 sm:px-4 py-2 sm:py-2.5 text-left text-sm transition-colors ${
+                            sortFilter === 'needs-improvement' 
+                              ? 'bg-blue-500/30 text-blue-300' 
+                              : 'text-white hover:bg-white/5'
+                          }`}
+                        >
+                          Needs Work ({getFilterCount('needs-improvement')})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSortFilter('recent');
+                            setShowFilterMenu(false);
+                          }}
+                          className={`w-full px-3 sm:px-4 py-2 sm:py-2.5 text-left text-sm transition-colors ${
+                            sortFilter === 'recent' 
+                              ? 'bg-blue-500/30 text-blue-300' 
+                              : 'text-white hover:bg-white/5'
+                          }`}
+                        >
+                          Recent ({getFilterCount('recent')})
+                        </button>
+                      </div>
+                    )}
                   </div>
                   
                   <div className="flex bg-slate-900/50 rounded-lg p-1">

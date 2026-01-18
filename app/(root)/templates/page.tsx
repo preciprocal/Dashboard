@@ -273,12 +273,46 @@ export default function TemplatesPage() {
   const [selectedDuration, setSelectedDuration] = useState("All");
   const [showFilters, setShowFilters] = useState(false);
 
+  // Dropdown states
+  const [showCategoryMenu, setShowCategoryMenu] = useState(false);
+  const [showDifficultyMenu, setShowDifficultyMenu] = useState(false);
+  const [showTypeMenu, setShowTypeMenu] = useState(false);
+  const [showDurationMenu, setShowDurationMenu] = useState(false);
+
   // Check authentication
   useEffect(() => {
     if (!loading && !user) {
       router.push('/sign-in');
     }
   }, [user, loading, router]);
+
+  // Handle click outside to close dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      
+      if (showCategoryMenu && !target.closest('.category-dropdown')) {
+        setShowCategoryMenu(false);
+      }
+      if (showDifficultyMenu && !target.closest('.difficulty-dropdown')) {
+        setShowDifficultyMenu(false);
+      }
+      if (showTypeMenu && !target.closest('.type-dropdown')) {
+        setShowTypeMenu(false);
+      }
+      if (showDurationMenu && !target.closest('.duration-dropdown')) {
+        setShowDurationMenu(false);
+      }
+    };
+
+    if (showCategoryMenu || showDifficultyMenu || showTypeMenu || showDurationMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showCategoryMenu, showDifficultyMenu, showTypeMenu, showDurationMenu]);
 
   // Filter templates based on search and filters
   const filteredTemplates = useMemo(() => {
@@ -379,7 +413,7 @@ export default function TemplatesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -464,7 +498,7 @@ export default function TemplatesPage() {
             />
           </button>
 
-          {/* Filters */}
+          {/* Filters - Custom Dropdowns */}
           <div
             className={`space-y-4 sm:space-y-0 sm:grid sm:grid-cols-4 gap-4 ${
               showFilters ? "block" : "hidden sm:grid"
@@ -475,17 +509,38 @@ export default function TemplatesPage() {
               <label className="block text-sm font-medium text-slate-400 mb-2">
                 Category
               </label>
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-purple-500/50 transition-colors"
-              >
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id} className="bg-slate-900">
-                    {category.name}
-                  </option>
-                ))}
-              </select>
+              <div className="relative category-dropdown">
+                <button
+                  type="button"
+                  onClick={() => setShowCategoryMenu(!showCategoryMenu)}
+                  className="glass-input w-full px-4 py-2.5 rounded-lg text-white text-sm text-left flex items-center justify-between cursor-pointer"
+                >
+                  <span>{categories.find(c => c.id === selectedCategory)?.name || 'All'}</span>
+                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showCategoryMenu ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {showCategoryMenu && (
+                  <div className="absolute left-0 right-0 top-full mt-2 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-lg shadow-xl z-20 overflow-hidden max-h-60 overflow-y-auto">
+                    {categories.map((category) => (
+                      <button
+                        key={category.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedCategory(category.id);
+                          setShowCategoryMenu(false);
+                        }}
+                        className={`w-full px-4 py-2.5 text-left text-sm transition-colors ${
+                          selectedCategory === category.id
+                            ? 'bg-blue-500/30 text-blue-300'
+                            : 'text-white hover:bg-white/5'
+                        }`}
+                      >
+                        {category.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Difficulty Filter */}
@@ -493,17 +548,38 @@ export default function TemplatesPage() {
               <label className="block text-sm font-medium text-slate-400 mb-2">
                 Difficulty
               </label>
-              <select
-                value={selectedDifficulty}
-                onChange={(e) => setSelectedDifficulty(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-purple-500/50 transition-colors"
-              >
-                {difficulties.map((difficulty) => (
-                  <option key={difficulty} value={difficulty} className="bg-slate-900">
-                    {difficulty}
-                  </option>
-                ))}
-              </select>
+              <div className="relative difficulty-dropdown">
+                <button
+                  type="button"
+                  onClick={() => setShowDifficultyMenu(!showDifficultyMenu)}
+                  className="glass-input w-full px-4 py-2.5 rounded-lg text-white text-sm text-left flex items-center justify-between cursor-pointer"
+                >
+                  <span>{selectedDifficulty}</span>
+                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showDifficultyMenu ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {showDifficultyMenu && (
+                  <div className="absolute left-0 right-0 top-full mt-2 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-lg shadow-xl z-20 overflow-hidden">
+                    {difficulties.map((difficulty) => (
+                      <button
+                        key={difficulty}
+                        type="button"
+                        onClick={() => {
+                          setSelectedDifficulty(difficulty);
+                          setShowDifficultyMenu(false);
+                        }}
+                        className={`w-full px-4 py-2.5 text-left text-sm transition-colors ${
+                          selectedDifficulty === difficulty
+                            ? 'bg-blue-500/30 text-blue-300'
+                            : 'text-white hover:bg-white/5'
+                        }`}
+                      >
+                        {difficulty}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Type Filter */}
@@ -511,17 +587,38 @@ export default function TemplatesPage() {
               <label className="block text-sm font-medium text-slate-400 mb-2">
                 Type
               </label>
-              <select
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-purple-500/50 transition-colors"
-              >
-                {types.map((type) => (
-                  <option key={type} value={type} className="bg-slate-900">
-                    {type}
-                  </option>
-                ))}
-              </select>
+              <div className="relative type-dropdown">
+                <button
+                  type="button"
+                  onClick={() => setShowTypeMenu(!showTypeMenu)}
+                  className="glass-input w-full px-4 py-2.5 rounded-lg text-white text-sm text-left flex items-center justify-between cursor-pointer"
+                >
+                  <span>{selectedType}</span>
+                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showTypeMenu ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {showTypeMenu && (
+                  <div className="absolute left-0 right-0 top-full mt-2 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-lg shadow-xl z-20 overflow-hidden">
+                    {types.map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => {
+                          setSelectedType(type);
+                          setShowTypeMenu(false);
+                        }}
+                        className={`w-full px-4 py-2.5 text-left text-sm transition-colors ${
+                          selectedType === type
+                            ? 'bg-blue-500/30 text-blue-300'
+                            : 'text-white hover:bg-white/5'
+                        }`}
+                      >
+                        {type}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Duration Filter */}
@@ -529,17 +626,38 @@ export default function TemplatesPage() {
               <label className="block text-sm font-medium text-slate-400 mb-2">
                 Duration
               </label>
-              <select
-                value={selectedDuration}
-                onChange={(e) => setSelectedDuration(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-purple-500/50 transition-colors"
-              >
-                {durations.map((duration) => (
-                  <option key={duration} value={duration} className="bg-slate-900">
-                    {duration}
-                  </option>
-                ))}
-              </select>
+              <div className="relative duration-dropdown">
+                <button
+                  type="button"
+                  onClick={() => setShowDurationMenu(!showDurationMenu)}
+                  className="glass-input w-full px-4 py-2.5 rounded-lg text-white text-sm text-left flex items-center justify-between cursor-pointer"
+                >
+                  <span>{selectedDuration}</span>
+                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showDurationMenu ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {showDurationMenu && (
+                  <div className="absolute left-0 right-0 top-full mt-2 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-lg shadow-xl z-20 overflow-hidden">
+                    {durations.map((duration) => (
+                      <button
+                        key={duration}
+                        type="button"
+                        onClick={() => {
+                          setSelectedDuration(duration);
+                          setShowDurationMenu(false);
+                        }}
+                        className={`w-full px-4 py-2.5 text-left text-sm transition-colors ${
+                          selectedDuration === duration
+                            ? 'bg-blue-500/30 text-blue-300'
+                            : 'text-white hover:bg-white/5'
+                        }`}
+                      >
+                        {duration}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
