@@ -39,7 +39,7 @@ export const metadata: Metadata = {
   authors: [{ name: "Preciprocal" }],
   openGraph: {
     title: "Preciprocal | Tired of AI Taking Your Job? Use AI to Take It Back",
-    description: "Stop stressing about AI replacing you. Use AI to level up your career game instead. Ace interviews, optimize your resume, land the bag. 💼✨",
+    description: "Stop stressing about AI replacing you. Use AI to level up your career game instead. Ace interviews, optimize your resume, land the bag ✨",
     type: "website",
     locale: "en_US",
   },

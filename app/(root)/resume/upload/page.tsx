@@ -303,9 +303,10 @@ export default function UploadResume() {
 
   const remainingCount = getRemainingCount('resumes');
   const limit = getLimit('resumes');
+  const hasAnalysesRemaining = remainingCount === -1 || remainingCount > 0;
 
   return (
-    <div className="h-[calc(100vh-73px)] lg:h-[calc(100vh-73px-3rem)] flex items-center justify-center p-4 lg:p-0 overflow-y-auto lg:overflow-hidden">
+    <div className="h-[calc(100vh-121px)] flex flex-col overflow-hidden px-4 sm:px-0">
       {/* Processing Loader */}
       {isProcessing && (
         <div className="fixed inset-0 bg-slate-950/95 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -356,233 +357,257 @@ export default function UploadResume() {
         </div>
       )}
 
-      {/* Main Content */}
-      <div className="w-full max-w-7xl lg:h-full flex items-center lg:px-6">
-        <div className="w-full grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-16 items-start lg:items-center lg:h-full lg:py-8">
-          {/* Left Side - Info */}
-          <div className="space-y-4 sm:space-y-6 order-2 lg:order-1">
-            <div>
-              <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl mb-4 sm:mb-5">
-                <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+      {hasAnalysesRemaining ? (
+        <>
+          {/* Header Section - Fixed Height, Responsive */}
+          <div className="flex-shrink-0 pb-4 sm:pb-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+              <div className="w-full sm:w-auto">
+                <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-full px-3 sm:px-4 py-1.5 sm:py-2 mb-2 sm:mb-3">
+                  <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400" />
+                  <span className="text-blue-400 text-xs sm:text-sm font-medium">AI-Powered</span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-semibold text-white mb-1 sm:mb-2">
+                  Resume Analyzer
+                </h1>
+                <div className="flex items-center gap-3">
+                  <p className="text-slate-400 text-xs sm:text-sm">
+                    Get instant AI-powered feedback and detailed insights to optimize your resume
+                  </p>
+                </div>
               </div>
-              <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2 sm:mb-3 leading-tight">
-                AI Resume<br />Analyzer
-              </h1>
-              <div className="flex items-center gap-3 mb-2">
-                <p className="text-sm sm:text-base text-slate-400 leading-relaxed">
-                  Get instant AI-powered feedback and detailed insights to optimize your resume
-                </p>
-              </div>
-              {!usageLoading && user && (
-                <div className="text-xs text-slate-400 mt-2">
-                  {remainingCount === -1 ? (
-                    <span className="text-emerald-400 font-medium">✨ Unlimited analyses</span>
-                  ) : (
-                    <span>
-                      <span className="font-medium text-white">{remainingCount}</span> of {limit} remaining this month
-                    </span>
+              <div className={`px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 rounded-lg border ${
+                remainingCount === -1
+                  ? 'bg-purple-500/5 border-purple-500/20 text-purple-400'
+                  : 'bg-slate-500/5 border-slate-500/20 text-slate-400'
+              } flex-shrink-0`}>
+                <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium">
+                  <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  {!usageLoading && (
+                    <>
+                      {remainingCount === -1 ? (
+                        <span>Unlimited</span>
+                      ) : (
+                        <span>{remainingCount} of {limit} left</span>
+                      )}
+                    </>
                   )}
                 </div>
-              )}
-            </div>
-
-            <div className="space-y-2.5 sm:space-y-3">
-              <div className="flex items-start gap-3">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 bg-blue-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
-                </div>
-                <div>
-                  <h3 className="text-white font-medium mb-0.5 sm:mb-1 text-sm">AI-Powered Analysis</h3>
-                  <p className="text-xs text-slate-400">Advanced multi-agent system evaluates every aspect</p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
-                </div>
-                <div>
-                  <h3 className="text-white font-medium mb-0.5 sm:mb-1 text-sm">ATS Optimization</h3>
-                  <p className="text-xs text-slate-400">Pass applicant tracking systems with high scores</p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 bg-purple-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
-                </div>
-                <div>
-                  <h3 className="text-white font-medium mb-0.5 sm:mb-1 text-sm">Secure & Private</h3>
-                  <p className="text-xs text-slate-400">Enterprise-grade security and encryption</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3 sm:gap-4 pt-2 sm:pt-3">
-              <div>
-                <div className="text-xl sm:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 mb-1">
-                  6-7s
-                </div>
-                <div className="text-xs text-slate-500">Average review time</div>
-              </div>
-              <div>
-                <div className="text-xl sm:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 mb-1">
-                  75%
-                </div>
-                <div className="text-xs text-slate-500">Rejected by ATS</div>
-              </div>
-              <div>
-                <div className="text-xl sm:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 mb-1">
-                  2x
-                </div>
-                <div className="text-xs text-slate-500">More interviews</div>
               </div>
             </div>
           </div>
 
-          {/* Right Side - Form */}
-          <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-4 sm:p-6 max-h-[70vh] lg:max-h-[calc(100vh-200px)] overflow-y-auto custom-scrollbar order-1 lg:order-2">
-            {error && (
-              <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 mb-4">
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-medium text-red-400 mb-0.5 text-sm">Analysis Failed</h3>
-                    <p className="text-xs text-red-300 break-words">{error}</p>
-                  </div>
-                  <button onClick={() => setError('')} className="text-red-400 hover:text-red-300 text-lg leading-none flex-shrink-0">×</button>
-                </div>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Analysis Type
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { value: 'full', label: 'Full', time: '~30s' },
-                    { value: 'quick', label: 'Quick', time: '~10s' },
-                    { value: 'ats-only', label: 'ATS', time: '~15s' },
-                  ].map((type) => (
-                    <button
-                      key={type.value}
-                      type="button"
-                      onClick={() => setFormData({ ...formData, analysisType: type.value as 'full' | 'quick' | 'ats-only' })}
-                      className={`p-2.5 rounded-lg border transition-all text-center ${
-                        formData.analysisType === type.value
-                          ? 'border-blue-500 bg-blue-500/10 text-white'
-                          : 'border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600'
-                      }`}
-                    >
-                      <div className="font-medium text-sm mb-0.5">{type.label}</div>
-                      <div className="text-xs opacity-70">{type.time}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label htmlFor="company-name" className="block text-sm font-medium text-slate-300 mb-1.5">
-                    Company
-                  </label>
-                  <input
-                    type="text"
-                    id="company-name"
-                    value={formData.companyName}
-                    onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                    placeholder="e.g., Google"
-                    className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 transition-colors"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="job-title" className="block text-sm font-medium text-slate-300 mb-1.5">
-                    Job Title
-                  </label>
-                  <input
-                    type="text"
-                    id="job-title"
-                    value={formData.jobTitle}
-                    onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
-                    placeholder="e.g., Software Engineer"
-                    className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 transition-colors"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="job-description" className="block text-sm font-medium text-slate-300 mb-1.5">
-                  Job Description
-                </label>
-                <textarea
-                  id="job-description"
-                  rows={2}
-                  value={formData.jobDescription}
-                  onChange={(e) => setFormData({ ...formData, jobDescription: e.target.value })}
-                  placeholder="Paste job description for better keyword matching..."
-                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 transition-colors resize-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                  Upload Resume <span className="text-red-400">*</span>
-                </label>
-                <FileUploader onFileSelect={handleFileSelect} />
-                
-                {file && (
-                  <div className="mt-3 p-3 bg-slate-800/50 border border-slate-700 rounded-lg">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <div className="w-8 h-8 bg-emerald-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <FileText className="w-4 h-4 text-emerald-400" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium text-white text-xs truncate">{file.name}</p>
-                          <p className="text-xs text-slate-400">{(file.size / 1024).toFixed(2)} KB</p>
-                        </div>
-                      </div>
-                      <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+          {/* Form Container - Takes remaining height, Responsive */}
+          <div className="flex-1 min-h-0">
+            <div className="bg-slate-800/30 backdrop-blur-xl border border-slate-700/50 rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 h-full flex flex-col">
+              {error && (
+                <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 mb-4">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-medium text-red-400 mb-0.5 text-sm">Analysis Failed</h3>
+                      <p className="text-xs text-red-300 break-words">{error}</p>
                     </div>
+                    <button onClick={() => setError('')} className="text-red-400 hover:text-red-300 text-lg leading-none flex-shrink-0">×</button>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
-              <button
-                type="submit"
-                disabled={!file || isProcessing}
-                className={`w-full py-2.5 sm:py-3 px-6 rounded-lg font-medium transition-all text-sm sm:text-base ${
-                  !file || isProcessing
-                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white shadow-lg shadow-blue-500/25'
-                }`}
+              <form onSubmit={handleSubmit} className="space-y-4 flex-1 flex flex-col">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Analysis Type
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { value: 'full', label: 'Full Analysis', time: '~30s' },
+                      { value: 'quick', label: 'Quick Scan', time: '~10s' },
+                      { value: 'ats-only', label: 'ATS Check', time: '~15s' },
+                    ].map((type) => (
+                      <button
+                        key={type.value}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, analysisType: type.value as 'full' | 'quick' | 'ats-only' })}
+                        className={`p-2.5 rounded-lg border transition-all text-center ${
+                          formData.analysisType === type.value
+                            ? 'border-blue-500 bg-blue-500/10 text-white'
+                            : 'border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600'
+                        }`}
+                      >
+                        <div className="font-medium text-sm mb-0.5">{type.label}</div>
+                        <div className="text-xs opacity-70">{type.time}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="company-name" className="block text-sm font-medium text-slate-300 mb-1.5">
+                      Company (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      id="company-name"
+                      value={formData.companyName}
+                      onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+                      placeholder="e.g., Google"
+                      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="job-title" className="block text-sm font-medium text-slate-300 mb-1.5">
+                      Job Title (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      id="job-title"
+                      value={formData.jobTitle}
+                      onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
+                      placeholder="e.g., Software Engineer"
+                      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="job-description" className="block text-sm font-medium text-slate-300 mb-1.5">
+                    Job Description (Optional)
+                  </label>
+                  <textarea
+                    id="job-description"
+                    rows={2}
+                    value={formData.jobDescription}
+                    onChange={(e) => setFormData({ ...formData, jobDescription: e.target.value })}
+                    placeholder="Paste job description for better keyword matching..."
+                    className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 transition-colors resize-none"
+                  />
+                </div>
+
+                <div className="flex-1 flex flex-col">
+                  <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                    Upload Resume <span className="text-red-400">*</span>
+                  </label>
+                  <div className="flex-1 flex flex-col">
+                    <FileUploader onFileSelect={handleFileSelect} />
+                  </div>
+                  
+                  {file && (
+                    <div className="mt-3 p-3 bg-slate-800/50 border border-slate-700 rounded-lg">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <div className="w-8 h-8 bg-emerald-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <FileText className="w-4 h-4 text-emerald-400" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-white text-xs truncate">{file.name}</p>
+                            <p className="text-xs text-slate-400">{(file.size / 1024).toFixed(2)} KB</p>
+                          </div>
+                        </div>
+                        <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <button
+                    type="submit"
+                    disabled={!file || isProcessing}
+                    className={`w-full py-2.5 sm:py-3 px-6 rounded-xl font-medium transition-all text-sm sm:text-base ${
+                      !file || isProcessing
+                        ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white shadow-lg shadow-blue-500/25'
+                    }`}
+                  >
+                    {isProcessing ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+                        Analyzing...
+                      </span>
+                    ) : (
+                      <span className="flex items-center justify-center gap-2">
+                        <Upload className="w-4 h-4 sm:w-5 sm:h-5" />
+                        Analyze Resume
+                      </span>
+                    )}
+                  </button>
+
+                  <div className="text-center">
+                    <p className="text-xs text-slate-500 flex items-center justify-center gap-2">
+                      <Info className="w-3 h-3 flex-shrink-0" />
+                      <span>PDF only • Max 10MB • 10-30 seconds</span>
+                    </p>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="flex-1 flex items-center justify-center py-8">
+          <div className="max-w-lg w-full px-4">
+            {/* Icon */}
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-800/50 border border-slate-700/50 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-6 sm:mb-8">
+              <Shield className="w-8 h-8 sm:w-10 sm:h-10 text-slate-500" />
+            </div>
+            
+            {/* Content */}
+            <div className="text-center mb-6 sm:mb-8">
+              <h2 className="text-xl sm:text-2xl font-semibold text-white mb-2 sm:mb-3">
+                Analysis Limit Reached
+              </h2>
+              <p className="text-slate-400 leading-relaxed text-sm sm:text-base">
+                You&apos;ve used all {limit} of your free resume analyses this month. Upgrade your plan for unlimited access or wait for your next reset.
+              </p>
+            </div>
+
+            {/* Actions */}
+            <div className="space-y-2.5 sm:space-y-3 mb-6 sm:mb-8">
+              <Link
+                href="/subscription"
+                className="w-full flex items-center justify-center gap-2 px-5 sm:px-6 py-3 sm:py-3.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-medium transition-all shadow-lg hover:shadow-xl text-sm sm:text-base"
               >
-                {isProcessing ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
-                    Analyzing...
-                  </span>
-                ) : (
-                  <span className="flex items-center justify-center gap-2">
-                    <Upload className="w-4 h-4 sm:w-5 sm:h-5" />
-                    Analyze Resume
-                  </span>
-                )}
-              </button>
+                Upgrade to Pro
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              
+              <Link
+                href="/profile"
+                className="w-full flex items-center justify-center gap-2 px-5 sm:px-6 py-3 sm:py-3.5 bg-slate-800/50 hover:bg-slate-800/70 text-slate-300 border border-slate-700/50 rounded-xl font-medium transition-all text-sm sm:text-base"
+              >
+                View Progress
+              </Link>
+            </div>
 
-              <div className="text-center pt-1">
-                <p className="text-xs text-slate-500 flex items-center justify-center gap-2">
-                  <Info className="w-3 h-3 flex-shrink-0" />
-                  <span>PDF only • Max 10MB • 10-30 seconds</span>
-                </p>
+            {/* Benefits Preview */}
+            <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-xl p-4 sm:p-5">
+              <h3 className="text-sm font-semibold text-white mb-3">
+                ✨ Pro Plan Benefits
+              </h3>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-xs text-slate-300">
+                  <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                  <span>Unlimited resume analyses</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-slate-300">
+                  <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                  <span>Unlimited interview sessions</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-slate-300">
+                  <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                  <span>Unlimited cover letters & study plans</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-slate-300">
+                  <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                  <span>Priority support</span>
+                </div>
               </div>
-            </form>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Feedback Survey Modal */}
       {user && (
@@ -662,23 +687,6 @@ export default function UploadResume() {
           </div>
         </div>
       )}
-
-      <style jsx global>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: rgba(15, 23, 42, 0.3);
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(71, 85, 105, 0.5);
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(71, 85, 105, 0.7);
-        }
-      `}</style>
     </div>
   );
 }
