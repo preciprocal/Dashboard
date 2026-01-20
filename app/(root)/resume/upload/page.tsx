@@ -1,7 +1,7 @@
 // app/resume/upload/page.tsx
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/firebase/client';
@@ -78,6 +78,7 @@ export default function UploadResume() {
   // Usage tracking states
   const [showSurvey, setShowSurvey] = useState(false);
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
+  const [usageDataLoaded, setUsageDataLoaded] = useState(false);
 
   // Usage tracking hook
   const {
@@ -88,6 +89,13 @@ export default function UploadResume() {
     checkAndShowSurvey,
     loading: usageLoading,
   } = useUsageTracking();
+
+  // Wait for usage data to load before showing anything
+  useEffect(() => {
+    if (!usageLoading) {
+      setUsageDataLoaded(true);
+    }
+  }, [usageLoading]);
 
   const handleFileSelect = (selectedFile: File | null) => {
     setFile(selectedFile);
@@ -105,8 +113,11 @@ export default function UploadResume() {
       return;
     }
 
-    // Check usage limit FIRST
-    if (!canUseFeature('resumes')) {
+    // Double check usage limit with proper loading state
+    const canUse = canUseFeature('resumes');
+    console.log('Usage check:', { canUse, usageLoading, usageDataLoaded });
+    
+    if (!canUse) {
       if (checkAndShowSurvey('resumes')) {
         setShowSurvey(true);
       } else {
@@ -288,10 +299,14 @@ export default function UploadResume() {
     }
   };
 
-  if (loading) {
+  // Show loading state while checking auth or usage data
+  if (loading || !usageDataLoaded) {
     return (
       <div className="h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 text-blue-400 animate-spin mx-auto mb-4" />
+          <p className="text-slate-400 text-sm">Loading...</p>
+        </div>
       </div>
     );
   }
@@ -303,7 +318,17 @@ export default function UploadResume() {
 
   const remainingCount = getRemainingCount('resumes');
   const limit = getLimit('resumes');
+  
+  // Proper check: unlimited (-1) OR has remaining count (> 0)
   const hasAnalysesRemaining = remainingCount === -1 || remainingCount > 0;
+
+  console.log('Usage status:', { 
+    remainingCount, 
+    limit, 
+    hasAnalysesRemaining, 
+    usageLoading,
+    usageDataLoaded 
+  });
 
   return (
     <div className="min-h-screen py-6 px-4 sm:px-6 lg:px-8">
@@ -381,11 +406,9 @@ export default function UploadResume() {
               } flex-shrink-0`}>
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <Shield className="w-4 h-4" />
-                  {!usageLoading && (
-                    <span>
-                      {remainingCount === -1 ? 'Unlimited' : `${remainingCount} of ${limit} left`}
-                    </span>
-                  )}
+                  <span>
+                    {remainingCount === -1 ? 'Unlimited' : `${remainingCount} of ${limit} left`}
+                  </span>
                 </div>
               </div>
             </div>
