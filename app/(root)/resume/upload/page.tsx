@@ -290,7 +290,7 @@ export default function UploadResume() {
 
   if (loading) {
     return (
-      <div className="h-[calc(100vh-73px)] flex items-center justify-center">
+      <div className="h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
       </div>
     );
@@ -306,7 +306,7 @@ export default function UploadResume() {
   const hasAnalysesRemaining = remainingCount === -1 || remainingCount > 0;
 
   return (
-    <div className="h-[calc(100vh-121px)] flex flex-col overflow-hidden px-4 sm:px-0">
+    <div className="min-h-screen py-6 px-4 sm:px-6 lg:px-8">
       {/* Processing Loader */}
       {isProcessing && (
         <div className="fixed inset-0 bg-slate-950/95 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -357,49 +357,41 @@ export default function UploadResume() {
         </div>
       )}
 
-      {hasAnalysesRemaining ? (
-        <>
-          {/* Header Section - Fixed Height, Responsive */}
-          <div className="flex-shrink-0 pb-4 sm:pb-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
-              <div className="w-full sm:w-auto">
-                <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-full px-3 sm:px-4 py-1.5 sm:py-2 mb-2 sm:mb-3">
+      <div className="max-w-5xl mx-auto">
+        {hasAnalysesRemaining ? (
+          <>
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
+              <div>
+                <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-full px-3 py-1.5 mb-3">
                   <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400" />
                   <span className="text-blue-400 text-xs sm:text-sm font-medium">AI-Powered</span>
                 </div>
-                <h1 className="text-2xl sm:text-3xl font-semibold text-white mb-1 sm:mb-2">
+                <h1 className="text-2xl sm:text-3xl font-semibold text-white mb-2">
                   Resume Analyzer
                 </h1>
-                <div className="flex items-center gap-3">
-                  <p className="text-slate-400 text-xs sm:text-sm">
-                    Get instant AI-powered feedback and detailed insights to optimize your resume
-                  </p>
-                </div>
+                <p className="text-slate-400 text-sm">
+                  Get instant AI-powered feedback and detailed insights to optimize your resume
+                </p>
               </div>
-              <div className={`px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 rounded-lg border ${
+              <div className={`px-4 py-2 rounded-lg border ${
                 remainingCount === -1
                   ? 'bg-purple-500/5 border-purple-500/20 text-purple-400'
                   : 'bg-slate-500/5 border-slate-500/20 text-slate-400'
               } flex-shrink-0`}>
-                <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium">
-                  <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Shield className="w-4 h-4" />
                   {!usageLoading && (
-                    <>
-                      {remainingCount === -1 ? (
-                        <span>Unlimited</span>
-                      ) : (
-                        <span>{remainingCount} of {limit} left</span>
-                      )}
-                    </>
+                    <span>
+                      {remainingCount === -1 ? 'Unlimited' : `${remainingCount} of ${limit} left`}
+                    </span>
                   )}
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Form Container - Takes remaining height, Responsive */}
-          <div className="flex-1 min-h-0">
-            <div className="bg-slate-800/30 backdrop-blur-xl border border-slate-700/50 rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 h-full flex flex-col">
+            {/* Form Container */}
+            <div className="bg-slate-800/30 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-4 sm:p-6">
               {error && (
                 <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 mb-4">
                   <div className="flex items-start gap-3">
@@ -413,16 +405,17 @@ export default function UploadResume() {
                 </div>
               )}
 
-              <form onSubmit={handleSubmit} className="space-y-4 flex-1 flex flex-col">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Analysis Type */}
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
                     Analysis Type
                   </label>
                   <div className="grid grid-cols-3 gap-2">
                     {[
-                      { value: 'full', label: 'Full Analysis', time: '~30s' },
-                      { value: 'quick', label: 'Quick Scan', time: '~10s' },
-                      { value: 'ats-only', label: 'ATS Check', time: '~15s' },
+                      { value: 'full', label: 'Full', fullLabel: 'Full Analysis', time: '~30s' },
+                      { value: 'quick', label: 'Quick', fullLabel: 'Quick Scan', time: '~10s' },
+                      { value: 'ats-only', label: 'ATS', fullLabel: 'ATS Check', time: '~15s' },
                     ].map((type) => (
                       <button
                         key={type.value}
@@ -434,17 +427,21 @@ export default function UploadResume() {
                             : 'border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600'
                         }`}
                       >
-                        <div className="font-medium text-sm mb-0.5">{type.label}</div>
+                        <div className="font-medium text-xs sm:text-sm mb-0.5">
+                          <span className="hidden sm:inline">{type.fullLabel}</span>
+                          <span className="sm:hidden">{type.label}</span>
+                        </div>
                         <div className="text-xs opacity-70">{type.time}</div>
                       </button>
                     ))}
                   </div>
                 </div>
 
+                {/* Company & Job Title */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label htmlFor="company-name" className="block text-sm font-medium text-slate-300 mb-1.5">
-                      Company (Optional)
+                      Company <span className="text-slate-500 text-xs">(Optional)</span>
                     </label>
                     <input
                       type="text"
@@ -458,7 +455,7 @@ export default function UploadResume() {
 
                   <div>
                     <label htmlFor="job-title" className="block text-sm font-medium text-slate-300 mb-1.5">
-                      Job Title (Optional)
+                      Job Title <span className="text-slate-500 text-xs">(Optional)</span>
                     </label>
                     <input
                       type="text"
@@ -471,9 +468,10 @@ export default function UploadResume() {
                   </div>
                 </div>
 
+                {/* Job Description */}
                 <div>
                   <label htmlFor="job-description" className="block text-sm font-medium text-slate-300 mb-1.5">
-                    Job Description (Optional)
+                    Job Description <span className="text-slate-500 text-xs">(Optional)</span>
                   </label>
                   <textarea
                     id="job-description"
@@ -485,13 +483,12 @@ export default function UploadResume() {
                   />
                 </div>
 
-                <div className="flex-1 flex flex-col">
+                {/* File Upload */}
+                <div>
                   <label className="block text-sm font-medium text-slate-300 mb-1.5">
                     Upload Resume <span className="text-red-400">*</span>
                   </label>
-                  <div className="flex-1 flex flex-col">
-                    <FileUploader onFileSelect={handleFileSelect} />
-                  </div>
+                  <FileUploader onFileSelect={handleFileSelect} />
                   
                   {file && (
                     <div className="mt-3 p-3 bg-slate-800/50 border border-slate-700 rounded-lg">
@@ -511,7 +508,8 @@ export default function UploadResume() {
                   )}
                 </div>
 
-                <div className="space-y-3">
+                {/* Submit Button */}
+                <div className="space-y-3 pt-2">
                   <button
                     type="submit"
                     disabled={!file || isProcessing}
@@ -543,31 +541,29 @@ export default function UploadResume() {
                 </div>
               </form>
             </div>
-          </div>
-        </>
-      ) : (
-        <div className="flex-1 flex items-center justify-center py-8">
-          <div className="max-w-lg w-full px-4">
+          </>
+        ) : (
+          <div className="max-w-lg mx-auto">
             {/* Icon */}
-            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-800/50 border border-slate-700/50 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-6 sm:mb-8">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-800/50 border border-slate-700/50 rounded-2xl flex items-center justify-center mx-auto mb-6">
               <Shield className="w-8 h-8 sm:w-10 sm:h-10 text-slate-500" />
             </div>
             
             {/* Content */}
-            <div className="text-center mb-6 sm:mb-8">
-              <h2 className="text-xl sm:text-2xl font-semibold text-white mb-2 sm:mb-3">
+            <div className="text-center mb-6">
+              <h2 className="text-xl sm:text-2xl font-semibold text-white mb-3">
                 Analysis Limit Reached
               </h2>
               <p className="text-slate-400 leading-relaxed text-sm sm:text-base">
-                You&apos;ve used all {limit} of your free resume analyses this month. Upgrade your plan for unlimited access or wait for your next reset.
+                You&apos;ve used all {limit} of your free resume analyses this month. Upgrade your plan for unlimited access.
               </p>
             </div>
 
             {/* Actions */}
-            <div className="space-y-2.5 sm:space-y-3 mb-6 sm:mb-8">
+            <div className="space-y-3 mb-8">
               <Link
                 href="/subscription"
-                className="w-full flex items-center justify-center gap-2 px-5 sm:px-6 py-3 sm:py-3.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-medium transition-all shadow-lg hover:shadow-xl text-sm sm:text-base"
+                className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-medium transition-all shadow-lg hover:shadow-xl text-sm sm:text-base"
               >
                 Upgrade to Pro
                 <ArrowRight className="w-4 h-4" />
@@ -575,14 +571,14 @@ export default function UploadResume() {
               
               <Link
                 href="/profile"
-                className="w-full flex items-center justify-center gap-2 px-5 sm:px-6 py-3 sm:py-3.5 bg-slate-800/50 hover:bg-slate-800/70 text-slate-300 border border-slate-700/50 rounded-xl font-medium transition-all text-sm sm:text-base"
+                className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-slate-800/50 hover:bg-slate-800/70 text-slate-300 border border-slate-700/50 rounded-xl font-medium transition-all text-sm sm:text-base"
               >
                 View Progress
               </Link>
             </div>
 
             {/* Benefits Preview */}
-            <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-xl p-4 sm:p-5">
+            <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-xl p-5">
               <h3 className="text-sm font-semibold text-white mb-3">
                 ✨ Pro Plan Benefits
               </h3>
@@ -606,8 +602,8 @@ export default function UploadResume() {
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Feedback Survey Modal */}
       {user && (
