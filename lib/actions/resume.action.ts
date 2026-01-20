@@ -4,6 +4,13 @@ import { generateObject } from "ai";
 import { google } from "@ai-sdk/google";
 import { db } from "@/firebase/admin";
 import { z } from "zod";
+import { redis } from "@/lib/redis/redis-client";
+import { hashResumeContent } from "@/lib/redis/resume-cache";
+
+// Cache TTLs
+const RESUME_CACHE_TTL = 30 * 24 * 60 * 60; // 30 days (resumes don't change after creation)
+const RESUMES_LIST_CACHE_TTL = 5 * 60; // 5 minutes
+const RESUME_ANALYSIS_CACHE_TTL = 30 * 24 * 60 * 60; // 30 days (analysis doesn't change)
 
 // Enhanced feedback schema with detailed issue tracking
 const resumeFeedbackSchema = z.object({
@@ -501,12 +508,139 @@ interface ResumeData {
   [key: string]: unknown;
 }
 
+interface CachedData<T> {
+  data: T;
+  cachedAt: string;
+}
+
+// ============ CACHE HELPER FUNCTIONS ============
+
+/**
+ * Get cached resume by ID
+ */
+async function getCachedResume(resumeId: string): Promise<ResumeData | null> {
+  if (!redis) return null;
+
+  try {
+    const key = `resume-data:${resumeId}`;
+    const cached = await redis.get(key);
+
+    if (cached) {
+      console.log(`✅ Cache HIT - Resume data ${resumeId}`);
+      const data = typeof cached === 'string' ? JSON.parse(cached) : cached;
+      return (data as CachedData<ResumeData>).data;
+    }
+
+    console.log(`❌ Cache MISS - Resume data ${resumeId}`);
+    return null;
+  } catch (error) {
+    console.error('Redis get error:', error);
+    return null;
+  }
+}
+
+/**
+ * Cache resume data
+ */
+async function cacheResume(resume: ResumeData): Promise<void> {
+  if (!redis) return;
+
+  try {
+    const key = `resume-data:${resume.id}`;
+    const data: CachedData<ResumeData> = {
+      data: resume,
+      cachedAt: new Date().toISOString()
+    };
+
+    await redis.setex(key, RESUME_CACHE_TTL, JSON.stringify(data));
+    console.log(`✅ Cached resume data ${resume.id}`);
+  } catch (error) {
+    console.error('Redis set error:', error);
+  }
+}
+
+/**
+ * Get cached resumes list for user
+ */
+async function getCachedResumesList(userId: string): Promise<ResumeData[] | null> {
+  if (!redis) return null;
+
+  try {
+    const key = `resumes-list:${userId}`;
+    const cached = await redis.get(key);
+
+    if (cached) {
+      console.log(`✅ Cache HIT - Resumes list for user ${userId}`);
+      const data = typeof cached === 'string' ? JSON.parse(cached) : cached;
+      return (data as CachedData<ResumeData[]>).data;
+    }
+
+    console.log(`❌ Cache MISS - Resumes list for user ${userId}`);
+    return null;
+  } catch (error) {
+    console.error('Redis get error:', error);
+    return null;
+  }
+}
+
+/**
+ * Cache resumes list
+ */
+async function cacheResumesList(userId: string, resumes: ResumeData[]): Promise<void> {
+  if (!redis) return;
+
+  try {
+    const key = `resumes-list:${userId}`;
+    const data: CachedData<ResumeData[]> = {
+      data: resumes,
+      cachedAt: new Date().toISOString()
+    };
+
+    await redis.setex(key, RESUMES_LIST_CACHE_TTL, JSON.stringify(data));
+    console.log(`✅ Cached resumes list for user ${userId} (${resumes.length} items)`);
+  } catch (error) {
+    console.error('Redis set error:', error);
+  }
+}
+
+/**
+ * Invalidate resume cache
+ */
+async function invalidateResumeCache(resumeId: string): Promise<void> {
+  if (!redis) return;
+
+  try {
+    const key = `resume-data:${resumeId}`;
+    await redis.del(key);
+    console.log(`✅ Invalidated resume cache ${resumeId}`);
+  } catch (error) {
+    console.error('Redis delete error:', error);
+  }
+}
+
+/**
+ * Invalidate user's resumes list cache
+ */
+async function invalidateResumesListCache(userId: string): Promise<void> {
+  if (!redis) return;
+
+  try {
+    const key = `resumes-list:${userId}`;
+    await redis.del(key);
+    console.log(`✅ Invalidated resumes list cache for user ${userId}`);
+  } catch (error) {
+    console.error('Redis delete error:', error);
+  }
+}
+
+// ============ MAIN FUNCTIONS ============
+
 export async function createResumeRecord(params: CreateResumeParams) {
   try {
     const resumeRef = db.collection("resumes").doc();
     const now = new Date().toISOString();
     
-    const resume = {
+    const resume: ResumeData = {
       id: resumeRef.id,
       userId: params.userId,
       companyName: params.companyName,
@@ -524,6 +658,12 @@ export async function createResumeRecord(params: CreateResumeParams) {
     };
 
     await resumeRef.set(resume);
+
+    // Invalidate user's resumes list cache
+    await invalidateResumesListCache(params.userId);
+
+    console.log('✅ Resume created, cache invalidated');
+
     return { success: true, data: resume };
   } catch (error) {
     console.error('Error creating resume:', error);
@@ -533,41 +673,86 @@ export async function createResumeRecord(params: CreateResumeParams) {
 
 export async function analyzeResumeWithAI(params: AnalyzeResumeParams) {
   try {
-    const { resumeId, jobTitle, jobDescription, resumeText } = params;
+    const { resumeId, jobTitle, jobDescription, resumeText, userId } = params;
 
-    const { object } = await generateObject({
-      model: google("gemini-2.5-flash", {
-        structuredOutputs: false,
-      }),
-      schema: resumeFeedbackSchema,
-      prompt: `
-        RESUME TEXT TO ANALYZE:
-        ${resumeText}
-        
-        ${prepareInstructions({ jobTitle, jobDescription })}
-      `,
-      system: `You are a world-class resume analyst combining expertise in:
-      - ATS systems and parsing technology
-      - Modern recruitment practices
-      - Industry-specific requirements
-      - Career coaching and development
-      - Market trends and competitive analysis
+    // Check if analysis is already cached
+    const analysisKey = hashResumeContent(`${resumeText}:${jobTitle}:${jobDescription}`);
+    const cachedAnalysisKey = `resume-analysis:${analysisKey}`;
+    
+    let analysis;
+
+    if (redis) {
+      try {
+        const cachedAnalysis = await redis.get(cachedAnalysisKey);
+        if (cachedAnalysis) {
+          console.log('✅ Cache HIT - Resume analysis found');
+          const data = typeof cachedAnalysis === 'string' ? JSON.parse(cachedAnalysis) : cachedAnalysis;
+          analysis = (data as CachedData<typeof analysis>).data;
+        }
+      } catch (error) {
+        console.error('Redis get error:', error);
+      }
+    }
+
+    if (!analysis) {
+      console.log('🤖 Generating new resume analysis...');
       
-      Provide brutally honest, detailed feedback that will genuinely help improve the resume's effectiveness in today's job market. Don't hold back on criticism if it will help the candidate succeed.`
-    });
+      const { object } = await generateObject({
+        model: google("gemini-2.5-flash", {
+          structuredOutputs: false,
+        }),
+        schema: resumeFeedbackSchema,
+        prompt: `
+          RESUME TEXT TO ANALYZE:
+          ${resumeText}
+          
+          ${prepareInstructions({ jobTitle, jobDescription })}
+        `,
+        system: `You are a world-class resume analyst combining expertise in:
+        - ATS systems and parsing technology
+        - Modern recruitment practices
+        - Industry-specific requirements
+        - Career coaching and development
+        - Market trends and competitive analysis
+        
+        Provide brutally honest, detailed feedback that will genuinely help improve the resume's effectiveness in today's job market. Don't hold back on criticism if it will help the candidate succeed.`
+      });
+
+      analysis = object;
+
+      // Cache the analysis
+      if (redis) {
+        try {
+          const cacheData: CachedData<typeof analysis> = {
+            data: analysis,
+            cachedAt: new Date().toISOString()
+          };
+          await redis.setex(cachedAnalysisKey, RESUME_ANALYSIS_CACHE_TTL, JSON.stringify(cacheData));
+          console.log('✅ Cached resume analysis');
+        } catch (error) {
+          console.error('Redis set error:', error);
+        }
+      }
+    }
 
     const resumeRef = db.collection("resumes").doc(resumeId);
     const updateData = {
       status: 'complete',
-      score: object.overallScore,
-      feedback: object,
+      score: analysis.overallScore,
+      feedback: analysis,
       analyzedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
 
     await resumeRef.update(updateData);
 
-    return { success: true, data: object };
+    // Invalidate caches
+    await invalidateResumeCache(resumeId);
+    await invalidateResumesListCache(userId);
+
+    console.log('✅ Resume analysis complete, caches invalidated');
+
+    return { success: true, data: analysis };
   } catch (error) {
     console.error('Error analyzing resume:', error);
     
@@ -588,17 +773,30 @@ export async function analyzeResumeWithAI(params: AnalyzeResumeParams) {
 
 export async function getResumeById(resumeId: string, userId: string) {
   try {
+    // Check cache first
+    const cached = await getCachedResume(resumeId);
+    if (cached) {
+      if (cached.userId !== userId) {
+        return { success: false, error: 'Access denied' };
+      }
+      return { success: true, data: cached };
+    }
+
+    // Fetch from Firestore
     const doc = await db.collection('resumes').doc(resumeId).get();
     
     if (!doc.exists) {
       return { success: false, error: 'Resume not found' };
     }
 
-    const resume = doc.data() as ResumeData | undefined;
+    const resume = { id: doc.id, ...doc.data() } as ResumeData;
     
-    if (resume?.userId !== userId) {
+    if (resume.userId !== userId) {
       return { success: false, error: 'Access denied' };
     }
+
+    // Cache the resume
+    await cacheResume(resume);
 
     return { success: true, data: resume };
   } catch (error) {
@@ -609,6 +807,13 @@ export async function getResumeById(resumeId: string, userId: string) {
 
 export async function getResumesByUserId(userId: string) {
   try {
+    // Check cache first
+    const cached = await getCachedResumesList(userId);
+    if (cached) {
+      return { success: true, data: cached };
+    }
+
+    // Fetch from Firestore
     const snapshot = await db
       .collection('resumes')
       .where('userId', '==', userId)
@@ -623,9 +828,25 @@ export async function getResumesByUserId(userId: string) {
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
+    // Cache the list
+    await cacheResumesList(userId, sortedResumes);
+
     return { success: true, data: sortedResumes };
   } catch (error) {
     console.error('Error fetching resumes:', error);
     return { success: false, error: 'Failed to fetch resumes' };
   }
+}
+
+// ============ EXPORT CACHE INVALIDATION FUNCTIONS ============
+
+/**
+ * Call this when resume is updated
+ */
+export async function invalidateResumeCaches(userId: string, resumeId?: string) {
+  await invalidateResumesListCache(userId);
+  if (resumeId) {
+    await invalidateResumeCache(resumeId);
+  }
+  console.log('✅ Resume caches invalidated');
 }

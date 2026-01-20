@@ -2,8 +2,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, db } from '@/firebase/admin';
 import { revalidatePath } from 'next/cache';
+import { redis } from '@/lib/redis/redis-client';
 
-// FIXED: Add error property to Resume interface
+// Cache TTL for resume data (30 days - resumes don't change often after creation)
+const RESUME_CACHE_TTL = 30 * 24 * 60 * 60;
+
 export interface Resume {
   id: string;
   userId: string;
@@ -24,7 +27,71 @@ export interface Resume {
     suggestions: string[];
   };
   analyzedAt?: string;
-  error?: string; // ADDED: error property for failed status
+  error?: string;
+}
+
+interface CachedResume {
+  resume: Resume;
+  cachedAt: string;
+}
+
+/**
+ * Get cached resume
+ */
+async function getCachedResume(resumeId: string, userId: string): Promise<Resume | null> {
+  if (!redis) return null;
+
+  try {
+    const key = `resume:${userId}:${resumeId}`;
+    const cached = await redis.get(key);
+
+    if (cached) {
+      console.log(`✅ Cache HIT - Resume ${resumeId} found`);
+      const data = typeof cached === 'string' ? JSON.parse(cached) : cached;
+      return (data as CachedResume).resume;
+    }
+
+    console.log(`❌ Cache MISS - Resume ${resumeId} not found`);
+    return null;
+  } catch (error) {
+    console.error('Redis get error:', error);
+    return null;
+  }
+}
+
+/**
+ * Cache resume
+ */
+async function cacheResume(resumeId: string, userId: string, resume: Resume): Promise<void> {
+  if (!redis) return;
+
+  try {
+    const key = `resume:${userId}:${resumeId}`;
+    const data: CachedResume = {
+      resume,
+      cachedAt: new Date().toISOString()
+    };
+
+    await redis.setex(key, RESUME_CACHE_TTL, JSON.stringify(data));
+    console.log(`✅ Cached resume ${resumeId} for ${RESUME_CACHE_TTL / 86400} days`);
+  } catch (error) {
+    console.error('Redis set error:', error);
+  }
+}
+
+/**
+ * Invalidate resume cache
+ */
+async function invalidateResumeCache(resumeId: string, userId: string): Promise<void> {
+  if (!redis) return;
+
+  try {
+    const key = `resume:${userId}:${resumeId}`;
+    await redis.del(key);
+    console.log(`✅ Invalidated cache for resume ${resumeId}`);
+  } catch (error) {
+    console.error('Redis delete error:', error);
+  }
 }
 
 // Verify Firebase Auth token
@@ -49,28 +116,68 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const startTime = Date.now();
+
   try {
     const { id } = await params;
     
+    console.log(`📄 Fetching resume ${id}`);
+    console.log('   Redis available:', !!redis);
+
     const user = await verifyToken(request);
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Check cache first
+    const cachedResume = await getCachedResume(id, user.uid);
+    
+    if (cachedResume) {
+      const responseTime = Date.now() - startTime;
+      console.log(`⚡ Returning cached resume in ${responseTime}ms`);
+      
+      return NextResponse.json({ 
+        success: true, 
+        data: cachedResume,
+        metadata: {
+          cached: true,
+          responseTime
+        }
+      });
+    }
+
+    // Fetch from database
+    console.log('🔍 Fetching resume from database...');
     const doc = await db.collection('resumes').doc(id).get();
     
     if (!doc.exists) {
       return NextResponse.json({ error: 'Resume not found' }, { status: 404 });
     }
 
-    const resume = doc.data() as Resume;
+    const resume: Resume = {
+      id: doc.id,
+      ...(doc.data() as Omit<Resume, 'id'>)
+    };
     
     // Verify user owns this resume
     if (resume.userId !== user.uid) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    return NextResponse.json({ success: true, data: resume });
+    // Cache the resume
+    await cacheResume(id, user.uid, resume);
+
+    const responseTime = Date.now() - startTime;
+    console.log(`✅ Resume fetched from database in ${responseTime}ms`);
+
+    return NextResponse.json({ 
+      success: true, 
+      data: resume,
+      metadata: {
+        cached: false,
+        responseTime
+      }
+    });
   } catch (error) {
     console.error('Error fetching resume:', error);
     return NextResponse.json({ error: 'Failed to fetch resume' }, { status: 500 });
@@ -85,6 +192,8 @@ export async function PUT(
   try {
     const { id } = await params;
     
+    console.log(`📝 Updating resume ${id}`);
+
     const user = await verifyToken(request);
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -119,6 +228,11 @@ export async function PUT(
     }
 
     await docRef.update(updateData);
+    
+    // Invalidate cache since resume was updated
+    await invalidateResumeCache(id, user.uid);
+    console.log('🔄 Cache invalidated after update');
+
     revalidatePath('/resume');
     revalidatePath(`/resume/${id}`);
     
@@ -137,6 +251,8 @@ export async function DELETE(
   try {
     const { id } = await params;
     
+    console.log(`🗑️ Deleting resume ${id}`);
+
     const user = await verifyToken(request);
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -156,6 +272,11 @@ export async function DELETE(
 
     // Delete document
     await docRef.delete();
+    
+    // Invalidate cache
+    await invalidateResumeCache(id, user.uid);
+    console.log('🔄 Cache invalidated after deletion');
+
     revalidatePath('/resume');
     
     return NextResponse.json({ success: true });

@@ -3,6 +3,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { auth, db } from '@/firebase/admin';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { 
+  hashResumeContent, 
+  
+} from '@/lib/redis/resume-cache';
+import { checkAndIncrementUsage, type UserTier } from '@/lib/redis/usage-tracker';
+import { redis, RedisKeys } from '@/lib/redis/redis-client';
 
 const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
@@ -11,6 +17,12 @@ if (!apiKey) {
 }
 
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
+
+// TTL for cover letter cache (7 days)
+const COVER_LETTER_TTL = 7 * 24 * 60 * 60;
+
+// TTL for company research cache (30 days - company info doesn't change often)
+const COMPANY_RESEARCH_TTL = 30 * 24 * 60 * 60;
 
 const COVER_LETTER_SYSTEM_PROMPT = `You are an expert professional cover letter writer with years of experience in HR and recruitment. Your task is to create compelling, personalized cover letters that:
 
@@ -72,6 +84,7 @@ interface UserProfile {
   experienceLevel?: string;
   preferredTech?: string[];
   careerGoals?: string;
+  tier?: UserTier;
 }
 
 interface ResumeData {
@@ -80,8 +93,126 @@ interface ResumeData {
   resumeText?: string;
 }
 
+interface CachedCompanyResearch {
+  research: string;
+  cachedAt: string;
+}
+
+interface CachedCoverLetter {
+  content: string;
+  wordCount: number;
+  tokensUsed: number;
+  createdAt: string;
+}
+
+/**
+ * Get cached company research
+ */
+async function getCachedCompanyResearch(companyName: string): Promise<string | null> {
+  if (!redis) return null;
+
+  try {
+    const key = RedisKeys.company(companyName.toLowerCase().trim());
+    const cached = await redis.get(key);
+
+    if (cached) {
+      console.log('✅ Cache HIT - Company research found');
+      const data = typeof cached === 'string' ? JSON.parse(cached) : cached;
+      return (data as CachedCompanyResearch).research;
+    }
+
+    console.log('❌ Cache MISS - Company research not found');
+    return null;
+  } catch (error) {
+    console.error('Redis get error:', error);
+    return null;
+  }
+}
+
+/**
+ * Cache company research
+ */
+async function cacheCompanyResearch(companyName: string, research: string): Promise<void> {
+  if (!redis || !research) return;
+
+  try {
+    const key = RedisKeys.company(companyName.toLowerCase().trim());
+    const data: CachedCompanyResearch = {
+      research,
+      cachedAt: new Date().toISOString()
+    };
+
+    await redis.setex(key, COMPANY_RESEARCH_TTL, JSON.stringify(data));
+    console.log('✅ Cached company research for', COMPANY_RESEARCH_TTL / 86400, 'days');
+  } catch (error) {
+    console.error('Redis set error:', error);
+  }
+}
+
+/**
+ * Get cached cover letter
+ */
+async function getCachedCoverLetter(cacheKey: string): Promise<CachedCoverLetter | null> {
+  if (!redis) return null;
+
+  try {
+    const key = `cover-letter:${cacheKey}`;
+    const cached = await redis.get(key);
+
+    if (cached) {
+      console.log('✅ Cache HIT - Cover letter found');
+      return typeof cached === 'string' ? JSON.parse(cached) : (cached as CachedCoverLetter);
+    }
+
+    console.log('❌ Cache MISS - Cover letter not found');
+    return null;
+  } catch (error) {
+    console.error('Redis get error:', error);
+    return null;
+  }
+}
+
+/**
+ * Cache cover letter
+ */
+async function cacheCoverLetter(
+  cacheKey: string,
+  coverLetter: CachedCoverLetter
+): Promise<void> {
+  if (!redis) return;
+
+  try {
+    const key = `cover-letter:${cacheKey}`;
+    await redis.setex(key, COVER_LETTER_TTL, JSON.stringify(coverLetter));
+    console.log('✅ Cached cover letter for', COVER_LETTER_TTL / 86400, 'days');
+  } catch (error) {
+    console.error('Redis set error:', error);
+  }
+}
+
+/**
+ * Generate cache key for cover letter
+ */
+function generateCoverLetterCacheKey(
+  userId: string,
+  jobRole: string,
+  companyName: string | undefined,
+  jobDescription: string | undefined,
+  tone: string,
+  resumeText: string
+): string {
+  const content = `${userId}:${jobRole}:${companyName || 'no-company'}:${jobDescription || ''}:${tone}:${resumeText.substring(0, 500)}`;
+  return hashResumeContent(content);
+}
+
 async function researchCompany(companyName: string, jobRole: string): Promise<string> {
   if (!companyName || !genAI) return '';
+
+  // Check cache first
+  const cached = await getCachedCompanyResearch(companyName);
+  if (cached) {
+    return cached;
+  }
   
   try {
     const model = genAI.getGenerativeModel({ 
@@ -104,7 +235,12 @@ Provide concise, factual information in 2-3 sentences. Focus on what would be im
 If you cannot find specific information, say "Company information not available" and do not make up details.`;
 
     const result = await model.generateContent(researchPrompt);
-    return result.response.text();
+    const research = result.response.text();
+
+    // Cache the research
+    await cacheCompanyResearch(companyName, research);
+
+    return research;
   } catch (error) {
     console.error('❌ Error researching company:', error);
     return '';
@@ -127,6 +263,7 @@ export async function POST(request: NextRequest) {
   try {
     console.log('📄 Cover Letter Generation Started');
     console.log('   API Key Available:', !!apiKey);
+    console.log('   Redis Available:', !!redis);
 
     // ==================== AUTHENTICATION ====================
     const cookieStore = await cookies();
@@ -206,6 +343,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get user tier for usage tracking
+    const userTier = userProfile.tier || 'free';
+
+    // ==================== CHECK USAGE LIMITS ====================
+    const usageCheck = await checkAndIncrementUsage(userId, 'cover-letter', userTier);
+
+    if (!usageCheck.allowed) {
+      return NextResponse.json({
+        success: false,
+        error: 'Usage limit reached',
+        message: `You've used all ${usageCheck.limit} cover letter generations for this month. Upgrade to Pro for unlimited generations.`,
+        usage: {
+          current: usageCheck.current,
+          limit: usageCheck.limit,
+          remaining: usageCheck.remaining
+        }
+      }, { status: 429 });
+    }
+
+    console.log('📊 Usage check:', usageCheck);
+
     // ==================== FETCH USER'S LATEST RESUME ====================
     console.log('📄 Fetching user resumes...');
     let latestResume: ResumeData | null = null;
@@ -229,6 +387,49 @@ export async function POST(request: NextRequest) {
       }
     } catch (resumeError) {
       console.error('❌ Error fetching resume:', resumeError);
+    }
+
+    // ==================== CHECK CACHE ====================
+    const cacheKey = generateCoverLetterCacheKey(
+      userId,
+      jobRole,
+      companyName,
+      jobDescription,
+      tone,
+      resumeText
+    );
+
+    console.log('🔑 Cache key generated:', cacheKey);
+
+    const cachedCoverLetter = await getCachedCoverLetter(cacheKey);
+
+    if (cachedCoverLetter) {
+      console.log('⚡ Returning cached cover letter (instant!)');
+      
+      const totalRequestTime = Date.now() - requestStartTime;
+
+      return NextResponse.json({
+        success: true,
+        coverLetter: {
+          content: cachedCoverLetter.content,
+          jobRole,
+          companyName: companyName || null,
+          tone,
+          wordCount: cachedCoverLetter.wordCount,
+          createdAt: cachedCoverLetter.createdAt,
+        },
+        usage: {
+          current: usageCheck.current,
+          limit: usageCheck.limit,
+          remaining: usageCheck.remaining
+        },
+        metadata: {
+          tokensUsed: cachedCoverLetter.tokensUsed,
+          responseTime: totalRequestTime,
+          cached: true,
+          cacheHit: true
+        }
+      });
     }
 
     // ==================== RESEARCH COMPANY ====================
@@ -420,7 +621,6 @@ Do not stop mid-paragraph. Complete the full letter.`;
       
       if (!hasProperClosing) {
         console.warn('⚠️ Response appears incomplete, missing proper closing');
-        // Add a note that this might be incomplete
         coverLetterText += '\n\n[Note: Generation may have been cut off. Please regenerate for a complete letter.]';
       }
 
@@ -456,6 +656,17 @@ Do not stop mid-paragraph. Complete the full letter.`;
       );
     }
 
+    // ==================== CACHE THE COVER LETTER ====================
+    const wordCount = coverLetterText.split(/\s+/).length;
+    const cachedData: CachedCoverLetter = {
+      content: coverLetterText,
+      wordCount,
+      tokensUsed,
+      createdAt: new Date().toISOString()
+    };
+
+    await cacheCoverLetter(cacheKey, cachedData);
+
     // ==================== SAVE TO FIRESTORE ====================
     console.log('💾 Saving cover letter to Firestore...');
     
@@ -471,7 +682,7 @@ Do not stop mid-paragraph. Complete the full letter.`;
         companyResearched: !!companyResearch,
         createdAt: new Date(),
         tokensUsed,
-        wordCount: coverLetterText.split(/\s+/).length,
+        wordCount,
       };
 
       const docRef = await db.collection('coverLetters').add(coverLetterDoc);
@@ -488,14 +699,21 @@ Do not stop mid-paragraph. Complete the full letter.`;
           jobRole,
           companyName: companyName || null,
           tone,
-          wordCount: coverLetterDoc.wordCount,
+          wordCount,
           createdAt: coverLetterDoc.createdAt.toISOString(),
+        },
+        usage: {
+          current: usageCheck.current,
+          limit: usageCheck.limit,
+          remaining: usageCheck.remaining
         },
         metadata: {
           tokensUsed,
           responseTime: totalRequestTime,
           usedResume: hasResume,
           companyResearched: !!companyResearch,
+          cached: false,
+          cacheHit: false
         }
       });
 
@@ -508,6 +726,12 @@ Do not stop mid-paragraph. Complete the full letter.`;
           jobRole,
           companyName: companyName || null,
           tone,
+          wordCount,
+        },
+        usage: {
+          current: usageCheck.current,
+          limit: usageCheck.limit,
+          remaining: usageCheck.remaining
         },
         warning: 'Cover letter generated but not saved to history'
       });

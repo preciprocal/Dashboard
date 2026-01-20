@@ -2,9 +2,14 @@
 
 import { auth, db } from "@/firebase/admin";
 import { cookies } from "next/headers";
+import { redis, RedisKeys } from "@/lib/redis/redis-client";
+import { invalidateUserProfileCache } from "@/app/api/user/profile/route";
 
 // Session duration (1 week)
 const SESSION_DURATION = 60 * 60 * 24 * 7;
+
+// Cache TTL for user data (5 minutes)
+const USER_CACHE_TTL = 5 * 60;
 
 interface SignUpParams {
   uid: string;
@@ -57,6 +62,11 @@ interface User {
   usage?: Usage;
 }
 
+interface CachedData<T> {
+  data: T;
+  cachedAt: string;
+}
+
 interface FirebaseTimestamp {
   toDate?: () => Date;
   _seconds?: number;
@@ -65,6 +75,76 @@ interface FirebaseTimestamp {
 
 interface FirebaseError extends Error {
   code?: string;
+}
+
+// ============ CACHE HELPER FUNCTIONS ============
+
+/**
+ * Get cached user data
+ */
+async function getCachedUser(userId: string): Promise<User | null> {
+  if (!redis) return null;
+
+  try {
+    const key = `user:${userId}`;
+    const cached = await redis.get(key);
+
+    if (cached) {
+      console.log(`✅ Cache HIT - User ${userId}`);
+      const data = typeof cached === 'string' ? JSON.parse(cached) : cached;
+      return (data as CachedData<User>).data;
+    }
+
+    console.log(`❌ Cache MISS - User ${userId}`);
+    return null;
+  } catch (error) {
+    console.error('Redis get error:', error);
+    return null;
+  }
+}
+
+/**
+ * Cache user data
+ */
+async function cacheUser(user: User): Promise<void> {
+  if (!redis) return;
+
+  try {
+    const key = `user:${user.id}`;
+    const data: CachedData<User> = {
+      data: user,
+      cachedAt: new Date().toISOString()
+    };
+
+    await redis.setex(key, USER_CACHE_TTL, JSON.stringify(data));
+    console.log(`✅ Cached user ${user.id}`);
+  } catch (error) {
+    console.error('Redis set error:', error);
+  }
+}
+
+/**
+ * Invalidate user cache
+ */
+async function invalidateUserCache(userId: string): Promise<void> {
+  if (!redis) return;
+
+  try {
+    // Invalidate multiple related caches
+    const keys = [
+      `user:${userId}`,
+      RedisKeys.userPrefs(userId), // User profile cache
+      `user-stats:${userId}`, // User stats cache
+      `interviews:${userId}`, // Interviews cache
+      `resumes-list:${userId}`, // Resumes cache
+    ];
+
+    // Delete all keys with non-null assertion since we checked redis above
+    await Promise.all(keys.map(key => redis!.del(key)));
+    console.log(`✅ Invalidated all caches for user ${userId}`);
+  } catch (error) {
+    console.error('Redis delete error:', error);
+  }
 }
 
 /**
@@ -99,6 +179,8 @@ function convertTimestampToISO(timestamp: FirebaseTimestamp | Date | string | nu
   // Fallback to current date
   return new Date().toISOString();
 }
+
+// ============ MAIN FUNCTIONS ============
 
 // Set session cookie
 export async function setSessionCookie(idToken: string) {
@@ -139,40 +221,41 @@ export async function signUp(params: SignUpParams) {
       };
 
     // save user to db with subscription data AND usage tracking
-    await db
-      .collection("users")
-      .doc(uid)
-      .set({
-        name,
-        email,
-        provider: provider || "email",
+    const userData = {
+      name,
+      email,
+      provider: provider || "email",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      subscription: {
+        plan: "starter",
+        status: "active",
+        interviewsUsed: 0,
+        interviewsLimit: 10,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        subscription: {
-          plan: "starter",
-          status: "active",
-          interviewsUsed: 0,
-          interviewsLimit: 10,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          trialEndsAt: null,
-          subscriptionEndsAt: null,
-          stripeCustomerId: null,
-          stripeSubscriptionId: null,
-          currentPeriodStart: null,
-          currentPeriodEnd: null,
-          canceledAt: null,
-          lastPaymentAt: null,
-        },
-        // Initialize usage tracking for new users
-        usage: {
-          coverLettersUsed: 0,
-          resumesUsed: 0,
-          studyPlansUsed: 0,
-          interviewsUsed: 0,
-          lastReset: new Date().toISOString(),
-        },
-      });
+        trialEndsAt: null,
+        subscriptionEndsAt: null,
+        stripeCustomerId: null,
+        stripeSubscriptionId: null,
+        currentPeriodStart: null,
+        currentPeriodEnd: null,
+        canceledAt: null,
+        lastPaymentAt: null,
+      },
+      // Initialize usage tracking for new users
+      usage: {
+        coverLettersUsed: 0,
+        resumesUsed: 0,
+        studyPlansUsed: 0,
+        interviewsUsed: 0,
+        lastReset: new Date().toISOString(),
+      },
+    };
+
+    await db.collection("users").doc(uid).set(userData);
+
+    console.log('✅ New user created');
 
     return {
       success: true,
@@ -301,6 +384,9 @@ export async function signIn(params: SignInParams) {
             lastReset: new Date().toISOString(),
           },
         });
+        
+        // Invalidate cache after update
+        await invalidateUserCache(decodedToken.uid);
       }
     }
 
@@ -346,9 +432,22 @@ export async function signIn(params: SignInParams) {
   }
 }
 
-// Sign out user by clearing the session cookie
+// Sign out user by clearing the session cookie and cache
 export async function signOut() {
   const cookieStore = await cookies();
+  
+  // Get current user before clearing session
+  const sessionCookie = cookieStore.get("session")?.value;
+  if (sessionCookie) {
+    try {
+      const decodedClaims = await auth.verifySessionCookie(sessionCookie, true);
+      // Invalidate user cache on sign out
+      await invalidateUserCache(decodedClaims.uid);
+    } catch (error) {
+      console.error("Error invalidating cache on sign out:", error);
+    }
+  }
+  
   cookieStore.delete("session");
 }
 
@@ -361,6 +460,10 @@ export async function getCurrentUser(): Promise<User | null> {
 
   try {
     const decodedClaims = await auth.verifySessionCookie(sessionCookie, true);
+
+    // Check cache first
+    const cached = await getCachedUser(decodedClaims.uid);
+    if (cached) return cached;
 
     // get user info from db
     const userRecord = await db
@@ -434,6 +537,9 @@ export async function getCurrentUser(): Promise<User | null> {
       },
     };
 
+    // Cache the user
+    await cacheUser(serializedUser);
+
     return serializedUser;
   } catch (error) {
     console.log("Error verifying session:", error);
@@ -470,6 +576,12 @@ export async function updateUserProfile(
 
     await db.collection("users").doc(userId).update(dataToUpdate);
 
+    // Invalidate all user-related caches
+    await invalidateUserCache(userId);
+    await invalidateUserProfileCache(userId);
+
+    console.log('✅ Profile updated, caches invalidated');
+
     return {
       success: true,
       message: "Profile updated successfully.",
@@ -486,6 +598,11 @@ export async function updateUserProfile(
 // Get user profile by ID
 export async function getUserProfile(userId: string): Promise<User | null> {
   try {
+    // Check cache first
+    const cached = await getCachedUser(userId);
+    if (cached) return cached;
+
+    // Fetch from Firestore
     const userDoc = await db.collection("users").doc(userId).get();
 
     if (!userDoc.exists) {
@@ -538,6 +655,9 @@ export async function getUserProfile(userId: string): Promise<User | null> {
       },
     };
 
+    // Cache the user
+    await cacheUser(serializedUser);
+
     return serializedUser;
   } catch (error) {
     console.error("Error getting user profile:", error);
@@ -565,11 +685,12 @@ export async function resetUserPassword(
     }
 
     // For Firebase Admin SDK, we can directly update the password
-    // Note: In a real-world scenario, you might want to verify the current password
-    // through the client-side Firebase Auth before calling this server function
     await auth.updateUser(userRecord.uid, {
       password: newPassword,
     });
+
+    // Invalidate user cache after password change
+    await invalidateUserCache(userRecord.uid);
 
     return {
       success: true,
@@ -641,9 +762,14 @@ export async function deleteUserAccount(userId: string) {
       console.error("Error deleting user from Firebase Auth:", authError);
     }
 
+    // Invalidate all user caches
+    await invalidateUserCache(userId);
+
     // Clear the session cookie
     const cookieStore = await cookies();
     cookieStore.delete("session");
+
+    console.log('✅ User deleted, all caches cleared');
 
     return {
       success: true,
@@ -675,6 +801,12 @@ export async function updateUserSubscription(
         updatedAt: new Date().toISOString(),
       });
 
+    // Invalidate all user-related caches
+    await invalidateUserCache(userId);
+    await invalidateUserProfileCache(userId);
+
+    console.log('✅ Subscription updated, caches invalidated');
+
     return {
       success: true,
       message: "Subscription updated successfully.",
@@ -687,3 +819,6 @@ export async function updateUserSubscription(
     };
   }
 }
+
+// Export cache invalidation for external use
+export { invalidateUserCache };

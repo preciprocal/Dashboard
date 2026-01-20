@@ -11,6 +11,7 @@ import {
   getFeedbackByInterviewId,
 } from "@/lib/actions/general.action";
 import LayoutClient from "@/components/LayoutClient";
+import { redis } from "@/lib/redis/redis-client";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -21,6 +22,9 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+
+// Cache TTL for user stats (5 minutes - stats can change frequently)
+const USER_STATS_CACHE_TTL = 5 * 60;
 
 // Metadata configuration
 export const metadata: Metadata = {
@@ -88,6 +92,70 @@ interface UserStats {
   resumesLimit: number;
 }
 
+interface CachedUserStats {
+  stats: UserStats;
+  cachedAt: string;
+}
+
+/**
+ * Get cached user stats
+ */
+async function getCachedUserStats(userId: string): Promise<UserStats | null> {
+  if (!redis) return null;
+
+  try {
+    const key = `user-stats:${userId}`;
+    const cached = await redis.get(key);
+
+    if (cached) {
+      console.log(`✅ Cache HIT - User stats for ${userId}`);
+      const data = typeof cached === 'string' ? JSON.parse(cached) : cached;
+      return (data as CachedUserStats).stats;
+    }
+
+    console.log(`❌ Cache MISS - User stats for ${userId}`);
+    return null;
+  } catch (error) {
+    console.error('Redis get error:', error);
+    return null;
+  }
+}
+
+/**
+ * Cache user stats
+ */
+async function cacheUserStats(userId: string, stats: UserStats): Promise<void> {
+  if (!redis) return;
+
+  try {
+    const key = `user-stats:${userId}`;
+    const data: CachedUserStats = {
+      stats,
+      cachedAt: new Date().toISOString()
+    };
+
+    await redis.setex(key, USER_STATS_CACHE_TTL, JSON.stringify(data));
+    console.log(`✅ Cached user stats for ${userId} (${USER_STATS_CACHE_TTL / 60} minutes)`);
+  } catch (error) {
+    console.error('Redis set error:', error);
+  }
+}
+
+/**
+ * Invalidate user stats cache
+ */
+export async function invalidateUserStatsCache(userId: string): Promise<void> {
+  if (!redis) return;
+
+  try {
+    const key = `user-stats:${userId}`;
+    await redis.del(key);
+    console.log(`✅ Invalidated user stats cache for ${userId}`);
+  } catch (error) {
+    console.error('Redis delete error:', error);
+  }
+}
+
 // Helper function to calculate user stats (interviews only for now)
 const calculateUserStats = async (interviews: Interview[]): Promise<UserStats> => {
   const totalInterviews = interviews.length;
@@ -144,6 +212,8 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const startTime = Date.now();
+  
   let user: { id: string; [key: string]: unknown } | null = null;
   let userStats: UserStats = {
     totalInterviews: 0,
@@ -157,28 +227,49 @@ export default async function RootLayout({
     resumesUsed: 0,
     resumesLimit: 5,
   };
+  let statsFromCache = false;
 
   try {
+    console.log('🔐 Checking authentication...');
+    console.log('   Redis available:', !!redis);
+
     // Check authentication without immediate redirect
     const isUserAuthenticated = await isAuthenticated();
     
     if (isUserAuthenticated) {
       const currentUser = await getCurrentUser();
       
-      // FIXED: Spread first, then type cast to add index signature
       if (currentUser) {
         user = {
           ...currentUser,
         } as { id: string; [key: string]: unknown };
+        
+        console.log(`👤 User authenticated: ${user.id}`);
       }
       
       // Only fetch interview stats if we have a user
       if (user?.id) {
         try {
-          const interviews = await getInterviewsByUserId(user.id) as Interview[] | null;
-          userStats = await calculateUserStats(interviews || []);
+          // Check cache first
+          const cachedStats = await getCachedUserStats(user.id);
+          
+          if (cachedStats) {
+            userStats = cachedStats;
+            statsFromCache = true;
+            console.log('⚡ Using cached user stats');
+          } else {
+            // Fetch from database
+            console.log('🔍 Fetching user stats from database...');
+            const interviews = await getInterviewsByUserId(user.id) as Interview[] | null;
+            userStats = await calculateUserStats(interviews || []);
+            
+            // Cache the stats
+            await cacheUserStats(user.id, userStats);
+            console.log('💾 User stats calculated and cached');
+          }
         } catch (error) {
           console.error("Failed to fetch user stats:", error);
+          // Use default stats on error
         }
       }
     }
@@ -186,6 +277,9 @@ export default async function RootLayout({
     console.error("Authentication check failed:", error);
     // Don't redirect here, let individual pages handle auth
   }
+
+  const totalTime = Date.now() - startTime;
+  console.log(`✅ Layout data loaded in ${totalTime}ms (stats from cache: ${statsFromCache})`);
 
   return (
     <html lang="en" suppressHydrationWarning>

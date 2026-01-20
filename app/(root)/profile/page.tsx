@@ -420,26 +420,28 @@ const ProfilePage = () => {
         });
 
         // Calculate average score from feedback
-        const averageScore = completedInterviews.length > 0
-          ? completedInterviews.reduce((sum: number, i: InterviewData) => {
-              // Try multiple sources for score
-              const score = 
-                (i.feedback?.totalScore as number) ||
-                (i.feedback?.overallRating as number) ||
-                (i.score as number) ||
-                0;
-              return sum + score;
-            }, 0) / completedInterviews.length
-          : 0;
+        const totalScore = completedInterviews.reduce((sum: number, i: InterviewData) => {
+          // Try multiple sources for score
+          const score = 
+            (i.feedback?.totalScore as number) ||
+            (i.feedback?.overallRating as number) ||
+            (i.score as number) ||
+            0;
+          return sum + score;
+        }, 0);
 
-        // Calculate hours spent (duration is typically in minutes)
-        const hoursSpent = interviewsWithDates.reduce(
+        const averageScore = completedInterviews.length > 0 ? totalScore / completedInterviews.length : 0;
+
+        // FIXED: Calculate hours spent with proper validation
+        const totalMinutes = interviewsWithDates.reduce(
           (sum: number, i: InterviewData) => {
             const duration = (i.duration as number) || 0;
             return sum + duration;
           },
           0
-        ) / 60;
+        );
+
+        const hoursSpent = totalMinutes > 0 ? totalMinutes / 60 : 0;
 
         // Calculate improvement rate
         const sortedByDate = [...completedInterviews].sort((a, b) => {
@@ -507,11 +509,11 @@ const ProfilePage = () => {
 
         setStats({
           totalInterviews,
-          averageScore: Math.round(averageScore),
+          averageScore: Math.round(averageScore) || 0,
           improvementRate,
           currentStreak,
           longestStreak: Math.max(longestStreak, currentStreak),
-          hoursSpent: Math.round(hoursSpent * 10) / 10, // Round to 1 decimal
+          hoursSpent: hoursSpent > 0 ? Math.round(hoursSpent * 10) / 10 : 0, // FIXED: Proper NaN handling
           totalResumes: 0,
           averageResumeScore: 0,
           successRate: completedInterviews.length > 0
@@ -1045,7 +1047,9 @@ const ProfilePage = () => {
                   <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
                     <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
                   </div>
-                  <span className="text-xl sm:text-2xl font-semibold text-white">{stats.hoursSpent}h</span>
+                  <span className="text-xl sm:text-2xl font-semibold text-white">
+                    {stats.hoursSpent > 0 ? `${stats.hoursSpent}h` : '0h'}
+                  </span>
                 </div>
                 <p className="text-xs sm:text-sm text-slate-400">Hours Spent</p>
               </div>

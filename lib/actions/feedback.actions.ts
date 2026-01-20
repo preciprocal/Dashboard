@@ -1,4 +1,9 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { redis } from "@/lib/redis/redis-client";
+import { hashResumeContent } from "@/lib/redis/resume-cache";
+
+// Cache TTL for interview feedback (7 days - feedback doesn't change)
+const FEEDBACK_GENERATION_CACHE_TTL = 7 * 24 * 60 * 60;
 
 interface AnswerAnalytics {
   question: string;
@@ -25,6 +30,87 @@ interface InterviewAnalytics {
   expectedDuration: number;
   wasRushed: boolean;
   averageQuality: number;
+}
+
+interface GeneratedFeedback {
+  totalScore: number;
+  categoryScores: Array<{
+    name: string;
+    score: number;
+    comment: string;
+  }>;
+  strengths: string[];
+  areasForImprovement: string[];
+  finalAssessment: string;
+  analytics?: InterviewAnalytics;
+  answerDetails?: AnswerAnalytics[];
+}
+
+interface CachedFeedback {
+  feedback: GeneratedFeedback;
+  cachedAt: string;
+}
+
+/**
+ * Generate cache key for feedback
+ */
+function generateFeedbackCacheKey(
+  questions: Array<{ question: string; answer: string }>,
+  role: string,
+  type: string,
+  techstack: string[]
+): string {
+  const content = JSON.stringify({
+    questions,
+    role,
+    type,
+    techstack: techstack.sort()
+  });
+  return hashResumeContent(content);
+}
+
+/**
+ * Get cached feedback
+ */
+async function getCachedGeneratedFeedback(cacheKey: string): Promise<GeneratedFeedback | null> {
+  if (!redis) return null;
+
+  try {
+    const key = `feedback-generation:${cacheKey}`;
+    const cached = await redis.get(key);
+
+    if (cached) {
+      console.log('✅ Cache HIT - Generated feedback found');
+      const data = typeof cached === 'string' ? JSON.parse(cached) : cached;
+      return (data as CachedFeedback).feedback;
+    }
+
+    console.log('❌ Cache MISS - Generated feedback not found');
+    return null;
+  } catch (error) {
+    console.error('Redis get error:', error);
+    return null;
+  }
+}
+
+/**
+ * Cache generated feedback
+ */
+async function cacheGeneratedFeedback(cacheKey: string, feedback: GeneratedFeedback): Promise<void> {
+  if (!redis) return;
+
+  try {
+    const key = `feedback-generation:${cacheKey}`;
+    const data: CachedFeedback = {
+      feedback,
+      cachedAt: new Date().toISOString()
+    };
+
+    await redis.setex(key, FEEDBACK_GENERATION_CACHE_TTL, JSON.stringify(data));
+    console.log('✅ Cached generated feedback for 7 days');
+  } catch (error) {
+    console.error('Redis set error:', error);
+  }
 }
 
 function assessAnswerQuality(answer: string, question: string): {
@@ -124,6 +210,27 @@ export async function generateHonestFeedback(interviewData: {
   company?: string;
   techstack: string[];
 }) {
+  // Generate cache key
+  const cacheKey = generateFeedbackCacheKey(
+    interviewData.questions,
+    interviewData.role,
+    interviewData.type,
+    interviewData.techstack
+  );
+
+  console.log('🔑 Feedback generation cache key:', cacheKey);
+
+  // Check cache first
+  const cachedFeedback = await getCachedGeneratedFeedback(cacheKey);
+  if (cachedFeedback) {
+    console.log('⚡ Returning cached feedback (instant!)');
+    return cachedFeedback;
+  }
+
+  // Generate new feedback
+  console.log('🤖 Generating new feedback with AI...');
+  const startTime = Date.now();
+
   const { analytics, summary } = analyzeAnswers(interviewData.questions);
   
   // Update duration metrics
@@ -300,11 +407,17 @@ Return ONLY valid JSON in this exact format (no markdown, no extra text):
       jsonText = jsonText.replace(/```\n?/g, "");
     }
     
-    const feedback = JSON.parse(jsonText);
+    const feedback = JSON.parse(jsonText) as GeneratedFeedback;
     
     // Add analytics to feedback
     feedback.analytics = summary;
     feedback.answerDetails = analytics;
+
+    const generationTime = Date.now() - startTime;
+    console.log(`✅ Feedback generated in ${generationTime}ms`);
+
+    // Cache the feedback
+    await cacheGeneratedFeedback(cacheKey, feedback);
     
     return feedback;
   } catch (error) {

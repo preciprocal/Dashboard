@@ -2,9 +2,15 @@
 
 import { generateObject } from "ai";
 import { google } from "@ai-sdk/google";
-
 import { db } from "@/firebase/admin";
 import { feedbackSchema } from "@/constants";
+import { redis } from "@/lib/redis/redis-client";
+
+// Cache TTLs
+const INTERVIEW_CACHE_TTL = 5 * 60; // 5 minutes
+const INTERVIEWS_LIST_CACHE_TTL = 5 * 60; // 5 minutes
+const FEEDBACK_CACHE_TTL = 7 * 24 * 60 * 60; // 7 days (feedback doesn't change)
+const LATEST_INTERVIEWS_CACHE_TTL = 10 * 60; // 10 minutes
 
 // ============ TYPE DEFINITIONS ============
 
@@ -74,7 +80,220 @@ interface Feedback {
   overallRating?: number;
 }
 
-// ============ FUNCTIONS ============
+interface CachedData<T> {
+  data: T;
+  cachedAt: string;
+}
+
+// ============ CACHE HELPER FUNCTIONS ============
+
+/**
+ * Get cached interview by ID
+ */
+async function getCachedInterview(interviewId: string): Promise<Interview | null> {
+  if (!redis) return null;
+
+  try {
+    const key = `interview:${interviewId}`;
+    const cached = await redis.get(key);
+
+    if (cached) {
+      console.log(`✅ Cache HIT - Interview ${interviewId}`);
+      const data = typeof cached === 'string' ? JSON.parse(cached) : cached;
+      return (data as CachedData<Interview>).data;
+    }
+
+    console.log(`❌ Cache MISS - Interview ${interviewId}`);
+    return null;
+  } catch (error) {
+    console.error('Redis get error:', error);
+    return null;
+  }
+}
+
+/**
+ * Cache interview
+ */
+async function cacheInterview(interview: Interview): Promise<void> {
+  if (!redis) return;
+
+  try {
+    const key = `interview:${interview.id}`;
+    const data: CachedData<Interview> = {
+      data: interview,
+      cachedAt: new Date().toISOString()
+    };
+
+    await redis.setex(key, INTERVIEW_CACHE_TTL, JSON.stringify(data));
+    console.log(`✅ Cached interview ${interview.id}`);
+  } catch (error) {
+    console.error('Redis set error:', error);
+  }
+}
+
+/**
+ * Get cached interviews list for user
+ */
+async function getCachedInterviews(userId: string): Promise<Interview[] | null> {
+  if (!redis) return null;
+
+  try {
+    const key = `interviews:${userId}`;
+    const cached = await redis.get(key);
+
+    if (cached) {
+      console.log(`✅ Cache HIT - Interviews for user ${userId}`);
+      const data = typeof cached === 'string' ? JSON.parse(cached) : cached;
+      return (data as CachedData<Interview[]>).data;
+    }
+
+    console.log(`❌ Cache MISS - Interviews for user ${userId}`);
+    return null;
+  } catch (error) {
+    console.error('Redis get error:', error);
+    return null;
+  }
+}
+
+/**
+ * Cache interviews list
+ */
+async function cacheInterviews(userId: string, interviews: Interview[]): Promise<void> {
+  if (!redis) return;
+
+  try {
+    const key = `interviews:${userId}`;
+    const data: CachedData<Interview[]> = {
+      data: interviews,
+      cachedAt: new Date().toISOString()
+    };
+
+    await redis.setex(key, INTERVIEWS_LIST_CACHE_TTL, JSON.stringify(data));
+    console.log(`✅ Cached interviews list for user ${userId} (${interviews.length} items)`);
+  } catch (error) {
+    console.error('Redis set error:', error);
+  }
+}
+
+/**
+ * Get cached feedback
+ */
+async function getCachedFeedback(interviewId: string, userId: string): Promise<Feedback | null> {
+  if (!redis) return null;
+
+  try {
+    const key = `feedback:${userId}:${interviewId}`;
+    const cached = await redis.get(key);
+
+    if (cached) {
+      console.log(`✅ Cache HIT - Feedback for interview ${interviewId}`);
+      const data = typeof cached === 'string' ? JSON.parse(cached) : cached;
+      return (data as CachedData<Feedback>).data;
+    }
+
+    console.log(`❌ Cache MISS - Feedback for interview ${interviewId}`);
+    return null;
+  } catch (error) {
+    console.error('Redis get error:', error);
+    return null;
+  }
+}
+
+/**
+ * Cache feedback
+ */
+async function cacheFeedback(feedback: Feedback): Promise<void> {
+  if (!redis) return;
+
+  try {
+    const key = `feedback:${feedback.userId}:${feedback.interviewId}`;
+    const data: CachedData<Feedback> = {
+      data: feedback,
+      cachedAt: new Date().toISOString()
+    };
+
+    await redis.setex(key, FEEDBACK_CACHE_TTL, JSON.stringify(data));
+    console.log(`✅ Cached feedback for interview ${feedback.interviewId}`);
+  } catch (error) {
+    console.error('Redis set error:', error);
+  }
+}
+
+/**
+ * Get cached latest interviews
+ */
+async function getCachedLatestInterviews(limit: number): Promise<Interview[] | null> {
+  if (!redis) return null;
+
+  try {
+    const key = `latest-interviews:${limit}`;
+    const cached = await redis.get(key);
+
+    if (cached) {
+      console.log(`✅ Cache HIT - Latest ${limit} interviews`);
+      const data = typeof cached === 'string' ? JSON.parse(cached) : cached;
+      return (data as CachedData<Interview[]>).data;
+    }
+
+    console.log(`❌ Cache MISS - Latest ${limit} interviews`);
+    return null;
+  } catch (error) {
+    console.error('Redis get error:', error);
+    return null;
+  }
+}
+
+/**
+ * Cache latest interviews
+ */
+async function cacheLatestInterviews(interviews: Interview[], limit: number): Promise<void> {
+  if (!redis) return;
+
+  try {
+    const key = `latest-interviews:${limit}`;
+    const data: CachedData<Interview[]> = {
+      data: interviews,
+      cachedAt: new Date().toISOString()
+    };
+
+    await redis.setex(key, LATEST_INTERVIEWS_CACHE_TTL, JSON.stringify(data));
+    console.log(`✅ Cached latest ${limit} interviews`);
+  } catch (error) {
+    console.error('Redis set error:', error);
+  }
+}
+
+/**
+ * Invalidate user's interviews cache
+ */
+async function invalidateUserInterviewsCache(userId: string): Promise<void> {
+  if (!redis) return;
+
+  try {
+    const key = `interviews:${userId}`;
+    await redis.del(key);
+    console.log(`✅ Invalidated interviews cache for user ${userId}`);
+  } catch (error) {
+    console.error('Redis delete error:', error);
+  }
+}
+
+/**
+ * Invalidate interview cache
+ */
+async function invalidateInterviewCache(interviewId: string): Promise<void> {
+  if (!redis) return;
+
+  try {
+    const key = `interview:${interviewId}`;
+    await redis.del(key);
+    console.log(`✅ Invalidated interview cache ${interviewId}`);
+  } catch (error) {
+    console.error('Redis delete error:', error);
+  }
+}
+
+// ============ MAIN FUNCTIONS ============
 
 export async function createFeedback(params: CreateFeedbackParams) {
   const { interviewId, userId, transcript, feedbackId } = params;
@@ -108,11 +327,24 @@ export async function createFeedback(params: CreateFeedbackParams) {
         "You are a professional interviewer analyzing a mock interview. Your task is to evaluate the candidate based on structured categories",
     });
 
+    // Convert categoryScores array to Record<string, number> if needed
+    let categoryScoresRecord: Record<string, number> = {};
+    
+    if (Array.isArray(object.categoryScores)) {
+      // If it's an array, convert to object
+      object.categoryScores.forEach((category: { name: string; score: number }) => {
+        categoryScoresRecord[category.name] = category.score;
+      });
+    } else {
+      // If it's already an object, use it directly
+      categoryScoresRecord = object.categoryScores as Record<string, number>;
+    }
+
     const feedback = {
       interviewId: interviewId,
       userId: userId,
       totalScore: object.totalScore,
-      categoryScores: object.categoryScores,
+      categoryScores: categoryScoresRecord,
       strengths: object.strengths,
       areasForImprovement: object.areasForImprovement,
       finalAssessment: object.finalAssessment,
@@ -129,6 +361,20 @@ export async function createFeedback(params: CreateFeedbackParams) {
 
     await feedbackRef.set(feedback);
 
+    // Cache the feedback with proper typing
+    const feedbackWithId: Feedback = { 
+      id: feedbackRef.id, 
+      ...feedback 
+    };
+    
+    await cacheFeedback(feedbackWithId);
+
+    // Invalidate related caches
+    await invalidateUserInterviewsCache(userId);
+    await invalidateInterviewCache(interviewId);
+
+    console.log('✅ Feedback created and cached');
+
     return { success: true, feedbackId: feedbackRef.id };
   } catch (error) {
     console.error("Error saving feedback:", error);
@@ -137,13 +383,23 @@ export async function createFeedback(params: CreateFeedbackParams) {
 }
 
 export async function getInterviewById(id: string): Promise<Interview | null> {
+  // Check cache first
+  const cached = await getCachedInterview(id);
+  if (cached) return cached;
+
+  // Fetch from Firestore
   const interview = await db.collection("interviews").doc(id).get();
 
   if (!interview.exists) {
     return null;
   }
 
-  return { id: interview.id, ...interview.data() } as Interview;
+  const interviewData = { id: interview.id, ...interview.data() } as Interview;
+
+  // Cache the interview
+  await cacheInterview(interviewData);
+
+  return interviewData;
 }
 
 export async function getFeedbackByInterviewId(
@@ -151,6 +407,11 @@ export async function getFeedbackByInterviewId(
 ): Promise<Feedback | null> {
   const { interviewId, userId } = params;
 
+  // Check cache first
+  const cached = await getCachedFeedback(interviewId, userId);
+  if (cached) return cached;
+
+  // Fetch from Firestore
   const querySnapshot = await db
     .collection("feedback")
     .where("interviewId", "==", interviewId)
@@ -158,10 +419,43 @@ export async function getFeedbackByInterviewId(
     .limit(1)
     .get();
 
-  if (querySnapshot.empty) return null;
+  if (querySnapshot.empty) {
+    // Cache null result to prevent repeated lookups
+    if (redis) {
+      try {
+        const key = `feedback:${userId}:${interviewId}`;
+        await redis.setex(key, 60, JSON.stringify({ data: null, cachedAt: new Date().toISOString() }));
+      } catch (error) {
+        console.error('Redis cache null error:', error);
+      }
+    }
+    return null;
+  }
 
   const feedbackDoc = querySnapshot.docs[0];
-  return { id: feedbackDoc.id, ...feedbackDoc.data() } as Feedback;
+  const feedbackData = feedbackDoc.data();
+  
+  // Ensure categoryScores is in the correct format
+  let categoryScoresRecord: Record<string, number> = {};
+  
+  if (Array.isArray(feedbackData.categoryScores)) {
+    feedbackData.categoryScores.forEach((category: { name: string; score: number }) => {
+      categoryScoresRecord[category.name] = category.score;
+    });
+  } else if (feedbackData.categoryScores && typeof feedbackData.categoryScores === 'object') {
+    categoryScoresRecord = feedbackData.categoryScores as Record<string, number>;
+  }
+
+  const feedback: Feedback = { 
+    id: feedbackDoc.id, 
+    ...feedbackData,
+    categoryScores: categoryScoresRecord
+  } as Feedback;
+
+  // Cache the feedback
+  await cacheFeedback(feedback);
+
+  return feedback;
 }
 
 export async function getLatestInterviews(
@@ -169,6 +463,11 @@ export async function getLatestInterviews(
 ): Promise<Interview[] | null> {
   const { userId, limit = 20 } = params;
 
+  // Check cache first
+  const cached = await getCachedLatestInterviews(limit);
+  if (cached) return cached;
+
+  // Fetch from Firestore
   const interviews = await db
     .collection("interviews")
     .orderBy("createdAt", "desc")
@@ -177,23 +476,66 @@ export async function getLatestInterviews(
     .limit(limit)
     .get();
 
-  return interviews.docs.map((doc) => ({
+  const interviewsList = interviews.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
   })) as Interview[];
+
+  // Cache the results
+  await cacheLatestInterviews(interviewsList, limit);
+
+  return interviewsList;
 }
 
 export async function getInterviewsByUserId(
   userId: string
 ): Promise<Interview[] | null> {
+  // Check cache first
+  const cached = await getCachedInterviews(userId);
+  if (cached) return cached;
+
+  // Fetch from Firestore
   const interviews = await db
     .collection("interviews")
     .where("userId", "==", userId)
     .orderBy("createdAt", "desc")
     .get();
 
-  return interviews.docs.map((doc) => ({
+  const interviewsList = interviews.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
   })) as Interview[];
+
+  // Cache the results
+  await cacheInterviews(userId, interviewsList);
+
+  return interviewsList;
+}
+
+// ============ EXPORT CACHE INVALIDATION FUNCTIONS ============
+
+/**
+ * Call this when user completes a new interview
+ */
+export async function invalidateInterviewCaches(userId: string, interviewId?: string) {
+  await invalidateUserInterviewsCache(userId);
+  if (interviewId) {
+    await invalidateInterviewCache(interviewId);
+  }
+  console.log('✅ Interview caches invalidated');
+}
+
+/**
+ * Call this when feedback is updated
+ */
+export async function invalidateFeedbackCache(userId: string, interviewId: string) {
+  if (!redis) return;
+
+  try {
+    const key = `feedback:${userId}:${interviewId}`;
+    await redis.del(key);
+    console.log(`✅ Invalidated feedback cache for interview ${interviewId}`);
+  } catch (error) {
+    console.error('Redis delete error:', error);
+  }
 }

@@ -21,6 +21,7 @@
     "@tinymce/tinymce-react": "^6.3.0",
     "@types/formidable": "^3.4.5",
     "@types/webrtc": "^0.0.47",
+    "@upstash/redis": "^1.36.1",
     "@vapi-ai/web": "^2.3.0",
     "ai": "^4.1.61",
     "chart.js": "^4.5.0",
