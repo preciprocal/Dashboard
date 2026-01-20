@@ -146,10 +146,24 @@ export default async function InterviewFeedbackPage({ params }: Props) {
     completionRate: "100%",
   };
 
-  const avgCategoryScore = Math.round(
-    feedback.categoryScores.reduce((sum: number, cat: CategoryScore) => sum + cat.score, 0) / 
-    feedback.categoryScores.length
-  );
+  // Ensure arrays exist with proper types
+  const categoryScores: CategoryScore[] = Array.isArray(feedback.categoryScores) 
+    ? feedback.categoryScores 
+    : [];
+  const strengths: string[] = Array.isArray(feedback.strengths) 
+    ? feedback.strengths 
+    : [];
+  const areasForImprovement: string[] = Array.isArray(feedback.areasForImprovement) 
+    ? feedback.areasForImprovement 
+    : [];
+
+  const avgCategoryScore = categoryScores.length > 0
+    ? Math.round(
+        categoryScores.reduce((sum: number, cat: CategoryScore) => {
+          return sum + cat.score;
+        }, 0) / categoryScores.length
+      )
+    : 0;
 
   const industryBenchmark = {
     yourScore: feedback.totalScore,
@@ -259,11 +273,11 @@ export default async function InterviewFeedbackPage({ params }: Props) {
             {/* Key Metrics - Responsive */}
             <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:col-span-2">
               {[
-                { label: "Questions", value: interviewStats.questionsAnswered.toString(), icon: HelpCircle },
+                { label: "Questions", value: String(interviewStats.questionsAnswered), icon: HelpCircle },
                 { label: "Duration", value: `${interviewStats.duration}m`, icon: Clock },
-                { label: "Score", value: feedback.totalScore.toString(), icon: Star },
-                { label: "Categories", value: feedback.categoryScores.length.toString(), icon: Target },
-                { label: "Strengths", value: feedback.strengths.length.toString(), icon: Award },
+                { label: "Score", value: String(feedback.totalScore), icon: Star },
+                { label: "Categories", value: String(categoryScores.length), icon: Target },
+                { label: "Strengths", value: String(strengths.length), icon: Award },
                 { label: "Complete", value: interviewStats.completionRate, icon: CheckCircle },
               ].map((metric, index) => (
                 <div key={index} className="glass-card p-3 sm:p-4 border border-white/5">
@@ -364,14 +378,14 @@ export default async function InterviewFeedbackPage({ params }: Props) {
                 Detailed Performance Analysis
               </h2>
               <p className="text-slate-400 text-xs sm:text-sm">
-                Breakdown across {feedback.categoryScores.length} categories
+                Breakdown across {categoryScores.length} categories
               </p>
             </div>
           </div>
         </div>
 
         <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
-          {feedback.categoryScores.map((category: CategoryScore, index: number) => {
+          {categoryScores.map((category: CategoryScore, index: number) => {
             const isStrength = category.score >= 80;
             const needsWork = category.score < 60;
             
@@ -516,14 +530,14 @@ export default async function InterviewFeedbackPage({ params }: Props) {
               <div>
                 <h3 className="text-base sm:text-lg font-semibold text-white">Key Strengths</h3>
                 <p className="text-slate-400 text-xs sm:text-sm">
-                  {feedback.strengths.length} areas of excellence
+                  {strengths.length} areas of excellence
                 </p>
               </div>
             </div>
           </div>
 
           <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
-            {feedback.strengths.map((strength: string, index: number) => (
+            {strengths.map((strength: string, index: number) => (
               <div key={index} className="glass-card p-3 sm:p-4 border border-emerald-500/20">
                 <div className="flex items-start gap-2 sm:gap-3">
                   <div className="w-7 h-7 sm:w-8 sm:h-8 bg-emerald-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -550,14 +564,14 @@ export default async function InterviewFeedbackPage({ params }: Props) {
               <div>
                 <h3 className="text-base sm:text-lg font-semibold text-white">Growth Areas</h3>
                 <p className="text-slate-400 text-xs sm:text-sm">
-                  {feedback.areasForImprovement.length} development opportunities
+                  {areasForImprovement.length} development opportunities
                 </p>
               </div>
             </div>
           </div>
 
           <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
-            {feedback.areasForImprovement.map((area: string, index: number) => {
+            {areasForImprovement.map((area: string, index: number) => {
               const priority = index < 2 ? "High" : index < 4 ? "Medium" : "Low";
               
               return (
@@ -646,8 +660,8 @@ export default async function InterviewFeedbackPage({ params }: Props) {
                 <span className="text-base sm:text-lg">📈</span>
               </div>
               <p className="text-sm sm:text-base font-semibold text-white mb-1">
-                {feedback.areasForImprovement.length < 3 ? 'Excellent' : 
-                 feedback.areasForImprovement.length < 5 ? 'Strong' : 'Moderate'}
+                {areasForImprovement.length < 3 ? 'Excellent' : 
+                 areasForImprovement.length < 5 ? 'Strong' : 'Moderate'}
               </p>
               <p className="text-xs text-slate-400">
                 Growth Trajectory
