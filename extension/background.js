@@ -30,7 +30,27 @@ async function handleJobDataExtraction(jobData) {
 
     // Open Preciprocal in new tab with job data
     const toolsUrl = `${PRECIPROCAL_URL}/job-tools?from_extension=true`;
-    chrome.tabs.create({ url: toolsUrl });
+    
+    // Create tab and inject script to set localStorage
+    chrome.tabs.create({ url: toolsUrl }, (tab) => {
+      if (tab.id) {
+        // Wait for page to load, then inject job data
+        chrome.tabs.onUpdated.addListener(function listener(tabId, info) {
+          if (tabId === tab.id && info.status === 'complete') {
+            chrome.tabs.onUpdated.removeListener(listener);
+            
+            // Inject script to set localStorage
+            chrome.scripting.executeScript({
+              target: { tabId: tabId },
+              func: (data) => {
+                localStorage.setItem('extensionJobData', JSON.stringify(data));
+              },
+              args: [jobData]
+            });
+          }
+        });
+      }
+    });
 
   } catch (error) {
     console.error('Error handling job data:', error);
