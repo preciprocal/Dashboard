@@ -670,7 +670,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
                     </Link>
                     
                     <Link
-                      href="/subscription"
+                      href="/pricing"
                       onClick={() => {
                         setShowAccountMenu(false);
                         handleLinkClick();

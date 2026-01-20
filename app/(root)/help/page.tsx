@@ -367,7 +367,7 @@ export default function HelpSupportPage() {
     
     try {
       const ticketsRef = collection(db, 'supportTickets');
-      await addDoc(ticketsRef, {
+      const ticketData = {
         userId: user.uid,
         userEmail: user.email,
         userName: user.displayName || 'User',
@@ -378,7 +378,36 @@ export default function HelpSupportPage() {
         status: 'open',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
-      });
+      };
+
+      // Create the ticket in Firestore
+      const docRef = await addDoc(ticketsRef, ticketData);
+
+      // Send email notification
+      try {
+        const emailResponse = await fetch('/api/firebase/emails', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            ticketId: docRef.id,
+            ticket: {
+              ...ticketData,
+              userEmail: user.email,
+              userName: user.displayName || 'User'
+            }
+          }),
+        });
+
+        if (!emailResponse.ok) {
+          console.error('Failed to send email notification');
+          // Don't fail the ticket submission if email fails
+        }
+      } catch (emailError) {
+        console.error('Error sending email:', emailError);
+        // Continue even if email fails
+      }
 
       setSubmitSuccess(true);
       setSubject('');

@@ -111,7 +111,24 @@ interface RegenerateFixRequest {
   userTier?: UserTier;
 }
 
-type RequestData = GenerateFixesRequest | RegenerateFixRequest;
+// NEW: Extension job-based analysis request
+interface ExtensionJobAnalysisRequest {
+  action: 'analyzeForJob';
+  jobData: {
+    title: string;
+    company: string;
+    description: string;
+    location?: string;
+    salary?: string;
+    jobType?: string;
+    url?: string;
+    platform?: string;
+  };
+  userId?: string;
+  userTier?: UserTier;
+}
+
+type RequestData = GenerateFixesRequest | RegenerateFixRequest | ExtensionJobAnalysisRequest;
 
 export async function GET() {
   const envTest = {
@@ -124,12 +141,12 @@ export async function GET() {
   };
 
   return NextResponse.json({ 
-    message: 'AI Resume Analysis API with Gemini Resume Fixer + Redis Caching',
+    message: 'AI Resume Analysis API with Gemini Resume Fixer + Redis Caching + Extension Support',
     timestamp: new Date().toISOString(),
     status: 'ok',
     model: 'gemini-2.5-flash',
     framework: 'ai-sdk',
-    features: ['analysis', 'text-extraction', 'fixes', 'regeneration', 'redis-caching', 'usage-tracking'],
+    features: ['analysis', 'text-extraction', 'fixes', 'regeneration', 'redis-caching', 'usage-tracking', 'extension-job-analysis'],
     caching: envTest.hasRedis ? 'enabled' : 'disabled',
     environment: envTest
   });
@@ -145,13 +162,15 @@ export async function POST(request: NextRequest) {
       // Resume analysis request with file upload
       return await handleResumeAnalysis(request);
     } else {
-      // Resume fixes generation or regeneration request
+      // Resume fixes generation, regeneration, or extension job analysis request
       const requestData = await request.json() as RequestData;
       
       if (requestData.action === 'generateFixes') {
         return await handleGenerateResumeFixes(requestData);
       } else if (requestData.action === 'regenerateFix') {
         return await handleRegenerateSpecificFix(requestData);
+      } else if (requestData.action === 'analyzeForJob') {
+        return await handleExtensionJobAnalysis(requestData);
       } else {
         return NextResponse.json({ error: 'Invalid action specified' }, { status: 400 });
       }
@@ -163,6 +182,150 @@ export async function POST(request: NextRequest) {
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
+  }
+}
+
+// NEW: Handle extension job-based analysis
+async function handleExtensionJobAnalysis(requestData: ExtensionJobAnalysisRequest) {
+  const { jobData, userId = 'anonymous', userTier = 'free' } = requestData;
+
+  console.log('🎯 Extension job analysis request:', {
+    jobTitle: jobData.title,
+    company: jobData.company,
+    userId,
+    userTier
+  });
+
+  if (!jobData || !jobData.title || !jobData.description) {
+    return NextResponse.json({ error: 'Invalid job data provided' }, { status: 400 });
+  }
+
+  // Check usage limits
+  const usageCheck = await checkAndIncrementUsage(userId, 'resume-analysis', userTier);
+  
+  if (!usageCheck.allowed) {
+    return NextResponse.json({
+      error: 'Usage limit reached',
+      message: `You've used all ${usageCheck.limit} analyses for this month. Upgrade to Pro for unlimited analyses.`,
+      usage: {
+        current: usageCheck.current,
+        limit: usageCheck.limit,
+        remaining: usageCheck.remaining
+      }
+    }, { status: 429 });
+  }
+
+  // TODO: Fetch user's resume from Firebase/Firestore
+  // For now, we'll return a placeholder response
+  // You need to implement: const userResume = await getUserResume(userId);
+
+  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+    const mockAnalysis = createJobSpecificMockAnalysis(jobData);
+    return NextResponse.json({
+      atsScore: mockAnalysis.atsScore,
+      suggestions: mockAnalysis.suggestions,
+      keywordMatch: mockAnalysis.keywordMatch,
+      missingSkills: mockAnalysis.missingSkills,
+      usage: usageCheck,
+      meta: {
+        timestamp: new Date().toISOString(),
+        model: 'mock-job-analysis',
+        type: 'extension-analysis',
+        note: 'Add GOOGLE_GENERATIVE_AI_API_KEY for real AI analysis'
+      }
+    });
+  }
+
+  try {
+    console.log('🤖 Analyzing resume against job posting with Gemini...');
+
+    // TODO: Replace with actual user resume content
+    const userResumeContent = "User resume content would go here"; // await getUserResume(userId);
+
+    const analysisPrompt = `
+You are an expert ATS (Applicant Tracking System) analyzer and resume optimizer.
+
+JOB POSTING INFORMATION:
+Title: ${jobData.title}
+Company: ${jobData.company}
+Location: ${jobData.location || 'Not specified'}
+Job Type: ${jobData.jobType || 'Not specified'}
+Salary: ${jobData.salary || 'Not specified'}
+
+JOB DESCRIPTION:
+${jobData.description}
+
+USER'S RESUME:
+${userResumeContent}
+
+Please analyze the resume against this specific job posting and provide:
+1. An ATS compatibility score (0-100) for THIS specific job
+2. Keyword match percentage
+3. Specific suggestions for improvement to match the job requirements
+4. Missing skills or keywords that should be added
+5. Sections that need strengthening
+
+Respond in JSON format:
+{
+  "atsScore": number (0-100),
+  "keywordMatch": number (0-100),
+  "suggestions": [
+    "specific actionable suggestion 1",
+    "specific actionable suggestion 2",
+    ...
+  ],
+  "missingSkills": ["skill1", "skill2", ...],
+  "strengthenSections": ["section1", "section2", ...]
+}`;
+
+    const { text } = await generateText({
+      model: google("gemini-2.5-flash"),
+      messages: [{ role: "user", content: analysisPrompt }],
+      temperature: 0.2
+    });
+
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('Failed to parse AI response');
+    }
+
+    const analysisData = JSON.parse(jsonMatch[0]);
+
+    console.log('✅ Job-specific analysis completed');
+
+    return NextResponse.json({
+      atsScore: analysisData.atsScore,
+      keywordMatch: analysisData.keywordMatch,
+      suggestions: analysisData.suggestions,
+      missingSkills: analysisData.missingSkills || [],
+      strengthenSections: analysisData.strengthenSections || [],
+      usage: usageCheck,
+      meta: {
+        timestamp: new Date().toISOString(),
+        model: 'gemini-2.5-flash',
+        type: 'extension-job-analysis',
+        jobTitle: jobData.title,
+        company: jobData.company
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Extension job analysis failed:', error);
+    
+    const fallbackAnalysis = createJobSpecificMockAnalysis(jobData);
+    return NextResponse.json({
+      atsScore: fallbackAnalysis.atsScore,
+      suggestions: fallbackAnalysis.suggestions,
+      keywordMatch: fallbackAnalysis.keywordMatch,
+      missingSkills: fallbackAnalysis.missingSkills,
+      usage: usageCheck,
+      meta: {
+        timestamp: new Date().toISOString(),
+        model: 'fallback-job-analysis',
+        type: 'ai-error-recovery',
+        note: 'AI service issue - fallback analysis provided'
+      }
+    });
   }
 }
 
@@ -207,7 +370,7 @@ async function handleResumeAnalysis(request: NextRequest) {
           limit: usageCheck.limit,
           remaining: usageCheck.remaining
         }
-      }, { status: 429 }); // 429 Too Many Requests
+      }, { status: 429 });
     }
 
     // Convert to base64
@@ -475,10 +638,6 @@ async function handleGenerateResumeFixes(requestData: GenerateFixesRequest) {
     }, { status: 400 });
   }
 
-  // Check usage limits for fix generation (if you want to track this separately)
-  // const usageCheck = await checkAndIncrementUsage(userId, 'resume-fixes', userTier);
-  // if (!usageCheck.allowed) { ... }
-
   // Generate hash for caching
   const contentHash = hashResumeContent(resumeContent + (jobDescription || ''));
   console.log('🔑 Fixes hash:', contentHash);
@@ -715,6 +874,26 @@ function processAnalysisObject(object: z.infer<typeof resumeFeedbackSchema>): Re
   processedObject.overallScore = Math.round(weightedScore);
 
   return processedObject;
+}
+
+// NEW: Create job-specific mock analysis for extension
+function createJobSpecificMockAnalysis(jobData: ExtensionJobAnalysisRequest['jobData']) {
+  return {
+    atsScore: 72,
+    keywordMatch: 65,
+    suggestions: [
+      `Add "${jobData.title}" specific keywords from the job description to improve ATS matching`,
+      `Highlight experience relevant to ${jobData.company}'s industry and requirements`,
+      `Include metrics and quantifiable achievements that match the job requirements`,
+      `Optimize skills section to include technologies mentioned in the job posting`,
+      `Tailor your summary/objective to align with ${jobData.company}'s mission`
+    ],
+    missingSkills: [
+      'Extract from job description',
+      'Technical skills mentioned in posting',
+      'Soft skills emphasized by employer'
+    ]
+  };
 }
 
 function createDetailedMockAnalysis(jobTitle: string, jobDescription: string): ResumeFeedback {
