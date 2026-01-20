@@ -881,7 +881,7 @@ export default function Dashboard() {
         steps={loadingSteps}
         currentStep={loadingStep}
         loadingText="Loading your professional dashboard..."
-        showNavigation={false}
+        showNavigation={true}
         onHide={() => console.log('Dashboard loaded')}
       />
     );

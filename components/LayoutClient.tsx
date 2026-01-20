@@ -869,7 +869,7 @@ function LayoutContent({ children, user, userStats }: LayoutClientProps) {
 
             {planInfo.showUpgrade && (
               <Link 
-                href="/subscription"
+                href="/pricing"
                 onClick={handleLinkClick}
                 className="glass-button-primary w-full px-4 py-2.5 rounded-lg hover-lift flex items-center justify-center text-white text-sm font-medium
                            bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700
