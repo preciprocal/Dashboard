@@ -28,7 +28,7 @@ const USER_STATS_CACHE_TTL = 5 * 60;
 
 // Metadata configuration
 export const metadata: Metadata = {
-  title: "Preciprocal | Tired of AI Taking Your Job? Use AI to Take It Back",
+  title: "Preciprocal | Tired of AI Taking Your Job? Use AI to Take It Back !",
   description: "Stop stressing about AI replacing you. Level up your career game with AI that actually works for YOU. Ace interviews, flex that resume, and land the bag. No cap.",
   keywords: [
     "AI career prep",
