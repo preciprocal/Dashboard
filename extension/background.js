@@ -17,38 +17,56 @@ async function handleJobDataExtraction(jobData) {
     
     if (!authToken) {
       // Open login page with redirect
-      const loginUrl = `${PRECIPROCAL_URL}/login?extension=true&redirect=job-tools`;
+      const loginUrl = `${PRECIPROCAL_URL}/auth?extension=true&redirect=job-tools`;
       chrome.tabs.create({ url: loginUrl });
       return;
     }
 
-    // Store job data temporarily
+    // Store job data in chrome storage
     await chrome.storage.local.set({
       currentJobData: jobData,
       timestamp: Date.now()
     });
 
-    // Open Preciprocal in new tab with job data
-    const toolsUrl = `${PRECIPROCAL_URL}/job-tools?from_extension=true`;
+    // Create the URL with a special flag
+    const toolsUrl = `${PRECIPROCAL_URL}/job-tools?from_extension=true&job_id=${Date.now()}`;
     
-    // Create tab and inject script to set localStorage
-    chrome.tabs.create({ url: toolsUrl }, (tab) => {
-      if (tab.id) {
-        // Wait for page to load, then inject job data
-        chrome.tabs.onUpdated.addListener(function listener(tabId, info) {
-          if (tabId === tab.id && info.status === 'complete') {
-            chrome.tabs.onUpdated.removeListener(listener);
-            
-            // Inject script to set localStorage
-            chrome.scripting.executeScript({
-              target: { tabId: tabId },
-              func: (data) => {
+    // Open new tab
+    const tab = await chrome.tabs.create({ url: toolsUrl });
+    
+    if (!tab.id) {
+      console.error('Failed to create tab');
+      return;
+    }
+
+    // Wait for the page to load and inject the data
+    const tabId = tab.id;
+    
+    chrome.tabs.onUpdated.addListener(function listener(updatedTabId, changeInfo) {
+      if (updatedTabId === tabId && changeInfo.status === 'complete') {
+        // Remove this listener
+        chrome.tabs.onUpdated.removeListener(listener);
+        
+        // Wait a bit for React to hydrate
+        setTimeout(() => {
+          // Inject script to set localStorage
+          chrome.scripting.executeScript({
+            target: { tabId: tabId },
+            func: (data) => {
+              try {
                 localStorage.setItem('extensionJobData', JSON.stringify(data));
-              },
-              args: [jobData]
-            });
-          }
-        });
+                console.log('Job data stored in localStorage:', data);
+                // Trigger a custom event to notify the page
+                window.dispatchEvent(new CustomEvent('extensionJobDataReady'));
+              } catch (error) {
+                console.error('Failed to store job data:', error);
+              }
+            },
+            args: [jobData]
+          }).catch(err => {
+            console.error('Failed to inject script:', err);
+          });
+        }, 500); // Wait 500ms for React hydration
       }
     });
 

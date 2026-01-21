@@ -59,20 +59,64 @@ export default function JobToolsPage() {
   }, [user, loading, fromExtension, router]);
 
   const loadJobDataFromExtension = () => {
-    // Try to get job data from localStorage (set by extension)
-    try {
-      const storedData = localStorage.getItem('extensionJobData');
-      if (storedData) {
-        const data = JSON.parse(storedData);
-        setJobData(data);
-        // Clear after reading
-        localStorage.removeItem('extensionJobData');
+    // Function to try loading from localStorage
+    const tryLoadData = () => {
+      try {
+        const storedData = localStorage.getItem('extensionJobData');
+        if (storedData) {
+          console.log('Found job data in localStorage');
+          const data = JSON.parse(storedData);
+          setJobData(data);
+          setLoadingData(false);
+          // Clear after reading
+          localStorage.removeItem('extensionJobData');
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error('Error loading job data:', error);
+        return false;
       }
-    } catch (error) {
-      console.error('Error loading job data:', error);
-    } finally {
-      setLoadingData(false);
+    };
+
+    // Try to load immediately
+    if (tryLoadData()) {
+      return;
     }
+
+    console.log('Job data not found yet, waiting for extension...');
+
+    // Listen for custom event from extension
+    const handleExtensionData = () => {
+      console.log('Extension data ready event received');
+      tryLoadData();
+    };
+
+    window.addEventListener('extensionJobDataReady', handleExtensionData);
+
+    // Also try polling a few times in case event was missed
+    let attempts = 0;
+    const maxAttempts = 10;
+    const pollInterval = setInterval(() => {
+      attempts++;
+      console.log(`Polling attempt ${attempts}/${maxAttempts}`);
+      
+      if (tryLoadData()) {
+        clearInterval(pollInterval);
+        window.removeEventListener('extensionJobDataReady', handleExtensionData);
+      } else if (attempts >= maxAttempts) {
+        console.log('Max polling attempts reached, no data found');
+        clearInterval(pollInterval);
+        window.removeEventListener('extensionJobDataReady', handleExtensionData);
+        setLoadingData(false);
+      }
+    }, 300);
+
+    // Cleanup
+    return () => {
+      clearInterval(pollInterval);
+      window.removeEventListener('extensionJobDataReady', handleExtensionData);
+    };
   };
 
   const generateAll = async () => {
