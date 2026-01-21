@@ -7,6 +7,21 @@ import { auth } from '@/firebase/client';
 import { Briefcase, MapPin, Building2, DollarSign, ArrowLeft, Loader2, FileText, MessageSquare, Video } from 'lucide-react';
 import Link from 'next/link';
 
+// Declare Chrome extension types
+declare global {
+  interface Window {
+    chrome?: {
+      runtime?: {
+        sendMessage: (
+          message: { action: string; [key: string]: unknown }, 
+          callback?: (response: { jobData?: JobData; [key: string]: unknown }) => void
+        ) => void;
+        lastError?: { message: string };
+      };
+    };
+  }
+}
+
 interface JobData {
   title: string;
   company: string;
@@ -58,65 +73,41 @@ export default function JobToolsPage() {
     }
   }, [user, loading, fromExtension, router]);
 
-  const loadJobDataFromExtension = () => {
-    // Function to try loading from localStorage
-    const tryLoadData = () => {
-      try {
-        const storedData = localStorage.getItem('extensionJobData');
-        if (storedData) {
-          console.log('Found job data in localStorage');
-          const data = JSON.parse(storedData);
-          setJobData(data);
-          setLoadingData(false);
-          // Clear after reading
-          localStorage.removeItem('extensionJobData');
-          return true;
-        }
-        return false;
-      } catch (error) {
-        console.error('Error loading job data:', error);
-        return false;
-      }
-    };
-
-    // Try to load immediately
-    if (tryLoadData()) {
-      return;
-    }
-
-    console.log('Job data not found yet, waiting for extension...');
-
-    // Listen for custom event from extension
-    const handleExtensionData = () => {
-      console.log('Extension data ready event received');
-      tryLoadData();
-    };
-
-    window.addEventListener('extensionJobDataReady', handleExtensionData);
-
-    // Also try polling a few times in case event was missed
-    let attempts = 0;
-    const maxAttempts = 10;
-    const pollInterval = setInterval(() => {
-      attempts++;
-      console.log(`Polling attempt ${attempts}/${maxAttempts}`);
-      
-      if (tryLoadData()) {
-        clearInterval(pollInterval);
-        window.removeEventListener('extensionJobDataReady', handleExtensionData);
-      } else if (attempts >= maxAttempts) {
-        console.log('Max polling attempts reached, no data found');
-        clearInterval(pollInterval);
-        window.removeEventListener('extensionJobDataReady', handleExtensionData);
+  const loadJobDataFromExtension = async () => {
+    console.log('🔍 Loading job data from extension...');
+    
+    try {
+      // Check if chrome.runtime is available (means we're in a page opened by extension)
+      if (typeof window !== 'undefined' && window.chrome?.runtime?.sendMessage) {
+        console.log('📡 Requesting job data from extension...');
+        
+        // Request job data from extension background script
+        window.chrome.runtime.sendMessage(
+          { action: 'getJobData' },
+          (response: { jobData?: JobData }) => {
+            if (window.chrome?.runtime?.lastError) {
+              console.error('❌ Extension error:', window.chrome.runtime.lastError);
+              setLoadingData(false);
+              return;
+            }
+            
+            if (response && response.jobData) {
+              console.log('✅ Job data received:', response.jobData);
+              setJobData(response.jobData);
+            } else {
+              console.log('⚠️ No job data in response');
+            }
+            setLoadingData(false);
+          }
+        );
+      } else {
+        console.log('⚠️ Extension API not available');
         setLoadingData(false);
       }
-    }, 300);
-
-    // Cleanup
-    return () => {
-      clearInterval(pollInterval);
-      window.removeEventListener('extensionJobDataReady', handleExtensionData);
-    };
+    } catch (error) {
+      console.error('❌ Error loading job data:', error);
+      setLoadingData(false);
+    }
   };
 
   const generateAll = async () => {

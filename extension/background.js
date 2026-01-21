@@ -2,76 +2,56 @@
 
 const PRECIPROCAL_URL = 'https://preciprocal.com';
 
-// Listen for messages from content script
-chrome.runtime.onMessage.addListener((request) => {
+// Listen for messages from content script and from the web page
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  console.log('📨 Message received:', request.action);
+  
   if (request.action === 'openPreciprocal') {
     handleJobDataExtraction(request.jobData);
+  } else if (request.action === 'getJobData') {
+    // Web page is requesting job data
+    chrome.storage.local.get(['pendingJobData'], (result) => {
+      console.log('📤 Sending job data to page:', result.pendingJobData);
+      sendResponse({ jobData: result.pendingJobData });
+      
+      // Clear after sending
+      chrome.storage.local.remove(['pendingJobData']);
+    });
+    return true; // Keep channel open for async response
   }
   return true;
 });
 
 async function handleJobDataExtraction(jobData) {
   try {
+    console.log('📦 Job data extracted:', jobData);
+    
     // Check if user is authenticated
     const authToken = await getAuthToken();
     
     if (!authToken) {
-      // Open login page with redirect
+      console.log('❌ No auth token, redirecting to login');
       const loginUrl = `${PRECIPROCAL_URL}/auth?extension=true&redirect=job-tools`;
       chrome.tabs.create({ url: loginUrl });
       return;
     }
 
-    // Store job data in chrome storage
+    console.log('✅ User authenticated');
+
+    // Store job data in chrome storage (persistent)
     await chrome.storage.local.set({
-      currentJobData: jobData,
+      pendingJobData: jobData,
       timestamp: Date.now()
     });
 
-    // Create the URL with a special flag
-    const toolsUrl = `${PRECIPROCAL_URL}/job-tools?from_extension=true&job_id=${Date.now()}`;
-    
-    // Open new tab
-    const tab = await chrome.tabs.create({ url: toolsUrl });
-    
-    if (!tab.id) {
-      console.error('Failed to create tab');
-      return;
-    }
+    console.log('💾 Job data saved to chrome.storage');
 
-    // Wait for the page to load and inject the data
-    const tabId = tab.id;
-    
-    chrome.tabs.onUpdated.addListener(function listener(updatedTabId, changeInfo) {
-      if (updatedTabId === tabId && changeInfo.status === 'complete') {
-        // Remove this listener
-        chrome.tabs.onUpdated.removeListener(listener);
-        
-        // Wait a bit for React to hydrate
-        setTimeout(() => {
-          // Inject script to set localStorage
-          chrome.scripting.executeScript({
-            target: { tabId: tabId },
-            func: (data) => {
-              try {
-                localStorage.setItem('extensionJobData', JSON.stringify(data));
-                console.log('Job data stored in localStorage:', data);
-                // Trigger a custom event to notify the page
-                window.dispatchEvent(new CustomEvent('extensionJobDataReady'));
-              } catch (error) {
-                console.error('Failed to store job data:', error);
-              }
-            },
-            args: [jobData]
-          }).catch(err => {
-            console.error('Failed to inject script:', err);
-          });
-        }, 500); // Wait 500ms for React hydration
-      }
-    });
+    // Open Preciprocal in new tab
+    const toolsUrl = `${PRECIPROCAL_URL}/job-tools?from_extension=true`;
+    chrome.tabs.create({ url: toolsUrl });
 
   } catch (error) {
-    console.error('Error handling job data:', error);
+    console.error('❌ Error handling job data:', error);
   }
 }
 
