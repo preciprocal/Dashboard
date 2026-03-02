@@ -1,245 +1,274 @@
-// Popup logic for Chrome extension
+// popup.js
 
-const PRECIPROCAL_URL = 'https://preciprocal.com';
+let authState = {
+  authenticated: false,
+  user: null,
+  loading: true
+};
 
+// Initialize on load
 document.addEventListener('DOMContentLoaded', async () => {
+  console.log('🚀 Popup initializing...');
   await checkAuthStatus();
-  await checkCurrentPage();
-  
-  document.getElementById('extract-btn').addEventListener('click', extractAndGenerate);
-  document.getElementById('dashboard-btn').addEventListener('click', openDashboard);
+  render();
+  setupEventListeners();
 });
 
 async function checkAuthStatus() {
-  const statusEl = document.getElementById('auth-status');
-  
   try {
-    const result = await chrome.storage.local.get(['authToken', 'userEmail']);
-    
-    if (result.authToken) {
-      statusEl.textContent = result.userEmail || 'Logged in';
-      statusEl.classList.add('active');
-      statusEl.classList.remove('inactive');
-    } else {
-      statusEl.textContent = 'Not logged in';
-      statusEl.classList.add('inactive');
-      statusEl.classList.remove('active');
-    }
+    authState.loading = true;
+    const response = await chrome.runtime.sendMessage({ type: 'CHECK_AUTH' });
+    authState.authenticated = response.authenticated;
+    authState.user = response.user;
+    authState.loading = false;
+    console.log('Auth status:', authState);
   } catch (error) {
-    console.error('Error checking auth:', error);
-    statusEl.textContent = 'Error';
-    statusEl.classList.add('inactive');
+    console.error('Auth check failed:', error);
+    authState.loading = false;
+    authState.authenticated = false;
   }
 }
 
-async function checkCurrentPage() {
-  const statusEl = document.getElementById('page-status');
-  
-  try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    
-    if (!tab || !tab.url) {
-      statusEl.textContent = 'Unknown';
-      return;
-    }
-
-    const jobSites = {
-      'linkedin.com/jobs': 'LinkedIn',
-      'indeed.com': 'Indeed',
-      'glassdoor.com': 'Glassdoor',
-      'monster.com': 'Monster'
-    };
-
-    let detected = 'Not a job site';
-    for (const [site, name] of Object.entries(jobSites)) {
-      if (tab.url.includes(site)) {
-        detected = name;
-        break;
-      }
-    }
-
-    statusEl.textContent = detected;
-    statusEl.style.color = detected !== 'Not a job site' ? '#10b981' : '#94a3b8';
-
-  } catch (error) {
-    console.error('Error checking page:', error);
-    statusEl.textContent = 'Error';
+function setupEventListeners() {
+  // Login button
+  const loginBtn = document.getElementById('loginBtn');
+  if (loginBtn) {
+    loginBtn.addEventListener('click', openLoginPage);
   }
+
+  // Logout button
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', logout);
+  }
+
+  // Open Dashboard button
+  const openDashboardBtn = document.getElementById('openDashboardBtn');
+  if (openDashboardBtn) {
+    openDashboardBtn.addEventListener('click', openWebApp);
+  }
+
+  // Open Web button (alternative ID)
+  const openWebBtn = document.getElementById('openWebBtn');
+  if (openWebBtn) {
+    openWebBtn.addEventListener('click', openWebApp);
+  }
+
+  // Resume Optimizer
+  const resumeBtn = document.getElementById('resumeOptimizerBtn');
+  if (resumeBtn) {
+    resumeBtn.addEventListener('click', () => openFeature('/resume'));
+  }
+
+  // Cover Letter
+  const coverLetterBtn = document.getElementById('coverLetterBtn');
+  if (coverLetterBtn) {
+    coverLetterBtn.addEventListener('click', () => openFeature('/cover-letter'));
+  }
+
+  // Mock Interview
+  const mockInterviewBtn = document.getElementById('mockInterviewBtn');
+  if (mockInterviewBtn) {
+    mockInterviewBtn.addEventListener('click', () => openFeature('/interview'));
+  }
+
+  console.log('✅ Event listeners setup complete');
 }
 
-async function extractAndGenerate() {
-  const btn = document.getElementById('extract-btn');
-  const loading = document.getElementById('loading');
-  const content = document.getElementById('content-main');
-  
-  try {
-    // Check authentication
-    const authResult = await chrome.storage.local.get(['authToken']);
-    
-    if (!authResult.authToken) {
-      // Redirect to login
-      chrome.tabs.create({ 
-        url: `${PRECIPROCAL_URL}/login?extension=true&redirect=job-tools` 
-      });
-      return;
-    }
-
-    // Show loading
-    btn.disabled = true;
-    content.style.display = 'none';
-    loading.classList.add('active');
-
-    // Get current tab
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-    // Inject content script and extract data
-    const results = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      function: extractJobDataFromPage
-    });
-
-    if (!results || !results[0] || !results[0].result) {
-      throw new Error('Failed to extract job data');
-    }
-
-    const jobData = results[0].result;
-
-    // Validate job data
-    if (!jobData.title || !jobData.company) {
-      throw new Error('Incomplete job data. Please ensure you are on a job posting page.');
-    }
-
-    // Store job data
-    await chrome.storage.local.set({
-      currentJobData: jobData,
-      timestamp: Date.now()
-    });
-
-    // Open Preciprocal job tools page
-    chrome.tabs.create({ 
-      url: `${PRECIPROCAL_URL}/job-tools?from_extension=true` 
-    });
-
-    // Close popup
-    window.close();
-
-  } catch (error) {
-    console.error('Error extracting job:', error);
-    alert(error.message || 'Failed to extract job data. Please try again.');
-    
-    // Reset UI
-    btn.disabled = false;
-    content.style.display = 'block';
-    loading.classList.remove('active');
-  }
-}
-
-function openDashboard() {
-  chrome.tabs.create({ url: `${PRECIPROCAL_URL}/dashboard` });
+function openLoginPage() {
+  console.log('📱 Opening login page...');
+  chrome.tabs.create({
+    url: 'http://localhost:3000/settings'
+  });
   window.close();
 }
 
-// Function to inject into page
-function extractJobDataFromPage() {
-  class JobExtractor {
-    constructor() {
-      this.platform = this.detectPlatform();
-    }
+function openWebApp() {
+  console.log('📱 Opening dashboard...');
+  chrome.tabs.create({
+    url: 'http://localhost:3000/'
+  });
+  window.close();
+}
 
-    detectPlatform() {
-      const hostname = window.location.hostname;
-      if (hostname.includes('linkedin.com')) return 'linkedin';
-      if (hostname.includes('indeed.com')) return 'indeed';
-      if (hostname.includes('glassdoor.com')) return 'glassdoor';
-      if (hostname.includes('monster.com')) return 'monster';
-      return 'unknown';
-    }
+function openFeature(path) {
+  console.log('📱 Opening feature:', path);
+  chrome.tabs.create({
+    url: `http://localhost:3000${path}`
+  });
+  window.close();
+}
 
-    extract() {
-      switch (this.platform) {
-        case 'linkedin':
-          return this.extractLinkedIn();
-        case 'indeed':
-          return this.extractIndeed();
-        case 'glassdoor':
-          return this.extractGlassdoor();
-        default:
-          return this.extractGeneric();
-      }
-    }
+async function logout() {
+  try {
+    console.log('🚪 Logging out...');
+    await chrome.runtime.sendMessage({ type: 'LOGOUT' });
+    authState.authenticated = false;
+    authState.user = null;
+    render();
+  } catch (error) {
+    console.error('Logout failed:', error);
+  }
+}
 
-    extractLinkedIn() {
-      const jobTitle = document.querySelector('.job-details-jobs-unified-top-card__job-title, .jobs-unified-top-card__job-title')?.textContent.trim();
-      const company = document.querySelector('.job-details-jobs-unified-top-card__company-name, .jobs-unified-top-card__company-name')?.textContent.trim();
-      const location = document.querySelector('.job-details-jobs-unified-top-card__bullet, .jobs-unified-top-card__bullet')?.textContent.trim();
-      const description = document.querySelector('.jobs-description__content, .jobs-box__html-content')?.innerText;
-
-      return {
-        title: jobTitle,
-        company: company,
-        location: location,
-        description: description,
-        url: window.location.href,
-        platform: 'LinkedIn',
-        extractedAt: new Date().toISOString()
-      };
-    }
-
-    extractIndeed() {
-      const jobTitle = document.querySelector('.jobsearch-JobInfoHeader-title')?.textContent.trim();
-      const company = document.querySelector('[data-company-name="true"]')?.textContent.trim();
-      const location = document.querySelector('[data-testid="job-location"]')?.textContent.trim();
-      const description = document.querySelector('#jobDescriptionText')?.innerText;
-
-      return {
-        title: jobTitle,
-        company: company,
-        location: location,
-        description: description,
-        url: window.location.href,
-        platform: 'Indeed',
-        extractedAt: new Date().toISOString()
-      };
-    }
-
-    extractGlassdoor() {
-      const jobTitle = document.querySelector('[data-test="job-title"]')?.textContent.trim();
-      const company = document.querySelector('[data-test="employer-name"]')?.textContent.trim();
-      const location = document.querySelector('[data-test="location"]')?.textContent.trim();
-      const description = document.querySelector('.jobDescriptionContent')?.innerText;
-
-      return {
-        title: jobTitle,
-        company: company,
-        location: location,
-        description: description,
-        url: window.location.href,
-        platform: 'Glassdoor',
-        extractedAt: new Date().toISOString()
-      };
-    }
-
-    extractGeneric() {
-      const getText = (selectors) => {
-        for (const selector of selectors) {
-          const el = document.querySelector(selector);
-          if (el) return el.textContent.trim();
-        }
-        return null;
-      };
-
-      return {
-        title: getText(['h1', '.job-title', '[class*="title"]']),
-        company: getText(['.company', '[class*="company"]']),
-        location: getText(['.location', '[class*="location"]']),
-        description: document.body.innerText.substring(0, 5000),
-        url: window.location.href,
-        platform: 'Other',
-        extractedAt: new Date().toISOString()
-      };
-    }
+function render() {
+  const container = document.getElementById('authContainer');
+  if (!container) {
+    console.error('❌ authContainer not found in DOM');
+    return;
   }
 
-  const extractor = new JobExtractor();
-  return extractor.extract();
+  if (authState.loading) {
+    container.innerHTML = renderLoadingView();
+  } else if (authState.authenticated && authState.user) {
+    container.innerHTML = renderAuthenticatedView();
+  } else {
+    container.innerHTML = renderUnauthenticatedView();
+  }
+  
+  // Re-setup event listeners after render
+  setTimeout(() => setupEventListeners(), 0);
 }
+
+function renderLoadingView() {
+  return `
+    <div class="loading-view">
+      <div class="spinner"></div>
+      <p>Checking authentication...</p>
+    </div>
+  `;
+}
+
+function renderAuthenticatedView() {
+  const user = authState.user;
+  const tierBadge = getTierBadge(user.subscriptionTier);
+
+  return `
+    <div class="authenticated">
+      <div class="user-info">
+        <div class="avatar">
+          ${user.displayName.charAt(0).toUpperCase()}
+        </div>
+        <div class="user-details">
+          <p class="user-name">${user.displayName}</p>
+          <p class="user-email">${user.email}</p>
+        </div>
+      </div>
+      
+      <div class="tier-badge ${user.subscriptionTier}">
+        <span class="tier-icon">${tierBadge.icon}</span>
+        <span>${tierBadge.text}</span>
+      </div>
+
+      <div class="status-indicator">
+        <div class="status-dot"></div>
+        <span>Extension Connected</span>
+      </div>
+
+      <div class="feature-list">
+        <button id="resumeOptimizerBtn" class="feature-btn">
+          <div class="feature-icon">📄</div>
+          <div class="feature-content">
+            <span class="feature-title">Resume Optimizer</span>
+            <span class="feature-desc">ATS score & optimization</span>
+          </div>
+        </button>
+        
+        <button id="coverLetterBtn" class="feature-btn">
+          <div class="feature-icon">✉️</div>
+          <div class="feature-content">
+            <span class="feature-title">Cover Letter</span>
+            <span class="feature-desc">Tailored to job posting</span>
+          </div>
+        </button>
+        
+        <button id="mockInterviewBtn" class="feature-btn">
+          <div class="feature-icon">🎯</div>
+          <div class="feature-content">
+            <span class="feature-title">Mock Interview</span>
+            <span class="feature-desc">AI-powered practice</span>
+          </div>
+        </button>
+      </div>
+
+      <div class="actions">
+        <button id="openDashboardBtn" class="btn-primary">
+          Open Dashboard
+        </button>
+        <button id="logoutBtn" class="btn-secondary">
+          Disconnect
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function renderUnauthenticatedView() {
+  return `
+    <div class="unauthenticated">
+      <div class="logo">
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+          <rect width="64" height="64" rx="16" fill="url(#grad)"/>
+          <path d="M32 20L44 32L32 44L20 32L32 20Z" fill="white" opacity="0.9"/>
+          <path d="M32 26L38 32L32 38L26 32L32 26Z" fill="white"/>
+          <defs>
+            <linearGradient id="grad" x1="0" y1="0" x2="64" y2="64">
+              <stop offset="0%" stop-color="#a855f7"/>
+              <stop offset="100%" stop-color="#3b82f6"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+
+      <h2>Welcome to Preciprocal</h2>
+      <p class="description">
+        AI Career Assistant for job seekers
+      </p>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">📊</div>
+          <div class="feature-text">
+            <p class="feature-title">ATS Score</p>
+            <p class="feature-desc">Check compatibility</p>
+          </div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🎯</div>
+          <div class="feature-text">
+            <p class="feature-title">Skills Match</p>
+            <p class="feature-desc">Gap analysis</p>
+          </div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <div class="feature-text">
+            <p class="feature-title">Instant</p>
+            <p class="feature-desc">Real-time results</p>
+          </div>
+        </div>
+      </div>
+
+      <button id="loginBtn" class="btn-primary">
+        Connect Your Account
+      </button>
+
+      <p class="help-text">
+        Opens preciprocal.com to authorize this extension
+      </p>
+    </div>
+  `;
+}
+
+function getTierBadge(tier) {
+  const badges = {
+    free: { icon: '🆓', text: 'Free' },
+    starter: { icon: '🚀', text: 'Starter' },
+    pro: { icon: '⭐', text: 'Pro' },
+    premium: { icon: '💎', text: 'Premium' }
+  };
+  return badges[tier] || badges.free;
+}
+
+// Log when script loads
+console.log('✅ Popup.js loaded');

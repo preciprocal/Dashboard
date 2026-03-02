@@ -10,7 +10,6 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-// Server component that fetches data and renders client component
 export default async function InterviewDetailsPage({ params }: RouteParams) {
   const { id } = await params;
   const user = await getCurrentUser();
@@ -23,7 +22,6 @@ export default async function InterviewDetailsPage({ params }: RouteParams) {
     userId: user?.id ?? "",
   });
 
-  // Import the client component dynamically
   const { default: InterviewDetailsClient } = await import('./InterviewPageClient');
 
   return (
@@ -40,7 +38,6 @@ export default async function InterviewDetailsPage({ params }: RouteParams) {
           questions: interview.questions ?? [],
         }}
         feedbackId={feedback?.id}
-        type="interview"
       />
     </div>
   );

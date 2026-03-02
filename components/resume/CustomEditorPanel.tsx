@@ -14,28 +14,31 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
-  AlignJustify,
   List,
   ListOrdered,
   Undo,
   Redo,
-  FileDown
+  FileDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '@/firebase/client';
 
 interface CustomEditorPanelProps {
   initialContent: string;
   resumeId: string;
   userId: string;
   resumePath?: string;
-  onTextSelect: (text: string) => void;
+  highlightedLineId: string | null;
+  onContentChange: (content: string) => void;
 }
 
 export default function CustomEditorPanel({
   initialContent,
   resumeId,
   userId,
-  onTextSelect
+  highlightedLineId,
+  onContentChange
 }: CustomEditorPanelProps) {
   const [content, setContent] = useState(initialContent);
   const [isSaving, setIsSaving] = useState(false);
@@ -45,7 +48,6 @@ export default function CustomEditorPanel({
   const [isEditorReady, setIsEditorReady] = useState(false);
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
 
-  // Handle click outside to close download dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (showDownloadMenu) {
@@ -72,9 +74,6 @@ export default function CustomEditorPanel({
     setSaveStatus('saving');
 
     try {
-      const { doc, updateDoc } = await import('firebase/firestore');
-      const { db } = await import('@/firebase/client');
-      
       const htmlContent = editorRef.current.innerHTML;
       const plainText = editorRef.current.innerText;
       
@@ -85,27 +84,65 @@ export default function CustomEditorPanel({
         updatedAt: new Date().toISOString()
       });
 
-      console.log('💾 Saved:', plainText.length, 'characters');
       setSaveStatus('saved');
-      toast.success('Resume saved successfully');
+      toast.success('Resume saved', { duration: 2000 });
       setTimeout(() => setSaveStatus('idle'), 2000);
     } catch (error) {
       console.error('Save error:', error);
-      toast.error('Failed to save. Please try again.');
+      toast.error('Failed to save');
     } finally {
       setIsSaving(false);
     }
   }, [resumeId, userId]);
 
-  // Initialize editor content
   useEffect(() => {
     if (editorRef.current && !isEditorReady) {
       editorRef.current.innerHTML = initialContent;
+      addLineIdentifiers();
       setIsEditorReady(true);
     }
   }, [initialContent, isEditorReady]);
 
-  // Auto-save functionality
+  useEffect(() => {
+    if (editorRef.current && initialContent !== content) {
+      editorRef.current.innerHTML = initialContent;
+      addLineIdentifiers();
+      setContent(initialContent);
+    }
+  }, [initialContent]);
+
+  // Add unique IDs to lines for highlighting
+  const addLineIdentifiers = () => {
+    if (!editorRef.current) return;
+    
+    const allElements = editorRef.current.querySelectorAll('p, li');
+    allElements.forEach((el, index) => {
+      if (!el.id) {
+        el.id = `line-${index}`;
+      }
+    });
+  };
+
+  // Apply highlighting to specific line
+  useEffect(() => {
+    if (!editorRef.current) return;
+
+    // Remove all previous highlights
+    const allElements = editorRef.current.querySelectorAll('p, li');
+    allElements.forEach((el) => {
+      el.classList.remove('highlighted-line');
+    });
+
+    // Add highlight to target line
+    if (highlightedLineId) {
+      const targetElement = editorRef.current.querySelector(`#${highlightedLineId}`);
+      if (targetElement) {
+        targetElement.classList.add('highlighted-line');
+        targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, [highlightedLineId]);
+
   useEffect(() => {
     const autoSave = setTimeout(() => {
       if (content && content.length > 50 && !content.includes('Paste your resume')) {
@@ -116,33 +153,18 @@ export default function CustomEditorPanel({
     return () => clearTimeout(autoSave);
   }, [content, handleSave]);
 
-  // Handle text selection for AI assistant
-  useEffect(() => {
-    const handleSelection = () => {
-      const selection = window.getSelection();
-      const selectedText = selection?.toString() || '';
-      
-      if (selectedText.trim().length > 10) {
-        onTextSelect(selectedText.trim());
-      }
-    };
-
-    const interval = setInterval(handleSelection, 1000);
-    return () => clearInterval(interval);
-  }, [onTextSelect]);
-
-  // Update character count
   useEffect(() => {
     if (editorRef.current) {
       setCharacterCount(editorRef.current.innerText.length);
     }
   }, [content]);
 
-  // Format text commands
   const execCommand = (command: string, value: string | undefined = undefined) => {
     document.execCommand(command, false, value);
     if (editorRef.current) {
-      setContent(editorRef.current.innerHTML);
+      const newContent = editorRef.current.innerHTML;
+      setContent(newContent);
+      onContentChange(newContent);
     }
   };
 
@@ -150,7 +172,7 @@ export default function CustomEditorPanel({
     if (!editorRef.current) return;
     
     try {
-      toast.loading('Generating PDF...');
+      toast.loading('Generating PDF...', { id: 'pdf' });
       
       const htmlContent = editorRef.current.innerHTML;
       
@@ -178,13 +200,11 @@ export default function CustomEditorPanel({
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       
-      toast.dismiss();
-      toast.success('PDF downloaded!');
+      toast.success('PDF downloaded', { id: 'pdf' });
       setShowDownloadMenu(false);
     } catch (error) {
-      console.error('Failed to generate PDF:', error);
-      toast.dismiss();
-      toast.error('Failed to generate PDF');
+      console.error('PDF generation error:', error);
+      toast.error('Failed to generate PDF', { id: 'pdf' });
     }
   };
 
@@ -192,7 +212,7 @@ export default function CustomEditorPanel({
     if (!editorRef.current) return;
     
     try {
-      toast.loading('Generating Word document...');
+      toast.loading('Generating Word document...', { id: 'word' });
       
       const htmlContent = editorRef.current.innerHTML;
       
@@ -220,13 +240,11 @@ export default function CustomEditorPanel({
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       
-      toast.dismiss();
-      toast.success('Word document downloaded!');
+      toast.success('Word document downloaded', { id: 'word' });
       setShowDownloadMenu(false);
     } catch (error) {
-      console.error('Failed to generate Word document:', error);
-      toast.dismiss();
-      toast.error('Failed to generate Word document');
+      console.error('Word generation error:', error);
+      toast.error('Failed to generate Word document', { id: 'word' });
     }
   };
 
@@ -235,62 +253,60 @@ export default function CustomEditorPanel({
   };
 
   return (
-    <div className="w-1/2 bg-slate-900 flex flex-col h-screen overflow-hidden">
-      {/* Custom Header */}
-      <div className="bg-slate-800 border-b border-slate-700 px-4 py-3 flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center space-x-2">
-          <FileText className="w-4 h-4 text-slate-300" />
-          <span className="text-sm font-medium text-slate-200">Resume Editor</span>
-        </div>
-        
-        <div className="flex items-center space-x-2">
+    <div className="w-1/2 bg-slate-900 flex flex-col h-screen overflow-hidden border-r border-slate-800/50">
+      {/* Header */}
+      <div className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700/50 px-4 py-2.5 flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <FileText className="w-4 h-4 text-slate-400" />
+          <span className="text-sm font-medium text-slate-300">Resume Editor</span>
+          <div className="h-3 w-px bg-slate-700 mx-1" />
           {saveStatus === 'saving' && (
-            <span className="text-xs text-slate-300 flex items-center">
-              <Loader2 className="w-3 h-3 animate-spin mr-1" />
-              Saving...
+            <span className="text-xs text-slate-400 flex items-center gap-1.5">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              Saving
             </span>
           )}
           {saveStatus === 'saved' && (
-            <span className="text-xs text-emerald-400 flex items-center">
-              <Check className="w-3 h-3 mr-1" />
+            <span className="text-xs text-emerald-400 flex items-center gap-1.5">
+              <Check className="w-3 h-3" />
               Saved
             </span>
           )}
-          
+        </div>
+        
+        <div className="flex items-center gap-2">
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs font-medium transition-colors disabled:opacity-50 flex items-center space-x-1"
+            className="px-3 py-1.5 bg-purple-600/90 hover:bg-purple-600 text-white rounded-md text-xs font-medium transition-all disabled:opacity-50 flex items-center gap-1.5"
           >
             <Save className="w-3 h-3" />
-            <span>Save</span>
+            Save
           </button>
           
-          {/* Download Dropdown Button */}
           <div className="relative">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 setShowDownloadMenu(!showDownloadMenu);
               }}
-              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-medium transition-colors flex items-center space-x-1 download-button"
-              title="Download"
+              className="px-3 py-1.5 bg-slate-700/50 hover:bg-slate-700 text-slate-300 hover:text-white rounded-md text-xs font-medium transition-all flex items-center gap-1.5 download-button"
             >
               <Download className="w-3 h-3" />
-              <span>Download</span>
+              Export
             </button>
             
             {showDownloadMenu && (
-              <div className="absolute right-0 top-full mt-1 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-[101] overflow-hidden download-dropdown-menu">
+              <div className="absolute right-0 top-full mt-1 w-44 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl z-[101] overflow-hidden download-dropdown-menu">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     handleDownloadPDF();
                   }}
-                  className="w-full px-4 py-3 text-left text-sm text-white hover:bg-slate-700 flex items-center gap-3 transition-colors"
+                  className="w-full px-4 py-2.5 text-left text-sm text-white hover:bg-slate-700 flex items-center gap-3 transition-colors"
                 >
                   <FileDown className="w-4 h-4 text-red-400" />
-                  <span>Download as PDF</span>
+                  <span>PDF Format</span>
                 </button>
                 <div className="h-px bg-slate-700" />
                 <button
@@ -298,10 +314,10 @@ export default function CustomEditorPanel({
                     e.stopPropagation();
                     handleDownloadWord();
                   }}
-                  className="w-full px-4 py-3 text-left text-sm text-white hover:bg-slate-700 flex items-center gap-3 transition-colors"
+                  className="w-full px-4 py-2.5 text-left text-sm text-white hover:bg-slate-700 flex items-center gap-3 transition-colors"
                 >
                   <FileDown className="w-4 h-4 text-blue-400" />
-                  <span>Download as Word</span>
+                  <span>Word Format</span>
                 </button>
               </div>
             )}
@@ -310,163 +326,123 @@ export default function CustomEditorPanel({
       </div>
 
       {/* Toolbar */}
-      <div className="bg-slate-800 border-b border-slate-700 px-3 py-2 flex items-center space-x-1 overflow-x-auto flex-shrink-0">
-        {/* Undo/Redo */}
-        <div className="flex items-center space-x-1 pr-2 border-r border-slate-700">
+      <div className="bg-slate-800/30 border-b border-slate-700/50 px-3 py-2 flex items-center gap-1 overflow-x-auto flex-shrink-0">
+        <div className="flex items-center gap-0.5 pr-2 border-r border-slate-700/50">
           <button
             onClick={() => execCommand('undo')}
-            className="p-1.5 hover:bg-slate-700 rounded text-slate-300 hover:text-white transition-colors"
+            className="p-1.5 hover:bg-slate-700/50 rounded text-slate-400 hover:text-white transition-colors"
             title="Undo"
           >
-            <Undo className="w-4 h-4" />
+            <Undo className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => execCommand('redo')}
-            className="p-1.5 hover:bg-slate-700 rounded text-slate-300 hover:text-white transition-colors"
+            className="p-1.5 hover:bg-slate-700/50 rounded text-slate-400 hover:text-white transition-colors"
             title="Redo"
           >
-            <Redo className="w-4 h-4" />
+            <Redo className="w-3.5 h-3.5" />
           </button>
         </div>
 
-        {/* Font Size */}
-        <div className="flex items-center space-x-1 pr-2 border-r border-slate-700">
-          <select
-            onChange={(e) => execCommand('fontSize', e.target.value)}
-            className="px-2 py-1 bg-slate-700 text-slate-200 rounded text-xs border border-slate-600 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
-            defaultValue="3"
-          >
-            <option value="1">8pt</option>
-            <option value="2">10pt</option>
-            <option value="3">11pt</option>
-            <option value="4">12pt</option>
-            <option value="5">14pt</option>
-            <option value="6">18pt</option>
-            <option value="7">24pt</option>
-          </select>
-        </div>
+        <select
+          onChange={(e) => execCommand('fontSize', e.target.value)}
+          className="px-2 py-1 bg-slate-700/50 text-slate-200 rounded text-xs border border-slate-600/50 focus:ring-1 focus:ring-purple-500 focus:border-transparent outline-none"
+          defaultValue="3"
+        >
+          <option value="2">10pt</option>
+          <option value="3">11pt</option>
+          <option value="4">12pt</option>
+          <option value="5">14pt</option>
+        </select>
 
-        {/* Headings */}
-        <div className="flex items-center space-x-1 pr-2 border-r border-slate-700">
-          <select
-            onChange={(e) => setHeading(e.target.value)}
-            className="px-2 py-1 bg-slate-700 text-slate-200 rounded text-xs border border-slate-600 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
-            defaultValue="p"
-          >
-            <option value="p">Normal Text</option>
-            <option value="h1">Title (H1)</option>
-            <option value="h2">Section (H2)</option>
-            <option value="h3">Subsection (H3)</option>
-          </select>
-        </div>
+        <select
+          onChange={(e) => setHeading(e.target.value)}
+          className="px-2 py-1 bg-slate-700/50 text-slate-200 rounded text-xs border border-slate-600/50 focus:ring-1 focus:ring-purple-500 focus:border-transparent outline-none ml-1"
+          defaultValue="p"
+        >
+          <option value="p">Normal</option>
+          <option value="h1">Title</option>
+          <option value="h2">Heading</option>
+          <option value="h3">Subheading</option>
+        </select>
 
-        {/* Text Formatting */}
-        <div className="flex items-center space-x-1 pr-2 border-r border-slate-700">
-          <button
-            onClick={() => execCommand('bold')}
-            className="p-1.5 hover:bg-slate-700 rounded text-slate-300 hover:text-white transition-colors"
-            title="Bold"
-          >
-            <Bold className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => execCommand('italic')}
-            className="p-1.5 hover:bg-slate-700 rounded text-slate-300 hover:text-white transition-colors"
-            title="Italic"
-          >
-            <Italic className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => execCommand('underline')}
-            className="p-1.5 hover:bg-slate-700 rounded text-slate-300 hover:text-white transition-colors"
-            title="Underline"
-          >
-            <Underline className="w-4 h-4" />
-          </button>
-        </div>
+        <div className="h-4 w-px bg-slate-700/50 mx-1" />
 
-        {/* Text Color */}
-        <div className="flex items-center space-x-1 pr-2 border-r border-slate-700">
-          <input
-            type="color"
-            onChange={(e) => execCommand('foreColor', e.target.value)}
-            defaultValue="#000000"
-            className="w-7 h-7 rounded cursor-pointer border border-slate-600"
-            title="Text Color"
-          />
-        </div>
+        <button
+          onClick={() => execCommand('bold')}
+          className="p-1.5 hover:bg-slate-700/50 rounded text-slate-400 hover:text-white transition-colors"
+          title="Bold"
+        >
+          <Bold className="w-3.5 h-3.5" />
+        </button>
+        <button
+          onClick={() => execCommand('italic')}
+          className="p-1.5 hover:bg-slate-700/50 rounded text-slate-400 hover:text-white transition-colors"
+          title="Italic"
+        >
+          <Italic className="w-3.5 h-3.5" />
+        </button>
+        <button
+          onClick={() => execCommand('underline')}
+          className="p-1.5 hover:bg-slate-700/50 rounded text-slate-400 hover:text-white transition-colors"
+          title="Underline"
+        >
+          <Underline className="w-3.5 h-3.5" />
+        </button>
 
-        {/* Alignment */}
-        <div className="flex items-center space-x-1 pr-2 border-r border-slate-700">
-          <button
-            onClick={() => execCommand('justifyLeft')}
-            className="p-1.5 hover:bg-slate-700 rounded text-slate-300 hover:text-white transition-colors"
-            title="Align Left"
-          >
-            <AlignLeft className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => execCommand('justifyCenter')}
-            className="p-1.5 hover:bg-slate-700 rounded text-slate-300 hover:text-white transition-colors"
-            title="Align Center"
-          >
-            <AlignCenter className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => execCommand('justifyRight')}
-            className="p-1.5 hover:bg-slate-700 rounded text-slate-300 hover:text-white transition-colors"
-            title="Align Right"
-          >
-            <AlignRight className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => execCommand('justifyFull')}
-            className="p-1.5 hover:bg-slate-700 rounded text-slate-300 hover:text-white transition-colors"
-            title="Justify"
-          >
-            <AlignJustify className="w-4 h-4" />
-          </button>
-        </div>
+        <div className="h-4 w-px bg-slate-700/50 mx-1" />
 
-        {/* Lists */}
-        <div className="flex items-center space-x-1 pr-2 border-r border-slate-700">
-          <button
-            onClick={() => execCommand('insertUnorderedList')}
-            className="p-1.5 hover:bg-slate-700 rounded text-slate-300 hover:text-white transition-colors"
-            title="Bullet List"
-          >
-            <List className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => execCommand('insertOrderedList')}
-            className="p-1.5 hover:bg-slate-700 rounded text-slate-300 hover:text-white transition-colors"
-            title="Numbered List"
-          >
-            <ListOrdered className="w-4 h-4" />
-          </button>
-        </div>
+        <button
+          onClick={() => execCommand('justifyLeft')}
+          className="p-1.5 hover:bg-slate-700/50 rounded text-slate-400 hover:text-white transition-colors"
+          title="Align Left"
+        >
+          <AlignLeft className="w-3.5 h-3.5" />
+        </button>
+        <button
+          onClick={() => execCommand('justifyCenter')}
+          className="p-1.5 hover:bg-slate-700/50 rounded text-slate-400 hover:text-white transition-colors"
+          title="Center"
+        >
+          <AlignCenter className="w-3.5 h-3.5" />
+        </button>
+        <button
+          onClick={() => execCommand('justifyRight')}
+          className="p-1.5 hover:bg-slate-700/50 rounded text-slate-400 hover:text-white transition-colors"
+          title="Align Right"
+        >
+          <AlignRight className="w-3.5 h-3.5" />
+        </button>
 
-        {/* Link */}
-        <div className="flex items-center space-x-1">
-          <button
-            onClick={() => {
-              const url = prompt('Enter URL:');
-              if (url) {
-                execCommand('createLink', url);
-              }
-            }}
-            className="p-1.5 hover:bg-slate-700 rounded text-slate-300 hover:text-white transition-colors"
-            title="Insert Link"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-            </svg>
-          </button>
-        </div>
+        <div className="h-4 w-px bg-slate-700/50 mx-1" />
+
+        <button
+          onClick={() => execCommand('insertUnorderedList')}
+          className="p-1.5 hover:bg-slate-700/50 rounded text-slate-400 hover:text-white transition-colors"
+          title="Bullet List"
+        >
+          <List className="w-3.5 h-3.5" />
+        </button>
+        <button
+          onClick={() => execCommand('insertOrderedList')}
+          className="p-1.5 hover:bg-slate-700/50 rounded text-slate-400 hover:text-white transition-colors"
+          title="Numbered List"
+        >
+          <ListOrdered className="w-3.5 h-3.5" />
+        </button>
+
+        <div className="h-4 w-px bg-slate-700/50 mx-1" />
+
+        <input
+          type="color"
+          onChange={(e) => execCommand('foreColor', e.target.value)}
+          defaultValue="#000000"
+          className="w-6 h-6 rounded cursor-pointer border border-slate-600/50"
+          title="Text Color"
+        />
       </div>
 
-      {/* Editor Container */}
+      {/* Editor */}
       <div className="flex-1 overflow-y-auto bg-slate-900 py-6 px-4">
         <div className="w-full max-w-5xl mx-auto pb-8">
           <div 
@@ -474,11 +450,13 @@ export default function CustomEditorPanel({
             contentEditable
             suppressContentEditableWarning
             onInput={(e) => {
-              setContent(e.currentTarget.innerHTML);
+              const newContent = e.currentTarget.innerHTML;
+              setContent(newContent);
+              onContentChange(newContent);
+              addLineIdentifiers();
             }}
             onPaste={(e) => {
               e.preventDefault();
-              // Try to get HTML first to preserve links and formatting
               const html = e.clipboardData.getData('text/html');
               if (html) {
                 document.execCommand('insertHTML', false, html);
@@ -487,7 +465,7 @@ export default function CustomEditorPanel({
                 document.execCommand('insertText', false, text);
               }
             }}
-            className="w-full rounded-lg shadow-2xl"
+            className="w-full rounded-lg shadow-2xl outline-none"
             style={{
               fontFamily: 'Calibri, Arial, sans-serif',
               fontSize: '10pt',
@@ -495,33 +473,48 @@ export default function CustomEditorPanel({
               color: '#000000',
               backgroundColor: '#ffffff',
               padding: '0.5in 0.6in',
-              minHeight: 'calc(100vh - 200px)',
-              outline: 'none'
+              minHeight: 'calc(100vh - 200px)'
             }}
           />
         </div>
       </div>
 
       {/* Status Bar */}
-      <div className="bg-slate-800 border-t border-slate-700 px-4 py-2 text-xs text-slate-300 flex items-center justify-between flex-shrink-0">
-        <span>✏️ Professional resume editor • Auto-saves every 3 seconds</span>
-        <span>{characterCount} characters</span>
+      <div className="bg-slate-800/50 border-t border-slate-700/50 px-4 py-2 text-xs text-slate-400 flex items-center justify-between flex-shrink-0">
+        <span>Auto-saves every 3 seconds</span>
+        <span>{characterCount.toLocaleString()} characters</span>
       </div>
 
-      {/* Custom Editor Styles - TIGHT SPACING */}
+      {/* Styles */}
       <style jsx global>{`
         [contenteditable] {
           background: #ffffff !important;
         }
         
-        /* Remove ALL default margins and padding */
         [contenteditable] * {
           margin: 0 !important;
           padding: 0 !important;
           color: #000000 !important;
+          transition: background-color 0.3s ease;
         }
         
-        /* Tight heading styles */
+        [contenteditable] .highlighted-line {
+          background-color: #fef3c7 !important;
+          border-left: 3px solid #f59e0b !important;
+          padding-left: 8pt !important;
+          margin-left: -8pt !important;
+          animation: pulse-highlight 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse-highlight {
+          0%, 100% {
+            background-color: #fef3c7;
+          }
+          50% {
+            background-color: #fde68a;
+          }
+        }
+        
         [contenteditable] h1 {
           font-size: 18pt !important;
           font-weight: 700 !important;
@@ -548,13 +541,11 @@ export default function CustomEditorPanel({
           line-height: 1.2 !important;
         }
         
-        /* Minimal paragraph spacing */
         [contenteditable] p {
           margin: 2pt 0 !important;
           line-height: 1.3 !important;
         }
         
-        /* Tight list spacing */
         [contenteditable] ul,
         [contenteditable] ol {
           margin: 2pt 0 !important;
@@ -568,7 +559,6 @@ export default function CustomEditorPanel({
           line-height: 1.3 !important;
         }
         
-        /* Text formatting */
         [contenteditable] strong,
         [contenteditable] b {
           font-weight: 700 !important;
@@ -583,37 +573,8 @@ export default function CustomEditorPanel({
           text-decoration: underline !important;
         }
         
-        /* Hyperlink styles */
-        [contenteditable] a {
-          color: #0066cc !important;
-          text-decoration: underline !important;
-          cursor: pointer !important;
-        }
-        
-        [contenteditable] a:hover {
-          color: #0052a3 !important;
-          text-decoration: underline !important;
-        }
-        
         [contenteditable]:focus {
           outline: none;
-        }
-        
-        /* Remove spacing between consecutive elements */
-        [contenteditable] * + * {
-          margin-top: 0 !important;
-        }
-        
-        /* Divs should have no spacing */
-        [contenteditable] div {
-          margin: 0 !important;
-          padding: 0 !important;
-        }
-        
-        /* Ensure black text everywhere - except links */
-        [contenteditable],
-        [contenteditable] *:not(a) {
-          color: #000000 !important;
         }
       `}</style>
     </div>

@@ -4,14 +4,14 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth } from '@/firebase/client';
+import { auth, db } from '@/firebase/client';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db } from '@/firebase/client';
 import CustomEditorPanel from '@/components/resume/CustomEditorPanel';
-import AIAssistantPanel from '@/components/resume/AIAssitantPanel';
+
 import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
 import { ArrowLeft, FileText, AlertCircle, Sparkles, Eye, X } from 'lucide-react';
 import Link from 'next/link';
+import IntelligentAIPanel from '@/components/resume/IntelligentAIPanel';
 
 interface ResumeData {
   fileName?: string;
@@ -28,14 +28,13 @@ export default function ResumeWriterPage() {
   const resumeId = searchParams.get('id');
   
   const [resumeContent, setResumeContent] = useState('');
-  const [selectedText, setSelectedText] = useState('');
+  const [highlightedLineId, setHighlightedLineId] = useState<string | null>(null);
   const [isLoadingResume, setIsLoadingResume] = useState(true);
   const [loadingStep, setLoadingStep] = useState(0);
   const [error, setError] = useState('');
   const [resumeData, setResumeData] = useState<ResumeData | null>(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-  // Define loading steps
   const loadingSteps: LoadingStep[] = [
     { name: 'Authenticating user...', weight: 1 },
     { name: 'Fetching resume...', weight: 1 },
@@ -147,7 +146,7 @@ export default function ResumeWriterPage() {
         }
 
         if (data.resumeText && data.resumeText.length > 100) {
-          console.log('✅ Converting text to HTML');
+          console.log('✅ Converting text to HTML with preserved spacing');
           setLoadingStep(4);
           const html = convertTextToHtml(data.resumeText);
           setResumeContent(html);
@@ -178,45 +177,43 @@ export default function ResumeWriterPage() {
     loadResume();
   }, [user, loading, resumeId]);
 
+  // ============================================
+  // FIXED FUNCTION - Preserves Original Spacing
+  // ============================================
   const convertTextToHtml = (text: string): string => {
-    const paragraphs = text.split(/\n\n+/);
-    return paragraphs.map(para => {
-      if (!para.trim()) return '';
-      const isHeading = para === para.toUpperCase() && para.length < 50 && para.length > 2;
-      if (para.trim().match(/^[•\-]/)) {
-        const items = para.split('\n').map(line => {
-          const cleaned = line.replace(/^[•\-]\s*/, '').trim();
-          return cleaned ? `<li>${cleaned}</li>` : '';
-        }).filter(Boolean).join('');
-        return `<ul>${items}</ul>`;
-      }
-      if (isHeading) return `<h2>${para}</h2>`;
-      return `<p>${para.replace(/\n/g, '<br>')}</p>`;
-    }).join('');
+    // Use pre-wrap to preserve EXACT original spacing from PDF
+    // This prevents adding extra line breaks or margins that expand the content
+    return `<div style="font-family: Calibri, Arial, sans-serif; font-size: 10pt; color: #000000; white-space: pre-wrap; line-height: 1.15;">${text}</div>`;
   };
 
-  const getTemplate = () => `<h1 style="text-align: center; font-size: 24pt; margin-bottom: 0.2em;">YOUR NAME</h1>
-<p style="text-align: center; margin: 0.2em 0 1.5em 0;">email@example.com | (555) 123-4567 | City, State</p>
-<h2 style="font-size: 14pt; text-transform: uppercase; margin: 1.5em 0 0.5em 0;">PROFESSIONAL SUMMARY</h2>
-<p>Your professional summary here...</p>
-<h2 style="font-size: 14pt; text-transform: uppercase; margin: 1.5em 0 0.5em 0;">EXPERIENCE</h2>
-<p><strong>Job Title | Company Name</strong></p>
-<p style="margin-left: 1.5em;"><em>Month Year - Present</em></p>
-<ul>
-<li>Achievement with quantifiable results</li>
-<li>Another achievement with metrics</li>
-</ul>
-<h2 style="font-size: 14pt; text-transform: uppercase; margin: 1.5em 0 0.5em 0;">EDUCATION</h2>
-<p><strong>Degree | University</strong></p>
-<p style="margin-left: 1.5em;"><em>Graduation Year</em></p>
-<h2 style="font-size: 14pt; text-transform: uppercase; margin: 1.5em 0 0.5em 0;">SKILLS</h2>
-<p>List your relevant skills here...</p>`;
+  const getTemplate = () => `
+<div style="font-family: Calibri, Arial, sans-serif; font-size: 10pt; line-height: 1.15; color: #000000;">
+  <h1 style="text-align: center; font-size: 18pt; font-weight: 700; margin: 0 0 3pt 0;">YOUR NAME</h1>
+  <p style="text-align: center; margin: 0 0 6pt 0;">email@example.com | (555) 123-4567 | City, State</p>
+  
+  <h2 style="font-size: 11pt; font-weight: 700; text-transform: uppercase; margin: 6pt 0 2pt 0; padding-bottom: 1pt; border-bottom: 1pt solid #000;">PROFESSIONAL SUMMARY</h2>
+  <p style="margin: 0 0 1pt 0;">Your professional summary here...</p>
+  
+  <h2 style="font-size: 11pt; font-weight: 700; text-transform: uppercase; margin: 6pt 0 2pt 0; padding-bottom: 1pt; border-bottom: 1pt solid #000;">EXPERIENCE</h2>
+  <p style="margin: 2pt 0 1pt 0;"><strong>Job Title | Company Name</strong></p>
+  <p style="margin: 0 0 1pt 0;"><em>Month Year - Present</em></p>
+  <ul style="margin: 1pt 0; padding-left: 18pt;">
+    <li style="margin: 0; padding: 0;">Achievement with quantifiable results</li>
+    <li style="margin: 0; padding: 0;">Another achievement with metrics</li>
+  </ul>
+  
+  <h2 style="font-size: 11pt; font-weight: 700; text-transform: uppercase; margin: 6pt 0 2pt 0; padding-bottom: 1pt; border-bottom: 1pt solid #000;">EDUCATION</h2>
+  <p style="margin: 2pt 0 1pt 0;"><strong>Degree | University</strong></p>
+  <p style="margin: 0 0 1pt 0;"><em>Graduation Year</em></p>
+  
+  <h2 style="font-size: 11pt; font-weight: 700; text-transform: uppercase; margin: 6pt 0 2pt 0; padding-bottom: 1pt; border-bottom: 1pt solid #000;">SKILLS</h2>
+  <p style="margin: 0;">List your relevant skills here...</p>
+</div>`;
 
   const handleExit = () => {
     window.location.href = `/resume/${resumeId}`;
   };
 
-  // Loading state
   if (loading || (isLoadingResume && isInitialLoad)) {
     return (
       <AnimatedLoader
@@ -298,7 +295,7 @@ export default function ResumeWriterPage() {
 
   return (
     <div className="fixed inset-0 bg-slate-950 z-50 flex flex-col overflow-hidden">
-      {/* Header - Dark Mode */}
+      {/* Header */}
       <div className="bg-slate-900/95 backdrop-blur-xl border-b border-slate-800 px-6 py-3 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -315,10 +312,10 @@ export default function ResumeWriterPage() {
             
             <div>
               <h1 className="text-white font-medium text-base">
-                Resume AI Writer
+                AI Resume Writer
               </h1>
               <p className="text-slate-500 text-sm">
-                {resumeData?.fileName || 'AI-powered editor'}
+                {resumeData?.fileName || 'Intelligent optimization'}
               </p>
             </div>
           </div>
@@ -348,22 +345,25 @@ export default function ResumeWriterPage() {
         </div>
       </div>
 
-      {/* Editor Panels - Full Screen Dark Mode */}
+      {/* Main Content - Split View */}
       <div className="flex-1 flex overflow-hidden min-h-0">
         <CustomEditorPanel
           initialContent={resumeContent}
           resumeId={resumeId}
           userId={user?.uid ?? ''}
           resumePath={resumeData?.resumePath as string | undefined}
-          onTextSelect={setSelectedText}
+          highlightedLineId={highlightedLineId}
+          onContentChange={setResumeContent}
         />
 
-        <AIAssistantPanel
-          selectedText={selectedText}
+        <IntelligentAIPanel
           resumeId={resumeId}
           userId={user?.uid ?? ''}
-          onSuggestionCopy={() => {
-            console.log('✅ Copied to clipboard');
+          resumeContent={resumeContent}
+          onHighlightLine={setHighlightedLineId}
+          onApplySuggestion={(oldText: string, newText: string) => {
+            const updatedContent = resumeContent.replace(oldText, newText);
+            setResumeContent(updatedContent);
           }}
         />
       </div>

@@ -25,7 +25,7 @@ export type Priority = 'high' | 'medium' | 'low';
 export interface ResumeSection {
   score: number;
   tips: Array<{
-    type: 'good' | 'improve' | 'warning' | 'critical'; // Updated to support all types
+    type: 'good' | 'improve' | 'warning' | 'critical';
     tip?: string;
     message?: string;
     explanation?: string;
@@ -43,7 +43,7 @@ export interface ResumeTip {
   priority?: Priority;
   location?: string;
   fix?: string;
-  
+
   // For backward compatibility
   tip?: string;
 }
@@ -87,6 +87,127 @@ export interface Resume {
   shareToken?: string;
   version?: number;
   tags?: string[];
+
+  // Interview Intelligence (preloaded from Firestore)
+  interviewIntel?: InterviewIntel;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Interview Intelligence — sub-types (matching component exactly)
+// ─────────────────────────────────────────────────────────────────
+
+export interface InterviewIntelJobOpenings {
+  targetRoleAvailable: boolean | null;
+  lastSeenPosted: string | null;
+  hiringTeams: string[] | null;
+  otherOpenRoles: InterviewIntelOpenRole[] | null;
+  hiringCycleTrend: string | null;
+  source: string | null;
+}
+
+export interface InterviewIntelOpenRole {
+  title: string;
+  department: string | null;
+  level: string | null;
+  relevance: 'high' | 'medium' | 'low';
+}
+
+export interface InterviewIntelRedditReview {
+  summary: string;
+  sentiment: 'positive' | 'negative' | 'mixed';
+  topic: string;
+  subreddit: string;
+  upvoteContext: string | null;
+}
+
+/**
+ * Interview Intelligence Data
+ */
+export interface InterviewIntel {
+  companyOverview: {
+    name: string;
+    hiringStatus: string | null;
+    interviewDifficulty: number | null;
+    avgTimeToHire: string | null;
+    acceptanceRate: string | null;
+    glassdoorRating: number | null;
+    interviewExperience: {
+      positive: number | null;
+      neutral: number | null;
+      negative: number | null;
+    } | null;
+    culture: string | null;
+    sources: string[];
+  };
+  // ✅ Added: was missing from types/resume.ts, causing the type mismatch
+  jobOpenings: InterviewIntelJobOpenings | null;
+  // ✅ Added: was missing from types/resume.ts, causing the type mismatch
+  redditReviews: InterviewIntelRedditReview[] | null;
+  interviewProcess: {
+    totalRounds: number | null;
+    rounds: InterviewIntelRound[] | null;
+    overallPassRate: number | null;
+    pipelineConversion: string | null;
+  } | null;
+  topQuestions: InterviewIntelQuestion[] | null;
+  salaryIntel: {
+    baseSalary: { min: number; median: number; max: number } | null;
+    totalComp: { min: number; median: number; max: number } | null;
+    equity: string | null;
+    signingBonus: string | null;
+    negotiationRoom: string | null;
+    source: string;
+  } | null;
+  insiderTips: InterviewIntelInsiderTip[] | null;
+  candidateFitAnalysis: {
+    fitScore: number | null;
+    strengths: string[] | null;
+    gaps: string[] | null;
+    prepPriorities: InterviewIntelPrepPriority[] | null;
+    estimatedPrepTime: string | null;
+  } | null;
+  redFlags: string[] | null;
+  competitorComparison: InterviewIntelCompetitorComparison[] | null;
+  dataConfidence: 'high' | 'medium' | 'low';
+  dataNote: string;
+}
+
+export interface InterviewIntelRound {
+  name: string;
+  type: string;
+  duration: string | null;
+  description: string;
+  passRate: number | null;
+  tips: string[];
+}
+
+export interface InterviewIntelQuestion {
+  question: string;
+  type: string;
+  frequency: string | null;
+  difficulty: string | null;
+  tip: string | null;
+  source: string | null;
+}
+
+export interface InterviewIntelInsiderTip {
+  tip: string;
+  source: string;
+  importance: 'critical' | 'high' | 'medium';
+}
+
+export interface InterviewIntelPrepPriority {
+  area: string;
+  reason: string;
+  timeNeeded: string;
+  resources: string[];
+}
+
+export interface InterviewIntelCompetitorComparison {
+  company: string;
+  compDifference: string | null;
+  interviewDifficulty: string | null;
+  note: string;
 }
 
 /**
@@ -151,8 +272,8 @@ export interface ResumeFeedback {
   benchmarking?: RoleBenchmarking;
   recruiterSimulation?: RecruiterSimulation;
   portfolioSummary?: PortfolioSummary;
-  
-  resumeText?: string; // Extracted text from resume for job matching
+
+  resumeText?: string;
 }
 
 /**
@@ -183,7 +304,7 @@ export interface SpecificIssue {
   example?: string;
   fix?: string;
   suggestion?: string;
-  
+
   // Alternative property names for flexibility
   issue?: string;
   problem?: string;
@@ -208,13 +329,13 @@ export interface Issue {
   example?: string;
 }
 
-export type IssueCategory = 
-  | 'ATS' 
-  | 'Content' 
-  | 'Format' 
-  | 'Grammar' 
-  | 'Structure' 
-  | 'Skills' 
+export type IssueCategory =
+  | 'ATS'
+  | 'Content'
+  | 'Format'
+  | 'Grammar'
+  | 'Structure'
+  | 'Skills'
   | 'Impact';
 
 /**
@@ -309,7 +430,7 @@ export interface ImprovementRoadmap {
   quickWins: RoadmapItem[];
   mediumTerm: RoadmapItem[];
   longTerm: RoadmapItem[];
-  
+
   // Alternative property names for backward compatibility
   mediumTermGoals?: RoadmapItem[];
   longTermStrategies?: RoadmapItem[];
@@ -349,7 +470,7 @@ export interface IndustryStandards {
  */
 export interface RecruiterSimulation {
   firstImpression: FirstImpression;
-  timeToReview: number; // in seconds
+  timeToReview: number;
   eyeTrackingHeatmap?: HeatmapPoint[];
   passScreening: boolean;
   screenerNotes: string[];
@@ -462,14 +583,14 @@ export interface ResumeStats {
   resumesLimit: number;
   improvementRate?: number;
   scoreDistribution?: ScoreDistribution;
-  improvementTips?: number; // For backward compatibility
+  improvementTips?: number;
 }
 
 export interface ScoreDistribution {
-  excellent: number; // 90-100
-  good: number; // 70-89
-  fair: number; // 50-69
-  poor: number; // 0-49
+  excellent: number;
+  good: number;
+  fair: number;
+  poor: number;
 }
 
 /**
@@ -563,7 +684,7 @@ export interface ActivityLog {
   createdAt: Date | string;
 }
 
-export type ActivityAction = 
+export type ActivityAction =
   | 'resume_uploaded'
   | 'analysis_completed'
   | 'resume_downloaded'
@@ -706,7 +827,7 @@ export interface Notification {
   createdAt: Date | string;
 }
 
-export type NotificationType = 
+export type NotificationType =
   | 'analysis_complete'
   | 'score_improved'
   | 'quota_warning'

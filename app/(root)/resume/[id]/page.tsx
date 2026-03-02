@@ -1,4 +1,3 @@
-// app/resume/[id]/page.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -28,12 +27,20 @@ import {
   ChevronDown,
   AlertTriangle,
   Zap,
-  Clock
+  Clock,
+  BarChart3,
+  Users,
 } from 'lucide-react';
 import ScoreCircle from '@/components/resume/ScoreCircle';
 import JobMatcher from '@/components/resume/JobMatcher';
 import RecruiterEyeSimulation from '@/components/resume/RecruiterEyeSimulation';
+import InterviewIntelligence from '@/components/resume/InterviewIntelligence';
+import CandidateBenchmarking from '@/components/resume/CandidateBenchmarking';
 import Image from 'next/image';
+
+// ─────────────────────────────────────────────────────────────────
+// Score helpers
+// ─────────────────────────────────────────────────────────────────
 
 function getScoreColor(score: number): string {
   if (score >= 80) return 'text-emerald-400';
@@ -48,6 +55,10 @@ function getScoreLabel(score: number): string {
   if (score >= 60) return 'Fair';
   return 'Needs Work';
 }
+
+// ─────────────────────────────────────────────────────────────────
+// OverallScoreHero
+// ─────────────────────────────────────────────────────────────────
 
 function OverallScoreHero({ score }: { score: number }) {
   const improvementPotential = Math.min(95 - score, 95);
@@ -66,7 +77,6 @@ function OverallScoreHero({ score }: { score: number }) {
                 <p className="text-slate-400 text-xs sm:text-sm">Comprehensive rating</p>
               </div>
             </div>
-            
             <div className="flex flex-col sm:flex-row items-center sm:items-center gap-3 sm:gap-4">
               <div className="text-4xl sm:text-5xl font-bold text-white">{score}%</div>
               <div className={`text-lg sm:text-xl font-semibold ${getScoreColor(score)}`}>
@@ -74,7 +84,6 @@ function OverallScoreHero({ score }: { score: number }) {
               </div>
             </div>
           </div>
-          
           <div className="flex-shrink-0">
             <ScoreCircle score={score} size="large" />
           </div>
@@ -90,10 +99,10 @@ function OverallScoreHero({ score }: { score: number }) {
               <div className="text-white font-bold text-sm sm:text-base">+{improvementPotential} points</div>
             </div>
             <div className="h-2 bg-slate-700/50 rounded-full overflow-hidden">
-              <div 
+              <div
                 className="h-full gradient-success transition-all duration-1000"
                 style={{ width: `${(score / 95) * 100}%` }}
-              ></div>
+              />
             </div>
           </div>
         )}
@@ -101,6 +110,10 @@ function OverallScoreHero({ score }: { score: number }) {
     </div>
   );
 }
+
+// ─────────────────────────────────────────────────────────────────
+// DetailedAnalysisSection
+// ─────────────────────────────────────────────────────────────────
 
 interface Tip {
   tip?: string;
@@ -110,13 +123,13 @@ interface Tip {
   priority?: 'high' | 'medium' | 'low';
 }
 
-function DetailedAnalysisSection({ 
-  title, 
-  description, 
-  score, 
-  tips, 
-  icon
-}: { 
+function DetailedAnalysisSection({
+  title,
+  description,
+  score,
+  tips,
+  icon,
+}: {
   title: string;
   description: string;
   score: number;
@@ -124,11 +137,9 @@ function DetailedAnalysisSection({
   icon: React.ReactNode;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  
-  // Ensure tips is always an array
-  const safeTips = Array.isArray(tips) ? tips : [];
-  const goodTips = safeTips.filter((tip: Tip) => tip.type === 'good');
-  const improveTips = safeTips.filter((tip: Tip) => tip.type !== 'good');
+  const safeTips    = Array.isArray(tips) ? tips : [];
+  const goodTips    = safeTips.filter(t => t.type === 'good');
+  const improveTips = safeTips.filter(t => t.type !== 'good');
 
   return (
     <div className="glass-card-gradient hover-lift">
@@ -143,31 +154,26 @@ function DetailedAnalysisSection({
               <p className="text-slate-400 text-xs">{description}</p>
             </div>
           </div>
-          
           <div className="flex items-center gap-3 ml-auto sm:ml-0">
             <ScoreCircle score={score} size="medium" />
             <div className="text-right">
               <div className="text-xl sm:text-2xl font-bold text-white">{score}%</div>
-              <div className={`text-xs font-medium ${getScoreColor(score)}`}>
-                {getScoreLabel(score)}
-              </div>
+              <div className={`text-xs font-medium ${getScoreColor(score)}`}>{getScoreLabel(score)}</div>
             </div>
           </div>
         </div>
 
         <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-3 sm:mb-4">
-          <div className="glass-morphism rounded-lg p-2.5 sm:p-3 text-center border border-white/5">
-            <div className="text-sm sm:text-base font-bold text-white">{safeTips.length}</div>
-            <div className="text-xs text-slate-400">Tips</div>
-          </div>
-          <div className="glass-morphism rounded-lg p-2.5 sm:p-3 text-center border border-white/5">
-            <div className="text-sm sm:text-base font-bold text-emerald-400">{goodTips.length}</div>
-            <div className="text-xs text-slate-400">Strengths</div>
-          </div>
-          <div className="glass-morphism rounded-lg p-2.5 sm:p-3 text-center border border-white/5">
-            <div className="text-sm sm:text-base font-bold text-amber-400">{improveTips.length}</div>
-            <div className="text-xs text-slate-400">To Improve</div>
-          </div>
+          {[
+            { val: safeTips.length,    label: 'Tips',       color: 'text-white'        },
+            { val: goodTips.length,    label: 'Strengths',  color: 'text-emerald-400'  },
+            { val: improveTips.length, label: 'To Improve', color: 'text-amber-400'    },
+          ].map(({ val, label, color }) => (
+            <div key={label} className="glass-morphism rounded-lg p-2.5 sm:p-3 text-center border border-white/5">
+              <div className={`text-sm sm:text-base font-bold ${color}`}>{val}</div>
+              <div className="text-xs text-slate-400">{label}</div>
+            </div>
+          ))}
         </div>
 
         <button
@@ -180,11 +186,11 @@ function DetailedAnalysisSection({
 
         {isExpanded && safeTips.length > 0 && (
           <div className="mt-4 sm:mt-5 space-y-2.5 sm:space-y-3">
-            {safeTips.map((tip: Tip, index: number) => {
-              const tipText = tip.tip || tip.message || '';
+            {safeTips.map((tip, index) => {
+              const tipText        = tip.tip || tip.message || '';
               const tipExplanation = tip.explanation || '';
-              const isGood = tip.type === 'good';
-              
+              const isGood         = tip.type === 'good';
+
               return (
                 <div
                   key={index}
@@ -196,36 +202,27 @@ function DetailedAnalysisSection({
                     <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
                       isGood ? 'bg-emerald-500/20' : 'bg-amber-500/20'
                     }`}>
-                      {isGood ? (
-                        <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" />
-                      ) : (
-                        <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
-                      )}
+                      {isGood
+                        ? <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" />
+                        : <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />}
                     </div>
-                    
                     <div className="flex-1 min-w-0">
                       <p className={`text-xs sm:text-sm font-medium mb-1.5 ${
                         isGood ? 'text-emerald-300' : 'text-amber-300'
                       }`}>
                         {tipText}
                       </p>
-                      
-                      {tipExplanation && (
-                        <p className="text-xs text-slate-400 leading-relaxed">
-                          {tipExplanation}
-                        </p>
-                      )}
-                      
-                      {!tipExplanation && !isGood && (
-                        <p className="text-xs text-slate-400 leading-relaxed italic">
-                          Consider addressing this to improve your resume&apos;s effectiveness.
-                        </p>
-                      )}
+                      {tipExplanation
+                        ? <p className="text-xs text-slate-400 leading-relaxed">{tipExplanation}</p>
+                        : !isGood && (
+                            <p className="text-xs text-slate-400 leading-relaxed italic">
+                              Consider addressing this to improve your resume&apos;s effectiveness.
+                            </p>
+                          )}
                     </div>
-                    
                     {!isGood && tip.priority && (
                       <div className={`priority-badge text-xs flex-shrink-0 ${
-                        tip.priority === 'high' ? 'priority-badge-high' :
+                        tip.priority === 'high'   ? 'priority-badge-high'   :
                         tip.priority === 'medium' ? 'priority-badge-medium' :
                         'priority-badge-low'
                       }`}>
@@ -249,6 +246,10 @@ function DetailedAnalysisSection({
   );
 }
 
+// ─────────────────────────────────────────────────────────────────
+// ImprovementRoadmap
+// ─────────────────────────────────────────────────────────────────
+
 interface RoadmapItem {
   action: string;
   timeToComplete: string;
@@ -256,25 +257,25 @@ interface RoadmapItem {
 }
 
 interface ImprovementRoadmapData {
-  quickWins?: RoadmapItem[];
-  mediumTermGoals?: RoadmapItem[];
-  mediumTerm?: RoadmapItem[];
+  quickWins?:          RoadmapItem[];
+  mediumTermGoals?:    RoadmapItem[];
+  mediumTerm?:         RoadmapItem[];
   longTermStrategies?: RoadmapItem[];
-  longTerm?: RoadmapItem[];
+  longTerm?:           RoadmapItem[];
 }
 
 function ImprovementRoadmap({ roadmap }: { roadmap: ImprovementRoadmapData }) {
   const [activeTab, setActiveTab] = useState<'quick' | 'medium' | 'long'>('quick');
-
   if (!roadmap) return null;
 
   const tabs = [
-    { key: 'quick' as const, label: 'Quick Wins', data: roadmap?.quickWins || [], icon: <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> },
-    { key: 'medium' as const, label: 'Medium Term', data: roadmap?.mediumTermGoals || roadmap?.mediumTerm || [], icon: <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> },
-    { key: 'long' as const, label: 'Long Term', data: roadmap?.longTermStrategies || roadmap?.longTerm || [], icon: <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> }
+    { key: 'quick'  as const, label: 'Quick Wins',  data: roadmap.quickWins          ?? [],                                icon: <Zap        className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> },
+    { key: 'medium' as const, label: 'Medium Term', data: roadmap.mediumTermGoals     ?? roadmap.mediumTerm ?? [],          icon: <Clock      className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> },
+    { key: 'long'   as const, label: 'Long Term',   data: roadmap.longTermStrategies  ?? roadmap.longTerm   ?? [],          icon: <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> },
   ];
 
-  const activeTabData = tabs.find(tab => tab.key === activeTab);
+  // ✅ Fix: find returns T | undefined — use nullish coalescing to guarantee defined value
+  const activeTabData = tabs.find(t => t.key === activeTab) ?? tabs[0];
 
   return (
     <div className="glass-card-gradient hover-lift">
@@ -291,7 +292,7 @@ function ImprovementRoadmap({ roadmap }: { roadmap: ImprovementRoadmapData }) {
 
         <div className="glass-morphism rounded-xl p-1 sm:p-1.5 mb-3 sm:mb-4">
           <div className="flex space-x-1">
-            {tabs.map((tab) => (
+            {tabs.map(tab => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
@@ -309,13 +310,13 @@ function ImprovementRoadmap({ roadmap }: { roadmap: ImprovementRoadmapData }) {
           </div>
         </div>
 
-        {activeTabData && activeTabData.data.length > 0 ? (
+        {activeTabData.data.length > 0 ? (
           <div className="space-y-2.5 sm:space-y-3">
-            {activeTabData.data.map((item: RoadmapItem, index: number) => (
+            {activeTabData.data.map((item, index) => (
               <div key={index} className="glass-morphism rounded-lg p-3 sm:p-4 border border-white/5 hover-lift">
                 <div className="flex items-start gap-2 sm:gap-3">
                   <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold text-white flex-shrink-0 ${
-                    item.impact === 'high' ? 'bg-red-500' :
+                    item.impact === 'high'   ? 'bg-red-500'   :
                     item.impact === 'medium' ? 'bg-amber-500' :
                     'bg-blue-500'
                   }`}>
@@ -329,7 +330,7 @@ function ImprovementRoadmap({ roadmap }: { roadmap: ImprovementRoadmapData }) {
                         <span>{item.timeToComplete}</span>
                       </div>
                       <span className={`priority-badge text-xs ${
-                        item.impact === 'high' ? 'priority-badge-high' :
+                        item.impact === 'high'   ? 'priority-badge-high'   :
                         item.impact === 'medium' ? 'priority-badge-medium' :
                         'priority-badge-low'
                       }`}>
@@ -351,50 +352,40 @@ function ImprovementRoadmap({ roadmap }: { roadmap: ImprovementRoadmapData }) {
   );
 }
 
+// ═════════════════════════════════════════════════════════════════
+// Main Page
+// ═════════════════════════════════════════════════════════════════
+
 export default function ResumeDetailsPage() {
-  const params = useParams();
-  const router = useRouter();
+  const params  = useParams();
+  const router  = useRouter();
   const [user, loading] = useAuthState(auth);
-  
-  const [resume, setResume] = useState<Resume | null>(null);
+
+  const [resume,        setResume]        = useState<Resume | null>(null);
   const [loadingResume, setLoadingResume] = useState(true);
-  const [error, setError] = useState<string>('');
-  const [imageUrl, setImageUrl] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'analysis' | 'jobmatch' | 'recruiter'>('analysis');
-  const [showPreview, setShowPreview] = useState(false);
+  const [error,         setError]         = useState<string>('');
+  const [imageUrl,      setImageUrl]      = useState<string>('');
+  const [activeTab,     setActiveTab]     = useState<'analysis' | 'jobmatch' | 'recruiter' | 'intel' | 'benchmark'>('analysis');
+  const [showPreview,   setShowPreview]   = useState(false);
 
-  // Normalize feedback data to handle casing inconsistencies from Firebase
-  const normalizeFeedback = (feedbackData: Resume['feedback']): Resume['feedback'] | undefined => {
-    if (!feedbackData) return undefined;
-
-    console.log('Normalizing feedback, original keys:', Object.keys(feedbackData));
-
-    // Create a normalized version with proper casing
-    const normalized: Partial<Resume['feedback']> = { ...feedbackData };
-
-    // Handle ATS specifically - Firebase might change the casing
-    // Check if we have lowercase 'ats' and need to convert to 'ATS'
-    const feedbackObj = feedbackData as unknown as Record<string, unknown>;
-    if (!normalized.ATS && feedbackObj['ats']) {
-      normalized.ATS = feedbackObj['ats'] as ResumeSection;
-      delete feedbackObj['ats'];
+  // ── Normalize Firebase casing inconsistencies ──
+  const normalizeFeedback = (fd: Resume['feedback']): Resume['feedback'] | undefined => {
+    if (!fd) return undefined;
+    // ✅ Fix: use a plain object copy instead of Partial<> to avoid 'n is possibly undefined'
+    const n   = { ...fd };
+    const obj = fd as unknown as Record<string, unknown>;
+    if (!n.ATS && obj['ats']) {
+      n.ATS = obj['ats'] as ResumeSection;
+      delete obj['ats'];
     }
-    
-    // Also check for other potential casing issues
-    if (!normalized.toneAndStyle) {
-      if (feedbackObj['toneandstyle']) {
-        normalized.toneAndStyle = feedbackObj['toneandstyle'] as ResumeSection;
-      } else if (feedbackObj['ToneAndStyle']) {
-        normalized.toneAndStyle = feedbackObj['ToneAndStyle'] as ResumeSection;
-      }
+    if (!n.toneAndStyle) {
+      if (obj['toneandstyle'])      n.toneAndStyle = obj['toneandstyle']      as ResumeSection;
+      else if (obj['ToneAndStyle']) n.toneAndStyle = obj['ToneAndStyle'] as ResumeSection;
     }
-
-    console.log('Normalized feedback keys:', Object.keys(normalized));
-    console.log('ATS data after normalization:', normalized.ATS);
-
-    return normalized as Resume['feedback'];
+    return n as Resume['feedback'];
   };
 
+  // ── Load resume ──
   useEffect(() => {
     const loadResume = async () => {
       if (!params.id || typeof params.id !== 'string') {
@@ -402,32 +393,19 @@ export default function ResumeDetailsPage() {
         setLoadingResume(false);
         return;
       }
-      
       try {
-        const resumeData = await FirebaseService.getResume(params.id);
-        
-        if (!resumeData) {
+        const data = await FirebaseService.getResume(params.id);
+        if (!data) {
           setError('Resume not found');
           setResume(null);
-        } else if (user && resumeData.userId !== user.uid) {
+        } else if (user && data.userId !== user.uid) {
           setError('Access denied');
           setResume(null);
         } else {
-          // Normalize feedback before setting resume
-          if (resumeData.feedback) {
-            const normalizedFeedback = normalizeFeedback(resumeData.feedback);
-            resumeData.feedback = normalizedFeedback;
-          }
-          
-          setResume(resumeData);
-          if (resumeData.imagePath) {
-            setImageUrl(resumeData.imagePath);
-          }
-          
-          // Debug log to see the feedback structure
-          console.log('Resume Feedback Structure:', resumeData.feedback);
-          console.log('Feedback keys:', resumeData.feedback ? Object.keys(resumeData.feedback) : 'none');
-          console.log('ATS data:', resumeData.feedback?.ATS);
+          if (data.feedback) data.feedback = normalizeFeedback(data.feedback);
+          setResume(data);
+          if (data.imagePath) setImageUrl(data.imagePath);
+          console.log('Resume loaded. Feedback keys:', data.feedback ? Object.keys(data.feedback) : 'none');
         }
       } catch (err) {
         console.error('Error loading resume:', err);
@@ -438,31 +416,24 @@ export default function ResumeDetailsPage() {
       }
     };
 
-    if (user) {
-      loadResume();
-    } else if (!loading) {
-      setLoadingResume(false);
-    }
+    if (user)           loadResume();
+    else if (!loading)  setLoadingResume(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id, user, loading]);
 
+  // ── PDF helpers ──
   const handleDownloadPdf = () => {
-    if (!resume?.resumePath) {
-      alert('PDF not available');
-      return;
-    }
-
+    if (!resume?.resumePath) { alert('PDF not available'); return; }
     try {
       if (resume.resumePath.startsWith('data:')) {
-        const downloadUrl = FirebaseService.createDownloadableUrl(resume.resumePath);
-        
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.download = resume.originalFileName || `resume_${resume.id}.pdf`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        setTimeout(() => URL.revokeObjectURL(downloadUrl), 100);
+        const url = FirebaseService.createDownloadableUrl(resume.resumePath);
+        const a   = document.createElement('a');
+        a.href     = url;
+        a.download = resume.originalFileName || `resume_${resume.id}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 100);
       } else {
         window.open(resume.resumePath, '_blank');
       }
@@ -473,24 +444,21 @@ export default function ResumeDetailsPage() {
   };
 
   const handleViewPdf = () => {
-    if (!resume?.resumePath) {
-      alert('PDF not available');
-      return;
-    }
-
+    if (!resume?.resumePath) { alert('PDF not available'); return; }
     try {
-      if (resume.resumePath.startsWith('data:')) {
-        const viewUrl = FirebaseService.createDownloadableUrl(resume.resumePath);
-        window.open(viewUrl, '_blank');
-      } else {
-        window.open(resume.resumePath, '_blank');
-      }
+      window.open(
+        resume.resumePath.startsWith('data:')
+          ? FirebaseService.createDownloadableUrl(resume.resumePath)
+          : resume.resumePath,
+        '_blank'
+      );
     } catch (err) {
       console.error('View failed:', err);
       alert('Failed to view PDF');
     }
   };
 
+  // ── Auth / loading guards ──
   if (loading || loadingResume) {
     return (
       <div className="flex items-center justify-center min-h-screen px-4">
@@ -517,10 +485,12 @@ export default function ResumeDetailsPage() {
             </div>
             <h1 className="text-lg sm:text-xl font-bold text-white mb-2">{error || 'Resume Not Found'}</h1>
             <p className="text-slate-400 mb-4 sm:mb-6 text-xs sm:text-sm">
-              {error === 'Access denied' ? 'This resume belongs to another user.' : 'This analysis does not exist.'}
+              {error === 'Access denied'
+                ? 'This resume belongs to another user.'
+                : 'This analysis does not exist.'}
             </p>
-            <Link 
-              href="/resume" 
+            <Link
+              href="/resume"
               className="glass-button-primary hover-lift inline-flex items-center px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-medium text-sm sm:text-base"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
@@ -532,78 +502,129 @@ export default function ResumeDetailsPage() {
     );
   }
 
+  // ── Section data ──
   const feedback = resume.feedback;
 
-  // Helper function to safely get section data with proper fallback
-  const getSectionData = (sectionName: 'ATS' | 'content' | 'structure' | 'skills' | 'toneAndStyle'): { score: number; tips: Tip[] } => {
-    if (!feedback) {
-      console.log('No feedback data available');
-      return { score: 0, tips: [] };
-    }
-    
-    let section: ResumeSection | undefined;
-    
-    // Get the section data (should already be normalized)
-    switch (sectionName) {
-      case 'ATS':
-        section = feedback.ATS as ResumeSection | undefined;
-        console.log('Getting ATS data:', section);
-        break;
-      case 'content':
-        section = feedback.content as ResumeSection | undefined;
-        break;
-      case 'structure':
-        section = feedback.structure as ResumeSection | undefined;
-        break;
-      case 'skills':
-        section = feedback.skills as ResumeSection | undefined;
-        break;
-      case 'toneAndStyle':
-        section = feedback.toneAndStyle as ResumeSection | undefined;
-        break;
-      default:
-        return { score: 0, tips: [] };
-    }
-    
-    if (!section) {
-      console.warn(`Section ${sectionName} not found in feedback. Available keys:`, feedback ? Object.keys(feedback) : []);
-      return { score: 0, tips: [] };
-    }
-    
+  // ✅ Fix: use explicit section lookup with a type-safe helper instead of a Record index
+  const getSectionData = (section: ResumeSection | undefined): { score: number; tips: Tip[] } => {
+    if (!section) return { score: 0, tips: [] };
     return {
-      score: section?.score || 0,
-      tips: Array.isArray(section?.tips) ? section.tips : []
+      score: section.score ?? 0,
+      tips:  Array.isArray(section.tips) ? section.tips : [],
     };
   };
 
-  // Get all section data safely
-  const atsData = getSectionData('ATS');
-  const contentData = getSectionData('content');
-  const structureData = getSectionData('structure');
-  const skillsData = getSectionData('skills');
-  const toneData = getSectionData('toneAndStyle');
+  const atsData       = getSectionData(feedback?.ATS          as ResumeSection | undefined);
+  const contentData   = getSectionData(feedback?.content      as ResumeSection | undefined);
+  const structureData = getSectionData(feedback?.structure    as ResumeSection | undefined);
+  const skillsData    = getSectionData(feedback?.skills       as ResumeSection | undefined);
+  const toneData      = getSectionData(feedback?.toneAndStyle as ResumeSection | undefined);
 
+  // ── Tab config — 5 tabs ──
+  const tabConfig = [
+    { id: 'analysis'  as const, label: 'Analysis',  icon: Shield    },
+    { id: 'jobmatch'  as const, label: 'Job Match', icon: Target    },
+    { id: 'recruiter' as const, label: 'Recruiter', icon: Eye       },
+    { id: 'intel'     as const, label: 'Intel',     icon: BarChart3 },
+    { id: 'benchmark' as const, label: 'Benchmark', icon: Users     },
+  ];
+
+  // ── Analysis sections ──
+  const renderAnalysisSections = () => (
+    <div className="space-y-4 lg:space-y-5">
+      <DetailedAnalysisSection
+        title="ATS Compatibility"
+        description="Applicant tracking system optimization"
+        score={atsData.score}
+        tips={atsData.tips}
+        icon={<Shield className="w-4 h-4 sm:w-5 sm:h-5 text-white" />}
+      />
+      <DetailedAnalysisSection
+        title="Content Quality"
+        description="Relevance and impact of content"
+        score={contentData.score}
+        tips={contentData.tips}
+        icon={<FileText className="w-4 h-4 sm:w-5 sm:h-5 text-white" />}
+      />
+      <DetailedAnalysisSection
+        title="Structure & Format"
+        description="Organization and visual appeal"
+        score={structureData.score}
+        tips={structureData.tips}
+        icon={<Edit3 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />}
+      />
+      <DetailedAnalysisSection
+        title="Skills & Keywords"
+        description="Technical and soft skills presentation"
+        score={skillsData.score}
+        tips={skillsData.tips}
+        icon={<Star className="w-4 h-4 sm:w-5 sm:h-5 text-white" />}
+      />
+      {toneData.score > 0 && (
+        <DetailedAnalysisSection
+          title="Tone & Style"
+          description="Professional writing quality"
+          score={toneData.score}
+          tips={toneData.tips}
+          icon={<Edit3 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />}
+        />
+      )}
+      {feedback?.roadmap && <ImprovementRoadmap roadmap={feedback.roadmap} />}
+    </div>
+  );
+
+  // ── Tab content renderer ──
+  const renderTabContent = () => (
+    <>
+      {activeTab === 'analysis'  && feedback && renderAnalysisSections()}
+      {activeTab === 'jobmatch'  && <JobMatcher resumeId={resume.id} />}
+      {activeTab === 'benchmark' && (
+        <CandidateBenchmarking
+          resumeId={resume.id}
+          overallScore={feedback?.overallScore ?? 0}
+          jobTitle={resume.jobTitle}
+        />
+      )}
+
+      <div style={{ display: activeTab === 'recruiter' ? 'block' : 'none' }}>
+        <RecruiterEyeSimulation resumeId={resume.id} imageUrl={imageUrl} />
+      </div>
+
+      <div style={{ display: activeTab === 'intel' ? 'block' : 'none' }}>
+        <InterviewIntelligence
+          resumeId={resume.id}
+          companyName={resume.companyName}
+          jobTitle={resume.jobTitle}
+          jobDescription={resume.jobDescription}
+          preloadedIntel={resume.interviewIntel}
+        />
+      </div>
+    </>
+  );
+
+  // ══════════════════════════════════════════════════════════════
   return (
     <>
-      {/* Mobile: Single Column Layout */}
+      {/* ════════════════════════════════════════════════
+          MOBILE: Single Column Layout
+          ════════════════════════════════════════════════ */}
       <div className="lg:hidden px-4 py-6 space-y-4">
+
         {/* Header */}
         <div className="glass-card">
           <div className="p-4">
-            <Link 
-              href="/resume" 
+            <Link
+              href="/resume"
               className="inline-flex items-center text-sm text-slate-400 hover:text-white transition-colors mb-4"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               All Resumes
             </Link>
-            
             <div className="flex items-start justify-between gap-3 mb-4">
               <div className="flex-1 min-w-0">
                 <h1 className="text-xl font-bold text-white mb-1">Resume Analysis</h1>
                 <p className="text-sm text-slate-400">AI-powered evaluation</p>
               </div>
-
               <Link href={`/resume/writer?id=${resume.id}`}>
                 <button className="glass-button-primary hover-lift px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 whitespace-nowrap">
                   <PenTool className="w-4 h-4" />
@@ -611,7 +632,6 @@ export default function ResumeDetailsPage() {
                 </button>
               </Link>
             </div>
-
             {(resume.companyName || resume.jobTitle) && (
               <div className="flex items-center gap-2 flex-wrap">
                 {resume.jobTitle && (
@@ -631,16 +651,16 @@ export default function ResumeDetailsPage() {
           </div>
         </div>
 
-        {/* Preview Toggle */}
+        {/* Preview toggle */}
         <button
           onClick={() => setShowPreview(!showPreview)}
           className="w-full glass-button hover-lift px-4 py-3 rounded-lg text-white font-medium text-sm flex items-center justify-center gap-2"
         >
           <Eye className="w-4 h-4" />
-          <span>{showPreview ? 'Hide Preview' : 'Show Preview'}</span>
+          {showPreview ? 'Hide Preview' : 'Show Preview'}
         </button>
 
-        {/* Preview (Mobile) */}
+        {/* Preview */}
         {showPreview && (
           <div className="glass-card p-4">
             {imageUrl ? (
@@ -659,126 +679,82 @@ export default function ResumeDetailsPage() {
                 </div>
               </div>
             )}
-            
             <div className="grid grid-cols-2 gap-2 mt-4">
-              <button 
+              <button
                 onClick={handleViewPdf}
                 disabled={!resume.resumePath}
                 className="glass-button hover-lift text-white px-4 py-2.5 rounded-lg font-medium text-sm flex items-center justify-center gap-2"
               >
-                <Eye className="w-4 h-4" />
-                View
+                <Eye className="w-4 h-4" /> View
               </button>
-              <button 
+              <button
                 onClick={handleDownloadPdf}
                 disabled={!resume.resumePath}
                 className="glass-button hover-lift text-white px-4 py-2.5 rounded-lg font-medium text-sm flex items-center justify-center gap-2"
               >
-                <Download className="w-4 h-4" />
-                Download
+                <Download className="w-4 h-4" /> Download
               </button>
             </div>
           </div>
         )}
 
-        {/* Tabs */}
-        <div className="glass-morphism rounded-xl p-1.5">
-          <div className="flex gap-1">
-            {[
-              { id: 'analysis', label: 'Analysis', icon: Shield },
-              { id: 'jobmatch', label: 'Job Match', icon: Target },
-              { id: 'recruiter', label: 'Recruiter', icon: Eye },
-            ].map((tab) => (
+        {/* Mobile tabs */}
+        <div className="glass-morphism rounded-xl p-1.5 overflow-x-auto">
+          <div className="flex gap-1 min-w-max">
+            {tabConfig.map(tab => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-medium transition-all ${
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${
                   activeTab === tab.id
                     ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-glass'
                     : 'text-slate-300 hover:text-white hover:bg-white/5'
                 }`}
               >
                 <tab.icon className="w-3.5 h-3.5" />
-                <span className="hidden xs:inline">{tab.label}</span>
+                {tab.label}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Content */}
-        <OverallScoreHero score={feedback?.overallScore || 0} />
+        {/* Mobile content */}
+        <OverallScoreHero score={feedback?.overallScore ?? 0} />
+        {renderTabContent()}
 
-        {activeTab === 'analysis' && feedback && (
-          <div className="space-y-4">
-            <DetailedAnalysisSection
-              title="ATS Compatibility"
-              description="Applicant tracking system optimization"
-              score={atsData.score}
-              tips={atsData.tips}
-              icon={<Shield className="w-4 h-4 sm:w-5 sm:h-5 text-white" />}
-            />
-            <DetailedAnalysisSection
-              title="Content Quality"
-              description="Relevance and impact of content"
-              score={contentData.score}
-              tips={contentData.tips}
-              icon={<FileText className="w-4 h-4 sm:w-5 sm:h-5 text-white" />}
-            />
-            <DetailedAnalysisSection
-              title="Structure & Format"
-              description="Organization and visual appeal"
-              score={structureData.score}
-              tips={structureData.tips}
-              icon={<Edit3 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />}
-            />
-            <DetailedAnalysisSection
-              title="Skills & Keywords"
-              description="Technical and soft skills presentation"
-              score={skillsData.score}
-              tips={skillsData.tips}
-              icon={<Star className="w-4 h-4 sm:w-5 sm:h-5 text-white" />}
-            />
-            {toneData.score > 0 && (
-              <DetailedAnalysisSection
-                title="Tone & Style"
-                description="Professional writing quality"
-                score={toneData.score}
-                tips={toneData.tips}
-                icon={<Edit3 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />}
-              />
-            )}
-            {feedback.roadmap && <ImprovementRoadmap roadmap={feedback.roadmap} />}
-          </div>
-        )}
-
-        {activeTab === 'jobmatch' && <JobMatcher resumeId={resume.id} />}
-        {activeTab === 'recruiter' && <RecruiterEyeSimulation resumeId={resume.id} imageUrl={imageUrl} />}
-
-        {/* Actions */}
+        {/* Mobile actions */}
         <div className="flex gap-2">
-          <Link href="/resume/upload" className="flex-1 glass-button-primary hover-lift px-4 py-3 rounded-lg font-medium text-sm flex items-center justify-center gap-2">
-            <FileText className="w-4 h-4" />
-            New
+          <Link
+            href="/resume/upload"
+            className="flex-1 glass-button-primary hover-lift px-4 py-3 rounded-lg font-medium text-sm flex items-center justify-center gap-2"
+          >
+            <FileText className="w-4 h-4" /> New
           </Link>
-          <Link href="/resume" className="flex-1 glass-button hover-lift text-white px-4 py-3 rounded-lg font-medium text-sm flex items-center justify-center gap-2">
-            <ArrowLeft className="w-4 h-4" />
-            Back
+          <Link
+            href="/resume"
+            className="flex-1 glass-button hover-lift text-white px-4 py-3 rounded-lg font-medium text-sm flex items-center justify-center gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" /> Back
           </Link>
         </div>
       </div>
 
-      {/* Desktop: Split Panel Layout */}
+      {/* ════════════════════════════════════════════════
+          DESKTOP: Split Panel Layout
+          ════════════════════════════════════════════════ */}
       <div className="hidden lg:block fixed inset-0 lg:left-64 top-[73px] overflow-hidden">
         <div className="flex h-full">
-          {/* Left Panel: Resume Preview */}
+
+          {/* Left panel: resume preview */}
           <div className="w-2/5 flex-shrink-0 flex flex-col h-full">
             <div className="glass-card h-full flex flex-col m-4 mr-2">
               <div className="p-5 flex-1 flex flex-col overflow-hidden">
+
                 <div className="mb-4 flex-shrink-0">
                   <div className="flex items-center justify-between">
                     <h2 className="text-base font-semibold text-white">Resume Preview</h2>
                     <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                      <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
                       <span className="text-xs text-slate-400">Live</span>
                     </div>
                   </div>
@@ -792,13 +768,11 @@ export default function ResumeDetailsPage() {
                       width={800}
                       height={1000}
                       className="w-full rounded-xl shadow-glass border border-white/10 object-contain"
-                      onError={(e) => {
-                        const target = e.currentTarget as HTMLImageElement;
-                        target.style.display = 'none';
-                        const fallback = target.nextElementSibling;
-                        if (fallback) {
-                          (fallback as HTMLElement).classList.remove('hidden');
-                        }
+                      onError={e => {
+                        const t  = e.currentTarget as HTMLImageElement;
+                        t.style.display = 'none';
+                        const fb = t.nextElementSibling;
+                        if (fb) (fb as HTMLElement).classList.remove('hidden');
                       }}
                     />
                   ) : null}
@@ -809,39 +783,42 @@ export default function ResumeDetailsPage() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-3 flex-shrink-0 pt-2">
-                  <button 
+                  <button
                     onClick={handleViewPdf}
                     disabled={!resume.resumePath}
                     className="w-full glass-button hover-lift text-white px-4 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2 disabled:opacity-50"
                   >
-                    <Eye className="w-4 h-4" />
-                    View
+                    <Eye className="w-4 h-4" /> View
                   </button>
-                  <button 
+                  <button
                     onClick={handleDownloadPdf}
                     disabled={!resume.resumePath}
                     className="w-full glass-button hover-lift text-white px-4 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2 disabled:opacity-50"
                   >
-                    <Download className="w-4 h-4" />
-                    Download
+                    <Download className="w-4 h-4" /> Download
                   </button>
                 </div>
+
               </div>
             </div>
           </div>
 
-          {/* Right Panel: Analysis */}
+          {/* Right panel: analysis */}
           <div className="w-3/5 flex-shrink-0 h-full overflow-y-auto glass-scrollbar">
             <div className="p-6 lg:p-8 space-y-6">
+
+              {/* Desktop header */}
               <div className="glass-card animate-fade-in-up">
                 <div className="p-6">
-                  <Link href="/resume" className="inline-flex items-center text-sm text-slate-400 hover:text-white transition-colors mb-6">
+                  <Link
+                    href="/resume"
+                    className="inline-flex items-center text-sm text-slate-400 hover:text-white transition-colors mb-6"
+                  >
                     <ArrowLeft className="w-4 h-4 mr-2" />
                     All Resumes
                   </Link>
-                  
                   <div className="flex items-center justify-between">
                     <div>
                       <h1 className="text-2xl font-bold text-white mb-1">Resume Analysis</h1>
@@ -854,7 +831,6 @@ export default function ResumeDetailsPage() {
                       </button>
                     </Link>
                   </div>
-
                   {(resume.companyName || resume.jobTitle) && (
                     <div className="flex items-center gap-2 mt-4">
                       {resume.jobTitle && (
@@ -874,16 +850,13 @@ export default function ResumeDetailsPage() {
                 </div>
               </div>
 
+              {/* Desktop tabs */}
               <div className="glass-morphism rounded-xl p-2 animate-fade-in-up">
                 <div className="flex gap-2">
-                  {[
-                    { id: 'analysis', label: 'Analysis', icon: Shield },
-                    { id: 'jobmatch', label: 'Job Match', icon: Target },
-                    { id: 'recruiter', label: 'Recruiter', icon: Eye },
-                  ].map((tab) => (
+                  {tabConfig.map(tab => (
                     <button
                       key={tab.id}
-                      onClick={() => setActiveTab(tab.id as typeof activeTab)}
+                      onClick={() => setActiveTab(tab.id)}
                       className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-medium transition-all ${
                         activeTab === tab.id
                           ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-glass'
@@ -897,64 +870,26 @@ export default function ResumeDetailsPage() {
                 </div>
               </div>
 
-              <OverallScoreHero score={feedback?.overallScore || 0} />
+              {/* Desktop content */}
+              <OverallScoreHero score={feedback?.overallScore ?? 0} />
+              {renderTabContent()}
 
-              {activeTab === 'analysis' && feedback && (
-                <div className="space-y-5">
-                  <DetailedAnalysisSection
-                    title="ATS Compatibility"
-                    description="Applicant tracking system optimization"
-                    score={atsData.score}
-                    tips={atsData.tips}
-                    icon={<Shield className="w-5 h-5 text-white" />}
-                  />
-                  <DetailedAnalysisSection
-                    title="Content Quality"
-                    description="Relevance and impact of content"
-                    score={contentData.score}
-                    tips={contentData.tips}
-                    icon={<FileText className="w-5 h-5 text-white" />}
-                  />
-                  <DetailedAnalysisSection
-                    title="Structure & Format"
-                    description="Organization and visual appeal"
-                    score={structureData.score}
-                    tips={structureData.tips}
-                    icon={<Edit3 className="w-5 h-5 text-white" />}
-                  />
-                  <DetailedAnalysisSection
-                    title="Skills & Keywords"
-                    description="Technical and soft skills presentation"
-                    score={skillsData.score}
-                    tips={skillsData.tips}
-                    icon={<Star className="w-5 h-5 text-white" />}
-                  />
-                  {toneData.score > 0 && (
-                    <DetailedAnalysisSection
-                      title="Tone & Style"
-                      description="Professional writing quality"
-                      score={toneData.score}
-                      tips={toneData.tips}
-                      icon={<Edit3 className="w-5 h-5 text-white" />}
-                    />
-                  )}
-                  {feedback.roadmap && <ImprovementRoadmap roadmap={feedback.roadmap} />}
-                </div>
-              )}
-
-              {activeTab === 'jobmatch' && <JobMatcher resumeId={resume.id} />}
-              {activeTab === 'recruiter' && <RecruiterEyeSimulation resumeId={resume.id} imageUrl={imageUrl} />}
-
+              {/* Desktop actions */}
               <div className="flex gap-3 pb-8">
-                <Link href="/resume/upload" className="flex-1 glass-button-primary hover-lift px-6 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2">
-                  <FileText className="w-4 h-4" />
-                  New Analysis
+                <Link
+                  href="/resume/upload"
+                  className="flex-1 glass-button-primary hover-lift px-6 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2"
+                >
+                  <FileText className="w-4 h-4" /> New Analysis
                 </Link>
-                <Link href="/resume" className="flex-1 glass-button hover-lift text-white px-6 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2">
-                  <ArrowLeft className="w-4 h-4" />
-                  All Resumes
+                <Link
+                  href="/resume"
+                  className="flex-1 glass-button hover-lift text-white px-6 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2"
+                >
+                  <ArrowLeft className="w-4 h-4" /> All Resumes
                 </Link>
               </div>
+
             </div>
           </div>
         </div>

@@ -3,7 +3,6 @@
 import { auth, db } from "@/firebase/admin";
 import { cookies } from "next/headers";
 import { redis, RedisKeys } from "@/lib/redis/redis-client";
-import { invalidateUserProfileCache } from "@/app/api/user/profile/route";
 
 // Session duration (1 week)
 const SESSION_DURATION = 60 * 60 * 24 * 7;
@@ -79,9 +78,6 @@ interface FirebaseError extends Error {
 
 // ============ CACHE HELPER FUNCTIONS ============
 
-/**
- * Get cached user data
- */
 async function getCachedUser(userId: string): Promise<User | null> {
   if (!redis) return null;
 
@@ -103,9 +99,6 @@ async function getCachedUser(userId: string): Promise<User | null> {
   }
 }
 
-/**
- * Cache user data
- */
 async function cacheUser(user: User): Promise<void> {
   if (!redis) return;
 
@@ -123,23 +116,20 @@ async function cacheUser(user: User): Promise<void> {
   }
 }
 
-/**
- * Invalidate user cache
- */
 async function invalidateUserCache(userId: string): Promise<void> {
   if (!redis) return;
 
   try {
-    // Invalidate multiple related caches
     const keys = [
       `user:${userId}`,
-      RedisKeys.userPrefs(userId), // User profile cache
-      `user-stats:${userId}`, // User stats cache
-      `interviews:${userId}`, // Interviews cache
-      `resumes-list:${userId}`, // Resumes cache
+      RedisKeys.userPrefs(userId),
+      `user-stats:${userId}`,
+      `interviews:${userId}`,
+      `resumes-list:${userId}`,
+      `transcripts-list:${userId}`,
+      `profile-complete:${userId}`,
     ];
 
-    // Delete all keys with non-null assertion since we checked redis above
     await Promise.all(keys.map(key => redis!.del(key)));
     console.log(`✅ Invalidated all caches for user ${userId}`);
   } catch (error) {
@@ -147,52 +137,90 @@ async function invalidateUserCache(userId: string): Promise<void> {
   }
 }
 
-/**
- * Helper function to convert Firestore Timestamp to ISO string
- */
 function convertTimestampToISO(timestamp: FirebaseTimestamp | Date | string | null | undefined): string {
   if (!timestamp) {
     return new Date().toISOString();
   }
 
-  // Handle Firestore Timestamp object with toDate method
   if (typeof timestamp === 'object' && 'toDate' in timestamp && typeof timestamp.toDate === 'function') {
     return timestamp.toDate().toISOString();
   }
 
-  // Handle raw timestamp object with _seconds
   if (typeof timestamp === 'object' && '_seconds' in timestamp && timestamp._seconds !== undefined) {
     const milliseconds = timestamp._seconds * 1000 + (timestamp._nanoseconds || 0) / 1000000;
     return new Date(milliseconds).toISOString();
   }
 
-  // Handle Date object
   if (timestamp instanceof Date) {
     return timestamp.toISOString();
   }
 
-  // Handle ISO string
   if (typeof timestamp === 'string') {
     return new Date(timestamp).toISOString();
   }
 
-  // Fallback to current date
   return new Date().toISOString();
+}
+
+// ============ VALIDATION HELPER ============
+
+/**
+ * CRITICAL: Validates that Firestore document matches Firebase Auth user
+ * This prevents data corruption and ensures consistency
+ */
+async function validateAndFixUserDocument(firebaseUser: { uid: string; email?: string | null; displayName?: string | null }): Promise<boolean> {
+  try {
+    console.log('🔍 Validating user document for UID:', firebaseUser.uid);
+    
+    const userDoc = await db.collection("users").doc(firebaseUser.uid).get();
+    
+    if (!userDoc.exists) {
+      console.log('⚠️ User document does not exist, will create');
+      return false;
+    }
+
+    const userData = userDoc.data();
+    
+    // Check if email matches
+    if (userData?.email !== firebaseUser.email) {
+      console.error('❌ EMAIL MISMATCH DETECTED!');
+      console.error('   Firestore email:', userData?.email);
+      console.error('   Firebase Auth email:', firebaseUser.email);
+      console.log('🔧 Auto-correcting Firestore document...');
+      
+      // Fix the document
+      await db.collection("users").doc(firebaseUser.uid).update({
+        email: firebaseUser.email || '',
+        name: firebaseUser.displayName || userData?.name || 'User',
+        updatedAt: new Date().toISOString(),
+      });
+      
+      console.log('✅ Document corrected');
+      
+      // Invalidate cache
+      await invalidateUserCache(firebaseUser.uid);
+      
+      return true;
+    }
+    
+    console.log('✅ User document is valid');
+    return true;
+  } catch (error) {
+    console.error('❌ Error validating user document:', error);
+    return false;
+  }
 }
 
 // ============ MAIN FUNCTIONS ============
 
-// Set session cookie
 export async function setSessionCookie(idToken: string) {
   const cookieStore = await cookies();
 
   try {
-    // Create session cookie
     const sessionCookie = await auth.createSessionCookie(idToken, {
-      expiresIn: SESSION_DURATION * 1000, // milliseconds
+      expiresIn: SESSION_DURATION * 1000,
     });
 
-    // Set cookie in the browser
     cookieStore.set("session", sessionCookie, {
       maxAge: SESSION_DURATION,
       httpOnly: true,
@@ -212,7 +240,6 @@ export async function signUp(params: SignUpParams) {
   const { uid, name, email, provider } = params;
 
   try {
-    // check if user exists in db
     const userRecord = await db.collection("users").doc(uid).get();
     if (userRecord.exists)
       return {
@@ -220,7 +247,6 @@ export async function signUp(params: SignUpParams) {
         message: "User already exists. Please sign in.",
       };
 
-    // save user to db with subscription data AND usage tracking
     const userData = {
       name,
       email,
@@ -243,7 +269,6 @@ export async function signUp(params: SignUpParams) {
         canceledAt: null,
         lastPaymentAt: null,
       },
-      // Initialize usage tracking for new users
       usage: {
         coverLettersUsed: 0,
         resumesUsed: 0,
@@ -255,7 +280,7 @@ export async function signUp(params: SignUpParams) {
 
     await db.collection("users").doc(uid).set(userData);
 
-    console.log('✅ New user created');
+    console.log('✅ New user created with UID:', uid, 'Email:', email);
 
     return {
       success: true,
@@ -264,7 +289,6 @@ export async function signUp(params: SignUpParams) {
   } catch (error: unknown) {
     console.error("Error creating user:", error);
 
-    // Handle Firebase specific errors
     const firebaseError = error as FirebaseError;
     if (firebaseError.code === "auth/email-already-exists") {
       return {
@@ -283,98 +307,102 @@ export async function signUp(params: SignUpParams) {
 export async function signIn(params: SignInParams) {
   const { email, idToken, provider } = params;
 
-  console.log("Sign in attempt:", { email, provider, hasToken: !!idToken });
+  console.log("🔐 Sign in attempt:", { email, provider });
 
   try {
-    // Verify the ID token first
+    // Step 1: Verify the ID token
     const decodedToken = await auth.verifyIdToken(idToken);
     if (!decodedToken) {
-      console.error("Failed to decode ID token");
+      console.error("❌ Failed to decode ID token");
       return {
         success: false,
         message: "Invalid authentication token.",
       };
     }
 
-    console.log("Token decoded successfully for UID:", decodedToken.uid);
+    console.log("✅ Token verified for UID:", decodedToken.uid);
 
-    // Check if user exists in our database
+    // Step 2: Get Firebase Auth user details
+    const firebaseUser = await auth.getUser(decodedToken.uid);
+
+    // Step 3: Clear old session cookie FIRST
+    const cookieStore = await cookies();
+    const existingSession = cookieStore.get("session");
+    if (existingSession) {
+      console.log("🧹 Clearing existing session cookie");
+      cookieStore.delete("session");
+      
+      try {
+        const oldClaims = await auth.verifySessionCookie(existingSession.value, false);
+        if (oldClaims.uid !== decodedToken.uid) {
+          console.log("🧹 Invalidating old user cache:", oldClaims.uid);
+          await invalidateUserCache(oldClaims.uid);
+        }
+      } catch {
+        // Old session was invalid, continue
+      }
+    }
+
+    // Step 4: Invalidate cache for new user
+    console.log("🧹 Invalidating cache for:", decodedToken.uid);
+    await invalidateUserCache(decodedToken.uid);
+
+    // Step 5: Check if user exists in Firestore
     const userRecord = await db.collection("users").doc(decodedToken.uid).get();
 
-    console.log("User exists in DB:", userRecord.exists, "Provider:", provider);
-
-    // If user doesn't exist and this is OAuth sign-in, create the user automatically
     if (!userRecord.exists) {
+      // User doesn't exist - create for OAuth, reject for email
       if (provider === "google" || provider === "facebook") {
-        console.log("Creating new OAuth user for provider:", provider);
-        try {
-          // Get user info from Firebase Auth
-          const firebaseUser = await auth.getUser(decodedToken.uid);
-          console.log("Firebase user data:", {
-            displayName: firebaseUser.displayName,
-            email: firebaseUser.email,
-            uid: firebaseUser.uid,
-          });
-
-          const userData = {
-            name:
-              firebaseUser.displayName ||
-              `${provider.charAt(0).toUpperCase() + provider.slice(1)} User`,
-            email: firebaseUser.email || email,
-            provider: provider,
+        console.log("Creating new OAuth user");
+        
+        const userData = {
+          name: firebaseUser.displayName || `${provider.charAt(0).toUpperCase() + provider.slice(1)} User`,
+          email: firebaseUser.email!,
+          provider: provider,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          subscription: {
+            plan: "starter",
+            status: "active",
+            interviewsUsed: 0,
+            interviewsLimit: 10,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
-            subscription: {
-              plan: "starter",
-              status: "active",
-              interviewsUsed: 0,
-              interviewsLimit: 10,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              trialEndsAt: null,
-              subscriptionEndsAt: null,
-              stripeCustomerId: null,
-              stripeSubscriptionId: null,
-              currentPeriodStart: null,
-              currentPeriodEnd: null,
-              canceledAt: null,
-              lastPaymentAt: null,
-            },
-            // Initialize usage tracking for OAuth users
-            usage: {
-              coverLettersUsed: 0,
-              resumesUsed: 0,
-              studyPlansUsed: 0,
-              interviewsUsed: 0,
-              lastReset: new Date().toISOString(),
-            },
-          };
+            trialEndsAt: null,
+            subscriptionEndsAt: null,
+            stripeCustomerId: null,
+            stripeSubscriptionId: null,
+            currentPeriodStart: null,
+            currentPeriodEnd: null,
+            canceledAt: null,
+            lastPaymentAt: null,
+          },
+          usage: {
+            coverLettersUsed: 0,
+            resumesUsed: 0,
+            studyPlansUsed: 0,
+            interviewsUsed: 0,
+            lastReset: new Date().toISOString(),
+          },
+        };
 
-          await db.collection("users").doc(decodedToken.uid).set(userData);
-
-          console.log("Successfully created OAuth user in database");
-        } catch (createError) {
-          console.error("Error creating OAuth user:", createError);
-          return {
-            success: false,
-            message: "Failed to create user account. Please try again.",
-          };
-        }
+        await db.collection("users").doc(decodedToken.uid).set(userData);
+        console.log("✅ OAuth user created with UID:", decodedToken.uid, "Email:", firebaseUser.email);
       } else {
-        // For email/password sign-in, user must exist
-        console.log("Email/password user doesn't exist in database");
         return {
           success: false,
           message: "User does not exist. Create an account.",
         };
       }
     } else {
-      console.log("User already exists in database");
+      // User exists - VALIDATE DOCUMENT
+      console.log("✅ User exists, validating document...");
+      await validateAndFixUserDocument(firebaseUser);
       
-      // Check if user has usage object, if not initialize it
+      // Check if usage exists
       const existingData = userRecord.data();
       if (!existingData?.usage) {
-        console.log("Initializing usage tracking for existing user");
+        console.log("⚠️ Initializing usage tracking");
         await db.collection("users").doc(decodedToken.uid).update({
           usage: {
             coverLettersUsed: 0,
@@ -384,32 +412,33 @@ export async function signIn(params: SignInParams) {
             lastReset: new Date().toISOString(),
           },
         });
-        
-        // Invalidate cache after update
         await invalidateUserCache(decodedToken.uid);
       }
     }
 
-    // Set the session cookie
-    console.log("Setting session cookie...");
+    // Step 6: Set NEW session cookie
+    console.log("🔐 Setting NEW session cookie");
     const sessionResult = await setSessionCookie(idToken);
     if (!sessionResult.success) {
-      console.error("Failed to set session cookie");
+      console.error("❌ Failed to set session cookie");
       return {
         success: false,
         message: "Failed to create session. Please try again.",
       };
     }
 
-    console.log("Sign in successful");
+    // Step 7: Final cache invalidation
+    console.log("🧹 Final cache invalidation");
+    await invalidateUserCache(decodedToken.uid);
+
+    console.log("✅ Sign in successful for:", email);
     return {
       success: true,
       message: "Successfully signed in.",
     };
   } catch (error: unknown) {
-    console.error("Error during sign in:", error);
+    console.error("❌ Error during sign in:", error);
 
-    // Handle specific Firebase auth errors
     const firebaseError = error as FirebaseError;
     if (firebaseError.code === "auth/id-token-expired") {
       return {
@@ -432,16 +461,13 @@ export async function signIn(params: SignInParams) {
   }
 }
 
-// Sign out user by clearing the session cookie and cache
 export async function signOut() {
   const cookieStore = await cookies();
   
-  // Get current user before clearing session
   const sessionCookie = cookieStore.get("session")?.value;
   if (sessionCookie) {
     try {
       const decodedClaims = await auth.verifySessionCookie(sessionCookie, true);
-      // Invalidate user cache on sign out
       await invalidateUserCache(decodedClaims.uid);
     } catch (error) {
       console.error("Error invalidating cache on sign out:", error);
@@ -451,7 +477,6 @@ export async function signOut() {
   cookieStore.delete("session");
 }
 
-// Get current user from session cookie
 export async function getCurrentUser(): Promise<User | null> {
   const cookieStore = await cookies();
 
@@ -465,19 +490,30 @@ export async function getCurrentUser(): Promise<User | null> {
     const cached = await getCachedUser(decodedClaims.uid);
     if (cached) return cached;
 
-    // get user info from db
-    const userRecord = await db
-      .collection("users")
-      .doc(decodedClaims.uid)
-      .get();
+    // Get from Firestore
+    const userRecord = await db.collection("users").doc(decodedClaims.uid).get();
     
     if (!userRecord.exists) return null;
 
     const userData = userRecord.data();
+    if (!userData) return null;
 
-    // If usage doesn't exist, initialize it
-    if (userData && !userData.usage) {
-      console.log("⚠️ Usage data missing for user, initializing...");
+    // ⭐ CRITICAL VALIDATION: Verify email matches
+    const firebaseUser = await auth.getUser(decodedClaims.uid);
+    if (userData.email !== firebaseUser.email) {
+      console.error('❌ EMAIL MISMATCH in getCurrentUser!');
+      console.error('   Firestore:', userData.email);
+      console.error('   Firebase Auth:', firebaseUser.email);
+      
+      // Auto-fix
+      await validateAndFixUserDocument(firebaseUser);
+      
+      // Recursively call to get corrected data
+      return getCurrentUser();
+    }
+
+    // Initialize usage if missing
+    if (!userData.usage) {
       const initialUsage = {
         coverLettersUsed: 0,
         resumesUsed: 0,
@@ -493,10 +529,6 @@ export async function getCurrentUser(): Promise<User | null> {
       userData.usage = initialUsage;
     }
 
-    // Return null if userData doesn't exist
-    if (!userData) return null;
-
-    // Serialize all timestamp fields to ISO strings using helper
     const serializedUser: User = {
       id: userRecord.id,
       name: userData.name || '',
@@ -537,7 +569,6 @@ export async function getCurrentUser(): Promise<User | null> {
       },
     };
 
-    // Cache the user
     await cacheUser(serializedUser);
 
     return serializedUser;
@@ -547,28 +578,45 @@ export async function getCurrentUser(): Promise<User | null> {
   }
 }
 
-// Check if user is authenticated
 export async function isAuthenticated() {
   const user = await getCurrentUser();
   return !!user;
 }
 
-// Update user profile data
 export async function updateUserProfile(
   userId: string,
-  profileData: Partial<User>
+  profileData: Partial<User> & { 
+    currentResume?: string; 
+    resumeUrl?: string;
+    currentTranscript?: string;
+    transcriptUrl?: string;
+    streetAddress?: string;
+    city?: string;
+    state?: string;
+    phone?: string;
+    bio?: string;
+    targetRole?: string;
+    experienceLevel?: string;
+    preferredTech?: string[];
+    careerGoals?: string;
+    linkedIn?: string;
+    github?: string;
+    website?: string;
+  }
 ) {
   try {
-    // Remove fields that shouldn't be updated
-    const { id, createdAt, subscription, usage, ...updateData } = profileData;
+    console.log('📝 Updating user profile for:', userId);
     
-    // Suppress unused variable warnings
+    // ⭐ CRITICAL: Never allow email or provider to be changed via profile update
+    const { id, createdAt, subscription, usage, email, provider, ...updateData } = profileData;
+    
     void id;
     void createdAt;
     void subscription;
     void usage;
+    void email; // Email can only be changed through Firebase Auth
+    void provider; // Provider is immutable
 
-    // Add updatedAt timestamp
     const dataToUpdate = {
       ...updateData,
       updatedAt: new Date().toISOString(),
@@ -576,18 +624,16 @@ export async function updateUserProfile(
 
     await db.collection("users").doc(userId).update(dataToUpdate);
 
-    // Invalidate all user-related caches
     await invalidateUserCache(userId);
-    await invalidateUserProfileCache(userId);
 
-    console.log('✅ Profile updated, caches invalidated');
+    console.log('✅ Profile updated successfully');
 
     return {
       success: true,
       message: "Profile updated successfully.",
     };
   } catch (error) {
-    console.error("Error updating user profile:", error);
+    console.error("❌ Error updating user profile:", error);
     return {
       success: false,
       message: "Failed to update profile. Please try again.",
@@ -595,14 +641,11 @@ export async function updateUserProfile(
   }
 }
 
-// Get user profile by ID
 export async function getUserProfile(userId: string): Promise<User | null> {
   try {
-    // Check cache first
     const cached = await getCachedUser(userId);
     if (cached) return cached;
 
-    // Fetch from Firestore
     const userDoc = await db.collection("users").doc(userId).get();
 
     if (!userDoc.exists) {
@@ -610,11 +653,8 @@ export async function getUserProfile(userId: string): Promise<User | null> {
     }
 
     const userData = userDoc.data();
-
-    // Return null if userData doesn't exist
     if (!userData) return null;
 
-    // Serialize all timestamp fields to ISO strings
     const serializedUser: User = {
       id: userDoc.id,
       name: userData.name || '',
@@ -655,7 +695,6 @@ export async function getUserProfile(userId: string): Promise<User | null> {
       },
     };
 
-    // Cache the user
     await cacheUser(serializedUser);
 
     return serializedUser;
@@ -665,17 +704,14 @@ export async function getUserProfile(userId: string): Promise<User | null> {
   }
 }
 
-// Reset user password
 export async function resetUserPassword(
   email: string,
   _currentPassword: string,
   newPassword: string
 ) {
-  // Suppress unused parameter warning
   void _currentPassword;
   
   try {
-    // Get user by email
     const userRecord = await auth.getUserByEmail(email);
     if (!userRecord) {
       return {
@@ -684,12 +720,10 @@ export async function resetUserPassword(
       };
     }
 
-    // For Firebase Admin SDK, we can directly update the password
     await auth.updateUser(userRecord.uid, {
       password: newPassword,
     });
 
-    // Invalidate user cache after password change
     await invalidateUserCache(userRecord.uid);
 
     return {
@@ -710,8 +744,7 @@ export async function resetUserPassword(
     if (firebaseError.code === "auth/weak-password") {
       return {
         success: false,
-        message:
-          "New password is too weak. Password should be at least 6 characters.",
+        message: "New password is too weak. Password should be at least 6 characters.",
       };
     }
 
@@ -722,50 +755,43 @@ export async function resetUserPassword(
   }
 }
 
-// Delete user account
 export async function deleteUserAccount(userId: string) {
   try {
-    // Start a batch operation for atomic deletion
     const batch = db.batch();
 
-    // Delete user document
     const userRef = db.collection("users").doc(userId);
     batch.delete(userRef);
 
-    // Delete user's interviews
-    const interviewsSnapshot = await db
-      .collection("interviews")
-      .where("userId", "==", userId)
-      .get();
-
+    const interviewsSnapshot = await db.collection("interviews").where("userId", "==", userId).get();
     interviewsSnapshot.docs.forEach((doc) => {
       batch.delete(doc.ref);
     });
 
-    // Delete user's feedback
-    const feedbackSnapshot = await db
-      .collection("feedback")
-      .where("userId", "==", userId)
-      .get();
-
+    const feedbackSnapshot = await db.collection("feedback").where("userId", "==", userId).get();
     feedbackSnapshot.docs.forEach((doc) => {
       batch.delete(doc.ref);
     });
 
-    // Commit the batch operation to delete all Firestore data
+    const resumesSnapshot = await db.collection("resumes").where("userId", "==", userId).get();
+    resumesSnapshot.docs.forEach((doc) => {
+      batch.delete(doc.ref);
+    });
+
+    const transcriptsSnapshot = await db.collection("transcripts").where("userId", "==", userId).get();
+    transcriptsSnapshot.docs.forEach((doc) => {
+      batch.delete(doc.ref);
+    });
+
     await batch.commit();
 
-    // Delete user from Firebase Auth
     try {
       await auth.deleteUser(userId);
     } catch (authError) {
       console.error("Error deleting user from Firebase Auth:", authError);
     }
 
-    // Invalidate all user caches
     await invalidateUserCache(userId);
 
-    // Clear the session cookie
     const cookieStore = await cookies();
     cookieStore.delete("session");
 
@@ -784,28 +810,22 @@ export async function deleteUserAccount(userId: string) {
   }
 }
 
-// Update user subscription data
 export async function updateUserSubscription(
   userId: string,
   subscriptionData: Partial<Subscription>
 ) {
   try {
-    await db
-      .collection("users")
-      .doc(userId)
-      .update({
-        subscription: {
-          ...subscriptionData,
-          updatedAt: new Date().toISOString(),
-        },
+    await db.collection("users").doc(userId).update({
+      subscription: {
+        ...subscriptionData,
         updatedAt: new Date().toISOString(),
-      });
+      },
+      updatedAt: new Date().toISOString(),
+    });
 
-    // Invalidate all user-related caches
     await invalidateUserCache(userId);
-    await invalidateUserProfileCache(userId);
 
-    console.log('✅ Subscription updated, caches invalidated');
+    console.log('✅ Subscription updated');
 
     return {
       success: true,
@@ -820,5 +840,4 @@ export async function updateUserSubscription(
   }
 }
 
-// Export cache invalidation for external use
 export { invalidateUserCache };

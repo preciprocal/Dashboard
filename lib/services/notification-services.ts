@@ -1,336 +1,281 @@
 // lib/services/notification-service.ts
-import { db } from '@/firebase/client';
-import { 
-  collection, 
-  addDoc, 
-  query, 
-  where, 
-  orderBy, 
-  limit,
-  updateDoc,
+// DELETE the old notification-services.ts file and use only this one.
+// Import path going forward: '@/lib/services/notification-service' (no trailing s)
+
+import {
+  collection,
   doc,
-  serverTimestamp,
-  onSnapshot,
+  addDoc,
+  updateDoc,
+  deleteDoc,
   getDocs,
+  query,
+  where,
+  orderBy,
+  limit,
+  onSnapshot,
+  serverTimestamp,
+  Timestamp,
   writeBatch,
-  Timestamp
 } from 'firebase/firestore';
+import { db } from '@/firebase/client';
+
+// ============================================================
+// TYPES
+// ============================================================
+
+export type NotificationType =
+  | 'interview'
+  | 'resume'
+  | 'cover_letter'
+  | 'planner'
+  | 'achievement'
+  | 'system';
 
 export interface Notification {
   id: string;
   userId: string;
-  type: 'interview' | 'resume' | 'cover_letter' | 'planner' | 'system' | 'achievement';
+  type: NotificationType;
   title: string;
   message: string;
+  isRead: boolean;
   actionUrl?: string;
   actionLabel?: string;
-  isRead: boolean;
+  metadata?: Record<string, unknown>;
   createdAt: Date;
-  metadata?: {
-    interviewId?: string;
-    resumeId?: string;
-    coverLetterId?: string;
-    score?: number;
-    icon?: string;
+  updatedAt: Date;
+}
+
+interface FirestoreNotification extends Omit<Notification, 'id' | 'createdAt' | 'updatedAt'> {
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+const COLLECTION = 'notifications';
+
+function toNotification(id: string, data: FirestoreNotification): Notification {
+  return {
+    ...data,
+    id,
+    createdAt: data.createdAt?.toDate() ?? new Date(),
+    updatedAt: data.updatedAt?.toDate() ?? new Date(),
   };
 }
 
-export class NotificationService {
-  private static readonly COLLECTION = 'notifications';
+// ============================================================
+// SERVICE
+// Exported as both an object (NotificationService.xxx)
+// and individual static-style methods to match your old class API.
+// ============================================================
 
-  /**
-   * Create a new notification
-   */
-  static async createNotification(
+export const NotificationService = {
+
+  // ── CREATE ─────────────────────────────────────────────────
+
+  /** Generic create — use the named trigger functions below instead */
+  async createNotification(
     userId: string,
-    type: Notification['type'],
+    type: NotificationType,
     title: string,
     message: string,
     options?: {
       actionUrl?: string;
       actionLabel?: string;
-      metadata?: Notification['metadata'];
+      metadata?: Record<string, unknown>;
     }
   ): Promise<string> {
-    try {
-      const notificationData = {
-        userId,
-        type,
-        title,
-        message,
-        actionUrl: options?.actionUrl || null,
-        actionLabel: options?.actionLabel || null,
-        isRead: false,
-        createdAt: serverTimestamp(),
-        metadata: options?.metadata || null,
-      };
+    const docRef = await addDoc(collection(db, COLLECTION), {
+      userId,
+      type,
+      title,
+      message,
+      actionUrl: options?.actionUrl ?? null,
+      actionLabel: options?.actionLabel ?? null,
+      isRead: false,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      metadata: options?.metadata ?? null,
+    });
+    return docRef.id;
+  },
 
-      const docRef = await addDoc(
-        collection(db, this.COLLECTION),
-        notificationData
-      );
+  // ── READ ───────────────────────────────────────────────────
 
-      console.log('✅ Notification created:', docRef.id);
-      return docRef.id;
-    } catch (error) {
-      console.error('❌ Error creating notification:', error);
-      throw error;
-    }
-  }
+  async getUserNotifications(userId: string, maxCount = 50): Promise<Notification[]> {
+    const q = query(
+      collection(db, COLLECTION),
+      where('userId', '==', userId),
+      orderBy('createdAt', 'desc'),
+      limit(maxCount)
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => toNotification(d.id, d.data() as FirestoreNotification));
+  },
 
-  /**
-   * Mark notification as read
+  async getUnreadCount(userId: string): Promise<number> {
+    const q = query(
+      collection(db, COLLECTION),
+      where('userId', '==', userId),
+      where('isRead', '==', false)
+    );
+    const snap = await getDocs(q);
+    return snap.size;
+  },
+
+  // ── REAL-TIME ──────────────────────────────────────────────
+
+  /** 
+   * Real-time listener — matches your old class method name.
+   * Returns unsubscribe function, call it in useEffect cleanup.
    */
-  static async markAsRead(notificationId: string): Promise<void> {
-    try {
-      const notificationRef = doc(db, this.COLLECTION, notificationId);
-      await updateDoc(notificationRef, {
-        isRead: true,
-        readAt: serverTimestamp(),
-      });
-    } catch (error) {
-      console.error('❌ Error marking notification as read:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Mark all notifications as read for a user
-   */
-  static async markAllAsRead(userId: string): Promise<void> {
-    try {
-      const q = query(
-        collection(db, this.COLLECTION),
-        where('userId', '==', userId),
-        where('isRead', '==', false)
-      );
-
-      const snapshot = await getDocs(q);
-      const batch = writeBatch(db);
-
-      snapshot.docs.forEach((document) => {
-        batch.update(document.ref, {
-          isRead: true,
-          readAt: serverTimestamp(),
-        });
-      });
-
-      await batch.commit();
-      console.log('✅ Marked all notifications as read');
-    } catch (error) {
-      console.error('❌ Error marking all as read:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Delete a notification
-   */
-  static async deleteNotification(notificationId: string): Promise<void> {
-    try {
-      const notificationRef = doc(db, this.COLLECTION, notificationId);
-      await updateDoc(notificationRef, {
-        deleted: true,
-        deletedAt: serverTimestamp(),
-      });
-    } catch (error) {
-      console.error('❌ Error deleting notification:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Subscribe to real-time notifications for a user
-   */
-  static subscribeToNotifications(
+  subscribeToNotifications(
     userId: string,
     callback: (notifications: Notification[]) => void,
-    limitCount: number = 50
+    limitCount = 50
   ): () => void {
     const q = query(
-      collection(db, this.COLLECTION),
+      collection(db, COLLECTION),
       where('userId', '==', userId),
-      where('deleted', '!=', true),
-      orderBy('deleted'),
       orderBy('createdAt', 'desc'),
       limit(limitCount)
     );
 
-    const unsubscribe = onSnapshot(
+    return onSnapshot(
       q,
-      (snapshot) => {
-        const notifications: Notification[] = [];
-        
-        snapshot.forEach((document) => {
-          const data = document.data();
-          notifications.push({
-            id: document.id,
-            userId: data.userId,
-            type: data.type,
-            title: data.title,
-            message: data.message,
-            actionUrl: data.actionUrl || undefined,
-            actionLabel: data.actionLabel || undefined,
-            isRead: data.isRead || false,
-            createdAt: data.createdAt instanceof Timestamp 
-              ? data.createdAt.toDate() 
-              : new Date(),
-            metadata: data.metadata || undefined,
-          });
-        });
-
+      (snap) => {
+        const notifications = snap.docs.map((d) =>
+          toNotification(d.id, d.data() as FirestoreNotification)
+        );
         callback(notifications);
       },
       (error) => {
-        console.error('❌ Error listening to notifications:', error);
+        console.error('❌ Notification listener error:', error);
       }
     );
+  },
 
-    return unsubscribe;
-  }
+  // ── UPDATE ─────────────────────────────────────────────────
 
-  /**
-   * Get unread count for a user
-   */
-  static async getUnreadCount(userId: string): Promise<number> {
-    try {
-      const q = query(
-        collection(db, this.COLLECTION),
-        where('userId', '==', userId),
-        where('isRead', '==', false),
-        where('deleted', '!=', true)
-      );
+  async markAsRead(notificationId: string): Promise<void> {
+    await updateDoc(doc(db, COLLECTION, notificationId), {
+      isRead: true,
+      updatedAt: serverTimestamp(),
+    });
+  },
 
-      const snapshot = await getDocs(q);
-      return snapshot.size;
-    } catch (error) {
-      console.error('❌ Error getting unread count:', error);
-      return 0;
-    }
-  }
+  async markAllAsRead(userId: string): Promise<void> {
+    const q = query(
+      collection(db, COLLECTION),
+      where('userId', '==', userId),
+      where('isRead', '==', false)
+    );
+    const snap = await getDocs(q);
+    const batch = writeBatch(db);
+    snap.docs.forEach((d) => {
+      batch.update(d.ref, { isRead: true, updatedAt: serverTimestamp() });
+    });
+    await batch.commit();
+  },
 
-  // ============ HELPER METHODS FOR COMMON NOTIFICATIONS ============
+  // ── DELETE ─────────────────────────────────────────────────
 
-  /**
-   * Interview completed notification
-   */
-  static async notifyInterviewComplete(
-    userId: string,
-    interviewId: string,
-    score: number
-  ): Promise<string> {
+  /** Matches your old class method name */
+  async deleteNotification(notificationId: string): Promise<void> {
+    await deleteDoc(doc(db, COLLECTION, notificationId));
+  },
+
+  async deleteAll(userId: string): Promise<void> {
+    const q = query(collection(db, COLLECTION), where('userId', '==', userId));
+    const snap = await getDocs(q);
+    const batch = writeBatch(db);
+    snap.docs.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+  },
+
+  // ── FEATURE HELPERS (match your old class helpers) ─────────
+
+  async notifyInterviewComplete(userId: string, interviewId: string, score: number): Promise<string> {
     return this.createNotification(
-      userId,
-      'interview',
+      userId, 'interview',
       'Interview Completed! 🎉',
       `Great job! You scored ${score}% on your interview.`,
-      {
-        actionUrl: `/interview/${interviewId}`,
-        actionLabel: 'View Results',
-        metadata: { interviewId, score },
-      }
+      { actionUrl: `/interview/${interviewId}`, actionLabel: 'View Results', metadata: { interviewId, score } }
     );
-  }
+  },
 
-  /**
-   * Resume analyzed notification
-   */
-  static async notifyResumeAnalyzed(
-    userId: string,
-    resumeId: string,
-    score: number,
-    companyName: string
-  ): Promise<string> {
+  async notifyResumeAnalyzed(userId: string, resumeId: string, score: number, companyName: string): Promise<string> {
+    const label = score >= 80 ? 'Excellent' : score >= 60 ? 'Good' : 'Needs Improvement';
     return this.createNotification(
-      userId,
-      'resume',
+      userId, 'resume',
       'Resume Analysis Complete ✨',
-      `Your resume for ${companyName} scored ${score}%. Check out the feedback!`,
-      {
-        actionUrl: `/resume/${resumeId}`,
-        actionLabel: 'View Analysis',
-        metadata: { resumeId, score },
-      }
+      `Your resume for ${companyName} scored ${score}/100 (${label}). Check the feedback!`,
+      { actionUrl: `/resume/${resumeId}`, actionLabel: 'View Analysis', metadata: { resumeId, score } }
     );
-  }
+  },
 
-  /**
-   * Cover letter generated notification
-   */
-  static async notifyCoverLetterGenerated(
-    userId: string,
-    coverLetterId: string,
-    companyName: string
-  ): Promise<string> {
+  async notifyCoverLetterGenerated(userId: string, coverLetterId: string, companyName: string): Promise<string> {
     return this.createNotification(
-      userId,
-      'cover_letter',
+      userId, 'cover_letter',
       'Cover Letter Ready 📝',
       `Your cover letter for ${companyName} has been generated!`,
-      {
-        actionUrl: `/cover-letter/${coverLetterId}`,
-        actionLabel: 'View Letter',
-        metadata: { coverLetterId },
-      }
+      { actionUrl: `/cover-letter/${coverLetterId}`, actionLabel: 'View Letter', metadata: { coverLetterId } }
     );
-  }
+  },
 
-  /**
-   * Achievement unlocked notification
-   */
-  static async notifyAchievement(
-    userId: string,
-    achievementTitle: string,
-    achievementMessage: string
-  ): Promise<string> {
+  async notifyPlanCreated(userId: string, planId: string, planName: string, durationDays: number): Promise<string> {
+    return this.createNotification(
+      userId, 'planner',
+      'Study Plan Created 📅',
+      `Your ${durationDays}-day plan "${planName}" is ready. Start preparing today!`,
+      { actionUrl: `/planner/${planId}`, actionLabel: 'View Plan', metadata: { planId, planName, durationDays } }
+    );
+  },
+
+  async notifyPlanMilestone(userId: string, planId: string, planName: string, progressPercent: number): Promise<string> {
+    const emoji = progressPercent >= 100 ? '🏆' : progressPercent >= 75 ? '🔥' : progressPercent >= 50 ? '💪' : '⭐';
+    const isComplete = progressPercent >= 100;
     return this.createNotification(
       userId,
-      'achievement',
+      isComplete ? 'achievement' : 'planner',
+      `${emoji} ${isComplete ? 'Plan Complete!' : `${progressPercent}% Milestone Reached`}`,
+      isComplete
+        ? `You've completed "${planName}"! Excellent preparation work.`
+        : `You're ${progressPercent}% through "${planName}". Keep up the momentum!`,
+      { actionUrl: `/planner/${planId}`, actionLabel: 'View Progress', metadata: { planId, planName, progressPercent } }
+    );
+  },
+
+  async notifyAchievement(userId: string, achievementTitle: string, achievementMessage: string): Promise<string> {
+    return this.createNotification(
+      userId, 'achievement',
       `Achievement Unlocked! 🏆`,
       achievementMessage,
-      {
-        metadata: { icon: '🏆' },
-      }
+      { metadata: { icon: '🏆' } }
     );
-  }
+  },
 
-  /**
-   * System notification
-   */
-  static async notifySystem(
-    userId: string,
-    title: string,
-    message: string,
-    actionUrl?: string
-  ): Promise<string> {
+  async notifySystem(userId: string, title: string, message: string, actionUrl?: string): Promise<string> {
     return this.createNotification(
-      userId,
-      'system',
-      title,
-      message,
-      {
-        actionUrl,
-        actionLabel: actionUrl ? 'Learn More' : undefined,
-      }
+      userId, 'system', title, message,
+      { actionUrl, actionLabel: actionUrl ? 'Learn More' : undefined }
     );
-  }
+  },
 
-  /**
-   * Planner reminder notification
-   */
-  static async notifyPlannerReminder(
-    userId: string,
-    taskTitle: string,
-  ): Promise<string> {
+  async notifyPlannerReminder(userId: string, taskTitle: string): Promise<string> {
     return this.createNotification(
-      userId,
-      'planner',
+      userId, 'planner',
       'Task Reminder 📅',
       `Your task "${taskTitle}" is due soon!`,
-      {
-        actionUrl: '/planner',
-        actionLabel: 'View Planner',
-      }
+      { actionUrl: '/planner', actionLabel: 'View Planner' }
     );
-  }
-}
+  },
+
+  async notifySubscriptionUpgraded(userId: string, planName: string): Promise<string> {
+    return this.createNotification(
+      userId, 'achievement',
+      'Subscription Upgraded 🚀',
+      `Welcome to ${planName}! You now have access to all premium features.`,
+      { actionUrl: '/settings', actionLabel: 'View Plan', metadata: { planName } }
+    );
+  },
+};

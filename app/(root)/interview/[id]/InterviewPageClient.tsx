@@ -19,9 +19,9 @@ import {
   ArrowRight,
   Loader2,
   Headphones,
-  ArrowLeft
+  ArrowLeft,
+  Shield
 } from "lucide-react";
-import FullScreenInterviewPanel from "./FullScreenInterviewpanel";
 
 const TechStackDisplay = ({ techStack }: { techStack: string[] }) => {
   if (!techStack || techStack.length === 0) {
@@ -42,6 +42,17 @@ const TechStackDisplay = ({ techStack }: { techStack: string[] }) => {
   );
 };
 
+interface Subscription {
+  plan: string;
+  status: string;
+  interviewsUsed?: number;
+  interviewsLimit?: number;
+}
+
+interface UserUsage {
+  interviewsUsed?: number;
+}
+
 interface InterviewDetailsClientProps {
   userName: string;
   userId: string;
@@ -54,16 +65,60 @@ interface InterviewDetailsClientProps {
     questions: string[];
   };
   feedbackId?: string;
-  type?: "generate" | "interview";
+  subscription?: Subscription;
+  usage?: UserUsage;
+}
+
+interface PlanDisplayInfo {
+  name: string;
+  color: string;
+  isUnlimited: boolean;
+}
+
+function getPlanDisplayInfo(subscription: Subscription | undefined): PlanDisplayInfo {
+  if (!subscription) {
+    return {
+      name: "Free",
+      color: "slate",
+      isUnlimited: false,
+    };
+  }
+
+  switch (subscription.plan) {
+    case "starter":
+      return {
+        name: "Free",
+        color: "slate",
+        isUnlimited: false,
+      };
+    case "pro":
+      return {
+        name: subscription.status === "trial" ? "Pro Trial" : "Pro",
+        color: "blue",
+        isUnlimited: true,
+      };
+    case "premium":
+      return {
+        name: "Premium",
+        color: "purple",
+        isUnlimited: true,
+      };
+    default:
+      return {
+        name: "Free",
+        color: "slate",
+        isUnlimited: false,
+      };
+  }
 }
 
 const InterviewDetailsClient = ({
   userName,
-  userId,
   interviewId,
   interview,
   feedbackId,
-  type = "interview"
+  subscription,
+  usage
 }: InterviewDetailsClientProps) => {
   const [currentView, setCurrentView] = useState<"waiting" | "interview">("waiting");
   const [isVideoOn, setIsVideoOn] = useState(true);
@@ -78,20 +133,44 @@ const InterviewDetailsClient = ({
   });
   const [isJoining, setIsJoining] = useState(false);
   const [showDeviceSettings, setShowDeviceSettings] = useState(false);
+  const [showPlanDropdown, setShowPlanDropdown] = useState(false);
+  const [showCameraDropdown, setShowCameraDropdown] = useState(false);
+  const [showMicDropdown, setShowMicDropdown] = useState(false);
+  const [showSpeakerDropdown, setShowSpeakerDropdown] = useState(false);
+  const [devices, setDevices] = useState<{
+    audioInputs: MediaDeviceInfo[];
+    videoInputs: MediaDeviceInfo[];
+    audioOutputs: MediaDeviceInfo[];
+  }>({
+    audioInputs: [],
+    videoInputs: [],
+    audioOutputs: []
+  });
+  const [selectedDevices, setSelectedDevices] = useState({
+    audioInput: '',
+    videoInput: '',
+    audioOutput: ''
+  });
+  const [dropdownPositions, setDropdownPositions] = useState({
+    camera: { top: 0, left: 0, width: 0 },
+    mic: { top: 0, left: 0, width: 0 },
+    speaker: { top: 0, left: 0, width: 0 }
+  });
 
+  // ✅ Fix: RefObject<HTMLButtonElement | null> to match React's useRef strict mode typing
+  const cameraButtonRef = useRef<HTMLButtonElement>(null);
+  const micButtonRef = useRef<HTMLButtonElement>(null);
+  const speakerButtonRef = useRef<HTMLButtonElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
 
-  // Normalize interview type to match expected union type
-  const normalizeInterviewType = (type: string): "technical" | "behavioral" | "mixed" => {
-    const normalized = type.toLowerCase();
-    if (normalized === "technical") return "technical";
-    if (normalized === "behavioral" || normalized === "behavioural") return "behavioral";
-    if (normalized === "mixed") return "mixed";
-    return "mixed"; // Default fallback
-  };
-
-  const interviewType = normalizeInterviewType(interview.type);
+  const planInfo = getPlanDisplayInfo(subscription);
+  const interviewsUsed = usage?.interviewsUsed || 0;
+  const interviewsLimit = planInfo.isUnlimited ? -1 : 2;
+  const remainingSessionsCount = planInfo.isUnlimited
+    ? -1
+    : Math.max(0, interviewsLimit - interviewsUsed);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -108,18 +187,43 @@ const InterviewDetailsClient = ({
         });
         streamRef.current = null;
       }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
     };
   }, [currentView]);
 
   useEffect(() => {
     const checkDevices = async () => {
       try {
-        setDeviceStatus(prev => ({ ...prev, microphone: "checking" }));
-        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        setDeviceStatus(prev => ({ ...prev, microphone: "ready" }));
-        audioStream.getTracks().forEach(track => track.stop());
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: true, 
+          audio: true 
+        });
+        
+        stream.getTracks().forEach(track => track.stop());
 
+        const deviceList = await navigator.mediaDevices.enumerateDevices();
+        const audioInputs = deviceList.filter(d => d.kind === 'audioinput');
+        const videoInputs = deviceList.filter(d => d.kind === 'videoinput');
+        const audioOutputs = deviceList.filter(d => d.kind === 'audiooutput');
+
+        setDevices({ audioInputs, videoInputs, audioOutputs });
+
+        if (audioInputs.length > 0 && !selectedDevices.audioInput) {
+          setSelectedDevices(prev => ({ ...prev, audioInput: audioInputs[0].deviceId }));
+        }
+        if (videoInputs.length > 0 && !selectedDevices.videoInput) {
+          setSelectedDevices(prev => ({ ...prev, videoInput: videoInputs[0].deviceId }));
+        }
+        if (audioOutputs.length > 0 && !selectedDevices.audioOutput) {
+          setSelectedDevices(prev => ({ ...prev, audioOutput: audioOutputs[0].deviceId }));
+        }
+
+        setDeviceStatus(prev => ({ ...prev, microphone: "ready" }));
         setDeviceStatus(prev => ({ ...prev, camera: "checking" }));
+        
         await startVideoStream();
         setDeviceStatus(prev => ({ ...prev, camera: "ready" }));
 
@@ -147,6 +251,7 @@ const InterviewDetailsClient = ({
     if (currentView === "waiting") {
       checkDevices();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentView]);
 
   const startVideoStream = async () => {
@@ -155,10 +260,14 @@ const InterviewDetailsClient = ({
         streamRef.current.getTracks().forEach(track => track.stop());
       }
 
-      const videoStream = await navigator.mediaDevices.getUserMedia({
-        video: true,
+      const constraints: MediaStreamConstraints = {
+        video: selectedDevices.videoInput 
+          ? { deviceId: { exact: selectedDevices.videoInput } }
+          : true,
         audio: false
-      });
+      };
+
+      const videoStream = await navigator.mediaDevices.getUserMedia(constraints);
 
       streamRef.current = videoStream;
 
@@ -195,6 +304,40 @@ const InterviewDetailsClient = ({
       } catch (error) {
         console.error("Failed to restart video:", error);
         setDeviceStatus(prev => ({ ...prev, camera: "error" }));
+      }
+    }
+  };
+
+  const toggleSpeaker = () => {
+    setIsSpeakerOn(!isSpeakerOn);
+  };
+
+  // ✅ Fix: Accept RefObject<HTMLButtonElement | null> to match useRef's strict mode return type
+  const updateDropdownPosition = (
+    type: 'camera' | 'mic' | 'speaker',
+    ref: React.RefObject<HTMLButtonElement | null>
+  ) => {
+    if (ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      setDropdownPositions(prev => ({
+        ...prev,
+        [type]: {
+          top: rect.bottom + 8,
+          left: rect.left,
+          width: rect.width
+        }
+      }));
+    }
+  };
+
+  const handleDeviceChange = async (type: 'audioInput' | 'videoInput' | 'audioOutput', deviceId: string) => {
+    setSelectedDevices(prev => ({ ...prev, [type]: deviceId }));
+
+    if (type === 'videoInput' && isVideoOn) {
+      try {
+        await startVideoStream();
+      } catch (error) {
+        console.error("Failed to change video device:", error);
       }
     }
   };
@@ -345,23 +488,23 @@ const InterviewDetailsClient = ({
 
   if (currentView === "interview") {
     return (
-      <FullScreenInterviewPanel
-        interviewId={interviewId}
-        userName={userName}
-        userId={userId}
-        interviewRole={interview.role}
-        interviewType={interviewType}
-        questions={interview.questions}
-        feedbackId={feedbackId}
-        type={type}
-        onExit={handleExitInterview}
-      />
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="text-white text-center">
+          <p className="text-xl mb-4">Interview Panel Component</p>
+          <button
+            onClick={handleExitInterview}
+            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg"
+          >
+            Exit Interview
+          </button>
+        </div>
+      </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-slate-950">
-      {/* Navigation - Dark Mode */}
+      {/* Navigation */}
       <div className="bg-slate-900/95 backdrop-blur-xl border-b border-slate-800">
         <div className="px-4 sm:px-6 py-2.5 sm:py-3">
           <div className="flex items-center justify-between">
@@ -373,11 +516,152 @@ const InterviewDetailsClient = ({
               <span className="text-slate-300 truncate">Waiting Room</span>
             </div>
 
-            <div className="text-xs sm:text-sm text-slate-500">
-              {currentTime.toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+            <div className="flex items-center gap-2 sm:gap-3">
+              {/* Plan Badge Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowPlanDropdown(!showPlanDropdown)}
+                  className={`px-2.5 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-lg border transition-all ${
+                    planInfo.color === 'blue' 
+                      ? 'bg-blue-500/10 border-blue-500/20 hover:bg-blue-500/20'
+                      : planInfo.color === 'purple'
+                      ? 'bg-purple-500/10 border-purple-500/20 hover:bg-purple-500/20'
+                      : 'bg-slate-500/10 border-slate-500/20 hover:bg-slate-500/20'
+                  } flex-shrink-0`}
+                >
+                  <div className={`flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium ${
+                    planInfo.color === 'blue'
+                      ? 'text-blue-400'
+                      : planInfo.color === 'purple'
+                      ? 'text-purple-400'
+                      : 'text-slate-400'
+                  }`}>
+                    <Shield className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                    <span className="hidden xs:inline">{planInfo.name}</span>
+                    <span className="xs:hidden">{planInfo.name === "Pro Trial" ? "Pro" : planInfo.name.split(" ")[0]}</span>
+                    {!planInfo.isUnlimited && (
+                      <>
+                        <span className="hidden sm:inline opacity-70">•</span>
+                        <span className="font-semibold">{remainingSessionsCount}</span>
+                        <span className="hidden sm:inline opacity-70">left</span>
+                      </>
+                    )}
+                    {planInfo.isUnlimited && (
+                      <span className="hidden sm:inline opacity-70">• Unlimited</span>
+                    )}
+                    <svg 
+                      className={`w-4 h-4 transition-transform ${showPlanDropdown ? 'rotate-180' : ''}`} 
+                      fill="none" 
+                      viewBox="0 0 24 24" 
+                      stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </button>
+
+                {showPlanDropdown && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-40" 
+                      onClick={() => setShowPlanDropdown(false)}
+                    />
+                    <div className="absolute right-0 mt-2 w-72 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl z-50 overflow-hidden">
+                      <div className="p-4 border-b border-slate-800/50">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs text-slate-500 uppercase tracking-wider">Current Plan</span>
+                          {planInfo.isUnlimited && (
+                            <span className="px-2 py-0.5 bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/30 rounded-full text-xs text-blue-400 font-medium">
+                              Active
+                            </span>
+                          )}
+                        </div>
+                        <div className={`text-lg font-semibold ${
+                          planInfo.color === 'blue'
+                            ? 'text-blue-400'
+                            : planInfo.color === 'purple'
+                            ? 'text-purple-400'
+                            : 'text-slate-400'
+                        }`}>
+                          {planInfo.name}
+                        </div>
+                        {!planInfo.isUnlimited && (
+                          <div className="mt-2 text-sm text-slate-400">
+                            <span className="font-semibold text-white">{remainingSessionsCount}</span> of {interviewsLimit} sessions remaining
+                          </div>
+                        )}
+                        {planInfo.isUnlimited && (
+                          <div className="mt-2 text-sm text-slate-400">
+                            Unlimited interview sessions
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="p-2">
+                        {!planInfo.isUnlimited && (
+                          <Link
+                            href="/subscription"
+                            onClick={() => setShowPlanDropdown(false)}
+                            className="flex items-center justify-between px-4 py-3 rounded-lg hover:bg-slate-800/50 transition-all group"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+                                <Crown className="w-4 h-4 text-white" />
+                              </div>
+                              <div>
+                                <div className="text-sm font-medium text-white">Upgrade to Pro</div>
+                                <div className="text-xs text-slate-500">Unlimited everything</div>
+                              </div>
+                            </div>
+                            <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-white transition-colors" />
+                          </Link>
+                        )}
+
+                        <Link
+                          href="/profile"
+                          onClick={() => setShowPlanDropdown(false)}
+                          className="flex items-center justify-between px-4 py-3 rounded-lg hover:bg-slate-800/50 transition-all group"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-slate-800/50 rounded-lg flex items-center justify-center">
+                              <Users className="w-4 h-4 text-slate-400" />
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium text-white">View Profile</div>
+                              <div className="text-xs text-slate-500">Manage your account</div>
+                            </div>
+                          </div>
+                          <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-white transition-colors" />
+                        </Link>
+
+                        <Link
+                          href="/subscription"
+                          onClick={() => setShowPlanDropdown(false)}
+                          className="flex items-center justify-between px-4 py-3 rounded-lg hover:bg-slate-800/50 transition-all group"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-slate-800/50 rounded-lg flex items-center justify-center">
+                              <Shield className="w-4 h-4 text-slate-400" />
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium text-white">Billing & Plans</div>
+                              <div className="text-xs text-slate-500">Manage subscription</div>
+                            </div>
+                          </div>
+                          <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-white transition-colors" />
+                        </Link>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="text-xs sm:text-sm text-slate-500 hidden sm:block">
+                {currentTime.toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </div>
             </div>
           </div>
         </div>
@@ -385,7 +669,7 @@ const InterviewDetailsClient = ({
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6 md:py-8">
         <div className="grid lg:grid-cols-3 gap-4 sm:gap-6">
-          {/* Main Panel - Dark Mode */}
+          {/* Main Panel */}
           <div className="lg:col-span-2 space-y-4 sm:space-y-6">
             {/* Header */}
             <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800 hover:border-slate-700 transition-all duration-300">
@@ -430,7 +714,7 @@ const InterviewDetailsClient = ({
               </div>
             </div>
 
-            {/* Video Preview - Dark Mode */}
+            {/* Video Preview */}
             <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800">
               <div className="p-4 sm:p-6">
                 <h3 className="text-white font-medium mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
@@ -439,30 +723,36 @@ const InterviewDetailsClient = ({
                 </h3>
 
                 <div className="relative aspect-video bg-slate-950 rounded-lg overflow-hidden border border-slate-800">
-                  {isVideoOn && deviceStatus.camera === "ready" ? (
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      muted
-                      playsInline
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex items-center justify-center h-full">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    muted
+                    playsInline
+                    className={`w-full h-full object-cover scale-x-[-1] ${!isVideoOn || deviceStatus.camera !== "ready" ? 'hidden' : ''}`}
+                  />
+                  
+                  {(!isVideoOn || deviceStatus.camera !== "ready") && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-slate-950">
                       <div className="text-center">
                         <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
                           <span className="text-white text-xl sm:text-2xl font-semibold">
                             {userName?.charAt(0)?.toUpperCase() || "C"}
                           </span>
                         </div>
-                        <p className="text-slate-500 text-sm sm:text-base">
-                          {!isVideoOn ? "Camera is off" : "Camera not available"}
+                        <p className="text-slate-400 text-sm sm:text-base">
+                          {deviceStatus.camera === "denied" 
+                            ? "Camera access denied" 
+                            : deviceStatus.camera === "error"
+                            ? "Camera error"
+                            : !isVideoOn 
+                            ? "Camera is off" 
+                            : "Camera not available"}
                         </p>
                       </div>
                     </div>
                   )}
 
-                  {/* Controls - Dark Mode */}
+                  {/* Controls */}
                   <div className="absolute bottom-3 sm:bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2 sm:gap-3">
                     <button
                       onClick={toggleVideo}
@@ -487,7 +777,7 @@ const InterviewDetailsClient = ({
                     </button>
 
                     <button
-                      onClick={() => setIsSpeakerOn(!isSpeakerOn)}
+                      onClick={toggleSpeaker}
                       className={`p-2 sm:p-2.5 md:p-3 rounded-full transition-all backdrop-blur-sm ${
                         isSpeakerOn
                           ? 'bg-slate-800/90 hover:bg-slate-700/90 text-white'
@@ -506,7 +796,7 @@ const InterviewDetailsClient = ({
                   </div>
                 </div>
 
-                {/* Device Status - Dark Mode */}
+                {/* Device Status */}
                 <div className="mt-3 sm:mt-4 grid grid-cols-3 gap-2 sm:gap-3 md:gap-4">
                   <div className="bg-slate-800/60 backdrop-blur-xl rounded-xl p-2.5 sm:p-3 border border-slate-700">
                     <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
@@ -533,7 +823,7 @@ const InterviewDetailsClient = ({
                   </div>
                 </div>
 
-                {/* Join Button - Dark Mode */}
+                {/* Join Button */}
                 <div className="mt-4 sm:mt-6">
                   <button
                     onClick={handleJoinInterview}
@@ -561,7 +851,7 @@ const InterviewDetailsClient = ({
             </div>
           </div>
 
-          {/* Sidebar - Dark Mode */}
+          {/* Sidebar */}
           <div className="space-y-4 sm:space-y-6">
             {/* Interview Panel */}
             <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800">
@@ -600,7 +890,7 @@ const InterviewDetailsClient = ({
               </div>
             </div>
 
-            {/* Tips - Dark Mode */}
+            {/* Tips */}
             <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800">
               <div className="p-4 sm:p-6">
                 <h3 className="text-white font-medium mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
@@ -625,7 +915,7 @@ const InterviewDetailsClient = ({
               </div>
             </div>
 
-            {/* Session Info - Dark Mode */}
+            {/* Session Info */}
             <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800">
               <div className="p-4 sm:p-6">
                 <h3 className="text-white font-medium mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
@@ -660,6 +950,276 @@ const InterviewDetailsClient = ({
           </div>
         </div>
       </div>
+
+      {/* Device Settings Modal */}
+      {showDeviceSettings && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+          onClick={() => {
+            setShowDeviceSettings(false);
+            setShowCameraDropdown(false);
+            setShowMicDropdown(false);
+            setShowSpeakerDropdown(false);
+          }}
+        >
+          <div 
+            className="bg-slate-900/95 backdrop-blur-xl rounded-2xl border border-slate-800 max-w-lg w-full shadow-2xl flex flex-col max-h-[90vh] relative z-[70]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 border-b border-slate-800/50 flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <Settings className="w-5 h-5 text-blue-400" />
+                  Device Settings
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowDeviceSettings(false);
+                    setShowCameraDropdown(false);
+                    setShowMicDropdown(false);
+                    setShowSpeakerDropdown(false);
+                  }}
+                  className="text-slate-400 hover:text-white transition-colors p-1 hover:bg-slate-800/50 rounded-lg"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-6 overflow-visible flex-1">
+              {/* Camera Selection */}
+              <div className="relative z-30">
+                <label className="block text-sm font-medium text-white mb-2.5">
+                  Camera
+                </label>
+                <button
+                  ref={cameraButtonRef}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    updateDropdownPosition('camera', cameraButtonRef);
+                    setShowCameraDropdown(!showCameraDropdown);
+                    setShowMicDropdown(false);
+                    setShowSpeakerDropdown(false);
+                  }}
+                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white text-sm text-left focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all flex items-center justify-between hover:bg-slate-800/70"
+                >
+                  <span className="truncate">
+                    {devices.videoInputs.find(d => d.deviceId === selectedDevices.videoInput)?.label || 'Camera 1'}
+                  </span>
+                  <svg 
+                    className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 ml-2 ${showCameraDropdown ? 'rotate-180' : ''}`}
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Microphone Selection */}
+              <div className="relative z-20">
+                <label className="block text-sm font-medium text-white mb-2.5">
+                  Microphone
+                </label>
+                <button
+                  ref={micButtonRef}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    updateDropdownPosition('mic', micButtonRef);
+                    setShowMicDropdown(!showMicDropdown);
+                    setShowCameraDropdown(false);
+                    setShowSpeakerDropdown(false);
+                  }}
+                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white text-sm text-left focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all flex items-center justify-between hover:bg-slate-800/70"
+                >
+                  <span className="truncate">
+                    {devices.audioInputs.find(d => d.deviceId === selectedDevices.audioInput)?.label || 'Microphone 1'}
+                  </span>
+                  <svg 
+                    className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 ml-2 ${showMicDropdown ? 'rotate-180' : ''}`}
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Speaker Selection */}
+              <div className="relative z-10">
+                <label className="block text-sm font-medium text-white mb-2.5">
+                  Speaker
+                </label>
+                <button
+                  ref={speakerButtonRef}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    updateDropdownPosition('speaker', speakerButtonRef);
+                    setShowSpeakerDropdown(!showSpeakerDropdown);
+                    setShowCameraDropdown(false);
+                    setShowMicDropdown(false);
+                  }}
+                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white text-sm text-left focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all flex items-center justify-between hover:bg-slate-800/70"
+                >
+                  <span className="truncate">
+                    {devices.audioOutputs.find(d => d.deviceId === selectedDevices.audioOutput)?.label || 'Speaker 1'}
+                  </span>
+                  <svg 
+                    className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 ml-2 ${showSpeakerDropdown ? 'rotate-180' : ''}`}
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-slate-800/50 flex-shrink-0">
+              <button
+                onClick={() => {
+                  setShowDeviceSettings(false);
+                  setShowCameraDropdown(false);
+                  setShowMicDropdown(false);
+                  setShowSpeakerDropdown(false);
+                }}
+                className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-medium transition-all shadow-lg hover:shadow-xl"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dropdowns rendered at root level - outside modal */}
+      {showDeviceSettings && showCameraDropdown && (
+        <div 
+          className="fixed inset-0 z-[100]" 
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowCameraDropdown(false);
+          }}
+        >
+          <div 
+            className="absolute bg-slate-900/98 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl overflow-hidden"
+            style={{
+              top: `${dropdownPositions.camera.top}px`,
+              left: `${dropdownPositions.camera.left}px`,
+              width: `${dropdownPositions.camera.width}px`,
+              maxHeight: '15rem'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="overflow-y-auto max-h-60">
+              {devices.videoInputs.map((device, index) => (
+                <button
+                  key={device.deviceId}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeviceChange('videoInput', device.deviceId);
+                    setShowCameraDropdown(false);
+                  }}
+                  className={`w-full px-4 py-3 text-left text-sm transition-all ${
+                    selectedDevices.videoInput === device.deviceId
+                      ? 'bg-blue-500/20 text-blue-400 font-medium'
+                      : 'text-white hover:bg-slate-800/50'
+                  }`}
+                >
+                  {device.label || `Camera ${index + 1}`}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeviceSettings && showMicDropdown && (
+        <div 
+          className="fixed inset-0 z-[100]" 
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowMicDropdown(false);
+          }}
+        >
+          <div 
+            className="absolute bg-slate-900/98 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl overflow-hidden"
+            style={{
+              top: `${dropdownPositions.mic.top}px`,
+              left: `${dropdownPositions.mic.left}px`,
+              width: `${dropdownPositions.mic.width}px`,
+              maxHeight: '15rem'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="overflow-y-auto max-h-60">
+              {devices.audioInputs.map((device, index) => (
+                <button
+                  key={device.deviceId}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeviceChange('audioInput', device.deviceId);
+                    setShowMicDropdown(false);
+                  }}
+                  className={`w-full px-4 py-3 text-left text-sm transition-all ${
+                    selectedDevices.audioInput === device.deviceId
+                      ? 'bg-blue-500/20 text-blue-400 font-medium'
+                      : 'text-white hover:bg-slate-800/50'
+                  }`}
+                >
+                  {device.label || `Microphone ${index + 1}`}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeviceSettings && showSpeakerDropdown && (
+        <div 
+          className="fixed inset-0 z-[100]" 
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowSpeakerDropdown(false);
+          }}
+        >
+          <div 
+            className="absolute bg-slate-900/98 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl overflow-hidden"
+            style={{
+              top: `${dropdownPositions.speaker.top}px`,
+              left: `${dropdownPositions.speaker.left}px`,
+              width: `${dropdownPositions.speaker.width}px`,
+              maxHeight: '15rem'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="overflow-y-auto max-h-60">
+              {devices.audioOutputs.map((device, index) => (
+                <button
+                  key={device.deviceId}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeviceChange('audioOutput', device.deviceId);
+                    setShowSpeakerDropdown(false);
+                  }}
+                  className={`w-full px-4 py-3 text-left text-sm transition-all ${
+                    selectedDevices.audioOutput === device.deviceId
+                      ? 'bg-blue-500/20 text-blue-400 font-medium'
+                      : 'text-white hover:bg-slate-800/50'
+                  }`}
+                >
+                  {device.label || `Speaker ${index + 1}`}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

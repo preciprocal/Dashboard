@@ -282,7 +282,7 @@ export default async function RootLayout({
   console.log(`✅ Layout data loaded in ${totalTime}ms (stats from cache: ${statsFromCache})`);
 
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="dark" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`} suppressHydrationWarning>
         <LayoutClient user={user} userStats={userStats}>
           {children}

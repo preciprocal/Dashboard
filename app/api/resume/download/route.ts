@@ -70,7 +70,14 @@ export async function POST(request: NextRequest) {
 
         const page = await browser.newPage();
 
-        // Create HTML with TIGHT spacing matching your original resume
+        // Set viewport to match Letter size at 96 DPI
+        await page.setViewport({
+          width: 816,  // 8.5 inches * 96 DPI
+          height: 1056, // 11 inches * 96 DPI
+          deviceScaleFactor: 2
+        });
+
+        // CRITICAL: Minimal CSS - preserve exact HTML structure and inline styles
         const fullHtml = `
 <!DOCTYPE html>
 <html>
@@ -82,114 +89,62 @@ export async function POST(request: NextRequest) {
       margin: 0.5in 0.6in;
     }
     
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    
     body {
-      font-family: 'Calibri', 'Arial', sans-serif;
-      font-size: 9pt;
-      line-height: 1.3;
+      font-family: Calibri, Arial, sans-serif;
+      font-size: 10pt;
       color: #000000;
-      background: white;
-    }
-    
-    /* Remove ALL default margins */
-    h1, h2, h3, h4, h5, h6, p, ul, ol, li, div {
+      background: #ffffff;
       margin: 0;
       padding: 0;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
     
-    /* Tight heading styles */
-    h1 {
-      font-size: 18pt;
-      font-weight: 700;
-      margin-bottom: 4pt;
-      color: #000000;
+    /* Only override editor-specific classes */
+    .highlighted-line {
+      background: transparent !important;
+      border-left: none !important;
+      padding-left: 0 !important;
+      margin-left: 0 !important;
+      animation: none !important;
     }
     
-    h2 {
-      font-size: 11pt;
-      font-weight: 700;
-      text-transform: uppercase;
-      margin-top: 8pt;
-      margin-bottom: 4pt;
-      padding-bottom: 2pt;
-      color: #000000;
-      border-bottom: 1.5pt solid #000000;
+    [id^="line-"] {
+      background: transparent !important;
+      border: none !important;
     }
     
-    h3 {
-      font-size: 9pt;
-      font-weight: 600;
-      margin-top: 4pt;
-      margin-bottom: 2pt;
-      color: #000000;
+    /* Ensure links are clickable and blue */
+    a {
+      color: #0066cc !important;
+      text-decoration: underline !important;
     }
     
-    /* Minimal paragraph spacing */
-    p {
-      margin: 2pt 0;
-      color: #000000;
-      line-height: 1.3;
+    a[href^="mailto:"],
+    a[href^="tel:"],
+    a[href^="http"] {
+      color: #0066cc !important;
+      text-decoration: underline !important;
     }
     
-    /* Tight list spacing */
-    ul, ol {
-      margin: 2pt 0;
-      padding-left: 18pt;
-      color: #000000;
+    /* Ensure text is black */
+    body, p, div, span, li, h1, h2, h3, h4, h5, h6, strong, b, em, i, u {
+      color: #000000 !important;
     }
     
-    li {
-      margin: 1pt 0;
-      padding-left: 2pt;
-      color: #000000;
-      line-height: 1.3;
+    a {
+      color: #0066cc !important;
     }
     
-    /* Text formatting */
-    strong, b {
-      font-weight: 700;
-      color: #000000;
-    }
-    
-    em, i {
-      font-style: italic;
-      color: #000000;
-    }
-    
-    u {
-      text-decoration: underline;
-      color: #000000;
-    }
-    
-    /* Ensure all text is black with no extra spacing */
-    div {
-      color: #000000;
-      margin: 0;
-      padding: 0;
-    }
-    
-    /* Remove spacing between consecutive elements */
-    * + * {
-      margin-top: 0;
-    }
-    
-    /* First element has no top margin */
-    *:first-child {
-      margin-top: 0 !important;
-    }
-    
-    /* Override any inline styles that add spacing */
-    [style*="margin"] {
-      margin: 0 !important;
-    }
-    
-    [style*="padding"] {
-      padding: 0 !important;
+    @media print {
+      body {
+        background: white;
+      }
+      
+      a {
+        color: #0066cc !important;
+        text-decoration: underline !important;
+      }
     }
   </style>
 </head>
@@ -203,7 +158,10 @@ export async function POST(request: NextRequest) {
           timeout: 30000
         });
 
-        // Generate PDF with tight margins
+        // Wait for fonts to load
+        await page.evaluateHandle('document.fonts.ready');
+
+        // Generate PDF with exact Letter size
         const pdfBuffer = await page.pdf({
           format: 'Letter',
           printBackground: true,
@@ -214,7 +172,9 @@ export async function POST(request: NextRequest) {
             left: '0.6in'
           },
           preferCSSPageSize: true,
-          scale: 1
+          displayHeaderFooter: false,
+          scale: 1,
+          omitBackground: false
         });
 
         await browser.close();
@@ -240,7 +200,7 @@ export async function POST(request: NextRequest) {
     // ==================== GENERATE DOCX ====================
     if (format === 'docx') {
       try {
-        // Create HTML with tight spacing for Word
+        // Minimal HTML for Word - preserve structure
         const fullHtml = `
 <!DOCTYPE html>
 <html xmlns:o='urn:schemas-microsoft-com:office:office' 
@@ -252,90 +212,64 @@ export async function POST(request: NextRequest) {
     <w:WordDocument>
       <w:View>Print</w:View>
       <w:Zoom>100</w:Zoom>
+      <w:DoNotOptimizeForBrowser/>
     </w:WordDocument>
   </xml>
   <style>
-    @page {
+    @page Section1 {
       size: 8.5in 11in;
-      margin: 0.5in 0.6in;
+      margin: 0.5in 0.6in 0.5in 0.6in;
+      mso-header-margin: 0.5in;
+      mso-footer-margin: 0.5in;
+      mso-paper-source: 0;
+    }
+    
+    div.Section1 {
+      page: Section1;
     }
     
     body {
-      font-family: 'Calibri', 'Arial', sans-serif;
-      font-size: 9pt;
-      line-height: 1.3;
+      font-family: Calibri, Arial, sans-serif;
+      font-size: 10pt;
       color: #000000;
-    }
-    
-    h1, h2, h3, h4, h5, h6, p, ul, ol, li, div {
       margin: 0;
       padding: 0;
     }
     
-    h1 {
-      font-size: 18pt;
-      font-weight: 700;
-      margin-bottom: 4pt;
-      color: #000000;
+    /* Remove editor highlighting */
+    .highlighted-line {
+      background: transparent;
+      border-left: none;
+      padding-left: 0;
+      margin-left: 0;
     }
     
-    h2 {
-      font-size: 11pt;
-      font-weight: 700;
-      text-transform: uppercase;
-      margin-top: 8pt;
-      margin-bottom: 4pt;
-      padding-bottom: 2pt;
-      color: #000000;
-      border-bottom: 1.5pt solid #000000;
+    [id^="line-"] {
+      background: transparent;
+      border: none;
     }
     
-    h3 {
-      font-size: 9pt;
-      font-weight: 600;
-      margin-top: 4pt;
-      margin-bottom: 2pt;
-      color: #000000;
-    }
-    
-    p {
-      margin: 2pt 0;
-      color: #000000;
-      line-height: 1.3;
-    }
-    
-    ul, ol {
-      margin: 2pt 0;
-      padding-left: 18pt;
-    }
-    
-    li {
-      margin: 1pt 0;
-      padding-left: 2pt;
-      color: #000000;
-      line-height: 1.3;
-    }
-    
-    strong, b {
-      font-weight: 700;
-    }
-    
-    em, i {
-      font-style: italic;
-    }
-    
-    u {
+    /* Ensure links are blue and clickable */
+    a {
+      color: #0066cc;
       text-decoration: underline;
     }
     
-    div {
-      margin: 0;
-      padding: 0;
+    a:link, a:visited {
+      color: #0066cc;
+      text-decoration: underline;
+    }
+    
+    /* Ensure text is black except links */
+    body, p, div, span, li, h1, h2, h3, h4, h5, h6, strong, b, em, i, u {
+      color: #000000;
     }
   </style>
 </head>
 <body>
+<div class="Section1">
   ${htmlContent}
+</div>
 </body>
 </html>`;
 

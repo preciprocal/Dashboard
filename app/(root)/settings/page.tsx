@@ -1,781 +1,1190 @@
-// app/settings/page.tsx
+// app/(root)/settings/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
+import {
+  updateEmail,
+  updatePassword,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+} from 'firebase/auth';
 import { auth } from '@/firebase/client';
 import { toast } from 'sonner';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
+import ExtensionConnection from '@/components/ExtensionConnection';
 import {
-  Settings,
   Bell,
+  User,
   Shield,
-  Eye,
-  Globe,
-  Database,
-  Key,
-  Mail,
-  Moon,
-  Sun,
-  Monitor,
-  Download,
-  Trash2,
-  AlertCircle,
+  CreditCard,
+  Chrome,
   ArrowLeft,
-  Save,
-  RotateCcw,
-  Loader2
+  Loader2,
+  AlertTriangle,
+  Check,
+  Eye,
+  EyeOff,
+  Trash2,
+  Mail,
+  Lock,
+  Zap,
+  Star,
+  AlertCircle,
+  RefreshCw,
+  ExternalLink,
+  Building2,
+  Link2,
 } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface NotificationSettings {
+  email: boolean;
+  interviewReminders: boolean;
+  systemUpdates: boolean;
+}
 
 interface AppSettings {
-  notifications: {
-    email: boolean;
-    push: boolean;
-    interviewReminders: boolean;
-    weeklyDigest: boolean;
-    aiRecommendations: boolean;
-    systemUpdates: boolean;
-  };
-  privacy: {
-    shareAnalytics: boolean;
-    allowDataCollection: boolean;
-  };
-  appearance: {
-    theme: 'light' | 'dark' | 'system';
-    language: string;
-    fontSize: 'small' | 'medium' | 'large';
-    reducedMotion: boolean;
-  };
-  preferences: {
-    autoSave: boolean;
-    soundEffects: boolean;
-    defaultInterviewType: 'technical' | 'behavioral' | 'mixed';
-    practiceReminders: boolean;
-    emailFrequency: 'realtime' | 'daily' | 'weekly' | 'never';
-  };
+  notifications: NotificationSettings;
 }
 
 const defaultSettings: AppSettings = {
-  notifications: {
-    email: true,
-    push: true,
-    interviewReminders: true,
-    weeklyDigest: true,
-    aiRecommendations: true,
-    systemUpdates: true,
-  },
-  privacy: {
-    shareAnalytics: false,
-    allowDataCollection: true,
-  },
-  appearance: {
-    theme: 'dark',
-    language: 'en',
-    fontSize: 'medium',
-    reducedMotion: false,
-  },
-  preferences: {
-    autoSave: true,
-    soundEffects: true,
-    defaultInterviewType: 'mixed',
-    practiceReminders: true,
-    emailFrequency: 'daily',
-  },
+  notifications: { email: true, interviewReminders: true, systemUpdates: true },
 };
+
+interface PlanInfo {
+  name: string;
+  tier: 'free' | 'pro' | 'enterprise';
+  interviewsUsed: number;
+  interviewsLimit: number;
+  resumesUsed: number;
+  resumesLimit: number;
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function SectionCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800 overflow-hidden ${className}`}>
+      {children}
+    </div>
+  );
+}
+
+function SectionHeader({
+  icon: Icon,
+  iconColor,
+  iconBg,
+  title,
+  subtitle,
+}: {
+  icon: React.ElementType;
+  iconColor: string;
+  iconBg: string;
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <div className="px-5 py-4 border-b border-slate-800/80 flex items-center gap-3">
+      <div className={`w-9 h-9 rounded-lg flex items-center justify-center border ${iconBg}`}>
+        <Icon className={`h-4 w-4 ${iconColor}`} />
+      </div>
+      <div>
+        <h3 className="text-base font-semibold text-white">{title}</h3>
+        <p className="text-slate-500 text-sm">{subtitle}</p>
+      </div>
+    </div>
+  );
+}
+
+function Toggle({
+  checked,
+  onChange,
+  disabled,
+  color = 'emerald',
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+  color?: string;
+}) {
+  const colorMap: Record<string, string> = {
+    emerald: 'peer-checked:bg-emerald-600',
+    blue: 'peer-checked:bg-blue-600',
+    purple: 'peer-checked:bg-purple-600',
+  };
+  return (
+    <label className="relative inline-flex items-center cursor-pointer">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        disabled={disabled}
+        className="sr-only peer"
+      />
+      <div
+        className={`w-10 h-5 bg-slate-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-disabled:opacity-50 ${colorMap[color] ?? colorMap.emerald}`}
+      />
+    </label>
+  );
+}
+
+// ─── Billing: newsletter signup block (self-contained with own state) ─────────
+
+function BillingNewsletterBlock() {
+  const [user] = useAuthState(auth);
+  const [email, setEmail] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    if (!user?.email) { setChecking(false); return; }
+    setEmail(user.email);
+    (async () => {
+      try {
+        const res = await fetch('/api/newsletter/check-subscription', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: user.email }),
+        });
+        const data = await res.json();
+        if (data.subscribed) setIsSubscribed(true);
+      } catch { /* non-critical */ }
+      setChecking(false);
+    })();
+  }, [user]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setIsSubmitting(true);
+    setSubmitStatus('idle');
+    try {
+      const res = await fetch('/api/newsletter/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to subscribe');
+      setSubmitStatus('success');
+      setIsSubscribed(true);
+      setTimeout(() => setSubmitStatus('idle'), 5000);
+    } catch (err) {
+      setSubmitStatus('error');
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to subscribe. Please try again.');
+      setTimeout(() => { setSubmitStatus('idle'); setErrorMessage(''); }, 5000);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (checking) {
+    return (
+      <div className="p-5 flex items-center justify-center gap-2 text-slate-500 text-sm">
+        <Loader2 className="w-4 h-4 animate-spin" />
+        Checking subscription…
+      </div>
+    );
+  }
+
+  if (isSubscribed) {
+    return (
+      <div className="p-5 flex flex-col items-center gap-3 text-center">
+        <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+          <Check className="w-5 h-5 text-emerald-400" />
+        </div>
+        <div>
+          <p className="text-white text-sm font-medium">You&apos;re on the list!</p>
+          <p className="text-slate-500 text-sm mt-0.5">We&apos;ll notify you at <span className="text-slate-300">{email}</span> when premium plans launch.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-5 space-y-3">
+      <p className="text-sm text-slate-400 text-center">Get notified when we launch — no spam, ever.</p>
+      <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2.5">
+        <input
+          type="email"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          placeholder="your@email.com"
+          required
+          disabled={isSubmitting || submitStatus === 'success'}
+          className="flex-1 px-3.5 py-2.5 bg-slate-800/60 border border-slate-700 rounded-xl text-white text-sm placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-blue-500/50 focus:border-blue-500/50 disabled:opacity-50 transition-all"
+        />
+        <button
+          type="submit"
+          disabled={isSubmitting || submitStatus === 'success'}
+          className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-all whitespace-nowrap"
+        >
+          {isSubmitting ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Subscribing…</>
+            : submitStatus === 'success' ? <><Check className="w-3.5 h-3.5" />Subscribed!</>
+            : <><Bell className="w-3.5 h-3.5" />Notify Me</>}
+        </button>
+      </form>
+      {submitStatus === 'success' && (
+        <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+          <Check className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+          <p className="text-emerald-400 text-sm">You&apos;re on the list! We&apos;ll notify you when premium plans launch.</p>
+        </div>
+      )}
+      {submitStatus === 'error' && (
+        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
+          <p className="text-red-400 text-sm">{errorMessage || 'Something went wrong. Please try again.'}</p>
+        </div>
+      )}
+      <p className="text-center text-slate-600 text-xs">No credit card required. Unsubscribe anytime.</p>
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
   const [user, loading] = useAuthState(auth);
   const router = useRouter();
-  const [activeSection, setActiveSection] = useState('notifications');
-  const [isSaving, setSaving] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isExporting, setIsExporting] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
-  const [settings, setSettings] = useState<AppSettings>(defaultSettings);
-  const [originalSettings, setOriginalSettings] = useState<AppSettings>(defaultSettings);
 
+  const [activeSection, setActiveSection] = useState('account');
+  const [pageLoading, setPageLoading] = useState(true);
+  const [savingEmail, setSavingEmail] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [savingNotifKey, setSavingNotifKey] = useState<string | null>(null);
+
+  const [settings, setSettings] = useState<AppSettings>(defaultSettings);
+  const notifTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Email form
+  const [newEmail, setNewEmail] = useState('');
+  const [emailPassword, setEmailPassword] = useState('');
+  const [showEmailPassword, setShowEmailPassword] = useState(false);
+
+  // Password form
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPw, setShowCurrentPw] = useState(false);
+  const [showNewPw, setShowNewPw] = useState(false);
+
+  // ── Usage stats from Firebase ────────────────────────────────────────────────
+  const [plan, setPlan] = useState<PlanInfo>({
+    name: 'Free Plan',
+    tier: 'free',
+    interviewsUsed: 0,
+    interviewsLimit: 5,
+    resumesUsed: 0,
+    resumesLimit: 2,
+  });
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  // ── Auth guard ──────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!loading && !user) {
-      router.push('/sign-in');
-    }
+    if (!loading && !user) router.push('/sign-in');
   }, [loading, user, router]);
 
   useEffect(() => {
     if (user) {
+      setNewEmail(user.email ?? '');
       loadSettings();
+      loadStats();
     }
   }, [user]);
 
+  const loadStats = async () => {
+    if (!user) return;
+    setStatsLoading(true);
+    try {
+      const { FirebaseService } = await import('@/lib/services/firebase-service');
+      const token = await user.getIdToken();
+
+      const [resumes, interviewsRes, userRes] = await Promise.all([
+        FirebaseService.getUserResumes(user.uid).catch(() => []),
+        fetch('/api/interviews', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/api/user', { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+
+      const interviews = interviewsRes.ok ? await interviewsRes.json() : [];
+      const userData   = userRes.ok      ? await userRes.json()       : null;
+
+      const sub      = userData?.subscription;
+      const planKey  = sub?.plan ?? 'free';
+      const tierMap: Record<string, PlanInfo['tier']> = { pro: 'pro', premium: 'enterprise', starter: 'free' };
+      const tier     = tierMap[planKey] ?? 'free';
+      const tierNames: Record<PlanInfo['tier'], string> = {
+        free: 'Free Plan', pro: 'Pro Plan', enterprise: 'Premium Plan',
+      };
+
+      const interviewsLimit = userData?.interviewsLimit ?? (tier === 'free' ? 5 : 999);
+      const resumesLimit    = userData?.resumesLimit    ?? (tier === 'free' ? 2 : 999);
+
+      setPlan({
+        name: tierNames[tier],
+        tier,
+        interviewsUsed:  Array.isArray(interviews) ? interviews.length : (interviews?.data?.length ?? 0),
+        interviewsLimit,
+        resumesUsed:     resumes.length,
+        resumesLimit,
+      });
+    } catch (err) {
+      console.error('Failed to load stats:', err);
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
   const loadSettings = async () => {
     if (!user) return;
-
-    setIsLoading(true);
+    setPageLoading(true);
     try {
       const token = await user.getIdToken();
-      const response = await fetch('/api/settings', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+      const res = await fetch('/api/settings', {
+        headers: { Authorization: `Bearer ${token}` },
       });
-
-      if (response.ok) {
-        const data = await response.json();
+      if (res.ok) {
+        const data = await res.json();
         if (data.settings) {
           setSettings(data.settings);
-          setOriginalSettings(data.settings);
         }
-      } else {
-        console.error('Failed to load settings');
-        toast.error('Failed to load settings');
       }
-    } catch (error) {
-      console.error('Error loading settings:', error);
-      toast.error('Error loading settings');
+    } catch (err) {
+      console.error(err);
     } finally {
-      setIsLoading(false);
+      setPageLoading(false);
     }
   };
 
-  const handleSave = async () => {
-    if (!user) return;
-
-    setSaving(true);
-    try {
-      const token = await user.getIdToken();
-      const response = await fetch('/api/settings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ settings }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setOriginalSettings(data.settings);
-        setHasChanges(false);
-        toast.success('Settings saved successfully!');
-      } else {
-        throw new Error('Failed to save settings');
-      }
-    } catch (error) {
-      console.error('Error saving settings:', error);
-      toast.error('Failed to save settings');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleReset = async () => {
-    if (!confirm('Reset all settings to last saved state? This will discard any unsaved changes.')) {
+  // ── Security: update email ───────────────────────────────────────────────────
+  const handleUpdateEmail = async () => {
+    if (!user || !user.email) return;
+    if (!newEmail.trim() || newEmail === user.email) {
+      toast.info('Enter a different email address');
       return;
     }
-
-    setSettings(originalSettings);
-    setHasChanges(false);
-    toast.info('Settings reset to last saved state');
-  };
-
-  const updateSettings = (section: keyof AppSettings, key: string, value: string | boolean) => {
-    setSettings(prev => ({
-      ...prev,
-      [section]: {
-        ...prev[section],
-        [key]: value
-      }
-    }));
-    setHasChanges(true);
-  };
-
-  const handleExportData = async () => {
-    if (!user) return;
-
-    setIsExporting(true);
-    
-    try {
-      const token = await user.getIdToken();
-      
-      const response = await fetch('/api/settings/export-data', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to submit request');
-      }
-
-      toast.success('Data report requested! You will receive your report via email within 24 hours.', {
-        duration: 5000,
-      });
-    } catch (error) {
-      console.error('Error requesting data export:', error);
-      toast.error('Failed to submit data request. Please try again.');
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const handleDeleteAllData = async () => {
-    if (!user) return;
-
-    const confirmText = 'DELETE';
-    const userInput = prompt(
-      `This will permanently delete ALL your data including interviews, resumes, and plans.\n\nType "${confirmText}" to confirm:`
-    );
-
-    if (userInput !== confirmText) {
-      toast.info('Data deletion cancelled');
+    if (!emailPassword) {
+      toast.error('Enter your current password to confirm');
       return;
     }
-
+    setSavingEmail(true);
     try {
-      toast.loading('Deleting all data...');
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      toast.success('All data would be deleted (API not implemented yet)');
-    } catch (error) {
-      console.error('Error deleting data:', error);
-      toast.error('Failed to delete data');
+      const credential = EmailAuthProvider.credential(user.email, emailPassword);
+      await reauthenticateWithCredential(user, credential);
+      await updateEmail(user, newEmail.trim());
+      toast.success('Email updated — please verify your new address');
+      setEmailPassword('');
+    } catch (err: unknown) {
+      const code = (err as { code?: string }).code;
+      if (code === 'auth/wrong-password') toast.error('Incorrect password');
+      else if (code === 'auth/email-already-in-use') toast.error('Email already in use');
+      else toast.error('Failed to update email');
+    } finally {
+      setSavingEmail(false);
     }
   };
 
-  if (loading || isLoading) {
-    return (
-      <AnimatedLoader
-        isVisible={true}
-        loadingText="Loading settings..."
-        showNavigation={true}
-      />
-    );
-  }
+  // ── Security: update password ────────────────────────────────────────────────
+  const handleUpdatePassword = async () => {
+    if (!user || !user.email) return;
+    if (newPassword.length < 8) {
+      toast.error('New password must be at least 8 characters');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
+    setSavingPassword(true);
+    try {
+      const credential = EmailAuthProvider.credential(user.email, currentPassword);
+      await reauthenticateWithCredential(user, credential);
+      await updatePassword(user, newPassword);
+      toast.success('Password updated successfully');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: unknown) {
+      const code = (err as { code?: string }).code;
+      if (code === 'auth/wrong-password') toast.error('Current password is incorrect');
+      else toast.error('Failed to update password');
+    } finally {
+      setSavingPassword(false);
+    }
+  };
 
-  if (!user) {
-    return null;
+  // ── Notifications: auto-save ─────────────────────────────────────────────────
+  const toggleNotification = useCallback(
+    async (key: keyof NotificationSettings, value: boolean) => {
+      if (!user) return;
+      const applyUpdate = (prev: AppSettings): AppSettings => ({
+        ...prev,
+        notifications: { ...prev.notifications, [key]: value },
+      });
+      setSettings(applyUpdate);
+      if (notifTimer.current) clearTimeout(notifTimer.current);
+      setSavingNotifKey(key);
+      notifTimer.current = setTimeout(async () => {
+        try {
+          const token = await user.getIdToken();
+          setSettings(prev => {
+            const next = applyUpdate(prev);
+            (async () => {
+              const res = await fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ settings: next }),
+              });
+              if (res.ok) {
+                toast.success('Saved', { duration: 1200 });
+              } else {
+                setSettings(p => ({ ...p, notifications: { ...p.notifications, [key]: !value } }));
+                toast.error('Failed to save');
+              }
+              setSavingNotifKey(null);
+            })();
+            return prev;
+          });
+        } catch {
+          setSettings(p => ({ ...p, notifications: { ...p.notifications, [key]: !value } }));
+          toast.error('Failed to save');
+          setSavingNotifKey(null);
+        }
+      }, 400);
+    },
+    [user]
+  );
+
+  // ── Request account deletion via email ──────────────────────────────────────
+  const [deletionReason, setDeletionReason] = useState('');
+
+  const handleRequestDeletion = () => {
+    if (!user) return;
+    const subject = encodeURIComponent('Account Closure Request');
+    const body = encodeURIComponent(
+      `Hi Preciprocal Support,\n\nI would like to request the closure of my account and deletion of all associated data.\n\nAccount details:\n- Name: ${user.displayName ?? 'N/A'}\n- Email: ${user.email}\n- Account ID: ${user.uid}\n- Sign-in method: ${isGoogleUser ? 'Google OAuth' : 'Email & Password'}\n- Member since: ${user.metadata.creationTime ?? 'N/A'}\n\nReason for closing:\n${deletionReason.trim() || 'Not provided'}\n\nPlease confirm once my account and all associated data have been fully removed.\n\nThank you.`
+    );
+    window.open(`mailto:support@preciprocal.com?subject=${subject}&body=${body}`, '_blank');
+  };
+
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+  const isGoogleUser = user?.providerData?.some(p => p.providerId === 'google.com') ?? false;
+  const avatarUrl = user?.photoURL;
+  const userInitials = (user?.displayName ?? user?.email ?? 'U')
+    .split(' ')
+    .map(w => w[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+  const usagePct = (used: number, limit: number) => Math.min(100, Math.round((used / limit) * 100));
+
+  if (loading || pageLoading) {
+    return <AnimatedLoader isVisible loadingText="Loading settings…" showNavigation />;
   }
+  if (!user) return null;
 
   const sections = [
-    { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'privacy', label: 'Privacy & Security', icon: Shield },
-    { id: 'appearance', label: 'Appearance', icon: Eye },
-    { id: 'preferences', label: 'Preferences', icon: Settings },
+    { id: 'account',       label: 'Account',          icon: User,          badge: null },
+    { id: 'notifications', label: 'Notifications',    icon: Bell,          badge: null },
+    { id: 'security',      label: 'Security',         icon: Shield,        badge: null },
+    { id: 'billing',       label: 'Plan & Billing',   icon: CreditCard,    badge: plan.tier === 'free' ? 'Upgrade' : null },
+    { id: 'extension',     label: 'Chrome Extension', icon: Chrome,        badge: null },
+    { id: 'danger',        label: 'Danger Zone',      icon: AlertTriangle, badge: null },
   ];
 
   return (
-    <div className="space-y-4 sm:space-y-6 px-4 sm:px-0">
-      {/* Header - Dark Mode */}
-      <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800 hover:border-slate-700 transition-all duration-300">
-        <div className="p-4 sm:p-6">
+    <div className="min-h-screen space-y-5 px-4 sm:px-0 pb-12">
+
+      {/* ── Page Header ──────────────────────────────────────────────────────── */}
+      <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800">
+        <div className="px-5 py-5">
           <Link
-            href="/dashboard"
-            className="inline-flex items-center text-xs sm:text-sm text-slate-500 hover:text-slate-300 mb-3 sm:mb-4 transition-colors"
+            href="/"
+            className="inline-flex items-center text-sm text-slate-500 hover:text-slate-300 mb-4 transition-colors gap-1.5"
           >
-            <ArrowLeft className="w-4 h-4 mr-2" />
+            <ArrowLeft className="w-3.5 h-3.5" />
             Back to Dashboard
           </Link>
-          
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
-            <div className="flex items-center gap-3 sm:gap-4">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-500/10 rounded-lg flex items-center justify-center border border-blue-500/20">
-                <Settings className="h-5 w-5 sm:h-6 sm:w-6 text-blue-400" />
-              </div>
-              <div>
-                <h1 className="text-xl sm:text-2xl font-semibold text-white mb-0.5 sm:mb-1">
-                  App Settings
-                </h1>
-                <p className="text-slate-500 text-xs sm:text-sm">
-                  Customize your Preciprocal experience
-                </p>
-              </div>
+
+          <div className="flex items-center gap-4">
+            <div className="relative flex-shrink-0">
+              {avatarUrl ? (
+                <Image src={avatarUrl} alt="Profile" width={52} height={52} className="rounded-xl object-cover" />
+              ) : (
+                <div className="w-[52px] h-[52px] rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white font-semibold text-lg">
+                  {userInitials}
+                </div>
+              )}
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-slate-900" />
             </div>
 
-            {hasChanges && (
-              <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
-                <button
-                  onClick={handleReset}
-                  className="flex-1 sm:flex-initial bg-slate-800/60 hover:bg-slate-700/60 backdrop-blur-xl text-white px-3 sm:px-4 py-2 rounded-lg flex items-center justify-center gap-2 text-xs sm:text-sm border border-slate-700 transition-all duration-300"
-                >
-                  <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  <span className="hidden xs:inline">Reset</span>
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={isSaving}
-                  className="flex-1 sm:flex-initial bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 px-3 sm:px-4 py-2 rounded-lg flex items-center justify-center gap-2 text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed text-white transition-all duration-300"
-                >
-                  {isSaving ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />
-                      <span className="hidden xs:inline">Saving...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                      <span>Save</span>
-                    </>
-                  )}
-                </button>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg font-semibold text-white truncate">
+                {user.displayName || 'Your Account'}
+              </h1>
+              <p className="text-slate-500 text-sm truncate">{user.email}</p>
+              <div className="flex items-center flex-wrap gap-1.5 mt-2">
+                <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium ${
+                  plan.tier === 'free'
+                    ? 'bg-slate-800 text-slate-400 border border-slate-700'
+                    : plan.tier === 'pro'
+                    ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                    : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                }`}>
+                  {plan.tier === 'pro' && <Star className="w-3 h-3" />}
+                  {plan.tier === 'enterprise' && <Building2 className="w-3 h-3" />}
+                  {plan.name}
+                </span>
+                {isGoogleUser && (
+                  <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
+                    Google
+                  </span>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Settings Layout - Dark Mode */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
-        {/* Sidebar - Dark Mode */}
-        <div className="lg:col-span-1">
-          <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800 p-3 sm:p-4">
-            <nav className="space-y-1 sm:space-y-2">
-              {sections.map((section) => (
-                <button
-                  key={section.id}
-                  onClick={() => setActiveSection(section.id)}
-                  className={`w-full text-left p-2.5 sm:p-3 rounded-lg transition-all ${
-                    activeSection === section.id
-                      ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
-                      : 'text-slate-500 hover:text-white hover:bg-slate-800/60'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <section.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
-                    <span className="font-medium text-xs sm:text-sm">{section.label}</span>
-                  </div>
-                </button>
-              ))}
-            </nav>
-          </div>
+      {/* ── Tab bar ──────────────────────────────────────────────────────────── */}
+      <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800 overflow-hidden">
+        <div className="flex overflow-x-auto scrollbar-hide">
+          {sections.map((s) => {
+            const isActive = activeSection === s.id;
+            const isDanger = s.id === 'danger';
+            return (
+              <button
+                key={s.id}
+                onClick={() => setActiveSection(s.id)}
+                className={`relative flex-shrink-0 flex items-center gap-2 px-4 py-3.5 text-sm font-medium transition-all whitespace-nowrap ${
+                  isActive
+                    ? isDanger
+                      ? 'text-red-400'
+                      : 'text-white'
+                    : isDanger
+                    ? 'text-slate-500 hover:text-red-400'
+                    : 'text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                <s.icon className={`w-4 h-4 flex-shrink-0 ${isActive && !isDanger ? 'text-blue-400' : ''}`} />
+                <span>{s.label}</span>
+                {s.badge && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-600 text-white font-semibold leading-none">
+                    {s.badge}
+                  </span>
+                )}
+                {/* Active underline */}
+                {isActive && (
+                  <span className={`absolute bottom-0 left-0 right-0 h-0.5 rounded-full ${isDanger ? 'bg-red-400' : 'bg-gradient-to-r from-blue-500 to-purple-500'}`} />
+                )}
+              </button>
+            );
+          })}
         </div>
+      </div>
 
-        {/* Main Content - Dark Mode */}
-        <div className="lg:col-span-3 space-y-4 sm:space-y-6">
-          
-          {/* Notifications */}
-          {activeSection === 'notifications' && (
-            <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800">
-              <div className="p-4 sm:p-6 border-b border-slate-800">
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <div className="w-9 h-9 sm:w-10 sm:h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center border border-emerald-500/20">
-                    <Bell className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-base sm:text-lg font-semibold text-white">Notification Settings</h3>
-                    <p className="text-slate-500 text-xs sm:text-sm">Manage how you receive updates</p>
-                  </div>
-                </div>
-              </div>
+      {/* ── Content ──────────────────────────────────────────────────────────── */}
+      <div className="space-y-4">
 
-              <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
-                {[
-                  { key: 'email', label: 'Email Notifications', desc: 'Receive updates via email' },
-                  { key: 'push', label: 'Push Notifications', desc: 'Browser push notifications' },
-                  { key: 'interviewReminders', label: 'Interview Reminders', desc: 'Reminders for scheduled interviews' },
-                  { key: 'weeklyDigest', label: 'Weekly Progress Digest', desc: 'Summary of your weekly activity' },
-                  { key: 'aiRecommendations', label: 'AI Recommendations', desc: 'Personalized study suggestions' },
-                  { key: 'systemUpdates', label: 'System Updates', desc: 'Important platform announcements' },
-                ].map((item) => (
-                  <div key={item.key} className="flex items-center justify-between p-3 sm:p-4 rounded-lg border border-slate-800 gap-3 bg-slate-800/30">
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-white font-medium text-xs sm:text-sm">{item.label}</h4>
-                      <p className="text-slate-500 text-xs">{item.desc}</p>
+          {/* ════════════════ ACCOUNT (read-only) ════════════════ */}
+          {activeSection === 'account' && (
+            <SectionCard>
+              <SectionHeader
+                icon={User}
+                iconColor="text-blue-400"
+                iconBg="bg-blue-500/10 border-blue-500/20"
+                title="Account Overview"
+                subtitle="Your profile and account details"
+              />
+              <div className="p-5 space-y-5">
+                {/* Avatar + name row */}
+                <div className="flex items-center gap-4 pb-5 border-b border-slate-800">
+                  {avatarUrl ? (
+                    <Image src={avatarUrl} alt="Avatar" width={64} height={64} className="rounded-xl flex-shrink-0" />
+                  ) : (
+                    <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white font-bold text-xl flex-shrink-0">
+                      {userInitials}
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
-                      <input
-                        type="checkbox"
-                        checked={settings.notifications[item.key as keyof typeof settings.notifications]}
-                        onChange={(e) => updateSettings('notifications', item.key, e.target.checked)}
-                        className="sr-only peer"
-                      />
-                      <div className="w-10 h-5 sm:w-11 sm:h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 sm:after:h-5 sm:after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                    </label>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Privacy & Security */}
-          {activeSection === 'privacy' && (
-            <div className="space-y-4 sm:space-y-6">
-              <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800">
-                <div className="p-4 sm:p-6 border-b border-slate-800">
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <div className="w-9 h-9 sm:w-10 sm:h-10 bg-orange-500/10 rounded-lg flex items-center justify-center border border-orange-500/20">
-                      <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-orange-400" />
-                    </div>
-                    <div>
-                      <h3 className="text-base sm:text-lg font-semibold text-white">Privacy Settings</h3>
-                      <p className="text-slate-500 text-xs sm:text-sm">Control your data and privacy</p>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-semibold text-base truncate">
+                      {user.displayName || 'No name set'}
+                    </p>
+                    <p className="text-slate-400 text-sm mt-0.5 truncate">{user.email}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${
+                        plan.tier === 'free'
+                          ? 'bg-slate-800 text-slate-400 border border-slate-700'
+                          : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                      }`}>
+                        {plan.tier === 'pro' && <Star className="w-3 h-3" />}
+                        {plan.name}
+                      </span>
                     </div>
                   </div>
+                  <Link
+                    href="/profile"
+                    className="flex-shrink-0 inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-white border border-slate-700 hover:border-slate-500 px-3 py-2 rounded-lg transition-all"
+                  >
+                    <Link2 className="w-3.5 h-3.5" />
+                    Edit Profile
+                  </Link>
                 </div>
 
-                <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+                {/* Account metadata */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {[
-                    { key: 'shareAnalytics', label: 'Share Analytics', desc: 'Help improve the platform with anonymized data' },
-                    { key: 'allowDataCollection', label: 'Data Collection', desc: 'Allow usage data collection for personalization' },
-                  ].map((item) => (
-                    <div key={item.key} className="flex items-center justify-between p-3 sm:p-4 rounded-lg border border-slate-800 gap-3 bg-slate-800/30">
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-white font-medium text-xs sm:text-sm">{item.label}</h4>
-                        <p className="text-slate-500 text-xs">{item.desc}</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
-                        <input
-                          type="checkbox"
-                          checked={settings.privacy[item.key as keyof typeof settings.privacy] as boolean}
-                          onChange={(e) => updateSettings('privacy', item.key, e.target.checked)}
-                          className="sr-only peer"
-                        />
-                        <div className="w-10 h-5 sm:w-11 sm:h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 sm:after:h-5 sm:after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
-                      </label>
+                    {
+                      label: 'Account ID',
+                      value: user.uid.slice(0, 20) + '…',
+                      mono: true,
+                      icon: null,
+                    },
+                    {
+                      label: 'Sign-in method',
+                      value: isGoogleUser ? 'Google' : 'Email & Password',
+                      mono: false,
+                      badge: isGoogleUser
+                        ? { text: 'Google', color: 'bg-blue-500/10 text-blue-400 border-blue-500/20' }
+                        : { text: 'Email', color: 'bg-slate-700/60 text-slate-300 border-slate-600/40' },
+                    },
+                    {
+                      label: 'Email verified',
+                      value: user.emailVerified ? 'Verified' : 'Not verified',
+                      mono: false,
+                      badge: user.emailVerified
+                        ? { text: 'Verified', color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' }
+                        : { text: 'Unverified', color: 'bg-orange-500/10 text-orange-400 border-orange-500/20' },
+                    },
+                    {
+                      label: 'Member since',
+                      value: user.metadata.creationTime
+                        ? new Date(user.metadata.creationTime).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+                        : '—',
+                      mono: false,
+                    },
+                    {
+                      label: 'Last sign-in',
+                      value: user.metadata.lastSignInTime
+                        ? new Date(user.metadata.lastSignInTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                        : '—',
+                      mono: false,
+                    },
+                  ].map(({ label, value, mono, badge }) => (
+                    <div key={label} className="flex flex-col gap-1.5 p-3.5 rounded-xl bg-slate-800/30 border border-slate-800 hover:border-slate-700 transition-colors">
+                      <span className="text-xs text-slate-500 font-medium uppercase tracking-wide">{label}</span>
+                      {badge ? (
+                        <span className={`self-start inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border ${badge.color}`}>
+                          <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
+                          {badge.text}
+                        </span>
+                      ) : (
+                        <span className={`text-sm text-slate-200 ${mono ? 'font-mono' : 'font-medium'}`}>
+                          {value}
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>
               </div>
+            </SectionCard>
+          )}
 
-              {/* Security Card */}
-              <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800">
-                <div className="p-4 sm:p-6 border-b border-slate-800">
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <div className="w-9 h-9 sm:w-10 sm:h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center border border-emerald-500/20">
-                      <Key className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-400" />
-                    </div>
-                    <div>
-                      <h3 className="text-base sm:text-lg font-semibold text-white">Security</h3>
-                      <p className="text-slate-500 text-xs sm:text-sm">Protect your account</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-4 sm:p-6">
-                  <div className="bg-slate-800/60 backdrop-blur-xl rounded-xl p-3 sm:p-4 border border-emerald-500/20">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                      <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
-                        <div className="w-9 h-9 sm:w-10 sm:h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center flex-shrink-0 border border-emerald-500/20">
-                          <Key className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-400" />
-                        </div>
-                        <div className="min-w-0">
-                          <h4 className="text-white font-medium text-xs sm:text-sm">Two-Factor Authentication</h4>
-                          <p className="text-slate-500 text-xs">Add an extra layer of security</p>
-                        </div>
+          {/* ════════════════ NOTIFICATIONS ════════════════ */}
+          {activeSection === 'notifications' && (
+            <SectionCard>
+              <SectionHeader
+                icon={Bell}
+                iconColor="text-emerald-400"
+                iconBg="bg-emerald-500/10 border-emerald-500/20"
+                title="Notification Preferences"
+                subtitle="Changes are saved automatically"
+              />
+              <div className="p-5 space-y-2">
+                {(
+                  [
+                    { key: 'email' as const,              label: 'Email Notifications',  desc: 'Interview results, resume analysis, and account updates sent to your inbox' },
+                    { key: 'interviewReminders' as const, label: 'Interview Reminders',  desc: 'Get reminded before a scheduled mock interview session' },
+                    { key: 'systemUpdates' as const,      label: 'Product Updates',      desc: 'New features, maintenance notices, and important platform announcements' },
+                  ] satisfies { key: keyof NotificationSettings; label: string; desc: string }[]
+                ).map(item => {
+                  const isSaving = savingNotifKey === item.key;
+                  return (
+                    <div key={item.key} className="flex items-center justify-between p-3.5 rounded-xl border border-slate-800 bg-slate-800/20 hover:bg-slate-800/40 transition-colors gap-4">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-white text-sm font-medium">{item.label}</h4>
+                        <p className="text-slate-500 text-sm mt-0.5 leading-relaxed">{item.desc}</p>
                       </div>
-                      <button
-                        onClick={() => toast.info('2FA setup coming soon')}
-                        className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm w-full sm:w-auto text-white transition-all duration-300"
-                      >
-                        Enable
-                      </button>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {isSaving && <Loader2 className="w-3 h-3 text-emerald-400 animate-spin" />}
+                        <Toggle
+                          checked={settings.notifications[item.key]}
+                          onChange={v => toggleNotification(item.key, v)}
+                          disabled={isSaving}
+                          color="emerald"
+                        />
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
+            </SectionCard>
+          )}
 
-              {/* Data Management Card */}
-              <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800">
-                <div className="p-4 sm:p-6 border-b border-slate-800">
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <div className="w-9 h-9 sm:w-10 sm:h-10 bg-blue-500/10 rounded-lg flex items-center justify-center border border-blue-500/20">
-                      <Database className="h-4 w-4 sm:h-5 sm:w-5 text-blue-400" />
-                    </div>
-                    <div>
-                      <h3 className="text-base sm:text-lg font-semibold text-white">Your Data</h3>
-                      <p className="text-slate-500 text-xs sm:text-sm">Export or delete your data</p>
+          {/* ════════════════ SECURITY ════════════════ */}
+          {activeSection === 'security' && (
+            <div className="space-y-4">
+              {isGoogleUser ? (
+                <SectionCard>
+                  <SectionHeader
+                    icon={Shield}
+                    iconColor="text-orange-400"
+                    iconBg="bg-orange-500/10 border-orange-500/20"
+                    title="Security"
+                    subtitle="Your account security settings"
+                  />
+                  <div className="p-5">
+                    <div className="flex items-start gap-3 p-4 bg-blue-500/5 border border-blue-500/20 rounded-xl">
+                      <AlertCircle className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-blue-300 text-sm font-medium">Managed by Google</p>
+                        <p className="text-slate-500 text-sm mt-1">
+                          Your account is signed in with Google. Password and email changes are managed through your Google account settings.
+                        </p>
+                        <a
+                          href="https://myaccount.google.com/security"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300 mt-2 transition-colors"
+                        >
+                          Manage Google security <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
                     </div>
                   </div>
-                </div>
-
-                <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
-                  {/* Export Data */}
-                  <div className="bg-slate-800/60 backdrop-blur-xl rounded-xl p-3 sm:p-4 border border-blue-500/20">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                      <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
-                        <div className="w-9 h-9 sm:w-10 sm:h-10 bg-blue-500/10 rounded-lg flex items-center justify-center flex-shrink-0 border border-blue-500/20">
-                          <Download className="h-4 w-4 sm:h-5 sm:w-5 text-blue-400" />
-                        </div>
-                        <div className="min-w-0">
-                          <h4 className="text-white font-medium text-xs sm:text-sm mb-0.5 sm:mb-1">
-                            Request Data Report
-                          </h4>
-                          <p className="text-slate-500 text-xs">
-                            Request a complete PDF report of all your data. You will receive it via email within 24 hours.
-                          </p>
+                </SectionCard>
+              ) : (
+                <>
+                  {/* Update Email */}
+                  <SectionCard>
+                    <SectionHeader
+                      icon={Mail}
+                      iconColor="text-blue-400"
+                      iconBg="bg-blue-500/10 border-blue-500/20"
+                      title="Email Address"
+                      subtitle="Update your sign-in email"
+                    />
+                    <div className="p-5 space-y-3">
+                      <div>
+                        <label className="block text-sm text-slate-500 mb-1.5 font-medium">Current email</label>
+                        <input
+                          type="email"
+                          value={user.email ?? ''}
+                          readOnly
+                          className="w-full px-3 py-2 bg-slate-800/30 border border-slate-800 rounded-lg text-slate-400 text-sm cursor-not-allowed"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-slate-500 mb-1.5 font-medium">New email address</label>
+                        <input
+                          type="email"
+                          value={newEmail}
+                          onChange={e => setNewEmail(e.target.value)}
+                          placeholder="new@email.com"
+                          className="w-full px-3 py-2 bg-slate-800/60 border border-slate-700 rounded-lg text-white text-sm placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-slate-500 mb-1.5 font-medium">Confirm with current password</label>
+                        <div className="relative">
+                          <input
+                            type={showEmailPassword ? 'text' : 'password'}
+                            value={emailPassword}
+                            onChange={e => setEmailPassword(e.target.value)}
+                            placeholder="Your current password"
+                            className="w-full px-3 py-2 pr-9 bg-slate-800/60 border border-slate-700 rounded-lg text-white text-sm placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowEmailPassword(p => !p)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                          >
+                            {showEmailPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
                         </div>
                       </div>
-                      <button
-                        onClick={handleExportData}
-                        disabled={isExporting}
-                        className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium flex items-center gap-2 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto justify-center text-white transition-all duration-300"
-                      >
-                        {isExporting ? (
-                          <>
-                            <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />
-                            <span className="hidden xs:inline">Submitting...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                            <span>Request</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Danger Zone */}
-                  <div className="border-t border-slate-800 pt-4 sm:pt-6">
-                    <h4 className="text-red-400 font-medium mb-3 sm:mb-4 flex items-center text-xs sm:text-sm">
-                      <AlertCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-2" />
-                      Danger Zone
-                    </h4>
-                    <div className="bg-slate-800/60 backdrop-blur-xl rounded-xl p-3 sm:p-4 border border-red-500/20">
-                      <div className="flex flex-col sm:flex-row items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <h5 className="text-white font-medium mb-1 text-xs sm:text-sm">
-                            Delete All Data
-                          </h5>
-                          <p className="text-slate-500 text-xs">
-                            Permanently remove all your interviews, resumes, plans, and account data. This action cannot be undone.
-                          </p>
-                        </div>
+                      <div className="flex justify-end">
                         <button
-                          onClick={handleDeleteAllData}
-                          className="bg-red-600 hover:bg-red-700 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium flex items-center gap-2 whitespace-nowrap w-full sm:w-auto justify-center transition-all duration-300"
+                          onClick={handleUpdateEmail}
+                          disabled={savingEmail}
+                          className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-all"
                         >
-                          <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                          Delete All
+                          {savingEmail ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                          {savingEmail ? 'Updating…' : 'Update Email'}
                         </button>
                       </div>
                     </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+                  </SectionCard>
 
-          {/* Appearance */}
-          {activeSection === 'appearance' && (
-            <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800">
-              <div className="p-4 sm:p-6 border-b border-slate-800">
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <div className="w-9 h-9 sm:w-10 sm:h-10 bg-purple-500/10 rounded-lg flex items-center justify-center border border-purple-500/20">
-                    <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-purple-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-base sm:text-lg font-semibold text-white">Appearance</h3>
-                    <p className="text-slate-500 text-xs sm:text-sm">Customize the interface</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 sm:p-6 space-y-5 sm:space-y-6">
-                {/* Theme */}
-                <div>
-                  <label className="block text-xs sm:text-sm text-slate-500 mb-2 sm:mb-3">
-                    Theme
-                  </label>
-                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                    {[
-                      { value: 'light', label: 'Light', icon: Sun },
-                      { value: 'dark', label: 'Dark', icon: Moon },
-                      { value: 'system', label: 'System', icon: Monitor },
-                    ].map((theme) => (
-                      <button
-                        key={theme.value}
-                        onClick={() => updateSettings('appearance', 'theme', theme.value)}
-                        className={`p-3 sm:p-4 rounded-lg border transition-all ${
-                          settings.appearance.theme === theme.value
-                            ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white border-purple-500/30'
-                            : 'bg-slate-800/30 text-slate-400 hover:bg-slate-800/60 border-slate-800'
-                        }`}
-                      >
-                        <theme.icon className="w-5 h-5 sm:w-6 sm:h-6 mx-auto mb-1.5 sm:mb-2" />
-                        <span className="text-xs sm:text-sm font-medium block">{theme.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Font Size */}
-                <div>
-                  <label className="block text-xs sm:text-sm text-slate-500 mb-2 sm:mb-3">
-                    Font Size
-                  </label>
-                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                    {[
-                      { value: 'small', label: 'Small' },
-                      { value: 'medium', label: 'Medium' },
-                      { value: 'large', label: 'Large' },
-                    ].map((size) => (
-                      <button
-                        key={size.value}
-                        onClick={() => updateSettings('appearance', 'fontSize', size.value)}
-                        className={`px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-xs sm:text-sm font-medium transition-all ${
-                          settings.appearance.fontSize === size.value
-                            ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
-                            : 'bg-slate-800/30 text-slate-400 hover:bg-slate-800/60 border border-slate-800'
-                        }`}
-                      >
-                        {size.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Language */}
-                <div>
-                  <label className="block text-xs sm:text-sm text-slate-500 mb-2">
-                    Language
-                  </label>
-                  <div className="relative">
-                    <Globe className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-600 pointer-events-none" />
-                    <select
-                      value={settings.appearance.language}
-                      onChange={(e) => updateSettings('appearance', 'language', e.target.value)}
-                      className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 bg-slate-800/60 backdrop-blur-xl border border-slate-700 rounded-lg text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
-                    >
-                      <option value="en">English</option>
-                      <option value="es">Español</option>
-                      <option value="fr">Français</option>
-                      <option value="de">Deutsch</option>
-                      <option value="zh">中文</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Reduced Motion */}
-                <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border border-slate-800 gap-3 bg-slate-800/30">
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-white font-medium text-xs sm:text-sm">Reduced Motion</h4>
-                    <p className="text-slate-500 text-xs">Minimize animations</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
-                    <input
-                      type="checkbox"
-                      checked={settings.appearance.reducedMotion}
-                      onChange={(e) => updateSettings('appearance', 'reducedMotion', e.target.checked)}
-                      className="sr-only peer"
+                  {/* Update Password */}
+                  <SectionCard>
+                    <SectionHeader
+                      icon={Lock}
+                      iconColor="text-orange-400"
+                      iconBg="bg-orange-500/10 border-orange-500/20"
+                      title="Password"
+                      subtitle="Use a strong, unique password"
                     />
-                    <div className="w-10 h-5 sm:w-11 sm:h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 sm:after:h-5 sm:after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                  </label>
-                </div>
-              </div>
+                    <div className="p-5 space-y-3">
+                      {[
+                        { label: 'Current password',      value: currentPassword,  setter: setCurrentPassword,  show: showCurrentPw, toggleShow: () => setShowCurrentPw(p => !p),  placeholder: 'Enter current password' },
+                        { label: 'New password',          value: newPassword,      setter: setNewPassword,      show: showNewPw,     toggleShow: () => setShowNewPw(p => !p),      placeholder: 'Min. 8 characters' },
+                        { label: 'Confirm new password',  value: confirmPassword,  setter: setConfirmPassword,  show: showNewPw,     toggleShow: () => setShowNewPw(p => !p),      placeholder: 'Re-enter new password' },
+                      ].map(field => (
+                        <div key={field.label}>
+                          <label className="block text-sm text-slate-500 mb-1.5 font-medium">{field.label}</label>
+                          <div className="relative">
+                            <input
+                              type={field.show ? 'text' : 'password'}
+                              value={field.value}
+                              onChange={e => field.setter(e.target.value)}
+                              placeholder={field.placeholder}
+                              className="w-full px-3 py-2 pr-9 bg-slate-800/60 border border-slate-700 rounded-lg text-white text-sm placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-orange-500/50 transition-all"
+                            />
+                            <button
+                              type="button"
+                              onClick={field.toggleShow}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                            >
+                              {field.show ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+
+                      {newPassword && (
+                        <div className="space-y-1">
+                          <div className="flex gap-1">
+                            {[1, 2, 3, 4].map(n => (
+                              <div
+                                key={n}
+                                className={`h-1 flex-1 rounded-full transition-all ${
+                                  newPassword.length >= n * 3
+                                    ? newPassword.length >= 12 ? 'bg-emerald-500' : 'bg-yellow-500'
+                                    : 'bg-slate-700'
+                                }`}
+                              />
+                            ))}
+                          </div>
+                          <p className="text-sm text-slate-500">
+                            {newPassword.length < 8 ? 'Too short' : newPassword.length < 12 ? 'Fair — consider longer' : 'Strong password'}
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="flex justify-end">
+                        <button
+                          onClick={handleUpdatePassword}
+                          disabled={savingPassword}
+                          className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-all"
+                        >
+                          {savingPassword ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />}
+                          {savingPassword ? 'Updating…' : 'Update Password'}
+                        </button>
+                      </div>
+                    </div>
+                  </SectionCard>
+                </>
+              )}
             </div>
           )}
 
-          {/* Preferences */}
-          {activeSection === 'preferences' && (
-            <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800">
-              <div className="p-4 sm:p-6 border-b border-slate-800">
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <div className="w-9 h-9 sm:w-10 sm:h-10 bg-blue-500/10 rounded-lg flex items-center justify-center border border-blue-500/20">
-                    <Settings className="h-4 w-4 sm:h-5 sm:w-5 text-blue-400" />
+          {/* ════════════════ BILLING ════════════════ */}
+          {activeSection === 'billing' && (
+            <div className="space-y-4">
+              {/* Current plan + usage */}
+              <SectionCard>
+                <SectionHeader
+                  icon={CreditCard}
+                  iconColor="text-purple-400"
+                  iconBg="bg-purple-500/10 border-purple-500/20"
+                  title="Current Plan"
+                  subtitle="Your subscription and usage"
+                />
+                <div className="p-5 space-y-5">
+                  {/* Plan name row */}
+                  <div className="flex items-center justify-between p-4 rounded-xl bg-slate-800/40 border border-slate-700">
+                    <div className="flex-1 min-w-0">
+                      {statsLoading ? (
+                        <div className="space-y-1.5">
+                          <div className="h-4 w-24 bg-slate-700 rounded animate-pulse" />
+                          <div className="h-3 w-48 bg-slate-800 rounded animate-pulse" />
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <p className="text-white font-semibold text-sm">{plan.name}</p>
+                            <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${
+                              plan.tier === 'free'
+                                ? 'bg-slate-700 text-slate-400 border border-slate-600'
+                                : plan.tier === 'pro'
+                                ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                                : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                            }`}>
+                              {plan.tier === 'pro' && <Star className="w-2.5 h-2.5" />}
+                              {plan.tier === 'enterprise' && <Building2 className="w-2.5 h-2.5" />}
+                              {plan.tier === 'free' ? 'Free' : plan.tier === 'pro' ? 'Pro' : 'Premium'}
+                            </span>
+                          </div>
+                          <p className="text-slate-500 text-xs mt-1">
+                            {plan.tier === 'free'
+                              ? `${plan.interviewsLimit} interviews · ${plan.resumesLimit} resumes per month`
+                              : 'Unlimited interviews and advanced analytics'}
+                          </p>
+                        </>
+                      )}
+                    </div>
+                    <span className="flex-shrink-0 inline-flex items-center gap-1.5 bg-slate-700/60 border border-slate-600/40 text-slate-300 text-xs font-medium px-3 py-1.5 rounded-full ml-3">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      Active
+                    </span>
                   </div>
-                  <div>
-                    <h3 className="text-base sm:text-lg font-semibold text-white">App Preferences</h3>
-                    <p className="text-slate-500 text-xs sm:text-sm">Configure default behaviors</p>
+
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium text-slate-500 uppercase tracking-wide">Monthly Usage</p>
+                    {statsLoading ? (
+                      <div className="space-y-3">
+                        {[1, 2].map(n => (
+                          <div key={n}>
+                            <div className="flex justify-between mb-1.5">
+                              <div className="h-3.5 w-24 bg-slate-800 rounded animate-pulse" />
+                              <div className="h-3.5 w-10 bg-slate-800 rounded animate-pulse" />
+                            </div>
+                            <div className="h-1.5 bg-slate-800 rounded-full animate-pulse" />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {[
+                          { label: 'Mock Interviews', used: plan.interviewsUsed, limit: plan.interviewsLimit, color: 'from-blue-600 to-purple-600' },
+                          { label: 'Resume Analyses', used: plan.resumesUsed,    limit: plan.resumesLimit,    color: 'from-emerald-600 to-teal-600' },
+                        ].map(m => {
+                          const pct = usagePct(m.used, m.limit);
+                          return (
+                            <div key={m.label}>
+                              <div className="flex justify-between text-sm mb-1.5">
+                                <span className="text-slate-400">{m.label}</span>
+                                <span className={pct >= 80 ? 'text-orange-400 font-medium' : 'text-slate-400'}>{m.used} / {m.limit}</span>
+                              </div>
+                              <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                <div className={`h-full bg-gradient-to-r ${m.color} rounded-full transition-all duration-500`} style={{ width: `${pct}%` }} />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
+              </SectionCard>
 
-              <div className="p-4 sm:p-6 space-y-5 sm:space-y-6">
-                {/* Default Interview Type */}
-                <div>
-                  <label className="block text-xs sm:text-sm text-slate-500 mb-2 sm:mb-3">
-                    Default Interview Type
-                  </label>
-                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
+              {/* Premium — coming soon / newsletter */}
+              <SectionCard>
+                <div className="p-5 text-center border-b border-slate-800">
+                  <div className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 mb-4 shadow-lg shadow-purple-900/30">
+                    <Zap className="w-5 h-5 text-white" />
+                  </div>
+                  <h3 className="text-white font-semibold text-base mb-1">Premium Plans Coming Soon</h3>
+                  <p className="text-slate-400 text-sm max-w-sm mx-auto leading-relaxed">
+                    We&apos;re launching premium tiers with exclusive features. Subscribe to get early access pricing.
+                  </p>
+                </div>
+
+                {/* What's coming */}
+                <div className="p-5 border-b border-slate-800">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-3">What&apos;s coming with premium</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {[
-                      { value: 'technical', label: 'Technical' },
-                      { value: 'behavioral', label: 'Behavioral' },
-                      { value: 'mixed', label: 'Mixed' },
-                    ].map((type) => (
-                      <button
-                        key={type.value}
-                        onClick={() => updateSettings('preferences', 'defaultInterviewType', type.value)}
-                        className={`px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-xs sm:text-sm font-medium transition-all ${
-                          settings.preferences.defaultInterviewType === type.value
-                            ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
-                            : 'bg-slate-800/30 text-slate-400 hover:bg-slate-800/60 border border-slate-800'
-                        }`}
-                      >
-                        {type.label}
-                      </button>
+                      'Unlimited mock interviews',
+                      'Advanced AI feedback & scoring',
+                      'Unlimited resume analyses',
+                      'D-ID avatar video interviews',
+                      'Priority question banks',
+                      'Early-bird pricing — locked in forever',
+                    ].map(feature => (
+                      <div key={feature} className="flex items-center gap-2 text-slate-300 text-sm">
+                        <div className="w-4 h-4 rounded-full bg-blue-500/15 border border-blue-500/30 flex items-center justify-center flex-shrink-0">
+                          <Check className="w-2.5 h-2.5 text-blue-400" />
+                        </div>
+                        {feature}
+                      </div>
                     ))}
                   </div>
                 </div>
 
-                {/* Email Frequency */}
-                <div>
-                  <label className="block text-xs sm:text-sm text-slate-500 mb-2">
-                    Email Frequency
-                  </label>
-                  <div className="relative">
-                    <Mail className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-600 pointer-events-none" />
-                    <select
-                      value={settings.preferences.emailFrequency}
-                      onChange={(e) => updateSettings('preferences', 'emailFrequency', e.target.value)}
-                      className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 bg-slate-800/60 backdrop-blur-xl border border-slate-700 rounded-lg text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                    >
-                      <option value="realtime">Real-time</option>
-                      <option value="daily">Daily Digest</option>
-                      <option value="weekly">Weekly Summary</option>
-                      <option value="never">Never</option>
-                    </select>
-                  </div>
-                </div>
+                {/* Newsletter signup / subscribed state */}
+                <BillingNewsletterBlock />
+              </SectionCard>
+            </div>
+          )}
 
-                {/* Toggles */}
-                {[
-                  { key: 'autoSave', label: 'Auto-Save Progress', desc: 'Automatically save your work' },
-                  { key: 'soundEffects', label: 'Sound Effects', desc: 'Play sounds for actions' },
-                  { key: 'practiceReminders', label: 'Practice Reminders', desc: 'Daily reminders to practice' },
-                ].map((item) => (
-                  <div key={item.key} className="flex items-center justify-between p-3 sm:p-4 rounded-lg border border-slate-800 gap-3 bg-slate-800/30">
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-white font-medium text-xs sm:text-sm">{item.label}</h4>
-                      <p className="text-slate-500 text-xs">{item.desc}</p>
+          {/* ════════════════ CHROME EXTENSION ════════════════ */}
+          {activeSection === 'extension' && (
+            <div className="space-y-4">
+              <ExtensionConnection />
+              <SectionCard>
+                <SectionHeader
+                  icon={AlertCircle}
+                  iconColor="text-blue-400"
+                  iconBg="bg-blue-500/10 border-blue-500/20"
+                  title="Setup Guide"
+                  subtitle="Get started in 5 steps"
+                />
+                <div className="p-5">
+                  <ol className="space-y-3">
+                    {[
+                      { step: 1, text: <span>Click <strong className="text-white">&quot;Connect Extension&quot;</strong> above to generate your auth token</span> },
+                      { step: 2, text: <span>Install the <strong className="text-white">Preciprocal Chrome Extension</strong> from the Chrome Web Store</span> },
+                      { step: 3, text: <span>Token auto-syncs to your extension — or paste it manually in the extension popup</span> },
+                      { step: 4, text: <span>Navigate to any <strong className="text-white">LinkedIn job posting</strong></span> },
+                      { step: 5, text: <span>Click the <strong className="text-white">Preciprocal icon</strong> in your toolbar to analyze the job</span> },
+                    ].map(({ step, text }) => (
+                      <li key={step} className="flex items-start gap-3 text-sm text-slate-400">
+                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xs font-bold mt-0.5">{step}</span>
+                        <span className="leading-relaxed pt-0.5">{text}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              </SectionCard>
+              <SectionCard>
+                <SectionHeader
+                  icon={Chrome}
+                  iconColor="text-green-400"
+                  iconBg="bg-green-500/10 border-green-500/20"
+                  title="Extension Features"
+                  subtitle="What the extension can do for you"
+                />
+                <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[
+                    { icon: '🎯', title: 'Job Match Score',   desc: 'See your fit % for any LinkedIn job instantly' },
+                    { icon: '📊', title: 'ATS Check',         desc: 'Verify your resume passes tracking systems' },
+                    { icon: '💡', title: 'Skills Gap',        desc: 'Identify what to learn before applying' },
+                    { icon: '⚡', title: 'One-click Analysis', desc: 'Real-time results without leaving LinkedIn' },
+                  ].map(f => (
+                    <div key={f.title} className="flex items-start gap-3 p-3 bg-slate-800/30 rounded-xl border border-slate-800">
+                      <span className="text-xl flex-shrink-0">{f.icon}</span>
+                      <div>
+                        <p className="text-white text-sm font-medium">{f.title}</p>
+                        <p className="text-slate-500 text-sm mt-0.5">{f.desc}</p>
+                      </div>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
-                      <input
-                        type="checkbox"
-                        checked={settings.preferences[item.key as keyof typeof settings.preferences] as boolean}
-                        onChange={(e) => updateSettings('preferences', item.key, e.target.checked)}
-                        className="sr-only peer"
-                      />
-                      <div className="w-10 h-5 sm:w-11 sm:h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 sm:after:h-5 sm:after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              </SectionCard>
             </div>
           )}
 
-          {/* Changes Indicator */}
-          {hasChanges && (
-            <div className="bg-blue-500/10 backdrop-blur-xl rounded-2xl border border-blue-500/30">
-              <div className="p-3 sm:p-4">
-                <div className="flex flex-col xs:flex-row items-start xs:items-center gap-3">
-                  <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-blue-400 text-xs sm:text-sm font-medium">Unsaved Changes</p>
-                    <p className="text-blue-300/70 text-xs">Remember to save your settings</p>
+          {/* ════════════════ DANGER ZONE ════════════════ */}
+          {activeSection === 'danger' && (
+            <div className="space-y-4">
+              <SectionCard>
+                <SectionHeader
+                  icon={RefreshCw}
+                  iconColor="text-blue-400"
+                  iconBg="bg-blue-500/10 border-blue-500/20"
+                  title="Export Your Data"
+                  subtitle="Download everything Preciprocal stores about you"
+                />
+                <div className="p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-slate-300 text-sm leading-relaxed">
+                        Request a full data export including your interview history, resume analyses, session transcripts, and account metadata. You will receive a download link via email within 24 hours.
+                      </p>
+                      <p className="text-slate-500 text-sm mt-2">Your right under GDPR / CCPA.</p>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        if (!user) return;
+                        try {
+                          const token = await user.getIdToken();
+                          const res = await fetch('/api/settings/export-data', {
+                            method: 'POST',
+                            headers: { Authorization: `Bearer ${token}` },
+                          });
+                          if (res.ok) toast.success("Export requested — check your email within 24 hours.", { duration: 5000 });
+                          else throw new Error();
+                        } catch {
+                          toast.error('Failed to request export. Please try again.');
+                        }
+                      }}
+                      className="flex-shrink-0 inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-sm px-3 py-2 rounded-lg transition-all"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Request
+                    </button>
                   </div>
-                  <button
-                    onClick={handleSave}
-                    disabled={isSaving}
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed w-full xs:w-auto text-white transition-all duration-300"
-                  >
-                    {isSaving ? 'Saving...' : 'Save Now'}
-                  </button>
                 </div>
-              </div>
+              </SectionCard>
+
+              <SectionCard>
+                <SectionHeader
+                  icon={Trash2}
+                  iconColor="text-red-400"
+                  iconBg="bg-red-500/10 border-red-500/20"
+                  title="Close Account"
+                  subtitle="Request account closure and data removal"
+                />
+                <div className="p-5 space-y-4">
+                  <div className="flex items-start gap-3 p-3.5 bg-orange-500/5 border border-orange-500/20 rounded-xl">
+                    <AlertTriangle className="w-4 h-4 text-orange-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-orange-300 text-sm font-medium">Manual review required</p>
+                      <p className="text-slate-400 text-sm mt-1 leading-relaxed">
+                        Because your account may have an active subscription, we handle closure requests manually to ensure billing is correctly resolved and all your data is fully removed per GDPR / CCPA.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-slate-400 mb-1.5 font-medium">
+                      Reason for closing <span className="text-slate-600 font-normal">(optional)</span>
+                    </label>
+                    <textarea
+                      value={deletionReason}
+                      onChange={e => setDeletionReason(e.target.value)}
+                      placeholder="e.g. No longer job searching, switching to a different tool, missing a feature…"
+                      rows={3}
+                      className="w-full px-3 py-2.5 bg-slate-800/60 border border-slate-700 rounded-lg text-white text-sm placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-red-500/40 transition-all resize-none"
+                    />
+                    <p className="text-slate-600 text-sm mt-1">Your feedback helps us improve Preciprocal.</p>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <p className="text-slate-500 text-sm">
+                      Clicking will open your email client with a pre-filled request.
+                    </p>
+                    <button
+                      onClick={handleRequestDeletion}
+                      className="flex-shrink-0 inline-flex items-center gap-2 bg-slate-800 hover:bg-red-600/20 border border-slate-700 hover:border-red-500/40 text-slate-300 hover:text-red-400 text-sm font-medium px-4 py-2 rounded-lg transition-all"
+                    >
+                      <Mail className="w-3.5 h-3.5" />
+                      Request Account Closure
+                    </button>
+                  </div>
+                </div>
+              </SectionCard>
             </div>
           )}
-        </div>
+
       </div>
     </div>
   );

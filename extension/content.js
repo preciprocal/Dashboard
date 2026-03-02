@@ -1,6 +1,8 @@
-// Content script to extract job data and inject Preciprocal button
+// content.js - Extract job data and provide globally
 
-// JobExtractor class - defined once at the top
+console.log('🔧 Preciprocal content.js loaded');
+
+// JobExtractor class - defined once and made globally available
 class JobExtractor {
   constructor() {
     this.platform = this.detectPlatform();
@@ -31,207 +33,267 @@ class JobExtractor {
     }
   }
 
+  cleanText(text) {
+    if (!text) return '';
+    return text.replace(/\s+/g, ' ').trim();
+  }
+
   extractLinkedIn() {
     try {
+      // Job Title
       const jobTitle = document.querySelector('.job-details-jobs-unified-top-card__job-title')?.textContent.trim() ||
-                      document.querySelector('.jobs-unified-top-card__job-title')?.textContent.trim();
+                      document.querySelector('.jobs-unified-top-card__job-title')?.textContent.trim() ||
+                      document.querySelector('h1')?.textContent.trim();
       
+      // Company Name
       const company = document.querySelector('.job-details-jobs-unified-top-card__company-name')?.textContent.trim() ||
-                     document.querySelector('.jobs-unified-top-card__company-name')?.textContent.trim();
+                     document.querySelector('.jobs-unified-top-card__company-name')?.textContent.trim() ||
+                     document.querySelector('[data-anonymize="company-name"]')?.textContent.trim();
       
+      // Location
       const location = document.querySelector('.job-details-jobs-unified-top-card__bullet')?.textContent.trim() ||
-                      document.querySelector('.jobs-unified-top-card__bullet')?.textContent.trim();
+                      document.querySelector('.jobs-unified-top-card__bullet')?.textContent.trim() ||
+                      document.querySelector('[class*="job-details-jobs-unified-top-card__workplace-type"]')?.textContent.trim();
       
-      const description = document.querySelector('.jobs-description__content')?.innerText ||
-                         document.querySelector('.jobs-box__html-content')?.innerText;
+      // Job Description (cleaned)
+      let description = document.querySelector('.jobs-description__content')?.innerText ||
+                       document.querySelector('.jobs-box__html-content')?.innerText ||
+                       document.querySelector('[class*="job-details-jobs-unified-top-card__job-description"]')?.innerText ||
+                       document.querySelector('.description__text')?.innerText;
+      description = this.cleanText(description);
       
-      const salary = document.querySelector('.job-details-jobs-unified-top-card__job-insight')?.textContent.trim();
+      // Salary/Compensation
+      const salaryElement = document.querySelector('.job-details-jobs-unified-top-card__job-insight--highlight') ||
+                           document.querySelector('[class*="salary"]') ||
+                           document.querySelector('[class*="compensation"]');
+      const salary = salaryElement?.textContent.trim();
       
-      const jobType = Array.from(document.querySelectorAll('.jobs-unified-top-card__job-insight'))
-        .find(el => el.textContent.includes('Full-time') || el.textContent.includes('Part-time'))
-        ?.textContent.trim();
+      // Job Type
+      const jobTypeElements = Array.from(document.querySelectorAll('.jobs-unified-top-card__job-insight'));
+      const jobType = jobTypeElements.find(el => 
+        el.textContent.includes('Full-time') || 
+        el.textContent.includes('Part-time') || 
+        el.textContent.includes('Contract') ||
+        el.textContent.includes('Temporary') ||
+        el.textContent.includes('Internship')
+      )?.textContent.trim();
+
+      // Seniority Level
+      const seniorityElement = Array.from(document.querySelectorAll('.jobs-unified-top-card__job-insight, .job-details-jobs-unified-top-card__job-insight')).find(el =>
+        el.textContent.includes('Entry level') ||
+        el.textContent.includes('Mid-Senior level') ||
+        el.textContent.includes('Senior level') ||
+        el.textContent.includes('Director') ||
+        el.textContent.includes('Executive')
+      );
+      const seniority = seniorityElement?.textContent.trim();
+
+      // Employment Type (Remote, Hybrid, On-site)
+      const workplaceType = document.querySelector('[class*="workplace-type"]')?.textContent.trim() ||
+                           Array.from(document.querySelectorAll('.job-details-jobs-unified-top-card__job-insight')).find(el =>
+                             el.textContent.includes('Remote') ||
+                             el.textContent.includes('Hybrid') ||
+                             el.textContent.includes('On-site')
+                           )?.textContent.trim();
+
+      // Number of Applicants
+      const applicants = document.querySelector('[class*="applicant"]')?.textContent.trim() ||
+                        document.querySelector('.jobs-unified-top-card__subtitle-secondary-grouping')?.textContent.match(/\d+\s+applicants?/i)?.[0];
+
+      // Skills (cleaned and limited)
+      const skillsSection = document.querySelector('[class*="skill"]') || 
+                           document.querySelector('.job-details-skill-match-status-list');
+      const skills = skillsSection ? 
+        Array.from(skillsSection.querySelectorAll('span, li'))
+          .map(el => el.textContent.trim())
+          .filter(text => text && text.length > 0 && text.length < 50)
+          .slice(0, 15) : 
+        [];
+
+      // Company Size
+      const companySize = Array.from(document.querySelectorAll('.jobs-company__box')).find(el =>
+        el.textContent.includes('employees')
+      )?.textContent.trim();
+
+      // Industry
+      const industry = Array.from(document.querySelectorAll('.jobs-company__box')).find(el =>
+        el.textContent.toLowerCase().includes('industry')
+      )?.textContent.trim();
+
+      // Benefits (cleaned and limited)
+      const benefitsSection = document.querySelector('[class*="benefit"]');
+      const benefits = benefitsSection ?
+        Array.from(benefitsSection.querySelectorAll('span, li'))
+          .map(el => el.textContent.trim())
+          .filter(text => text && text.length > 0 && text.length < 100)
+          .slice(0, 10) :
+        [];
+
+      // Job URL
+      const url = window.location.href;
+
+      // Posted Date
+      const postedDate = document.querySelector('[class*="posted-time-ago"]')?.textContent.trim() ||
+                        document.querySelector('.jobs-unified-top-card__posted-date')?.textContent.trim();
 
       return {
+        platform: 'LinkedIn',
         title: jobTitle,
         company: company,
         location: location,
         description: description,
-        salary: salary || 'Not specified',
-        jobType: jobType || 'Not specified',
-        url: window.location.href,
-        platform: 'LinkedIn',
+        salary: salary,
+        jobType: jobType,
+        seniority: seniority,
+        workplaceType: workplaceType,
+        applicants: applicants,
+        skills: skills,
+        companySize: companySize,
+        industry: industry,
+        benefits: benefits,
+        url: url,
+        postedDate: postedDate,
         extractedAt: new Date().toISOString()
       };
     } catch (error) {
-      console.error('LinkedIn extraction error:', error);
-      return this.extractGeneric();
+      console.error('Error extracting LinkedIn data:', error);
+      return null;
     }
   }
 
   extractIndeed() {
     try {
-      const jobTitle = document.querySelector('.jobsearch-JobInfoHeader-title')?.textContent.trim();
-      const company = document.querySelector('[data-company-name="true"]')?.textContent.trim();
-      const location = document.querySelector('[data-testid="job-location"]')?.textContent.trim();
-      const description = document.querySelector('#jobDescriptionText')?.innerText;
-      const salary = document.querySelector('.js-match-insights-provider-tvvxwd')?.textContent.trim();
+      const jobTitle = document.querySelector('[class*="jobsearch-JobInfoHeader-title"]')?.textContent.trim() ||
+                      document.querySelector('h1')?.textContent.trim();
+      
+      const company = document.querySelector('[data-company-name="true"]')?.textContent.trim() ||
+                     document.querySelector('[class*="jobsearch-InlineCompanyRating"]')?.textContent.split('·')[0]?.trim();
+      
+      const location = document.querySelector('[class*="jobsearch-JobInfoHeader-subtitle"] div')?.textContent.trim();
+      
+      let description = document.querySelector('#jobDescriptionText')?.innerText ||
+                       document.querySelector('[class*="jobsearch-jobDescriptionText"]')?.innerText;
+      description = this.cleanText(description);
+      
+      const salary = document.querySelector('[class*="salary-snippet"]')?.textContent.trim();
+      
+      const url = window.location.href;
 
       return {
+        platform: 'Indeed',
         title: jobTitle,
         company: company,
         location: location,
         description: description,
-        salary: salary || 'Not specified',
-        jobType: 'Not specified',
-        url: window.location.href,
-        platform: 'Indeed',
+        salary: salary,
+        url: url,
         extractedAt: new Date().toISOString()
       };
     } catch (error) {
-      console.error('Indeed extraction error:', error);
-      return this.extractGeneric();
+      console.error('Error extracting Indeed data:', error);
+      return null;
     }
   }
 
   extractGlassdoor() {
     try {
-      const jobTitle = document.querySelector('[data-test="job-title"]')?.textContent.trim();
-      const company = document.querySelector('[data-test="employer-name"]')?.textContent.trim();
-      const location = document.querySelector('[data-test="location"]')?.textContent.trim();
-      const description = document.querySelector('.jobDescriptionContent')?.innerText;
+      const jobTitle = document.querySelector('[data-test="job-title"]')?.textContent.trim() ||
+                      document.querySelector('h1')?.textContent.trim();
+      
+      const company = document.querySelector('[data-test="employer-name"]')?.textContent.trim() ||
+                     document.querySelector('[class*="EmployerProfile"]')?.textContent.trim();
+      
+      const location = document.querySelector('[data-test="location"]')?.textContent.trim() ||
+                      document.querySelector('[class*="location"]')?.textContent.trim();
+      
+      let description = document.querySelector('[data-test="job-description"]')?.innerText ||
+                       document.querySelector('.desc')?.innerText;
+      description = this.cleanText(description);
+      
       const salary = document.querySelector('[data-test="salary-estimate"]')?.textContent.trim();
+      
+      const url = window.location.href;
 
       return {
+        platform: 'Glassdoor',
         title: jobTitle,
         company: company,
         location: location,
         description: description,
-        salary: salary || 'Not specified',
-        jobType: 'Not specified',
-        url: window.location.href,
-        platform: 'Glassdoor',
+        salary: salary,
+        url: url,
         extractedAt: new Date().toISOString()
       };
     } catch (error) {
-      console.error('Glassdoor extraction error:', error);
-      return this.extractGeneric();
+      console.error('Error extracting Glassdoor data:', error);
+      return null;
     }
   }
 
   extractMonster() {
     try {
-      const jobTitle = document.querySelector('.job-title')?.textContent.trim();
-      const company = document.querySelector('.company-name')?.textContent.trim();
-      const location = document.querySelector('.job-location')?.textContent.trim();
-      const description = document.querySelector('.job-description')?.innerText;
+      const jobTitle = document.querySelector('h1[data-test-id="svx-job-title"]')?.textContent.trim() ||
+                      document.querySelector('h1')?.textContent.trim();
+      
+      const company = document.querySelector('[data-test-id="svx-job-company"]')?.textContent.trim();
+      
+      const location = document.querySelector('[data-test-id="svx-job-location"]')?.textContent.trim();
+      
+      let description = document.querySelector('[data-test-id="svx-job-description"]')?.innerText ||
+                       document.querySelector('.job-description')?.innerText;
+      description = this.cleanText(description);
+      
+      const url = window.location.href;
 
       return {
+        platform: 'Monster',
         title: jobTitle,
         company: company,
         location: location,
         description: description,
-        salary: 'Not specified',
-        jobType: 'Not specified',
-        url: window.location.href,
-        platform: 'Monster',
+        url: url,
         extractedAt: new Date().toISOString()
       };
     } catch (error) {
-      console.error('Monster extraction error:', error);
-      return this.extractGeneric();
+      console.error('Error extracting Monster data:', error);
+      return null;
     }
   }
 
   extractGeneric() {
-    // Fallback for any job site
-    const getText = (selectors) => {
-      for (const selector of selectors) {
-        const el = document.querySelector(selector);
-        if (el) return el.textContent.trim();
-      }
+    try {
+      const jobTitle = document.querySelector('h1')?.textContent.trim() ||
+                      document.querySelector('[class*="job-title"]')?.textContent.trim() ||
+                      document.querySelector('[class*="title"]')?.textContent.trim();
+      
+      const company = document.querySelector('[class*="company"]')?.textContent.trim();
+      
+      const location = document.querySelector('[class*="location"]')?.textContent.trim();
+      
+      let description = document.querySelector('[class*="description"]')?.innerText ||
+                       document.querySelector('article')?.innerText ||
+                       document.querySelector('main')?.innerText;
+      description = this.cleanText(description);
+      
+      const url = window.location.href;
+
+      return {
+        platform: 'Generic',
+        title: jobTitle,
+        company: company,
+        location: location,
+        description: description,
+        url: url,
+        extractedAt: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('Error extracting generic data:', error);
       return null;
-    };
-
-    return {
-      title: getText(['h1', '.job-title', '[class*="title"]']),
-      company: getText(['.company', '[class*="company"]', '[class*="employer"]']),
-      location: getText(['.location', '[class*="location"]']),
-      description: document.body.innerText.substring(0, 5000),
-      salary: 'Not specified',
-      jobType: 'Not specified',
-      url: window.location.href,
-      platform: 'Other',
-      extractedAt: new Date().toISOString()
-    };
-  }
-}
-
-// Inject floating button
-function injectPreciprocal() {
-  // Check if already injected
-  if (document.getElementById('preciprocal-fab')) return;
-
-  const fab = document.createElement('div');
-  fab.id = 'preciprocal-fab';
-  fab.innerHTML = `
-    <button class="preciprocal-btn">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      <span>Preciprocal</span>
-    </button>
-  `;
-
-  document.body.appendChild(fab);
-
-  // Click handler
-  fab.querySelector('.preciprocal-btn').addEventListener('click', async () => {
-    const extractor = new JobExtractor();
-    const jobData = extractor.extractJobData();
-
-    if (!jobData.title || !jobData.company) {
-      showNotification('Unable to extract complete job data. Please try again.', 'error');
-      return;
     }
-
-    // Send to background script
-    chrome.runtime.sendMessage({
-      action: 'openPreciprocal',
-      jobData: jobData
-    });
-  });
-}
-
-// Notification system
-function showNotification(message, type = 'success') {
-  const notification = document.createElement('div');
-  notification.className = `preciprocal-notification ${type}`;
-  notification.textContent = message;
-  document.body.appendChild(notification);
-
-  setTimeout(() => {
-    notification.classList.add('show');
-  }, 100);
-
-  setTimeout(() => {
-    notification.classList.remove('show');
-    setTimeout(() => notification.remove(), 300);
-  }, 3000);
-}
-
-// Initialize when DOM is ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', injectPreciprocal);
-} else {
-  injectPreciprocal();
-}
-
-// Re-inject on dynamic page changes (SPA navigation)
-let lastUrl = location.href;
-new MutationObserver(() => {
-  const url = location.href;
-  if (url !== lastUrl) {
-    lastUrl = url;
-    setTimeout(injectPreciprocal, 1000);
   }
-}).observe(document, { subtree: true, childList: true });
+}
+
+// ✨ MAKE JOBEXTRACTOR GLOBALLY AVAILABLE FOR BANNER.JS AND METRICS.JS
+window.JobExtractor = JobExtractor;
+
+console.log('✅ JobExtractor available globally');

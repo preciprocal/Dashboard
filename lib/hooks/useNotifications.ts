@@ -1,15 +1,30 @@
 // hooks/useNotifications.ts
-import { useState, useEffect, useCallback } from 'react';
-import { NotificationService, Notification } from '@/lib/services/notification-services';
 
-export function useNotifications(userId: string | undefined) {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+import { useState, useEffect, useCallback } from 'react';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { auth } from '@/firebase/client';
+import {
+  NotificationService,
+  Notification as AppNotification,
+} from '@/lib/services/notification-services';
+
+export type { AppNotification };
+
+// Accepts an optional uid — if provided, uses it directly (avoids double auth call).
+// If not provided, falls back to useAuthState internally.
+export function useNotifications(uid?: string) {
+  const [currentUser] = useAuthState(auth);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  // Subscribe to real-time notifications
+  // Use the passed uid if available, otherwise fall back to auth state
+  const userId = uid ?? currentUser?.uid;
+
   useEffect(() => {
     if (!userId) {
+      setNotifications([]);
+      setUnreadCount(0);
       setLoading(false);
       return;
     }
@@ -18,44 +33,38 @@ export function useNotifications(userId: string | undefined) {
 
     const unsubscribe = NotificationService.subscribeToNotifications(
       userId,
-      (updatedNotifications) => {
-        setNotifications(updatedNotifications);
-        const unread = updatedNotifications.filter((n) => !n.isRead).length;
-        setUnreadCount(unread);
+      (notifs: AppNotification[]) => {
+        setNotifications(notifs);
+        setUnreadCount(notifs.filter((n) => !n.isRead).length);
         setLoading(false);
       }
     );
 
-    return () => {
-      unsubscribe();
-    };
+    return () => unsubscribe();
   }, [userId]);
 
-  // Mark notification as read
-  const markAsRead = useCallback(async (notificationId: string) => {
+  const markAsRead = useCallback(async (id: string) => {
     try {
-      await NotificationService.markAsRead(notificationId);
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
+      await NotificationService.markAsRead(id);
+    } catch (err) {
+      console.error('Failed to mark notification as read:', err);
     }
   }, []);
 
-  // Mark all notifications as read
   const markAllAsRead = useCallback(async () => {
     if (!userId) return;
     try {
       await NotificationService.markAllAsRead(userId);
-    } catch (error) {
-      console.error('Error marking all as read:', error);
+    } catch (err) {
+      console.error('Failed to mark all notifications as read:', err);
     }
   }, [userId]);
 
-  // Delete notification
-  const deleteNotification = useCallback(async (notificationId: string) => {
+  const deleteNotification = useCallback(async (id: string) => {
     try {
-      await NotificationService.deleteNotification(notificationId);
-    } catch (error) {
-      console.error('Error deleting notification:', error);
+      await NotificationService.deleteNotification(id);
+    } catch (err) {
+      console.error('Failed to delete notification:', err);
     }
   }, []);
 

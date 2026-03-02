@@ -1,94 +1,263 @@
-// Background service worker for Chrome extension
+// background.js
+console.log('🚀 Preciprocal Extension - Service Worker Started');
 
-const PRECIPROCAL_URL = 'https://preciprocal.com';
+// Configuration
+const CONFIG = {
+  TOKEN_KEY: 'preciprocal_auth_token',
+  USER_KEY: 'preciprocal_user_data',
+  API_BASE: 'http://localhost:3000/api'
+};
 
-// Listen for messages from content script and from the web page
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('📨 Message received:', request.action);
-  
-  if (request.action === 'openPreciprocal') {
-    handleJobDataExtraction(request.jobData);
-  } else if (request.action === 'getJobData') {
-    // Web page is requesting job data
-    chrome.storage.local.get(['pendingJobData'], (result) => {
-      console.log('📤 Sending job data to page:', result.pendingJobData);
-      sendResponse({ jobData: result.pendingJobData });
-      
-      // Clear after sending
-      chrome.storage.local.remove(['pendingJobData']);
-    });
-    return true; // Keep channel open for async response
-  }
-  return true;
-});
+// ========== AUTH FUNCTIONS ==========
 
-async function handleJobDataExtraction(jobData) {
-  try {
-    console.log('📦 Job data extracted:', jobData);
-    
-    // Check if user is authenticated
-    const authToken = await getAuthToken();
-    
-    if (!authToken) {
-      console.log('❌ No auth token, redirecting to login');
-      const loginUrl = `${PRECIPROCAL_URL}/auth?extension=true&redirect=job-tools`;
-      chrome.tabs.create({ url: loginUrl });
-      return;
+async function saveToken(token, expiresAt) {
+  await chrome.storage.local.set({
+    [CONFIG.TOKEN_KEY]: { 
+      token, 
+      expiresAt, 
+      savedAt: Date.now() 
     }
-
-    console.log('✅ User authenticated');
-
-    // Store job data in chrome storage (persistent)
-    await chrome.storage.local.set({
-      pendingJobData: jobData,
-      timestamp: Date.now()
-    });
-
-    console.log('💾 Job data saved to chrome.storage');
-
-    // Open Preciprocal in new tab
-    const toolsUrl = `${PRECIPROCAL_URL}/job-tools?from_extension=true`;
-    chrome.tabs.create({ url: toolsUrl });
-
-  } catch (error) {
-    console.error('❌ Error handling job data:', error);
-  }
+  });
+  console.log('✅ Token saved successfully');
 }
 
-async function getAuthToken() {
+async function getToken() {
   try {
-    const result = await chrome.storage.local.get(['authToken']);
-    return result.authToken || null;
+    const result = await chrome.storage.local.get(CONFIG.TOKEN_KEY);
+    const authData = result[CONFIG.TOKEN_KEY];
+
+    if (!authData) {
+      console.log('❌ No token found');
+      return null;
+    }
+
+    // Check if token is expired
+    if (authData.expiresAt < Date.now()) {
+      console.log('⏰ Token expired');
+      await clearAuth();
+      return null;
+    }
+
+    return authData.token;
   } catch (error) {
-    console.error('Error getting auth token:', error);
+    console.error('Error getting token:', error);
     return null;
   }
 }
 
-// Listen for tab updates to inject content script
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'complete' && tab.url) {
-    const jobSites = [
-      'linkedin.com/jobs',
-      'indeed.com/viewjob',
-      'glassdoor.com/job-listing',
-      'monster.com/job-openings'
-    ];
+async function verifyAndFetchUser() {
+  const token = await getToken();
+  if (!token) return null;
 
-    const isJobSite = jobSites.some(site => tab.url.includes(site));
-    
-    if (isJobSite) {
-      chrome.scripting.executeScript({
-        target: { tabId: tabId },
-        files: ['content.js']
-      }).catch(err => console.error('Script injection failed:', err));
+  try {
+    const response = await fetch(`${CONFIG.API_BASE}/extension/auth`, {
+      method: 'GET',
+      headers: {
+        'x-extension-token': token
+      }
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        console.log('❌ Token invalid, clearing auth');
+        await clearAuth();
+      }
+      return null;
     }
+
+    const data = await response.json();
+    
+    // Cache user data
+    await chrome.storage.local.set({
+      [CONFIG.USER_KEY]: {
+        ...data.user,
+        lastFetch: Date.now()
+      }
+    });
+
+    console.log('✅ User verified:', data.user.email);
+    return data.user;
+
+  } catch (error) {
+    console.error('Token verification failed:', error);
+    return null;
+  }
+}
+
+async function isAuthenticated() {
+  const token = await getToken();
+  return token !== null;
+}
+
+async function clearAuth() {
+  await chrome.storage.local.remove([CONFIG.TOKEN_KEY, CONFIG.USER_KEY]);
+  console.log('🗑️ Auth cleared');
+}
+
+// ========== MESSAGE HANDLERS ==========
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log('📨 Message received:', message.type);
+
+  // Handle auth token from web app
+  if (message.type === 'AUTH_TOKEN') {
+    saveToken(message.token, message.expiresAt)
+      .then(() => verifyAndFetchUser())
+      .then((user) => {
+        console.log('✅ Auth complete:', user);
+        sendResponse({ success: true, user });
+      })
+      .catch((error) => {
+        console.error('❌ Auth error:', error);
+        sendResponse({ success: false, error: error.message });
+      });
+    return true; // Keep channel open for async response
+  }
+
+  // Check auth status
+  if (message.type === 'CHECK_AUTH') {
+    verifyAndFetchUser()
+      .then((user) => {
+        sendResponse({ authenticated: !!user, user });
+      })
+      .catch((error) => {
+        sendResponse({ authenticated: false, error: error.message });
+      });
+    return true;
+  }
+
+  // Get user data
+  if (message.type === 'GET_USER_DATA') {
+    chrome.storage.local.get(CONFIG.USER_KEY)
+      .then((result) => {
+        sendResponse({ user: result[CONFIG.USER_KEY] || null });
+      })
+      .catch((error) => {
+        sendResponse({ user: null, error: error.message });
+      });
+    return true;
+  }
+
+  // Get token
+  if (message.type === 'GET_TOKEN') {
+    getToken()
+      .then((token) => {
+        sendResponse({ token });
+      })
+      .catch((error) => {
+        sendResponse({ token: null, error: error.message });
+      });
+    return true;
+  }
+
+  // Logout
+  if (message.type === 'LOGOUT') {
+    clearAuth()
+      .then(() => {
+        sendResponse({ success: true });
+      })
+      .catch((error) => {
+        sendResponse({ success: false, error: error.message });
+      });
+    return true;
+  }
+
+  return false;
+});
+
+// ========== EXTENSION LIFECYCLE ==========
+
+chrome.runtime.onInstalled.addListener((details) => {
+  if (details.reason === 'install') {
+    console.log('✅ Extension installed');
+    
+    // Open settings page with extension query param
+    chrome.tabs.create({
+      url: 'http://localhost:3000/settings?from=extension'
+    });
+  } else if (details.reason === 'update') {
+    console.log('🔄 Extension updated to version', chrome.runtime.getManifest().version);
   }
 });
 
-// Handle storage changes for auth
-chrome.storage.onChanged.addListener((changes, namespace) => {
-  if (namespace === 'local' && changes.authToken) {
-    console.log('Auth token updated');
+// Extension icon click
+chrome.action.onClicked.addListener(async (tab) => {
+  console.log('🖱️ Extension icon clicked');
+  
+  // Check if user is on LinkedIn
+  if (tab.url?.includes('linkedin.com/jobs')) {
+    console.log('💼 On LinkedIn job page');
+    
+    // Check auth first
+    const authStatus = await isAuthenticated();
+    if (authStatus) {
+      // User is authenticated, inject job analyzer
+      chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ['injector.js']
+      });
+    } else {
+      // Not authenticated, show popup
+      chrome.action.openPopup();
+    }
+  } else {
+    // Not on LinkedIn, open popup
+    chrome.action.openPopup();
+  }
+});
+
+console.log('✅ Service worker initialized');
+
+// ========== DYNAMIC INJECTION FOR UNLISTED SITES ==========
+// When user clicks extension icon on any site not in content_scripts,
+// check if it looks like a job application and inject external-apply.js
+
+chrome.action.onClicked.removeListener; // clear old listener first
+
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  if (changeInfo.status !== 'complete') return;
+  if (!tab.url) return;
+
+  const url = tab.url.toLowerCase();
+  const isJobSite = (
+    // Already covered by content_scripts — skip
+    url.includes('lever.co') ||
+    url.includes('greenhouse.io') ||
+    url.includes('workday.com') ||
+    url.includes('myworkdayjobs.com') ||
+    url.includes('indeed.com') ||
+    url.includes('ashbyhq.com') ||
+    url.includes('icims.com') ||
+    url.includes('jobvite.com') ||
+    url.includes('smartrecruiters.com') ||
+    url.includes('linkedin.com') ||
+    url.includes('localhost:3000') ||
+    url.includes('preciprocal.com')
+  );
+
+  if (isJobSite) return; // Already handled by content_scripts
+
+  // Dynamically inject on career/apply pages of ANY site
+  const looksLikeJobPage = (
+    /\/(apply|application|careers?|jobs?|hiring|openings?|positions?)\b/i.test(tab.url) ||
+    url.includes('career') ||
+    url.includes('/apply') ||
+    url.includes('/job/')
+  );
+
+  if (!looksLikeJobPage) return;
+
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ['external-apply.js']
+    });
+    await chrome.scripting.insertCSS({
+      target: { tabId },
+      files: ['content.css']
+    });
+    console.log('💉 Dynamically injected external-apply.js on:', tab.url);
+  } catch (e) {
+    // Tab may not allow injection (chrome:// pages etc) — ignore
   }
 });

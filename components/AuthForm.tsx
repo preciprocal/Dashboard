@@ -18,7 +18,6 @@ import {
   FacebookAuthProvider,
   setPersistence,
   browserLocalPersistence,
-  browserSessionPersistence,
   UserCredential,
 } from "firebase/auth";
 
@@ -73,61 +72,118 @@ const AuthForm = ({ type }: { type: FormType }) => {
     }
   }, [type, form]);
 
-  const handleGoogleAuth = async () => {
-    setIsGoogleLoading(true);
+  // Helper function to clear all cached data
+  const clearAllCache = async () => {
+    console.log('🧹 Clearing ALL cached data...');
+    
+    const keysToRemove = [
+      'user', 'userId', 'userEmail', 'userName', 'userProfile',
+      'authToken', 'idToken', 'subscriptionStatus', 'subscriptionTier',
+      'usageData', 'userPreferences', 'dashboardData', 'recentActivity',
+      'cached_user_data', 'user_stats', 'interviews_cache', 'resumes_cache'
+    ];
+
+    keysToRemove.forEach(key => {
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
+    });
+
+    const localStorageKeys = Object.keys(localStorage);
+    localStorageKeys.forEach(key => {
+      if (key.startsWith('user:') || key.startsWith('firebase:') || key.startsWith('_firebase')) {
+        localStorage.removeItem(key);
+      }
+    });
+
+    if (window.indexedDB) {
+      try {
+        const databases = await window.indexedDB.databases();
+        for (const db of databases) {
+          if (db.name && (db.name.includes('firebase') || db.name.includes('firestore'))) {
+            console.log('🗑️ Deleting IndexedDB:', db.name);
+            window.indexedDB.deleteDatabase(db.name);
+          }
+        }
+      } catch (error) {
+        console.log('IndexedDB cleanup skipped:', error);
+      }
+    }
+
     try {
-      const provider = new GoogleAuthProvider();
-      provider.addScope("email");
-      provider.addScope("profile");
+      await auth.signOut();
+      console.log('✅ Firebase auth state cleared');
+    } catch (error) {
+      console.log('Firebase signout skipped:', error);
+    }
 
-      const persistence = rememberMe
-        ? browserLocalPersistence
-        : browserSessionPersistence;
-      await setPersistence(auth, persistence);
+    console.log('✅ Cache cleared successfully');
+  };
 
-      const result: UserCredential = await signInWithPopup(auth, provider);
-      const user = result.user;
-      const idToken = await user.getIdToken();
+  const handleSuccessfulAuth = async (user: import('firebase/auth').User, provider: string) => {
+    try {
+      const idToken = await user.getIdToken(true);
 
       const signInResult = await signIn({
         email: user.email!,
         idToken,
-        provider: "google",
+        provider,
       });
 
       if (!signInResult.success) {
         toast.error(signInResult.message);
-        return;
+        return false;
       }
 
-      if (rememberMe) {
-        localStorage.setItem("rememberedEmail", user.email!);
-        localStorage.setItem("rememberMe", "true");
-      }
+      localStorage.setItem("rememberedEmail", user.email!);
+      localStorage.setItem("rememberMe", "true");
 
       toast.success(
         type === "sign-up"
-          ? "Account created successfully with Google!"
+          ? `Account created successfully with ${provider}!`
           : "Signed in successfully!"
       );
 
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      window.location.href = redirectUrl;
+      console.log('✅ Auth successful, forcing page reload to:', redirectUrl);
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      
+      const cacheBuster = `?_t=${Date.now()}&_uid=${user.uid.substring(0, 8)}`;
+      const finalUrl = redirectUrl === '/' 
+        ? `/${cacheBuster}` 
+        : `${redirectUrl}${redirectUrl.includes('?') ? '&' : '?'}_t=${Date.now()}&_uid=${user.uid.substring(0, 8)}`;
+      
+      console.log('🔄 Redirecting to:', finalUrl);
+      window.location.replace(finalUrl);
+      return true;
+    } catch (error) {
+      console.error('Auth processing error:', error);
+      toast.error('Failed to complete authentication.');
+      return false;
+    }
+  };
+
+  const handleGoogleAuth = async () => {
+    setIsGoogleLoading(true);
+    try {
+      await clearAllCache();
+      
+      const provider = new GoogleAuthProvider();
+      provider.addScope("email");
+      provider.addScope("profile");
+      provider.setCustomParameters({ prompt: 'select_account' });
+
+      await setPersistence(auth, browserLocalPersistence);
+      const result: UserCredential = await signInWithPopup(auth, provider);
+      await handleSuccessfulAuth(result.user, "google");
+      
     } catch (error) {
       console.error("Google auth error:", error);
       const err = error as { code?: string };
       let errorMessage = "Failed to authenticate with Google.";
 
-      if (err.code === "auth/popup-closed-by-user") {
-        errorMessage = "Sign-in was cancelled.";
-      } else if (err.code === "auth/popup-blocked") {
-        errorMessage = "Popup was blocked. Please allow popups and try again.";
-      } else if (err.code === "auth/account-exists-with-different-credential") {
-        errorMessage =
-          "An account already exists with this email using a different sign-in method.";
-      } else if (err.code === "auth/unauthorized-domain") {
-        errorMessage = "This domain is not authorized for Google sign-in.";
-      }
+      if (err.code === "auth/popup-closed-by-user") errorMessage = "Sign-in was cancelled.";
+      else if (err.code === "auth/popup-blocked") errorMessage = "Popup was blocked. Please allow popups and try again.";
+      else if (err.code === "auth/account-exists-with-different-credential") errorMessage = "An account already exists with this email using a different sign-in method.";
+      else if (err.code === "auth/unauthorized-domain") errorMessage = "This domain is not authorized for Google sign-in.";
 
       toast.error(errorMessage);
     } finally {
@@ -138,57 +194,24 @@ const AuthForm = ({ type }: { type: FormType }) => {
   const handleFacebookAuth = async () => {
     setIsFacebookLoading(true);
     try {
+      await clearAllCache();
+      
       const provider = new FacebookAuthProvider();
       provider.addScope("email");
 
-      const persistence = rememberMe
-        ? browserLocalPersistence
-        : browserSessionPersistence;
-      await setPersistence(auth, persistence);
-
+      await setPersistence(auth, browserLocalPersistence);
       const result: UserCredential = await signInWithPopup(auth, provider);
-      const user = result.user;
-      const idToken = await user.getIdToken();
-
-      const signInResult = await signIn({
-        email: user.email!,
-        idToken,
-        provider: "facebook",
-      });
-
-      if (!signInResult.success) {
-        toast.error(signInResult.message);
-        return;
-      }
-
-      if (rememberMe) {
-        localStorage.setItem("rememberedEmail", user.email!);
-        localStorage.setItem("rememberMe", "true");
-      }
-
-      toast.success(
-        type === "sign-up"
-          ? "Account created successfully with Facebook!"
-          : "Signed in successfully!"
-      );
-
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      window.location.href = redirectUrl;
+      await handleSuccessfulAuth(result.user, "facebook");
+      
     } catch (error) {
       console.error("Facebook auth error:", error);
       const err = error as { code?: string };
       let errorMessage = "Failed to authenticate with Facebook.";
 
-      if (err.code === "auth/popup-closed-by-user") {
-        errorMessage = "Sign-in was cancelled.";
-      } else if (err.code === "auth/popup-blocked") {
-        errorMessage = "Popup was blocked. Please allow popups and try again.";
-      } else if (err.code === "auth/account-exists-with-different-credential") {
-        errorMessage =
-          "An account already exists with this email using a different sign-in method.";
-      } else if (err.code === "auth/unauthorized-domain") {
-        errorMessage = "This domain is not authorized for Facebook sign-in.";
-      }
+      if (err.code === "auth/popup-closed-by-user") errorMessage = "Sign-in was cancelled.";
+      else if (err.code === "auth/popup-blocked") errorMessage = "Popup was blocked. Please allow popups and try again.";
+      else if (err.code === "auth/account-exists-with-different-credential") errorMessage = "An account already exists with this email using a different sign-in method.";
+      else if (err.code === "auth/unauthorized-domain") errorMessage = "This domain is not authorized for Facebook sign-in.";
 
       toast.error(errorMessage);
     } finally {
@@ -202,8 +225,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
       if (type === "sign-up") {
         const { name, email, password } = data;
 
-        const userCredential: UserCredential =
-          await createUserWithEmailAndPassword(auth, email, password);
+        const userCredential: UserCredential = await createUserWithEmailAndPassword(auth, email, password);
 
         const result = await signUp({
           uid: userCredential.user.uid,
@@ -218,45 +240,29 @@ const AuthForm = ({ type }: { type: FormType }) => {
 
         toast.success("Account created successfully. Please sign in.");
 
-        const signInUrl =
-          redirectUrl !== "/"
-            ? `/sign-in?redirect=${encodeURIComponent(redirectUrl)}`
-            : "/sign-in";
+        const signInUrl = redirectUrl !== "/"
+          ? `/sign-in?redirect=${encodeURIComponent(redirectUrl)}`
+          : "/sign-in";
         router.push(signInUrl);
         router.refresh();
       } else {
         const { email, password } = data;
 
-        const persistence = rememberMe
-          ? browserLocalPersistence
-          : browserSessionPersistence;
-        await setPersistence(auth, persistence);
+        await clearAllCache();
+        await setPersistence(auth, browserLocalPersistence);
 
-        const userCredential: UserCredential = await signInWithEmailAndPassword(
-          auth,
-          email,
-          password
-        );
+        const userCredential: UserCredential = await signInWithEmailAndPassword(auth, email, password);
+        const idToken = await userCredential.user.getIdToken(true);
 
-        const idToken = await userCredential.user.getIdToken();
         if (!idToken) {
           toast.error("Sign in Failed. Please try again.");
           return;
         }
 
-        if (rememberMe) {
-          localStorage.setItem("rememberedEmail", email);
-          localStorage.setItem("rememberMe", "true");
-        } else {
-          localStorage.removeItem("rememberedEmail");
-          localStorage.removeItem("rememberMe");
-        }
+        localStorage.setItem("rememberedEmail", email);
+        localStorage.setItem("rememberMe", "true");
 
-        const signInResult = await signIn({
-          email,
-          idToken,
-          provider: "email",
-        });
+        const signInResult = await signIn({ email, idToken, provider: "email" });
 
         if (!signInResult.success) {
           toast.error(signInResult.message);
@@ -265,28 +271,28 @@ const AuthForm = ({ type }: { type: FormType }) => {
 
         toast.success("Signed in successfully.");
 
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        window.location.href = redirectUrl;
+        console.log('✅ Sign in successful, forcing page reload to:', redirectUrl);
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        
+        const cacheBuster = `?_t=${Date.now()}&_uid=${userCredential.user.uid.substring(0, 8)}`;
+        const finalUrl = redirectUrl === '/' 
+          ? `/${cacheBuster}` 
+          : `${redirectUrl}${redirectUrl.includes('?') ? '&' : '?'}_t=${Date.now()}&_uid=${userCredential.user.uid.substring(0, 8)}`;
+        
+        console.log('🔄 Redirecting to:', finalUrl);
+        window.location.replace(finalUrl);
       }
     } catch (error) {
       console.log(error);
       const err = error as { code?: string };
       let errorMessage = "There was an error signing in.";
 
-      if (err.code === "auth/user-not-found") {
-        errorMessage = "No account found with this email address.";
-      } else if (err.code === "auth/wrong-password") {
-        errorMessage = "Invalid password. Please try again.";
-      } else if (err.code === "auth/invalid-email") {
-        errorMessage = "Invalid email address format.";
-      } else if (err.code === "auth/user-disabled") {
-        errorMessage = "This account has been disabled.";
-      } else if (err.code === "auth/too-many-requests") {
-        errorMessage = "Too many failed attempts. Please try again later.";
-      } else if (err.code === "auth/invalid-credential") {
-        errorMessage =
-          "Invalid credentials. Please check your email and password.";
-      }
+      if (err.code === "auth/user-not-found") errorMessage = "No account found with this email address.";
+      else if (err.code === "auth/wrong-password") errorMessage = "Invalid password. Please try again.";
+      else if (err.code === "auth/invalid-email") errorMessage = "Invalid email address format.";
+      else if (err.code === "auth/user-disabled") errorMessage = "This account has been disabled.";
+      else if (err.code === "auth/too-many-requests") errorMessage = "Too many failed attempts. Please try again later.";
+      else if (err.code === "auth/invalid-credential") errorMessage = "Invalid credentials. Please check your email and password.";
 
       toast.error(errorMessage);
     } finally {
@@ -300,7 +306,6 @@ const AuthForm = ({ type }: { type: FormType }) => {
     <div className="min-h-screen flex bg-slate-950">
       {/* Left Side - Branding */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative overflow-hidden">
-        {/* Subtle Grid Pattern */}
         <div
           className="absolute inset-0 opacity-[0.02]"
           style={{
@@ -310,7 +315,6 @@ const AuthForm = ({ type }: { type: FormType }) => {
           }}
         ></div>
 
-        {/* Animated Background Elements */}
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute top-1/4 -left-20 w-72 h-72 bg-purple-500/5 rounded-full blur-3xl animate-pulse"></div>
           <div
@@ -323,11 +327,9 @@ const AuthForm = ({ type }: { type: FormType }) => {
           ></div>
         </div>
 
-        {/* Geometric Accents */}
         <div className="absolute top-20 right-20 w-32 h-32 border border-slate-700/20 rounded-2xl rotate-12 opacity-20"></div>
         <div className="absolute bottom-40 left-20 w-24 h-24 border border-slate-700/20 rounded-full opacity-20"></div>
 
-        {/* Content */}
         <div className="relative z-10 flex flex-col justify-center px-16 text-white">
           <div className="mb-12">
             <div className="flex items-center space-x-4 mb-8">
@@ -343,6 +345,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
                 Preciprocal
               </h1>
             </div>
+
             <h2 className="text-4xl font-bold mb-5 leading-tight tracking-tight text-white">
               Tired of AI Taking Your Job?
               <br />
@@ -350,30 +353,21 @@ const AuthForm = ({ type }: { type: FormType }) => {
                 Use AI to Take It Back.
               </span>
             </h2>
+
             <p className="text-lg text-slate-400 leading-relaxed max-w-lg">
-              Master interviews, perfect your resume, and land your dream role
-              with AI-powered career prep that puts you ahead of the
-              competition.
+              Most candidates are qualified. Few are prepared. Preciprocal closes
+              that gap, giving you the tools, feedback, and confidence to walk
+              into any interview and own the room.
             </p>
           </div>
 
-          {/* Feature List with Modern Cards */}
           <div className="space-y-3 mt-8">
+
             <div className="group p-5 bg-slate-800/30 hover:bg-slate-800/50 border border-slate-700/30 rounded-xl transition-all duration-300 backdrop-blur-sm">
               <div className="flex items-start space-x-4">
                 <div className="w-10 h-10 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-purple-500/20 transition-all">
-                  <svg
-                    className="w-5 h-5 text-purple-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                    />
+                  <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
                 </div>
                 <div className="flex-1">
@@ -381,7 +375,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
                     AI-Powered Mock Interviews
                   </h3>
                   <p className="text-slate-400 text-sm leading-relaxed">
-                    Practice with realistic AI interviewers
+                    Face realistic interviewers that adapt to your role, seniority, and target company. Get scored on communication, technical depth, and confidence. Then improve before it counts.
                   </p>
                 </div>
               </div>
@@ -390,18 +384,8 @@ const AuthForm = ({ type }: { type: FormType }) => {
             <div className="group p-5 bg-slate-800/30 hover:bg-slate-800/50 border border-slate-700/30 rounded-xl transition-all duration-300 backdrop-blur-sm">
               <div className="flex items-start space-x-4">
                 <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-500/20 transition-all">
-                  <svg
-                    className="w-5 h-5 text-blue-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                    />
+                  <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 </div>
                 <div className="flex-1">
@@ -409,7 +393,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
                     Smart Resume Analysis
                   </h3>
                   <p className="text-slate-400 text-sm leading-relaxed">
-                    Get personalized feedback and improvements
+                    Stop getting filtered out before a human ever sees you. Our ATS scorer, keyword gap analyzer, and recruiter eye simulation make sure your resume passes every gate.
                   </p>
                 </div>
               </div>
@@ -418,18 +402,8 @@ const AuthForm = ({ type }: { type: FormType }) => {
             <div className="group p-5 bg-slate-800/30 hover:bg-slate-800/50 border border-slate-700/30 rounded-xl transition-all duration-300 backdrop-blur-sm">
               <div className="flex items-start space-x-4">
                 <div className="w-10 h-10 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-cyan-500/20 transition-all">
-                  <svg
-                    className="w-5 h-5 text-cyan-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
-                    />
+                  <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                   </svg>
                 </div>
                 <div className="flex-1">
@@ -437,11 +411,12 @@ const AuthForm = ({ type }: { type: FormType }) => {
                     Personalized Study Plans
                   </h3>
                   <p className="text-slate-400 text-sm leading-relaxed">
-                    Track your progress and stay organized
+                    Every day between now and your interview matters. Get a day-by-day prep schedule built around your timeline, skill gaps, and target role so nothing slips through the cracks.
                   </p>
                 </div>
               </div>
             </div>
+
           </div>
         </div>
       </div>
@@ -449,7 +424,6 @@ const AuthForm = ({ type }: { type: FormType }) => {
       {/* Right Side - Auth Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-slate-950">
         <div className="w-full max-w-md">
-          {/* Mobile Logo */}
           <div className="lg:hidden text-center mb-8">
             <div className="flex items-center justify-center space-x-3 mb-4">
               <Image
@@ -464,7 +438,6 @@ const AuthForm = ({ type }: { type: FormType }) => {
             </div>
           </div>
 
-          {/* Form Header */}
           <div className="mb-8">
             <h2 className="text-3xl font-bold text-white mb-2">
               {isSignIn ? "Welcome back" : "Create your account"}
@@ -476,7 +449,6 @@ const AuthForm = ({ type }: { type: FormType }) => {
             </p>
           </div>
 
-          {/* Social Login Buttons */}
           <div className="space-y-3 mb-6">
             <button
               onClick={handleGoogleAuth}
@@ -487,22 +459,10 @@ const AuthForm = ({ type }: { type: FormType }) => {
                 <div className="w-5 h-5 border-2 border-slate-700 border-t-purple-500 rounded-full animate-spin"></div>
               ) : (
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
-                  <path
-                    fill="#4285F4"
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                  />
-                  <path
-                    fill="#34A853"
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                  />
-                  <path
-                    fill="#FBBC05"
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                  />
-                  <path
-                    fill="#EA4335"
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                  />
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                 </svg>
               )}
               <span className="text-white font-medium">
@@ -518,11 +478,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
               {isFacebookLoading ? (
                 <div className="w-5 h-5 border-2 border-slate-700 border-t-purple-500 rounded-full animate-spin"></div>
               ) : (
-                <svg
-                  className="w-5 h-5 text-[#1877F2]"
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
-                >
+                <svg className="w-5 h-5 text-[#1877F2]" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
                 </svg>
               )}
@@ -532,7 +488,6 @@ const AuthForm = ({ type }: { type: FormType }) => {
             </button>
           </div>
 
-          {/* Divider */}
           <div className="relative mb-6">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-slate-800"></div>
@@ -544,7 +499,6 @@ const AuthForm = ({ type }: { type: FormType }) => {
             </div>
           </div>
 
-          {/* Form */}
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               {!isSignIn && (
@@ -555,7 +509,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
                   <input
                     {...form.register("name")}
                     type="text"
-                    placeholder="John Doe"
+                    placeholder="Bruce Wayne"
                     className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
                   />
                 </div>
@@ -568,7 +522,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
                 <input
                   {...form.register("email")}
                   type="email"
-                  placeholder="you@example.com"
+                  placeholder="bruce@wayneenterprises.com"
                   className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
                 />
               </div>
@@ -590,38 +544,13 @@ const AuthForm = ({ type }: { type: FormType }) => {
                     className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-300"
                   >
                     {showPassword ? (
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"
-                        />
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
                       </svg>
                     ) : (
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                        />
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                        />
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                       </svg>
                     )}
                   </button>
@@ -641,9 +570,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
                       checked={rememberMe}
                       onChange={(e) => setRememberMe(e.target.checked)}
                       className="w-4 h-4 text-purple-600 bg-slate-900 border-slate-700 rounded cursor-pointer accent-purple-600"
-                      style={{
-                        colorScheme: "dark",
-                      }}
+                      style={{ colorScheme: "dark" }}
                     />
                     <span className="ml-2 text-sm text-slate-400 group-hover:text-slate-300 transition-colors">
                       Remember me
@@ -666,9 +593,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
                 {isLoading ? (
                   <div className="flex items-center justify-center space-x-2">
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    <span>
-                      {isSignIn ? "Signing in..." : "Creating account..."}
-                    </span>
+                    <span>{isSignIn ? "Signing in..." : "Creating account..."}</span>
                   </div>
                 ) : (
                   <span>{isSignIn ? "Sign in" : "Create account"}</span>
@@ -677,18 +602,13 @@ const AuthForm = ({ type }: { type: FormType }) => {
             </form>
           </Form>
 
-          {/* Footer Link */}
           <p className="mt-6 text-center text-sm text-slate-400">
             {isSignIn ? "Don't have an account?" : "Already have an account?"}
             <Link
               href={
                 !isSignIn
-                  ? redirectUrl !== "/"
-                    ? `/sign-in?redirect=${encodeURIComponent(redirectUrl)}`
-                    : "/sign-in"
-                  : redirectUrl !== "/"
-                  ? `/sign-up?redirect=${encodeURIComponent(redirectUrl)}`
-                  : "/sign-up"
+                  ? redirectUrl !== "/" ? `/sign-in?redirect=${encodeURIComponent(redirectUrl)}` : "/sign-in"
+                  : redirectUrl !== "/" ? `/sign-up?redirect=${encodeURIComponent(redirectUrl)}` : "/sign-up"
               }
               className="ml-1 text-purple-400 hover:text-purple-300 font-semibold"
             >
@@ -696,20 +616,13 @@ const AuthForm = ({ type }: { type: FormType }) => {
             </Link>
           </p>
 
-          {/* Terms */}
           <p className="mt-8 text-center text-xs text-slate-500">
             By continuing, you agree to our{" "}
-            <Link
-              href="/terms"
-              className="text-slate-400 hover:text-slate-300 underline"
-            >
+            <Link href="/terms" className="text-slate-400 hover:text-slate-300 underline">
               Terms of Service
             </Link>{" "}
             and{" "}
-            <Link
-              href="/privacy"
-              className="text-slate-400 hover:text-slate-300 underline"
-            >
+            <Link href="/privacy" className="text-slate-400 hover:text-slate-300 underline">
               Privacy Policy
             </Link>
           </p>

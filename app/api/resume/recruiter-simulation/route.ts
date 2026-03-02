@@ -89,7 +89,21 @@ export async function POST(request: NextRequest) {
       model: 'gemini-2.5-flash'
     });
 
-    const prompt = `You are a senior recruiter reviewing resumes. Simulate how you would review this resume in the first 6-10 seconds.
+    // Get current date information
+    const now = new Date();
+    const currentDate = now.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+    const currentMonth = now.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long'
+    });
+
+    const prompt = `IMPORTANT CONTEXT: Today's date is ${currentDate}. You are reviewing this resume in ${currentMonth}. Any dates in the resume that appear to be in 2024 or 2025 should be treated as current or recent experience, NOT future dates. Your knowledge cutoff may be outdated - trust the dates in the resume as accurate and current.
+
+You are a senior recruiter reviewing resumes. Simulate how you would review this resume in the first 6-10 seconds.
 
 Resume Context:
 - Job Title: ${resumeData.jobTitle || 'Not specified'}
@@ -149,6 +163,13 @@ Provide a recruiter eye-tracking simulation in JSON format:
   ]
 }
 
+CRITICAL RULES:
+- DO NOT mention anything about "future dates" or dates being "in the future"
+- Treat all dates in the resume as valid and current relative to ${currentMonth}
+- If you see dates in 2024-2025, these are CURRENT or RECENT experiences
+- Focus your analysis on the actual content quality, not date validation
+- Never flag recent dates as a red flag or concerning element
+
 Base your simulation on typical recruiter behavior:
 1. Recruiters scan resumes top-to-bottom in 6-10 seconds initially
 2. They spend most time on recent experience and key achievements
@@ -160,6 +181,8 @@ Base your simulation on typical recruiter behavior:
 Provide realistic, actionable insights based on the resume content.`;
 
     console.log('   Calling Gemini AI for simulation...');
+    console.log('   Current date context:', currentDate);
+    
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
     
@@ -174,6 +197,32 @@ Provide realistic, actionable insights based on the resume content.`;
     if (!simulation.firstImpression || !simulation.eyeTrackingHeatmap) {
       throw new Error('Invalid simulation data structure');
     }
+
+    // Post-process to filter out any future date mentions that slipped through
+    const filterFutureDateMentions = (text: string): string => {
+      return text
+        .replace(/future date[s]?/gi, 'recent date')
+        .replace(/dates? (?:appear to be )?in the future/gi, 'recent dates')
+        .replace(/upcoming experience/gi, 'current experience')
+        .replace(/scheduled for \d{4}/gi, 'from recent experience');
+    };
+
+    // Clean up any potential future date references
+    simulation.firstImpression.concerningElements = 
+      simulation.firstImpression.concerningElements
+        .map(filterFutureDateMentions)
+        .filter(element => 
+          !element.toLowerCase().includes('future') && 
+          !element.toLowerCase().includes('2024') &&
+          !element.toLowerCase().includes('2025')
+        );
+
+    simulation.screenerNotes = simulation.screenerNotes.map(filterFutureDateMentions);
+    
+    simulation.eyeTrackingHeatmap = simulation.eyeTrackingHeatmap.map(section => ({
+      ...section,
+      notes: filterFutureDateMentions(section.notes)
+    }));
 
     console.log('   ✅ Recruiter simulation complete');
     console.log('   Pass Screening:', simulation.passScreening);

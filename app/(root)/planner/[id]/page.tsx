@@ -1,22 +1,15 @@
 // app/planner/[id]/page.tsx
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/firebase/client';
 import { PlannerService } from '@/lib/services/planner-services';
 import { InterviewPlan } from '@/types/planner';
 import {
-  ArrowLeft,
-  Calendar,
-  Target,
-  MessageSquare,
-  TrendingUp,
-  Clock,
-  Brain,
-  CheckCircle2,
-  ChevronRight,
+  ArrowLeft, Calendar, Target, MessageSquare, TrendingUp,
+  Clock, Brain, CheckCircle2, ChevronRight,
 } from 'lucide-react';
 import Link from 'next/link';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
@@ -25,36 +18,37 @@ import TaskList from '@/components/planner/TaskList';
 import ProgressChart from '@/components/planner/ProgressChart';
 import AIChatPanel from '@/components/planner/AIChatPanel';
 import InterviewQuiz from '@/components/planner/InterviewQuiz';
+import { NotificationService } from '@/lib/services/notification-services';
 
 type TabType = 'overview' | 'tasks' | 'progress' | 'chat' | 'quiz';
+
+// Milestones to notify at (in ascending order)
+const MILESTONES = [25, 50, 75, 100];
 
 export default function PlanDetailPage() {
   const params = useParams();
   const router = useRouter();
   const [user, loading] = useAuthState(auth);
-  
+
   const [plan, setPlan] = useState<InterviewPlan | null>(null);
   const [loadingPlan, setLoadingPlan] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
 
+  // Track which milestones have already been notified this session
+  const notifiedMilestones = useRef<Set<number>>(new Set());
+
   const loadPlan = useCallback(async () => {
     if (!params.id || typeof params.id !== 'string') return;
-    
     try {
       setLoadingPlan(true);
       const planData = await PlannerService.getPlan(params.id);
-      
-      if (!planData) {
-        router.push('/planner');
-        return;
-      }
-
-      if (planData.userId !== user?.uid) {
-        router.push('/planner');
-        return;
-      }
-
+      if (!planData) { router.push('/planner'); return; }
+      if (planData.userId !== user?.uid) { router.push('/planner'); return; }
       setPlan(planData);
+      // Seed already-passed milestones so we don't re-notify on load
+      MILESTONES.forEach(m => {
+        if (planData.progress.percentage >= m) notifiedMilestones.current.add(m);
+      });
     } catch (error) {
       console.error('Error loading plan:', error);
       router.push('/planner');
@@ -64,27 +58,24 @@ export default function PlanDetailPage() {
   }, [params.id, router, user?.uid]);
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push('/sign-in');
-      return;
-    }
-
-    if (user && params.id) {
-      loadPlan();
-    }
+    if (!loading && !user) { router.push('/sign-in'); return; }
+    if (user && params.id) loadPlan();
   }, [user, loading, params.id, router, loadPlan]);
 
+  // ── Task Update with milestone notifications ──────────────────
   const handleTaskUpdate = async (taskId: string, newStatus: 'todo' | 'in-progress' | 'done') => {
     if (!plan) return;
-    
+
+    let newPercentage = 0;
+
     setPlan(prevPlan => {
       if (!prevPlan) return prevPlan;
-      
+
       const updatedDailyPlans = prevPlan.dailyPlans.map(dailyPlan => ({
         ...dailyPlan,
-        tasks: dailyPlan.tasks.map(task => 
+        tasks: dailyPlan.tasks.map(task =>
           task.id === taskId ? { ...task, status: newStatus } : task
-        )
+        ),
       }));
 
       const updatedCustomTasks = prevPlan.customTasks.map(task =>
@@ -93,26 +84,57 @@ export default function PlanDetailPage() {
 
       const allTasks = [
         ...updatedDailyPlans.flatMap(dp => dp.tasks),
-        ...updatedCustomTasks
+        ...updatedCustomTasks,
       ];
       const completedTasks = allTasks.filter(t => t.status === 'done').length;
       const totalTasks = allTasks.length;
-      const percentage = Math.round((completedTasks / totalTasks) * 100);
+      newPercentage = Math.round((completedTasks / totalTasks) * 100);
 
       return {
         ...prevPlan,
         dailyPlans: updatedDailyPlans,
         customTasks: updatedCustomTasks,
-        progress: {
-          ...prevPlan.progress,
-          completedTasks,
-          percentage
-        }
+        progress: { ...prevPlan.progress, completedTasks, percentage: newPercentage },
       };
     });
 
     try {
       await PlannerService.updatePlanProgress(plan.id, taskId, newStatus);
+
+      // ── Milestone notification ──
+      if (user?.uid && newStatus === 'done') {
+        // Find the highest milestone just crossed
+        for (const milestone of [...MILESTONES].reverse()) {
+          if (
+            newPercentage >= milestone &&
+            !notifiedMilestones.current.has(milestone)
+          ) {
+            notifiedMilestones.current.add(milestone);
+
+            const planName = plan.company
+              ? `${plan.role} at ${plan.company}`
+              : plan.role;
+
+            const isComplete = milestone === 100;
+
+            await NotificationService.createNotification(
+              user.uid,
+              isComplete ? 'achievement' : 'planner',
+              isComplete
+                ? `Plan Complete! 🏆`
+                : `${milestone}% Milestone Reached ${milestone >= 75 ? '🔥' : milestone >= 50 ? '💪' : '⭐'}`,
+              isComplete
+                ? `You've completed your prep plan for "${planName}"! Outstanding work.`
+                : `You're ${milestone}% through your prep plan for "${planName}". Keep the momentum!`,
+              {
+                actionUrl: `/planner/${plan.id}`,
+                actionLabel: isComplete ? 'View Plan' : 'Keep Going',
+              }
+            );
+            break; // Only fire for the highest crossed milestone
+          }
+        }
+      }
     } catch (error) {
       console.error('Error updating task:', error);
       await loadPlan();
@@ -120,45 +142,31 @@ export default function PlanDetailPage() {
   };
 
   if (loading || loadingPlan) {
-    return (
-      <AnimatedLoader 
-        isVisible={true}
-        loadingText="Loading study plan..."
-        onHide={() => console.log('Plan loaded')}
-      />
-    );
+    return <AnimatedLoader isVisible={true} loadingText="Loading study plan..." onHide={() => console.log('Plan loaded')} />;
   }
 
-  if (!plan) {
-    return null;
-  }
+  if (!plan) return null;
 
-  const interviewDate = new Date(plan.interviewDate);
-  const today = new Date();
-  const daysRemaining = Math.ceil((interviewDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const interviewDate   = new Date(plan.interviewDate);
+  const today           = new Date();
+  const daysRemaining   = Math.ceil((interviewDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
   const allTasksComplete = plan.progress.percentage === 100;
 
   const baseTabs = [
-    { id: 'overview', label: 'Overview', icon: Calendar },
-    { id: 'tasks', label: 'Tasks', icon: Target },
-    { id: 'progress', label: 'Analytics', icon: TrendingUp },
-    { id: 'chat', label: 'AI Coach', icon: MessageSquare }
+    { id: 'overview',  label: 'Overview',  icon: Calendar     },
+    { id: 'tasks',     label: 'Tasks',     icon: Target       },
+    { id: 'progress',  label: 'Analytics', icon: TrendingUp   },
+    { id: 'chat',      label: 'AI Coach',  icon: MessageSquare },
   ];
-
-  const tabs = allTasksComplete 
+  const tabs = allTasksComplete
     ? [...baseTabs, { id: 'quiz', label: 'Quiz', icon: Brain }]
     : baseTabs;
 
   return (
     <div className="space-y-4 sm:space-y-6 px-4 sm:px-0">
-      
-      {/* Back Button */}
-      <Link
-        href="/planner"
-        className="inline-flex items-center text-sm text-slate-400 hover:text-white transition-colors"
-      >
-        <ArrowLeft className="w-4 h-4 mr-2" />
-        Back to Plans
+
+      <Link href="/planner" className="inline-flex items-center text-sm text-slate-400 hover:text-white transition-colors">
+        <ArrowLeft className="w-4 h-4 mr-2" /> Back to Plans
       </Link>
 
       {/* Header */}
@@ -167,38 +175,23 @@ export default function PlanDetailPage() {
           <div className="flex flex-col sm:flex-row items-start justify-between gap-4 mb-4">
             <div className="flex-1 w-full sm:w-auto">
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
-                <h1 className="text-xl sm:text-2xl font-semibold text-white break-words">
-                  {plan.role}
-                </h1>
-                {plan.company && (
-                  <span className="text-sm sm:text-base text-slate-400">
-                    at {plan.company}
-                  </span>
-                )}
+                <h1 className="text-xl sm:text-2xl font-semibold text-white break-words">{plan.role}</h1>
+                {plan.company && <span className="text-sm sm:text-base text-slate-400">at {plan.company}</span>}
               </div>
-              
               <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs sm:text-sm">
                 <div className="flex items-center gap-1.5 text-slate-400">
                   <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  <span className="whitespace-nowrap">
-                    {interviewDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </span>
+                  <span className="whitespace-nowrap">{interviewDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                 </div>
-                
-                <div className="w-1 h-1 rounded-full bg-slate-600 hidden sm:block"></div>
-                
+                <div className="w-1 h-1 rounded-full bg-slate-600 hidden sm:block" />
                 <div className="flex items-center gap-1.5 text-slate-400">
                   <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   <span className="whitespace-nowrap">{daysRemaining}d remaining</span>
                 </div>
-                
-                <div className="w-1 h-1 rounded-full bg-slate-600 hidden sm:block"></div>
-                
+                <div className="w-1 h-1 rounded-full bg-slate-600 hidden sm:block" />
                 <div className="flex items-center gap-1.5 text-slate-400">
                   <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  <span className="whitespace-nowrap">
-                    {plan.progress.completedTasks}/{plan.progress.totalTasks}
-                  </span>
+                  <span className="whitespace-nowrap">{plan.progress.completedTasks}/{plan.progress.totalTasks}</span>
                 </div>
               </div>
             </div>
@@ -206,56 +199,21 @@ export default function PlanDetailPage() {
             {/* Progress Circle */}
             <div className="flex items-center gap-3 sm:gap-4 self-end sm:self-auto">
               <div className="text-right">
-                <div className="text-2xl sm:text-3xl font-semibold text-white mb-0.5">
-                  {plan.progress.percentage}%
-                </div>
+                <div className="text-2xl sm:text-3xl font-semibold text-white mb-0.5">{plan.progress.percentage}%</div>
                 <div className="text-xs text-slate-500">Complete</div>
               </div>
-              
               <div className="relative w-14 h-14 sm:w-16 sm:h-16">
                 <svg className="w-14 h-14 sm:w-16 sm:h-16 transform -rotate-90">
-                  <circle
-                    cx="28"
-                    cy="28"
-                    r="24"
-                    stroke="currentColor"
-                    strokeWidth="3"
-                    fill="none"
-                    className="text-slate-800 sm:hidden"
-                  />
-                  <circle
-                    cx="32"
-                    cy="32"
-                    r="28"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                    fill="none"
-                    className="text-slate-800 hidden sm:block"
-                  />
-                  <circle
-                    cx="28"
-                    cy="28"
-                    r="24"
-                    stroke={allTasksComplete ? "#10b981" : "#8b5cf6"}
-                    strokeWidth="3"
-                    fill="none"
+                  <circle cx="28" cy="28" r="24" stroke="currentColor" strokeWidth="3" fill="none" className="text-slate-800 sm:hidden" />
+                  <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="4" fill="none" className="text-slate-800 hidden sm:block" />
+                  <circle cx="28" cy="28" r="24" stroke={allTasksComplete ? '#10b981' : '#8b5cf6'} strokeWidth="3" fill="none"
                     strokeDasharray={`${2 * Math.PI * 24}`}
                     strokeDashoffset={`${2 * Math.PI * 24 * (1 - plan.progress.percentage / 100)}`}
-                    className="transition-all duration-500 sm:hidden"
-                    strokeLinecap="round"
-                  />
-                  <circle
-                    cx="32"
-                    cy="32"
-                    r="28"
-                    stroke={allTasksComplete ? "#10b981" : "#8b5cf6"}
-                    strokeWidth="4"
-                    fill="none"
+                    className="transition-all duration-500 sm:hidden" strokeLinecap="round" />
+                  <circle cx="32" cy="32" r="28" stroke={allTasksComplete ? '#10b981' : '#8b5cf6'} strokeWidth="4" fill="none"
                     strokeDasharray={`${2 * Math.PI * 28}`}
                     strokeDashoffset={`${2 * Math.PI * 28 * (1 - plan.progress.percentage / 100)}`}
-                    className="transition-all duration-500 hidden sm:block"
-                    strokeLinecap="round"
-                  />
+                    className="transition-all duration-500 hidden sm:block" strokeLinecap="round" />
                 </svg>
               </div>
             </div>
@@ -263,25 +221,18 @@ export default function PlanDetailPage() {
 
           {/* Tabs */}
           <div className="flex items-center gap-1.5 sm:gap-2 border-t border-white/5 pt-3 sm:pt-4 mt-3 sm:mt-4 overflow-x-auto scrollbar-hide">
-            {tabs.map((tab) => {
+            {tabs.map(tab => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
               return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as TabType)}
+                <button key={tab.id} onClick={() => setActiveTab(tab.id as TabType)}
                   className={`relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 ${
-                    isActive
-                      ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
-                      : 'text-slate-400 hover:text-white hover:bg-white/5'
-                  }`}
-                >
+                    isActive ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  }`}>
                   <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   <span className="hidden sm:inline">{tab.label}</span>
                   <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
-                  {tab.id === 'quiz' && (
-                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-emerald-500 rounded-full"></span>
-                  )}
+                  {tab.id === 'quiz' && <span className="absolute -top-1 -right-1 w-2 h-2 bg-emerald-500 rounded-full" />}
                 </button>
               );
             })}
@@ -302,12 +253,9 @@ export default function PlanDetailPage() {
                 <p className="text-xs text-slate-400">Test your knowledge</p>
               </div>
             </div>
-            <button
-              onClick={() => setActiveTab('quiz')}
-              className="glass-button-primary hover-lift px-4 py-2 rounded-lg text-sm font-medium inline-flex items-center gap-2 w-full sm:w-auto justify-center"
-            >
-              Start Quiz
-              <ChevronRight className="w-4 h-4" />
+            <button onClick={() => setActiveTab('quiz')}
+              className="glass-button-primary hover-lift px-4 py-2 rounded-lg text-sm font-medium inline-flex items-center gap-2 w-full sm:w-auto justify-center">
+              Start Quiz <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -317,41 +265,18 @@ export default function PlanDetailPage() {
       <div>
         {activeTab === 'overview' && (
           <div className="space-y-2 sm:space-y-3">
-            {plan.dailyPlans.map((dailyPlan) => (
-              <DayView
-                key={dailyPlan.day}
-                dailyPlan={dailyPlan}
-                planId={plan.id}
-                onTaskUpdate={handleTaskUpdate}
-              />
+            {plan.dailyPlans.map(dailyPlan => (
+              <DayView key={dailyPlan.day} dailyPlan={dailyPlan} planId={plan.id} onTaskUpdate={handleTaskUpdate} />
             ))}
           </div>
         )}
-
-        {activeTab === 'tasks' && (
-          <TaskList
-            plan={plan}
-            onTaskUpdate={handleTaskUpdate}
-          />
-        )}
-
-        {activeTab === 'progress' && (
-          <ProgressChart plan={plan} />
-        )}
-
-        {activeTab === 'chat' && (
-          <AIChatPanel planId={plan.id} />
-        )}
-
-        {activeTab === 'quiz' && (
-          <InterviewQuiz 
-            planId={plan.id} 
-            onClose={() => setActiveTab('overview')}
-          />
-        )}
+        {activeTab === 'tasks'    && <TaskList plan={plan} onTaskUpdate={handleTaskUpdate} />}
+        {activeTab === 'progress' && <ProgressChart plan={plan} />}
+        {activeTab === 'chat'     && <AIChatPanel planId={plan.id} />}
+        {activeTab === 'quiz'     && <InterviewQuiz planId={plan.id} onClose={() => setActiveTab('overview')} />}
       </div>
 
-      {/* Quiz Progress Indicator */}
+      {/* Quiz unlock progress */}
       {!allTasksComplete && plan.progress.percentage > 0 && (
         <div className="glass-card hover-lift">
           <div className="p-4 sm:p-5">
@@ -364,17 +289,14 @@ export default function PlanDetailPage() {
                 <p className="text-xs text-slate-400">Complete all tasks to unlock</p>
               </div>
             </div>
-            
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-slate-500">{plan.progress.completedTasks} of {plan.progress.totalTasks} tasks</span>
                 <span className="text-white font-medium">{plan.progress.percentage}%</span>
               </div>
               <div className="relative w-full h-2 bg-slate-800/50 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-purple-600 to-blue-600 transition-all duration-500"
-                  style={{ width: `${plan.progress.percentage}%` }}
-                />
+                <div className="h-full bg-gradient-to-r from-purple-600 to-blue-600 transition-all duration-500"
+                  style={{ width: `${plan.progress.percentage}%` }} />
               </div>
             </div>
           </div>
