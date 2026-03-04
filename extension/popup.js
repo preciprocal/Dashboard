@@ -1,5 +1,8 @@
 // popup.js
 
+const IS_DEV = false; // Set to true for local development
+const BASE_URL = IS_DEV ? 'http://localhost:3000' : 'https://preciprocal.com';
+
 let authState = {
   authenticated: false,
   user: null,
@@ -78,7 +81,7 @@ function setupEventListeners() {
 function openLoginPage() {
   console.log('📱 Opening login page...');
   chrome.tabs.create({
-    url: 'http://localhost:3000/settings'
+    url: `${BASE_URL}/settings`
   });
   window.close();
 }
@@ -86,7 +89,7 @@ function openLoginPage() {
 function openWebApp() {
   console.log('📱 Opening dashboard...');
   chrome.tabs.create({
-    url: 'http://localhost:3000/'
+    url: `${BASE_URL}/`
   });
   window.close();
 }
@@ -94,7 +97,7 @@ function openWebApp() {
 function openFeature(path) {
   console.log('📱 Opening feature:', path);
   chrome.tabs.create({
-    url: `http://localhost:3000${path}`
+    url: `${BASE_URL}${path}`
   });
   window.close();
 }

@@ -2,10 +2,12 @@
 console.log('🚀 Preciprocal Extension - Service Worker Started');
 
 // Configuration
+const IS_DEV = false; // Set to true for local development
+const BASE_URL = IS_DEV ? 'http://localhost:3000' : 'https://preciprocal.com';
 const CONFIG = {
   TOKEN_KEY: 'preciprocal_auth_token',
   USER_KEY: 'preciprocal_user_data',
-  API_BASE: 'http://localhost:3000/api'
+  API_BASE: `${BASE_URL}/api`
 };
 
 // ========== AUTH FUNCTIONS ==========
@@ -173,7 +175,7 @@ chrome.runtime.onInstalled.addListener((details) => {
     
     // Open settings page with extension query param
     chrome.tabs.create({
-      url: 'http://localhost:3000/settings?from=extension'
+      url: `${BASE_URL}/settings?from=extension`
     });
   } else if (details.reason === 'update') {
     console.log('🔄 Extension updated to version', chrome.runtime.getManifest().version);
@@ -207,12 +209,6 @@ chrome.action.onClicked.addListener(async (tab) => {
 });
 
 console.log('✅ Service worker initialized');
-
-// ========== DYNAMIC INJECTION FOR UNLISTED SITES ==========
-// When user clicks extension icon on any site not in content_scripts,
-// check if it looks like a job application and inject external-apply.js
-
-chrome.action.onClicked.removeListener; // clear old listener first
 
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.status !== 'complete') return;
@@ -257,7 +253,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
       files: ['content.css']
     });
     console.log('💉 Dynamically injected external-apply.js on:', tab.url);
-  } catch (e) {
+  } catch {
     // Tab may not allow injection (chrome:// pages etc) — ignore
   }
 });

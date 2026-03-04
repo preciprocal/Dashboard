@@ -2,9 +2,11 @@
 console.log('🎯 Preciprocal auth receiver loaded');
 
 // Listen for auth token from web app
+const ALLOWED_ORIGINS = ['http://localhost:3000', 'https://preciprocal.com'];
+
 window.addEventListener('message', async (event) => {
-  // Only accept messages from localhost
-  if (event.origin !== 'http://localhost:3000') return;
+  // Only accept messages from allowed origins
+  if (!ALLOWED_ORIGINS.includes(event.origin)) return;
 
   if (event.data.type === 'PRECIPROCAL_AUTH_TOKEN') {
     console.log('🔑 Auth token received from web app');
