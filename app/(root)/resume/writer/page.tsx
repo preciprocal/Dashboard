@@ -1,7 +1,7 @@
 // app/resume/writer/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/firebase/client';
@@ -22,7 +22,8 @@ interface ResumeData {
   [key: string]: unknown;
 }
 
-export default function ResumeWriterPage() {
+// ─── Inner component that uses useSearchParams ───────────────────────────────
+function ResumeWriterContent() {
   const [user, loading] = useAuthState(auth);
   const searchParams = useSearchParams();
   const resumeId = searchParams.get('id');
@@ -177,12 +178,7 @@ export default function ResumeWriterPage() {
     loadResume();
   }, [user, loading, resumeId]);
 
-  // ============================================
-  // FIXED FUNCTION - Preserves Original Spacing
-  // ============================================
   const convertTextToHtml = (text: string): string => {
-    // Use pre-wrap to preserve EXACT original spacing from PDF
-    // This prevents adding extra line breaks or margins that expand the content
     return `<div style="font-family: Calibri, Arial, sans-serif; font-size: 10pt; color: #000000; white-space: pre-wrap; line-height: 1.15;">${text}</div>`;
   };
 
@@ -368,5 +364,28 @@ export default function ResumeWriterPage() {
         />
       </div>
     </div>
+  );
+}
+
+// ─── Fallback shown while Suspense resolves useSearchParams ──────────────────
+function ResumeWriterFallback() {
+  return (
+    <div className="fixed inset-0 bg-slate-950 z-50 flex items-center justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg flex items-center justify-center animate-pulse">
+          <Sparkles className="w-4 h-4 text-white" />
+        </div>
+        <p className="text-slate-400 text-sm">Loading editor...</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Default export wraps content in Suspense (required for useSearchParams) ─
+export default function ResumeWriterPage() {
+  return (
+    <Suspense fallback={<ResumeWriterFallback />}>
+      <ResumeWriterContent />
+    </Suspense>
   );
 }

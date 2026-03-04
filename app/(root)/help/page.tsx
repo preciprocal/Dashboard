@@ -1,7 +1,7 @@
 // app/(root)/help/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -47,7 +47,8 @@ interface FAQ {
   icon: LucideIcon; gradient: string; keywords?: string[];
 }
 
-export default function HelpSupportPage() {
+// ─── Inner component that uses useSearchParams ────────────────────────────────
+function HelpSupportContent() {
   const [user, loading] = useAuthState(auth);
   const searchParams = useSearchParams();
   const [searchQuery,     setSearchQuery]     = useState('');
@@ -280,7 +281,6 @@ export default function HelpSupportPage() {
               </div>
             </div>
 
-            {/* ── Conditional: Home (logged in) or Sign In (logged out) ── */}
             {user ? (
               <Link
                 href="/"
@@ -290,14 +290,14 @@ export default function HelpSupportPage() {
                 <span className="hidden sm:inline">Home</span>
               </Link>
             ) : (
-  <Link
-    href="/sign-in"
-    className="flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg glass-morphism border border-white/10 text-slate-300 hover:text-white hover:border-white/20 hover:bg-white/5 transition-all text-xs sm:text-sm font-medium group"
-  >
-    <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4 rotate-180 text-slate-400 group-hover:text-white transition-colors" />
-    <span className="hidden sm:inline">Login</span>
-  </Link>
-)}
+              <Link
+                href="/sign-in"
+                className="flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg glass-morphism border border-white/10 text-slate-300 hover:text-white hover:border-white/20 hover:bg-white/5 transition-all text-xs sm:text-sm font-medium group"
+              >
+                <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4 rotate-180 text-slate-400 group-hover:text-white transition-colors" />
+                <span className="hidden sm:inline">Login</span>
+              </Link>
+            )}
           </div>
         </div>
 
@@ -387,7 +387,6 @@ export default function HelpSupportPage() {
                     <p className="text-slate-400 text-xs sm:text-sm">We&apos;ll respond via email within 24 hours</p>
                   </div>
                 ) : !user ? (
-                  /* ── Not logged in — prompt to sign in ── */
                   <div className="glass-morphism p-6 sm:p-8 rounded-xl border border-white/10 text-center space-y-4">
                     <div className="w-12 h-12 gradient-primary rounded-xl flex items-center justify-center mx-auto shadow-glass">
                       <LogOut className="w-6 h-6 text-white rotate-180" />
@@ -492,7 +491,6 @@ export default function HelpSupportPage() {
         {activeSection === 'tickets' && (
           <div className="space-y-3 sm:space-y-4 animate-fade-in-up">
             {!user ? (
-              /* ── Not logged in — prompt to sign in ── */
               <div className="glass-card">
                 <div className="text-center py-12 sm:py-16 px-4 space-y-4">
                   <div className="w-12 h-12 gradient-primary rounded-xl flex items-center justify-center mx-auto shadow-glass">
@@ -640,5 +638,28 @@ export default function HelpSupportPage() {
 
       </div>
     </div>
+  );
+}
+
+// ─── Fallback shown while Suspense resolves useSearchParams ──────────────────
+function HelpSupportFallback() {
+  return (
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center animate-pulse">
+          <HelpCircle className="w-5 h-5 text-white" />
+        </div>
+        <p className="text-slate-400 text-sm">Loading help center...</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Default export wraps content in Suspense (required for useSearchParams) ─
+export default function HelpSupportPage() {
+  return (
+    <Suspense fallback={<HelpSupportFallback />}>
+      <HelpSupportContent />
+    </Suspense>
   );
 }

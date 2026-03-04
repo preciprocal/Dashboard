@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/firebase/client';
@@ -51,7 +51,8 @@ interface GenerationResults {
   }>;
 }
 
-export default function JobToolsPage() {
+// ─── Inner component that uses useSearchParams ────────────────────────────────
+function JobToolsContent() {
   const [user, loading] = useAuthState(auth);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -64,7 +65,6 @@ export default function JobToolsPage() {
   const [activeTab, setActiveTab] = useState<'resume' | 'cover' | 'interview'>('resume');
   const [showFullDescription, setShowFullDescription] = useState(false);
   
-  // Cover letter specific states
   const [generatingCoverLetter, setGeneratingCoverLetter] = useState(false);
   const [coverLetterTone, setCoverLetterTone] = useState('professional');
   const [showToneMenu, setShowToneMenu] = useState(false);
@@ -73,32 +73,20 @@ export default function JobToolsPage() {
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Load job data from extension - ONLY if fromExtension is true
   useEffect(() => {
-    if (!fromExtension) {
-      console.log('❌ Not from extension, skipping job data load');
-      return;
-    }
+    if (!fromExtension) return;
 
-    console.log('📡 Signaling page is ready to receive data');
     window.postMessage('preciprocalPageReady', '*');
 
     const loadJobDataFromExtension = async () => {
-      console.log('🔍 Loading job data from extension...');
-      
       try {
         const storedData = sessionStorage.getItem('extensionJobData');
         const timestamp = sessionStorage.getItem('extensionJobDataTimestamp');
         
         if (storedData) {
-          console.log('📥 Reading from sessionStorage');
-          
           if (timestamp) {
             const ageInMs = Date.now() - parseInt(timestamp);
-            const fiveMinutes = 5 * 60 * 1000;
-            
-            if (ageInMs > fiveMinutes) {
-              console.warn('⚠️ Stored data is too old, clearing...');
+            if (ageInMs > 5 * 60 * 1000) {
               sessionStorage.removeItem('extensionJobData');
               sessionStorage.removeItem('extensionJobDataTimestamp');
               setLoadingData(false);
@@ -107,30 +95,22 @@ export default function JobToolsPage() {
           }
           
           const data = JSON.parse(storedData);
-          console.log('✅ Job data loaded:', data);
           setJobData(data);
           setLoadingData(false);
-          
           sessionStorage.removeItem('extensionJobData');
           sessionStorage.removeItem('extensionJobDataTimestamp');
           return;
         }
         
-        console.log('⏳ Waiting for preciprocalDataReady event...');
-        
         let eventHandled = false;
         
         const handleDataReady = (event: Event) => {
           if (eventHandled) return;
-          
           const customEvent = event as CustomEvent;
           if (customEvent.detail) {
             eventHandled = true;
-            console.log('✅ Job data received via event:', customEvent.detail);
-            
             clearTimeout(timeoutId);
             cleanup();
-            
             setJobData(customEvent.detail);
             setLoadingData(false);
           }
@@ -146,7 +126,6 @@ export default function JobToolsPage() {
         
         const timeoutId = setTimeout(() => {
           if (!eventHandled) {
-            console.log('⏱️ Timeout waiting for job data');
             cleanup();
             setLoadingData(false);
           }
@@ -156,16 +135,11 @@ export default function JobToolsPage() {
           const data = sessionStorage.getItem('extensionJobData');
           if (data && !eventHandled) {
             eventHandled = true;
-            console.log('✅ Found job data via polling');
-            
             clearTimeout(timeoutId);
             clearInterval(checkInterval);
             cleanup();
-            
-            const parsedData = JSON.parse(data);
-            setJobData(parsedData);
+            setJobData(JSON.parse(data));
             setLoadingData(false);
-            
             sessionStorage.removeItem('extensionJobData');
             sessionStorage.removeItem('extensionJobDataTimestamp');
           }
@@ -183,59 +157,25 @@ export default function JobToolsPage() {
     setTimeout(loadJobDataFromExtension, 500);
   }, [fromExtension]);
 
-  // Auth effect - SEPARATE from extension loading
   useEffect(() => {
-    if (fromExtension) {
-      console.log('🔌 Coming from extension - auth check skipped');
-      return;
-    }
-
-    if (loading) {
-      console.log('⏳ Auth loading...');
-      return;
-    }
-
-    if (!user) {
-      console.log('❌ No user, redirecting to auth');
-      router.push('/auth?redirect=job-tools');
-      return;
-    }
-
-    console.log('✅ User authenticated:', user.uid);
+    if (fromExtension || loading) return;
+    if (!user) router.push('/auth?redirect=job-tools');
   }, [user, loading, fromExtension, router]);
 
-  // Handle click outside to close dropdowns
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
-      
-      if (showDownloadMenu && !target.closest('.download-dropdown')) {
-        setShowDownloadMenu(false);
-      }
-      
-      if (showToneMenu && !target.closest('.tone-dropdown')) {
-        setShowToneMenu(false);
-      }
+      if (showDownloadMenu && !target.closest('.download-dropdown')) setShowDownloadMenu(false);
+      if (showToneMenu && !target.closest('.tone-dropdown')) setShowToneMenu(false);
     };
-
-    if (showDownloadMenu || showToneMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    if (showDownloadMenu || showToneMenu) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showDownloadMenu, showToneMenu]);
 
   const generateAll = async () => {
     if (!jobData) return;
-
     setGenerating(true);
-
     try {
-      console.log('🚀 Starting generation for job:', jobData.title);
-
-      // Generate resume analysis (mock for now)
       setResults(prev => ({ ...prev, resume: {
         atsScore: 72,
         suggestions: [
@@ -247,74 +187,30 @@ export default function JobToolsPage() {
         optimizedResume: ''
       }}));
 
-      // Generate interview questions based on role
-      const generateInterviewQuestions = () => {
-        const questions = [
-          { 
-            question: 'Tell me about yourself and your relevant experience for this role.', 
-            category: 'Behavioral', 
-            difficulty: 'Easy' 
-          },
-          { 
-            question: `Why do you want to work at ${jobData.company}?`, 
-            category: 'Company Fit', 
-            difficulty: 'Medium' 
-          },
-          { 
-            question: 'Describe a challenging project you worked on and how you overcame obstacles.', 
-            category: 'Technical', 
-            difficulty: 'Medium' 
-          },
-          { 
-            question: `What interests you most about the ${jobData.title} position?`, 
-            category: 'Role-Specific', 
-            difficulty: 'Easy' 
-          },
-        ];
+      const questions = [
+        { question: 'Tell me about yourself and your relevant experience for this role.', category: 'Behavioral', difficulty: 'Easy' },
+        { question: `Why do you want to work at ${jobData.company}?`, category: 'Company Fit', difficulty: 'Medium' },
+        { question: 'Describe a challenging project you worked on and how you overcame obstacles.', category: 'Technical', difficulty: 'Medium' },
+        { question: `What interests you most about the ${jobData.title} position?`, category: 'Role-Specific', difficulty: 'Easy' },
+      ];
 
-        if (jobData.description.toLowerCase().includes('leadership') || 
-            jobData.seniority?.toLowerCase().includes('senior') ||
-            jobData.seniority?.toLowerCase().includes('director')) {
-          questions.push({
-            question: 'Describe your leadership style and give an example of how you\'ve motivated a team.',
-            category: 'Leadership',
-            difficulty: 'Hard'
-          });
-        }
+      if (jobData.description.toLowerCase().includes('leadership') || 
+          jobData.seniority?.toLowerCase().includes('senior') ||
+          jobData.seniority?.toLowerCase().includes('director')) {
+        questions.push({ question: "Describe your leadership style and give an example of how you've motivated a team.", category: 'Leadership', difficulty: 'Hard' });
+      }
 
-        if (jobData.description.toLowerCase().includes('technical') ||
-            jobData.description.toLowerCase().includes('engineering')) {
-          questions.push({
-            question: 'Walk me through your approach to solving a complex technical problem.',
-            category: 'Technical',
-            difficulty: 'Hard'
-          });
-        }
+      if (jobData.description.toLowerCase().includes('technical') || jobData.description.toLowerCase().includes('engineering')) {
+        questions.push({ question: 'Walk me through your approach to solving a complex technical problem.', category: 'Technical', difficulty: 'Hard' });
+      }
 
-        questions.push(
-          { 
-            question: 'Where do you see yourself in 5 years?', 
-            category: 'Career Goals', 
-            difficulty: 'Medium' 
-          },
-          { 
-            question: 'What are your salary expectations for this position?', 
-            category: 'Compensation', 
-            difficulty: 'Hard' 
-          }
-        );
+      questions.push(
+        { question: 'Where do you see yourself in 5 years?', category: 'Career Goals', difficulty: 'Medium' },
+        { question: 'What are your salary expectations for this position?', category: 'Compensation', difficulty: 'Hard' }
+      );
 
-        return questions;
-      };
-
-      setResults(prev => ({ 
-        ...prev, 
-        interviewQuestions: generateInterviewQuestions()
-      }));
-
-      console.log('✅ All generation complete');
+      setResults(prev => ({ ...prev, interviewQuestions: questions }));
       toast.success('Materials generated successfully!');
-
     } catch (error) {
       console.error('❌ Error generating content:', error);
       toast.error('Failed to generate content. Please try again.');
@@ -324,51 +220,24 @@ export default function JobToolsPage() {
   };
 
   const generateCoverLetter = async () => {
-    if (!jobData || !user) {
-      toast.error('Missing required data');
-      return;
-    }
-
+    if (!jobData || !user) { toast.error('Missing required data'); return; }
     setGeneratingCoverLetter(true);
     setIsSaved(false);
-
     try {
       const response = await fetch('/api/cover-letter', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          jobRole: jobData.title,
-          jobDescription: jobData.description,
-          companyName: jobData.company,
-          tone: coverLetterTone,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobRole: jobData.title, jobDescription: jobData.description, companyName: jobData.company, tone: coverLetterTone }),
       });
-
       const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to generate cover letter');
-      }
-
+      if (!response.ok) throw new Error(data.error || 'Failed to generate cover letter');
       if (data.success && data.coverLetter) {
-        setResults(prev => ({ 
-          ...prev, 
-          coverLetter: data.coverLetter.content 
-        }));
-        
+        setResults(prev => ({ ...prev, coverLetter: data.coverLetter.content }));
         toast.success('Cover letter generated successfully!');
-        
-        // Switch to cover letter tab
         setActiveTab('cover');
-      } else {
-        throw new Error('Invalid response format');
-      }
+      } else throw new Error('Invalid response format');
     } catch (err) {
-      console.error('Cover letter generation error:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to generate cover letter';
-      toast.error(errorMessage);
+      toast.error(err instanceof Error ? err.message : 'Failed to generate cover letter');
     } finally {
       setGeneratingCoverLetter(false);
     }
@@ -376,127 +245,56 @@ export default function JobToolsPage() {
 
   const handleCopy = async () => {
     if (!results.coverLetter) return;
-    
     try {
-      const plainText = results.coverLetter.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1: $2');
-      await navigator.clipboard.writeText(plainText);
+      await navigator.clipboard.writeText(results.coverLetter.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1: $2'));
       setCopied(true);
       toast.success('Copied to clipboard!');
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
-      toast.error('Failed to copy');
-    }
+    } catch { toast.error('Failed to copy'); }
   };
 
   const handleSaveCoverLetter = async () => {
-    if (!user || !results.coverLetter || !jobData) {
-      toast.error('Missing data to save');
-      return;
-    }
-
+    if (!user || !results.coverLetter || !jobData) { toast.error('Missing data to save'); return; }
     setIsSaving(true);
-
     try {
-      const wordCount = results.coverLetter.split(/\s+/).filter(word => word.length > 0).length;
-
       await addDoc(collection(db, 'coverLetters'), {
-        userId: user.uid,
-        jobRole: jobData.title,
-        companyName: jobData.company,
-        jobDescription: jobData.description,
-        tone: coverLetterTone,
-        content: results.coverLetter,
-        wordCount,
+        userId: user.uid, jobRole: jobData.title, companyName: jobData.company,
+        jobDescription: jobData.description, tone: coverLetterTone, content: results.coverLetter,
+        wordCount: results.coverLetter.split(/\s+/).filter(w => w.length > 0).length,
         createdAt: serverTimestamp(),
       });
-
       setIsSaved(true);
       toast.success('Cover letter saved successfully!');
-    } catch (err) {
-      console.error('Error saving cover letter:', err);
-      toast.error('Failed to save cover letter');
-    } finally {
-      setIsSaving(false);
-    }
+    } catch { toast.error('Failed to save cover letter'); }
+    finally { setIsSaving(false); }
   };
 
-  const handleDownloadPDF = async () => {
+  const handleDownload = async (format: 'pdf' | 'docx') => {
     if (!results.coverLetter || !jobData) return;
-
     try {
       const response = await fetch('/api/cover-letter/download', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: results.coverLetter,
-          jobRole: jobData.title,
-          companyName: jobData.company,
-          format: 'pdf'
-        })
+        body: JSON.stringify({ content: results.coverLetter, jobRole: jobData.title, companyName: jobData.company, format })
       });
-
-      if (!response.ok) throw new Error('PDF generation failed');
-
+      if (!response.ok) throw new Error('Download failed');
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `cover_letter_${jobData.title.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+      link.download = `cover_letter_${jobData.title.replace(/\s+/g, '_')}_${Date.now()}.${format}`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      
       setShowDownloadMenu(false);
-      toast.success('PDF downloaded!');
-    } catch (error) {
-      console.error('Failed to generate PDF:', error);
-      toast.error('Failed to generate PDF');
-    }
+      toast.success(`${format.toUpperCase()} downloaded!`);
+    } catch { toast.error(`Failed to generate ${format.toUpperCase()}`); }
   };
 
-  const handleDownloadWord = async () => {
-    if (!results.coverLetter || !jobData) return;
+  const convertMarkdownLinks = (text: string) =>
+    text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 underline">$1</a>');
 
-    try {
-      const response = await fetch('/api/cover-letter/download', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: results.coverLetter,
-          jobRole: jobData.title,
-          companyName: jobData.company,
-          format: 'docx'
-        })
-      });
-
-      if (!response.ok) throw new Error('Word document generation failed');
-
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `cover_letter_${jobData.title.replace(/\s+/g, '_')}_${Date.now()}.docx`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      
-      setShowDownloadMenu(false);
-      toast.success('Word document downloaded!');
-    } catch (error) {
-      console.error('Failed to generate Word document:', error);
-      toast.error('Failed to generate Word document');
-    }
-  };
-
-  // Helper function to convert markdown links to HTML
-  const convertMarkdownLinks = (text: string): string => {
-    return text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 underline">$1</a>');
-  };
-
-  // Show loading only when auth is loading AND we're not from extension
   if (loading && !fromExtension) {
     return (
       <div className="flex items-center justify-center min-h-screen px-4">
@@ -508,7 +306,6 @@ export default function JobToolsPage() {
     );
   }
 
-  // Show loading only when waiting for job data from extension
   if (loadingData && fromExtension) {
     return (
       <div className="flex items-center justify-center min-h-screen px-4">
@@ -521,10 +318,7 @@ export default function JobToolsPage() {
     );
   }
 
-  // Redirect to auth if not from extension and no user
-  if (!user && !fromExtension) {
-    return null;
-  }
+  if (!user && !fromExtension) return null;
 
   if (!jobData) {
     return (
@@ -539,18 +333,11 @@ export default function JobToolsPage() {
               Please extract job data using the Preciprocal Chrome extension first.
             </p>
             <div className="space-y-3">
-              <Link 
-                href="/dashboard" 
-                className="glass-button-primary hover-lift inline-flex items-center px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-medium text-sm sm:text-base w-full justify-center"
-              >
+              <Link href="/dashboard" className="glass-button-primary hover-lift inline-flex items-center px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-medium text-sm sm:text-base w-full justify-center">
                 Go to Dashboard
               </Link>
-              <a 
-                href="https://chrome.google.com/webstore" 
-                target="_blank"
-                rel="noopener noreferrer"
-                className="glass-button hover-lift inline-flex items-center px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-medium text-sm sm:text-base w-full justify-center"
-              >
+              <a href="https://chrome.google.com/webstore" target="_blank" rel="noopener noreferrer"
+                className="glass-button hover-lift inline-flex items-center px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-medium text-sm sm:text-base w-full justify-center">
                 Get Chrome Extension
               </a>
             </div>
@@ -563,11 +350,7 @@ export default function JobToolsPage() {
   return (
     <div className="min-h-screen px-4 py-6 sm:py-8">
       <div className="max-w-7xl mx-auto">
-        {/* Back Button */}
-        <Link 
-          href="/dashboard" 
-          className="inline-flex items-center text-sm text-slate-400 hover:text-white transition-colors mb-4 sm:mb-6"
-        >
+        <Link href="/dashboard" className="inline-flex items-center text-sm text-slate-400 hover:text-white transition-colors mb-4 sm:mb-6">
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Dashboard
         </Link>
@@ -590,27 +373,18 @@ export default function JobToolsPage() {
         {/* Job Info Card */}
         <div className="glass-card hover-lift mb-4 sm:mb-6">
           <div className="p-4 sm:p-6">
-            {/* Header Section */}
             <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-3 flex-wrap">
-                  <span className="px-3 py-1 bg-purple-500/10 border border-purple-500/20 rounded-full text-purple-400 text-xs font-semibold">
-                    {jobData.platform}
-                  </span>
+                  <span className="px-3 py-1 bg-purple-500/10 border border-purple-500/20 rounded-full text-purple-400 text-xs font-semibold">{jobData.platform}</span>
                   {jobData.jobType && jobData.jobType !== 'Not specified' && (
-                    <span className="px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full text-blue-400 text-xs font-semibold">
-                      {jobData.jobType}
-                    </span>
+                    <span className="px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full text-blue-400 text-xs font-semibold">{jobData.jobType}</span>
                   )}
                   {jobData.workplaceType && jobData.workplaceType !== 'Not specified' && (
-                    <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-emerald-400 text-xs font-semibold">
-                      {jobData.workplaceType}
-                    </span>
+                    <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-emerald-400 text-xs font-semibold">{jobData.workplaceType}</span>
                   )}
                   {jobData.hasEasyApply && (
-                    <span className="px-3 py-1 bg-green-500/10 border border-green-500/20 rounded-full text-green-400 text-xs font-semibold">
-                      ⚡ Easy Apply
-                    </span>
+                    <span className="px-3 py-1 bg-green-500/10 border border-green-500/20 rounded-full text-green-400 text-xs font-semibold">⚡ Easy Apply</span>
                   )}
                 </div>
                 <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">{jobData.title}</h2>
@@ -619,176 +393,100 @@ export default function JobToolsPage() {
                   {jobData.company}
                 </p>
               </div>
-              <a
-                href={jobData.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="glass-button-primary hover-lift px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors whitespace-nowrap"
-              >
+              <a href={jobData.url} target="_blank" rel="noopener noreferrer"
+                className="glass-button-primary hover-lift px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors whitespace-nowrap">
                 View Original
               </a>
             </div>
 
-            {/* Key Details Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
-              {/* Location */}
               {jobData.location && jobData.location !== 'Not specified' && (
                 <div className="glass-morphism p-3 rounded-lg border border-white/5">
-                  <div className="flex items-center gap-2 mb-1">
-                    <MapPin className="w-4 h-4 text-purple-400" />
-                    <span className="text-xs text-slate-500 font-medium">Location</span>
-                  </div>
+                  <div className="flex items-center gap-2 mb-1"><MapPin className="w-4 h-4 text-purple-400" /><span className="text-xs text-slate-500 font-medium">Location</span></div>
                   <p className="text-sm text-white font-medium">{jobData.location}</p>
                 </div>
               )}
-
-              {/* Salary */}
               {jobData.salary && jobData.salary !== 'Not specified' && (
                 <div className="glass-morphism p-3 rounded-lg border border-white/5">
-                  <div className="flex items-center gap-2 mb-1">
-                    <DollarSign className="w-4 h-4 text-emerald-400" />
-                    <span className="text-xs text-slate-500 font-medium">Compensation</span>
-                  </div>
+                  <div className="flex items-center gap-2 mb-1"><DollarSign className="w-4 h-4 text-emerald-400" /><span className="text-xs text-slate-500 font-medium">Compensation</span></div>
                   <p className="text-sm text-white font-medium">{jobData.salary}</p>
                 </div>
               )}
-
-              {/* Seniority */}
               {jobData.seniority && jobData.seniority !== 'Not specified' && (
                 <div className="glass-morphism p-3 rounded-lg border border-white/5">
-                  <div className="flex items-center gap-2 mb-1">
-                    <TrendingUp className="w-4 h-4 text-blue-400" />
-                    <span className="text-xs text-slate-500 font-medium">Seniority Level</span>
-                  </div>
+                  <div className="flex items-center gap-2 mb-1"><TrendingUp className="w-4 h-4 text-blue-400" /><span className="text-xs text-slate-500 font-medium">Seniority Level</span></div>
                   <p className="text-sm text-white font-medium">{jobData.seniority}</p>
                 </div>
               )}
-
-              {/* Applicants */}
               {jobData.applicants && jobData.applicants !== 'Not specified' && (
                 <div className="glass-morphism p-3 rounded-lg border border-white/5">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Users className="w-4 h-4 text-amber-400" />
-                    <span className="text-xs text-slate-500 font-medium">Applicants</span>
-                  </div>
+                  <div className="flex items-center gap-2 mb-1"><Users className="w-4 h-4 text-amber-400" /><span className="text-xs text-slate-500 font-medium">Applicants</span></div>
                   <p className="text-sm text-white font-medium">{jobData.applicants}</p>
                 </div>
               )}
-
-              {/* Posted Date */}
               {jobData.postedDate && jobData.postedDate !== 'Not specified' && (
                 <div className="glass-morphism p-3 rounded-lg border border-white/5">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Clock className="w-4 h-4 text-slate-400" />
-                    <span className="text-xs text-slate-500 font-medium">Posted</span>
-                  </div>
+                  <div className="flex items-center gap-2 mb-1"><Clock className="w-4 h-4 text-slate-400" /><span className="text-xs text-slate-500 font-medium">Posted</span></div>
                   <p className="text-sm text-white font-medium">{jobData.postedDate}</p>
                 </div>
               )}
-
-              {/* Company Size */}
               {jobData.companySize && jobData.companySize !== 'Not specified' && (
                 <div className="glass-morphism p-3 rounded-lg border border-white/5">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Building2 className="w-4 h-4 text-indigo-400" />
-                    <span className="text-xs text-slate-500 font-medium">Company Size</span>
-                  </div>
+                  <div className="flex items-center gap-2 mb-1"><Building2 className="w-4 h-4 text-indigo-400" /><span className="text-xs text-slate-500 font-medium">Company Size</span></div>
                   <p className="text-sm text-white font-medium">{jobData.companySize}</p>
                 </div>
               )}
-
-              {/* Industry */}
               {jobData.industry && jobData.industry !== 'Not specified' && (
                 <div className="glass-morphism p-3 rounded-lg border border-white/5">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Globe className="w-4 h-4 text-cyan-400" />
-                    <span className="text-xs text-slate-500 font-medium">Industry</span>
-                  </div>
+                  <div className="flex items-center gap-2 mb-1"><Globe className="w-4 h-4 text-cyan-400" /><span className="text-xs text-slate-500 font-medium">Industry</span></div>
                   <p className="text-sm text-white font-medium">{jobData.industry}</p>
                 </div>
               )}
-
-              {/* Job Function */}
               {jobData.jobFunction && jobData.jobFunction !== 'Not specified' && (
                 <div className="glass-morphism p-3 rounded-lg border border-white/5">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Award className="w-4 h-4 text-pink-400" />
-                    <span className="text-xs text-slate-500 font-medium">Job Function</span>
-                  </div>
+                  <div className="flex items-center gap-2 mb-1"><Award className="w-4 h-4 text-pink-400" /><span className="text-xs text-slate-500 font-medium">Job Function</span></div>
                   <p className="text-sm text-white font-medium">{jobData.jobFunction}</p>
                 </div>
               )}
             </div>
 
-            {/* Skills Section */}
             {jobData.skills && jobData.skills.length > 0 && jobData.skills[0] !== 'Not specified' && (
               <div className="mb-4 pb-4 border-b border-slate-800/50">
-                <div className="flex items-center gap-2 mb-3">
-                  <Award className="w-4 h-4 text-purple-400" />
-                  <h3 className="text-sm font-semibold text-slate-300">Required Skills</h3>
-                </div>
+                <div className="flex items-center gap-2 mb-3"><Award className="w-4 h-4 text-purple-400" /><h3 className="text-sm font-semibold text-slate-300">Required Skills</h3></div>
                 <div className="flex flex-wrap gap-2">
                   {jobData.skills.map((skill, idx) => (
-                    <span key={idx} className="px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-lg text-blue-400 text-xs font-medium hover:bg-blue-500/20 transition-colors">
-                      {skill}
-                    </span>
+                    <span key={idx} className="px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-lg text-blue-400 text-xs font-medium hover:bg-blue-500/20 transition-colors">{skill}</span>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Benefits Section */}
             {jobData.benefits && jobData.benefits.length > 0 && jobData.benefits[0] !== 'Not specified' && (
               <div className="mb-4 pb-4 border-b border-slate-800/50">
-                <div className="flex items-center gap-2 mb-3">
-                  <Award className="w-4 h-4 text-emerald-400" />
-                  <h3 className="text-sm font-semibold text-slate-300">Benefits & Perks</h3>
-                </div>
+                <div className="flex items-center gap-2 mb-3"><Award className="w-4 h-4 text-emerald-400" /><h3 className="text-sm font-semibold text-slate-300">Benefits & Perks</h3></div>
                 <div className="flex flex-wrap gap-2">
                   {jobData.benefits.map((benefit, idx) => (
-                    <span key={idx} className="px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-400 text-xs font-medium">
-                      {benefit}
-                    </span>
+                    <span key={idx} className="px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-400 text-xs font-medium">{benefit}</span>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Job Description */}
             <div>
               <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-slate-400" />
-                  <h3 className="text-sm font-semibold text-slate-300">Job Description</h3>
-                </div>
-                <button
-                  onClick={() => setShowFullDescription(!showFullDescription)}
-                  className="text-xs text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1"
-                >
-                  {showFullDescription ? (
-                    <>
-                      Show Less <ChevronUp className="w-3 h-3" />
-                    </>
-                  ) : (
-                    <>
-                      Show More <ChevronDown className="w-3 h-3" />
-                    </>
-                  )}
+                <div className="flex items-center gap-2"><FileText className="w-4 h-4 text-slate-400" /><h3 className="text-sm font-semibold text-slate-300">Job Description</h3></div>
+                <button onClick={() => setShowFullDescription(!showFullDescription)} className="text-xs text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1">
+                  {showFullDescription ? <><span>Show Less</span><ChevronUp className="w-3 h-3" /></> : <><span>Show More</span><ChevronDown className="w-3 h-3" /></>}
                 </button>
               </div>
               <div className={`glass-morphism p-4 rounded-lg border border-white/5 ${!showFullDescription ? 'max-h-32 overflow-hidden relative' : ''}`}>
-                <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
-                  {jobData.description}
-                </p>
-                {!showFullDescription && (
-                  <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-slate-900/90 to-transparent"></div>
-                )}
+                <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{jobData.description}</p>
+                {!showFullDescription && <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-slate-900/90 to-transparent"></div>}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Generate Button */}
         {!results.resume && (
           <div className="glass-card hover-lift mb-4 sm:mb-6">
             <div className="p-6 sm:p-8 text-center">
@@ -796,82 +494,37 @@ export default function JobToolsPage() {
               <p className="text-slate-400 mb-4 sm:mb-6 text-sm sm:text-base max-w-2xl mx-auto">
                 Generate an optimized resume analysis with ATS score, a tailored cover letter, and practice interview questions based on this job posting.
               </p>
-              <button
-                onClick={generateAll}
-                disabled={generating}
-                className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-semibold text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {generating ? (
-                  <>
-                    <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  'Generate All Materials'
-                )}
+              <button onClick={generateAll} disabled={generating}
+                className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-semibold text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed">
+                {generating ? <><Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />Generating...</> : 'Generate All Materials'}
               </button>
             </div>
           </div>
         )}
 
-        {/* Results */}
         {results.resume && (
           <div className="glass-card">
-            {/* Tab Headers */}
             <div className="flex border-b border-slate-800/50">
-              <button
-                onClick={() => setActiveTab('resume')}
-                className={`flex-1 px-4 sm:px-6 py-3 sm:py-4 font-semibold text-xs sm:text-sm transition-colors flex items-center justify-center gap-2 ${
-                  activeTab === 'resume'
-                    ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-                }`}
-              >
-                <FileText className="w-4 h-4" />
-                <span className="hidden xs:inline">Resume</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('cover')}
-                className={`flex-1 px-4 sm:px-6 py-3 sm:py-4 font-semibold text-xs sm:text-sm transition-colors flex items-center justify-center gap-2 ${
-                  activeTab === 'cover'
-                    ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-                }`}
-              >
-                <MessageSquare className="w-4 h-4" />
-                <span className="hidden xs:inline">Cover Letter</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('interview')}
-                className={`flex-1 px-4 sm:px-6 py-3 sm:py-4 font-semibold text-xs sm:text-sm transition-colors flex items-center justify-center gap-2 ${
-                  activeTab === 'interview'
-                    ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-                }`}
-              >
-                <Video className="w-4 h-4" />
-                <span className="hidden xs:inline">Interview</span>
-              </button>
+              {(['resume', 'cover', 'interview'] as const).map((tab) => (
+                <button key={tab} onClick={() => setActiveTab(tab)}
+                  className={`flex-1 px-4 sm:px-6 py-3 sm:py-4 font-semibold text-xs sm:text-sm transition-colors flex items-center justify-center gap-2 ${activeTab === tab ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}>
+                  {tab === 'resume' && <><FileText className="w-4 h-4" /><span className="hidden xs:inline">Resume</span></>}
+                  {tab === 'cover' && <><MessageSquare className="w-4 h-4" /><span className="hidden xs:inline">Cover Letter</span></>}
+                  {tab === 'interview' && <><Video className="w-4 h-4" /><span className="hidden xs:inline">Interview</span></>}
+                </button>
+              ))}
             </div>
 
-            {/* Tab Content */}
             <div className="p-4 sm:p-6">
               {activeTab === 'resume' && results.resume && (
                 <div className="animate-fade-in-up">
                   <div className="flex items-center justify-between mb-4 sm:mb-6 flex-wrap gap-3">
                     <h3 className="text-lg sm:text-xl font-bold text-white">ATS Compatibility Score</h3>
-                    <div className="text-3xl sm:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400">
-                      {results.resume.atsScore}%
-                    </div>
+                    <div className="text-3xl sm:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400">{results.resume.atsScore}%</div>
                   </div>
-                  
                   <div className="glass-morphism p-4 rounded-xl mb-4">
-                    <p className="text-sm text-slate-300">
-                      Your resume has a <span className="font-bold text-white">{results.resume.atsScore}%</span> compatibility score with this job posting. 
-                      Follow the suggestions below to improve your chances.
-                    </p>
+                    <p className="text-sm text-slate-300">Your resume has a <span className="font-bold text-white">{results.resume.atsScore}%</span> compatibility score. Follow the suggestions below to improve your chances.</p>
                   </div>
-
                   <div className="space-y-2.5 sm:space-y-3">
                     {results.resume.suggestions.map((suggestion, idx) => (
                       <div key={idx} className="flex gap-2 sm:gap-3 p-3 sm:p-4 glass-morphism rounded-xl hover-lift border border-white/5">
@@ -880,11 +533,9 @@ export default function JobToolsPage() {
                       </div>
                     ))}
                   </div>
-
-                  <div className="mt-6 flex gap-3">
-                    <Link href="/resume/upload" className="flex-1 glass-button-primary hover-lift px-4 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2">
-                      <FileText className="w-4 h-4" />
-                      Analyze My Resume
+                  <div className="mt-6">
+                    <Link href="/resume/upload" className="glass-button-primary hover-lift px-4 py-3 rounded-xl font-medium text-sm inline-flex items-center gap-2">
+                      <FileText className="w-4 h-4" />Analyze My Resume
                     </Link>
                   </div>
                 </div>
@@ -898,41 +549,20 @@ export default function JobToolsPage() {
                         <MessageSquare className="w-8 h-8 text-purple-400" />
                       </div>
                       <h3 className="text-xl font-bold text-white mb-2">Generate Your Cover Letter</h3>
-                      <p className="text-slate-400 mb-6 max-w-md mx-auto">
-                        Create a personalized cover letter tailored to this specific job posting.
-                      </p>
-                      
-                      {/* Tone Selection */}
+                      <p className="text-slate-400 mb-6 max-w-md mx-auto">Create a personalized cover letter tailored to this specific job posting.</p>
                       <div className="max-w-xs mx-auto mb-6">
-                        <label className="block text-sm text-slate-400 mb-2 text-left">
-                          Choose Tone
-                        </label>
+                        <label className="block text-sm text-slate-400 mb-2 text-left">Choose Tone</label>
                         <div className="relative tone-dropdown">
-                          <button
-                            type="button"
-                            onClick={() => setShowToneMenu(!showToneMenu)}
-                            className="glass-input w-full px-4 py-2.5 rounded-lg text-white text-sm text-left flex items-center justify-between cursor-pointer"
-                          >
+                          <button type="button" onClick={() => setShowToneMenu(!showToneMenu)}
+                            className="glass-input w-full px-4 py-2.5 rounded-lg text-white text-sm text-left flex items-center justify-between cursor-pointer">
                             <span className="capitalize">{coverLetterTone}</span>
                             <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showToneMenu ? 'rotate-180' : ''}`} />
                           </button>
-                          
                           {showToneMenu && (
                             <div className="absolute left-0 right-0 top-full mt-2 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-lg shadow-xl z-20 overflow-hidden">
                               {['professional', 'enthusiastic', 'formal', 'friendly', 'confident'].map((toneOption) => (
-                                <button
-                                  key={toneOption}
-                                  type="button"
-                                  onClick={() => {
-                                    setCoverLetterTone(toneOption);
-                                    setShowToneMenu(false);
-                                  }}
-                                  className={`w-full px-4 py-2.5 text-left text-sm transition-colors capitalize ${
-                                    coverLetterTone === toneOption 
-                                      ? 'bg-blue-500/30 text-blue-300' 
-                                      : 'text-white hover:bg-white/5'
-                                  }`}
-                                >
+                                <button key={toneOption} type="button" onClick={() => { setCoverLetterTone(toneOption); setShowToneMenu(false); }}
+                                  className={`w-full px-4 py-2.5 text-left text-sm transition-colors capitalize ${coverLetterTone === toneOption ? 'bg-blue-500/30 text-blue-300' : 'text-white hover:bg-white/5'}`}>
                                   {toneOption}
                                 </button>
                               ))}
@@ -940,23 +570,9 @@ export default function JobToolsPage() {
                           )}
                         </div>
                       </div>
-
-                      <button
-                        onClick={generateCoverLetter}
-                        disabled={generatingCoverLetter}
-                        className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {generatingCoverLetter ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            Generating...
-                          </>
-                        ) : (
-                          <>
-                            <Wand2 className="w-4 h-4" />
-                            Generate Cover Letter
-                          </>
-                        )}
+                      <button onClick={generateCoverLetter} disabled={generatingCoverLetter}
+                        className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                        {generatingCoverLetter ? <><Loader2 className="w-4 h-4 animate-spin" />Generating...</> : <><Wand2 className="w-4 h-4" />Generate Cover Letter</>}
                       </button>
                     </div>
                   ) : (
@@ -965,92 +581,43 @@ export default function JobToolsPage() {
                         <h3 className="text-lg font-bold text-white">Your Cover Letter</h3>
                         <div className="flex items-center gap-2">
                           {!isSaved ? (
-                            <button
-                              onClick={handleSaveCoverLetter}
-                              disabled={isSaving}
-                              className="glass-button-primary hover-lift px-4 py-2.5 rounded-lg flex items-center gap-2 text-sm"
-                            >
-                              {isSaving ? (
-                                <>
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                  <span>Saving...</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Save className="w-4 h-4" />
-                                  <span>Save</span>
-                                </>
-                              )}
+                            <button onClick={handleSaveCoverLetter} disabled={isSaving} className="glass-button-primary hover-lift px-4 py-2.5 rounded-lg flex items-center gap-2 text-sm">
+                              {isSaving ? <><Loader2 className="w-4 h-4 animate-spin" /><span>Saving...</span></> : <><Save className="w-4 h-4" /><span>Save</span></>}
                             </button>
                           ) : (
                             <div className="glass-button bg-emerald-500/10 border-emerald-500/20 px-4 py-2.5 rounded-lg flex items-center gap-2 text-sm">
-                              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                              <span className="text-emerald-400">Saved</span>
+                              <CheckCircle2 className="w-4 h-4 text-emerald-400" /><span className="text-emerald-400">Saved</span>
                             </div>
                           )}
-
-                          <button
-                            onClick={handleCopy}
-                            className="glass-button hover-lift p-2.5 rounded-lg"
-                            title="Copy"
-                          >
-                            {copied ? (
-                              <Check className="w-4 h-4 text-emerald-400" />
-                            ) : (
-                              <Copy className="w-4 h-4 text-slate-300" />
-                            )}
+                          <button onClick={handleCopy} className="glass-button hover-lift p-2.5 rounded-lg" title="Copy">
+                            {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-slate-300" />}
                           </button>
-                          
                           <div className="relative download-dropdown">
-                            <button
-                              onClick={() => setShowDownloadMenu(!showDownloadMenu)}
-                              className="glass-button hover-lift p-2.5 rounded-lg flex items-center gap-1"
-                              title="Download"
-                            >
-                              <Download className="w-4 h-4 text-slate-300" />
-                              <ChevronDown className="w-3 h-3 text-slate-300" />
+                            <button onClick={() => setShowDownloadMenu(!showDownloadMenu)} className="glass-button hover-lift p-2.5 rounded-lg flex items-center gap-1" title="Download">
+                              <Download className="w-4 h-4 text-slate-300" /><ChevronDown className="w-3 h-3 text-slate-300" />
                             </button>
-                            
                             {showDownloadMenu && (
                               <div className="absolute right-0 top-full mt-2 w-48 glass-card rounded-lg shadow-xl z-20 overflow-hidden">
-                                <button
-                                  onClick={handleDownloadPDF}
-                                  className="w-full px-4 py-3 text-left text-sm text-white hover:bg-white/5 flex items-center gap-3 transition-colors"
-                                >
-                                  <FileDown className="w-4 h-4 text-red-400" />
-                                  <span>Download as PDF</span>
+                                <button onClick={() => handleDownload('pdf')} className="w-full px-4 py-3 text-left text-sm text-white hover:bg-white/5 flex items-center gap-3 transition-colors">
+                                  <FileDown className="w-4 h-4 text-red-400" /><span>Download as PDF</span>
                                 </button>
                                 <div className="h-px bg-white/10" />
-                                <button
-                                  onClick={handleDownloadWord}
-                                  className="w-full px-4 py-3 text-left text-sm text-white hover:bg-white/5 flex items-center gap-3 transition-colors"
-                                >
-                                  <FileDown className="w-4 h-4 text-blue-400" />
-                                  <span>Download as Word</span>
+                                <button onClick={() => handleDownload('docx')} className="w-full px-4 py-3 text-left text-sm text-white hover:bg-white/5 flex items-center gap-3 transition-colors">
+                                  <FileDown className="w-4 h-4 text-blue-400" /><span>Download as Word</span>
                                 </button>
                               </div>
                             )}
                           </div>
                         </div>
                       </div>
-
                       <div className="glass-morphism p-6 rounded-xl border border-white/5 max-h-[500px] overflow-y-auto">
-                        <div 
-                          className="text-slate-200 text-sm leading-relaxed whitespace-pre-wrap"
-                          dangerouslySetInnerHTML={{ __html: convertMarkdownLinks(results.coverLetter) }}
-                        />
+                        <div className="text-slate-200 text-sm leading-relaxed whitespace-pre-wrap"
+                          dangerouslySetInnerHTML={{ __html: convertMarkdownLinks(results.coverLetter) }} />
                       </div>
-
                       <div className="mt-4 text-center">
-                        <button
-                          onClick={() => {
-                            setResults(prev => ({ ...prev, coverLetter: undefined }));
-                            setIsSaved(false);
-                          }}
-                          className="glass-button hover-lift inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm text-white"
-                        >
-                          <RefreshCw className="w-4 h-4" />
-                          Generate New Letter
+                        <button onClick={() => { setResults(prev => ({ ...prev, coverLetter: undefined })); setIsSaved(false); }}
+                          className="glass-button hover-lift inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm text-white">
+                          <RefreshCw className="w-4 h-4" />Generate New Letter
                         </button>
                       </div>
                     </div>
@@ -1061,38 +628,22 @@ export default function JobToolsPage() {
               {activeTab === 'interview' && results.interviewQuestions && (
                 <div className="animate-fade-in-up">
                   <div className="glass-morphism p-4 rounded-xl mb-4 border border-white/5">
-                    <p className="text-sm text-slate-300">
-                      Practice these <span className="font-bold text-white">{results.interviewQuestions.length}</span> questions 
-                      tailored to the {jobData.title} role at {jobData.company}.
-                    </p>
+                    <p className="text-sm text-slate-300">Practice these <span className="font-bold text-white">{results.interviewQuestions.length}</span> questions tailored to the {jobData.title} role at {jobData.company}.</p>
                   </div>
-
                   <div className="space-y-3 sm:space-y-4">
                     {results.interviewQuestions.map((q, idx) => (
                       <div key={idx} className="glass-morphism p-4 sm:p-5 rounded-xl hover-lift border border-white/5">
                         <div className="flex items-start justify-between mb-2 sm:mb-3 gap-2">
-                          <span className="px-3 py-1 bg-purple-500/10 border border-purple-500/20 rounded-full text-purple-400 text-xs font-semibold">
-                            {q.category}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <span className={`text-xs font-medium ${
-                              q.difficulty === 'Easy' ? 'text-emerald-400' :
-                              q.difficulty === 'Medium' ? 'text-amber-400' :
-                              'text-red-400'
-                            }`}>
-                              {q.difficulty}
-                            </span>
-                          </div>
+                          <span className="px-3 py-1 bg-purple-500/10 border border-purple-500/20 rounded-full text-purple-400 text-xs font-semibold">{q.category}</span>
+                          <span className={`text-xs font-medium ${q.difficulty === 'Easy' ? 'text-emerald-400' : q.difficulty === 'Medium' ? 'text-amber-400' : 'text-red-400'}`}>{q.difficulty}</span>
                         </div>
                         <p className="text-white font-medium text-sm sm:text-base">{q.question}</p>
                       </div>
                     ))}
                   </div>
-
-                  <div className="mt-6 flex gap-3">
-                    <Link href="/interviews" className="flex-1 glass-button-primary hover-lift px-4 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2">
-                      <Video className="w-4 h-4" />
-                      Start Mock Interview
+                  <div className="mt-6">
+                    <Link href="/interviews" className="glass-button-primary hover-lift px-4 py-3 rounded-xl font-medium text-sm inline-flex items-center gap-2">
+                      <Video className="w-4 h-4" />Start Mock Interview
                     </Link>
                   </div>
                 </div>
@@ -1102,5 +653,26 @@ export default function JobToolsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+// ─── Fallback shown while Suspense resolves useSearchParams ──────────────────
+function JobToolsFallback() {
+  return (
+    <div className="flex items-center justify-center min-h-screen px-4">
+      <div className="text-center">
+        <Loader2 className="w-10 h-10 text-purple-500 animate-spin mx-auto mb-4" />
+        <p className="text-slate-400 text-sm">Loading...</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Default export wraps content in Suspense (required for useSearchParams) ─
+export default function JobToolsPage() {
+  return (
+    <Suspense fallback={<JobToolsFallback />}>
+      <JobToolsContent />
+    </Suspense>
   );
 }
