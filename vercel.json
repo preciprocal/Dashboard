@@ -10,5 +10,20 @@
         { "key": "Access-Control-Max-Age",           "value": "86400" }
       ]
     }
+  ],
+  "routes": [
+    {
+      "src": "/api/extension/(.*)",
+      "methods": ["OPTIONS"],
+      "headers": {
+        "Access-Control-Allow-Origin":      "*",
+        "Access-Control-Allow-Methods":     "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers":     "Content-Type, x-extension-token, x-user-email, x-user-id, Authorization",
+        "Access-Control-Allow-Credentials": "false",
+        "Access-Control-Max-Age":           "86400"
+      },
+      "status": 204,
+      "continue": false
+    }
   ]
 }
