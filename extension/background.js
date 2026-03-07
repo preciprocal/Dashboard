@@ -121,7 +121,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 // This ensures storage is populated before banner.js reads it,
 // even when the user navigates to LinkedIn directly.
 // ─────────────────────────────────────────────────────────────────
-chrome.tabs.onActivated.addListener(async ({ tabId }) => {
+chrome.tabs.onActivated.addListener(async () => {
   // Check if there's already valid auth in storage
   const result = await chrome.storage.local.get([STORAGE_KEY]);
   const stored = result[STORAGE_KEY];
