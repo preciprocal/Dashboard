@@ -18,9 +18,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // ─────────────────────────────────────────────────────────────────
-// Auth — reads chrome.storage.local written by auth-receiver.js
-// auth-receiver.js runs on preciprocal.com and copies Firebase's
-// persisted localStorage auth straight into chrome.storage.local.
+// Auth check
+// 1. Read chrome.storage.local (fastest — set by background on tab load)
+// 2. If empty, ask background to sync from open preciprocal tab now
 // ─────────────────────────────────────────────────────────────────
 async function checkAuthStatus() {
   try {
@@ -28,17 +28,28 @@ async function checkAuthStatus() {
     const stored = result?.preciprocal_auth;
 
     if (stored?.uid && stored?.token) {
-      authState.authenticated = true;
-      authState.user = {
-        uid:              stored.uid,
-        email:            stored.email || '',
-        displayName:      stored.email ? stored.email.split('@')[0] : 'User',
-        subscriptionTier: stored.subscriptionTier || 'free',
-      };
-    } else {
-      authState.authenticated = false;
-      authState.user          = null;
+      setAuthenticated(stored);
+      return;
     }
+
+    // Nothing in storage — try syncing from an open preciprocal tab
+    authState.loading = true;
+    render(); // show spinner while syncing
+
+    const response = await chrome.runtime.sendMessage({ type: 'SYNC_AUTH' });
+    if (response?.success && response?.user) {
+      // Re-read storage after sync
+      const fresh = await chrome.storage.local.get(['preciprocal_auth']);
+      if (fresh?.preciprocal_auth?.uid) {
+        setAuthenticated(fresh.preciprocal_auth);
+        return;
+      }
+    }
+
+    // Still nothing
+    authState.authenticated = false;
+    authState.user          = null;
+
   } catch (err) {
     console.error('[Popup] Auth check failed:', err);
     authState.authenticated = false;
@@ -46,6 +57,16 @@ async function checkAuthStatus() {
   } finally {
     authState.loading = false;
   }
+}
+
+function setAuthenticated(stored) {
+  authState.authenticated = true;
+  authState.user = {
+    uid:              stored.uid,
+    email:            stored.email       || '',
+    displayName:      stored.displayName || (stored.email ? stored.email.split('@')[0] : 'User'),
+    subscriptionTier: stored.subscriptionTier || 'free',
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -67,12 +88,8 @@ async function logout() {
 // ─────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────
-function getById(id) {
-  return document.getElementById(id);
-}
-
 function addClick(id, fn) {
-  const el = getById(id);
+  const el = document.getElementById(id);
   if (el) {
     el.addEventListener('click', fn);
   }
@@ -82,7 +99,7 @@ function addClick(id, fn) {
 // Render
 // ─────────────────────────────────────────────────────────────────
 function render() {
-  const container = getById('authContainer');
+  const container = document.getElementById('authContainer');
   if (!container) return;
 
   if (authState.loading) {
@@ -218,9 +235,9 @@ function renderDisconnected() {
       <div class="connect-hint">
         <strong>How to connect</strong>
         <ol>
-          <li>Click the button above to open Preciprocal</li>
-          <li>Sign in to your account</li>
-          <li>Come back and click the extension icon — you'll be connected automatically</li>
+          <li>Click above to open Preciprocal and sign in</li>
+          <li>Come back and click the extension icon</li>
+          <li>You'll be connected automatically</li>
         </ol>
       </div>
 

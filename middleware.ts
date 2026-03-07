@@ -33,29 +33,29 @@ const AUTH_ROUTES = [
 // ─── Public API routes — no auth required ────────────────────────────────────
 const PUBLIC_API_ROUTES = [
   '/api/webhook',
-  '/api/extension', // extension routes are auth'd via their own token
+  '/api/extension',
 ];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // ── 1. Handle Chrome extension CORS routes first ──────────────────────────
-  if (pathname.startsWith('/api/extension/') || pathname === '/api/extension') {
-    // Intercept OPTIONS preflight immediately — must return before any redirect
-    if (request.method === 'OPTIONS') {
-      return new NextResponse(null, {
-        status: 200,
-        headers: CORS_HEADERS,
-      });
-    }
+  // ── 1. Handle ALL OPTIONS requests first — never redirect a preflight ─────
+  // This must be first. Any redirect on OPTIONS breaks CORS entirely.
+  if (request.method === 'OPTIONS') {
+    return new NextResponse(null, {
+      status: 204,
+      headers: CORS_HEADERS,
+    });
+  }
 
-    // Pass through POST/GET with CORS headers attached
+  // ── 2. Extension API routes — attach CORS and pass through ────────────────
+  if (pathname.startsWith('/api/extension/') || pathname === '/api/extension') {
     const response = NextResponse.next();
     Object.entries(CORS_HEADERS).forEach(([k, v]) => response.headers.set(k, v));
     return response;
   }
 
-  // ── 2. Allow static assets & Next.js internals ────────────────────────────
+  // ── 3. Allow static assets & Next.js internals ────────────────────────────
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon') ||
@@ -66,19 +66,19 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // ── 3. Allow public API routes ────────────────────────────────────────────
+  // ── 4. Allow public API routes ────────────────────────────────────────────
   if (PUBLIC_API_ROUTES.some((route) => pathname.startsWith(route))) {
     return NextResponse.next();
   }
 
-  // ── 4. Check session cookie (Firebase session) ────────────────────────────
+  // ── 5. Check session cookie ───────────────────────────────────────────────
   const sessionCookie =
     request.cookies.get('session')?.value ||
     request.cookies.get('__session')?.value;
 
   const isLoggedIn = Boolean(sessionCookie);
 
-  // ── 5. Allow public routes for everyone ───────────────────────────────────
+  // ── 6. Allow public routes for everyone ───────────────────────────────────
   const isPublicRoute = PUBLIC_ROUTES.some(
     (route) => pathname === route || pathname.startsWith(route + '/')
   );
@@ -86,7 +86,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // ── 6. Auth routes — redirect to home if already logged in ────────────────
+  // ── 7. Auth routes — redirect to home if already logged in ────────────────
   const isAuthRoute = AUTH_ROUTES.some(
     (route) => pathname === route || pathname.startsWith(route + '/')
   );
@@ -97,7 +97,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // ── 7. Protected routes — redirect to sign-in if not logged in ────────────
+  // ── 8. Protected routes — redirect to sign-in if not logged in ────────────
   if (!isLoggedIn) {
     const signInUrl = new URL('/sign-in', request.url);
     signInUrl.searchParams.set('redirect', pathname);
@@ -109,7 +109,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Match all routes except static files
     '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };

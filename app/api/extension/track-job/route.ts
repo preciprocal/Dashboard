@@ -12,7 +12,7 @@ function log(level: '✅'|'⚠️'|'❌'|'📊'|'🔍', step: string, detail?: u
 function corsHeaders() {
   return {
     'Access-Control-Allow-Origin':  '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, x-extension-token, x-user-email, x-user-id, Authorization',
     'Access-Control-Max-Age':       '86400',
   };
@@ -24,28 +24,28 @@ export async function OPTIONS() {
 
 async function getUserId(request: NextRequest): Promise<string | null> {
   const token   = request.headers.get('x-extension-token') || '';
-  const email   = request.headers.get('x-user-email') || '';
-  const userId  = request.headers.get('x-user-id') || '';
+  const email   = request.headers.get('x-user-email')      || '';
+  const userId  = request.headers.get('x-user-id')         || '';
 
   log('🔍', 'Auth attempt', { tokenLen: token.length, email, userId });
 
-  // Try 1: Firebase session cookie
+  // Try 1: Firebase ID token
   if (token) {
-    try {
-      const decoded = await auth.verifySessionCookie(token, true);
-      log('✅', 'Session cookie valid', { uid: decoded.uid });
-      return decoded.uid;
-    } catch { /* not a session cookie */ }
-
-    // Try 2: Firebase ID token
     try {
       const decoded = await auth.verifyIdToken(token, true);
       log('✅', 'ID token valid', { uid: decoded.uid });
       return decoded.uid;
     } catch { /* not an ID token */ }
+
+    // Try 2: Firebase session cookie
+    try {
+      const decoded = await auth.verifySessionCookie(token, true);
+      log('✅', 'Session cookie valid', { uid: decoded.uid });
+      return decoded.uid;
+    } catch { /* not a session cookie */ }
   }
 
-  // Try 3: Direct userId header (sent by banner from CHECK_AUTH response)
+  // Try 3: Direct userId header
   if (userId && /^[a-zA-Z0-9]{20,40}$/.test(userId)) {
     try {
       await auth.getUser(userId);
@@ -54,7 +54,7 @@ async function getUserId(request: NextRequest): Promise<string | null> {
     } catch { /* invalid uid */ }
   }
 
-  // Try 4: Look up by email (most reliable fallback — email comes from CHECK_AUTH)
+  // Try 4: Look up by email
   if (email) {
     try {
       const userRecord = await auth.getUserByEmail(email);
@@ -84,7 +84,10 @@ export async function POST(request: NextRequest) {
   let body: Record<string, unknown>;
   try { body = await request.json(); }
   catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400, headers: corsHeaders() });
+    return NextResponse.json(
+      { error: 'Invalid JSON body' },
+      { status: 400, headers: corsHeaders() }
+    );
   }
 
   const { title, company, location, description, url, jobId } = body as Record<string, string>;
@@ -123,7 +126,7 @@ export async function POST(request: NextRequest) {
       userId,
       company:       company.trim(),
       jobTitle:      title.trim(),
-      jobUrl:        url          || null,
+      jobUrl:        url              || null,
       location:      location?.trim() || null,
       salary:        null,
       workType:      'onsite',
@@ -131,7 +134,7 @@ export async function POST(request: NextRequest) {
       notes:         description ? `Job description:\n${description.slice(0, 1000)}` : null,
       status:        'applied',
       appliedDate:   new Date().toISOString().split('T')[0],
-      linkedInJobId: jobId || null,
+      linkedInJobId: jobId            || null,
       createdAt:     new Date(),
       updatedAt:     new Date(),
     });
@@ -142,6 +145,9 @@ export async function POST(request: NextRequest) {
     );
   } catch (e) {
     log('❌', 'SAVE_FAILED', { error: e instanceof Error ? e.message : String(e) });
-    return NextResponse.json({ error: 'Failed to save job' }, { status: 500, headers: corsHeaders() });
+    return NextResponse.json(
+      { error: 'Failed to save job' },
+      { status: 500, headers: corsHeaders() }
+    );
   }
 }

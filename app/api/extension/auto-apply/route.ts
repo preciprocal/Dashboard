@@ -3,35 +3,60 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, auth } from '@/firebase/admin';
 
+// ─── CORS ─────────────────────────────────────────────────────────────────────
+function corsHeaders() {
+  return {
+    'Access-Control-Allow-Origin':  '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, x-extension-token, x-user-email, x-user-id, Authorization',
+    'Access-Control-Max-Age':       '86400',
+  };
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 200, headers: corsHeaders() });
+}
+
 // ─── Token verification ───────────────────────────────────────────────────────
 async function verifyExtensionToken(request: NextRequest): Promise<string | null> {
-  const token  = request.headers.get('x-extension-token');
-  const userId = request.headers.get('x-user-id');
-  const email  = request.headers.get('x-user-email');
+  const token  = request.headers.get('x-extension-token') || '';
+  const userId = request.headers.get('x-user-id')         || '';
+  const email  = request.headers.get('x-user-email')      || '';
 
-  if (!token) return null;
+  // Try 1: Firebase ID token
+  if (token) {
+    try {
+      const decoded = await auth.verifyIdToken(token, true);
+      return decoded.uid;
+    } catch { /* not an ID token */ }
 
-  try {
-    const decoded = await auth.verifyIdToken(token);
-    return decoded.uid;
-  } catch {}
+    // Try 2: Firebase session cookie
+    try {
+      const decoded = await auth.verifySessionCookie(token, true);
+      return decoded.uid;
+    } catch { /* not a session cookie */ }
+  }
 
-  if (userId && token === userId) return userId;
+  // Try 3: Direct userId header
+  if (userId && /^[a-zA-Z0-9]{20,40}$/.test(userId)) {
+    try {
+      await auth.getUser(userId);
+      return userId;
+    } catch { /* invalid uid */ }
+  }
 
+  // Try 4: Look up by email
   if (email) {
     try {
       const userRecord = await auth.getUserByEmail(email);
       return userRecord.uid;
-    } catch {}
+    } catch { /* not found */ }
   }
 
   return null;
 }
 
 // ─── Fetch resume from user profile doc ──────────────────────────────────────
-// The resume used for applications is stored on the users/{uid} document,
-// NOT in the resumes collection (that collection is for the AI analyzer tool).
-// Field names mirror how transcript is stored: resumePath / resumeUrl / resume
 async function getLatestResume(uid: string) {
   try {
     const userDoc = await db.collection('users').doc(uid).get();
@@ -39,7 +64,6 @@ async function getLatestResume(uid: string) {
 
     const data = userDoc.data()!;
 
-    // Log all fields so we can see exactly what's there
     console.log('🔍 User doc resume-related fields:');
     for (const [key, val] of Object.entries(data)) {
       if (/resume/i.test(key)) {
@@ -48,7 +72,6 @@ async function getLatestResume(uid: string) {
       }
     }
 
-    // Try every possible field name the profile upload might use
     const fileUrl =
       data.resumePath     ||
       data.resumeUrl      ||
@@ -93,7 +116,6 @@ async function getTranscript(uid: string) {
       }
     }
 
-    // Fallback: dedicated transcripts collection
     const snap = await db
       .collection('transcripts')
       .where('userId', '==', uid)
@@ -121,73 +143,62 @@ async function getTranscript(uid: string) {
 }
 
 // ─── Build apply profile ──────────────────────────────────────────────────────
-function buildApplyProfile(userData: Record<string, any>, uid: string) {
-  const name      = userData.name || userData.displayName || '';
+function buildApplyProfile(userData: Record<string, unknown>, uid: string) {
+  const name      = (userData.name as string) || (userData.displayName as string) || '';
   const nameParts = name.trim().split(/\s+/);
   return {
-    // Identity
     firstName:  nameParts[0] || '',
     lastName:   nameParts.slice(1).join(' ') || '',
     fullName:   name,
-    email:      userData.email      || '',
-    phone:      (userData.phone && /^[+\d\s\-().]{7,}$/.test(userData.phone)) ? userData.phone : '',
-    // Location
-    location:   userData.location   || '',
-    city:       userData.city       || (userData.location || '').split(',')[0]?.trim() || '',
-    state:      userData.state      || (userData.location || '').split(',')[1]?.trim() || '',
-    zipCode:    userData.zipCode    || '',
-    streetAddress: userData.streetAddress || userData.address || '',
-    country:    userData.country    || 'United States',
-    // Professional
-    headline:       userData.targetRole || userData.headline || '',
-    yearsOfExperience: userData.yearsOfExperience || '',
-    summary:        userData.bio || userData.summary || '',
+    email:      (userData.email as string)      || '',
+    phone:      (userData.phone && /^[+\d\s\-().]{7,}$/.test(userData.phone as string)) ? userData.phone as string : '',
+    location:   (userData.location as string)   || '',
+    city:       (userData.city as string)       || ((userData.location as string) || '').split(',')[0]?.trim() || '',
+    state:      (userData.state as string)      || ((userData.location as string) || '').split(',')[1]?.trim() || '',
+    zipCode:    (userData.zipCode as string)    || '',
+    streetAddress: (userData.streetAddress as string) || (userData.address as string) || '',
+    country:    (userData.country as string)    || 'United States',
+    headline:       (userData.targetRole as string) || (userData.headline as string) || '',
+    yearsOfExperience: (userData.yearsOfExperience as string) || '',
+    summary:        (userData.bio as string) || (userData.summary as string) || '',
     skills:         Array.isArray(userData.preferredTech) ? userData.preferredTech
                     : Array.isArray(userData.skills) ? userData.skills
-                    : typeof userData.preferredTech === 'string' ? userData.preferredTech.split(',').map((s: string) => s.trim()).filter(Boolean)
-                    : typeof userData.skills === 'string' ? userData.skills.split(',').map((s: string) => s.trim()).filter(Boolean)
+                    : typeof userData.preferredTech === 'string' ? (userData.preferredTech as string).split(',').map((s: string) => s.trim()).filter(Boolean)
+                    : typeof userData.skills === 'string' ? (userData.skills as string).split(',').map((s: string) => s.trim()).filter(Boolean)
                     : [],
-    certifications: userData.certifications || '',
-    languages:      userData.languages || 'English',
-    // Social
-    linkedInUrl:  userData.linkedIn     || userData.linkedInUrl   || '',
-    githubUrl:    userData.github       || userData.githubUrl     || '',
-    portfolioUrl: userData.website      || userData.portfolioUrl  || '',
-    // Job preferences
-    desiredSalary:     userData.desiredSalary     || '',
-    salaryType:        userData.salaryType        || 'yearly',
-    noticePeriod:      userData.noticePeriod      || '2 weeks',
-    workType:          userData.workType          || 'Remote',
-    employmentType:    userData.employmentType    || 'Full-time',
-    openToTravel:      userData.openToTravel      || 'No',
-    willingToRelocate:  userData.willingToRelocate  ?? false,
-    currentlyEmployed:  userData.currentlyEmployed  ?? false,
-    reasonForLeaving:   userData.reasonForLeaving   || '',
-    howDidYouHear:      userData.howDidYouHear      || 'LinkedIn',
-    // Work authorization
-    workAuthorization:  userData.workAuthorization  || 'Yes',
-    requireSponsorship: userData.requireSponsorship ?? false,
-    visaType:           userData.visaType           || '',
-    // Standard questions
-    over18:          userData.over18          ?? true,
-    driverLicense:   userData.driverLicense   ?? true,
-    backgroundCheck: userData.backgroundCheck ?? true,
-    drugTest:        userData.drugTest        ?? true,
-    criminalRecord:  userData.criminalRecord  ?? false,
-    // Education & Experience
-    education:  userData.education  || [],
-    experience: userData.experience || [],
-    // EEO / Demographics
-    gender:           userData.gender           || 'Prefer not to say',
-    pronouns:         userData.pronouns         || 'Prefer not to say',
-    race:             userData.race             || 'Prefer not to say',
-    veteranStatus:    userData.veteranStatus    || 'I am not a protected veteran',
-    disabilityStatus: userData.disabilityStatus || 'I do not have a disability',
-    // Cover letter
-    coverLetterIntro: userData.coverLetterIntro || '',
-    coverLetterBody:  userData.coverLetterBody  || '',
-    // Meta
-    subscriptionTier: userData.subscription?.plan || 'free',
+    certifications: (userData.certifications as string) || '',
+    languages:      (userData.languages as string) || 'English',
+    linkedInUrl:  (userData.linkedIn as string)     || (userData.linkedInUrl as string)   || '',
+    githubUrl:    (userData.github as string)       || (userData.githubUrl as string)     || '',
+    portfolioUrl: (userData.website as string)      || (userData.portfolioUrl as string)  || '',
+    desiredSalary:     (userData.desiredSalary as string)     || '',
+    salaryType:        (userData.salaryType as string)        || 'yearly',
+    noticePeriod:      (userData.noticePeriod as string)      || '2 weeks',
+    workType:          (userData.workType as string)          || 'Remote',
+    employmentType:    (userData.employmentType as string)    || 'Full-time',
+    openToTravel:      (userData.openToTravel as string)      || 'No',
+    willingToRelocate:  (userData.willingToRelocate as boolean)  ?? false,
+    currentlyEmployed:  (userData.currentlyEmployed as boolean)  ?? false,
+    reasonForLeaving:   (userData.reasonForLeaving as string)    || '',
+    howDidYouHear:      (userData.howDidYouHear as string)       || 'LinkedIn',
+    workAuthorization:  (userData.workAuthorization as string)   || 'Yes',
+    requireSponsorship: (userData.requireSponsorship as boolean) ?? false,
+    visaType:           (userData.visaType as string)            || '',
+    over18:          (userData.over18 as boolean)          ?? true,
+    driverLicense:   (userData.driverLicense as boolean)   ?? true,
+    backgroundCheck: (userData.backgroundCheck as boolean) ?? true,
+    drugTest:        (userData.drugTest as boolean)        ?? true,
+    criminalRecord:  (userData.criminalRecord as boolean)  ?? false,
+    education:  (userData.education as unknown[])  || [],
+    experience: (userData.experience as unknown[]) || [],
+    gender:           (userData.gender as string)           || 'Prefer not to say',
+    pronouns:         (userData.pronouns as string)         || 'Prefer not to say',
+    race:             (userData.race as string)             || 'Prefer not to say',
+    veteranStatus:    (userData.veteranStatus as string)    || 'I am not a protected veteran',
+    disabilityStatus: (userData.disabilityStatus as string) || 'I do not have a disability',
+    coverLetterIntro: (userData.coverLetterIntro as string) || '',
+    coverLetterBody:  (userData.coverLetterBody as string)  || '',
+    subscriptionTier: (userData.subscription as Record<string, string>)?.plan || 'free',
     userId: uid,
   };
 }
@@ -199,7 +210,10 @@ export async function GET(request: NextRequest) {
   try {
     const uid = await verifyExtensionToken(request);
     if (!uid) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401, headers: corsHeaders() }
+      );
     }
 
     console.log('✅ uid:', uid);
@@ -211,10 +225,13 @@ export async function GET(request: NextRequest) {
     ]);
 
     if (!userDoc.exists) {
-      return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'User profile not found' },
+        { status: 404, headers: corsHeaders() }
+      );
     }
 
-    const userData     = userDoc.data()!;
+    const userData     = userDoc.data() as Record<string, unknown>;
     const applyProfile = buildApplyProfile(userData, uid);
 
     const files = {
@@ -233,13 +250,33 @@ export async function GET(request: NextRequest) {
       transcriptAvail: files.transcript.available,
     });
 
-    return NextResponse.json({ success: true, applyProfile, files,
-      user: { uid, email: userData.email, name: userData.name || userData.displayName, plan: userData.subscription?.plan || 'free' },
-      profileUpdatedAt: userData.updatedAt || null,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        applyProfile,
+        files,
+        user: {
+          uid,
+          email: userData.email,
+          name:  (userData.name as string) || (userData.displayName as string),
+          plan:  (userData.subscription as Record<string, string>)?.plan || 'free',
+        },
+        profileUpdatedAt: userData.updatedAt || null,
+      },
+      { headers: corsHeaders() }
+    );
 
   } catch (error) {
     console.error('❌ auto-apply error:', error);
-    return NextResponse.json({ error: 'Internal server error', details: (error as Error).message }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error', details: (error as Error).message },
+      { status: 500, headers: corsHeaders() }
+    );
   }
+}
+
+// ─── POST /api/extension/auto-apply ──────────────────────────────────────────
+// Some callers POST instead of GET — handle both the same way
+export async function POST(request: NextRequest) {
+  return GET(request);
 }

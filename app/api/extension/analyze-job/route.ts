@@ -16,7 +16,7 @@ function log(level: '✅'|'⚠️'|'❌'|'📊'|'🔍', step: string, detail?: u
 function corsHeaders() {
   return {
     'Access-Control-Allow-Origin':  '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, x-extension-token, x-user-email, x-user-id, Authorization',
     'Access-Control-Max-Age':       '86400',
   };
@@ -28,28 +28,28 @@ export async function OPTIONS() {
 
 async function getUserId(request: NextRequest): Promise<string | null> {
   const token   = request.headers.get('x-extension-token') || '';
-  const email   = request.headers.get('x-user-email') || '';
-  const userId  = request.headers.get('x-user-id') || '';
+  const email   = request.headers.get('x-user-email')      || '';
+  const userId  = request.headers.get('x-user-id')         || '';
 
   log('🔍', 'Auth attempt', { tokenLen: token.length, email, userId });
 
-  // Try 1: Firebase session cookie
+  // Try 1: Firebase ID token
   if (token) {
-    try {
-      const decoded = await auth.verifySessionCookie(token, true);
-      log('✅', 'Session cookie valid', { uid: decoded.uid });
-      return decoded.uid;
-    } catch { /* not a session cookie */ }
-
-    // Try 2: Firebase ID token
     try {
       const decoded = await auth.verifyIdToken(token, true);
       log('✅', 'ID token valid', { uid: decoded.uid });
       return decoded.uid;
     } catch { /* not an ID token */ }
+
+    // Try 2: Firebase session cookie
+    try {
+      const decoded = await auth.verifySessionCookie(token, true);
+      log('✅', 'Session cookie valid', { uid: decoded.uid });
+      return decoded.uid;
+    } catch { /* not a session cookie */ }
   }
 
-  // Try 3: Direct userId header (sent by banner from CHECK_AUTH response)
+  // Try 3: Direct userId header
   if (userId && /^[a-zA-Z0-9]{20,40}$/.test(userId)) {
     try {
       await auth.getUser(userId);
@@ -58,7 +58,7 @@ async function getUserId(request: NextRequest): Promise<string | null> {
     } catch { /* invalid uid */ }
   }
 
-  // Try 4: Look up by email (most reliable fallback — email comes from CHECK_AUTH)
+  // Try 4: Look up by email
   if (email) {
     try {
       const userRecord = await auth.getUserByEmail(email);
@@ -88,7 +88,10 @@ export async function POST(request: NextRequest) {
   let body: Record<string, string>;
   try { body = await request.json(); }
   catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400, headers: corsHeaders() });
+    return NextResponse.json(
+      { error: 'Invalid JSON body' },
+      { status: 400, headers: corsHeaders() }
+    );
   }
 
   const { title, company, description, location } = body;
@@ -96,10 +99,13 @@ export async function POST(request: NextRequest) {
 
   if (!genAI || !apiKey) {
     log('❌', 'GEMINI_NOT_CONFIGURED');
-    return NextResponse.json({ error: 'AI service not configured' }, { status: 503, headers: corsHeaders() });
+    return NextResponse.json(
+      { error: 'AI service not configured' },
+      { status: 503, headers: corsHeaders() }
+    );
   }
 
-  let resumeText = '';
+  let resumeText  = '';
   let resumeScore = 0;
   try {
     const snap = await db.collection('resumes')
@@ -110,7 +116,7 @@ export async function POST(request: NextRequest) {
     if (!snap.empty) {
       const r = snap.docs[0].data() as Record<string, unknown>;
       resumeText  = (r.resumeText as string) || (r.extractedText as string) || '';
-      resumeScore = ((r.feedback as Record<string,number>|undefined)?.overallScore) ?? 0;
+      resumeScore = ((r.feedback as Record<string, number> | undefined)?.overallScore) ?? 0;
       log('✅', 'Resume loaded', { len: resumeText.length, score: resumeScore });
     }
   } catch (e) {
@@ -120,7 +126,9 @@ export async function POST(request: NextRequest) {
   let userSkills: string[] = [];
   try {
     const userDoc = await db.collection('users').doc(userId).get();
-    if (userDoc.exists) userSkills = ((userDoc.data() as Record<string,unknown>).preferredTech as string[]|undefined) || [];
+    if (userDoc.exists) {
+      userSkills = ((userDoc.data() as Record<string, unknown>).preferredTech as string[] | undefined) || [];
+    }
   } catch { /* non-fatal */ }
 
   const prompt = `You are a precise job-resume compatibility analyser.
@@ -148,9 +156,18 @@ Return ONLY valid JSON:
     log('✅', 'Score computed', { score: aiData.compatibilityScore });
   } catch (e) {
     log('❌', 'Gemini failed', { error: e instanceof Error ? e.message : String(e) });
-    aiData = { compatibilityScore: 0, matchLevel: 'unknown', topMatchingSkills: [], missingKeySkills: [], oneLineSummary: 'Could not analyse.' };
+    aiData = {
+      compatibilityScore: 0,
+      matchLevel:         'unknown',
+      topMatchingSkills:  [],
+      missingKeySkills:   [],
+      oneLineSummary:     'Could not analyse.',
+    };
   }
 
   log('📊', 'Done', { ms: Date.now() - start });
-  return NextResponse.json({ success: true, ...aiData }, { headers: corsHeaders() });
+  return NextResponse.json(
+    { success: true, ...aiData },
+    { headers: corsHeaders() }
+  );
 }
