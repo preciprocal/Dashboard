@@ -1,171 +1,140 @@
 // popup.js
 
-const IS_DEV = false; // Set to true for local development
+const IS_DEV   = false;
 const BASE_URL = IS_DEV ? 'http://localhost:3000' : 'https://preciprocal.com';
 
 let authState = {
   authenticated: false,
-  user: null,
-  loading: true
+  user:          null,
+  loading:       true,
 };
 
-// Initialize on load
+// ─────────────────────────────────────────────────────────────────
+// Boot
+// ─────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-  console.log('🚀 Popup initializing...');
   await checkAuthStatus();
   render();
-  setupEventListeners();
 });
 
+// ─────────────────────────────────────────────────────────────────
+// Auth — reads chrome.storage.local written by auth-receiver.js
+// auth-receiver.js runs on preciprocal.com and copies Firebase's
+// persisted localStorage auth straight into chrome.storage.local.
+// ─────────────────────────────────────────────────────────────────
 async function checkAuthStatus() {
   try {
-    authState.loading = true;
-    const response = await chrome.runtime.sendMessage({ type: 'CHECK_AUTH' });
-    authState.authenticated = response.authenticated;
-    authState.user = response.user;
-    authState.loading = false;
-    console.log('Auth status:', authState);
-  } catch (error) {
-    console.error('Auth check failed:', error);
-    authState.loading = false;
+    const result = await chrome.storage.local.get(['preciprocal_auth']);
+    const stored = result?.preciprocal_auth;
+
+    if (stored?.uid && stored?.token) {
+      authState.authenticated = true;
+      authState.user = {
+        uid:              stored.uid,
+        email:            stored.email || '',
+        displayName:      stored.email ? stored.email.split('@')[0] : 'User',
+        subscriptionTier: stored.subscriptionTier || 'free',
+      };
+    } else {
+      authState.authenticated = false;
+      authState.user          = null;
+    }
+  } catch (err) {
+    console.error('[Popup] Auth check failed:', err);
     authState.authenticated = false;
+    authState.user          = null;
+  } finally {
+    authState.loading = false;
   }
 }
 
-function setupEventListeners() {
-  // Login button
-  const loginBtn = document.getElementById('loginBtn');
-  if (loginBtn) {
-    loginBtn.addEventListener('click', openLoginPage);
-  }
-
-  // Logout button
-  const logoutBtn = document.getElementById('logoutBtn');
-  if (logoutBtn) {
-    logoutBtn.addEventListener('click', logout);
-  }
-
-  // Open Dashboard button
-  const openDashboardBtn = document.getElementById('openDashboardBtn');
-  if (openDashboardBtn) {
-    openDashboardBtn.addEventListener('click', openWebApp);
-  }
-
-  // Open Web button (alternative ID)
-  const openWebBtn = document.getElementById('openWebBtn');
-  if (openWebBtn) {
-    openWebBtn.addEventListener('click', openWebApp);
-  }
-
-  // Resume Optimizer
-  const resumeBtn = document.getElementById('resumeOptimizerBtn');
-  if (resumeBtn) {
-    resumeBtn.addEventListener('click', () => openFeature('/resume'));
-  }
-
-  // Cover Letter
-  const coverLetterBtn = document.getElementById('coverLetterBtn');
-  if (coverLetterBtn) {
-    coverLetterBtn.addEventListener('click', () => openFeature('/cover-letter'));
-  }
-
-  // Mock Interview
-  const mockInterviewBtn = document.getElementById('mockInterviewBtn');
-  if (mockInterviewBtn) {
-    mockInterviewBtn.addEventListener('click', () => openFeature('/interview'));
-  }
-
-  console.log('✅ Event listeners setup complete');
-}
-
-function openLoginPage() {
-  console.log('📱 Opening login page...');
-  chrome.tabs.create({
-    url: `${BASE_URL}/settings`
-  });
-  window.close();
-}
-
-function openWebApp() {
-  console.log('📱 Opening dashboard...');
-  chrome.tabs.create({
-    url: `${BASE_URL}/`
-  });
-  window.close();
-}
-
-function openFeature(path) {
-  console.log('📱 Opening feature:', path);
-  chrome.tabs.create({
-    url: `${BASE_URL}${path}`
-  });
+// ─────────────────────────────────────────────────────────────────
+// Actions
+// ─────────────────────────────────────────────────────────────────
+function openApp(path) {
+  chrome.tabs.create({ url: `${BASE_URL}${path || '/'}` });
   window.close();
 }
 
 async function logout() {
-  try {
-    console.log('🚪 Logging out...');
-    await chrome.runtime.sendMessage({ type: 'LOGOUT' });
-    authState.authenticated = false;
-    authState.user = null;
-    render();
-  } catch (error) {
-    console.error('Logout failed:', error);
+  await chrome.storage.local.remove(['preciprocal_auth']);
+  chrome.runtime.sendMessage({ type: 'CLEAR_AUTH' }).catch(() => {});
+  authState.authenticated = false;
+  authState.user          = null;
+  render();
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────
+function getById(id) {
+  return document.getElementById(id);
+}
+
+function addClick(id, fn) {
+  const el = getById(id);
+  if (el) {
+    el.addEventListener('click', fn);
   }
 }
 
+// ─────────────────────────────────────────────────────────────────
+// Render
+// ─────────────────────────────────────────────────────────────────
 function render() {
-  const container = document.getElementById('authContainer');
-  if (!container) {
-    console.error('❌ authContainer not found in DOM');
-    return;
-  }
+  const container = getById('authContainer');
+  if (!container) return;
 
   if (authState.loading) {
-    container.innerHTML = renderLoadingView();
+    container.innerHTML = renderLoading();
   } else if (authState.authenticated && authState.user) {
-    container.innerHTML = renderAuthenticatedView();
+    container.innerHTML = renderConnected();
   } else {
-    container.innerHTML = renderUnauthenticatedView();
+    container.innerHTML = renderDisconnected();
   }
-  
-  // Re-setup event listeners after render
-  setTimeout(() => setupEventListeners(), 0);
+
+  attachListeners();
 }
 
-function renderLoadingView() {
+function attachListeners() {
+  addClick('loginBtn',           function () { openApp('/sign-in');      });
+  addClick('openDashboardBtn',   function () { openApp('/');             });
+  addClick('logoutBtn',          function () { logout();                 });
+  addClick('resumeOptimizerBtn', function () { openApp('/resume');       });
+  addClick('coverLetterBtn',     function () { openApp('/cover-letter'); });
+  addClick('mockInterviewBtn',   function () { openApp('/interview');    });
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Views
+// ─────────────────────────────────────────────────────────────────
+function renderLoading() {
   return `
     <div class="loading-view">
       <div class="spinner"></div>
-      <p>Checking authentication...</p>
+      <p>Checking connection...</p>
     </div>
   `;
 }
 
-function renderAuthenticatedView() {
-  const user = authState.user;
-  const tierBadge = getTierBadge(user.subscriptionTier);
+function renderConnected() {
+  const user    = authState.user;
+  const initial = (user.displayName || user.email || 'U').charAt(0).toUpperCase();
+  const badge   = getTierBadge(user.subscriptionTier);
 
   return `
     <div class="authenticated">
       <div class="user-info">
-        <div class="avatar">
-          ${user.displayName.charAt(0).toUpperCase()}
-        </div>
+        <div class="avatar">${initial}</div>
         <div class="user-details">
-          <p class="user-name">${user.displayName}</p>
-          <p class="user-email">${user.email}</p>
+          <p class="user-name">${user.displayName || 'User'}</p>
+          <p class="user-email">${user.email || ''}</p>
         </div>
-      </div>
-      
-      <div class="tier-badge ${user.subscriptionTier}">
-        <span class="tier-icon">${tierBadge.icon}</span>
-        <span>${tierBadge.text}</span>
       </div>
 
       <div class="status-indicator">
         <div class="status-dot"></div>
-        <span>Extension Connected</span>
+        <span>Connected to Preciprocal &nbsp;·&nbsp; ${badge.icon} ${badge.text}</span>
       </div>
 
       <div class="feature-list">
@@ -173,10 +142,9 @@ function renderAuthenticatedView() {
           <div class="feature-icon">📄</div>
           <div class="feature-content">
             <span class="feature-title">Resume Optimizer</span>
-            <span class="feature-desc">ATS score & optimization</span>
+            <span class="feature-desc">ATS score &amp; optimization</span>
           </div>
         </button>
-        
         <button id="coverLetterBtn" class="feature-btn">
           <div class="feature-icon">✉️</div>
           <div class="feature-content">
@@ -184,7 +152,6 @@ function renderAuthenticatedView() {
             <span class="feature-desc">Tailored to job posting</span>
           </div>
         </button>
-        
         <button id="mockInterviewBtn" class="feature-btn">
           <div class="feature-icon">🎯</div>
           <div class="feature-content">
@@ -195,18 +162,14 @@ function renderAuthenticatedView() {
       </div>
 
       <div class="actions">
-        <button id="openDashboardBtn" class="btn-primary">
-          Open Dashboard
-        </button>
-        <button id="logoutBtn" class="btn-secondary">
-          Disconnect
-        </button>
+        <button id="openDashboardBtn" class="btn-primary">Open Dashboard</button>
+        <button id="logoutBtn" class="btn-secondary">Disconnect</button>
       </div>
     </div>
   `;
 }
 
-function renderUnauthenticatedView() {
+function renderDisconnected() {
   return `
     <div class="unauthenticated">
       <div class="logo">
@@ -224,9 +187,7 @@ function renderUnauthenticatedView() {
       </div>
 
       <h2>Welcome to Preciprocal</h2>
-      <p class="description">
-        AI Career Assistant for job seekers
-      </p>
+      <p class="description">AI Career Assistant for job seekers</p>
 
       <div class="features-grid">
         <div class="feature-card">
@@ -252,26 +213,28 @@ function renderUnauthenticatedView() {
         </div>
       </div>
 
-      <button id="loginBtn" class="btn-primary">
-        Connect Your Account
-      </button>
+      <button id="loginBtn" class="btn-primary">Sign in to Preciprocal</button>
 
-      <p class="help-text">
-        Opens preciprocal.com to authorize this extension
-      </p>
+      <div class="connect-hint">
+        <strong>How to connect</strong>
+        <ol>
+          <li>Click the button above to open Preciprocal</li>
+          <li>Sign in to your account</li>
+          <li>Come back and click the extension icon — you'll be connected automatically</li>
+        </ol>
+      </div>
+
+      <p class="help-text">No tokens or extra steps needed</p>
     </div>
   `;
 }
 
 function getTierBadge(tier) {
   const badges = {
-    free: { icon: '🆓', text: 'Free' },
+    free:    { icon: '🆓', text: 'Free'    },
     starter: { icon: '🚀', text: 'Starter' },
-    pro: { icon: '⭐', text: 'Pro' },
-    premium: { icon: '💎', text: 'Premium' }
+    pro:     { icon: '⭐', text: 'Pro'     },
+    premium: { icon: '💎', text: 'Premium' },
   };
   return badges[tier] || badges.free;
 }
-
-// Log when script loads
-console.log('✅ Popup.js loaded');

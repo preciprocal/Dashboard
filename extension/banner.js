@@ -182,7 +182,6 @@ class EasyApplyEngine {
     if (state === 'ready') banner?.querySelector('.pr-spinner')?.remove();
   }
 
-  // ── Detect what the primary action button is on the current step ──
   _detectNextAction(modal) {
     const buttons = Array.from(modal.querySelectorAll('button'));
     const texts   = buttons.map(b => b.textContent?.trim().toLowerCase() || '');
@@ -192,7 +191,6 @@ class EasyApplyEngine {
     return 'none';
   }
 
-  // ── Step loop: fill → auto-click review → stop at submit ─────────
   async _processAllSteps() {
     while (this.stepCount < this.maxSteps) {
       this.stepCount++;
@@ -207,28 +205,24 @@ class EasyApplyEngine {
       if (action === 'none') break;
 
       if (action === 'submit') {
-        // Stop here — let the user click Submit manually
         this._updateBanner('✅ All done — click Submit when ready', 'ready');
         this.onStatus('All fields filled! Review and click Submit.', 'success');
         break;
       }
 
       if (action === 'review') {
-        // Auto-click Review, then continue loop to reach Submit next
         this._updateBanner('📋 Auto-clicking Review…', 'filling');
         const reviewBtn = this._findButton(modal, ['review']);
         if (reviewBtn) {
           reviewBtn.click();
-          await this._delay(1200); // wait for review page to render
-          continue; // next iteration will detect Submit and stop
+          await this._delay(1200);
+          continue;
         }
-        // Couldn't find Review button — stop and let user continue
         this._updateBanner('📋 Review your application then submit', 'ready');
         this.onStatus('Please review and submit your application.', 'success');
         break;
       }
 
-      // action === 'next' — click Next/Continue and advance
       const nextBtn = this._findButton(modal, ['next', 'continue']);
       if (nextBtn) {
         this._updateBanner(`Step ${this.stepCount} — moving to next…`, 'filling');
@@ -265,18 +259,13 @@ class EasyApplyEngine {
     await this._fillRadioGroups(modal, p);
   }
 
-  // ── Converts any experience value to a single integer string ─────
-  // "3-5" → "3"  |  "5+" → "5"  |  "3" → "3"  |  "10+" → "10"
   _rangeToSingleNumber(value) {
     if (!value) return '';
     const str = String(value).trim();
-    // Range like "3-5" or "3–5" — take the lower bound
     const rangeMatch = str.match(/^(\d+)\s*[-–]\s*\d+/);
     if (rangeMatch) return rangeMatch[1];
-    // "5+" or "5 +" — strip the plus
     const plusMatch = str.match(/^(\d+)\s*\+/);
     if (plusMatch) return plusMatch[1];
-    // Already a plain number
     const numMatch = str.match(/^(\d+)/);
     if (numMatch) return numMatch[1];
     return str;
@@ -285,23 +274,16 @@ class EasyApplyEngine {
   async _fillInput(input, p) {
     if (input.disabled || input.readOnly) return;
     if (input.value && input.value.trim() !== '') return;
-
     const hint = `${this._getLabel(input)} ${input.id || ''} ${input.name || ''}`.toLowerCase();
     let value  = this._matchProfileField(hint, p);
     if (value === null || value === undefined || value === '') return;
-
     value = String(value);
-
-    // For number inputs, never put a range string — extract the lower bound
     if (input.type === 'number' || input.getAttribute('inputmode') === 'numeric') {
       value = this._rangeToSingleNumber(value);
     }
-
-    // Safety net: if the label mentions "year" and value still contains a dash, fix it
     if (/year/i.test(hint) && value.includes('-')) {
       value = this._rangeToSingleNumber(value);
     }
-
     this._setNativeValue(input, value);
     await this._delay(50);
   }
@@ -335,10 +317,10 @@ class EasyApplyEngine {
     for (const group of groups) {
       const legend = (group.querySelector('legend, [role="group"] label')?.textContent || '').toLowerCase();
       let answer = null;
-      if (/sponsor/i.test(legend))               answer = p.requireSponsorship ? 'yes' : 'no';
-      if (/relocat/i.test(legend))               answer = p.willingToRelocate  ? 'yes' : 'no';
+      if (/sponsor/i.test(legend))                  answer = p.requireSponsorship ? 'yes' : 'no';
+      if (/relocat/i.test(legend))                  answer = p.willingToRelocate  ? 'yes' : 'no';
       if (/legally.*work|authorized/i.test(legend)) answer = 'yes';
-      if (/currently employ/i.test(legend))      answer = 'yes';
+      if (/currently employ/i.test(legend))         answer = 'yes';
       if (answer) {
         const radios = group.querySelectorAll('input[type="radio"]');
         for (const radio of radios) {
@@ -365,7 +347,6 @@ class EasyApplyEngine {
     if (/linkedin/i.test(hint))                         return p.linkedInUrl;
     if (/github/i.test(hint))                           return p.githubUrl;
     if (/website|portfolio/i.test(hint))                return p.portfolioUrl;
-    // Always return a clean single integer for any years-of-experience field
     if (/year.*exp|exp.*year|years.*work|years.*experience|how many year/i.test(hint)) {
       return this._rangeToSingleNumber(p.yearsOfExperience || '');
     }
@@ -415,16 +396,11 @@ class EasyApplyEngine {
 
   _selectClosestNumber(select, target) {
     if (!target) return;
-
-    // Parse target — handles "3-5" → 3, "5+" → 5, "3" → 3
     const num = parseInt(this._rangeToSingleNumber(String(target)), 10);
     if (isNaN(num)) return;
-
     let best = null, bestDiff = Infinity;
     for (const opt of select.options) {
       if (!opt.value || opt.value === '' || opt.value === '0') continue;
-
-      // Option text may be a range "3-5 years", single number "3", or "3+ years"
       const optRangeMatch = opt.text.match(/^(\d+)\s*[-–]\s*(\d+)/);
       if (optRangeMatch) {
         const lo   = parseInt(optRangeMatch[1], 10);
@@ -460,7 +436,6 @@ function getApplyButtonInfo() {
       return { type: 'easy', button: btn };
     }
   }
-
   const externalBtn = document.querySelector(
     'button.jobs-apply-button, a.jobs-apply-button, [data-control-name="jobdetails_topcard_inapply"]'
   );
@@ -470,7 +445,6 @@ function getApplyButtonInfo() {
     );
     return { type: 'external', button: externalBtn, url: link?.href || null };
   }
-
   return { type: 'none', button: null, url: null };
 }
 
@@ -492,7 +466,6 @@ class PreciprocalBanner {
     this.applyState      = 'idle';
     this.applyProfile    = null;
     this.applyFiles      = null;
-    this.applyType       = null;
   }
 
   _delay(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -538,53 +511,37 @@ class PreciprocalBanner {
         const data        = await res.json();
         this.applyProfile = data.applyProfile || null;
         this.applyFiles   = data.files        || null;
-        console.log('✅ Apply profile prefetched:', this.applyProfile?.firstName,
-          '| resume:', this.applyFiles?.resume?.available,
-          '| transcript:', this.applyFiles?.transcript?.available);
+        console.log('✅ Apply profile prefetched:', this.applyProfile?.firstName);
       }
     } catch (e) {
       console.warn('⚠️ Prefetch failed:', e.message);
     }
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // AUTH CHECK
+  // auth-receiver.js (content script on preciprocal.com) writes
+  // Firebase auth directly into chrome.storage.local every time
+  // the user is on the app. We just read it here — simple & reliable.
+  // ─────────────────────────────────────────────────────────────
   async checkAuth() {
-    // Strategy 1: ask background script via message
-    try {
-      const response = await chrome.runtime.sendMessage({ type: 'CHECK_AUTH' });
-      if (response?.authenticated && response.user?.uid) {
-        this.isAuthenticated = true;
-        this.authUserId      = response.user.uid;
-        this.authEmail       = response.user.email || null;
-
-        const tokenResponse  = await chrome.runtime.sendMessage({ type: 'GET_TOKEN' });
-        this.authToken       = tokenResponse?.token || null;
-
-        if (this.authToken) {
-          console.log('✅ Auth via background message — user:', this.authEmail);
-          return;
-        }
-      }
-    } catch (e) {
-      console.warn('⚠️ Background message failed, trying storage fallback:', e?.message);
-    }
-
-    // Strategy 2: read chrome.storage.local directly (works even if SW is dormant)
     try {
       const result = await chrome.storage.local.get(['preciprocal_auth']);
       const auth   = result?.preciprocal_auth;
+
       if (auth?.uid && auth?.token) {
         this.isAuthenticated = true;
         this.authUserId      = auth.uid;
         this.authEmail       = auth.email || null;
         this.authToken       = auth.token;
-        console.log('✅ Auth via storage fallback — user:', this.authEmail);
+        console.log('✅ Preciprocal auth loaded — user:', this.authEmail);
         return;
       }
     } catch (e) {
-      console.warn('⚠️ Storage fallback failed:', e?.message);
+      console.warn('⚠️ Storage read failed:', e?.message);
     }
 
-    console.warn('❌ Not authenticated — no valid auth found in background or storage');
+    console.warn('❌ No Preciprocal auth found in storage');
     this.isAuthenticated = false;
   }
 
@@ -647,9 +604,9 @@ class PreciprocalBanner {
 
   _getApplyButtonLabel() {
     const info = getApplyButtonInfo();
-    if (info.type === 'easy')     return { label: 'Easy Apply', icon: '⚡', tip: '🚀 Auto-fill LinkedIn Easy Apply with your profile data' };
-    if (info.type === 'external') return { label: 'Auto Apply', icon: '🔗', tip: '🚀 Opens company site and auto-fills the form with your profile' };
-    return { label: 'Auto Apply', icon: '⚡', tip: '🚀 Auto-fill the job application with your Preciprocal profile' };
+    if (info.type === 'easy')     return { label: 'Easy Apply', tip: '🚀 Auto-fill LinkedIn Easy Apply with your profile data' };
+    if (info.type === 'external') return { label: 'Auto Apply', tip: '🚀 Opens company site and auto-fills the form with your profile' };
+    return { label: 'Auto Apply', tip: '🚀 Auto-fill the job application with your Preciprocal profile' };
   }
 
   createBannerElement() {
@@ -714,9 +671,6 @@ class PreciprocalBanner {
     return container;
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // AUTO APPLY
-  // ─────────────────────────────────────────────────────────────
   async handleAutoApply() {
     if (this.applyState === 'done' || this.applyState === 'loading') return;
 
@@ -724,8 +678,8 @@ class PreciprocalBanner {
     const labelEl = btn?.querySelector('.apply-label');
 
     if (!this.isAuthenticated) {
-      this.showNotification('Please connect your account first', 'error');
-      setTimeout(() => window.open(`${PRECIPROCAL_URL}/settings`, '_blank'), 1500);
+      this.showNotification('Please log in to Preciprocal first', 'error');
+      setTimeout(() => window.open(`${PRECIPROCAL_URL}/sign-in`, '_blank'), 1500);
       return;
     }
 
@@ -756,7 +710,6 @@ class PreciprocalBanner {
       if (!this.applyProfile) throw new Error('Profile data unavailable');
 
       const applyInfo = getApplyButtonInfo();
-      console.log('🔍 Apply button type:', applyInfo.type);
 
       if (applyInfo.type === 'easy') {
         if (labelEl) labelEl.textContent = 'Applying…';
@@ -771,13 +724,9 @@ class PreciprocalBanner {
 
         if (this.applyFiles?.resume?.available && this.applyFiles.resume.url) {
           try {
-            const injected = await this._injectFileIntoModal(
-              this.applyFiles.resume.url,
-              this.applyFiles.resume.fileName
-            );
-            if (injected) console.log('✅ Resume injected into Easy Apply modal');
+            await this._injectFileIntoModal(this.applyFiles.resume.url, this.applyFiles.resume.fileName);
           } catch (e) {
-            console.warn('⚠️ Could not inject resume into modal:', e.message);
+            console.warn('⚠️ Could not inject resume:', e.message);
           }
         }
 
@@ -785,7 +734,6 @@ class PreciprocalBanner {
         if (btn) { btn.classList.remove('loading'); btn.classList.add('done'); }
         if (labelEl) labelEl.textContent = 'Review & Submit';
         this._replaceButtonIcon(btn, 'check');
-
         this.showNotificationWithLink(
           `Easy Apply form filled for ${this.jobData?.company}`,
           'View Job Tracker →',
@@ -800,24 +748,17 @@ class PreciprocalBanner {
           preciprocal_auto_apply_timestamp: Date.now(),
           preciprocal_auto_apply_job:       this.jobData,
         });
-
         if (applyInfo.button) {
           if (labelEl) labelEl.textContent = 'Opening…';
           applyInfo.button.click();
-
           this.applyState = 'done';
           if (btn) { btn.classList.remove('loading'); btn.classList.add('done'); }
           if (labelEl) labelEl.textContent = 'Filling on site…';
           this._replaceButtonIcon(btn, 'check');
-
-          this.showNotification(
-            '🔗 Opening company site — Preciprocal will auto-fill the form',
-            'success'
-          );
+          this.showNotification('🔗 Opening company site — Preciprocal will auto-fill the form', 'success');
         } else {
           throw new Error('Could not find the Apply button on this listing');
         }
-
       } else {
         throw new Error('No Apply button found on this job listing');
       }
@@ -829,13 +770,9 @@ class PreciprocalBanner {
       if (labelEl) labelEl.textContent = 'Try Again';
       this._replaceButtonIcon(btn, 'lightning');
       this.showNotification(error.message || 'Auto-apply failed', 'error');
-
       setTimeout(() => {
         if (btn) btn.classList.remove('error');
-        if (labelEl) {
-          const meta = this._getApplyButtonLabel();
-          labelEl.textContent = meta.label;
-        }
+        if (labelEl) labelEl.textContent = this._getApplyButtonLabel().label;
         this.applyState = 'idle';
       }, 3000);
     }
@@ -843,8 +780,8 @@ class PreciprocalBanner {
 
   async handleAction(action) {
     if (!this.isAuthenticated) {
-      this.showNotification('Please connect your account first', 'error');
-      setTimeout(() => window.open(`${PRECIPROCAL_URL}/settings`, '_blank'), 1500);
+      this.showNotification('Please log in to Preciprocal first', 'error');
+      setTimeout(() => window.open(`${PRECIPROCAL_URL}/sign-in`, '_blank'), 1500);
       return;
     }
     if (action === 'auto-apply') { await this.handleAutoApply(); return; }
@@ -868,16 +805,13 @@ class PreciprocalBanner {
     if (!modal) return false;
     const fileInput = modal.querySelector('input[type="file"]');
     if (!fileInput) return false;
-
     const response = await fetch(url, { mode: 'cors' });
     if (!response.ok) return false;
     const blob = await response.blob();
     if (!blob) return false;
-
     const ext     = fileName.split('.').pop()?.toLowerCase();
     const mimeMap = { pdf: 'application/pdf', doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' };
     const file    = new File([blob], fileName, { type: mimeMap[ext] || 'application/octet-stream' });
-
     const dt = new DataTransfer();
     dt.items.add(file);
     fileInput.files = dt.files;
@@ -989,14 +923,12 @@ class PreciprocalBanner {
     if (!btn) return;
     const existing = btn.querySelector('svg, .prc-spinner');
     if (!existing) return;
-
     if (iconName === 'spinner') {
       const spinner = document.createElement('div');
       spinner.className = 'prc-spinner';
       existing.replaceWith(spinner);
       return;
     }
-
     const ns   = 'http://www.w3.org/2000/svg';
     const svg  = document.createElementNS(ns, 'svg');
     const path = document.createElementNS(ns, 'path');
@@ -1124,10 +1056,10 @@ class PreciprocalBanner {
       .preciprocal-notification.info .prc-toast-icon { color:#a78bfa; }
       .preciprocal-notification.info .prc-toast-inner { border-color:rgba(167,139,250,0.2); }
       .preciprocal-banner { display:flex; align-items:center; gap:8px; padding:10px 16px; margin:0 0 4px 0; border-bottom:1px solid rgba(139,92,246,0.25); background:linear-gradient(135deg,rgba(15,10,35,0.97) 0%,rgba(30,18,60,0.97) 100%); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size:13px; color:#c4b5fd; position:sticky; top:0; z-index:9999; border-radius:8px 8px 0 0; backdrop-filter:blur(12px); }
-      .preciprocal-banner[data-state="filling"] { color:#93c5fd; background:linear-gradient(135deg,rgba(10,20,45,0.97) 0%,rgba(20,35,70,0.97) 100%); }
-      .preciprocal-banner[data-state="ready"] { color:#86efac; background:linear-gradient(135deg,rgba(10,30,20,0.97) 0%,rgba(15,45,30,0.97) 100%); border-bottom-color:rgba(134,239,172,0.2); }
+      .preciprocal-banner[data-state="filling"] { color:#93c5fd; }
+      .preciprocal-banner[data-state="ready"] { color:#86efac; border-bottom-color:rgba(134,239,172,0.2); }
       .pr-icon { font-size:14px; flex-shrink:0; }
-      .preciprocal-banner span:not(.pr-icon):not(.pr-spinner) { flex:1; font-weight:500; letter-spacing:0.01em; }
+      .preciprocal-banner span:not(.pr-icon):not(.pr-spinner) { flex:1; font-weight:500; }
       .pr-dismiss { background:none; border:none; color:rgba(134,239,172,0.6); cursor:pointer; font-size:12px; padding:2px 4px; border-radius:4px; line-height:1; flex-shrink:0; }
       .pr-dismiss:hover { color:#86efac; background:rgba(134,239,172,0.1); }
       @media (max-width:768px) { .preciprocal-banner-compact{padding:12px} .prc-top-section{flex-direction:column;align-items:flex-start;gap:12px} .prc-actions{flex-direction:column;width:100%} .prc-btn{width:100%;font-size:13px} .prc-title{font-size:14px} }
