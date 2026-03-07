@@ -19,18 +19,18 @@ const AUTH_ROUTES = [
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // ── 1. OPTIONS preflight — always respond immediately, never redirect ────
+  // ── 1. OPTIONS preflight — ALWAYS return 204 with CORS, for every route ──
+  // Must be absolutely first. Never let OPTIONS hit auth logic.
   if (request.method === 'OPTIONS') {
     return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
   }
 
-  // ── 2. Extension API routes — pass through with CORS headers ─────────────
-  // These routes handle their own auth via x-extension-token header.
-  // They must never be redirected by session cookie checks.
+  // ── 2. Extension API routes — pass through, never redirect ───────────────
+  // These routes authenticate via x-extension-token, not session cookies.
   if (pathname.startsWith('/api/extension')) {
-    const response = NextResponse.next();
-    Object.entries(CORS_HEADERS).forEach(([k, v]) => response.headers.set(k, v));
-    return response;
+    const res = NextResponse.next();
+    Object.entries(CORS_HEADERS).forEach(([k, v]) => res.headers.set(k, v));
+    return res;
   }
 
   // ── 3. Static assets ──────────────────────────────────────────────────────
@@ -44,7 +44,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // ── 4. Other public API routes ────────────────────────────────────────────
+  // ── 4. Public API routes ──────────────────────────────────────────────────
   if (pathname.startsWith('/api/webhook')) {
     return NextResponse.next();
   }
@@ -77,13 +77,7 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Exclude from middleware:
-     * - _next/static, _next/image (Next.js internals)
-     * - favicon.ico
-     * - /api/extension/* (handles own auth, must never be redirected)
-     */
-    '/((?!_next/static|_next/image|favicon.ico|api/extension).*)',
-  ],
+  // Match ALL routes — we handle the logic inside the function above.
+  // Do NOT exclude api/extension here — OPTIONS must be caught by this middleware.
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };
