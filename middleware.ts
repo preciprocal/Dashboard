@@ -1,7 +1,6 @@
 // middleware.ts
 import { NextRequest, NextResponse } from 'next/server';
 
-// ─── CORS headers for Chrome extension API routes ────────────────────────────
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin':      '*',
   'Access-Control-Allow-Methods':     'GET, POST, PUT, DELETE, OPTIONS',
@@ -10,94 +9,64 @@ const CORS_HEADERS = {
   'Access-Control-Max-Age':           '86400',
 };
 
-// ─── Public routes — accessible without auth ─────────────────────────────────
-const PUBLIC_ROUTES = [
-  '/help',
-  '/terms',
-  '/privacy',
-  '/subscription',
-  '/pricing',
-];
+const PUBLIC_ROUTES = ['/help', '/terms', '/privacy', '/subscription', '/pricing'];
 
-// ─── Auth routes — redirect to "/" if already logged in ──────────────────────
 const AUTH_ROUTES = [
-  '/sign-in',
-  '/sign-up',
-  '/forgot-password',
-  '/reset-password',
-  '/verify-email',
-  '/onboarding',
-  '/auth/action',
-];
-
-// ─── Public API routes — no auth required ────────────────────────────────────
-const PUBLIC_API_ROUTES = [
-  '/api/webhook',
-  '/api/extension',
+  '/sign-in', '/sign-up', '/forgot-password',
+  '/reset-password', '/verify-email', '/onboarding', '/auth/action',
 ];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // ── 1. Handle ALL OPTIONS requests first — never redirect a preflight ─────
-  // This must be first. Any redirect on OPTIONS breaks CORS entirely.
+  // ── 1. OPTIONS preflight — always respond immediately, never redirect ────
   if (request.method === 'OPTIONS') {
-    return new NextResponse(null, {
-      status: 204,
-      headers: CORS_HEADERS,
-    });
+    return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
   }
 
-  // ── 2. Extension API routes — attach CORS and pass through ────────────────
-  if (pathname.startsWith('/api/extension/') || pathname === '/api/extension') {
+  // ── 2. Extension API routes — pass through with CORS headers ─────────────
+  // These routes handle their own auth via x-extension-token header.
+  // They must never be redirected by session cookie checks.
+  if (pathname.startsWith('/api/extension')) {
     const response = NextResponse.next();
     Object.entries(CORS_HEADERS).forEach(([k, v]) => response.headers.set(k, v));
     return response;
   }
 
-  // ── 3. Allow static assets & Next.js internals ────────────────────────────
+  // ── 3. Static assets ──────────────────────────────────────────────────────
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon') ||
     pathname.startsWith('/icons') ||
     pathname.startsWith('/images') ||
-    pathname.match(/\.(png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|css|js)$/)
+    /\.(png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|css|js)$/.test(pathname)
   ) {
     return NextResponse.next();
   }
 
-  // ── 4. Allow public API routes ────────────────────────────────────────────
-  if (PUBLIC_API_ROUTES.some((route) => pathname.startsWith(route))) {
+  // ── 4. Other public API routes ────────────────────────────────────────────
+  if (pathname.startsWith('/api/webhook')) {
     return NextResponse.next();
   }
 
-  // ── 5. Check session cookie ───────────────────────────────────────────────
+  // ── 5. Session check ──────────────────────────────────────────────────────
   const sessionCookie =
     request.cookies.get('session')?.value ||
     request.cookies.get('__session')?.value;
-
   const isLoggedIn = Boolean(sessionCookie);
 
-  // ── 6. Allow public routes for everyone ───────────────────────────────────
-  const isPublicRoute = PUBLIC_ROUTES.some(
-    (route) => pathname === route || pathname.startsWith(route + '/')
-  );
-  if (isPublicRoute) {
+  // ── 6. Public pages ───────────────────────────────────────────────────────
+  if (PUBLIC_ROUTES.some((r) => pathname === r || pathname.startsWith(r + '/'))) {
     return NextResponse.next();
   }
 
-  // ── 7. Auth routes — redirect to home if already logged in ────────────────
-  const isAuthRoute = AUTH_ROUTES.some(
-    (route) => pathname === route || pathname.startsWith(route + '/')
-  );
-  if (isAuthRoute) {
-    if (isLoggedIn) {
-      return NextResponse.redirect(new URL('/', request.url));
-    }
+  // ── 7. Auth pages ─────────────────────────────────────────────────────────
+  if (AUTH_ROUTES.some((r) => pathname === r || pathname.startsWith(r + '/'))) {
+    if (isLoggedIn) return NextResponse.redirect(new URL('/', request.url));
     return NextResponse.next();
   }
 
-  // ── 8. Protected routes — redirect to sign-in if not logged in ────────────
+  // ── 8. Protected pages ────────────────────────────────────────────────────
   if (!isLoggedIn) {
     const signInUrl = new URL('/sign-in', request.url);
     signInUrl.searchParams.set('redirect', pathname);
@@ -109,6 +78,12 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    /*
+     * Exclude from middleware:
+     * - _next/static, _next/image (Next.js internals)
+     * - favicon.ico
+     * - /api/extension/* (handles own auth, must never be redirected)
+     */
+    '/((?!_next/static|_next/image|favicon.ico|api/extension).*)',
   ],
 };

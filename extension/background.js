@@ -5,9 +5,7 @@ console.log('🚀 Preciprocal background.js loaded');
 const STORAGE_KEY = 'preciprocal_auth';
 
 // ─────────────────────────────────────────────────────────────────
-// Read Firebase auth from a preciprocal.com tab using scripting API.
-// This runs code directly inside the tab — no content script needed,
-// no externally_connectable needed. Just reads IndexedDB and returns.
+// Read Firebase auth from a preciprocal.com tab via scripting API
 // ─────────────────────────────────────────────────────────────────
 async function readAuthFromTab(tabId) {
   try {
@@ -25,49 +23,46 @@ async function readAuthFromTab(tabId) {
                 resolve(null);
                 return;
               }
-              const tx    = db.transaction('firebaseLocalStorage', 'readonly');
-              const store = tx.objectStore('firebaseLocalStorage');
-              const all   = store.getAll();
-              all.onsuccess = () => {
-                db.close();
-                const records = all.result || [];
-                for (const record of records) {
-                  const key = record.fbase_key || '';
-                  if (key.startsWith('firebase:authUser:')) {
-                    const user = record.value;
-                    if (user?.uid && user?.stsTokenManager?.accessToken) {
-                      resolve({
-                        uid:         user.uid,
-                        email:       user.email        || '',
-                        displayName: user.displayName  || '',
-                        token:       user.stsTokenManager.accessToken,
-                      });
-                      return;
+              try {
+                const tx    = db.transaction('firebaseLocalStorage', 'readonly');
+                const store = tx.objectStore('firebaseLocalStorage');
+                const all   = store.getAll();
+                all.onsuccess = () => {
+                  db.close();
+                  const records = all.result || [];
+                  for (const record of records) {
+                    const key = record.fbase_key || '';
+                    if (key.startsWith('firebase:authUser:')) {
+                      const user = record.value;
+                      if (user?.uid && user?.stsTokenManager?.accessToken) {
+                        resolve({
+                          uid:         user.uid,
+                          email:       user.email       || '',
+                          displayName: user.displayName || '',
+                          token:       user.stsTokenManager.accessToken,
+                        });
+                        return;
+                      }
                     }
                   }
-                }
-                resolve(null);
-              };
-              all.onerror = () => { db.close(); resolve(null); };
+                  resolve(null);
+                };
+                all.onerror = () => { db.close(); resolve(null); };
+              } catch { db.close(); resolve(null); }
             };
-          } catch {
-            resolve(null);
-          }
+            req.onupgradeneeded = (e) => { e.target.transaction.abort(); resolve(null); };
+          } catch { resolve(null); }
         });
       },
     });
-
-    const user = results?.[0]?.result;
-    return user || null;
-
-  } catch (err) {
-    console.warn('[BG] scripting.executeScript failed:', err?.message);
+    return results?.[0]?.result || null;
+  } catch {
     return null;
   }
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Find an open preciprocal.com tab and sync auth from it
+// Find any open preciprocal tab and sync auth from it
 // ─────────────────────────────────────────────────────────────────
 async function syncAuthFromPreciprocal() {
   const tabs = await chrome.tabs.query({
@@ -87,7 +82,7 @@ async function syncAuthFromPreciprocal() {
           savedAt:     Date.now(),
         }
       });
-      console.log('[BG] ✅ Auth synced from tab:', user.email);
+      console.log('[BG] ✅ Auth synced:', user.email);
       return user;
     }
   }
@@ -97,14 +92,13 @@ async function syncAuthFromPreciprocal() {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Sync auth whenever a preciprocal.com tab finishes loading
+// Sync whenever a preciprocal tab finishes loading
 // ─────────────────────────────────────────────────────────────────
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status !== 'complete') return;
   const url = tab.url || '';
   if (!url.includes('preciprocal.com') && !url.includes('localhost:3000')) return;
 
-  // Small delay to let Firebase finish restoring auth from IndexedDB
   setTimeout(async () => {
     const user = await readAuthFromTab(tabId);
     if (user) {
@@ -117,9 +111,28 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
           savedAt:     Date.now(),
         }
       });
-      console.log('[BG] ✅ Auto-synced auth on tab load:', user.email);
+      console.log('[BG] ✅ Auto-synced on tab load:', user.email);
     }
   }, 2000);
+});
+
+// ─────────────────────────────────────────────────────────────────
+// KEY FIX: Sync auth whenever ANY tab becomes active.
+// This ensures storage is populated before banner.js reads it,
+// even when the user navigates to LinkedIn directly.
+// ─────────────────────────────────────────────────────────────────
+chrome.tabs.onActivated.addListener(async ({ tabId }) => {
+  // Check if there's already valid auth in storage
+  const result = await chrome.storage.local.get([STORAGE_KEY]);
+  const stored = result[STORAGE_KEY];
+
+  // Skip sync if we have fresh auth (less than 50 minutes old — tokens last 1hr)
+  if (stored?.uid && stored?.savedAt && (Date.now() - stored.savedAt) < 50 * 60 * 1000) {
+    return;
+  }
+
+  // No valid auth — try to sync from any open preciprocal tab
+  await syncAuthFromPreciprocal();
 });
 
 // ─────────────────────────────────────────────────────────────────
@@ -131,7 +144,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     chrome.storage.local.get([STORAGE_KEY], (result) => {
       const auth = result[STORAGE_KEY];
       if (auth?.uid && auth?.token) {
-        sendResponse({ authenticated: true, user: { uid: auth.uid, email: auth.email, displayName: auth.displayName } });
+        sendResponse({
+          authenticated: true,
+          user: { uid: auth.uid, email: auth.email, displayName: auth.displayName }
+        });
       } else {
         sendResponse({ authenticated: false });
       }
@@ -146,14 +162,17 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === 'GET_USER') {
+    chrome.storage.local.get([STORAGE_KEY], (result) => {
+      const auth = result[STORAGE_KEY];
+      sendResponse({ uid: auth?.uid || null, email: auth?.email || null });
+    });
+    return true;
+  }
+
   if (message.type === 'SYNC_AUTH') {
-    // Popup requests a fresh sync from open preciprocal tab
     syncAuthFromPreciprocal().then((user) => {
-      if (user) {
-        sendResponse({ success: true, user });
-      } else {
-        sendResponse({ success: false });
-      }
+      sendResponse(user ? { success: true, user } : { success: false });
     });
     return true;
   }
@@ -166,7 +185,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
-  // Legacy handlers
   if (message.type === 'SAVE_AUTH') {
     const { uid, email, token } = message;
     if (uid && token) {
@@ -181,7 +199,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 // ─────────────────────────────────────────────────────────────────
-// External messages from preciprocal.com (externally_connectable)
+// External messages from preciprocal.com
 // ─────────────────────────────────────────────────────────────────
 chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
   const allowed = ['https://preciprocal.com', 'http://localhost:3000'];

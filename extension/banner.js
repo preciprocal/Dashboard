@@ -71,7 +71,7 @@ class JobExtractor {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Easy Apply Automation Engine (LinkedIn modal only)
+// Easy Apply Automation Engine
 // ─────────────────────────────────────────────────────────────────
 
 class EasyApplyEngine {
@@ -85,21 +85,11 @@ class EasyApplyEngine {
 
   async start() {
     this.onStatus('Opening Easy Apply…', 'filling');
-
     const applyBtn = this._findApplyButton();
-    if (!applyBtn) {
-      this.onStatus('Easy Apply button not found', 'error');
-      return false;
-    }
+    if (!applyBtn) { this.onStatus('Easy Apply button not found', 'error'); return false; }
     applyBtn.click();
-
-    try {
-      this.modalEl = await this._waitForModal();
-    } catch {
-      this.onStatus('Easy Apply modal did not open', 'error');
-      return false;
-    }
-
+    try { this.modalEl = await this._waitForModal(); }
+    catch { this.onStatus('Easy Apply modal did not open', 'error'); return false; }
     this.onStatus('Filling in your details…', 'filling');
     this._injectModalBanner();
     await this._processAllSteps();
@@ -129,20 +119,10 @@ class EasyApplyEngine {
         '[aria-labelledby*="easy-apply"]',
         '.artdeco-modal[role="dialog"]',
       ];
-      const check = () => {
-        for (const sel of modalSelectors) {
-          const el = document.querySelector(sel);
-          if (el) return el;
-        }
-        return null;
-      };
+      const check = () => { for (const sel of modalSelectors) { const el = document.querySelector(sel); if (el) return el; } return null; };
       const existing = check();
       if (existing) { resolve(existing); return; }
-
-      const obs = new MutationObserver(() => {
-        const el = check();
-        if (el) { obs.disconnect(); resolve(el); }
-      });
+      const obs = new MutationObserver(() => { const el = check(); if (el) { obs.disconnect(); resolve(el); } });
       obs.observe(document.body, { childList: true, subtree: true });
       setTimeout(() => { obs.disconnect(); reject(new Error('Modal timeout')); }, timeout);
     });
@@ -151,43 +131,29 @@ class EasyApplyEngine {
   _injectModalBanner() {
     if (!this.modalEl) return;
     if (this.modalEl.querySelector('#prc-apply-status-banner')) return;
-
     const banner = document.createElement('div');
-    banner.id            = 'prc-apply-status-banner';
-    banner.className     = 'preciprocal-banner';
-    banner.dataset.state = 'filling';
-    banner.innerHTML = `
-      <span class="pr-icon">🤖</span>
-      <span id="prc-apply-msg">Filling in your details…</span>
-      <div class="pr-spinner"></div>
-      <button class="pr-dismiss" id="prc-apply-dismiss" title="Stop auto-fill">✕</button>
-    `;
-
-    const firstChild = this.modalEl.querySelector(
-      '.jobs-easy-apply-content, .artdeco-modal__content, form'
-    );
+    banner.id = 'prc-apply-status-banner'; banner.className = 'preciprocal-banner'; banner.dataset.state = 'filling';
+    banner.innerHTML = `<span class="pr-icon">🤖</span><span id="prc-apply-msg">Filling in your details…</span><div class="pr-spinner"></div><button class="pr-dismiss" id="prc-apply-dismiss" title="Stop auto-fill">✕</button>`;
+    const firstChild = this.modalEl.querySelector('.jobs-easy-apply-content, .artdeco-modal__content, form');
     if (firstChild) firstChild.insertBefore(banner, firstChild.firstChild);
     else this.modalEl.insertBefore(banner, this.modalEl.firstChild);
-
-    document.getElementById('prc-apply-dismiss')?.addEventListener('click', () => {
-      this._updateBanner('Auto-fill stopped', 'ready');
-    });
+    document.getElementById('prc-apply-dismiss')?.addEventListener('click', () => this._updateBanner('Auto-fill stopped', 'ready'));
   }
 
   _updateBanner(msg, state = 'filling') {
-    const msgEl  = document.getElementById('prc-apply-msg');
+    const msgEl = document.getElementById('prc-apply-msg');
     const banner = document.getElementById('prc-apply-status-banner');
-    if (msgEl)  msgEl.textContent    = msg;
+    if (msgEl) msgEl.textContent = msg;
     if (banner) banner.dataset.state = state;
     if (state === 'ready') banner?.querySelector('.pr-spinner')?.remove();
   }
 
   _detectNextAction(modal) {
     const buttons = Array.from(modal.querySelectorAll('button'));
-    const texts   = buttons.map(b => b.textContent?.trim().toLowerCase() || '');
+    const texts = buttons.map(b => b.textContent?.trim().toLowerCase() || '');
     if (texts.some(t => t.includes('submit application') || t === 'submit')) return 'submit';
-    if (texts.some(t => t.includes('review')))                               return 'review';
-    if (texts.some(t => t.includes('next') || t.includes('continue')))      return 'next';
+    if (texts.some(t => t.includes('review'))) return 'review';
+    if (texts.some(t => t.includes('next') || t.includes('continue'))) return 'next';
     return 'none';
   }
 
@@ -197,49 +163,29 @@ class EasyApplyEngine {
       await this._delay(600);
       const modal = this._getModal();
       if (!modal) break;
-
       await this._fillCurrentStep(modal);
       await this._delay(400);
-
       const action = this._detectNextAction(modal);
       if (action === 'none') break;
-
-      if (action === 'submit') {
-        this._updateBanner('✅ All done — click Submit when ready', 'ready');
-        this.onStatus('All fields filled! Review and click Submit.', 'success');
-        break;
-      }
-
+      if (action === 'submit') { this._updateBanner('✅ All done — click Submit when ready', 'ready'); this.onStatus('All fields filled! Review and click Submit.', 'success'); break; }
       if (action === 'review') {
         this._updateBanner('📋 Auto-clicking Review…', 'filling');
         const reviewBtn = this._findButton(modal, ['review']);
-        if (reviewBtn) {
-          reviewBtn.click();
-          await this._delay(1200);
-          continue;
-        }
+        if (reviewBtn) { reviewBtn.click(); await this._delay(1200); continue; }
         this._updateBanner('📋 Review your application then submit', 'ready');
         this.onStatus('Please review and submit your application.', 'success');
         break;
       }
-
       const nextBtn = this._findButton(modal, ['next', 'continue']);
-      if (nextBtn) {
-        this._updateBanner(`Step ${this.stepCount} — moving to next…`, 'filling');
-        nextBtn.click();
-        await this._delay(900);
-      } else {
-        break;
-      }
+      if (nextBtn) { this._updateBanner(`Step ${this.stepCount} — moving to next…`, 'filling'); nextBtn.click(); await this._delay(900); }
+      else break;
     }
   }
 
   _getModal() {
-    return (
-      document.querySelector('[data-test-modal-id="easy-apply-modal"]') ||
-      document.querySelector('.jobs-easy-apply-modal') ||
-      document.querySelector('.artdeco-modal[role="dialog"]')
-    );
+    return document.querySelector('[data-test-modal-id="easy-apply-modal"]') ||
+           document.querySelector('.jobs-easy-apply-modal') ||
+           document.querySelector('.artdeco-modal[role="dialog"]');
   }
 
   _findButton(modal, keywords) {
@@ -248,11 +194,10 @@ class EasyApplyEngine {
   }
 
   async _fillCurrentStep(modal) {
-    const p         = this.profile;
+    const p = this.profile;
     const inputs    = Array.from(modal.querySelectorAll('input:not([type="file"]):not([type="hidden"])'));
     const selects   = Array.from(modal.querySelectorAll('select'));
     const textareas = Array.from(modal.querySelectorAll('textarea'));
-
     for (const input    of inputs)    await this._fillInput(input, p);
     for (const select   of selects)   await this._fillSelect(select, p);
     for (const textarea of textareas) await this._fillTextarea(textarea, p);
@@ -275,15 +220,11 @@ class EasyApplyEngine {
     if (input.disabled || input.readOnly) return;
     if (input.value && input.value.trim() !== '') return;
     const hint = `${this._getLabel(input)} ${input.id || ''} ${input.name || ''}`.toLowerCase();
-    let value  = this._matchProfileField(hint, p);
+    let value = this._matchProfileField(hint, p);
     if (value === null || value === undefined || value === '') return;
     value = String(value);
-    if (input.type === 'number' || input.getAttribute('inputmode') === 'numeric') {
-      value = this._rangeToSingleNumber(value);
-    }
-    if (/year/i.test(hint) && value.includes('-')) {
-      value = this._rangeToSingleNumber(value);
-    }
+    if (input.type === 'number' || input.getAttribute('inputmode') === 'numeric') value = this._rangeToSingleNumber(value);
+    if (/year/i.test(hint) && value.includes('-')) value = this._rangeToSingleNumber(value);
     this._setNativeValue(input, value);
     await this._delay(50);
   }
@@ -306,9 +247,9 @@ class EasyApplyEngine {
     const hint = `${this._getLabel(textarea)} ${textarea.id || ''}`.toLowerCase();
     if (/cover.?letter|covering/i.test(hint)) return;
     if (/summary|about|additional|message|note/i.test(hint)) this._setNativeValue(textarea, p.summary || '');
-    if (/linkedin/i.test(hint))               this._setNativeValue(textarea, p.linkedInUrl || '');
-    if (/github/i.test(hint))                 this._setNativeValue(textarea, p.githubUrl || '');
-    if (/website|portfolio/i.test(hint))      this._setNativeValue(textarea, p.portfolioUrl || '');
+    if (/linkedin/i.test(hint)) this._setNativeValue(textarea, p.linkedInUrl || '');
+    if (/github/i.test(hint))   this._setNativeValue(textarea, p.githubUrl   || '');
+    if (/website|portfolio/i.test(hint)) this._setNativeValue(textarea, p.portfolioUrl || '');
     if (/skill/i.test(hint) && p.skills?.length) this._setNativeValue(textarea, p.skills.join(', '));
   }
 
@@ -347,9 +288,7 @@ class EasyApplyEngine {
     if (/linkedin/i.test(hint))                         return p.linkedInUrl;
     if (/github/i.test(hint))                           return p.githubUrl;
     if (/website|portfolio/i.test(hint))                return p.portfolioUrl;
-    if (/year.*exp|exp.*year|years.*work|years.*experience|how many year/i.test(hint)) {
-      return this._rangeToSingleNumber(p.yearsOfExperience || '');
-    }
+    if (/year.*exp|exp.*year|years.*work|years.*experience|how many year/i.test(hint)) return this._rangeToSingleNumber(p.yearsOfExperience || '');
     if (/salary|compensation/i.test(hint))              return p.desiredSalary;
     if (/title|headline/i.test(hint))                   return p.headline;
     if (/notice|start date/i.test(hint))                return p.noticePeriod;
@@ -357,28 +296,18 @@ class EasyApplyEngine {
   }
 
   _getLabel(el) {
-    if (el.id) {
-      const lbl = document.querySelector(`label[for="${el.id}"]`);
-      if (lbl) return lbl.textContent || '';
-    }
+    if (el.id) { const lbl = document.querySelector(`label[for="${el.id}"]`); if (lbl) return lbl.textContent || ''; }
     if (el.getAttribute('aria-label')) return el.getAttribute('aria-label');
     if (el.placeholder) return el.placeholder;
     const parent = el.closest('label, [class*="form-item"], [class*="field"]');
-    if (parent) {
-      const lbl = parent.querySelector('label, span[class*="label"], div[class*="label"]');
-      if (lbl) return lbl.textContent || '';
-      return parent.textContent || '';
-    }
+    if (parent) { const lbl = parent.querySelector('label, span[class*="label"], div[class*="label"]'); if (lbl) return lbl.textContent || ''; return parent.textContent || ''; }
     return '';
   }
 
   _setNativeValue(el, value) {
-    const proto = el.tagName === 'TEXTAREA'
-      ? window.HTMLTextAreaElement.prototype
-      : window.HTMLInputElement.prototype;
+    const proto  = el.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
     const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
-    if (setter) setter.call(el, value);
-    else el.value = value;
+    if (setter) setter.call(el, value); else el.value = value;
     el.dispatchEvent(new Event('input',  { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
     el.dispatchEvent(new Event('blur',   { bubbles: true }));
@@ -387,10 +316,9 @@ class EasyApplyEngine {
   _selectByText(select, text) {
     const lower   = text.toLowerCase();
     const options = Array.from(select.options);
-    const match   =
-      options.find(o => o.text.toLowerCase() === lower) ||
-      options.find(o => o.text.toLowerCase().includes(lower)) ||
-      options.find(o => lower.includes(o.text.toLowerCase().split(' ')[0]));
+    const match   = options.find(o => o.text.toLowerCase() === lower) ||
+                    options.find(o => o.text.toLowerCase().includes(lower)) ||
+                    options.find(o => lower.includes(o.text.toLowerCase().split(' ')[0]));
     if (match && select.value !== match.value) this._setNativeValue(select, match.value);
   }
 
@@ -403,17 +331,12 @@ class EasyApplyEngine {
       if (!opt.value || opt.value === '' || opt.value === '0') continue;
       const optRangeMatch = opt.text.match(/^(\d+)\s*[-–]\s*(\d+)/);
       if (optRangeMatch) {
-        const lo   = parseInt(optRangeMatch[1], 10);
-        const hi   = parseInt(optRangeMatch[2], 10);
-        const mid  = (lo + hi) / 2;
-        const diff = Math.min(Math.abs(lo - num), Math.abs(hi - num), Math.abs(mid - num));
+        const lo = parseInt(optRangeMatch[1], 10), hi = parseInt(optRangeMatch[2], 10);
+        const diff = Math.min(Math.abs(lo - num), Math.abs(hi - num), Math.abs((lo+hi)/2 - num));
         if (diff < bestDiff) { bestDiff = diff; best = opt; }
       } else {
         const m = opt.text.match(/(\d+)/);
-        if (m) {
-          const diff = Math.abs(parseInt(m[1], 10) - num);
-          if (diff < bestDiff) { bestDiff = diff; best = opt; }
-        }
+        if (m) { const diff = Math.abs(parseInt(m[1], 10) - num); if (diff < bestDiff) { bestDiff = diff; best = opt; } }
       }
     }
     if (best) this._setNativeValue(select, best.value);
@@ -426,23 +349,14 @@ class EasyApplyEngine {
 // Detect apply button type on LinkedIn
 // ─────────────────────────────────────────────────────────────────
 function getApplyButtonInfo() {
-  const easyApplySelectors = [
-    'button.jobs-apply-button[aria-label*="Easy Apply"]',
-    'button.jobs-apply-button',
-  ];
+  const easyApplySelectors = ['button.jobs-apply-button[aria-label*="Easy Apply"]', 'button.jobs-apply-button'];
   for (const sel of easyApplySelectors) {
     const btn = document.querySelector(sel);
-    if (btn && btn.textContent?.toLowerCase().includes('easy apply')) {
-      return { type: 'easy', button: btn };
-    }
+    if (btn && btn.textContent?.toLowerCase().includes('easy apply')) return { type: 'easy', button: btn };
   }
-  const externalBtn = document.querySelector(
-    'button.jobs-apply-button, a.jobs-apply-button, [data-control-name="jobdetails_topcard_inapply"]'
-  );
+  const externalBtn = document.querySelector('button.jobs-apply-button, a.jobs-apply-button, [data-control-name="jobdetails_topcard_inapply"]');
   if (externalBtn) {
-    const link = document.querySelector(
-      'a[href*="apply"], a[data-tracking-control-name*="apply"], .jobs-apply-button a'
-    );
+    const link = document.querySelector('a[href*="apply"], a[data-tracking-control-name*="apply"], .jobs-apply-button a');
     return { type: 'external', button: externalBtn, url: link?.href || null };
   }
   return { type: 'none', button: null, url: null };
@@ -476,21 +390,14 @@ class PreciprocalBanner {
       await this.waitForElement(
         '.job-details-jobs-unified-top-card__container--two-pane, .jobs-unified-top-card, .jobs-details__main-content'
       );
-
       const extractor = new JobExtractor();
-      this.jobData    = extractor.extractJobData();
+      this.jobData = extractor.extractJobData();
       if (!this.jobData?.title) return;
-
-      await new Promise(r => setTimeout(r, 500));
+      await this._delay(500);
       this.injectBanner();
-
       if (this.isAuthenticated) {
-        await Promise.all([
-          this.fetchMatchScore(),
-          this.prefetchApplyProfile(),
-        ]);
+        await Promise.all([this.fetchMatchScore(), this.prefetchApplyProfile()]);
       }
-
       this.observeJobChanges();
     } catch (error) {
       console.error('❌ Banner init error:', error);
@@ -519,44 +426,61 @@ class PreciprocalBanner {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // AUTH CHECK
-  // auth-receiver.js (content script on preciprocal.com) writes
-  // Firebase auth directly into chrome.storage.local every time
-  // the user is on the app. We just read it here — simple & reliable.
+  // AUTH CHECK — never throws, never blocks banner from showing.
+  // Always resolves: authenticated or not, banner renders either way.
   // ─────────────────────────────────────────────────────────────
   async checkAuth() {
+    // Step 1: read storage directly — fast, always works
     try {
       const result = await chrome.storage.local.get(['preciprocal_auth']);
       const auth   = result?.preciprocal_auth;
-
       if (auth?.uid && auth?.token) {
-        this.isAuthenticated = true;
-        this.authUserId      = auth.uid;
-        this.authEmail       = auth.email || null;
-        this.authToken       = auth.token;
-        console.log('✅ Preciprocal auth loaded — user:', this.authEmail);
+        this._setAuth(auth);
+        console.log('✅ Banner auth from storage:', this.authEmail);
         return;
       }
     } catch (e) {
       console.warn('⚠️ Storage read failed:', e?.message);
     }
 
-    console.warn('❌ No Preciprocal auth found in storage');
+    // Step 2: try background sync with a hard timeout so it never hangs
+    try {
+      const syncResult = await Promise.race([
+        chrome.runtime.sendMessage({ type: 'SYNC_AUTH' }),
+        new Promise((resolve) => setTimeout(() => resolve(null), 2000)), // 2s max
+      ]);
+      if (syncResult?.success) {
+        const result = await chrome.storage.local.get(['preciprocal_auth']);
+        const auth   = result?.preciprocal_auth;
+        if (auth?.uid && auth?.token) {
+          this._setAuth(auth);
+          console.log('✅ Banner auth after sync:', this.authEmail);
+          return;
+        }
+      }
+    } catch (e) {
+      // Service worker dormant or unavailable — not a problem, just show banner unauthenticated
+      console.warn('⚠️ Background sync skipped:', e?.message);
+    }
+
+    // Not authenticated — banner still shows, buttons redirect to sign-in
+    console.warn('❌ Banner: not authenticated');
     this.isAuthenticated = false;
+  }
+
+  _setAuth(auth) {
+    this.isAuthenticated = true;
+    this.authUserId      = auth.uid;
+    this.authEmail       = auth.email       || null;
+    this.authToken       = auth.token;
   }
 
   waitForElement(selector, timeout = 10000) {
     return new Promise((resolve, reject) => {
       const selectors = selector.split(',').map(s => s.trim());
-      for (const sel of selectors) {
-        const el = document.querySelector(sel);
-        if (el) return resolve(el);
-      }
+      for (const sel of selectors) { const el = document.querySelector(sel); if (el) return resolve(el); }
       const observer = new MutationObserver(() => {
-        for (const sel of selectors) {
-          const el = document.querySelector(sel);
-          if (el) { observer.disconnect(); resolve(el); return; }
-        }
+        for (const sel of selectors) { const el = document.querySelector(sel); if (el) { observer.disconnect(); resolve(el); return; } }
       });
       observer.observe(document.body, { childList: true, subtree: true });
       setTimeout(() => { observer.disconnect(); reject(new Error('Element not found')); }, timeout);
@@ -565,30 +489,13 @@ class PreciprocalBanner {
 
   findBestInsertionPoint() {
     const strategies = [
-      () => {
-        const el = document.querySelector('.job-details-jobs-unified-top-card__primary-description-container');
-        if (el) return { element: el, position: 'afterend' };
-      },
-      () => {
-        const el = document.querySelector('.job-details-jobs-unified-top-card__container--two-pane');
-        if (el?.firstElementChild) return { element: el.firstElementChild, position: 'afterend' };
-      },
-      () => {
-        const el = document.querySelector('.jobs-apply-button, .jobs-apply-button--top-card');
-        if (el) return { element: el.closest('div[class*="container"]') || el.parentElement, position: 'afterend' };
-      },
-      () => {
-        const el = document.querySelector('.job-details-jobs-unified-top-card__job-insight');
-        if (el) return { element: el, position: 'beforebegin' };
-      },
-      () => {
-        const el = document.querySelector('.jobs-unified-top-card, .job-details-jobs-unified-top-card');
-        if (el) return { element: el, position: 'afterend' };
-      },
+      () => { const el = document.querySelector('.job-details-jobs-unified-top-card__primary-description-container'); if (el) return { element: el, position: 'afterend' }; },
+      () => { const el = document.querySelector('.job-details-jobs-unified-top-card__container--two-pane'); if (el?.firstElementChild) return { element: el.firstElementChild, position: 'afterend' }; },
+      () => { const el = document.querySelector('.jobs-apply-button, .jobs-apply-button--top-card'); if (el) return { element: el.closest('div[class*="container"]') || el.parentElement, position: 'afterend' }; },
+      () => { const el = document.querySelector('.job-details-jobs-unified-top-card__job-insight'); if (el) return { element: el, position: 'beforebegin' }; },
+      () => { const el = document.querySelector('.jobs-unified-top-card, .job-details-jobs-unified-top-card'); if (el) return { element: el, position: 'afterend' }; },
     ];
-    for (const strategy of strategies) {
-      try { const r = strategy(); if (r) return r; } catch {}
-    }
+    for (const strategy of strategies) { try { const r = strategy(); if (r) return r; } catch {} }
     return null;
   }
 
@@ -613,12 +520,9 @@ class PreciprocalBanner {
     const container = document.createElement('div');
     container.id        = 'preciprocal-inline-banner';
     container.className = 'preciprocal-inline-container';
-
     let logoUrl = '';
     try { logoUrl = chrome.runtime.getURL('icons/icon48.png'); } catch {}
-
     const applyMeta = this._getApplyButtonLabel();
-
     container.innerHTML = `
       <div class="preciprocal-banner-compact">
         <div class="prc-top-section">
@@ -632,34 +536,19 @@ class PreciprocalBanner {
             <div class="score-val"><span class="num">--</span></div>
           </div>` : ''}
         </div>
-
         <div class="prc-actions">
-          <button class="prc-btn prc-primary" data-action="cover-letter"
-            title="✨ Done in 30 seconds! AI writes your winning cover letter tailored to THIS exact role">
-            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-            </svg>
+          <button class="prc-btn prc-primary" data-action="cover-letter" title="✨ Done in 30 seconds! AI writes your winning cover letter tailored to THIS exact role">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
             Cover Letter
           </button>
-
           <button class="prc-btn prc-apply" data-action="auto-apply" title="${applyMeta.tip}">
-            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M13 10V3L4 14h7v7l9-11h-7z"/>
-            </svg>
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
             <span class="apply-label">${applyMeta.label}</span>
           </button>
-
-          <button class="prc-btn prc-track prc-icon-only" data-action="track-job"
-            title="📋 Save this job to your Preciprocal tracker">
-            <svg class="track-icon" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
-            </svg>
+          <button class="prc-btn prc-track prc-icon-only" data-action="track-job" title="📋 Save this job to your Preciprocal tracker">
+            <svg class="track-icon" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
           </button>
         </div>
-
         <div class="prc-footer">
           <div class="prc-branding">
             ${logoUrl ? `<img src="${logoUrl}" alt="Preciprocal" class="prc-logo-icon" />` : ''}
@@ -673,81 +562,47 @@ class PreciprocalBanner {
 
   async handleAutoApply() {
     if (this.applyState === 'done' || this.applyState === 'loading') return;
-
     const btn     = this.banner?.querySelector('[data-action="auto-apply"]');
     const labelEl = btn?.querySelector('.apply-label');
-
     if (!this.isAuthenticated) {
       this.showNotification('Please log in to Preciprocal first', 'error');
       setTimeout(() => window.open(`${PRECIPROCAL_URL}/sign-in`, '_blank'), 1500);
       return;
     }
-
     this.applyState = 'loading';
     if (btn) btn.classList.add('loading');
     if (labelEl) labelEl.textContent = 'Loading profile…';
     this._replaceButtonIcon(btn, 'spinner');
-
     try {
       if (!this.applyProfile) {
         if (!this.authToken) throw new Error('Not logged in');
         const res = await fetch(`${PRECIPROCAL_URL}/api/extension/auto-apply`, {
-          headers: {
-            'x-extension-token': this.authToken,
-            'x-user-email':      this.authEmail  || '',
-            'x-user-id':         this.authUserId || '',
-          },
+          headers: { 'x-extension-token': this.authToken, 'x-user-email': this.authEmail || '', 'x-user-id': this.authUserId || '' },
         });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || `HTTP ${res.status}`);
-        }
-        const data        = await res.json();
+        if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `HTTP ${res.status}`); }
+        const data = await res.json();
         this.applyProfile = data.applyProfile;
         this.applyFiles   = data.files || null;
       }
-
       if (!this.applyProfile) throw new Error('Profile data unavailable');
-
       const applyInfo = getApplyButtonInfo();
-
       if (applyInfo.type === 'easy') {
         if (labelEl) labelEl.textContent = 'Applying…';
-        const engine = new EasyApplyEngine(
-          this.applyProfile,
-          (msg, type) => {
-            if (type === 'success') this.showNotification(msg, 'success');
-            if (type === 'error')   this.showNotification(msg, 'error');
-          }
-        );
+        const engine = new EasyApplyEngine(this.applyProfile, (msg, type) => {
+          if (type === 'success') this.showNotification(msg, 'success');
+          if (type === 'error')   this.showNotification(msg, 'error');
+        });
         await engine.start();
-
         if (this.applyFiles?.resume?.available && this.applyFiles.resume.url) {
-          try {
-            await this._injectFileIntoModal(this.applyFiles.resume.url, this.applyFiles.resume.fileName);
-          } catch (e) {
-            console.warn('⚠️ Could not inject resume:', e.message);
-          }
+          try { await this._injectFileIntoModal(this.applyFiles.resume.url, this.applyFiles.resume.fileName); } catch {}
         }
-
         this.applyState = 'done';
         if (btn) { btn.classList.remove('loading'); btn.classList.add('done'); }
         if (labelEl) labelEl.textContent = 'Review & Submit';
         this._replaceButtonIcon(btn, 'check');
-        this.showNotificationWithLink(
-          `Easy Apply form filled for ${this.jobData?.company}`,
-          'View Job Tracker →',
-          `${PRECIPROCAL_URL}/job-tracker`,
-          'success'
-        );
-
+        this.showNotificationWithLink(`Easy Apply form filled for ${this.jobData?.company}`, 'View Job Tracker →', `${PRECIPROCAL_URL}/job-tracker`, 'success');
       } else if (applyInfo.type === 'external') {
-        await chrome.storage.local.set({
-          preciprocal_auto_apply_profile:   this.applyProfile,
-          preciprocal_auto_apply_files:     this.applyFiles || null,
-          preciprocal_auto_apply_timestamp: Date.now(),
-          preciprocal_auto_apply_job:       this.jobData,
-        });
+        await chrome.storage.local.set({ preciprocal_auto_apply_profile: this.applyProfile, preciprocal_auto_apply_files: this.applyFiles || null, preciprocal_auto_apply_timestamp: Date.now(), preciprocal_auto_apply_job: this.jobData });
         if (applyInfo.button) {
           if (labelEl) labelEl.textContent = 'Opening…';
           applyInfo.button.click();
@@ -756,13 +611,8 @@ class PreciprocalBanner {
           if (labelEl) labelEl.textContent = 'Filling on site…';
           this._replaceButtonIcon(btn, 'check');
           this.showNotification('🔗 Opening company site — Preciprocal will auto-fill the form', 'success');
-        } else {
-          throw new Error('Could not find the Apply button on this listing');
-        }
-      } else {
-        throw new Error('No Apply button found on this job listing');
-      }
-
+        } else { throw new Error('Could not find the Apply button on this listing'); }
+      } else { throw new Error('No Apply button found on this job listing'); }
     } catch (error) {
       console.error('❌ Auto-apply failed:', error);
       this.applyState = 'idle';
@@ -770,11 +620,7 @@ class PreciprocalBanner {
       if (labelEl) labelEl.textContent = 'Try Again';
       this._replaceButtonIcon(btn, 'lightning');
       this.showNotification(error.message || 'Auto-apply failed', 'error');
-      setTimeout(() => {
-        if (btn) btn.classList.remove('error');
-        if (labelEl) labelEl.textContent = this._getApplyButtonLabel().label;
-        this.applyState = 'idle';
-      }, 3000);
+      setTimeout(() => { if (btn) btn.classList.remove('error'); if (labelEl) labelEl.textContent = this._getApplyButtonLabel().label; this.applyState = 'idle'; }, 3000);
     }
   }
 
@@ -786,12 +632,7 @@ class PreciprocalBanner {
     }
     if (action === 'auto-apply') { await this.handleAutoApply(); return; }
     if (action === 'track-job')  { await this.handleTrackJob();  return; }
-
-    const actionMap = {
-      'cover-letter':   '/cover-letter/create',
-      'resume-boost':   '/resume/ai-writer',
-      'recruiter-view': '/recruiter-analysis',
-    };
+    const actionMap = { 'cover-letter': '/cover-letter/create', 'resume-boost': '/resume/ai-writer', 'recruiter-view': '/recruiter-analysis' };
     const path = actionMap[action];
     if (!path) return;
     await chrome.storage.local.set({ preciprocal_linkedin_job: this.jobData, preciprocal_timestamp: Date.now() });
@@ -799,9 +640,7 @@ class PreciprocalBanner {
   }
 
   async _injectFileIntoModal(url, fileName) {
-    const modal = document.querySelector(
-      '[data-test-modal-id="easy-apply-modal"], .jobs-easy-apply-modal, .artdeco-modal[role="dialog"]'
-    );
+    const modal = document.querySelector('[data-test-modal-id="easy-apply-modal"], .jobs-easy-apply-modal, .artdeco-modal[role="dialog"]');
     if (!modal) return false;
     const fileInput = modal.querySelector('input[type="file"]');
     if (!fileInput) return false;
@@ -809,9 +648,9 @@ class PreciprocalBanner {
     if (!response.ok) return false;
     const blob = await response.blob();
     if (!blob) return false;
-    const ext     = fileName.split('.').pop()?.toLowerCase();
+    const ext = fileName.split('.').pop()?.toLowerCase();
     const mimeMap = { pdf: 'application/pdf', doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' };
-    const file    = new File([blob], fileName, { type: mimeMap[ext] || 'application/octet-stream' });
+    const file = new File([blob], fileName, { type: mimeMap[ext] || 'application/octet-stream' });
     const dt = new DataTransfer();
     dt.items.add(file);
     fileInput.files = dt.files;
@@ -826,22 +665,15 @@ class PreciprocalBanner {
     this.trackState = 'loading';
     if (btn) btn.classList.add('loading');
     this._replaceButtonIcon(btn, 'spinner');
-
     try {
       if (!this.authToken) throw new Error('Not logged in');
       const response = await fetch(`${PRECIPROCAL_URL}/api/extension/track-job`, {
         method: 'POST',
-        headers: {
-          'Content-Type':      'application/json',
-          'x-extension-token': this.authToken,
-          'x-user-email':      this.authEmail  || '',
-          'x-user-id':         this.authUserId || '',
-        },
+        headers: { 'Content-Type': 'application/json', 'x-extension-token': this.authToken, 'x-user-email': this.authEmail || '', 'x-user-id': this.authUserId || '' },
         body: JSON.stringify(this.jobData),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
-
       if (data.duplicate) {
         this.trackState = 'duplicate';
         if (btn) { btn.classList.remove('loading'); btn.classList.add('duplicate'); }
@@ -866,12 +698,7 @@ class PreciprocalBanner {
     try {
       const response = await fetch(`${PRECIPROCAL_URL}/api/extension/analyze-job`, {
         method: 'POST',
-        headers: {
-          'Content-Type':      'application/json',
-          'x-extension-token': this.authToken,
-          'x-user-email':      this.authEmail  || '',
-          'x-user-id':         this.authUserId || '',
-        },
+        headers: { 'Content-Type': 'application/json', 'x-extension-token': this.authToken, 'x-user-email': this.authEmail || '', 'x-user-id': this.authUserId || '' },
         body: JSON.stringify(this.jobData),
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -905,47 +732,24 @@ class PreciprocalBanner {
   attachEventListeners() {
     if (!this.banner) return;
     this.banner.querySelectorAll('[data-action]').forEach(button => {
-      button.addEventListener('click', e => {
-        e.preventDefault(); e.stopPropagation();
-        this.handleAction(button.getAttribute('data-action'));
-      });
+      button.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); this.handleAction(button.getAttribute('data-action')); });
     });
     const brandName = this.banner.querySelector('.prc-brand-name');
-    if (brandName) {
-      brandName.addEventListener('click', e => {
-        e.preventDefault(); e.stopPropagation();
-        window.open(`${PRECIPROCAL_URL}`, '_blank');
-      });
-    }
+    if (brandName) brandName.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); window.open(`${PRECIPROCAL_URL}`, '_blank'); });
   }
 
   _replaceButtonIcon(btn, iconName) {
     if (!btn) return;
     const existing = btn.querySelector('svg, .prc-spinner');
     if (!existing) return;
-    if (iconName === 'spinner') {
-      const spinner = document.createElement('div');
-      spinner.className = 'prc-spinner';
-      existing.replaceWith(spinner);
-      return;
-    }
-    const ns   = 'http://www.w3.org/2000/svg';
-    const svg  = document.createElementNS(ns, 'svg');
-    const path = document.createElementNS(ns, 'path');
-    svg.setAttribute('width', '16'); svg.setAttribute('height', '16');
-    svg.setAttribute('fill', 'none'); svg.setAttribute('viewBox', '0 0 24 24');
-    svg.setAttribute('stroke', 'currentColor');
-    path.setAttribute('stroke-linecap', 'round');
-    path.setAttribute('stroke-linejoin', 'round');
-    path.setAttribute('stroke-width', '2');
-    const paths = {
-      check:     'M5 13l4 4L19 7',
-      lightning: 'M13 10V3L4 14h7v7l9-11h-7z',
-      bookmark:  'M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z',
-    };
+    if (iconName === 'spinner') { const spinner = document.createElement('div'); spinner.className = 'prc-spinner'; existing.replaceWith(spinner); return; }
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg'); const path = document.createElementNS(ns, 'path');
+    svg.setAttribute('width', '16'); svg.setAttribute('height', '16'); svg.setAttribute('fill', 'none'); svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('stroke', 'currentColor');
+    path.setAttribute('stroke-linecap', 'round'); path.setAttribute('stroke-linejoin', 'round'); path.setAttribute('stroke-width', '2');
+    const paths = { check: 'M5 13l4 4L19 7', lightning: 'M13 10V3L4 14h7v7l9-11h-7z', bookmark: 'M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z' };
     path.setAttribute('d', paths[iconName] || paths.lightning);
-    svg.appendChild(path);
-    existing.replaceWith(svg);
+    svg.appendChild(path); existing.replaceWith(svg);
   }
 
   _toastIcons() {
@@ -1021,7 +825,7 @@ class PreciprocalBanner {
       .prc-btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:8px 12px; background:transparent; border:1px solid #a855f7; border-radius:16px; color:#c084fc; font-size:14px; font-weight:600; cursor:pointer; transition:all 0.2s ease; white-space:nowrap; font-family:inherit; flex:1; position:relative; }
       .prc-btn::after { content:attr(title); position:absolute; bottom:calc(100% + 8px); left:50%; transform:translateX(-50%) translateY(4px); background:rgba(15,23,42,0.95); color:#f5f5f5; padding:8px 12px; border-radius:6px; font-size:12px; font-weight:400; white-space:normal; max-width:220px; text-align:center; line-height:1.4; pointer-events:none; opacity:0; visibility:hidden; transition:all 0.2s ease; z-index:10000; box-shadow:0 4px 12px rgba(0,0,0,0.4); }
       .prc-btn::before { content:''; position:absolute; bottom:calc(100% + 2px); left:50%; transform:translateX(-50%) translateY(4px); border:5px solid transparent; border-top-color:rgba(15,23,42,0.95); pointer-events:none; opacity:0; visibility:hidden; transition:all 0.2s ease; z-index:10000; }
-      .prc-btn:hover::after, .prc-btn:hover::before { opacity:1; visibility:visible; transform:translateX(-50%) translateY(0); }
+      .prc-btn:hover::after,.prc-btn:hover::before { opacity:1; visibility:visible; transform:translateX(-50%) translateY(0); }
       .prc-btn:hover { background:rgba(168,85,247,0.1); border-color:#c084fc; }
       .prc-btn:active { background:rgba(168,85,247,0.2); transform:scale(0.98); }
       .prc-btn.prc-primary { background:linear-gradient(135deg,#a855f7 0%,#7c3aed 100%); border-color:#a855f7; color:#ffffff; }
