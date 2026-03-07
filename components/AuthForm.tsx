@@ -25,6 +25,7 @@ import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 
 import { signIn, signUp } from "@/lib/actions/auth.action";
+import { syncAuthToExtension } from "@/lib/syncAuthToExtension";
 import logo from "@/public/logo.png";
 
 type FormType = "sign-in" | "sign-up";
@@ -72,25 +73,28 @@ const AuthForm = ({ type }: { type: FormType }) => {
     }
   }, [type, form]);
 
-  // Helper function to clear all cached data
   const clearAllCache = async () => {
-    console.log('🧹 Clearing ALL cached data...');
-    
+    console.log("🧹 Clearing ALL cached data...");
+
     const keysToRemove = [
-      'user', 'userId', 'userEmail', 'userName', 'userProfile',
-      'authToken', 'idToken', 'subscriptionStatus', 'subscriptionTier',
-      'usageData', 'userPreferences', 'dashboardData', 'recentActivity',
-      'cached_user_data', 'user_stats', 'interviews_cache', 'resumes_cache'
+      "user", "userId", "userEmail", "userName", "userProfile",
+      "authToken", "idToken", "subscriptionStatus", "subscriptionTier",
+      "usageData", "userPreferences", "dashboardData", "recentActivity",
+      "cached_user_data", "user_stats", "interviews_cache", "resumes_cache",
     ];
 
-    keysToRemove.forEach(key => {
+    keysToRemove.forEach((key) => {
       localStorage.removeItem(key);
       sessionStorage.removeItem(key);
     });
 
     const localStorageKeys = Object.keys(localStorage);
-    localStorageKeys.forEach(key => {
-      if (key.startsWith('user:') || key.startsWith('firebase:') || key.startsWith('_firebase')) {
+    localStorageKeys.forEach((key) => {
+      if (
+        key.startsWith("user:") ||
+        key.startsWith("firebase:") ||
+        key.startsWith("_firebase")
+      ) {
         localStorage.removeItem(key);
       }
     });
@@ -99,27 +103,33 @@ const AuthForm = ({ type }: { type: FormType }) => {
       try {
         const databases = await window.indexedDB.databases();
         for (const db of databases) {
-          if (db.name && (db.name.includes('firebase') || db.name.includes('firestore'))) {
-            console.log('🗑️ Deleting IndexedDB:', db.name);
+          if (
+            db.name &&
+            (db.name.includes("firebase") || db.name.includes("firestore"))
+          ) {
+            console.log("🗑️ Deleting IndexedDB:", db.name);
             window.indexedDB.deleteDatabase(db.name);
           }
         }
       } catch (error) {
-        console.log('IndexedDB cleanup skipped:', error);
+        console.log("IndexedDB cleanup skipped:", error);
       }
     }
 
     try {
       await auth.signOut();
-      console.log('✅ Firebase auth state cleared');
+      console.log("✅ Firebase auth state cleared");
     } catch (error) {
-      console.log('Firebase signout skipped:', error);
+      console.log("Firebase signout skipped:", error);
     }
 
-    console.log('✅ Cache cleared successfully');
+    console.log("✅ Cache cleared successfully");
   };
 
-  const handleSuccessfulAuth = async (user: import('firebase/auth').User, provider: string) => {
+  const handleSuccessfulAuth = async (
+    user: import("firebase/auth").User,
+    provider: string
+  ) => {
     try {
       const idToken = await user.getIdToken(true);
 
@@ -137,26 +147,29 @@ const AuthForm = ({ type }: { type: FormType }) => {
       localStorage.setItem("rememberedEmail", user.email!);
       localStorage.setItem("rememberMe", "true");
 
+      // Sync auth state to Chrome extension
+      await syncAuthToExtension(user);
+
       toast.success(
         type === "sign-up"
           ? `Account created successfully with ${provider}!`
           : "Signed in successfully!"
       );
 
-      console.log('✅ Auth successful, forcing page reload to:', redirectUrl);
+      console.log("✅ Auth successful, forcing page reload to:", redirectUrl);
       await new Promise((resolve) => setTimeout(resolve, 1500));
-      
-      const cacheBuster = `?_t=${Date.now()}&_uid=${user.uid.substring(0, 8)}`;
-      const finalUrl = redirectUrl === '/' 
-        ? `/${cacheBuster}` 
-        : `${redirectUrl}${redirectUrl.includes('?') ? '&' : '?'}_t=${Date.now()}&_uid=${user.uid.substring(0, 8)}`;
-      
-      console.log('🔄 Redirecting to:', finalUrl);
+
+      const finalUrl =
+        redirectUrl === "/"
+          ? `/?_t=${Date.now()}&_uid=${user.uid.substring(0, 8)}`
+          : `${redirectUrl}${redirectUrl.includes("?") ? "&" : "?"}_t=${Date.now()}&_uid=${user.uid.substring(0, 8)}`;
+
+      console.log("🔄 Redirecting to:", finalUrl);
       window.location.replace(finalUrl);
       return true;
     } catch (error) {
-      console.error('Auth processing error:', error);
-      toast.error('Failed to complete authentication.');
+      console.error("Auth processing error:", error);
+      toast.error("Failed to complete authentication.");
       return false;
     }
   };
@@ -165,25 +178,28 @@ const AuthForm = ({ type }: { type: FormType }) => {
     setIsGoogleLoading(true);
     try {
       await clearAllCache();
-      
+
       const provider = new GoogleAuthProvider();
       provider.addScope("email");
       provider.addScope("profile");
-      provider.setCustomParameters({ prompt: 'select_account' });
+      provider.setCustomParameters({ prompt: "select_account" });
 
       await setPersistence(auth, browserLocalPersistence);
       const result: UserCredential = await signInWithPopup(auth, provider);
       await handleSuccessfulAuth(result.user, "google");
-      
     } catch (error) {
       console.error("Google auth error:", error);
       const err = error as { code?: string };
       let errorMessage = "Failed to authenticate with Google.";
 
-      if (err.code === "auth/popup-closed-by-user") errorMessage = "Sign-in was cancelled.";
-      else if (err.code === "auth/popup-blocked") errorMessage = "Popup was blocked. Please allow popups and try again.";
-      else if (err.code === "auth/account-exists-with-different-credential") errorMessage = "An account already exists with this email using a different sign-in method.";
-      else if (err.code === "auth/unauthorized-domain") errorMessage = "This domain is not authorized for Google sign-in.";
+      if (err.code === "auth/popup-closed-by-user")
+        errorMessage = "Sign-in was cancelled.";
+      else if (err.code === "auth/popup-blocked")
+        errorMessage = "Popup was blocked. Please allow popups and try again.";
+      else if (err.code === "auth/account-exists-with-different-credential")
+        errorMessage = "An account already exists with this email using a different sign-in method.";
+      else if (err.code === "auth/unauthorized-domain")
+        errorMessage = "This domain is not authorized for Google sign-in.";
 
       toast.error(errorMessage);
     } finally {
@@ -195,23 +211,26 @@ const AuthForm = ({ type }: { type: FormType }) => {
     setIsFacebookLoading(true);
     try {
       await clearAllCache();
-      
+
       const provider = new FacebookAuthProvider();
       provider.addScope("email");
 
       await setPersistence(auth, browserLocalPersistence);
       const result: UserCredential = await signInWithPopup(auth, provider);
       await handleSuccessfulAuth(result.user, "facebook");
-      
     } catch (error) {
       console.error("Facebook auth error:", error);
       const err = error as { code?: string };
       let errorMessage = "Failed to authenticate with Facebook.";
 
-      if (err.code === "auth/popup-closed-by-user") errorMessage = "Sign-in was cancelled.";
-      else if (err.code === "auth/popup-blocked") errorMessage = "Popup was blocked. Please allow popups and try again.";
-      else if (err.code === "auth/account-exists-with-different-credential") errorMessage = "An account already exists with this email using a different sign-in method.";
-      else if (err.code === "auth/unauthorized-domain") errorMessage = "This domain is not authorized for Facebook sign-in.";
+      if (err.code === "auth/popup-closed-by-user")
+        errorMessage = "Sign-in was cancelled.";
+      else if (err.code === "auth/popup-blocked")
+        errorMessage = "Popup was blocked. Please allow popups and try again.";
+      else if (err.code === "auth/account-exists-with-different-credential")
+        errorMessage = "An account already exists with this email using a different sign-in method.";
+      else if (err.code === "auth/unauthorized-domain")
+        errorMessage = "This domain is not authorized for Facebook sign-in.";
 
       toast.error(errorMessage);
     } finally {
@@ -225,7 +244,8 @@ const AuthForm = ({ type }: { type: FormType }) => {
       if (type === "sign-up") {
         const { name, email, password } = data;
 
-        const userCredential: UserCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const userCredential: UserCredential =
+          await createUserWithEmailAndPassword(auth, email, password);
 
         const result = await signUp({
           uid: userCredential.user.uid,
@@ -240,9 +260,10 @@ const AuthForm = ({ type }: { type: FormType }) => {
 
         toast.success("Account created successfully. Please sign in.");
 
-        const signInUrl = redirectUrl !== "/"
-          ? `/sign-in?redirect=${encodeURIComponent(redirectUrl)}`
-          : "/sign-in";
+        const signInUrl =
+          redirectUrl !== "/"
+            ? `/sign-in?redirect=${encodeURIComponent(redirectUrl)}`
+            : "/sign-in";
         router.push(signInUrl);
         router.refresh();
       } else {
@@ -251,7 +272,8 @@ const AuthForm = ({ type }: { type: FormType }) => {
         await clearAllCache();
         await setPersistence(auth, browserLocalPersistence);
 
-        const userCredential: UserCredential = await signInWithEmailAndPassword(auth, email, password);
+        const userCredential: UserCredential =
+          await signInWithEmailAndPassword(auth, email, password);
         const idToken = await userCredential.user.getIdToken(true);
 
         if (!idToken) {
@@ -269,17 +291,20 @@ const AuthForm = ({ type }: { type: FormType }) => {
           return;
         }
 
+        // Sync auth state to Chrome extension
+        await syncAuthToExtension(userCredential.user);
+
         toast.success("Signed in successfully.");
 
-        console.log('✅ Sign in successful, forcing page reload to:', redirectUrl);
+        console.log("✅ Sign in successful, forcing page reload to:", redirectUrl);
         await new Promise((resolve) => setTimeout(resolve, 1500));
-        
-        const cacheBuster = `?_t=${Date.now()}&_uid=${userCredential.user.uid.substring(0, 8)}`;
-        const finalUrl = redirectUrl === '/' 
-          ? `/${cacheBuster}` 
-          : `${redirectUrl}${redirectUrl.includes('?') ? '&' : '?'}_t=${Date.now()}&_uid=${userCredential.user.uid.substring(0, 8)}`;
-        
-        console.log('🔄 Redirecting to:', finalUrl);
+
+        const finalUrl =
+          redirectUrl === "/"
+            ? `/?_t=${Date.now()}&_uid=${userCredential.user.uid.substring(0, 8)}`
+            : `${redirectUrl}${redirectUrl.includes("?") ? "&" : "?"}_t=${Date.now()}&_uid=${userCredential.user.uid.substring(0, 8)}`;
+
+        console.log("🔄 Redirecting to:", finalUrl);
         window.location.replace(finalUrl);
       }
     } catch (error) {
@@ -287,12 +312,18 @@ const AuthForm = ({ type }: { type: FormType }) => {
       const err = error as { code?: string };
       let errorMessage = "There was an error signing in.";
 
-      if (err.code === "auth/user-not-found") errorMessage = "No account found with this email address.";
-      else if (err.code === "auth/wrong-password") errorMessage = "Invalid password. Please try again.";
-      else if (err.code === "auth/invalid-email") errorMessage = "Invalid email address format.";
-      else if (err.code === "auth/user-disabled") errorMessage = "This account has been disabled.";
-      else if (err.code === "auth/too-many-requests") errorMessage = "Too many failed attempts. Please try again later.";
-      else if (err.code === "auth/invalid-credential") errorMessage = "Invalid credentials. Please check your email and password.";
+      if (err.code === "auth/user-not-found")
+        errorMessage = "No account found with this email address.";
+      else if (err.code === "auth/wrong-password")
+        errorMessage = "Invalid password. Please try again.";
+      else if (err.code === "auth/invalid-email")
+        errorMessage = "Invalid email address format.";
+      else if (err.code === "auth/user-disabled")
+        errorMessage = "This account has been disabled.";
+      else if (err.code === "auth/too-many-requests")
+        errorMessage = "Too many failed attempts. Please try again later.";
+      else if (err.code === "auth/invalid-credential")
+        errorMessage = "Invalid credentials. Please check your email and password.";
 
       toast.error(errorMessage);
     } finally {
@@ -355,14 +386,13 @@ const AuthForm = ({ type }: { type: FormType }) => {
             </h2>
 
             <p className="text-lg text-slate-400 leading-relaxed max-w-lg">
-              Most candidates are qualified. Few are prepared. Preciprocal closes
-              that gap, giving you the tools, feedback, and confidence to walk
-              into any interview and own the room.
+              Most candidates are qualified. Few are prepared. Preciprocal
+              closes that gap, giving you the tools, feedback, and confidence to
+              walk into any interview and own the room.
             </p>
           </div>
 
           <div className="space-y-3 mt-8">
-
             <div className="group p-5 bg-slate-800/30 hover:bg-slate-800/50 border border-slate-700/30 rounded-xl transition-all duration-300 backdrop-blur-sm">
               <div className="flex items-start space-x-4">
                 <div className="w-10 h-10 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-purple-500/20 transition-all">
@@ -375,7 +405,9 @@ const AuthForm = ({ type }: { type: FormType }) => {
                     AI-Powered Mock Interviews
                   </h3>
                   <p className="text-slate-400 text-sm leading-relaxed">
-                    Face realistic interviewers that adapt to your role, seniority, and target company. Get scored on communication, technical depth, and confidence. Then improve before it counts.
+                    Face realistic interviewers that adapt to your role,
+                    seniority, and target company. Get scored on communication,
+                    technical depth, and confidence. Then improve before it counts.
                   </p>
                 </div>
               </div>
@@ -393,7 +425,9 @@ const AuthForm = ({ type }: { type: FormType }) => {
                     Smart Resume Analysis
                   </h3>
                   <p className="text-slate-400 text-sm leading-relaxed">
-                    Stop getting filtered out before a human ever sees you. Our ATS scorer, keyword gap analyzer, and recruiter eye simulation make sure your resume passes every gate.
+                    Stop getting filtered out before a human ever sees you. Our
+                    ATS scorer, keyword gap analyzer, and recruiter eye
+                    simulation make sure your resume passes every gate.
                   </p>
                 </div>
               </div>
@@ -411,12 +445,13 @@ const AuthForm = ({ type }: { type: FormType }) => {
                     Personalized Study Plans
                   </h3>
                   <p className="text-slate-400 text-sm leading-relaxed">
-                    Every day between now and your interview matters. Get a day-by-day prep schedule built around your timeline, skill gaps, and target role so nothing slips through the cracks.
+                    Every day between now and your interview matters. Get a
+                    day-by-day prep schedule built around your timeline, skill
+                    gaps, and target role so nothing slips through the cracks.
                   </p>
                 </div>
               </div>
             </div>
-
           </div>
         </div>
       </div>

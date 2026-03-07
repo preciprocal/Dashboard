@@ -489,7 +489,6 @@ class PreciprocalBanner {
     this.authEmail       = null;
     this.isAuthenticated = false;
     this.trackState      = 'idle';
-    this.planState       = 'idle';
     this.applyState      = 'idle';
     this.applyProfile    = null;
     this.applyFiles      = null;
@@ -549,27 +548,44 @@ class PreciprocalBanner {
   }
 
   async checkAuth() {
+    // Strategy 1: ask background script via message
     try {
-      const response       = await chrome.runtime.sendMessage({ type: 'CHECK_AUTH' });
-      this.isAuthenticated = response.authenticated;
-      if (!this.isAuthenticated) return;
+      const response = await chrome.runtime.sendMessage({ type: 'CHECK_AUTH' });
+      if (response?.authenticated && response.user?.uid) {
+        this.isAuthenticated = true;
+        this.authUserId      = response.user.uid;
+        this.authEmail       = response.user.email || null;
 
-      this.authUserId = response.user?.uid || response.user?.userId || null;
-      this.authEmail  = response.user?.email || null;
+        const tokenResponse  = await chrome.runtime.sendMessage({ type: 'GET_TOKEN' });
+        this.authToken       = tokenResponse?.token || null;
 
-      const tokenResponse = await chrome.runtime.sendMessage({ type: 'GET_TOKEN' });
-      this.authToken = tokenResponse.token || tokenResponse.idToken || null;
-
-      if (!this.authToken) {
-        try {
-          const ur       = await chrome.runtime.sendMessage({ type: 'GET_USER' });
-          this.authToken = ur?.uid || ur?.user?.uid || null;
-        } catch {}
+        if (this.authToken) {
+          console.log('✅ Auth via background message — user:', this.authEmail);
+          return;
+        }
       }
-      if (!this.authToken && this.authUserId) this.authToken = this.authUserId;
-    } catch {
-      this.isAuthenticated = false;
+    } catch (e) {
+      console.warn('⚠️ Background message failed, trying storage fallback:', e?.message);
     }
+
+    // Strategy 2: read chrome.storage.local directly (works even if SW is dormant)
+    try {
+      const result = await chrome.storage.local.get(['preciprocal_auth']);
+      const auth   = result?.preciprocal_auth;
+      if (auth?.uid && auth?.token) {
+        this.isAuthenticated = true;
+        this.authUserId      = auth.uid;
+        this.authEmail       = auth.email || null;
+        this.authToken       = auth.token;
+        console.log('✅ Auth via storage fallback — user:', this.authEmail);
+        return;
+      }
+    } catch (e) {
+      console.warn('⚠️ Storage fallback failed:', e?.message);
+    }
+
+    console.warn('❌ Not authenticated — no valid auth found in background or storage');
+    this.isAuthenticated = false;
   }
 
   waitForElement(selector, timeout = 10000) {
@@ -676,15 +692,6 @@ class PreciprocalBanner {
                 d="M13 10V3L4 14h7v7l9-11h-7z"/>
             </svg>
             <span class="apply-label">${applyMeta.label}</span>
-          </button>
-
-          <button class="prc-btn prc-plan" data-action="create-plan"
-            title="🗓️ Auto-generate a day-by-day interview prep plan for this role">
-            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-            </svg>
-            <span class="plan-label">Create Plan</span>
           </button>
 
           <button class="prc-btn prc-track prc-icon-only" data-action="track-job"
@@ -840,9 +847,8 @@ class PreciprocalBanner {
       setTimeout(() => window.open(`${PRECIPROCAL_URL}/settings`, '_blank'), 1500);
       return;
     }
-    if (action === 'auto-apply')  { await this.handleAutoApply();  return; }
-    if (action === 'track-job')   { await this.handleTrackJob();   return; }
-    if (action === 'create-plan') { await this.handleCreatePlan(); return; }
+    if (action === 'auto-apply') { await this.handleAutoApply(); return; }
+    if (action === 'track-job')  { await this.handleTrackJob();  return; }
 
     const actionMap = {
       'cover-letter':   '/cover-letter/create',
@@ -919,106 +925,6 @@ class PreciprocalBanner {
       this._replaceButtonIcon(btn, 'bookmark');
       this.showNotification(error.message || 'Failed to track job', 'error');
     }
-  }
-
-  async handleCreatePlan() {
-    if (this.planState === 'done') { window.open(`${PRECIPROCAL_URL}/planner`, '_blank'); return; }
-    if (this.planState === 'loading') return;
-
-    const btn       = this.banner?.querySelector('[data-action="create-plan"]');
-    const labelEl   = btn?.querySelector('.plan-label');
-    const daysUntil = await this.showDatePickerModal();
-    if (daysUntil === null) return;
-
-    this.planState = 'loading';
-    if (btn) btn.classList.add('loading');
-    if (labelEl) labelEl.textContent = 'Generating…';
-    this._replaceButtonIcon(btn, 'spinner');
-
-    try {
-      const interviewDate = new Date();
-      interviewDate.setDate(interviewDate.getDate() + daysUntil);
-
-      const response = await fetch(`${PRECIPROCAL_URL}/api/extension/create-plan`, {
-        method: 'POST',
-        headers: {
-          'Content-Type':      'application/json',
-          'x-extension-token': this.authToken,
-          'x-user-email':      this.authEmail  || '',
-          'x-user-id':         this.authUserId || '',
-        },
-        body: JSON.stringify({
-          ...this.jobData,
-          interviewDate:      interviewDate.toISOString().split('T')[0],
-          daysUntilInterview: daysUntil,
-          skillLevel:         'intermediate',
-        }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
-
-      this.planState = 'done';
-      this.planUrl   = `${PRECIPROCAL_URL}${data.planUrl}`;
-      if (btn) { btn.classList.remove('loading'); btn.classList.add('done'); }
-      if (labelEl) labelEl.textContent = 'View Plan →';
-      this._replaceButtonIcon(btn, 'check');
-      this.showNotificationWithLink(`${daysUntil}-day plan created`, 'Open Planner →', this.planUrl, 'success');
-    } catch (error) {
-      this.planState = 'idle';
-      if (btn) btn.classList.remove('loading');
-      if (labelEl) labelEl.textContent = 'Create Plan';
-      this._replaceButtonIcon(btn, 'calendar');
-      this.showNotification(error.message || 'Failed to create plan', 'error');
-    }
-  }
-
-  showDatePickerModal() {
-    return new Promise(resolve => {
-      document.getElementById('prc-date-modal')?.remove();
-      const overlay = document.createElement('div');
-      overlay.id = 'prc-date-modal';
-      overlay.style.cssText = 'position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;';
-      overlay.innerHTML = `
-        <div style="background:#1e293b;border:1px solid rgba(148,163,184,0.2);border-radius:12px;padding:24px;width:320px;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
-          <h3 style="margin:0 0 6px;color:#f5f5f5;font-size:16px;font-weight:600;">📅 When is your interview?</h3>
-          <p style="margin:0 0 20px;color:#94a3b8;font-size:13px;">${this.jobData?.title || 'Job'} at ${this.jobData?.company || 'Company'}</p>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px;">
-            ${[{days:3,label:'3 days'},{days:7,label:'1 week'},{days:14,label:'2 weeks'},{days:21,label:'3 weeks'},{days:30,label:'1 month'},{days:0,label:'Custom'}].map(opt=>`
-              <button data-days="${opt.days}" style="padding:10px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.3);color:#c084fc;"
-                onmouseover="this.style.background='rgba(168,85,247,0.2)'" onmouseout="this.style.background='rgba(168,85,247,0.1)'">${opt.label}</button>`).join('')}
-          </div>
-          <div id="prc-custom-days" style="display:none;margin-bottom:16px;">
-            <label style="color:#94a3b8;font-size:12px;display:block;margin-bottom:6px;">Days until interview</label>
-            <input id="prc-days-input" type="number" min="1" max="90" value="14" style="width:100%;padding:8px 12px;border-radius:8px;box-sizing:border-box;background:rgba(0,0,0,0.3);border:1px solid rgba(148,163,184,0.2);color:#f5f5f5;font-size:14px;outline:none;font-family:inherit;"/>
-          </div>
-          <div style="display:flex;gap:8px;">
-            <button id="prc-modal-cancel" style="flex:1;padding:10px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;background:rgba(100,116,139,0.2);border:1px solid rgba(100,116,139,0.3);color:#94a3b8;font-family:inherit;">Cancel</button>
-            <button id="prc-modal-confirm" style="flex:1;padding:10px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:linear-gradient(135deg,#a855f7,#7c3aed);border:none;color:#fff;font-family:inherit;">Generate Plan</button>
-          </div>
-        </div>`;
-      document.body.appendChild(overlay);
-      let selectedDays = 7, isCustom = false;
-      overlay.querySelectorAll('[data-days]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const days = parseInt(btn.getAttribute('data-days'));
-          if (days === 0) { isCustom = true; document.getElementById('prc-custom-days').style.display = 'block'; }
-          else {
-            isCustom = false; selectedDays = days;
-            document.getElementById('prc-custom-days').style.display = 'none';
-            overlay.querySelectorAll('[data-days]').forEach(b => { b.style.background='rgba(168,85,247,0.1)'; b.style.borderColor='rgba(168,85,247,0.3)'; b.style.color='#c084fc'; });
-            btn.style.background='rgba(168,85,247,0.35)'; btn.style.borderColor='#a855f7'; btn.style.color='#fff';
-          }
-        });
-      });
-      document.getElementById('prc-modal-cancel').addEventListener('click',  () => { overlay.remove(); resolve(null); });
-      document.getElementById('prc-modal-confirm').addEventListener('click', () => {
-        if (isCustom) selectedDays = parseInt(document.getElementById('prc-days-input').value) || 7;
-        selectedDays = Math.max(1, Math.min(90, selectedDays));
-        overlay.remove(); resolve(selectedDays);
-      });
-      overlay.addEventListener('click', e => { if (e.target === overlay) { overlay.remove(); resolve(null); } });
-    });
   }
 
   async fetchMatchScore() {
@@ -1103,7 +1009,6 @@ class PreciprocalBanner {
     const paths = {
       check:     'M5 13l4 4L19 7',
       lightning: 'M13 10V3L4 14h7v7l9-11h-7z',
-      calendar:  'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
       bookmark:  'M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z',
     };
     path.setAttribute('d', paths[iconName] || paths.lightning);
@@ -1156,9 +1061,8 @@ class PreciprocalBanner {
   destroy() {
     this.banner?.remove(); this.banner = null;
     this.observer?.disconnect(); this.observer = null;
-    this.trackState = 'idle'; this.planState = 'idle'; this.applyState = 'idle';
+    this.trackState = 'idle'; this.applyState = 'idle';
     this.applyProfile = null;
-    document.getElementById('prc-date-modal')?.remove();
   }
 
   injectStyles() {
@@ -1201,10 +1105,6 @@ class PreciprocalBanner {
       .prc-btn.prc-track.loading { opacity:0.7; cursor:not-allowed; pointer-events:none; }
       .prc-btn.prc-track.done { border-color:#10b981; color:#10b981; background:rgba(16,185,129,0.08); cursor:default; pointer-events:none; }
       .prc-btn.prc-track.duplicate { border-color:#f59e0b; color:#f59e0b; background:rgba(245,158,11,0.08); cursor:default; pointer-events:none; }
-      .prc-btn.prc-plan { background:transparent; border-color:#6e7681; color:#b0b8c1; }
-      .prc-btn.prc-plan:hover { background:rgba(110,118,129,0.08); border-color:#b0b8c1; color:#f5f5f5; }
-      .prc-btn.prc-plan.loading { opacity:0.7; cursor:not-allowed; pointer-events:none; }
-      .prc-btn.prc-plan.done { border-color:#10b981; color:#10b981; background:rgba(16,185,129,0.08); cursor:pointer; }
       .prc-btn svg { width:16px; height:16px; flex-shrink:0; stroke-width:2; }
       .prc-spinner { width:14px; height:14px; border:2px solid rgba(176,184,193,0.3); border-top-color:#b0b8c1; border-radius:50%; animation:prc-spin 0.7s linear infinite; flex-shrink:0; }
       @keyframes prc-spin { to { transform:rotate(360deg); } }

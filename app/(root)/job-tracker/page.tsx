@@ -346,7 +346,7 @@ function AppCard({ app, onEdit, onDelete, onStatusChange, onCreatePlan, onFindCo
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Contacts Modal
+// Contacts Modal — helpers
 // ─────────────────────────────────────────────────────────────────
 
 function CopyBtn({ text }: { text: string }) {
@@ -368,6 +368,72 @@ function ConfidenceDot({ score }: { score: number }) {
     </div>
   );
 }
+
+// ── Gmail / Outlook send helpers ──────────────────────────────────
+
+function buildSubject(jobTitle: string, company: string): string {
+  return `${jobTitle} Role at ${company} – Reaching Out`;
+}
+
+function openInGmail(to: string, subject: string, body: string) {
+  const url = new URL('https://mail.google.com/mail/');
+  url.searchParams.set('view', 'cm');
+  url.searchParams.set('to', to);
+  url.searchParams.set('su', subject);
+  url.searchParams.set('body', body);
+  window.open(url.toString(), '_blank', 'noopener,noreferrer');
+}
+
+function openInOutlook(to: string, subject: string, body: string) {
+  window.location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+function SendEmailButtons({
+  recipientEmail,
+  emailBody,
+  jobTitle,
+  company,
+}: {
+  recipientEmail: string;
+  emailBody: string;
+  jobTitle: string;
+  company: string;
+}) {
+  const subject = buildSubject(jobTitle, company);
+  return (
+    <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-700/40">
+      <span className="text-xs text-slate-500 flex-shrink-0">Send via</span>
+
+      {/* Gmail */}
+      <button
+        onClick={() => openInGmail(recipientEmail, subject, emailBody)}
+        className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all border border-red-500/25 bg-red-500/8 text-red-400 hover:bg-red-500/18 hover:border-red-500/45 hover:text-red-300"
+      >
+        {/* Envelope icon representing Gmail */}
+        <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M2 6.5A2.5 2.5 0 0 1 4.5 4h15A2.5 2.5 0 0 1 22 6.5v11A2.5 2.5 0 0 1 19.5 20h-15A2.5 2.5 0 0 1 2 17.5v-11Z" stroke="currentColor" strokeWidth="1.5"/>
+          <path d="M2 7l10 7 10-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
+        Gmail
+        <ExternalLink className="w-3 h-3 opacity-60" />
+      </button>
+
+      {/* Outlook / system mail */}
+      <button
+        onClick={() => openInOutlook(recipientEmail, subject, emailBody)}
+        className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all border border-blue-500/25 bg-blue-500/8 text-blue-400 hover:bg-blue-500/18 hover:border-blue-500/45 hover:text-blue-300"
+      >
+        <Mail className="w-3.5 h-3.5 flex-shrink-0" />
+        Outlook
+        <ExternalLink className="w-3 h-3 opacity-60" />
+      </button>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Contacts Modal
+// ─────────────────────────────────────────────────────────────────
 
 function ContactsModal({ app, onClose }: { app: Application; onClose: () => void }) {
   const [contacts,           setContacts]           = useState<Contact[]>([]);
@@ -406,6 +472,7 @@ function ContactsModal({ app, onClose }: { app: Application; onClose: () => void
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-slate-900/98 border border-slate-700/60 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700/50 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 gradient-primary rounded-xl flex items-center justify-center shadow-glass"><UserSearch className="w-4 h-4 text-white" /></div>
@@ -417,6 +484,7 @@ function ContactsModal({ app, onClose }: { app: Application; onClose: () => void
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-white transition-colors"><X className="w-4 h-4" /></button>
         </div>
 
+        {/* Search bar */}
         <div className="px-6 py-3 border-b border-slate-700/30 flex-shrink-0">
           {contacts.length > 0 && foundDomain ? (
             <div className="flex items-center justify-between">
@@ -460,6 +528,7 @@ function ContactsModal({ app, onClose }: { app: Application; onClose: () => void
           )}
         </div>
 
+        {/* Body */}
         <div className="flex-1 overflow-hidden flex min-h-0">
           {error && (
             <div className="flex-1 flex items-center justify-center p-8">
@@ -477,6 +546,7 @@ function ContactsModal({ app, onClose }: { app: Application; onClose: () => void
               </div>
             </div>
           )}
+
           {!loading && !error && contacts.length === 0 && (
             <div className="flex-1 flex items-center justify-center p-8">
               <div className="text-center">
@@ -492,6 +562,7 @@ function ContactsModal({ app, onClose }: { app: Application; onClose: () => void
               </div>
             </div>
           )}
+
           {loading && (
             <div className="flex-1 flex items-center justify-center p-8">
               <div className="text-center">
@@ -504,8 +575,10 @@ function ContactsModal({ app, onClose }: { app: Application; onClose: () => void
               </div>
             </div>
           )}
+
           {!loading && contacts.length > 0 && (
             <div className="flex flex-1 min-h-0">
+              {/* Contact list sidebar */}
               <div className="w-52 flex-shrink-0 border-r border-slate-700/40 overflow-y-auto glass-scrollbar">
                 {contacts.map((c, i) => (
                   <button key={c.email} onClick={() => setActiveIdx(i)}
@@ -523,8 +596,11 @@ function ContactsModal({ app, onClose }: { app: Application; onClose: () => void
                   </button>
                 ))}
               </div>
+
+              {/* Active contact detail */}
               {activeContact && (
                 <div className="flex-1 overflow-y-auto glass-scrollbar p-5 space-y-4">
+                  {/* Contact info */}
                   <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-4">
                     <div className="flex items-start justify-between gap-3 mb-3">
                       <div className="flex-1 min-w-0">
@@ -553,6 +629,8 @@ function ContactsModal({ app, onClose }: { app: Application; onClose: () => void
                       )}
                     </div>
                   </div>
+
+                  {/* Generated email */}
                   {activeContact.generatedEmail ? (
                     <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl overflow-hidden">
                       <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-700/40">
@@ -562,7 +640,19 @@ function ContactsModal({ app, onClose }: { app: Application; onClose: () => void
                         </div>
                         <CopyBtn text={activeContact.generatedEmail} />
                       </div>
-                      <div className="p-4"><p className="text-sm text-slate-200 leading-relaxed whitespace-pre-wrap">{activeContact.generatedEmail}</p></div>
+                      <div className="p-4">
+                        <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-wrap">
+                          {activeContact.generatedEmail}
+                        </p>
+
+                        {/* ── Open in Gmail / Outlook ── */}
+                        <SendEmailButtons
+                          recipientEmail={activeContact.email}
+                          emailBody={activeContact.generatedEmail}
+                          jobTitle={app.jobTitle}
+                          company={app.company}
+                        />
+                      </div>
                     </div>
                   ) : (
                     <div className="bg-slate-800/20 border border-dashed border-slate-700/50 rounded-xl p-6 text-center">
@@ -718,7 +808,6 @@ export default function JobTrackerPage() {
   useEffect(() => { if (user) fetchApps(); }, [user, fetchApps]);
   useEffect(() => { if (!loading && !user) router.push('/auth'); }, [user, loading, router]);
 
-  // ── Save ──────────────────────────────────────────────────────
   const handleSave = async () => {
     if (!form.company.trim() || !form.jobTitle.trim()) { toast.error('Company and job title are required'); return; }
     setSaving(true);
@@ -730,27 +819,18 @@ export default function JobTrackerPage() {
         body:    JSON.stringify(isEdit ? { id: editingId, ...form } : form),
       });
       if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Failed'); }
-
       toast.success(isEdit ? 'Application updated' : 'Application added');
-
-      // ── Notification: new application added ──
       if (!isEdit && user?.uid) {
-        await NotificationService.createNotification(
-          user.uid,
-          'planner',
-          'Application Tracked 📋',
+        await NotificationService.createNotification(user.uid, 'planner', 'Application Tracked 📋',
           `${form.jobTitle} at ${form.company} has been added to your job tracker.`,
-          { actionUrl: '/job-tracker', actionLabel: 'View Tracker' }
-        );
+          { actionUrl: '/job-tracker', actionLabel: 'View Tracker' });
       }
-
       setShowForm(false); setEditingId(null); setForm({ ...EMPTY_FORM });
       await fetchApps();
     } catch (e: unknown) { toast.error(e instanceof Error ? e.message : 'Failed to save'); }
     finally { setSaving(false); }
   };
 
-  // ── Status Change ─────────────────────────────────────────────
   const handleStatusChange = async (id: string, status: AppStatus) => {
     try {
       const res = await fetch('/api/job-tracker', {
@@ -758,33 +838,24 @@ export default function JobTrackerPage() {
         body: JSON.stringify({ id, status }),
       });
       if (!res.ok) throw new Error('Failed');
-
       const app = apps.find(a => a.id === id);
       setApps(p => p.map(a => a.id === id ? { ...a, status } : a));
-
-      // ── Notification: status changed to key milestones ──
       if (user?.uid && app) {
         const milestoneMessages: Partial<Record<AppStatus, { title: string; message: string; type: 'interview' | 'achievement' | 'planner' }>> = {
-          'phone-screen': { type: 'interview', title: 'Phone Screen Scheduled 📞',   message: `You advanced to phone screen for ${app.jobTitle} at ${app.company}! Time to prep.` },
-          'technical':    { type: 'interview', title: 'Technical Round Incoming 💻',  message: `You reached the technical round for ${app.jobTitle} at ${app.company}. Start practicing.` },
-          'final':        { type: 'interview', title: 'Final Round! 🔥',              message: `You made it to the final round for ${app.jobTitle} at ${app.company}. Give it your all!` },
-          'offer':        { type: 'achievement', title: 'Offer Received! 🎉🏆',        message: `Congratulations! You received an offer for ${app.jobTitle} at ${app.company}!` },
+          'phone-screen': { type: 'interview',   title: 'Phone Screen Scheduled 📞', message: `You advanced to phone screen for ${app.jobTitle} at ${app.company}! Time to prep.` },
+          'technical':    { type: 'interview',   title: 'Technical Round Incoming 💻', message: `You reached the technical round for ${app.jobTitle} at ${app.company}. Start practicing.` },
+          'final':        { type: 'interview',   title: 'Final Round! 🔥',             message: `You made it to the final round for ${app.jobTitle} at ${app.company}. Give it your all!` },
+          'offer':        { type: 'achievement', title: 'Offer Received! 🎉🏆',         message: `Congratulations! You received an offer for ${app.jobTitle} at ${app.company}!` },
         };
         const milestone = milestoneMessages[status];
         if (milestone) {
-          await NotificationService.createNotification(
-            user.uid,
-            milestone.type,
-            milestone.title,
-            milestone.message,
-            { actionUrl: '/job-tracker', actionLabel: 'View Application' }
-          );
+          await NotificationService.createNotification(user.uid, milestone.type, milestone.title, milestone.message,
+            { actionUrl: '/job-tracker', actionLabel: 'View Application' });
         }
       }
     } catch { toast.error('Failed to update status'); }
   };
 
-  // ── Create Plan ───────────────────────────────────────────────
   const handleCreatePlan = async (app: Application, days: number) => {
     setCreatingPlan(true); setPlanModal(null);
     try {
@@ -792,34 +863,23 @@ export default function JobTrackerPage() {
       interviewDate.setDate(interviewDate.getDate() + days);
       const res = await fetch('/api/planner/generate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          role: app.jobTitle, company: app.company,
-          interviewDate: interviewDate.toISOString().split('T')[0],
-          daysUntilInterview: days, skillLevel: 'intermediate',
-        }),
+        body: JSON.stringify({ role: app.jobTitle, company: app.company,
+          interviewDate: interviewDate.toISOString().split('T')[0], daysUntilInterview: days, skillLevel: 'intermediate' }),
       });
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || 'Failed to generate plan'); }
       const data = await res.json();
-
       toast.success(`${days}-day plan created for ${app.company}!`, {
         action: { label: 'Open Planner', onClick: () => window.open(`/planner/${data.planId}`, '_blank') },
       });
-
-      // ── Notification: prep plan created from job tracker ──
       if (user?.uid) {
-        await NotificationService.createNotification(
-          user.uid,
-          'planner',
-          'Prep Plan Created 📅',
+        await NotificationService.createNotification(user.uid, 'planner', 'Prep Plan Created 📅',
           `Your ${days}-day preparation plan for ${app.jobTitle} at ${app.company} is ready.`,
-          { actionUrl: `/planner/${data.planId}`, actionLabel: 'View Plan' }
-        );
+          { actionUrl: `/planner/${data.planId}`, actionLabel: 'View Plan' });
       }
     } catch (e: unknown) { toast.error(e instanceof Error ? e.message : 'Failed to create plan'); }
     finally { setCreatingPlan(false); }
   };
 
-  // ── Delete ────────────────────────────────────────────────────
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this application?')) return;
     try {
@@ -831,11 +891,12 @@ export default function JobTrackerPage() {
   };
 
   const handleEdit = (app: Application) => {
-    setForm({ company: app.company, jobTitle: app.jobTitle, jobUrl: app.jobUrl, location: app.location, salary: app.salary, workType: app.workType, source: app.source, notes: app.notes, status: app.status, appliedDate: app.appliedDate });
+    setForm({ company: app.company, jobTitle: app.jobTitle, jobUrl: app.jobUrl, location: app.location,
+      salary: app.salary, workType: app.workType, source: app.source, notes: app.notes,
+      status: app.status, appliedDate: app.appliedDate });
     setEditingId(app.id); setShowForm(true);
   };
 
-  // ── Stats ──
   const total        = apps.length;
   const activeCount  = apps.filter(a => !['rejected','ghosted','withdrew','offer'].includes(a.status)).length;
   const offerCount   = apps.filter(a => a.status === 'offer').length;

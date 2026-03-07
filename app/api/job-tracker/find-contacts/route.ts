@@ -168,10 +168,6 @@ async function buildSenderContext(userId: string): Promise<SenderContext> {
 }
 
 // ─── Contact role tiers ──────────────────────────────────────────
-// Tier 1 = highest priority (recruiters, C-suite, founders)
-// Tier 2 = strong (VPs, directors, heads)
-// Tier 3 = good (managers, leads, principals)
-// Tier 4 = relevant (engineers, other)
 
 const ROLE_TIERS: Record<number, string[]> = {
   1: ['recruiter','talent acquisition','talent partner','head of talent','head of recruiting',
@@ -199,7 +195,7 @@ function getRoleTier(position: string, department: string): number {
   for (const tier of [1, 2, 3, 4] as const) {
     if (ROLE_TIERS[tier].some(kw => text.includes(kw))) return tier;
   }
-  return 5; // unknown
+  return 5;
 }
 
 // ─── Hunter.io domain search ──────────────────────────────────────
@@ -261,48 +257,29 @@ async function fetchHunterContacts(domain: string): Promise<HunterContact[]> {
   // Sort: tier first (ascending = best first), then confidence (descending)
   scored.sort((a, b) => a._tier !== b._tier ? a._tier - b._tier : b._score - a._score);
 
-  // Pick best 6 but ensure role diversity:
-  // - At least 1 recruiter/HR/talent (tier 1 recruiting)
-  // - At least 1 C-suite/founder (tier 1 leadership)
-  // - At least 1 VP/Director (tier 2)
-  // - Fill remaining with next best
-
   const RECRUITING_KW = ['recruiter','talent','hr','hiring','people ops'];
-  const LEADERSHIP_KW = ['ceo','cto','cpo','coo','founder','president','chief'];
-  const LEADS_KW      = ['team lead','tech lead','lead data','lead ml','lead software','lead engineer','lead analyst','lead product','data science lead','ml lead','ai lead'];
 
-  const recruiters  = scored.filter(e => RECRUITING_KW.some(kw => `${e.position} ${e.department}`.toLowerCase().includes(kw)));
-  const leadership  = scored.filter(e => LEADERSHIP_KW.some(kw => `${e.position} ${e.department}`.toLowerCase().includes(kw)));
-  const directors   = scored.filter(e => e._tier === 2);
-  const leads       = scored.filter(e => LEADS_KW.some(kw => `${e.position} ${e.department}`.toLowerCase().includes(kw)));
+  const recruiters = scored.filter(e =>
+    RECRUITING_KW.some(kw => `${e.position} ${e.department}`.toLowerCase().includes(kw))
+  );
 
+  // Pick top 2 recruiters only
   const picked: HunterEmail[] = [];
   const seen = new Set<string>();
+
   const add = (list: HunterEmail[], max: number) => {
     let added = 0;
     for (const e of list) {
-      if (picked.length >= 6 || added >= max) break;
+      if (picked.length >= 2 || added >= max) break;
       if (!seen.has(e.value)) { seen.add(e.value); picked.push(e); added++; }
     }
   };
 
-  // Priority: recruiter → C-suite/founder → VPs/Directors → Team leads → best remaining
   add(recruiters.slice(0, 2), 2);
-  add(leadership.slice(0, 2), 2);
-  add(directors.slice(0, 1),  1);
-  add(leads.slice(0, 1),      1);
-  // Fill remaining slots with highest-tier contacts not yet picked
-  for (const e of scored) {
-    if (picked.length >= 6) break;
-    if (!seen.has(e.value)) { seen.add(e.value); picked.push(e); }
-  }
 
   log('📊', 'Contact selection', {
-    recruiters: recruiters.length,
-    leadership: leadership.length,
-    directors:  directors.length,
-    leads:      leads.length,
-    picked:     picked.length,
+    recruitersFound: recruiters.length,
+    picked: picked.length,
   });
 
   return picked.map(e => ({
@@ -329,7 +306,6 @@ async function generatePersonalisedEmail(
 ): Promise<string> {
   if (!genAI) throw new Error('Gemini not configured');
 
-  // Angle tailored to recipient role
   const pos = contact.position.toLowerCase();
   let recipientAngle: string;
   if (/recruiter|talent|hr|people|hiring/.test(pos)) {
@@ -346,19 +322,16 @@ async function generatePersonalisedEmail(
     recipientAngle = `Write a professional, warm outreach expressing genuine interest in ${company} and asking about ${jobTitle} opportunities.`;
   }
 
-  // Build socials block
   const socials = [
     ctx.linkedin && `LinkedIn: ${ctx.linkedin}`,
     ctx.github   && `GitHub: ${ctx.github}`,
     ctx.website  && `Portfolio: ${ctx.website}`,
   ].filter(Boolean).join('\n');
 
-  // Build achievements block
   const achievementsBlock = ctx.topAchievements.length > 0
     ? `Key achievements from resume:\n${ctx.topAchievements.map(a => `• ${a}`).join('\n')}`
     : '';
 
-  // Build courses block
   const coursesBlock = ctx.courses.length > 0
     ? `Courses/certifications: ${ctx.courses.join(', ')}`
     : '';
@@ -443,7 +416,6 @@ async function guessDomain(company: string, jobTitle: string): Promise<string> {
       .split(' ')[0]
       .trim();
 
-    // Must look like a domain
     if (raw && /^[a-z0-9][a-z0-9\-\.]{1,60}\.[a-z]{2,10}$/.test(raw)) {
       log('✅', 'Domain guessed by AI', { company, domain: raw });
       return raw;
@@ -454,7 +426,6 @@ async function guessDomain(company: string, jobTitle: string): Promise<string> {
     log('⚠️', 'Domain guess failed, using fallback', { error: e instanceof Error ? e.message : String(e) });
   }
 
-  // Fallback: simple normalisation
   return company.toLowerCase().replace(/[^a-z0-9]/g, '') + '.com';
 }
 
@@ -479,7 +450,6 @@ export async function POST(request: NextRequest) {
 
   log('📊', 'Request', { company, jobTitle, domainOverride });
 
-  // ── Build full sender context ─────────────────────────────────
   log('🔍', 'Building sender context');
   const senderCtx = await buildSenderContext(userId);
   log('📊', 'Sender context ready', {
@@ -492,13 +462,11 @@ export async function POST(request: NextRequest) {
     courses:      senderCtx.courses.length,
   });
 
-  // ── Determine domain ──────────────────────────────────────────
   const domain = domainOverride
     ? domainOverride
     : await guessDomain(company, jobTitle || '');
   log('📊', 'Using domain', { domain, wasOverridden: !!domainOverride });
 
-  // ── Fetch contacts ────────────────────────────────────────────
   let contacts: HunterContact[];
   try {
     contacts = await fetchHunterContacts(domain);
@@ -509,14 +477,16 @@ export async function POST(request: NextRequest) {
   }
 
   if (contacts.length === 0) {
-    log('⚠️', 'No contacts found', { domain });
-    return NextResponse.json({ contacts: [], message: `No contacts found for ${domain}. Try entering the domain manually (e.g. stripe.com).` });
+    log('⚠️', 'No recruiter contacts found', { domain });
+    return NextResponse.json({
+      contacts: [],
+      message: `No recruiter contacts found for ${domain}. Try entering the domain manually (e.g. stripe.com).`,
+    });
   }
 
   log('✅', 'Contacts fetched', { count: contacts.length });
 
-  // ── Generate emails in parallel ────────────────────────────
-  log('🔍', 'Generating personalised emails in parallel', { count: contacts.length });
+  log('🔍', 'Generating personalised emails', { count: contacts.length });
   const results = await Promise.allSettled(
     contacts.map(contact =>
       generatePersonalisedEmail(
@@ -541,7 +511,6 @@ export async function POST(request: NextRequest) {
   const succeeded = contactsWithEmails.filter(c => c.generatedEmail).length;
   log('📊', 'Email generation complete', { succeeded, total: contacts.length, ms: Date.now() - start });
 
-  // Cache (non-fatal)
   try {
     await db.collection('contactSearches').add({
       userId, company, domain, jobTitle,

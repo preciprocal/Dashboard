@@ -15,6 +15,14 @@
     "<all_urls>"
   ],
 
+  "externally_connectable": {
+    "matches": [
+      "https://preciprocal.com/*",
+      "https://www.preciprocal.com/*",
+      "http://localhost:3000/*"
+    ]
+  },
+
   "background": {
     "service_worker": "background.js"
   },
@@ -70,7 +78,6 @@
         "https://*.teamtailor.com/*",
         "https://*.personio.de/*",
         "https://*.personio.com/*",
-        "https://*.greenhouse.io/*",
         "https://*.hi.com/*",
         "https://*.jobscore.com/*",
         "https://*.paylocity.com/*",
