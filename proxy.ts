@@ -1,32 +1,22 @@
-// proxy.ts
+// proxy.ts — page auth only. CORS is handled per-route in /api/extension/*.
 import { NextRequest, NextResponse } from 'next/server';
-
-const CORS = {
-  'Access-Control-Allow-Origin':  '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, x-extension-token, x-user-email, x-user-id, Authorization, Accept',
-  'Access-Control-Max-Age':       '86400',
-};
 
 const PUBLIC_ROUTES = ['/help', '/terms', '/privacy', '/subscription', '/pricing'];
 const AUTH_ROUTES   = ['/sign-in', '/sign-up', '/forgot-password', '/reset-password', '/verify-email', '/onboarding', '/auth/action'];
 
 export default function proxy(request: NextRequest) {
-  // ── OPTIONS: must be first, before anything else ──────────────────────────
-  if (request.method === 'OPTIONS') {
-    return new NextResponse(null, { status: 204, headers: CORS });
+  // OPTIONS and all API routes — never redirect, pass straight through
+  // so the route handler's own OPTIONS() export can respond with CORS headers
+  if (
+    request.method === 'OPTIONS' ||
+    request.nextUrl.pathname.startsWith('/api/')
+  ) {
+    return NextResponse.next();
   }
 
   const { pathname } = request.nextUrl;
 
-  // ── Extension API: attach CORS, skip auth ─────────────────────────────────
-  if (pathname.startsWith('/api/extension')) {
-    const res = NextResponse.next();
-    Object.entries(CORS).forEach(([k, v]) => res.headers.set(k, v));
-    return res;
-  }
-
-  // ── Static assets ─────────────────────────────────────────────────────────
+  // Static assets
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon') ||
@@ -35,12 +25,7 @@ export default function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // ── All other API routes: pass through ────────────────────────────────────
-  if (pathname.startsWith('/api/')) {
-    return NextResponse.next();
-  }
-
-  // ── Page auth ─────────────────────────────────────────────────────────────
+  // Page auth
   const session    = request.cookies.get('session')?.value || request.cookies.get('__session')?.value;
   const isLoggedIn = Boolean(session);
 
@@ -63,8 +48,5 @@ export default function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    '/api/(.*)',
-    '/((?!_next/static|_next/image|favicon.ico).*)',
-  ],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api).*)'],
 };
