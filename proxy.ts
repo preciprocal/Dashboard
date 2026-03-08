@@ -1,16 +1,32 @@
 // proxy.ts
-// Handles page-level auth protection (Node.js runtime).
-// CORS for /api/extension/* is handled by middleware.ts (Edge runtime).
-
 import { NextRequest, NextResponse } from 'next/server';
+
+const CORS = {
+  'Access-Control-Allow-Origin':  '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, x-extension-token, x-user-email, x-user-id, Authorization, Accept',
+  'Access-Control-Max-Age':       '86400',
+};
 
 const PUBLIC_ROUTES = ['/help', '/terms', '/privacy', '/subscription', '/pricing'];
 const AUTH_ROUTES   = ['/sign-in', '/sign-up', '/forgot-password', '/reset-password', '/verify-email', '/onboarding', '/auth/action'];
 
 export default function proxy(request: NextRequest) {
+  // ── OPTIONS: must be first, before anything else ──────────────────────────
+  if (request.method === 'OPTIONS') {
+    return new NextResponse(null, { status: 204, headers: CORS });
+  }
+
   const { pathname } = request.nextUrl;
 
-  // Static assets — skip
+  // ── Extension API: attach CORS, skip auth ─────────────────────────────────
+  if (pathname.startsWith('/api/extension')) {
+    const res = NextResponse.next();
+    Object.entries(CORS).forEach(([k, v]) => res.headers.set(k, v));
+    return res;
+  }
+
+  // ── Static assets ─────────────────────────────────────────────────────────
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon') ||
@@ -19,12 +35,12 @@ export default function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // All API routes — pass through (CORS handled by middleware.ts)
+  // ── All other API routes: pass through ────────────────────────────────────
   if (pathname.startsWith('/api/')) {
     return NextResponse.next();
   }
 
-  // Session check for pages
+  // ── Page auth ─────────────────────────────────────────────────────────────
   const session    = request.cookies.get('session')?.value || request.cookies.get('__session')?.value;
   const isLoggedIn = Boolean(session);
 
@@ -47,6 +63,8 @@ export default function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Only run on page routes — API routes handled by middleware.ts
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api).*)'],
+  matcher: [
+    '/api/(.*)',
+    '/((?!_next/static|_next/image|favicon.ico).*)',
+  ],
 };
