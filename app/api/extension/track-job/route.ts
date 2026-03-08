@@ -1,17 +1,22 @@
 // app/api/extension/track-job/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, db } from '@/firebase/admin';
-import { CORS, optionsResponse } from '@/lib/cors';
+
+const CORS = {
+  'Access-Control-Allow-Origin':  '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, x-extension-token, x-user-email, x-user-id, Authorization, Accept',
+  'Access-Control-Max-Age':       '86400',
+};
 
 export async function OPTIONS() {
-  return optionsResponse();
+  return new NextResponse(null, { status: 204, headers: CORS });
 }
 
 async function getUserId(request: NextRequest): Promise<string | null> {
   const token  = request.headers.get('x-extension-token') || '';
   const email  = request.headers.get('x-user-email')      || '';
   const userId = request.headers.get('x-user-id')         || '';
-
   if (token) {
     try { const d = await auth.verifyIdToken(token, true);       return d.uid; } catch {}
     try { const d = await auth.verifySessionCookie(token, true); return d.uid; } catch {}
@@ -27,9 +32,7 @@ async function getUserId(request: NextRequest): Promise<string | null> {
 
 export async function POST(request: NextRequest) {
   const userId = await getUserId(request);
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: CORS });
-  }
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: CORS });
 
   let body: Record<string, unknown>;
   try { body = await request.json(); }
@@ -38,20 +41,13 @@ export async function POST(request: NextRequest) {
   const { title, company, location, description, url, jobId } = body as Record<string, string>;
 
   if (!company?.trim() || !title?.trim()) {
-    return NextResponse.json(
-      { error: 'company and title are required' },
-      { status: 400, headers: CORS }
-    );
+    return NextResponse.json({ error: 'company and title are required' }, { status: 400, headers: CORS });
   }
 
-  // Check for duplicate by URL
   try {
     if (url) {
       const existing = await db.collection('jobApplications')
-        .where('userId', '==', userId)
-        .where('jobUrl', '==', url)
-        .limit(1)
-        .get();
+        .where('userId', '==', userId).where('jobUrl', '==', url).limit(1).get();
       if (!existing.empty) {
         return NextResponse.json(
           { success: true, duplicate: true, id: existing.docs[0].id, message: 'Already in your tracker' },
@@ -78,15 +74,11 @@ export async function POST(request: NextRequest) {
       createdAt:     new Date(),
       updatedAt:     new Date(),
     });
-
     return NextResponse.json(
       { success: true, duplicate: false, id: docRef.id, message: 'Job added to your tracker' },
       { headers: CORS }
     );
   } catch {
-    return NextResponse.json(
-      { error: 'Failed to save job' },
-      { status: 500, headers: CORS }
-    );
+    return NextResponse.json({ error: 'Failed to save job' }, { status: 500, headers: CORS });
   }
 }

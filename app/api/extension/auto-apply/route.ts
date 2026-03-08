@@ -1,60 +1,40 @@
 // app/api/extension/auto-apply/route.ts
-
 import { NextRequest, NextResponse } from 'next/server';
 import { db, auth } from '@/firebase/admin';
-import { CORS, optionsResponse } from '@/lib/cors';
+
+const CORS = {
+  'Access-Control-Allow-Origin':  '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, x-extension-token, x-user-email, x-user-id, Authorization, Accept',
+  'Access-Control-Max-Age':       '86400',
+};
 
 export async function OPTIONS() {
-  return optionsResponse();
+  return new NextResponse(null, { status: 204, headers: CORS });
 }
 
-// ─── Token verification ───────────────────────────────────────────────────────
 async function verifyExtensionToken(request: NextRequest): Promise<string | null> {
   const token  = request.headers.get('x-extension-token') || '';
   const userId = request.headers.get('x-user-id')         || '';
   const email  = request.headers.get('x-user-email')      || '';
-
-  // Try 1: Firebase ID token
   if (token) {
-    try {
-      const decoded = await auth.verifyIdToken(token, true);
-      return decoded.uid;
-    } catch { /* not an ID token */ }
-
-    // Try 2: Firebase session cookie
-    try {
-      const decoded = await auth.verifySessionCookie(token, true);
-      return decoded.uid;
-    } catch { /* not a session cookie */ }
+    try { const d = await auth.verifyIdToken(token, true);       return d.uid; } catch {}
+    try { const d = await auth.verifySessionCookie(token, true); return d.uid; } catch {}
   }
-
-  // Try 3: Direct userId header
   if (userId && /^[a-zA-Z0-9]{20,40}$/.test(userId)) {
-    try {
-      await auth.getUser(userId);
-      return userId;
-    } catch { /* invalid uid */ }
+    try { await auth.getUser(userId); return userId; } catch {}
   }
-
-  // Try 4: Look up by email
   if (email) {
-    try {
-      const userRecord = await auth.getUserByEmail(email);
-      return userRecord.uid;
-    } catch { /* not found */ }
+    try { const u = await auth.getUserByEmail(email); return u.uid; } catch {}
   }
-
   return null;
 }
 
-// ─── Fetch resume from user profile doc ──────────────────────────────────────
 async function getLatestResume(uid: string) {
   try {
     const userDoc = await db.collection('users').doc(uid).get();
     if (!userDoc.exists) return null;
-
-    const data = userDoc.data()!;
-
+    const data    = userDoc.data()!;
     console.log('🔍 User doc resume-related fields:');
     for (const [key, val] of Object.entries(data)) {
       if (/resume/i.test(key)) {
@@ -62,30 +42,10 @@ async function getLatestResume(uid: string) {
         console.log(`   ${key}: ${preview}`);
       }
     }
-
-    const fileUrl =
-      data.resumePath     ||
-      data.resumeUrl      ||
-      data.resume         ||
-      data.resumeFile     ||
-      data.cvPath         ||
-      data.cvUrl          ||
-      data.cv             ||
-      null;
-
-    const fileName =
-      data.resumeFileName ||
-      data.resumeName     ||
-      data.cvFileName     ||
-      data.cvName         ||
-      'resume.pdf';
-
-    if (!fileUrl) {
-      console.log('⚠️ No resume found on user doc');
-      return null;
-    }
-
-    console.log(`✅ Profile resume found | ${fileName} | base64=${String(fileUrl).startsWith('data:')}`);
+    const fileUrl  = data.resumePath || data.resumeUrl || data.resume || data.resumeFile || data.cvPath || data.cvUrl || data.cv || null;
+    const fileName = data.resumeFileName || data.resumeName || data.cvFileName || data.cvName || 'resume.pdf';
+    if (!fileUrl) { console.log('⚠️ No resume found on user doc'); return null; }
+    console.log(`✅ Profile resume found | ${fileName}`);
     return { id: uid, fileName, url: fileUrl, available: true };
   } catch (error) {
     console.error('❌ Error fetching profile resume:', error);
@@ -93,7 +53,6 @@ async function getLatestResume(uid: string) {
   }
 }
 
-// ─── Fetch transcript ─────────────────────────────────────────────────────────
 async function getTranscript(uid: string) {
   try {
     const userDoc = await db.collection('users').doc(uid).get();
@@ -101,31 +60,19 @@ async function getTranscript(uid: string) {
       const data    = userDoc.data()!;
       const fileUrl  = data.transcriptPath || data.transcriptUrl || data.transcript || null;
       const fileName = data.transcriptFileName || data.transcriptName || 'transcript.pdf';
-      if (fileUrl) {
-        console.log(`✅ Transcript found on user doc | ${fileName}`);
-        return { id: uid, fileName, url: fileUrl, available: true };
-      }
+      if (fileUrl) { console.log(`✅ Transcript found | ${fileName}`); return { id: uid, fileName, url: fileUrl, available: true }; }
     }
-
-    const snap = await db
-      .collection('transcripts')
-      .where('userId', '==', uid)
-      .orderBy('createdAt', 'desc')
-      .limit(5)
-      .get();
-
+    const snap = await db.collection('transcripts').where('userId', '==', uid)
+      .orderBy('createdAt', 'desc').limit(5).get();
     if (!snap.empty) {
       for (const doc of snap.docs) {
         const data    = doc.data();
         if (data.deleted) continue;
         const fileUrl  = data.transcriptPath || data.fileUrl || data.url || null;
         const fileName = data.fileName || data.originalFileName || 'transcript.pdf';
-        if (fileUrl) {
-          return { id: doc.id, fileName, url: fileUrl, available: true };
-        }
+        if (fileUrl) return { id: doc.id, fileName, url: fileUrl, available: true };
       }
     }
-
     return null;
   } catch (error) {
     console.error('❌ Error fetching transcript:', error);
@@ -133,7 +80,6 @@ async function getTranscript(uid: string) {
   }
 }
 
-// ─── Build apply profile ──────────────────────────────────────────────────────
 function buildApplyProfile(userData: Record<string, unknown>, uid: string) {
   const name      = (userData.name as string) || (userData.displayName as string) || '';
   const nameParts = name.trim().split(/\s+/);
@@ -158,11 +104,11 @@ function buildApplyProfile(userData: Record<string, unknown>, uid: string) {
       : typeof userData.preferredTech === 'string' ? (userData.preferredTech as string).split(',').map((s: string) => s.trim()).filter(Boolean)
       : typeof userData.skills === 'string' ? (userData.skills as string).split(',').map((s: string) => s.trim()).filter(Boolean)
       : [],
-    certifications: (userData.certifications as string) || '',
-    languages:      (userData.languages as string)      || 'English',
-    linkedInUrl:  (userData.linkedIn as string)     || (userData.linkedInUrl as string)  || '',
-    githubUrl:    (userData.github as string)       || (userData.githubUrl as string)    || '',
-    portfolioUrl: (userData.website as string)      || (userData.portfolioUrl as string) || '',
+    certifications:    (userData.certifications as string) || '',
+    languages:         (userData.languages as string)      || 'English',
+    linkedInUrl:  (userData.linkedIn as string)    || (userData.linkedInUrl as string)  || '',
+    githubUrl:    (userData.github as string)      || (userData.githubUrl as string)    || '',
+    portfolioUrl: (userData.website as string)     || (userData.portfolioUrl as string) || '',
     desiredSalary:      (userData.desiredSalary as string)      || '',
     salaryType:         (userData.salaryType as string)         || 'yearly',
     noticePeriod:       (userData.noticePeriod as string)       || '2 weeks',
@@ -195,79 +141,45 @@ function buildApplyProfile(userData: Record<string, unknown>, uid: string) {
   };
 }
 
-// ─── GET /api/extension/auto-apply ───────────────────────────────────────────
 export async function GET(request: NextRequest) {
   console.log('🔌 Extension auto-apply request');
-
   try {
     const uid = await verifyExtensionToken(request);
-    if (!uid) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401, headers: CORS }
-      );
-    }
+    if (!uid) return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: CORS });
 
     console.log('✅ uid:', uid);
-
     const [userDoc, resumeData, transcriptData] = await Promise.all([
       db.collection('users').doc(uid).get(),
       getLatestResume(uid),
       getTranscript(uid),
     ]);
 
-    if (!userDoc.exists) {
-      return NextResponse.json(
-        { error: 'User profile not found' },
-        { status: 404, headers: CORS }
-      );
-    }
+    if (!userDoc.exists) return NextResponse.json({ error: 'User profile not found' }, { status: 404, headers: CORS });
 
     const userData     = userDoc.data() as Record<string, unknown>;
     const applyProfile = buildApplyProfile(userData, uid);
 
     const files = {
-      resume: resumeData
-        ? { available: true,  url: resumeData.url,     fileName: resumeData.fileName,     id: resumeData.id     }
-        : { available: false, url: null,                fileName: null,                    id: null              },
-      transcript: transcriptData
-        ? { available: true,  url: transcriptData.url, fileName: transcriptData.fileName, id: transcriptData.id }
-        : { available: false, url: null,                fileName: null,                    id: null              },
+      resume:     resumeData     ? { available: true,  url: resumeData.url,     fileName: resumeData.fileName,     id: resumeData.id     }
+                                 : { available: false, url: null,               fileName: null,                    id: null              },
+      transcript: transcriptData ? { available: true,  url: transcriptData.url, fileName: transcriptData.fileName, id: transcriptData.id }
+                                 : { available: false, url: null,               fileName: null,                    id: null              },
     };
 
-    console.log('📦 Final response:', {
-      user:            applyProfile.email,
-      resumeAvail:     files.resume.available,
-      resumeFile:      files.resume.fileName,
-      transcriptAvail: files.transcript.available,
-    });
+    console.log('📦 Final response:', { user: applyProfile.email, resumeAvail: files.resume.available, transcriptAvail: files.transcript.available });
 
     return NextResponse.json(
-      {
-        success: true,
-        applyProfile,
-        files,
-        user: {
-          uid,
-          email: userData.email,
-          name:  (userData.name as string) || (userData.displayName as string),
-          plan:  (userData.subscription as Record<string, string>)?.plan || 'free',
-        },
-        profileUpdatedAt: userData.updatedAt || null,
-      },
+      { success: true, applyProfile, files,
+        user: { uid, email: userData.email, name: (userData.name as string) || (userData.displayName as string), plan: (userData.subscription as Record<string, string>)?.plan || 'free' },
+        profileUpdatedAt: userData.updatedAt || null },
       { headers: CORS }
     );
-
   } catch (error) {
     console.error('❌ auto-apply error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error', details: (error as Error).message },
-      { status: 500, headers: CORS }
-    );
+    return NextResponse.json({ error: 'Internal server error', details: (error as Error).message }, { status: 500, headers: CORS });
   }
 }
 
-// ─── POST /api/extension/auto-apply ──────────────────────────────────────────
 export async function POST(request: NextRequest) {
   return GET(request);
 }
