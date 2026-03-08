@@ -17,7 +17,7 @@ async function getUserId(request: NextRequest): Promise<string | null> {
   const userId = request.headers.get('x-user-id')         || '';
 
   if (token) {
-    try { const d = await auth.verifyIdToken(token, true);     return d.uid; } catch {}
+    try { const d = await auth.verifyIdToken(token, true);       return d.uid; } catch {}
     try { const d = await auth.verifySessionCookie(token, true); return d.uid; } catch {}
   }
   if (userId && /^[a-zA-Z0-9]{20,40}$/.test(userId)) {
@@ -75,11 +75,20 @@ Return ONLY valid JSON:
 
   let aiData: Record<string, unknown>;
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash', generationConfig: { temperature: 0.2, maxOutputTokens: 512 } });
-    const raw   = (await model.generateContent(prompt)).response.text();
-    aiData      = JSON.parse(raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim());
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.0-flash',
+      generationConfig: { temperature: 0.2, maxOutputTokens: 512 },
+    });
+    const raw = (await model.generateContent(prompt)).response.text();
+    aiData    = JSON.parse(raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim());
   } catch {
-    aiData = { compatibilityScore: 0, matchLevel: 'unknown', topMatchingSkills: [], missingKeySkills: [], oneLineSummary: 'Could not analyse.' };
+    aiData = {
+      compatibilityScore: 0,
+      matchLevel:         'unknown',
+      topMatchingSkills:  [],
+      missingKeySkills:   [],
+      oneLineSummary:     'Could not analyse.',
+    };
   }
 
   return NextResponse.json({ success: true, ...aiData }, { headers: CORS });

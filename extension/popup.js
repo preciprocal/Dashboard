@@ -1,6 +1,6 @@
 // popup.js
 
-const IS_DEV   = false;
+const IS_DEV   = true;
 const BASE_URL = IS_DEV ? 'http://localhost:3000' : 'https://preciprocal.com';
 
 let authState = {

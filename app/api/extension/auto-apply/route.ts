@@ -2,19 +2,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db, auth } from '@/firebase/admin';
-
-// ─── CORS ─────────────────────────────────────────────────────────────────────
-function corsHeaders() {
-  return {
-    'Access-Control-Allow-Origin':  '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, x-extension-token, x-user-email, x-user-id, Authorization',
-    'Access-Control-Max-Age':       '86400',
-  };
-}
+import { CORS, optionsResponse } from '@/lib/cors';
 
 export async function OPTIONS() {
-  return new NextResponse(null, { status: 200, headers: corsHeaders() });
+  return optionsResponse();
 }
 
 // ─── Token verification ───────────────────────────────────────────────────────
@@ -107,7 +98,7 @@ async function getTranscript(uid: string) {
   try {
     const userDoc = await db.collection('users').doc(uid).get();
     if (userDoc.exists) {
-      const data = userDoc.data()!;
+      const data    = userDoc.data()!;
       const fileUrl  = data.transcriptPath || data.transcriptUrl || data.transcript || null;
       const fileName = data.transcriptFileName || data.transcriptName || 'transcript.pdf';
       if (fileUrl) {
@@ -125,7 +116,7 @@ async function getTranscript(uid: string) {
 
     if (!snap.empty) {
       for (const doc of snap.docs) {
-        const data = doc.data();
+        const data    = doc.data();
         if (data.deleted) continue;
         const fileUrl  = data.transcriptPath || data.fileUrl || data.url || null;
         const fileName = data.fileName || data.originalFileName || 'transcript.pdf';
@@ -156,27 +147,28 @@ function buildApplyProfile(userData: Record<string, unknown>, uid: string) {
     city:       (userData.city as string)       || ((userData.location as string) || '').split(',')[0]?.trim() || '',
     state:      (userData.state as string)      || ((userData.location as string) || '').split(',')[1]?.trim() || '',
     zipCode:    (userData.zipCode as string)    || '',
-    streetAddress: (userData.streetAddress as string) || (userData.address as string) || '',
+    streetAddress:     (userData.streetAddress as string)     || (userData.address as string) || '',
     country:    (userData.country as string)    || 'United States',
-    headline:       (userData.targetRole as string) || (userData.headline as string) || '',
+    headline:          (userData.targetRole as string)        || (userData.headline as string) || '',
     yearsOfExperience: (userData.yearsOfExperience as string) || '',
-    summary:        (userData.bio as string) || (userData.summary as string) || '',
-    skills:         Array.isArray(userData.preferredTech) ? userData.preferredTech
-                    : Array.isArray(userData.skills) ? userData.skills
-                    : typeof userData.preferredTech === 'string' ? (userData.preferredTech as string).split(',').map((s: string) => s.trim()).filter(Boolean)
-                    : typeof userData.skills === 'string' ? (userData.skills as string).split(',').map((s: string) => s.trim()).filter(Boolean)
-                    : [],
+    summary:           (userData.bio as string)               || (userData.summary as string)  || '',
+    skills:
+      Array.isArray(userData.preferredTech) ? userData.preferredTech
+      : Array.isArray(userData.skills) ? userData.skills
+      : typeof userData.preferredTech === 'string' ? (userData.preferredTech as string).split(',').map((s: string) => s.trim()).filter(Boolean)
+      : typeof userData.skills === 'string' ? (userData.skills as string).split(',').map((s: string) => s.trim()).filter(Boolean)
+      : [],
     certifications: (userData.certifications as string) || '',
-    languages:      (userData.languages as string) || 'English',
-    linkedInUrl:  (userData.linkedIn as string)     || (userData.linkedInUrl as string)   || '',
-    githubUrl:    (userData.github as string)       || (userData.githubUrl as string)     || '',
-    portfolioUrl: (userData.website as string)      || (userData.portfolioUrl as string)  || '',
-    desiredSalary:     (userData.desiredSalary as string)     || '',
-    salaryType:        (userData.salaryType as string)        || 'yearly',
-    noticePeriod:      (userData.noticePeriod as string)      || '2 weeks',
-    workType:          (userData.workType as string)          || 'Remote',
-    employmentType:    (userData.employmentType as string)    || 'Full-time',
-    openToTravel:      (userData.openToTravel as string)      || 'No',
+    languages:      (userData.languages as string)      || 'English',
+    linkedInUrl:  (userData.linkedIn as string)     || (userData.linkedInUrl as string)  || '',
+    githubUrl:    (userData.github as string)       || (userData.githubUrl as string)    || '',
+    portfolioUrl: (userData.website as string)      || (userData.portfolioUrl as string) || '',
+    desiredSalary:      (userData.desiredSalary as string)      || '',
+    salaryType:         (userData.salaryType as string)         || 'yearly',
+    noticePeriod:       (userData.noticePeriod as string)       || '2 weeks',
+    workType:           (userData.workType as string)           || 'Remote',
+    employmentType:     (userData.employmentType as string)     || 'Full-time',
+    openToTravel:       (userData.openToTravel as string)       || 'No',
     willingToRelocate:  (userData.willingToRelocate as boolean)  ?? false,
     currentlyEmployed:  (userData.currentlyEmployed as boolean)  ?? false,
     reasonForLeaving:   (userData.reasonForLeaving as string)    || '',
@@ -189,7 +181,7 @@ function buildApplyProfile(userData: Record<string, unknown>, uid: string) {
     backgroundCheck: (userData.backgroundCheck as boolean) ?? true,
     drugTest:        (userData.drugTest as boolean)        ?? true,
     criminalRecord:  (userData.criminalRecord as boolean)  ?? false,
-    education:  (userData.education as unknown[])  || [],
+    education:  (userData.education  as unknown[]) || [],
     experience: (userData.experience as unknown[]) || [],
     gender:           (userData.gender as string)           || 'Prefer not to say',
     pronouns:         (userData.pronouns as string)         || 'Prefer not to say',
@@ -212,7 +204,7 @@ export async function GET(request: NextRequest) {
     if (!uid) {
       return NextResponse.json(
         { error: 'Unauthorized' },
-        { status: 401, headers: corsHeaders() }
+        { status: 401, headers: CORS }
       );
     }
 
@@ -227,7 +219,7 @@ export async function GET(request: NextRequest) {
     if (!userDoc.exists) {
       return NextResponse.json(
         { error: 'User profile not found' },
-        { status: 404, headers: corsHeaders() }
+        { status: 404, headers: CORS }
       );
     }
 
@@ -236,11 +228,11 @@ export async function GET(request: NextRequest) {
 
     const files = {
       resume: resumeData
-        ? { available: true,  url: resumeData.url,      fileName: resumeData.fileName,      id: resumeData.id      }
-        : { available: false, url: null,                 fileName: null,                     id: null               },
+        ? { available: true,  url: resumeData.url,     fileName: resumeData.fileName,     id: resumeData.id     }
+        : { available: false, url: null,                fileName: null,                    id: null              },
       transcript: transcriptData
-        ? { available: true,  url: transcriptData.url,  fileName: transcriptData.fileName,  id: transcriptData.id  }
-        : { available: false, url: null,                 fileName: null,                     id: null               },
+        ? { available: true,  url: transcriptData.url, fileName: transcriptData.fileName, id: transcriptData.id }
+        : { available: false, url: null,                fileName: null,                    id: null              },
     };
 
     console.log('📦 Final response:', {
@@ -263,20 +255,19 @@ export async function GET(request: NextRequest) {
         },
         profileUpdatedAt: userData.updatedAt || null,
       },
-      { headers: corsHeaders() }
+      { headers: CORS }
     );
 
   } catch (error) {
     console.error('❌ auto-apply error:', error);
     return NextResponse.json(
       { error: 'Internal server error', details: (error as Error).message },
-      { status: 500, headers: corsHeaders() }
+      { status: 500, headers: CORS }
     );
   }
 }
 
 // ─── POST /api/extension/auto-apply ──────────────────────────────────────────
-// Some callers POST instead of GET — handle both the same way
 export async function POST(request: NextRequest) {
   return GET(request);
 }

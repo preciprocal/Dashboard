@@ -11,7 +11,7 @@ const CORS = {
 const PUBLIC_ROUTES  = ['/help', '/terms', '/privacy', '/subscription', '/pricing'];
 const AUTH_ROUTES    = ['/sign-in', '/sign-up', '/forgot-password', '/reset-password', '/verify-email', '/onboarding', '/auth/action'];
 
-export function proxy(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // ── STEP 1: OPTIONS — respond immediately for every single route ──────────

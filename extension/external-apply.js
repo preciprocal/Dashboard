@@ -7,7 +7,7 @@
 
 console.log('🚀 Preciprocal external-apply.js on:', window.location.hostname);
 
-const IS_DEV = false; // Set to true for local development
+const IS_DEV = true; // Set to true for local development
 const PRECIPROCAL_URL = IS_DEV ? 'http://localhost:3000' : 'https://preciprocal.com';
 
 // ─────────────────────────────────────────────────────────────────
@@ -833,12 +833,30 @@ class FileInjector {
     const all        = Array.from(document.querySelectorAll('input[type="file"]:not([disabled])'));
     const resume     = [], transcript = [], other = [];
     for (const inp of all) {
-      const lbl = getLabel(inp).toLowerCase();
-      if (/resume|cv\b|curriculum vitae/i.test(lbl))                resume.push(inp);
+      // Build a comprehensive label string
+      let lbl = inp.getAttribute('aria-label') || inp.placeholder || '';
+      if (!lbl && inp.id) {
+        const forLabel = document.querySelector(`label[for="${CSS.escape(inp.id)}"]`);
+        if (forLabel) lbl = forLabel.textContent || '';
+      }
+      if (!lbl) {
+        const container = inp.closest(
+          '[class*="field"], [class*="form-group"], [class*="form-item"], fieldset, label, div'
+        );
+        if (container) {
+          const labelEl = container.querySelector('label, [class*="label"], legend, p');
+          lbl = labelEl?.textContent || container.textContent || '';
+        }
+      }
+      lbl = lbl.toLowerCase().trim();
+
+      if (/cover.?letter/i.test(lbl))                                    { /* never inject into cover letter */ }
+      else if (/resume|cv\b|curriculum vitae/i.test(lbl))                resume.push(inp);
       else if (/transcript|academic record|grade|certificate/i.test(lbl)) transcript.push(inp);
-      else if (/cover.?letter/i.test(lbl))                          {}
-      else                                                           other.push(inp);
+      else                                                                  other.push(inp);
     }
+    // Fallback: assume first unlabelled input is resume, second is transcript
+    // But NEVER cross-assign: don't put transcript file in resume slot or vice versa
     if (!resume.length     && other.length) resume.push(other.shift());
     if (!transcript.length && other.length) transcript.push(other.shift());
     return { resume, transcript };

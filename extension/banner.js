@@ -2,7 +2,7 @@
 
 console.log('🎯 Preciprocal banner.js loaded on:', window.location.href);
 
-const IS_DEV = false; // Set to true for local development
+const IS_DEV = true; // Set to true for local development
 const PRECIPROCAL_URL = IS_DEV ? 'http://localhost:3000' : 'https://preciprocal.com';
 
 // ─────────────────────────────────────────────────────────────────
@@ -593,9 +593,8 @@ class PreciprocalBanner {
           if (type === 'error')   this.showNotification(msg, 'error');
         });
         await engine.start();
-        if (this.applyFiles?.resume?.available && this.applyFiles.resume.url) {
-          try { await this._injectFileIntoModal(this.applyFiles.resume.url, this.applyFiles.resume.fileName); } catch {}
-        }
+        // Inject resume into resume slot, transcript into transcript slot only
+        try { await this._injectFilesIntoModal(); } catch {}
         this.applyState = 'done';
         if (btn) { btn.classList.remove('loading'); btn.classList.add('done'); }
         if (labelEl) labelEl.textContent = 'Review & Submit';
@@ -639,24 +638,86 @@ class PreciprocalBanner {
     window.open(`${PRECIPROCAL_URL}${path}?linkedin_job=true`, '_blank');
   }
 
-  async _injectFileIntoModal(url, fileName) {
-    const modal = document.querySelector('[data-test-modal-id="easy-apply-modal"], .jobs-easy-apply-modal, .artdeco-modal[role="dialog"]');
-    if (!modal) return false;
-    const fileInput = modal.querySelector('input[type="file"]');
-    if (!fileInput) return false;
-    const response = await fetch(url, { mode: 'cors' });
-    if (!response.ok) return false;
-    const blob = await response.blob();
-    if (!blob) return false;
-    const ext = fileName.split('.').pop()?.toLowerCase();
+  // ── Classify all file inputs in the modal into resume / transcript buckets ──
+  _classifyModalFileInputs(modal) {
+    const all        = Array.from(modal.querySelectorAll('input[type="file"]:not([disabled])'));
+    const resume     = [], transcript = [], other = [];
+    for (const inp of all) {
+      // Build a label string from aria-label, placeholder, nearby <label>, or parent text
+      let lbl = inp.getAttribute('aria-label') || inp.placeholder || '';
+      if (!lbl && inp.id) {
+        const forLabel = document.querySelector(`label[for="${inp.id}"]`);
+        if (forLabel) lbl = forLabel.textContent || '';
+      }
+      if (!lbl) {
+        const container = inp.closest('[class*="field"], [class*="form-item"], fieldset, label, div');
+        if (container) lbl = container.textContent || '';
+      }
+      lbl = lbl.toLowerCase();
+      if (/resume|cv\b|curriculum vitae/i.test(lbl))                    resume.push(inp);
+      else if (/transcript|academic record|grade|certificate/i.test(lbl)) transcript.push(inp);
+      else if (/cover.?letter/i.test(lbl))                               { /* skip — never inject into cover letter */ }
+      else                                                                 other.push(inp);
+    }
+    // If we couldn't label them, assume the first unknown is resume, second is transcript
+    if (!resume.length     && other.length) resume.push(other.shift());
+    if (!transcript.length && other.length) transcript.push(other.shift());
+    return { resume, transcript };
+  }
+
+  async _buildFileObject(url, fileName) {
+    const ext     = (fileName.split('.').pop() || '').toLowerCase();
     const mimeMap = { pdf: 'application/pdf', doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' };
-    const file = new File([blob], fileName, { type: mimeMap[ext] || 'application/octet-stream' });
+    const mime    = mimeMap[ext] || 'application/octet-stream';
+    if (url.startsWith('data:')) {
+      const base64 = url.split(',')[1];
+      if (!base64) throw new Error('Invalid base64 data URL');
+      const binary = atob(base64);
+      const bytes  = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return new File([bytes], fileName, { type: mime });
+    }
+    const res = await fetch(url, { mode: 'cors' });
+    if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
+    return new File([await res.blob()], fileName, { type: mime });
+  }
+
+  async _setFileOnInput(input, file) {
     const dt = new DataTransfer();
     dt.items.add(file);
-    fileInput.files = dt.files;
-    fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-    fileInput.dispatchEvent(new Event('input',  { bubbles: true }));
-    return true;
+    input.files = dt.files;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    input.dispatchEvent(new Event('input',  { bubbles: true }));
+  }
+
+  // Injects resume → resume inputs only, transcript → transcript inputs only
+  async _injectFilesIntoModal() {
+    const modal = document.querySelector('[data-test-modal-id="easy-apply-modal"], .jobs-easy-apply-modal, .artdeco-modal[role="dialog"]');
+    if (!modal) return { resume: false, transcript: false };
+    const { resume: resumeInputs, transcript: transcriptInputs } = this._classifyModalFileInputs(modal);
+    const result = { resume: false, transcript: false };
+
+    // Inject resume
+    if (this.applyFiles?.resume?.available && this.applyFiles.resume.url && resumeInputs.length) {
+      try {
+        const file = await this._buildFileObject(this.applyFiles.resume.url, this.applyFiles.resume.fileName);
+        for (const inp of resumeInputs) await this._setFileOnInput(inp, file);
+        result.resume = true;
+        console.log('✅ Resume injected into modal');
+      } catch (e) { console.warn('⚠️ Resume injection failed:', e.message); }
+    }
+
+    // Inject transcript — only into transcript-labelled inputs, NEVER into resume or cover letter slots
+    if (this.applyFiles?.transcript?.available && this.applyFiles.transcript.url && transcriptInputs.length) {
+      try {
+        const file = await this._buildFileObject(this.applyFiles.transcript.url, this.applyFiles.transcript.fileName);
+        for (const inp of transcriptInputs) await this._setFileOnInput(inp, file);
+        result.transcript = true;
+        console.log('✅ Transcript injected into modal (transcript section only)');
+      } catch (e) { console.warn('⚠️ Transcript injection failed:', e.message); }
+    }
+
+    return result;
   }
 
   async handleTrackJob() {

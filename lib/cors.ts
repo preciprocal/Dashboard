@@ -5,8 +5,8 @@ import { NextResponse } from 'next/server';
 
 export const CORS = {
   'Access-Control-Allow-Origin':  '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, x-extension-token, x-user-email, x-user-id, Authorization',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, x-extension-token, x-user-email, x-user-id, Authorization, Accept',
   'Access-Control-Max-Age':       '86400',
 };
 
@@ -16,7 +16,7 @@ export function optionsResponse() {
 
 export function withCors(body: unknown, init: { status?: number } = {}) {
   return NextResponse.json(body, {
-    status: init.status ?? 200,
+    status:  init.status ?? 200,
     headers: CORS,
   });
 }
