@@ -12,12 +12,15 @@ const PUBLIC_ROUTES = ['/help', '/terms', '/privacy', '/subscription', '/pricing
 const AUTH_ROUTES   = ['/sign-in', '/sign-up', '/forgot-password', '/reset-password', '/verify-email', '/onboarding', '/auth/action'];
 
 export function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-
-  // ── STEP 1: OPTIONS — respond immediately for EVERY route, no exceptions ──
+  // ── STEP 1: OPTIONS preflight — ABSOLUTE FIRST, before any pathname logic ─
+  // Chrome extensions send OPTIONS before every POST/GET with custom headers.
+  // If this ever hits a redirect the browser throws CORS error and blocks the
+  // actual request. This must return 204 unconditionally.
   if (request.method === 'OPTIONS') {
     return new NextResponse(null, { status: 204, headers: CORS });
   }
+
+  const { pathname } = request.nextUrl;
 
   // ── STEP 2: Extension API — attach CORS headers, skip all auth checks ─────
   if (pathname.startsWith('/api/extension')) {
@@ -63,5 +66,10 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  // /api/(.*) listed explicitly so OPTIONS preflights on API routes always
+  // reach this function before Vercel's routing layer can redirect them
+  matcher: [
+    '/api/(.*)',
+    '/((?!_next/static|_next/image|favicon.ico).*)',
+  ],
 };
