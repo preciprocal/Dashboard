@@ -28,38 +28,62 @@ const USER_STATS_CACHE_TTL = 5 * 60;
 
 // Metadata configuration
 export const metadata: Metadata = {
-  title: "Preciprocal | Tired of AI Taking Your Job? Use AI to Take It Back !",
-  description: "Stop stressing about AI replacing you. Level up your career game with AI that actually works for YOU. Ace interviews, flex that resume, and land the bag. No cap.",
+  title: "Preciprocal | AI Career Prep — Interviews, Resumes & Job Applications",
+  description:
+    "Ace your next interview with AI-powered mock interviews, resume analysis, cover letter generation, and job application tracking. Built for job seekers who want to win.",
   keywords: [
-    "AI career prep",
+    "AI mock interview",
     "interview practice",
-    "resume optimization",
-    "job search",
-    "career development",
-    "interview coach",
-    "ATS resume checker",
-    "job prep tools",
+    "resume analyzer",
+    "resume ATS checker",
+    "cover letter generator",
+    "job application tracker",
+    "career preparation",
+    "AI career coach",
+    "interview feedback",
+    "job search tools",
+    "Chrome extension job apply",
+    "VAPI interview practice",
   ],
-  authors: [{ name: "Preciprocal" }],
+  authors: [{ name: "Preciprocal", url: "https://preciprocal.com" }],
+  metadataBase: new URL("https://preciprocal.com"),
   openGraph: {
-    title: "Preciprocal | Tired of AI Taking Your Job? Use AI to Take It Back",
-    description: "Stop stressing about AI replacing you. Use AI to level up your career game instead. Ace interviews, optimize your resume, land the bag ✨",
+    title: "Preciprocal | AI-Powered Career Prep",
+    description:
+      "Mock interviews, resume analysis, cover letter generation, and job tracking — all in one AI-powered platform. Land the job, faster.",
+    url: "https://preciprocal.com",
+    siteName: "Preciprocal",
     type: "website",
     locale: "en_US",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Preciprocal — AI Career Prep Platform",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Preciprocal | AI Taking Your Job? Take It Back",
-    description: "Stop stressing. Start winning. Use AI to ace interviews and land the bag. 💼✨",
+    title: "Preciprocal | AI Career Prep",
+    description:
+      "Mock interviews, resume analysis, cover letter generation & job tracking. Land the job with AI on your side.",
+    images: ["/og-image.png"],
+    creator: "@preciprocal",
   },
   robots: {
     index: true,
     follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
   },
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 5,
+  alternates: {
+    canonical: "https://preciprocal.com",
   },
 };
 
@@ -109,14 +133,14 @@ async function getCachedUserStats(userId: string): Promise<UserStats | null> {
 
     if (cached) {
       console.log(`✅ Cache HIT - User stats for ${userId}`);
-      const data = typeof cached === 'string' ? JSON.parse(cached) : cached;
+      const data = typeof cached === "string" ? JSON.parse(cached) : cached;
       return (data as CachedUserStats).stats;
     }
 
     console.log(`❌ Cache MISS - User stats for ${userId}`);
     return null;
   } catch (error) {
-    console.error('Redis get error:', error);
+    console.error("Redis get error:", error);
     return null;
   }
 }
@@ -131,13 +155,15 @@ async function cacheUserStats(userId: string, stats: UserStats): Promise<void> {
     const key = `user-stats:${userId}`;
     const data: CachedUserStats = {
       stats,
-      cachedAt: new Date().toISOString()
+      cachedAt: new Date().toISOString(),
     };
 
     await redis.setex(key, USER_STATS_CACHE_TTL, JSON.stringify(data));
-    console.log(`✅ Cached user stats for ${userId} (${USER_STATS_CACHE_TTL / 60} minutes)`);
+    console.log(
+      `✅ Cached user stats for ${userId} (${USER_STATS_CACHE_TTL / 60} minutes)`
+    );
   } catch (error) {
-    console.error('Redis set error:', error);
+    console.error("Redis set error:", error);
   }
 }
 
@@ -152,7 +178,7 @@ export async function invalidateUserStatsCache(userId: string): Promise<void> {
     await redis.del(key);
     console.log(`✅ Invalidated user stats cache for ${userId}`);
   } catch (error) {
-    console.error('Redis delete error:', error);
+    console.error("Redis delete error:", error);
   }
 }
 
@@ -166,10 +192,10 @@ const calculateUserStats = async (interviews: Interview[]): Promise<UserStats> =
 
   for (const interview of interviews) {
     try {
-      const feedback = await getFeedbackByInterviewId({
+      const feedback = (await getFeedbackByInterviewId({
         interviewId: interview.id,
         userId: interview.userId,
-      }) as Feedback | null;
+      })) as Feedback | null;
 
       if (feedback && feedback.totalScore) {
         completedInterviews.push({ ...interview, feedback });
@@ -213,7 +239,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const startTime = Date.now();
-  
+
   let user: { id: string; [key: string]: unknown } | null = null;
   let userStats: UserStats = {
     totalInterviews: 0,
@@ -230,42 +256,44 @@ export default async function RootLayout({
   let statsFromCache = false;
 
   try {
-    console.log('🔐 Checking authentication...');
-    console.log('   Redis available:', !!redis);
+    console.log("🔐 Checking authentication...");
+    console.log("   Redis available:", !!redis);
 
     // Check authentication without immediate redirect
     const isUserAuthenticated = await isAuthenticated();
-    
+
     if (isUserAuthenticated) {
       const currentUser = await getCurrentUser();
-      
+
       if (currentUser) {
         user = {
           ...currentUser,
         } as { id: string; [key: string]: unknown };
-        
+
         console.log(`👤 User authenticated: ${user.id}`);
       }
-      
+
       // Only fetch interview stats if we have a user
       if (user?.id) {
         try {
           // Check cache first
           const cachedStats = await getCachedUserStats(user.id);
-          
+
           if (cachedStats) {
             userStats = cachedStats;
             statsFromCache = true;
-            console.log('⚡ Using cached user stats');
+            console.log("⚡ Using cached user stats");
           } else {
             // Fetch from database
-            console.log('🔍 Fetching user stats from database...');
-            const interviews = await getInterviewsByUserId(user.id) as Interview[] | null;
+            console.log("🔍 Fetching user stats from database...");
+            const interviews = (await getInterviewsByUserId(
+              user.id
+            )) as Interview[] | null;
             userStats = await calculateUserStats(interviews || []);
-            
+
             // Cache the stats
             await cacheUserStats(user.id, userStats);
-            console.log('💾 User stats calculated and cached');
+            console.log("💾 User stats calculated and cached");
           }
         } catch (error) {
           console.error("Failed to fetch user stats:", error);
@@ -279,11 +307,16 @@ export default async function RootLayout({
   }
 
   const totalTime = Date.now() - startTime;
-  console.log(`✅ Layout data loaded in ${totalTime}ms (stats from cache: ${statsFromCache})`);
+  console.log(
+    `✅ Layout data loaded in ${totalTime}ms (stats from cache: ${statsFromCache})`
+  );
 
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`} suppressHydrationWarning>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        suppressHydrationWarning
+      >
         <LayoutClient user={user} userStats={userStats}>
           {children}
         </LayoutClient>
