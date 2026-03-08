@@ -1,35 +1,16 @@
 // proxy.ts
-import { NextRequest, NextResponse } from 'next/server';
+// Handles page-level auth protection (Node.js runtime).
+// CORS for /api/extension/* is handled by middleware.ts (Edge runtime).
 
-const CORS = {
-  'Access-Control-Allow-Origin':  '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, x-extension-token, x-user-email, x-user-id, Authorization, Accept',
-  'Access-Control-Max-Age':       '86400',
-};
+import { NextRequest, NextResponse } from 'next/server';
 
 const PUBLIC_ROUTES = ['/help', '/terms', '/privacy', '/subscription', '/pricing'];
 const AUTH_ROUTES   = ['/sign-in', '/sign-up', '/forgot-password', '/reset-password', '/verify-email', '/onboarding', '/auth/action'];
 
-export function proxy(request: NextRequest) {
-  // ── STEP 1: OPTIONS preflight — ABSOLUTE FIRST, before any pathname logic ─
-  // Chrome extensions send OPTIONS before every POST/GET with custom headers.
-  // If this ever hits a redirect the browser throws CORS error and blocks the
-  // actual request. This must return 204 unconditionally.
-  if (request.method === 'OPTIONS') {
-    return new NextResponse(null, { status: 204, headers: CORS });
-  }
-
+export default function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // ── STEP 2: Extension API — attach CORS headers, skip all auth checks ─────
-  if (pathname.startsWith('/api/extension')) {
-    const res = NextResponse.next();
-    Object.entries(CORS).forEach(([k, v]) => res.headers.set(k, v));
-    return res;
-  }
-
-  // ── STEP 3: Static assets / Next.js internals ─────────────────────────────
+  // Static assets — skip
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon') ||
@@ -38,12 +19,12 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // ── STEP 4: All other API routes — pass through, no auth gate ────────────
+  // All API routes — pass through (CORS handled by middleware.ts)
   if (pathname.startsWith('/api/')) {
     return NextResponse.next();
   }
 
-  // ── STEP 5: Page-level session check ──────────────────────────────────────
+  // Session check for pages
   const session    = request.cookies.get('session')?.value || request.cookies.get('__session')?.value;
   const isLoggedIn = Boolean(session);
 
@@ -66,10 +47,6 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // /api/(.*) listed explicitly so OPTIONS preflights on API routes always
-  // reach this function before Vercel's routing layer can redirect them
-  matcher: [
-    '/api/(.*)',
-    '/((?!_next/static|_next/image|favicon.ico).*)',
-  ],
+  // Only run on page routes — API routes handled by middleware.ts
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api).*)'],
 };
