@@ -833,30 +833,12 @@ class FileInjector {
     const all        = Array.from(document.querySelectorAll('input[type="file"]:not([disabled])'));
     const resume     = [], transcript = [], other = [];
     for (const inp of all) {
-      // Build a comprehensive label string
-      let lbl = inp.getAttribute('aria-label') || inp.placeholder || '';
-      if (!lbl && inp.id) {
-        const forLabel = document.querySelector(`label[for="${CSS.escape(inp.id)}"]`);
-        if (forLabel) lbl = forLabel.textContent || '';
-      }
-      if (!lbl) {
-        const container = inp.closest(
-          '[class*="field"], [class*="form-group"], [class*="form-item"], fieldset, label, div'
-        );
-        if (container) {
-          const labelEl = container.querySelector('label, [class*="label"], legend, p');
-          lbl = labelEl?.textContent || container.textContent || '';
-        }
-      }
-      lbl = lbl.toLowerCase().trim();
-
-      if (/cover.?letter/i.test(lbl))                                    { /* never inject into cover letter */ }
-      else if (/resume|cv\b|curriculum vitae/i.test(lbl))                resume.push(inp);
+      const lbl = getLabel(inp).toLowerCase();
+      if (/resume|cv\b|curriculum vitae/i.test(lbl))                resume.push(inp);
       else if (/transcript|academic record|grade|certificate/i.test(lbl)) transcript.push(inp);
-      else                                                                  other.push(inp);
+      else if (/cover.?letter/i.test(lbl))                          {}
+      else                                                           other.push(inp);
     }
-    // Fallback: assume first unlabelled input is resume, second is transcript
-    // But NEVER cross-assign: don't put transcript file in resume slot or vice versa
     if (!resume.length     && other.length) resume.push(other.shift());
     if (!transcript.length && other.length) transcript.push(other.shift());
     return { resume, transcript };
@@ -1787,51 +1769,95 @@ class PreciprocalSidebar {
     document.getElementById('prc-sidebar')?.remove();
     const sidebar = document.createElement('div');
     sidebar.id = 'prc-sidebar';
-    let logo = '';
-    try { logo = chrome.runtime.getURL('icons/icon48.png'); } catch {}
+
+    const platformName = this._platformLabel().replace(/^[^\s]+\s/, ''); // strip emoji
 
     sidebar.innerHTML = `
       <div id="prc-sidebar-inner">
+
+        <!-- Header -->
         <div class="prc-sb-header">
           <div class="prc-sb-brand">
-            ${logo ? `<img src="${logo}" class="prc-sb-logo">` : '⚡'}
-            <span class="prc-sb-title">Preciprocal</span>
+            <svg width="18" height="18" viewBox="0 0 64 64" fill="none">
+              <path d="M32 10L54 32L32 54L10 32L32 10Z" fill="white" opacity="0.9"/>
+              <path d="M32 22L42 32L32 42L22 32L32 22Z" fill="white"/>
+            </svg>
+            <span class="prc-sb-name">Preciprocal</span>
           </div>
-          <button class="prc-sb-collapse" id="prc-collapse-btn">‹</button>
+          <button class="prc-sb-collapse" id="prc-collapse-btn" title="Collapse">
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+          </button>
         </div>
+
+        <!-- Body -->
         <div class="prc-sb-body">
-          <div class="prc-sb-platform"><span class="prc-platform-badge">${this._platformLabel()}</span></div>
+
           ${!this.isAuth ? `
-            <p class="prc-sb-hint">Sign in to auto-fill this form.</p>
-            <button class="prc-sb-btn prc-sb-primary" id="prc-signin-btn">Sign In to Preciprocal</button>
+
+            <!-- Unauthenticated -->
+            <div class="prc-sb-hero">
+              <p class="prc-sb-hero-title">Apply with Preciprocal</p>
+              <p class="prc-sb-hero-sub">Auto-fill any job application in seconds using your profile.</p>
+            </div>
+
+            <div class="prc-sb-checklist">
+              <div class="prc-sb-check-item">
+                <div class="prc-sb-check-icon">
+                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                </div>
+                <span>Create your Preciprocal account</span>
+                <button class="prc-sb-go" id="prc-signin-btn">GO</button>
+              </div>
+              <div class="prc-sb-check-item prc-sb-check-dim">
+                <div class="prc-sb-check-icon">
+                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                </div>
+                <span>Complete your profile</span>
+                <div class="prc-sb-go prc-sb-go-dim">GO</div>
+              </div>
+            </div>
+
+            <button class="prc-sb-cta prc-sb-cta-disabled">Start Applying</button>
+
           ` : `
-            <button class="prc-sb-btn prc-sb-primary" id="prc-autofill-btn">
-              <span id="prc-fill-icon">⚡</span>
-              <span id="prc-fill-label">Auto-Fill + Upload Files</span>
-            </button>
-            <button class="prc-sb-btn prc-sb-rerun" id="prc-rerun-btn" title="Re-run auto-fill on this page">
-              🔁 Re-run Fill
-            </button>
-            <button class="prc-sb-btn prc-sb-debug" id="prc-debug-btn" title="Log all inputs to console">
-              🔍 Debug Fields
-            </button>
-            <div id="prc-fill-status"  class="prc-sb-status"      style="display:none;"></div>
-            <div id="prc-file-status"  class="prc-sb-file-status" style="display:none;">
-              <div id="prc-resume-status"     class="prc-sb-file-row"></div>
+
+            <!-- Authenticated -->
+            <div class="prc-sb-hero">
+              <p class="prc-sb-hero-title">Apply with Preciprocal</p>
+              <p class="prc-sb-hero-sub">Auto-fill this ${platformName} application using your profile.</p>
+            </div>
+
+            <div id="prc-fill-status" class="prc-sb-status" style="display:none;"></div>
+            <div id="prc-file-status" class="prc-sb-file-status" style="display:none;">
+              <div id="prc-resume-status" class="prc-sb-file-row"></div>
               <div id="prc-transcript-status" class="prc-sb-file-row"></div>
             </div>
-            <div class="prc-sb-tips">
-              <p class="prc-sb-hint-title">💡 Tips</p>
-              <p class="prc-sb-hint">• Clicks Apply button automatically</p>
-              <p class="prc-sb-hint">• Resume &amp; transcript auto-uploaded</p>
-              <p class="prc-sb-hint">• Applications tracked automatically ✓</p>
-              <p class="prc-sb-hint">• Use Re-run if fields weren't filled</p>
-              <p class="prc-sb-hint">• Review all fields before submitting</p>
+
+            <button class="prc-sb-cta" id="prc-autofill-btn">
+              <span id="prc-fill-icon">
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              </span>
+              <span id="prc-fill-label">Start Applying</span>
+            </button>
+
+            <div class="prc-sb-actions">
+              <button class="prc-sb-link" id="prc-rerun-btn">Re-run fill</button>
+              <span class="prc-sb-dot">·</span>
+              <button class="prc-sb-link prc-sb-link-dim" id="prc-debug-btn">Debug</button>
             </div>
+
           `}
         </div>
+
       </div>
-      <button id="prc-expand-btn" class="prc-sb-expand-tab">⚡</button>
+
+      <!-- Collapsed tab -->
+      <button id="prc-expand-btn" class="prc-sb-tab" title="Open Preciprocal">
+        <svg width="14" height="14" viewBox="0 0 64 64" fill="none">
+          <path d="M32 10L54 32L32 54L10 32L32 10Z" fill="white" opacity="0.9"/>
+          <path d="M32 22L42 32L32 42L22 32L32 22Z" fill="white"/>
+        </svg>
+      </button>
     `;
 
     document.body.appendChild(sidebar);
@@ -2030,46 +2056,148 @@ class PreciprocalSidebar {
     const s = document.createElement('style');
     s.id = 'prc-sidebar-styles';
     s.textContent = `
-      #prc-sidebar { position:fixed; top:50%; right:0; transform:translateY(-50%); z-index:2147483647; display:flex; align-items:center; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
-      #prc-sidebar-inner { display:flex; flex-direction:column; width:220px; background:linear-gradient(160deg,#1e1b4b,#1e293b); border:1px solid rgba(148,163,184,0.2); border-right:none; border-radius:12px 0 0 12px; box-shadow:-4px 0 24px rgba(0,0,0,0.4); overflow:hidden; }
-      .prc-sb-header { display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:rgba(168,85,247,0.15); border-bottom:1px solid rgba(168,85,247,0.2); }
-      .prc-sb-brand { display:flex; align-items:center; gap:7px; }
-      .prc-sb-logo  { width:20px; height:20px; border-radius:4px; object-fit:contain; }
-      .prc-sb-title { font-size:13px; font-weight:700; color:#c084fc; }
-      .prc-sb-collapse { background:none; border:none; color:#94a3b8; font-size:18px; cursor:pointer; padding:0 2px; line-height:1; transition:color 0.15s; }
-      .prc-sb-collapse:hover { color:#f1f5f9; }
-      .prc-sb-body  { padding:12px; display:flex; flex-direction:column; gap:10px; }
-      .prc-sb-platform { text-align:center; }
-      .prc-platform-badge { display:inline-block; padding:3px 10px; border-radius:20px; background:rgba(99,102,241,0.2); border:1px solid rgba(99,102,241,0.3); font-size:11px; font-weight:600; color:#a5b4fc; }
-      .prc-sb-btn { display:flex; align-items:center; justify-content:center; gap:6px; padding:9px 12px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; border:none; font-family:inherit; width:100%; transition:all 0.2s; }
-      .prc-sb-primary { background:linear-gradient(135deg,#a855f7,#7c3aed); color:#fff; }
-      .prc-sb-primary:hover { background:linear-gradient(135deg,#9333ea,#6d28d9); transform:translateY(-1px); }
-      .prc-sb-primary.loading { opacity:0.75; cursor:wait; pointer-events:none; }
-      .prc-sb-primary.done    { background:linear-gradient(135deg,#10b981,#059669); pointer-events:none; }
-      .prc-sb-rerun { background:rgba(148,163,184,0.1); border:1px solid rgba(148,163,184,0.25); color:#94a3b8; font-size:12px; padding:7px 12px; }
-      .prc-sb-rerun:hover { background:rgba(148,163,184,0.2); border-color:rgba(148,163,184,0.4); color:#e2e8f0; transform:translateY(-1px); }
-      .prc-sb-debug { background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.2); color:#818cf8; font-size:11px; padding:5px 12px; }
-      .prc-sb-debug:hover { background:rgba(99,102,241,0.15); color:#a5b4fc; }
-      .prc-sb-status { padding:8px 10px; border-radius:8px; font-size:11px; line-height:1.5; }
-      .prc-sb-status.success  { background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.25); color:#6ee7b7; }
-      .prc-sb-status.error    { background:rgba(239,68,68,0.12);  border:1px solid rgba(239,68,68,0.25);  color:#fca5a5; }
-      .prc-sb-status.info     { background:rgba(99,102,241,0.12); border:1px solid rgba(99,102,241,0.25); color:#a5b4fc; }
-      .prc-sb-file-status { display:flex; flex-direction:column; gap:4px; padding:8px 10px; background:rgba(0,0,0,0.2); border-radius:8px; }
-      .prc-sb-file-row    { font-size:11px; color:#94a3b8; line-height:1.4; }
-      .prc-sb-file-row em { font-style:normal; }
-      .prc-file-done      { color:#6ee7b7; }
-      .prc-file-uploading { color:#93c5fd; }
-      .prc-file-manual    { color:#fcd34d; }
-      .prc-file-missing   { color:#64748b; }
-      .prc-sb-tips        { border-top:1px solid rgba(148,163,184,0.1); padding-top:8px; display:flex; flex-direction:column; gap:3px; }
-      .prc-sb-hint-title  { font-size:11px; font-weight:600; color:#94a3b8; margin:0; }
-      .prc-sb-hint        { font-size:10px; color:#64748b; line-height:1.4; margin:0; }
-      .prc-sb-spinner     { display:inline-block; width:13px; height:13px; border:2px solid rgba(255,255,255,0.3); border-top-color:#fff; border-radius:50%; animation:prc-sb-spin 0.7s linear infinite; }
-      @keyframes prc-sb-spin { to { transform:rotate(360deg); } }
-      .prc-sb-expand-tab  { display:none; width:32px; height:64px; background:linear-gradient(160deg,#1e1b4b,#1e293b); border:1px solid rgba(148,163,184,0.2); border-right:none; border-radius:10px 0 0 10px; cursor:pointer; align-items:center; justify-content:center; font-size:16px; box-shadow:-2px 0 12px rgba(0,0,0,0.3); color:#c084fc; }
-      @media (max-width:900px) { #prc-sidebar-inner { width:190px; } }
-      @media (max-width:600px) { #prc-sidebar { top:auto; bottom:80px; transform:none; } #prc-sidebar-inner { width:170px; } .prc-sb-expand-tab { height:48px; } }
-      @media print { #prc-sidebar { display:none!important; } }
+
+      /* ─── Sidebar wrapper ─── */
+      #prc-sidebar {
+        position: fixed; top: 50%; right: 0;
+        transform: translateY(-50%);
+        z-index: 2147483647;
+        display: flex; align-items: center;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      /* ─── Card ─── */
+      #prc-sidebar-inner {
+        display: flex; flex-direction: column;
+        width: 240px;
+        background: #111827;
+        border: 1px solid rgba(255,255,255,0.1);
+        border-right: none;
+        border-radius: 16px 0 0 16px;
+        box-shadow: -6px 0 32px rgba(0,0,0,0.5);
+        overflow: hidden;
+      }
+
+      /* ─── Header ─── */
+      .prc-sb-header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 14px 16px;
+        border-bottom: 1px solid rgba(255,255,255,0.07);
+      }
+      .prc-sb-brand { display: flex; align-items: center; gap: 9px; }
+      .prc-sb-brand svg { flex-shrink: 0; }
+      .prc-sb-name { font-size: 14px; font-weight: 700; color: #f9fafb; letter-spacing: -0.02em; }
+      .prc-sb-collapse {
+        background: none; border: none; color: rgba(255,255,255,0.25);
+        cursor: pointer; padding: 5px; border-radius: 6px;
+        display: flex; align-items: center; justify-content: center;
+        transition: all 0.15s;
+      }
+      .prc-sb-collapse:hover { color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.07); }
+
+      /* ─── Body ─── */
+      .prc-sb-body { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+
+      /* ─── Hero text ─── */
+      .prc-sb-hero { text-align: center; }
+      .prc-sb-hero-title { font-size: 14px; font-weight: 700; color: #f9fafb; margin: 0 0 6px; letter-spacing: -0.02em; }
+      .prc-sb-hero-sub { font-size: 11.5px; color: rgba(255,255,255,0.45); margin: 0; line-height: 1.6; }
+
+      /* ─── Checklist (unauthenticated) ─── */
+      .prc-sb-checklist {
+        display: flex; flex-direction: column; gap: 0;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 10px; overflow: hidden;
+      }
+      .prc-sb-check-item {
+        display: flex; align-items: center; gap: 10px;
+        padding: 11px 12px;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+      }
+      .prc-sb-check-item:last-child { border-bottom: none; }
+      .prc-sb-check-icon {
+        width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+        background: rgba(255,255,255,0.06);
+        display: flex; align-items: center; justify-content: center;
+        color: rgba(255,255,255,0.5);
+      }
+      .prc-sb-check-item span { font-size: 11.5px; color: #e5e7eb; flex: 1; line-height: 1.4; font-weight: 500; }
+      .prc-sb-check-dim .prc-sb-check-icon { color: rgba(255,255,255,0.2); }
+      .prc-sb-check-dim span { color: rgba(255,255,255,0.3); }
+
+      /* GO badge */
+      .prc-sb-go {
+        display: flex; align-items: center; justify-content: center;
+        background: #4f46e5; color: #fff;
+        font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+        padding: 4px 9px; border-radius: 20px; border: none; cursor: pointer;
+        flex-shrink: 0; font-family: inherit; transition: background 0.15s;
+      }
+      .prc-sb-go:hover { background: #4338ca; }
+      .prc-sb-go-dim { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.3); cursor: default; }
+
+      /* ─── Primary CTA button ─── */
+      .prc-sb-cta {
+        display: flex; align-items: center; justify-content: center; gap: 7px;
+        width: 100%; padding: 11px 16px; border-radius: 10px; border: none;
+        font-size: 13px; font-weight: 700; letter-spacing: -0.01em;
+        cursor: pointer; font-family: inherit; transition: all 0.15s;
+        background: #4f46e5; color: #fff;
+        box-shadow: 0 2px 12px rgba(79,70,229,0.35);
+      }
+      .prc-sb-cta:hover { background: #4338ca; box-shadow: 0 2px 16px rgba(79,70,229,0.5); }
+      .prc-sb-cta:active { transform: scale(0.98); }
+      .prc-sb-cta.loading { opacity: 0.65; cursor: wait; pointer-events: none; }
+      .prc-sb-cta.done { background: #059669; box-shadow: 0 2px 12px rgba(5,150,105,0.3); pointer-events: none; }
+      .prc-sb-cta.error { background: #dc2626; box-shadow: none; }
+      .prc-sb-cta-disabled { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.3); box-shadow: none; cursor: default; pointer-events: none; }
+
+      /* ─── Link actions ─── */
+      .prc-sb-actions { display: flex; align-items: center; justify-content: center; gap: 6px; }
+      .prc-sb-dot { font-size: 11px; color: rgba(255,255,255,0.15); }
+      .prc-sb-link {
+        background: none; border: none; cursor: pointer; font-family: inherit;
+        font-size: 11px; color: rgba(255,255,255,0.4); padding: 0; transition: color 0.15s;
+      }
+      .prc-sb-link:hover { color: rgba(255,255,255,0.75); }
+      .prc-sb-link-dim { color: rgba(255,255,255,0.2); font-size: 10px; }
+      .prc-sb-link-dim:hover { color: rgba(255,255,255,0.45); }
+
+      /* ─── Status ─── */
+      .prc-sb-status { padding: 9px 11px; border-radius: 8px; font-size: 11px; line-height: 1.5; }
+      .prc-sb-status.success { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.2); color: #6ee7b7; }
+      .prc-sb-status.error   { background: rgba(239,68,68,0.1);  border: 1px solid rgba(239,68,68,0.2);  color: #fca5a5; }
+      .prc-sb-status.info    { background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2); color: #a5b4fc; }
+
+      /* ─── File rows ─── */
+      .prc-sb-file-status { display: flex; flex-direction: column; gap: 4px; padding: 9px 11px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.07); }
+      .prc-sb-file-row { font-size: 11px; line-height: 1.4; color: rgba(255,255,255,0.3); }
+      .prc-sb-file-row em { font-style: normal; }
+      .prc-file-done      { color: #6ee7b7; }
+      .prc-file-uploading { color: #93c5fd; }
+      .prc-file-manual    { color: #fcd34d; }
+      .prc-file-missing   { color: rgba(255,255,255,0.2); }
+
+      /* ─── Spinner ─── */
+      .prc-sb-spinner { display: inline-block; width: 13px; height: 13px; border: 2px solid rgba(255,255,255,0.2); border-top-color: #fff; border-radius: 50%; animation: prc-sb-spin 0.65s linear infinite; }
+      @keyframes prc-sb-spin { to { transform: rotate(360deg); } }
+
+      /* ─── Collapsed tab ─── */
+      .prc-sb-tab {
+        display: none; width: 30px; height: 60px;
+        background: #111827;
+        border: 1px solid rgba(255,255,255,0.1); border-right: none;
+        border-radius: 10px 0 0 10px;
+        cursor: pointer; align-items: center; justify-content: center;
+        box-shadow: -3px 0 16px rgba(0,0,0,0.4);
+        transition: background 0.15s;
+      }
+      .prc-sb-tab:hover { background: #1e293b; }
+
+      @media (max-width: 900px) { #prc-sidebar-inner { width: 220px; } }
+      @media print { #prc-sidebar { display: none !important; } }
+
     `;
     (document.head || document.documentElement).appendChild(s);
   }

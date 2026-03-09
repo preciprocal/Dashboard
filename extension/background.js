@@ -39,6 +39,7 @@ async function readAuthFromTab(tabId) {
                           uid:         user.uid,
                           email:       user.email       || '',
                           displayName: user.displayName || '',
+                          photoURL:    user.photoURL    || '',
                           token:       user.stsTokenManager.accessToken,
                         });
                         return;
@@ -78,6 +79,7 @@ async function syncAuthFromPreciprocal() {
           uid:         user.uid,
           email:       user.email,
           displayName: user.displayName,
+          photoURL:    user.photoURL || '',
           token:       user.token,
           savedAt:     Date.now(),
         }
@@ -107,6 +109,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
           uid:         user.uid,
           email:       user.email,
           displayName: user.displayName,
+          photoURL:    user.photoURL || '',
           token:       user.token,
           savedAt:     Date.now(),
         }
@@ -194,6 +197,63 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     } else {
       sendResponse({ success: false });
     }
+    return true;
+  }
+
+  // ── API PROXY — all fetch calls go through background to avoid CORS ──────
+  // Requests from the service worker have origin chrome-extension://...
+  // so LinkedIn's origin never appears and CORS does not apply.
+
+  if (message.type === 'API_FETCH_AUTO_APPLY') {
+    const { token, userId, email, baseUrl } = message;
+    fetch(`${baseUrl}/api/extension/auto-apply`, {
+      method: 'GET',
+      headers: {
+        'Content-Type':      'application/json',
+        'x-extension-token': token   || '',
+        'x-user-id':         userId  || '',
+        'x-user-email':      email   || '',
+      },
+    })
+      .then(r => r.json())
+      .then(data => sendResponse({ success: true, data }))
+      .catch(err => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  if (message.type === 'API_FETCH_TRACK_JOB') {
+    const { token, userId, email, baseUrl, jobData } = message;
+    fetch(`${baseUrl}/api/extension/track-job`, {
+      method: 'POST',
+      headers: {
+        'Content-Type':      'application/json',
+        'x-extension-token': token   || '',
+        'x-user-id':         userId  || '',
+        'x-user-email':      email   || '',
+      },
+      body: JSON.stringify(jobData),
+    })
+      .then(r => r.json())
+      .then(data => sendResponse({ success: true, data }))
+      .catch(err => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  if (message.type === 'API_FETCH_ANALYZE_JOB') {
+    const { token, userId, email, baseUrl, jobData } = message;
+    fetch(`${baseUrl}/api/extension/analyze-job`, {
+      method: 'POST',
+      headers: {
+        'Content-Type':      'application/json',
+        'x-extension-token': token   || '',
+        'x-user-id':         userId  || '',
+        'x-user-email':      email   || '',
+      },
+      body: JSON.stringify(jobData),
+    })
+      .then(r => r.json())
+      .then(data => sendResponse({ success: true, data }))
+      .catch(err => sendResponse({ success: false, error: err.message }));
     return true;
   }
 });

@@ -3,18 +3,15 @@
   "name": "Preciprocal",
   "version": "1.4.0",
   "description": "AI career assistant: auto-apply on LinkedIn, Indeed, Workday & 12 more job boards, plus cover letters & interview prep",
-
   "permissions": [
     "storage",
     "activeTab",
     "scripting",
     "tabs"
   ],
-
   "host_permissions": [
     "<all_urls>"
   ],
-
   "externally_connectable": {
     "matches": [
       "https://preciprocal.com/*",
@@ -22,20 +19,23 @@
       "http://localhost:3000/*"
     ]
   },
-
   "background": {
     "service_worker": "background.js"
   },
-
   "action": {
     "default_popup": "popup.html"
   },
-
   "content_scripts": [
     {
-      "matches": ["https://www.linkedin.com/*"],
-      "js": ["banner.js"],
-      "css": ["content.css"],
+      "matches": [
+        "https://www.linkedin.com/*"
+      ],
+      "js": [
+        "banner.js"
+      ],
+      "css": [
+        "content.css"
+      ],
       "run_at": "document_idle"
     },
     {
@@ -78,18 +78,31 @@
         "https://*.ultipro.com/*",
         "https://*.dayforce.com/*"
       ],
-      "js": ["external-apply.js"],
-      "css": ["content.css"],
+      "js": [
+        "external-apply.js"
+      ],
+      "css": [
+        "content.css"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://preciprocal.com/*",
+        "https://www.preciprocal.com/*",
+        "http://localhost:3000/*"
+      ],
+      "js": [
+        "localhost-bridge.js"
+      ],
       "run_at": "document_idle"
     }
   ],
-
   "icons": {
-    "16":  "icons/icon16.png",
-    "48":  "icons/icon48.png",
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-
   "web_accessible_resources": [
     {
       "resources": [
@@ -97,9 +110,12 @@
         "icons/icon48.png",
         "icons/icon128.png",
         "external-apply.js",
-        "content.css"
+        "content.css",
+        "localhost-bridge.js"
       ],
-      "matches": ["<all_urls>"]
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ]
 }

@@ -407,21 +407,20 @@ class PreciprocalBanner {
   async prefetchApplyProfile() {
     if (!this.authToken) return;
     try {
-      const res = await fetch(`${PRECIPROCAL_URL}/api/extension/auto-apply`, {
-        headers: {
-          'x-extension-token': this.authToken,
-          'x-user-email':      this.authEmail  || '',
-          'x-user-id':         this.authUserId || '',
-        },
+      const resp = await chrome.runtime.sendMessage({
+        type:    'API_FETCH_AUTO_APPLY',
+        token:   this.authToken,
+        userId:  this.authUserId || '',
+        email:   this.authEmail  || '',
+        baseUrl: PRECIPROCAL_URL,
       });
-      if (res.ok) {
-        const data        = await res.json();
-        this.applyProfile = data.applyProfile || null;
-        this.applyFiles   = data.files        || null;
+      if (resp?.success && resp.data) {
+        this.applyProfile = resp.data.applyProfile || null;
+        this.applyFiles   = resp.data.files        || null;
         console.log('✅ Apply profile prefetched:', this.applyProfile?.firstName);
       }
     } catch (e) {
-      console.warn('⚠️ Prefetch failed:', e.message);
+      console.warn('⚠️ Prefetch failed:', e?.message);
     }
   }
 
@@ -505,8 +504,23 @@ class PreciprocalBanner {
     if (!insertion) return;
     this.banner = this.createBannerElement();
     insertion.element.insertAdjacentElement(insertion.position, this.banner);
+    this._applyTheme();
     this.attachEventListeners();
     this.injectStyles();
+  }
+
+  _applyTheme() {
+    if (!this.banner) return;
+    // Detect LinkedIn's theme by checking the page background color
+    const bg = getComputedStyle(document.body).backgroundColor;
+    // Light mode: background is white/near-white (rgb > 200 for all channels)
+    const match = bg.match(/\d+/g);
+    const isLight = match && parseInt(match[0]) > 200 && parseInt(match[1]) > 200 && parseInt(match[2]) > 200;
+    if (isLight) {
+      this.banner.classList.add('prc-light');
+    } else {
+      this.banner.classList.remove('prc-light');
+    }
   }
 
   _getApplyButtonLabel() {
@@ -520,41 +534,36 @@ class PreciprocalBanner {
     const container = document.createElement('div');
     container.id        = 'preciprocal-inline-banner';
     container.className = 'preciprocal-inline-container';
-    let logoUrl = '';
-    try { logoUrl = chrome.runtime.getURL('icons/icon48.png'); } catch {}
     const applyMeta = this._getApplyButtonLabel();
     container.innerHTML = `
       <div class="preciprocal-banner-compact">
         <div class="prc-top-section">
           <h3 class="prc-title">Tired of tailoring for Jobs? Let us do it for you!</h3>
-          ${this.isAuthenticated ? `
-          <div class="prc-score-badge" title="Resume match score for this job">
-            <svg class="score-ring" width="40" height="40">
-              <circle class="ring-bg" cx="20" cy="20" r="16" stroke-width="3" fill="none"/>
-              <circle class="ring-fg" cx="20" cy="20" r="16" stroke-width="3" fill="none" stroke-dasharray="0 100.53" transform="rotate(-90 20 20)" stroke-linecap="round"/>
-            </svg>
-            <div class="score-val"><span class="num">--</span></div>
-          </div>` : ''}
+          <div class="prc-top-right">
+            ${this.isAuthenticated ? `
+            <div class="prc-score-badge" title="Resume match score for this job">
+              <svg class="score-ring" width="40" height="40">
+                <circle class="ring-bg" cx="20" cy="20" r="16" stroke-width="3" fill="none"/>
+                <circle class="ring-fg" cx="20" cy="20" r="16" stroke-width="3" fill="none" stroke-dasharray="0 100.53" transform="rotate(-90 20 20)" stroke-linecap="round"/>
+              </svg>
+              <div class="score-val"><span class="num">--</span></div>
+            </div>` : ''}
+          </div>
         </div>
         <div class="prc-actions">
           <button class="prc-btn prc-primary" data-action="cover-letter" title="✨ Done in 30 seconds! AI writes your winning cover letter tailored to THIS exact role">
-            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
             Cover Letter
           </button>
           <button class="prc-btn prc-apply" data-action="auto-apply" title="${applyMeta.tip}">
-            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
             <span class="apply-label">${applyMeta.label}</span>
           </button>
-          <button class="prc-btn prc-track prc-icon-only" data-action="track-job" title="📋 Save this job to your Preciprocal tracker">
-            <svg class="track-icon" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+          <button class="prc-btn prc-track prc-icon-only" data-action="track-job" title="Save this job to your tracker">
+            <svg class="track-icon" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
           </button>
         </div>
-        <div class="prc-footer">
-          <div class="prc-branding">
-            ${logoUrl ? `<img src="${logoUrl}" alt="Preciprocal" class="prc-logo-icon" />` : ''}
-            <div class="prc-brand-name">Preciprocal</div>
-          </div>
-        </div>
+
       </div>
     `;
     return container;
@@ -576,13 +585,16 @@ class PreciprocalBanner {
     try {
       if (!this.applyProfile) {
         if (!this.authToken) throw new Error('Not logged in');
-        const res = await fetch(`${PRECIPROCAL_URL}/api/extension/auto-apply`, {
-          headers: { 'x-extension-token': this.authToken, 'x-user-email': this.authEmail || '', 'x-user-id': this.authUserId || '' },
+        const resp = await chrome.runtime.sendMessage({
+          type:    'API_FETCH_AUTO_APPLY',
+          token:   this.authToken,
+          userId:  this.authUserId || '',
+          email:   this.authEmail  || '',
+          baseUrl: PRECIPROCAL_URL,
         });
-        if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `HTTP ${res.status}`); }
-        const data = await res.json();
-        this.applyProfile = data.applyProfile;
-        this.applyFiles   = data.files || null;
+        if (!resp?.success) throw new Error(resp?.error || 'Failed to fetch profile');
+        this.applyProfile = resp.data.applyProfile;
+        this.applyFiles   = resp.data.files || null;
       }
       if (!this.applyProfile) throw new Error('Profile data unavailable');
       const applyInfo = getApplyButtonInfo();
@@ -728,13 +740,16 @@ class PreciprocalBanner {
     this._replaceButtonIcon(btn, 'spinner');
     try {
       if (!this.authToken) throw new Error('Not logged in');
-      const response = await fetch(`${PRECIPROCAL_URL}/api/extension/track-job`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-extension-token': this.authToken, 'x-user-email': this.authEmail || '', 'x-user-id': this.authUserId || '' },
-        body: JSON.stringify(this.jobData),
+      const resp = await chrome.runtime.sendMessage({
+        type:    'API_FETCH_TRACK_JOB',
+        token:   this.authToken,
+        userId:  this.authUserId || '',
+        email:   this.authEmail  || '',
+        baseUrl: PRECIPROCAL_URL,
+        jobData: this.jobData,
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      if (!resp?.success) throw new Error(resp?.error || 'Failed to track job');
+      const data = resp.data;
       if (data.duplicate) {
         this.trackState = 'duplicate';
         if (btn) { btn.classList.remove('loading'); btn.classList.add('duplicate'); }
@@ -757,13 +772,16 @@ class PreciprocalBanner {
   async fetchMatchScore() {
     if (!this.isAuthenticated || !this.authToken) { this.updateMatchScore(null); return; }
     try {
-      const response = await fetch(`${PRECIPROCAL_URL}/api/extension/analyze-job`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-extension-token': this.authToken, 'x-user-email': this.authEmail || '', 'x-user-id': this.authUserId || '' },
-        body: JSON.stringify(this.jobData),
+      const resp = await chrome.runtime.sendMessage({
+        type:    'API_FETCH_ANALYZE_JOB',
+        token:   this.authToken,
+        userId:  this.authUserId || '',
+        email:   this.authEmail  || '',
+        baseUrl: PRECIPROCAL_URL,
+        jobData: this.jobData,
       });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
+      if (!resp?.success) throw new Error(resp?.error || 'Failed');
+      const data = resp.data;
       this.updateMatchScore(data.compatibilityScore);
       const badge = this.banner?.querySelector('.prc-score-badge');
       if (badge && data.oneLineSummary) badge.setAttribute('title', data.oneLineSummary);
@@ -868,36 +886,57 @@ class PreciprocalBanner {
     styles.id = 'preciprocal-banner-styles';
     styles.textContent = `
       .preciprocal-inline-container { margin:16px 0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif; }
+
+      /* ── Dark mode (default) ── */
       .preciprocal-banner-compact { background:linear-gradient(135deg,#1e1b4b 0%,#1e293b 100%); border:1px solid rgba(148,163,184,0.2); border-radius:8px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,0.2); transition:all 0.2s ease; position:relative; }
-      .preciprocal-banner-compact:hover { box-shadow:0 2px 8px rgba(0,0,0,0.25); border-color:rgba(168,85,247,0.3); }
-      .prc-top-section { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:12px; }
+      .preciprocal-banner-compact:hover { box-shadow:0 2px 8px rgba(0,0,0,0.25); border-color:rgba(99,102,241,0.3); }
       .prc-title { font-size:16px; font-weight:600; color:#f5f5f5; margin:0; line-height:1.4; flex:1; }
+      .prc-btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:8px 12px; background:transparent; border:1px solid rgba(255,255,255,0.15); border-radius:16px; color:#e2e8f0; font-size:14px; font-weight:600; cursor:pointer; transition:all 0.2s ease; white-space:nowrap; font-family:inherit; flex:1; position:relative; }
+      .prc-btn:hover { background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.25); }
+      .prc-btn:active { transform:scale(0.98); }
+      .ring-bg { stroke:#38434f; }
+      .ring-fg { stroke:#6366f1; transition:stroke-dasharray 0.6s ease; }
+      .score-val .num { font-size:14px; font-weight:700; color:#818cf8; line-height:1; }
+      .prc-btn.prc-track { background:transparent; border-color:#6e7681; color:#b0b8c1; }
+      .prc-btn.prc-track:hover { background:rgba(110,118,129,0.08); border-color:#b0b8c1; color:#f5f5f5; }
+
+      /* ── Light mode — applied via JS class on the container ── */
+      .preciprocal-inline-container.prc-light .preciprocal-banner-compact { background:linear-gradient(135deg,#e0f2fe 0%,#ede9fe 100%); border:1px solid rgba(99,102,241,0.2); box-shadow:0 1px 4px rgba(0,0,0,0.07); }
+      .preciprocal-inline-container.prc-light .preciprocal-banner-compact:hover { border-color:rgba(99,102,241,0.45); box-shadow:0 4px 16px rgba(99,102,241,0.12), 0 1px 4px rgba(0,0,0,0.08); }
+      .preciprocal-inline-container.prc-light .prc-title { color:#111827; font-weight:700; }
+      .preciprocal-inline-container.prc-light .prc-btn { border-color:rgba(0,0,0,0.1); color:#374151; }
+      .preciprocal-inline-container.prc-light .prc-btn:hover { background:rgba(99,102,241,0.04); border-color:rgba(99,102,241,0.3); color:#111827; }
+      .preciprocal-inline-container.prc-light .prc-btn.prc-primary { background:rgba(125,155,210,0.25); border-color:rgba(99,132,199,0.35); color:#1e3a5f; backdrop-filter:none; }
+      .preciprocal-inline-container.prc-light .prc-btn.prc-primary:hover { background:rgba(125,155,210,0.38); border-color:rgba(99,132,199,0.5); }
+      .preciprocal-inline-container.prc-light .prc-btn.prc-apply { background:rgba(167,139,250,0.22); border-color:rgba(139,112,220,0.32); color:#3b1f7a; backdrop-filter:none; }
+      .preciprocal-inline-container.prc-light .prc-btn.prc-apply:hover { background:rgba(167,139,250,0.34); border-color:rgba(139,112,220,0.48); }
+      .preciprocal-inline-container.prc-light .ring-bg { stroke:#e0e7ff; }
+      .preciprocal-inline-container.prc-light .score-val .num { color:#4f46e5; }
+      .preciprocal-inline-container.prc-light .prc-btn.prc-track { border-color:rgba(0,0,0,0.1); color:#9ca3af; }
+      .preciprocal-inline-container.prc-light .prc-btn.prc-track:hover { background:rgba(0,0,0,0.03); border-color:rgba(0,0,0,0.18); color:#374151; }
+      .preciprocal-inline-container.prc-light .prc-btn.prc-track.done { border-color:#059669; color:#059669; background:rgba(5,150,105,0.06); }
+      .preciprocal-inline-container.prc-light .prc-btn.prc-track.duplicate { border-color:#d97706; color:#d97706; background:rgba(217,119,6,0.06); }
+      .preciprocal-inline-container.prc-light .prc-spinner { border-color:rgba(0,0,0,0.1); border-top-color:#6b7280; }
+
+      /* ── Shared ── */
+      .prc-top-section { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:12px; }
+      .prc-top-right { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+      .prc-logo-badge { width:22px; height:22px; border-radius:5px; object-fit:contain; opacity:0.75; transition:opacity 0.2s ease; }
+      .prc-logo-badge:hover { opacity:1; }
       .prc-actions { display:flex; gap:8px; margin-bottom:12px; }
-      .prc-footer { display:flex; align-items:center; justify-content:center; }
-      .prc-branding { display:flex; align-items:center; gap:8px; }
-      .prc-logo-icon { width:24px; height:24px; border-radius:4px; object-fit:contain; }
-      .prc-brand-name { font-size:12px; font-weight:600; color:#b0b8c1; line-height:1.2; cursor:pointer; }
       .prc-score-badge { position:relative; width:40px; height:40px; flex-shrink:0; }
       .score-ring { width:40px; height:40px; }
-      .ring-bg { stroke:#38434f; }
-      .ring-fg { stroke:#a855f7; transition:stroke-dasharray 0.6s ease; }
       .score-val { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; }
-      .score-val .num { font-size:14px; font-weight:700; color:#c084fc; line-height:1; }
-      .prc-btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:8px 12px; background:transparent; border:1px solid #a855f7; border-radius:16px; color:#c084fc; font-size:14px; font-weight:600; cursor:pointer; transition:all 0.2s ease; white-space:nowrap; font-family:inherit; flex:1; position:relative; }
       .prc-btn::after { content:attr(title); position:absolute; bottom:calc(100% + 8px); left:50%; transform:translateX(-50%) translateY(4px); background:rgba(15,23,42,0.95); color:#f5f5f5; padding:8px 12px; border-radius:6px; font-size:12px; font-weight:400; white-space:normal; max-width:220px; text-align:center; line-height:1.4; pointer-events:none; opacity:0; visibility:hidden; transition:all 0.2s ease; z-index:10000; box-shadow:0 4px 12px rgba(0,0,0,0.4); }
       .prc-btn::before { content:''; position:absolute; bottom:calc(100% + 2px); left:50%; transform:translateX(-50%) translateY(4px); border:5px solid transparent; border-top-color:rgba(15,23,42,0.95); pointer-events:none; opacity:0; visibility:hidden; transition:all 0.2s ease; z-index:10000; }
       .prc-btn:hover::after,.prc-btn:hover::before { opacity:1; visibility:visible; transform:translateX(-50%) translateY(0); }
-      .prc-btn:hover { background:rgba(168,85,247,0.1); border-color:#c084fc; }
-      .prc-btn:active { background:rgba(168,85,247,0.2); transform:scale(0.98); }
-      .prc-btn.prc-primary { background:linear-gradient(135deg,#a855f7 0%,#7c3aed 100%); border-color:#a855f7; color:#ffffff; }
-      .prc-btn.prc-primary:hover { background:linear-gradient(135deg,#9333ea 0%,#6d28d9 100%); }
-      .prc-btn.prc-apply { background:linear-gradient(135deg,#0ea5e9 0%,#2563eb 100%); border-color:#0ea5e9; color:#ffffff; }
-      .prc-btn.prc-apply:hover { background:linear-gradient(135deg,#0284c7 0%,#1d4ed8 100%); }
+      .prc-btn.prc-primary { background:rgba(255,255,255,0.12); border-color:rgba(255,255,255,0.2); color:rgba(255,255,255,0.9); backdrop-filter:blur(4px); }
+      .prc-btn.prc-primary:hover { background:rgba(255,255,255,0.2); border-color:rgba(255,255,255,0.3); color:#ffffff; }
+      .prc-btn.prc-apply { background:rgba(255,255,255,0.18); border-color:rgba(255,255,255,0.25); color:#ffffff; backdrop-filter:blur(4px); }
+      .prc-btn.prc-apply:hover { background:rgba(255,255,255,0.26); border-color:rgba(255,255,255,0.35); }
       .prc-btn.prc-apply.loading { opacity:0.7; cursor:not-allowed; pointer-events:none; }
       .prc-btn.prc-apply.done { background:linear-gradient(135deg,#10b981 0%,#059669 100%); border-color:#10b981; pointer-events:none; }
       .prc-btn.prc-apply.error { background:linear-gradient(135deg,#ef4444 0%,#b91c1c 100%); border-color:#ef4444; }
-      .prc-btn.prc-track { background:transparent; border-color:#6e7681; color:#b0b8c1; }
-      .prc-btn.prc-track:hover { background:rgba(110,118,129,0.08); border-color:#b0b8c1; color:#f5f5f5; }
       .prc-btn.prc-icon-only { flex:0 0 auto; width:38px; min-width:unset; padding:0; border-radius:50%; }
       .prc-btn.prc-track.loading { opacity:0.7; cursor:not-allowed; pointer-events:none; }
       .prc-btn.prc-track.done { border-color:#10b981; color:#10b981; background:rgba(16,185,129,0.08); cursor:default; pointer-events:none; }

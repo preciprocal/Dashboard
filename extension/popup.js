@@ -1,59 +1,34 @@
 // popup.js
 
-const IS_DEV   = true;
+const IS_DEV   = false;
 const BASE_URL = IS_DEV ? 'http://localhost:3000' : 'https://preciprocal.com';
 
-let authState = {
-  authenticated: false,
-  user:          null,
-  loading:       true,
-};
+let authState = { authenticated: false, user: null, loading: true };
 
-// ─────────────────────────────────────────────────────────────────
-// Boot
-// ─────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   await checkAuthStatus();
   render();
 });
 
-// ─────────────────────────────────────────────────────────────────
-// Auth check
-// 1. Read chrome.storage.local (fastest — set by background on tab load)
-// 2. If empty, ask background to sync from open preciprocal tab now
-// ─────────────────────────────────────────────────────────────────
 async function checkAuthStatus() {
   try {
     const result = await chrome.storage.local.get(['preciprocal_auth']);
     const stored = result?.preciprocal_auth;
+    if (stored?.uid && stored?.token) { setAuthenticated(stored); return; }
 
-    if (stored?.uid && stored?.token) {
-      setAuthenticated(stored);
-      return;
-    }
-
-    // Nothing in storage — try syncing from an open preciprocal tab
     authState.loading = true;
-    render(); // show spinner while syncing
+    render();
 
     const response = await chrome.runtime.sendMessage({ type: 'SYNC_AUTH' });
-    if (response?.success && response?.user) {
-      // Re-read storage after sync
+    if (response?.success) {
       const fresh = await chrome.storage.local.get(['preciprocal_auth']);
-      if (fresh?.preciprocal_auth?.uid) {
-        setAuthenticated(fresh.preciprocal_auth);
-        return;
-      }
+      if (fresh?.preciprocal_auth?.uid) { setAuthenticated(fresh.preciprocal_auth); return; }
     }
-
-    // Still nothing
     authState.authenticated = false;
-    authState.user          = null;
-
-  } catch (err) {
-    console.error('[Popup] Auth check failed:', err);
+    authState.user = null;
+  } catch {
     authState.authenticated = false;
-    authState.user          = null;
+    authState.user = null;
   } finally {
     authState.loading = false;
   }
@@ -65,13 +40,11 @@ function setAuthenticated(stored) {
     uid:              stored.uid,
     email:            stored.email       || '',
     displayName:      stored.displayName || (stored.email ? stored.email.split('@')[0] : 'User'),
+    photoURL:         stored.photoURL    || '',
     subscriptionTier: stored.subscriptionTier || 'free',
   };
 }
 
-// ─────────────────────────────────────────────────────────────────
-// Actions
-// ─────────────────────────────────────────────────────────────────
 function openApp(path) {
   chrome.tabs.create({ url: `${BASE_URL}${path || '/'}` });
   window.close();
@@ -81,27 +54,18 @@ async function logout() {
   await chrome.storage.local.remove(['preciprocal_auth']);
   chrome.runtime.sendMessage({ type: 'CLEAR_AUTH' }).catch(() => {});
   authState.authenticated = false;
-  authState.user          = null;
+  authState.user = null;
   render();
 }
 
-// ─────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────
 function addClick(id, fn) {
   const el = document.getElementById(id);
-  if (el) {
-    el.addEventListener('click', fn);
-  }
+  if (el) el.addEventListener('click', fn);
 }
 
-// ─────────────────────────────────────────────────────────────────
-// Render
-// ─────────────────────────────────────────────────────────────────
 function render() {
   const container = document.getElementById('authContainer');
   if (!container) return;
-
   if (authState.loading) {
     container.innerHTML = renderLoading();
   } else if (authState.authenticated && authState.user) {
@@ -109,149 +73,147 @@ function render() {
   } else {
     container.innerHTML = renderDisconnected();
   }
-
   attachListeners();
 }
 
 function attachListeners() {
-  addClick('loginBtn',           function () { openApp('/sign-in');      });
-  addClick('openDashboardBtn',   function () { openApp('/');             });
-  addClick('logoutBtn',          function () { logout();                 });
-  addClick('resumeOptimizerBtn', function () { openApp('/resume');       });
-  addClick('coverLetterBtn',     function () { openApp('/cover-letter'); });
-  addClick('mockInterviewBtn',   function () { openApp('/interview');    });
+  addClick('loginBtn',           () => openApp('/sign-in'));
+  addClick('openDashboardBtn',   () => openApp('/'));
+  addClick('logoutBtn',          () => logout());
+  addClick('resumeOptimizerBtn', () => openApp('/resume'));
+  addClick('coverLetterBtn',     () => openApp('/cover-letter'));
+  addClick('mockInterviewBtn',   () => openApp('/interview'));
 }
 
-// ─────────────────────────────────────────────────────────────────
-// Views
-// ─────────────────────────────────────────────────────────────────
+const LOGO_SVG = `<svg viewBox="0 0 64 64" fill="none">
+  <path d="M32 16L48 32L32 48L16 32L32 16Z" fill="white" opacity="0.85"/>
+  <path d="M32 24L40 32L32 40L24 32L32 24Z" fill="white"/>
+</svg>`;
+
+function headerHTML(connected) {
+  return `
+    <div class="header">
+      <div class="brand">
+        <div class="brand-icon">${LOGO_SVG}</div>
+        <span class="brand-name">Preciprocal</span>
+      </div>
+      ${connected
+        ? `<div class="status-pill connected"><div class="status-dot pulse"></div>Connected</div>`
+        : `<div class="status-pill disconnected"><div class="status-dot"></div>Not connected</div>`
+      }
+    </div>`;
+}
+
 function renderLoading() {
   return `
+    ${headerHTML(false)}
     <div class="loading-view">
       <div class="spinner"></div>
-      <p>Checking connection...</p>
-    </div>
-  `;
+      <p>Connecting...</p>
+    </div>`;
 }
 
 function renderConnected() {
   const user    = authState.user;
   const initial = (user.displayName || user.email || 'U').charAt(0).toUpperCase();
-  const badge   = getTierBadge(user.subscriptionTier);
+  const tier    = user.subscriptionTier || 'free';
+  const tierLabel = tier.charAt(0).toUpperCase() + tier.slice(1);
+  const tierClass = (tier === 'pro' || tier === 'premium') ? 'pro' : '';
+
+  // Show photo if available, otherwise show initial
+  const avatarInner = user.photoURL
+    ? `<img src="${user.photoURL}" alt="${user.displayName}" onerror="this.style.display='none';this.parentElement.textContent='${initial}'" />`
+    : initial;
 
   return `
-    <div class="authenticated">
-      <div class="user-info">
-        <div class="avatar">${initial}</div>
-        <div class="user-details">
-          <p class="user-name">${user.displayName || 'User'}</p>
-          <p class="user-email">${user.email || ''}</p>
+    ${headerHTML(true)}
+
+    <div class="user-section">
+      <div class="user-card">
+        <div class="avatar-wrap">
+          <div class="avatar">${avatarInner}</div>
+          <div class="avatar-logo">${LOGO_SVG}</div>
         </div>
-      </div>
-
-      <div class="status-indicator">
-        <div class="status-dot"></div>
-        <span>Connected to Preciprocal &nbsp;·&nbsp; ${badge.icon} ${badge.text}</span>
-      </div>
-
-      <div class="feature-list">
-        <button id="resumeOptimizerBtn" class="feature-btn">
-          <div class="feature-icon">📄</div>
-          <div class="feature-content">
-            <span class="feature-title">Resume Optimizer</span>
-            <span class="feature-desc">ATS score &amp; optimization</span>
-          </div>
-        </button>
-        <button id="coverLetterBtn" class="feature-btn">
-          <div class="feature-icon">✉️</div>
-          <div class="feature-content">
-            <span class="feature-title">Cover Letter</span>
-            <span class="feature-desc">Tailored to job posting</span>
-          </div>
-        </button>
-        <button id="mockInterviewBtn" class="feature-btn">
-          <div class="feature-icon">🎯</div>
-          <div class="feature-content">
-            <span class="feature-title">Mock Interview</span>
-            <span class="feature-desc">AI-powered practice</span>
-          </div>
-        </button>
-      </div>
-
-      <div class="actions">
-        <button id="openDashboardBtn" class="btn-primary">Open Dashboard</button>
-        <button id="logoutBtn" class="btn-secondary">Disconnect</button>
+        <div class="user-info">
+          <span class="user-name">${user.displayName || 'User'}</span>
+          <span class="user-email">${user.email || ''}</span>
+        </div>
+        <span class="tier-badge ${tierClass}">${tierLabel}</span>
       </div>
     </div>
-  `;
+
+    <div class="section-label">Quick Access</div>
+
+    <div class="feature-list">
+      <button id="resumeOptimizerBtn" class="feature-btn">
+        <div class="feat-icon-wrap">📄</div>
+        <div class="feat-content">
+          <span class="feat-title">Resume Optimizer</span>
+          <span class="feat-desc">ATS score &amp; AI suggestions</span>
+        </div>
+        <span class="feat-arrow">›</span>
+      </button>
+      <button id="coverLetterBtn" class="feature-btn">
+        <div class="feat-icon-wrap">✉️</div>
+        <div class="feat-content">
+          <span class="feat-title">Cover Letter</span>
+          <span class="feat-desc">Tailored to any job posting</span>
+        </div>
+        <span class="feat-arrow">›</span>
+      </button>
+      <button id="mockInterviewBtn" class="feature-btn">
+        <div class="feat-icon-wrap">🎯</div>
+        <div class="feat-content">
+          <span class="feat-title">Mock Interview</span>
+          <span class="feat-desc">AI-powered practice sessions</span>
+        </div>
+        <span class="feat-arrow">›</span>
+      </button>
+    </div>
+
+    <div class="actions">
+      <button id="openDashboardBtn" class="btn-primary">Open Dashboard</button>
+      <button id="logoutBtn" class="btn-ghost">Disconnect account</button>
+    </div>`;
 }
 
 function renderDisconnected() {
   return `
-    <div class="unauthenticated">
-      <div class="logo">
-        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-          <rect width="64" height="64" rx="16" fill="url(#grad)"/>
-          <path d="M32 20L44 32L32 44L20 32L32 20Z" fill="white" opacity="0.9"/>
-          <path d="M32 26L38 32L32 38L26 32L32 26Z" fill="white"/>
-          <defs>
-            <linearGradient id="grad" x1="0" y1="0" x2="64" y2="64">
-              <stop offset="0%" stop-color="#a855f7"/>
-              <stop offset="100%" stop-color="#3b82f6"/>
-            </linearGradient>
-          </defs>
-        </svg>
+    ${headerHTML(false)}
+
+    <div class="hero">
+      <div class="hero-icon">${LOGO_SVG}</div>
+      <h2>Your AI Career Assistant</h2>
+      <p>Auto-apply to jobs, optimize your resume,<br>and ace every interview.</p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feat-card">
+        <span class="feat-icon">📊</span>
+        <span class="feat-card-title">ATS Score</span>
+        <span class="feat-card-desc">Resume check</span>
       </div>
-
-      <h2>Welcome to Preciprocal</h2>
-      <p class="description">AI Career Assistant for job seekers</p>
-
-      <div class="features-grid">
-        <div class="feature-card">
-          <div class="feature-icon">📊</div>
-          <div class="feature-text">
-            <p class="feature-title">ATS Score</p>
-            <p class="feature-desc">Check compatibility</p>
-          </div>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">🎯</div>
-          <div class="feature-text">
-            <p class="feature-title">Skills Match</p>
-            <p class="feature-desc">Gap analysis</p>
-          </div>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">⚡</div>
-          <div class="feature-text">
-            <p class="feature-title">Instant</p>
-            <p class="feature-desc">Real-time results</p>
-          </div>
-        </div>
+      <div class="feat-card">
+        <span class="feat-icon">⚡</span>
+        <span class="feat-card-title">Auto Apply</span>
+        <span class="feat-card-desc">1-click apply</span>
       </div>
+      <div class="feat-card">
+        <span class="feat-icon">🎯</span>
+        <span class="feat-card-title">Interview</span>
+        <span class="feat-card-desc">AI practice</span>
+      </div>
+    </div>
 
-      <button id="loginBtn" class="btn-primary">Sign in to Preciprocal</button>
-
-      <div class="connect-hint">
-        <strong>How to connect</strong>
+    <div class="signin-section">
+      <button id="loginBtn" class="btn-signin">Sign in to Preciprocal</button>
+      <div class="how-to">
+        <p class="how-to-title">How to connect</p>
         <ol>
-          <li>Click above to open Preciprocal and sign in</li>
-          <li>Come back and click the extension icon</li>
+          <li>Click above and sign in to Preciprocal</li>
+          <li>Come back and open the extension</li>
           <li>You'll be connected automatically</li>
         </ol>
       </div>
-
-      <p class="help-text">No tokens or extra steps needed</p>
-    </div>
-  `;
-}
-
-function getTierBadge(tier) {
-  const badges = {
-    free:    { icon: '🆓', text: 'Free'    },
-    starter: { icon: '🚀', text: 'Starter' },
-    pro:     { icon: '⭐', text: 'Pro'     },
-    premium: { icon: '💎', text: 'Premium' },
-  };
-  return badges[tier] || badges.free;
+    </div>`;
 }

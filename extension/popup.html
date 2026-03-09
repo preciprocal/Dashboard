@@ -3,145 +3,202 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Preciprocal Extension</title>
+  <title>Preciprocal</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      width: 380px;
-      min-height: 500px;
+      width: 360px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      background: linear-gradient(160deg, #1e1b4b 0%, #0f172a 50%, #1e293b 100%);
       color: #e2e8f0;
     }
 
-    #authContainer { padding: 24px; }
-
-    /* ── Loading ── */
-    .loading-view { text-align: center; padding: 40px 20px; }
-    .spinner {
-      width: 40px; height: 40px; margin: 0 auto 16px;
-      border: 3px solid rgba(168,85,247,0.2);
-      border-top-color: #a855f7;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
+    /* ── Header ── */
+    .header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
     }
+    .brand { display: flex; align-items: center; gap: 9px; }
+    .brand-icon {
+      width: 28px; height: 28px; border-radius: 7px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .brand-icon svg { width: 15px; height: 15px; }
+    .brand-name { font-size: 15px; font-weight: 700; color: #f1f5f9; letter-spacing: -0.02em; }
+
+    .status-pill {
+      display: flex; align-items: center; gap: 5px;
+      padding: 4px 10px; border-radius: 20px;
+      font-size: 11px; font-weight: 600;
+    }
+    .status-pill.connected {
+      background: rgba(16,185,129,0.12); color: #10b981;
+      border: 1px solid rgba(16,185,129,0.2);
+    }
+    .status-pill.disconnected {
+      background: rgba(255,255,255,0.05); color: #475569;
+      border: 1px solid rgba(255,255,255,0.07);
+    }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .status-dot.pulse { animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ── Unauthenticated ── */
-    .unauthenticated { text-align: center; }
-
-    .logo { margin: 0 auto 20px; width: 64px; height: 64px; }
-
-    h2 { font-size: 22px; font-weight: 600; margin-bottom: 8px; color: #f1f5f9; }
-
-    .description { font-size: 14px; color: #94a3b8; margin-bottom: 24px; line-height: 1.5; }
-
-    .features-grid {
-      display: grid; grid-template-columns: repeat(3,1fr);
-      gap: 12px; margin-bottom: 24px;
+    /* ── Loading ── */
+    .loading-view {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 52px 24px; gap: 14px;
     }
-    .feature-card {
+    .spinner {
+      width: 30px; height: 30px;
+      border: 2px solid rgba(255,255,255,0.08);
+      border-top-color: rgba(255,255,255,0.4);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    .loading-view p { font-size: 13px; color: #475569; }
+
+    /* ── User card ── */
+    .user-section { padding: 18px 20px 0; }
+    .user-card {
+      display: flex; align-items: center; gap: 14px;
+      padding: 14px 16px;
       background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 12px; padding: 12px; text-align: center;
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 14px;
     }
-    .feature-icon { font-size: 24px; margin-bottom: 8px; }
-    .feature-title { font-size: 11px; font-weight: 600; color: #e2e8f0; display: block; margin-bottom: 2px; }
-    .feature-desc  { font-size: 9px; color: #94a3b8; display: block; }
-
-    /* ── Authenticated ── */
-    .authenticated { display: flex; flex-direction: column; gap: 16px; }
-
-    .user-info {
-      display: flex; align-items: center; gap: 12px; padding: 12px;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 12px;
-    }
+    .avatar-wrap { position: relative; flex-shrink: 0; }
     .avatar {
-      width: 48px; height: 48px; border-radius: 50%;
-      background: linear-gradient(135deg, #a855f7, #3b82f6);
+      width: 44px; height: 44px; border-radius: 50%;
+      background: linear-gradient(135deg, #312e81, #1e1b4b);
+      border: 2px solid rgba(255,255,255,0.1);
       display: flex; align-items: center; justify-content: center;
-      font-size: 20px; font-weight: 600; color: white; flex-shrink: 0;
+      font-size: 17px; font-weight: 700; color: #a5b4fc;
+      overflow: hidden;
     }
-    .user-details { flex: 1; min-width: 0; }
+    .avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+    .avatar-logo {
+      position: absolute; bottom: -2px; right: -2px;
+      width: 18px; height: 18px; border-radius: 5px;
+      background: rgba(15,23,42,0.95);
+      border: 1px solid rgba(255,255,255,0.12);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .avatar-logo svg { width: 10px; height: 10px; }
+    .user-info { flex: 1; min-width: 0; }
     .user-name {
-      font-size: 14px; font-weight: 600; color: #f1f5f9; margin-bottom: 2px;
+      font-size: 14px; font-weight: 700; color: #f1f5f9;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      letter-spacing: -0.01em;
     }
     .user-email {
-      font-size: 12px; color: #94a3b8;
+      font-size: 12px; color: #475569; margin-top: 3px;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-
-    .status-indicator {
-      display: flex; align-items: center; gap: 8px; padding: 10px 12px;
-      background: rgba(16,185,129,0.1);
-      border: 1px solid rgba(16,185,129,0.2);
-      border-radius: 8px; font-size: 12px; color: #10b981;
+    .tier-badge {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
+      padding: 3px 8px; border-radius: 5px; text-transform: uppercase; flex-shrink: 0;
+      background: rgba(255,255,255,0.06); color: #475569;
+      border: 1px solid rgba(255,255,255,0.08);
     }
-    .status-dot {
-      width: 8px; height: 8px; border-radius: 50%;
-      background: #10b981; animation: pulse 2s infinite;
+    .tier-badge.pro, .tier-badge.premium {
+      background: rgba(99,102,241,0.14); color: #818cf8;
+      border-color: rgba(99,102,241,0.25);
     }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
 
-    .feature-list { display: flex; flex-direction: column; gap: 8px; }
+    /* ── Section label ── */
+    .section-label {
+      font-size: 10px; font-weight: 700; color: #334155;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      padding: 18px 20px 8px;
+    }
 
+    /* ── Feature list ── */
+    .feature-list { padding: 0 12px; display: flex; flex-direction: column; gap: 2px; }
     .feature-btn {
-      display: flex; align-items: center; gap: 12px; padding: 12px;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 10px; cursor: pointer; transition: all 0.2s;
+      display: flex; align-items: center; gap: 14px;
+      padding: 11px 10px; border-radius: 10px;
+      background: transparent; border: none;
+      cursor: pointer; transition: background 0.15s;
       width: 100%; text-align: left;
     }
-    .feature-btn:hover {
-      background: rgba(255,255,255,0.08);
-      border-color: rgba(168,85,247,0.3);
-      transform: translateY(-1px);
+    .feature-btn:hover { background: rgba(255,255,255,0.05); }
+    .feature-btn:active { background: rgba(255,255,255,0.08); }
+    .feat-icon-wrap {
+      width: 36px; height: 36px; border-radius: 9px; flex-shrink: 0;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px;
     }
-    .feature-btn .feature-icon { font-size: 24px; margin-bottom: 0; }
-    .feature-btn .feature-content { flex: 1; display: flex; flex-direction: column; gap: 2px; }
-    .feature-btn .feature-title { font-size: 13px; font-weight: 600; color: #f1f5f9; }
-    .feature-btn .feature-desc  { font-size: 11px; color: #94a3b8; }
+    .feat-content { flex: 1; min-width: 0; }
+    .feat-title { font-size: 13px; font-weight: 600; color: #e2e8f0; display: block; }
+    .feat-desc { font-size: 12px; color: #475569; display: block; margin-top: 2px; }
+    .feat-arrow { color: #1e293b; font-size: 20px; font-weight: 300; flex-shrink: 0; transition: color 0.15s; }
+    .feature-btn:hover .feat-arrow { color: #475569; }
 
-    .actions { display: flex; flex-direction: column; gap: 8px; }
-
-    .btn-primary, .btn-secondary {
-      width: 100%; padding: 12px 24px; border: none; border-radius: 10px;
-      font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s;
-    }
+    /* ── Actions ── */
+    .actions { padding: 16px 20px 20px; display: flex; flex-direction: column; gap: 8px; }
     .btn-primary {
-      background: linear-gradient(135deg, #a855f7, #3b82f6); color: white;
+      width: 100%; padding: 12px; border-radius: 10px;
+      font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+      background: rgba(255,255,255,0.1); color: #f1f5f9;
+      border: 1px solid rgba(255,255,255,0.13); letter-spacing: -0.01em;
     }
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(168,85,247,0.4);
+    .btn-primary:hover { background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.2); }
+    .btn-ghost {
+      width: 100%; padding: 11px; border-radius: 10px;
+      font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s;
+      background: transparent; color: #334155; border: 1px solid rgba(255,255,255,0.06);
     }
-    .btn-secondary {
-      background: rgba(255,255,255,0.05); color: #e2e8f0;
-      border: 1px solid rgba(255,255,255,0.1);
-    }
-    .btn-secondary:hover { background: rgba(255,255,255,0.1); }
+    .btn-ghost:hover { color: #64748b; border-color: rgba(255,255,255,0.1); }
 
-    .help-text { margin-top: 12px; font-size: 11px; color: #64748b; text-align: center; }
-
-    /* ── Not connected hint ── */
-    .connect-hint {
-      margin-top: 16px;
-      padding: 12px;
-      background: rgba(168,85,247,0.06);
-      border: 1px solid rgba(168,85,247,0.15);
-      border-radius: 10px;
-      font-size: 12px;
-      color: #94a3b8;
-      line-height: 1.6;
-      text-align: left;
+    /* ── Disconnected ── */
+    .hero { padding: 32px 20px 24px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .hero-icon {
+      width: 52px; height: 52px; border-radius: 14px; margin: 0 auto 18px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      display: flex; align-items: center; justify-content: center;
     }
-    .connect-hint strong { color: #c084fc; display: block; margin-bottom: 6px; }
-    .connect-hint ol { padding-left: 16px; }
-    .connect-hint li { margin-bottom: 3px; }
+    .hero-icon svg { width: 26px; height: 26px; }
+    .hero h2 { font-size: 18px; font-weight: 700; color: #f1f5f9; letter-spacing: -0.03em; margin-bottom: 8px; }
+    .hero p { font-size: 13px; color: #475569; line-height: 1.6; }
+
+    .features-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; padding: 20px 20px 0; }
+    .feat-card {
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 10px; padding: 14px 10px; text-align: center;
+    }
+    .feat-card .feat-icon { font-size: 20px; margin-bottom: 8px; display: block; }
+    .feat-card .feat-card-title { font-size: 12px; font-weight: 600; color: #94a3b8; display: block; }
+    .feat-card .feat-card-desc { font-size: 10px; color: #334155; display: block; margin-top: 3px; }
+
+    .signin-section { padding: 20px 20px 24px; display: flex; flex-direction: column; gap: 12px; }
+    .btn-signin {
+      width: 100%; padding: 13px; border-radius: 10px;
+      font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+      background: rgba(255,255,255,0.1); color: #f1f5f9;
+      border: 1px solid rgba(255,255,255,0.13); letter-spacing: -0.01em;
+    }
+    .btn-signin:hover { background: rgba(255,255,255,0.15); }
+
+    .how-to {
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 10px; padding: 14px 16px;
+    }
+    .how-to-title {
+      font-size: 10px; font-weight: 700; color: #334155;
+      text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px;
+    }
+    .how-to ol { padding-left: 16px; display: flex; flex-direction: column; gap: 5px; }
+    .how-to li { font-size: 12px; color: #475569; line-height: 1.5; }
   </style>
 </head>
 <body>

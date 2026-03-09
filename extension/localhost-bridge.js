@@ -49,7 +49,7 @@ window.addEventListener('message', async (event) => {
       const timestamp = result.preciprocal_timestamp;
       
       // Only send if data is recent (within 1 minute)
-      if (timestamp && Date.now() - timestamp < 60000) {
+      if (timestamp && Date.now() - timestamp < 300000) {
         console.log('🎁 Auto-sending LinkedIn job data to page');
         
         // Wait a bit for page to load

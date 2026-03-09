@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/firebase/client';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -57,7 +58,140 @@ const DEFAULT_PROFILE: JobAppProfile = {
   coverLetterIntro:'', coverLetterBody:'',
 };
 
+// ─── Custom Dropdown ──────────────────────────────────────────────────────────
 
+interface DropdownOption { value: string; label: string; }
+
+function CustomDropdown({
+  value, onChange, options, placeholder = 'Select…'
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: DropdownOption[];
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef   = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
+
+  // Calculate position relative to viewport
+  const reposition = useCallback(() => {
+    if (!triggerRef.current) return;
+    const r = triggerRef.current.getBoundingClientRect();
+    const panelH = Math.min(224, options.length * 42 + 8); // estimate panel height
+    const spaceBelow = window.innerHeight - r.bottom;
+    const top = spaceBelow >= panelH
+      ? r.bottom + window.scrollY + 6
+      : r.top + window.scrollY - panelH - 6;
+    setCoords({ top, left: r.left + window.scrollX, width: r.width });
+  }, [options.length]);
+
+  const handleOpen = () => {
+    reposition();
+    setOpen(o => !o);
+  };
+
+  // Close on outside click or scroll
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (
+        triggerRef.current?.contains(e.target as Node) ||
+        panelRef.current?.contains(e.target as Node)
+      ) return;
+      setOpen(false);
+    };
+    const onScroll = () => { reposition(); };
+    document.addEventListener('mousedown', close);
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', reposition);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', reposition);
+    };
+  }, [open, reposition]);
+
+  const selected = options.find(o => o.value === value);
+  const displayLabel = selected?.label ?? value ?? placeholder;
+
+  const panel = mounted && open ? createPortal(
+    <div
+      ref={panelRef}
+      style={{
+        position: 'absolute',
+        top: coords.top,
+        left: coords.left,
+        width: coords.width,
+        zIndex: 9999,
+        background: '#0f1729',
+        border: '1px solid rgba(255,255,255,0.08)',
+        borderRadius: '12px',
+        overflow: 'hidden',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+      }}
+    >
+      <div style={{ maxHeight: '224px', overflowY: 'auto' }} className="py-1 custom-scrollbar">
+        {options.map(opt => {
+          const isActive = opt.value === value || (!value && opt.value === '');
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onMouseDown={e => e.preventDefault()} // prevent blur before click
+              onClick={() => { onChange(opt.value); setOpen(false); }}
+              className={`w-full text-left px-4 py-2.5 text-sm transition-colors
+                ${isActive
+                  ? 'bg-blue-600/30 text-white font-medium'
+                  : 'text-slate-300 hover:bg-white/[0.05] hover:text-white'
+                }`}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>,
+    document.body
+  ) : null;
+
+  return (
+    <div className="relative w-full">
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={handleOpen}
+        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-sm transition-all
+          border bg-slate-900/60 backdrop-blur-sm
+          ${open
+            ? 'border-purple-500/50 text-white'
+            : 'border-white/[0.08] text-slate-300 hover:border-white/[0.15] hover:text-white'
+          }`}
+      >
+        <span className={`truncate ${!selected && !value ? 'text-slate-500' : ''}`}>
+          {displayLabel}
+        </span>
+        <ChevronDown
+          className={`w-3.5 h-3.5 flex-shrink-0 ml-2 text-slate-500 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+      {panel}
+    </div>
+  );
+}
+
+// ─── Helper: build options from string array ──────────────────────────────────
+
+function opts(arr: string[]): DropdownOption[] {
+  return arr.map(v => ({ value: v, label: v }));
+}
+function optsKV(arr: [string, string][]): DropdownOption[] {
+  return arr.map(([v, l]) => ({ value: v, label: l }));
+}
 
 // ─── Primitives ───────────────────────────────────────────────────────────────
 
@@ -84,16 +218,12 @@ function FInput({ label, hint, span, value, onChange, placeholder, type='text', 
   );
 }
 
-function FSelect({ label, hint, span, value, onChange, children }:
-  { label:string; hint?:string; span?:string; value:string; onChange:(v:string)=>void; children:React.ReactNode }) {
+function FSelect({ label, hint, span, value, onChange, options }: {
+  label:string; hint?:string; span?:string; value:string; onChange:(v:string)=>void; options: DropdownOption[];
+}) {
   return (
     <F label={label} hint={hint} span={span}>
-      <div className="relative">
-        <select value={value} onChange={e=>onChange(e.target.value)} className={fieldCls + ' cursor-pointer appearance-none pr-8'}>
-          {children}
-        </select>
-        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" />
-      </div>
+      <CustomDropdown value={value} onChange={onChange} options={options} />
     </F>
   );
 }
@@ -150,6 +280,48 @@ function Section({ label, icon:Icon, gradient, desc, children, defaultOpen=true 
     </div>
   );
 }
+
+// ─── Salary dropdown (special combined field) ─────────────────────────────────
+
+function SalaryField({ salary, salaryType, onSalary, onType }: {
+  salary: string; salaryType: string;
+  onSalary: (v:string)=>void; onType: (v:string)=>void;
+}) {
+  return (
+    <F label="Desired Salary">
+      <div className="flex gap-2">
+        <input value={salary} onChange={e=>onSalary(e.target.value)}
+          placeholder="120000" className={fieldCls + ' flex-1'} />
+        <div className="w-24 flex-shrink-0">
+          <CustomDropdown
+            value={salaryType}
+            onChange={onType}
+            options={[{ value:'yearly', label:'/ yr' },{ value:'hourly', label:'/ hr' }]}
+          />
+        </div>
+      </div>
+    </F>
+  );
+}
+
+// ─── Option lists ─────────────────────────────────────────────────────────────
+
+const COUNTRIES   = opts(['United States','Canada','United Kingdom','Australia','India','Germany','France','Other']);
+const YOE         = optsKV([['','Select…'],['0','Less than 1 year'],['1','1 year'],['2','2 years'],['3','3 years'],['4','4 years'],['5','5 years'],['6','6 years'],['7','7 years'],['8','8 years'],['9','9 years'],['10','10 years'],['12','12 years'],['15','15+ years'],['20','20+ years']]);
+const NOTICE      = opts(['Immediately','1 week','2 weeks','3 weeks','1 month','6 weeks','2 months','3 months']);
+const WORK_TYPE   = opts(['Remote','Hybrid','On-site','Flexible']);
+const EMP_TYPE    = opts(['Full-time','Part-time','Contract','Internship','Freelance','Temporary']);
+const TRAVEL      = opts(['No','Occasionally (up to 10%)','Sometimes (10–25%)','Frequently (25–50%)','Yes, as needed']);
+const REFERRAL    = opts(['LinkedIn','Indeed','Glassdoor','Company Website','Referral','Job Board','Google','Other']);
+const WORK_AUTH   = optsKV([['Yes','Yes — I am authorized'],['No','No — I need authorization']]);
+const VISA        = opts(['','US Citizen','Permanent Resident (Green Card)','H-1B Visa','H-4 EAD','L-1 Visa','OPT / STEM OPT','CPT','TN Visa (Canada/Mexico)','E-3 (Australian)','Other Work Visa','Not applicable']);
+const DEGREE      = opts(['','High School Diploma / GED',"Associate's Degree","Bachelor's Degree","Master's Degree",'MBA','Doctoral Degree (PhD)','JD (Law)','MD (Medicine)','Professional Certificate','Bootcamp Certificate','Other']);
+const GRAD_YEARS  = optsKV([['','Year…'], ...Array.from({length:30},(_,k)=>{ const y=String(2026-k); return [y,y] as [string,string]; }), ['In Progress','In Progress']]);
+const GENDER      = opts(['Prefer not to say','Male','Female','Non-binary','Transgender','Genderqueer / Gender non-conforming','Another gender identity']);
+const PRONOUNS    = opts(['Prefer not to say','He / Him','She / Her','They / Them','He / They','She / They','Ze / Zir']);
+const RACE        = opts(['Prefer not to say','American Indian or Alaska Native','Asian','Black or African American','Hispanic or Latino','Native Hawaiian or Other Pacific Islander','White','Two or more races','Other']);
+const VETERAN     = opts(['I am not a protected veteran','I am a protected veteran','I am a disabled veteran','I am a recently separated veteran','Prefer not to say']);
+const DISABILITY  = opts(['I do not have a disability','I have a disability','I have a history of disability','Prefer not to say']);
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -299,10 +471,7 @@ export default function JobApplicationProfile() {
           <FInput label="City" value={p.city} onChange={set('city')} placeholder="Boston" />
           <FInput label="State" value={p.state} onChange={set('state')} placeholder="MA" />
           <FInput label="ZIP Code" value={p.zipCode} onChange={set('zipCode')} placeholder="02101" />
-          <FSelect label="Country" value={p.country} onChange={set('country')}>
-            <option>United States</option><option>Canada</option><option>United Kingdom</option>
-            <option>Australia</option><option>India</option><option>Germany</option><option>France</option><option>Other</option>
-          </FSelect>
+          <FSelect label="Country" value={p.country} onChange={set('country')} options={COUNTRIES} />
         </div>
       </Section>
 
@@ -311,12 +480,7 @@ export default function JobApplicationProfile() {
         <div className="space-y-4 mt-5">
           <div className="grid grid-cols-2 gap-4">
             <FInput label="Target Role / Headline" value={p.headline} onChange={set('headline')} placeholder="Senior Software Engineer" />
-            <FSelect label="Years of Experience" value={p.yearsOfExperience} onChange={set('yearsOfExperience')}>
-              <option value="">Select…</option>
-              {[['0','Less than 1 year'],['1','1 year'],['2','2 years'],['3','3 years'],['4','4 years'],['5','5 years'],
-                ['6','6 years'],['7','7 years'],['8','8 years'],['9','9 years'],['10','10 years'],['12','12 years'],['15','15+ years'],['20','20+ years']]
-                .map(([v,l])=><option key={v} value={v}>{l}</option>)}
-            </FSelect>
+            <FSelect label="Years of Experience" value={p.yearsOfExperience} onChange={set('yearsOfExperience')} options={YOE} />
           </div>
           <FTextarea label="Professional Summary" hint="used for 'About Me' questions"
             value={p.summary} onChange={set('summary')} rows={4}
@@ -340,38 +504,12 @@ export default function JobApplicationProfile() {
       <Section id="prefs" label="Job Preferences" icon={Star} gradient="gradient-warning" desc="Salary, work type & availability">
         <div className="space-y-4 mt-5">
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <F label="Desired Salary">
-                <div className="flex gap-2">
-                  <input value={p.desiredSalary} onChange={e=>set('desiredSalary')(e.target.value)}
-                    placeholder="120000" className={fieldCls + ' flex-1'} />
-                  <div className="relative">
-                    <select value={p.salaryType} onChange={e=>set('salaryType')(e.target.value)}
-                      className={fieldCls + ' w-20 cursor-pointer appearance-none pr-1'}>
-                      <option value="yearly">/ yr</option><option value="hourly">/ hr</option>
-                    </select>
-                  </div>
-                </div>
-              </F>
-            </div>
-            <FSelect label="Notice Period" value={p.noticePeriod} onChange={set('noticePeriod')}>
-              {['Immediately','1 week','2 weeks','3 weeks','1 month','6 weeks','2 months','3 months'].map(v=><option key={v}>{v}</option>)}
-            </FSelect>
-            <FSelect label="Work Arrangement" value={p.workType} onChange={set('workType')}>
-              <option>Remote</option><option>Hybrid</option><option>On-site</option><option>Flexible</option>
-            </FSelect>
-            <FSelect label="Employment Type" value={p.employmentType} onChange={set('employmentType')}>
-              <option>Full-time</option><option>Part-time</option><option>Contract</option>
-              <option>Internship</option><option>Freelance</option><option>Temporary</option>
-            </FSelect>
-            <FSelect label="Open to Travel" value={p.openToTravel} onChange={set('openToTravel')}>
-              <option>No</option><option>Occasionally (up to 10%)</option><option>Sometimes (10–25%)</option>
-              <option>Frequently (25–50%)</option><option>Yes, as needed</option>
-            </FSelect>
-            <FSelect label="How did you hear about us?" hint="default" value={p.howDidYouHear} onChange={set('howDidYouHear')}>
-              <option>LinkedIn</option><option>Indeed</option><option>Glassdoor</option>
-              <option>Company Website</option><option>Referral</option><option>Job Board</option><option>Google</option><option>Other</option>
-            </FSelect>
+            <SalaryField salary={p.desiredSalary} salaryType={p.salaryType} onSalary={set('desiredSalary')} onType={set('salaryType')} />
+            <FSelect label="Notice Period"      value={p.noticePeriod}    onChange={set('noticePeriod')}    options={NOTICE} />
+            <FSelect label="Work Arrangement"   value={p.workType}        onChange={set('workType')}        options={WORK_TYPE} />
+            <FSelect label="Employment Type"    value={p.employmentType}  onChange={set('employmentType')}  options={EMP_TYPE} />
+            <FSelect label="Open to Travel"     value={p.openToTravel}    onChange={set('openToTravel')}    options={TRAVEL} />
+            <FSelect label="How did you hear about us?" hint="default" value={p.howDidYouHear} onChange={set('howDidYouHear')} options={REFERRAL} />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <FToggle value={p.willingToRelocate} onChange={set('willingToRelocate')} label="Willing to relocate" />
@@ -388,18 +526,8 @@ export default function JobApplicationProfile() {
       <Section id="auth" label="Work Authorization" icon={Shield} gradient="gradient-success" desc="Visa & authorization status">
         <div className="space-y-4 mt-5">
           <div className="grid grid-cols-2 gap-4">
-            <FSelect label="Authorized to work in the US?" value={p.workAuthorization} onChange={set('workAuthorization')}>
-              <option value="Yes">Yes — I am authorized</option>
-              <option value="No">No — I need authorization</option>
-            </FSelect>
-            <FSelect label="Visa / Work Status" value={p.visaType} onChange={set('visaType')}>
-              <option value="">Select status…</option>
-              <option>US Citizen</option><option>Permanent Resident (Green Card)</option>
-              <option>H-1B Visa</option><option>H-4 EAD</option><option>L-1 Visa</option>
-              <option>OPT / STEM OPT</option><option>CPT</option>
-              <option>TN Visa (Canada/Mexico)</option><option>E-3 (Australian)</option>
-              <option>Other Work Visa</option><option>Not applicable</option>
-            </FSelect>
+            <FSelect label="Authorized to work in the US?" value={p.workAuthorization} onChange={set('workAuthorization')} options={WORK_AUTH} />
+            <FSelect label="Visa / Work Status" value={p.visaType} onChange={set('visaType')} options={VISA} />
           </div>
           <FToggle value={p.requireSponsorship} onChange={set('requireSponsorship')}
             label="Require visa sponsorship" desc="Now or in the future" />
@@ -423,19 +551,10 @@ export default function JobApplicationProfile() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <FInput label="School / University" value={edu.school} onChange={v=>setEdu(i,'school',v)} placeholder="Northeastern University" />
-                <FSelect label="Degree" value={edu.degree} onChange={v=>setEdu(i,'degree',v)}>
-                  <option value="">Select…</option>
-                  {["High School Diploma / GED","Associate's Degree","Bachelor's Degree","Master's Degree","MBA",
-                    "Doctoral Degree (PhD)","JD (Law)","MD (Medicine)","Professional Certificate","Bootcamp Certificate","Other"]
-                    .map(d=><option key={d}>{d}</option>)}
-                </FSelect>
+                <FSelect label="Degree" value={edu.degree} onChange={v=>setEdu(i,'degree',v)} options={DEGREE} />
                 <FInput label="Field of Study / Major" value={edu.field} onChange={v=>setEdu(i,'field',v)} placeholder="Computer Science" />
                 <FInput label="GPA" hint="optional" value={edu.gpa} onChange={v=>setEdu(i,'gpa',v)} placeholder="3.8" />
-                <FSelect label="Graduation Year" value={edu.year} onChange={v=>setEdu(i,'year',v)}>
-                  <option value="">Year…</option>
-                  {Array.from({length:30},(_,k)=>2025-k).map(y=><option key={y} value={String(y)}>{y}</option>)}
-                  <option value="In Progress">In Progress</option>
-                </FSelect>
+                <FSelect label="Graduation Year" value={edu.year} onChange={v=>setEdu(i,'year',v)} options={GRAD_YEARS} />
                 <div className="flex items-end pb-0.5">
                   <FToggle value={edu.current} onChange={v=>setEdu(i,'current',v)} label="Currently enrolled" />
                 </div>
@@ -505,30 +624,11 @@ export default function JobApplicationProfile() {
             <p className="text-xs text-blue-400/80">Only used to auto-fill voluntary EEO sections. Never shared for any other purpose.</p>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <FSelect label="Gender" value={p.gender} onChange={set('gender')}>
-              <option>Prefer not to say</option><option>Male</option><option>Female</option>
-              <option>Non-binary</option><option>Transgender</option>
-              <option>Genderqueer / Gender non-conforming</option><option>Another gender identity</option>
-            </FSelect>
-            <FSelect label="Pronouns" value={p.pronouns} onChange={set('pronouns')}>
-              <option>Prefer not to say</option><option>He / Him</option><option>She / Her</option>
-              <option>They / Them</option><option>He / They</option><option>She / They</option><option>Ze / Zir</option>
-            </FSelect>
-            <FSelect label="Race / Ethnicity" value={p.race} onChange={set('race')}>
-              <option>Prefer not to say</option><option>American Indian or Alaska Native</option>
-              <option>Asian</option><option>Black or African American</option><option>Hispanic or Latino</option>
-              <option>Native Hawaiian or Other Pacific Islander</option><option>White</option>
-              <option>Two or more races</option><option>Other</option>
-            </FSelect>
-            <FSelect label="Veteran Status" value={p.veteranStatus} onChange={set('veteranStatus')}>
-              <option>I am not a protected veteran</option><option>I am a protected veteran</option>
-              <option>I am a disabled veteran</option><option>I am a recently separated veteran</option>
-              <option>Prefer not to say</option>
-            </FSelect>
-            <FSelect label="Disability Status" value={p.disabilityStatus} onChange={set('disabilityStatus')} span="col-span-2">
-              <option>I do not have a disability</option><option>I have a disability</option>
-              <option>I have a history of disability</option><option>Prefer not to say</option>
-            </FSelect>
+            <FSelect label="Gender"         value={p.gender}    onChange={set('gender')}    options={GENDER} />
+            <FSelect label="Pronouns"       value={p.pronouns}  onChange={set('pronouns')}  options={PRONOUNS} />
+            <FSelect label="Race / Ethnicity" value={p.race}    onChange={set('race')}      options={RACE} />
+            <FSelect label="Veteran Status" value={p.veteranStatus} onChange={set('veteranStatus')} options={VETERAN} />
+            <FSelect label="Disability Status" value={p.disabilityStatus} onChange={set('disabilityStatus')} options={DISABILITY} span="col-span-2" />
           </div>
         </div>
       </Section>
