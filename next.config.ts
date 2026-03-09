@@ -16,25 +16,6 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-
-  // CORS headers for Chrome extension API routes.
-  // Runs at infrastructure level — before middleware, before route handlers.
-  // Guarantees OPTIONS preflight is never redirected to sign-in.
-  async headers() {
-    return [
-      {
-        source: '/api/extension/:path*',
-        headers: [
-          { key: 'Access-Control-Allow-Origin',      value: '*' },
-          { key: 'Access-Control-Allow-Methods',     value: 'GET, POST, OPTIONS' },
-          { key: 'Access-Control-Allow-Headers',     value: 'Content-Type, x-extension-token, x-user-email, x-user-id, Authorization' },
-          { key: 'Access-Control-Allow-Credentials', value: 'false' },
-          { key: 'Access-Control-Max-Age',           value: '86400' },
-        ],
-      },
-    ];
-  },
-
   reactStrictMode: true,
 };
 
