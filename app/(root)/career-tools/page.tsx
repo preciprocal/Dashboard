@@ -34,6 +34,7 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import { NotificationService } from '@/lib/services/notification-services';
+import UsersFeedback from '@/components/UserFeedback';
 
 // ─────────────────────────────────────────────────────────────────
 // Types
@@ -520,6 +521,9 @@ export default function CareerToolsPage() {
   const [orError,      setOrError]      = useState('');
   const [orResult,     setOrResult]     = useState<OutreachResult | null>(null);
 
+  // Feedback — trigger after first successful result on this page
+  const [showFeedback, setShowFeedback] = useState(false);
+
   useEffect(() => {
     if (!loading && !user) router.push('/auth');
   }, [user, loading, router]);
@@ -546,7 +550,9 @@ export default function CareerToolsPage() {
       const result = (await res.json()).data as LinkedInResult;
       setLiResult(result);
 
-      // ── Notification: LinkedIn profile optimised ──
+      // Trigger feedback after first LinkedIn result
+      setShowFeedback(true);
+
       if (user?.uid) {
         const strengthLabel =
           result.overallScore >= 75 ? 'Strong' :
@@ -591,7 +597,9 @@ export default function CareerToolsPage() {
       const result = (await res.json()).data as OutreachResult;
       setOrResult(result);
 
-      // ── Notification: outreach messages generated ──
+      // Trigger feedback after first outreach result
+      setShowFeedback(true);
+
       if (user?.uid) {
         const platformLabel = orPlatform === 'linkedin' ? 'LinkedIn' : 'Email';
         const targetLabel   = orRecipName
@@ -799,6 +807,15 @@ export default function CareerToolsPage() {
           </div>
         </div>
       </div>
+
+      {/* UsersFeedback — triggers after first successful AI result */}
+      {showFeedback && (
+        <UsersFeedback
+          page="career-tools"
+          forceOpen
+          onClose={() => setShowFeedback(false)}
+        />
+      )}
     </>
   );
 }

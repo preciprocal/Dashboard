@@ -28,6 +28,7 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import { NotificationService } from '@/lib/services/notification-services';
+import UsersFeedback from '@/components/UserFeedback';
 
 // ─────────────────────────────────────────────────────────────────
 // Types
@@ -609,30 +610,22 @@ export default function InterviewDebriefPage() {
       if (editingId) {
         await updateDoc(doc(db, 'interviewDebrief', editingId), { ...payload, updatedAt: serverTimestamp() });
         toast.success('Entry updated');
-
-        // ── Notification: entry updated ──
         await NotificationService.createNotification(
-          user.uid,
-          'planner',
-          'Debrief Entry Updated 📝',
+          user.uid, 'planner', 'Debrief Entry Updated 📝',
           `Your debrief for ${formData.jobTitle} at ${formData.companyName} has been updated.`,
           { actionUrl: '/debrief', actionLabel: 'View Journal' }
         );
       } else {
         await addDoc(collection(db, 'interviewDebrief'), payload);
         toast.success('Debrief saved to your journal');
-
-        // ── Notification: new entry saved ──
-        // Build a context-aware message based on outcome
         const outcomeMsg: Record<InterviewOutcome, string> = {
-          'offer':          `🎉 You got an offer for ${formData.jobTitle} at ${formData.companyName}! Congrats!`,
-          'moved-forward':  `You moved forward for ${formData.jobTitle} at ${formData.companyName}. Keep going!`,
-          'rejected':       `Debrief logged for ${formData.jobTitle} at ${formData.companyName}. Learn from it and keep pushing.`,
-          'ghosted':        `Debrief logged for ${formData.jobTitle} at ${formData.companyName}. Ghosted — their loss.`,
-          'withdrew':       `Debrief logged for ${formData.jobTitle} at ${formData.companyName}. You withdrew — good self-awareness.`,
-          'pending':        `Debrief logged for ${formData.jobTitle} at ${formData.companyName}. Awaiting outcome.`,
+          'offer':         `🎉 You got an offer for ${formData.jobTitle} at ${formData.companyName}! Congrats!`,
+          'moved-forward': `You moved forward for ${formData.jobTitle} at ${formData.companyName}. Keep going!`,
+          'rejected':      `Debrief logged for ${formData.jobTitle} at ${formData.companyName}. Learn from it and keep pushing.`,
+          'ghosted':       `Debrief logged for ${formData.jobTitle} at ${formData.companyName}. Ghosted — their loss.`,
+          'withdrew':      `Debrief logged for ${formData.jobTitle} at ${formData.companyName}. You withdrew — good self-awareness.`,
+          'pending':       `Debrief logged for ${formData.jobTitle} at ${formData.companyName}. Awaiting outcome.`,
         };
-
         await NotificationService.createNotification(
           user.uid,
           formData.outcome === 'offer' ? 'achievement' : 'planner',
@@ -672,7 +665,6 @@ export default function InterviewDebriefPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // ── Stats ──
   const totalEntries  = entries.length;
   const avgSelfScore  = totalEntries > 0 ? Math.round(entries.reduce((s, e) => s + e.selfScore, 0) / totalEntries) : 0;
   const advancedCount = entries.filter(e => e.outcome === 'moved-forward' || e.outcome === 'offer').length;
@@ -747,7 +739,6 @@ export default function InterviewDebriefPage() {
               <p className="text-slate-400 text-xs mt-1">The more detail you log, the better the AI insights.</p>
             </div>
             <div className="p-6 space-y-6">
-              {/* Company + Title + Date */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {[
                   { key: 'companyName', label: 'Company *',  placeholder: 'e.g. Google'      },
@@ -769,7 +760,6 @@ export default function InterviewDebriefPage() {
                 </div>
               </div>
 
-              {/* Stage + Outcome + Duration + Interviewers */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-slate-400 mb-1.5">Stage</label>
@@ -799,7 +789,6 @@ export default function InterviewDebriefPage() {
                 </div>
               </div>
 
-              {/* Emotional state + Scores */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {(['emotionalStateBefore', 'emotionalStateAfter'] as const).map((field, fi) => (
                   <div key={field}>
@@ -842,7 +831,6 @@ export default function InterviewDebriefPage() {
                 </div>
               </div>
 
-              {/* Questions */}
               <div>
                 <label className="block text-xs font-medium text-slate-400 mb-1.5">Questions They Asked</label>
                 <div className="space-y-2">
@@ -866,7 +854,6 @@ export default function InterviewDebriefPage() {
                 </div>
               </div>
 
-              {/* Reflection textareas */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[
                   { key: 'whatWentWell',    label: 'What went well?',        color: 'emerald', placeholder: 'Strong answers, good rapport...', focusColor: 'focus:border-emerald-500' },
@@ -1160,6 +1147,9 @@ export default function InterviewDebriefPage() {
           </>
         )}
       </div>
+
+      {/* UsersFeedback — passive session-based trigger */}
+      <UsersFeedback page="interviews" />
     </div>
   );
 }

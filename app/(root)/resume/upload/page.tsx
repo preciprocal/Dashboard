@@ -15,6 +15,7 @@ import { compressPDF, validatePDF } from '@/lib/resume/pdf-compression';
 import { convertPdfToImage } from '@/lib/resume/pdf2img';
 import { toast } from 'sonner';
 import { NotificationService } from '@/lib/services/notification-services';
+import UsersFeedback from '@/components/UserFeedback';
 
 const PROCESSING_STEPS = [
   { step: 0, message: 'Compressing file...',      progress: 10  },
@@ -375,6 +376,7 @@ export default function UploadResume() {
           </form>
         </div>
       </div>
+       <UsersFeedback page="resume" />
     </div>
   );
 }

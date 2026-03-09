@@ -15,6 +15,7 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import { NotificationService } from '@/lib/services/notification-services';
+import UsersFeedback from '@/components/UserFeedback';
 
 // ─────────────────────────────────────────────────────────────────
 // Types
@@ -1034,6 +1035,7 @@ export default function JobTrackerPage() {
           )}
         </div>
       </div>
+      <UsersFeedback page="job-tracker" />
     </>
   );
 }

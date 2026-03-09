@@ -8,11 +8,10 @@ import { auth } from '@/firebase/client';
 import { SkillLevel } from '@/types/planner';
 import {
   ArrowLeft, Sparkles, Calendar, Briefcase, Target, TrendingUp,
-  Loader2, CheckCircle2, ArrowRight, Search, X
+  Loader2, CheckCircle2, Search, X
 } from 'lucide-react';
 import Link from 'next/link';
-import FeedbackSurveyModal, { FeedbackData } from '@/components/FeedbackSurveyModal';
-import { useUsageTracking } from '@/lib/hooks/useUsageTracking';
+import UsersFeedback from '@/components/UserFeedback';
 import { toast } from 'sonner';
 import { NotificationService } from '@/lib/services/notification-services';
 
@@ -84,11 +83,6 @@ export default function CreatePlanPage() {
     weakAreas: '',
   });
 
-  const [showSurvey, setShowSurvey] = useState(false);
-  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
-
-  const { canUseFeature, getRemainingCount, getLimit, incrementUsage, checkAndShowSurvey, loading: usageLoading } = useUsageTracking();
-
   useEffect(() => {
     if (!loading && !user) router.push('/sign-in');
   }, [loading, user, router]);
@@ -122,7 +116,6 @@ export default function CreatePlanPage() {
     return Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
   };
 
-  // ── Submit ────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -133,12 +126,6 @@ export default function CreatePlanPage() {
     const daysUntilInterview = calculateDaysUntilInterview();
     if (daysUntilInterview < 1) { setError('Interview date must be in the future'); return; }
     if (daysUntilInterview > 90) { setError('Please select a date within 90 days'); return; }
-
-    if (!canUseFeature('studyPlans')) {
-      if (checkAndShowSurvey('studyPlans')) { setShowSurvey(true); }
-      else { setShowUpgradePrompt(true); }
-      return;
-    }
 
     try {
       setIsGenerating(true);
@@ -167,9 +154,6 @@ export default function CreatePlanPage() {
         await new Promise(resolve => setTimeout(resolve, 800));
       }
 
-      await incrementUsage('studyPlans');
-
-      // ── Notification: plan created ──
       if (user?.uid) {
         const target = formData.company.trim()
           ? `${formData.role.trim()} at ${formData.company.trim()}`
@@ -180,10 +164,7 @@ export default function CreatePlanPage() {
           'planner',
           'Study Plan Created 📅',
           `Your ${daysUntilInterview}-day prep plan for ${target} is ready. Start preparing today!`,
-          {
-            actionUrl: `/planner/${data.planId}`,
-            actionLabel: 'View Plan',
-          }
+          { actionUrl: `/planner/${data.planId}`, actionLabel: 'View Plan' }
         );
       }
 
@@ -197,24 +178,14 @@ export default function CreatePlanPage() {
     }
   };
 
-  const handleFeedbackSubmit = async (feedback: FeedbackData) => {
-    try {
-      const response = await fetch('/api/feedback', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(feedback),
-      });
-      if (!response.ok) throw new Error('Failed to submit feedback');
-      setShowSurvey(false);
-      setShowUpgradePrompt(true);
-    } catch (error) {
-      console.error('Error submitting feedback:', error);
-      throw error;
-    }
-  };
-
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center px-4"><Loader2 className="w-8 h-8 animate-spin text-blue-400" /></div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
+      </div>
+    );
   }
+
   if (!user) return null;
 
   if (isGenerating) {
@@ -230,13 +201,16 @@ export default function CreatePlanPage() {
               <p className="text-slate-400 text-xs sm:text-sm">{PROCESSING_STEPS[currentStep]?.message}</p>
             </div>
             <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mb-5 sm:mb-6">
-              <div className="h-full bg-gradient-to-r from-blue-600 to-purple-600 transition-all duration-500" style={{ width: `${PROCESSING_STEPS[currentStep]?.progress}%` }} />
+              <div className="h-full bg-gradient-to-r from-blue-600 to-purple-600 transition-all duration-500"
+                style={{ width: `${PROCESSING_STEPS[currentStep]?.progress}%` }} />
             </div>
             <div className="space-y-2 sm:space-y-2.5">
               {PROCESSING_STEPS.map((step, index) => (
                 <div key={index} className={`flex items-center gap-2 sm:gap-3 transition-opacity ${index <= currentStep ? 'opacity-100' : 'opacity-40'}`}>
-                  {index < currentStep ? <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 flex-shrink-0" />
-                    : index === currentStep ? <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400 animate-spin flex-shrink-0" />
+                  {index < currentStep
+                    ? <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 flex-shrink-0" />
+                    : index === currentStep
+                    ? <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400 animate-spin flex-shrink-0" />
                     : <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full border-2 border-slate-700 flex-shrink-0" />}
                   <span className="text-xs sm:text-sm text-slate-400">{step.message}</span>
                 </div>
@@ -247,9 +221,6 @@ export default function CreatePlanPage() {
       </div>
     );
   }
-
-  const remainingCount = getRemainingCount('studyPlans');
-  const limit = getLimit('studyPlans');
 
   return (
     <div className="h-[calc(100vh-121px)] flex flex-col overflow-hidden px-4 sm:px-0">
@@ -265,16 +236,7 @@ export default function CreatePlanPage() {
               <span className="text-blue-400 text-xs sm:text-sm font-medium">AI-Powered</span>
             </div>
             <h1 className="text-xl sm:text-2xl font-semibold text-white mb-1">Create Preparation Plan</h1>
-            <div className="flex items-center gap-3">
-              <p className="text-slate-400 text-xs sm:text-sm">AI-powered personalized study plan for your interview</p>
-              {!usageLoading && user && (
-                <div className="text-xs text-slate-400">
-                  {remainingCount === -1
-                    ? <span className="text-emerald-400 font-medium">✨ Unlimited</span>
-                    : <span><span className="font-medium text-white">{remainingCount}</span> of {limit} remaining</span>}
-                </div>
-              )}
-            </div>
+            <p className="text-slate-400 text-xs sm:text-sm">AI-powered personalized study plan for your interview</p>
           </div>
         </div>
       </div>
@@ -293,22 +255,31 @@ export default function CreatePlanPage() {
             </div>
             <div className="space-y-3 sm:space-y-4">
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1.5">Job Role <span className="text-red-400">*</span></label>
-                <input type="text" value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })}
+                <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1.5">
+                  Job Role <span className="text-red-400">*</span>
+                </label>
+                <input type="text" value={formData.role}
+                  onChange={e => setFormData({ ...formData, role: e.target.value })}
                   placeholder="e.g., Senior Frontend Engineer"
                   className="w-full px-3 sm:px-3.5 py-2 sm:py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-xs sm:text-sm" required />
               </div>
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1.5">Company Name <span className="text-slate-400 text-xs">(Optional)</span></label>
-                <input type="text" value={formData.company} onChange={e => setFormData({ ...formData, company: e.target.value })}
+                <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1.5">
+                  Company Name <span className="text-slate-400 text-xs">(Optional)</span>
+                </label>
+                <input type="text" value={formData.company}
+                  onChange={e => setFormData({ ...formData, company: e.target.value })}
                   placeholder="e.g., Google, Microsoft"
                   className="w-full px-3 sm:px-3.5 py-2 sm:py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-xs sm:text-sm" />
               </div>
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1.5">Interview Date <span className="text-red-400">*</span></label>
+                <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1.5">
+                  Interview Date <span className="text-red-400">*</span>
+                </label>
                 <div className="relative group">
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none z-10 group-focus-within:text-blue-400 transition-colors" />
-                  <input type="date" value={formData.interviewDate} onChange={e => setFormData({ ...formData, interviewDate: e.target.value })}
+                  <input type="date" value={formData.interviewDate}
+                    onChange={e => setFormData({ ...formData, interviewDate: e.target.value })}
                     min={new Date().toISOString().split('T')[0]}
                     max={new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 hover:bg-slate-800/70 hover:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-slate-800/70 transition-all text-sm cursor-pointer [color-scheme:dark]" required />
@@ -334,7 +305,9 @@ export default function CreatePlanPage() {
                 )}
               </div>
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1.5">Skill Level <span className="text-red-400">*</span></label>
+                <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1.5">
+                  Skill Level <span className="text-red-400">*</span>
+                </label>
                 <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
                   {(['beginner', 'intermediate', 'advanced'] as SkillLevel[]).map(level => (
                     <button key={level} type="button" onClick={() => setFormData({ ...formData, skillLevel: level })}
@@ -358,7 +331,8 @@ export default function CreatePlanPage() {
             <p className="text-xs sm:text-sm text-slate-400 mb-3 sm:mb-4">Select topics you&apos;d like to prioritize in your preparation</p>
             <div className="relative mb-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search focus areas..."
+              <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search focus areas..."
                 className="w-full pl-10 pr-10 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm" />
               {searchQuery && (
                 <button type="button" onClick={clearSearch} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors">
@@ -409,14 +383,20 @@ export default function CreatePlanPage() {
             </div>
             <div className="space-y-3 sm:space-y-4">
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1.5">Existing Skills <span className="text-slate-400 text-xs">(Optional)</span></label>
-                <input type="text" value={formData.existingSkills} onChange={e => setFormData({ ...formData, existingSkills: e.target.value })}
+                <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1.5">
+                  Existing Skills <span className="text-slate-400 text-xs">(Optional)</span>
+                </label>
+                <input type="text" value={formData.existingSkills}
+                  onChange={e => setFormData({ ...formData, existingSkills: e.target.value })}
                   placeholder="React, Python, AWS (comma separated)"
                   className="w-full px-3 sm:px-3.5 py-2 sm:py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-xs sm:text-sm" />
               </div>
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1.5">Areas to Improve <span className="text-slate-400 text-xs">(Optional)</span></label>
-                <input type="text" value={formData.weakAreas} onChange={e => setFormData({ ...formData, weakAreas: e.target.value })}
+                <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1.5">
+                  Areas to Improve <span className="text-slate-400 text-xs">(Optional)</span>
+                </label>
+                <input type="text" value={formData.weakAreas}
+                  onChange={e => setFormData({ ...formData, weakAreas: e.target.value })}
                   placeholder="System design, Dynamic programming"
                   className="w-full px-3 sm:px-3.5 py-2 sm:py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-xs sm:text-sm" />
               </div>
@@ -431,60 +411,14 @@ export default function CreatePlanPage() {
 
           <button type="submit" disabled={isGenerating}
             className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base">
-            <Sparkles className="w-4 h-4 sm:w-4 sm:h-4" />
+            <Sparkles className="w-4 h-4" />
             <span>Generate Preparation Plan</span>
           </button>
         </form>
       </div>
 
-      {/* Feedback Survey Modal */}
-      {user && (
-        <FeedbackSurveyModal isOpen={showSurvey}
-          onClose={() => { setShowSurvey(false); setShowUpgradePrompt(true); }}
-          onSubmit={handleFeedbackSubmit} featureType="studyPlans" userId={user.uid} />
-      )}
-
-      {/* Upgrade Prompt Modal */}
-      {showUpgradePrompt && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6">
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Sparkles className="w-8 h-8 text-white" />
-              </div>
-              <h2 className="text-2xl font-bold text-white mb-2">Limit Reached</h2>
-              <p className="text-slate-400">You&apos;ve used all {limit} of your free study plans this month</p>
-            </div>
-            <div className="space-y-3 mb-6">
-              {[
-                { title: 'Unlimited Plans', desc: 'Create unlimited study plans' },
-                { title: 'All Premium Features', desc: 'Resume analysis, interviews, and more' },
-                { title: 'Priority Support', desc: 'Get help when you need it' },
-              ].map((item, i) => (
-                <div key={i} className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-white font-medium mb-1">{item.title}</p>
-                      <p className="text-sm text-slate-400">{item.desc}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="space-y-3">
-              <Link href="/subscription"
-                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white rounded-lg font-medium transition-all">
-                Upgrade Now <ArrowRight className="w-4 h-4" />
-              </Link>
-              <button onClick={() => setShowUpgradePrompt(false)}
-                className="w-full px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-medium transition-colors">
-                Maybe Later
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* UsersFeedback */}
+      <UsersFeedback page="planner" />
     </div>
   );
 }
