@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Users,
   TrendingUp,
@@ -13,7 +13,6 @@ import {
   Loader2,
   Info,
   Star,
- 
   RefreshCw,
   XCircle,
   Flame,
@@ -77,6 +76,65 @@ const HIRING_CHANCE_STYLES: Record<BenchmarkResult['hiringChance'], { color: str
   'high':      { color: 'text-emerald-400', icon: TrendingUp,   bg: 'bg-emerald-500/10 border-emerald-500/20'},
   'very high': { color: 'text-teal-400',    icon: Award,        bg: 'bg-teal-500/10 border-teal-500/20'      },
 };
+
+const BENCHMARK_FACTS = [
+  "Recruiters spend an average of 7 seconds scanning a resume before deciding.",
+  "75% of resumes are rejected by ATS before a human ever sees them.",
+  "Resumes with quantified achievements are 40% more likely to get an interview.",
+  "The average corporate job opening attracts 250 applications.",
+  "Only 2% of applicants make it to the interview stage for any given role.",
+  "Using the exact job title from the posting increases callback rates by 31%.",
+  "Resumes with a LinkedIn URL get 71% more responses from recruiters.",
+  "Action verbs at the start of bullet points increase perceived impact by 38%.",
+  "Hiring managers prefer one-page resumes for candidates with under 10 years of experience.",
+  "Candidates who tailor their resume per application are 3× more likely to get interviews.",
+];
+
+function BenchmarkLoadingState() {
+  const [factIndex, setFactIndex] = useState(0);
+  const [visible, setVisible] = useState(true);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    timerRef.current = setInterval(() => {
+      setVisible(false);
+      setTimeout(() => {
+        setFactIndex(i => (i + 1) % BENCHMARK_FACTS.length);
+        setVisible(true);
+      }, 400);
+    }, 4000);
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, []);
+
+  return (
+    <div className="glass-card-gradient hover-lift">
+      <div className="glass-card-gradient-inner flex flex-col items-center justify-center py-16 gap-6">
+        <div className="relative">
+          <Loader2 className="w-10 h-10 text-purple-400 animate-spin" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Users className="w-4 h-4 text-purple-300" />
+          </div>
+        </div>
+        <div className="text-center">
+          <p className="text-white font-medium mb-1">Analysing against hired candidates…</p>
+          <p className="text-slate-400 text-sm mb-2">Benchmarking your resume against real-world data</p>
+        </div>
+        {/* Rotating fact */}
+        <div className="w-full max-w-sm mx-auto px-2">
+          <div className="glass-morphism rounded-xl border border-white/5 p-4 min-h-[72px] flex flex-col items-center justify-center text-center">
+            <p className="text-xs font-semibold text-purple-400 uppercase tracking-widest mb-2">Did you know?</p>
+            <p
+              className="text-sm text-slate-300 leading-relaxed"
+              style={{ opacity: visible ? 1 : 0, transition: 'opacity 0.4s ease' }}
+            >
+              {BENCHMARK_FACTS[factIndex]}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function PercentileGauge({ percentile }: { percentile: number }) {
   const angle = (percentile / 100) * 180;
@@ -236,22 +294,7 @@ export default function CandidateBenchmarking({ resumeId, jobTitle }: CandidateB
 
   // ── Loading state ──
   if (loading) {
-    return (
-      <div className="glass-card-gradient hover-lift">
-        <div className="glass-card-gradient-inner flex flex-col items-center justify-center py-16 gap-4">
-          <div className="relative">
-            <Loader2 className="w-10 h-10 text-purple-400 animate-spin" />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <Users className="w-4 h-4 text-purple-300" />
-            </div>
-          </div>
-          <div className="text-center">
-            <p className="text-white font-medium mb-1">Analysing against hired candidates…</p>
-            <p className="text-slate-400 text-sm">Gemini is reviewing your resume against real-world benchmarks</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <BenchmarkLoadingState />;
   }
 
   // ── Error state ──

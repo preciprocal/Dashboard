@@ -7,7 +7,7 @@ import { auth } from '@/firebase/client';
 import {
   Plus, Loader2, Briefcase, Building2, MapPin, Calendar, ExternalLink,
   Edit3, Trash2, X, Save, ArrowLeft, Search, Filter, ChevronDown,
-  CheckCircle2, AlertTriangle, BarChart3, DollarSign, Globe, Laptop,
+  CheckCircle2, AlertTriangle, DollarSign, Globe, Laptop,
   SlidersHorizontal, CalendarPlus, Sparkles, Mail, UserSearch, Copy,
   Check, RefreshCw, Linkedin,
 } from 'lucide-react';
@@ -59,14 +59,14 @@ interface Contact {
 function RoleBadge({ position }: { position: string; tier?: number }) {
   const pos = position.toLowerCase();
   let label = ''; let cls = '';
-  if (/recruiter|talent|hr|people/.test(pos))                                                           { label = 'Recruiter';   cls = 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25'; }
-  else if (/ceo|founder|president|chief exec/.test(pos))                                                { label = 'CEO/Founder'; cls = 'bg-amber-500/15 text-amber-400 border-amber-500/25'; }
-  else if (/cto|chief tech|vp of eng|vp eng/.test(pos))                                                { label = 'CTO/VP Eng'; cls = 'bg-violet-500/15 text-violet-400 border-violet-500/25'; }
-  else if (/cpo|chief product/.test(pos))                                                               { label = 'CPO';         cls = 'bg-blue-500/15 text-blue-400 border-blue-500/25'; }
-  else if (/director|vp /.test(pos))                                                                    { label = 'Director/VP'; cls = 'bg-indigo-500/15 text-indigo-400 border-indigo-500/25'; }
-  else if (/team lead|tech lead|lead data|lead ml|lead ai|lead software|lead engineer|technical lead/.test(pos)) { label = 'Team Lead';  cls = 'bg-cyan-500/15 text-cyan-400 border-cyan-500/25'; }
-  else if (/manager|principal|staff/.test(pos))                                                         { label = 'Manager';     cls = 'bg-slate-500/15 text-slate-400 border-slate-500/25'; }
-  else                                                                                                  { label = 'Contact';     cls = 'bg-slate-500/15 text-slate-500 border-slate-600/25'; }
+  if (/recruiter|talent|hr|people/.test(pos))                                                                     { label = 'Recruiter';   cls = 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25'; }
+  else if (/ceo|founder|president|chief exec/.test(pos))                                                          { label = 'CEO/Founder'; cls = 'bg-amber-500/15 text-amber-400 border-amber-500/25'; }
+  else if (/cto|chief tech|vp of eng|vp eng/.test(pos))                                                          { label = 'CTO/VP Eng'; cls = 'bg-violet-500/15 text-violet-400 border-violet-500/25'; }
+  else if (/cpo|chief product/.test(pos))                                                                         { label = 'CPO';         cls = 'bg-blue-500/15 text-blue-400 border-blue-500/25'; }
+  else if (/director|vp /.test(pos))                                                                              { label = 'Director/VP'; cls = 'bg-indigo-500/15 text-indigo-400 border-indigo-500/25'; }
+  else if (/team lead|tech lead|lead data|lead ml|lead ai|lead software|lead engineer|technical lead/.test(pos)) { label = 'Team Lead';   cls = 'bg-cyan-500/15 text-cyan-400 border-cyan-500/25'; }
+  else if (/manager|principal|staff/.test(pos))                                                                   { label = 'Manager';     cls = 'bg-slate-500/15 text-slate-400 border-slate-500/25'; }
+  else                                                                                                            { label = 'Contact';     cls = 'bg-slate-500/15 text-slate-500 border-slate-600/25'; }
   return <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border ${cls}`}>{label}</span>;
 }
 
@@ -87,8 +87,8 @@ const STATUS_CONFIG: Record<AppStatus, { label: string; color: string; bg: strin
 };
 
 const WORK_TYPE_CONFIG: Record<WorkType, { label: string; icon: React.ElementType }> = {
-  remote: { label: 'Remote', icon: Globe    },
-  hybrid: { label: 'Hybrid', icon: Laptop   },
+  remote: { label: 'Remote', icon: Globe     },
+  hybrid: { label: 'Hybrid', icon: Laptop    },
   onsite: { label: 'Onsite', icon: Building2 },
 };
 
@@ -131,10 +131,6 @@ function PipelineFunnel({ apps }: { apps: Application[] }) {
   return (
     <div className="glass-card px-4 py-3 hover-lift">
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          <BarChart3 className="w-3.5 h-3.5 text-purple-400" />
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Pipeline</span>
-        </div>
         <div className="flex-1 flex items-center gap-1.5 flex-wrap">
           {PIPELINE_STAGES.map(stage => {
             const cfg = STATUS_CONFIG[stage]; const count = counts[stage];
@@ -347,7 +343,7 @@ function AppCard({ app, onEdit, onDelete, onStatusChange, onCreatePlan, onFindCo
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Contacts Modal — helpers
+// Contacts Modal helpers
 // ─────────────────────────────────────────────────────────────────
 
 function CopyBtn({ text }: { text: string }) {
@@ -370,8 +366,6 @@ function ConfidenceDot({ score }: { score: number }) {
   );
 }
 
-// ── Gmail / Outlook send helpers ──────────────────────────────────
-
 function buildSubject(jobTitle: string, company: string): string {
   return `${jobTitle} Role at ${company} – Reaching Out`;
 }
@@ -389,28 +383,17 @@ function openInOutlook(to: string, subject: string, body: string) {
   window.location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
-function SendEmailButtons({
-  recipientEmail,
-  emailBody,
-  jobTitle,
-  company,
-}: {
-  recipientEmail: string;
-  emailBody: string;
-  jobTitle: string;
-  company: string;
+function SendEmailButtons({ recipientEmail, emailBody, jobTitle, company }: {
+  recipientEmail: string; emailBody: string; jobTitle: string; company: string;
 }) {
   const subject = buildSubject(jobTitle, company);
   return (
     <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-700/40">
       <span className="text-xs text-slate-500 flex-shrink-0">Send via</span>
-
-      {/* Gmail */}
       <button
         onClick={() => openInGmail(recipientEmail, subject, emailBody)}
         className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all border border-red-500/25 bg-red-500/8 text-red-400 hover:bg-red-500/18 hover:border-red-500/45 hover:text-red-300"
       >
-        {/* Envelope icon representing Gmail */}
         <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M2 6.5A2.5 2.5 0 0 1 4.5 4h15A2.5 2.5 0 0 1 22 6.5v11A2.5 2.5 0 0 1 19.5 20h-15A2.5 2.5 0 0 1 2 17.5v-11Z" stroke="currentColor" strokeWidth="1.5"/>
           <path d="M2 7l10 7 10-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -418,8 +401,6 @@ function SendEmailButtons({
         Gmail
         <ExternalLink className="w-3 h-3 opacity-60" />
       </button>
-
-      {/* Outlook / system mail */}
       <button
         onClick={() => openInOutlook(recipientEmail, subject, emailBody)}
         className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all border border-blue-500/25 bg-blue-500/8 text-blue-400 hover:bg-blue-500/18 hover:border-blue-500/45 hover:text-blue-300"
@@ -446,12 +427,20 @@ function ContactsModal({ app, onClose }: { app: Application; onClose: () => void
   const [activeIdx,          setActiveIdx]          = useState<number | null>(null);
   const [copiedEmail,        setCopiedEmail]        = useState<string | null>(null);
 
+  // ── KEY CHANGE: pass jobUrl so the route extracts domain directly ──
   const fetchContacts = async (overrideDomain?: string) => {
     setLoading(true); setError(''); setContacts([]); setActiveIdx(null);
     try {
-      const res  = await fetch('/api/job-tracker/find-contacts', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ company: app.company, jobTitle: app.jobTitle, jobDescription: app.notes || '', domain: overrideDomain || domain || undefined }),
+      const res = await fetch('/api/job-tracker/find-contacts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          company:        app.company,
+          jobTitle:       app.jobTitle,
+          jobDescription: app.notes || '',
+          domain:         overrideDomain || domain || undefined,
+          jobUrl:         app.jobUrl || undefined,  // ← domain extracted from this server-side
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to fetch contacts');
@@ -473,72 +462,87 @@ function ContactsModal({ app, onClose }: { app: Application; onClose: () => void
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-slate-900/98 border border-slate-700/60 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700/50 flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 gradient-primary rounded-xl flex items-center justify-center shadow-glass"><UserSearch className="w-4 h-4 text-white" /></div>
+            <div className="w-9 h-9 gradient-primary rounded-xl flex items-center justify-center shadow-glass">
+              <UserSearch className="w-4 h-4 text-white" />
+            </div>
             <div>
               <h2 className="text-base font-bold text-white">Find Contacts</h2>
-              <p className="text-xs text-slate-400">{app.company} · {app.jobTitle}</p>
+              <p className="text-xs text-slate-400">
+                {app.company} · {app.jobTitle}
+                {app.jobUrl && (
+                  <span className="ml-2 text-slate-600">· {(() => { try { return new URL(app.jobUrl).hostname.replace(/^www\./, ''); } catch { return ''; } })()}</span>
+                )}
+              </p>
             </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-white transition-colors"><X className="w-4 h-4" /></button>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
-        {/* Search bar */}
-        <div className="px-6 py-3 border-b border-slate-700/30 flex-shrink-0">
-          {contacts.length > 0 && foundDomain ? (
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-slate-400">Found <span className="text-white font-medium">{contacts.length}</span> contacts at <span className="text-purple-400 font-medium">{foundDomain}</span></p>
-              <button onClick={() => { setContacts([]); setFoundDomain(''); setError(''); setShowDomainOverride(true); }}
-                className="text-xs text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1">
-                <RefreshCw className="w-3 h-3" /> Wrong company?
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              {showDomainOverride ? (
-                <>
-                  <div className="flex-1 relative">
-                    <Globe className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input type="text" value={domain} onChange={e => setDomain(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && fetchContacts()} placeholder="Enter domain manually (e.g. gotinder.com)" autoFocus
-                      className="w-full pl-9 pr-3 py-2 bg-slate-800/50 border border-slate-700/60 rounded-xl text-white placeholder-slate-600 text-sm focus:outline-none focus:border-purple-500/60 transition-colors" />
-                  </div>
-                  <button onClick={() => fetchContacts()} disabled={loading || !domain.trim()}
-                    className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl font-semibold text-sm transition-all disabled:opacity-50 flex items-center gap-2">
-                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserSearch className="w-4 h-4" />}
-                    {loading ? 'Searching…' : 'Search'}
-                  </button>
-                  <button onClick={() => setShowDomainOverride(false)} className="text-slate-500 hover:text-white"><X className="w-4 h-4" /></button>
-                </>
-              ) : (
-                <div className="flex items-center justify-between w-full">
-                  <p className="text-xs text-slate-500">
-                    {loading ? <>Preciprocal AI is finding contacts at <span className="text-purple-400">{app.company}</span>…</> : error ? <>Couldn&apos;t find contacts automatically</> : <>Click Find to search for contacts at <span className="text-white font-medium">{app.company}</span></>}
-                  </p>
-                  {!loading && (
-                    <button onClick={() => fetchContacts()} disabled={loading}
-                      className="px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-lg font-semibold text-xs transition-all disabled:opacity-50 flex items-center gap-1.5">
-                      <UserSearch className="w-3.5 h-3.5" /> Find
-                    </button>
-                  )}
+        {/* Sub-header */}
+        {((contacts.length > 0 && foundDomain) || showDomainOverride) && (
+          <div className="px-6 py-3 border-b border-slate-700/30 flex-shrink-0">
+            {contacts.length > 0 && foundDomain && !showDomainOverride ? (
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-slate-400">
+                  Found <span className="text-white font-medium">{contacts.length}</span> contacts at{' '}
+                  <span className="text-purple-400 font-medium">{foundDomain}</span>
+                </p>
+                <button
+                  onClick={() => { setContacts([]); setFoundDomain(''); setError(''); setShowDomainOverride(true); }}
+                  className="text-xs text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1"
+                >
+                  <RefreshCw className="w-3 h-3" /> Wrong company?
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <div className="flex-1 relative">
+                  <Globe className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={domain}
+                    onChange={e => setDomain(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && fetchContacts()}
+                    placeholder="Enter domain manually (e.g. stripe.com)"
+                    autoFocus
+                    className="w-full pl-9 pr-3 py-2 bg-slate-800/50 border border-slate-700/60 rounded-xl text-white placeholder-slate-600 text-sm focus:outline-none focus:border-purple-500/60 transition-colors"
+                  />
                 </div>
-              )}
-            </div>
-          )}
-        </div>
+                <button
+                  onClick={() => fetchContacts()}
+                  disabled={loading || !domain.trim()}
+                  className="w-9 h-9 flex items-center justify-center bg-slate-800/80 border border-slate-700/60 hover:border-purple-500/60 hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+                  title="Search"
+                >
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserSearch className="w-4 h-4" />}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Body */}
         <div className="flex-1 overflow-hidden flex min-h-0">
+
+          {/* Error state */}
           {error && (
             <div className="flex-1 flex items-center justify-center p-8">
               <div className="text-center max-w-sm">
-                <div className="w-12 h-12 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4"><AlertTriangle className="w-6 h-6 text-red-400" /></div>
+                <div className="w-12 h-12 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <AlertTriangle className="w-6 h-6 text-red-400" />
+                </div>
                 <p className="text-white font-semibold mb-2">Couldn&apos;t find contacts</p>
                 <p className="text-slate-400 text-sm mb-5 leading-relaxed">{error}</p>
-                <button onClick={() => { setShowDomainOverride(true); setError(''); }}
-                  className="w-full px-4 py-2 bg-gradient-to-r from-purple-600/20 to-indigo-600/20 hover:from-purple-600/30 hover:to-indigo-600/30 border border-purple-500/30 rounded-xl text-sm text-purple-300 hover:text-white transition-all flex items-center justify-center gap-2">
+                <button
+                  onClick={() => { setShowDomainOverride(true); setError(''); }}
+                  className="w-full px-4 py-2 bg-gradient-to-r from-purple-600/20 to-indigo-600/20 hover:from-purple-600/30 hover:to-indigo-600/30 border border-purple-500/30 rounded-xl text-sm text-purple-300 hover:text-white transition-all flex items-center justify-center gap-2"
+                >
                   <Globe className="w-3.5 h-3.5" /> Enter domain manually
                 </button>
                 <button onClick={() => fetchContacts()} className="mt-4 text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1 mx-auto transition-colors">
@@ -548,22 +552,33 @@ function ContactsModal({ app, onClose }: { app: Application; onClose: () => void
             </div>
           )}
 
+          {/* Empty / initial state */}
           {!loading && !error && contacts.length === 0 && (
             <div className="flex-1 flex items-center justify-center p-8">
               <div className="text-center">
                 <UserSearch className="w-10 h-10 text-slate-600 mx-auto mb-3" />
                 <p className="text-white font-semibold mb-2">Stop cold-applying. Start warm outreach.</p>
-                <p className="text-slate-500 text-sm max-w-xs leading-relaxed">
-                  Find the recruiter, hiring manager, and decision-makers at <span className="text-slate-300 font-medium">{app.company}</span> and get a personalised email ready to send.
+                <p className="text-slate-500 text-sm max-w-xs leading-relaxed mb-5">
+                  Find the recruiter, hiring manager, and decision-makers at{' '}
+                  <span className="text-slate-300 font-medium">{app.company}</span> and get a personalised email ready to send.
                 </p>
-                <button onClick={() => fetchContacts()}
-                  className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl font-semibold text-sm transition-all">
+                <button
+                  onClick={() => fetchContacts()}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white rounded-xl font-semibold text-sm transition-all shadow-lg shadow-indigo-500/20"
+                >
                   <UserSearch className="w-4 h-4" /> Find Contacts at {app.company}
+                </button>
+                <button
+                  onClick={() => setShowDomainOverride(true)}
+                  className="mt-3 text-xs text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1 mx-auto"
+                >
+                  <Globe className="w-3 h-3" /> Enter domain manually
                 </button>
               </div>
             </div>
           )}
 
+          {/* Loading state */}
           {loading && (
             <div className="flex-1 flex items-center justify-center p-8">
               <div className="text-center">
@@ -572,11 +587,12 @@ function ContactsModal({ app, onClose }: { app: Application; onClose: () => void
                   <UserSearch className="w-5 h-5 text-purple-300 absolute inset-0 m-auto" />
                 </div>
                 <p className="text-white font-medium mb-1">Finding contacts…</p>
-                <p className="text-slate-400 text-sm">Preciprocal AI is finding contacts and writing personalised emails…</p>
+                <p className="text-slate-400 text-sm">Searching for contacts and writing personalised emails…</p>
               </div>
             </div>
           )}
 
+          {/* Results */}
           {!loading && contacts.length > 0 && (
             <div className="flex flex-1 min-h-0">
               {/* Contact list sidebar */}
@@ -601,7 +617,6 @@ function ContactsModal({ app, onClose }: { app: Application; onClose: () => void
               {/* Active contact detail */}
               {activeContact && (
                 <div className="flex-1 overflow-y-auto glass-scrollbar p-5 space-y-4">
-                  {/* Contact info */}
                   <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-4">
                     <div className="flex items-start justify-between gap-3 mb-3">
                       <div className="flex-1 min-w-0">
@@ -631,7 +646,6 @@ function ContactsModal({ app, onClose }: { app: Application; onClose: () => void
                     </div>
                   </div>
 
-                  {/* Generated email */}
                   {activeContact.generatedEmail ? (
                     <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl overflow-hidden">
                       <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-700/40">
@@ -645,8 +659,6 @@ function ContactsModal({ app, onClose }: { app: Application; onClose: () => void
                         <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-wrap">
                           {activeContact.generatedEmail}
                         </p>
-
-                        {/* ── Open in Gmail / Outlook ── */}
                         <SendEmailButtons
                           recipientEmail={activeContact.email}
                           emailBody={activeContact.generatedEmail}
@@ -674,12 +686,16 @@ function ContactsModal({ app, onClose }: { app: Application; onClose: () => void
 // Create Plan Modal
 // ─────────────────────────────────────────────────────────────────
 
-const PLAN_PRESETS = [{ days: 3, label: '3 days' }, { days: 7, label: '1 week' }, { days: 14, label: '2 weeks' }, { days: 21, label: '3 weeks' }, { days: 30, label: '1 month' }];
+const PLAN_PRESETS = [
+  { days: 3, label: '3 days' }, { days: 7, label: '1 week' },
+  { days: 14, label: '2 weeks' }, { days: 21, label: '3 weeks' },
+  { days: 30, label: '1 month' },
+];
 
 function CreatePlanModal({ app, onConfirm, onClose }: { app: Application; onConfirm: (days: number) => void; onClose: () => void }) {
-  const [selected, setSelected] = useState<number>(7);
-  const [custom,   setCustom]   = useState(false);
-  const [customVal,setCustomVal]= useState('14');
+  const [selected,  setSelected]  = useState<number>(7);
+  const [custom,    setCustom]    = useState(false);
+  const [customVal, setCustomVal] = useState('14');
   const handleConfirm = () => { const days = custom ? Math.max(1, Math.min(90, parseInt(customVal) || 7)) : selected; onConfirm(days); };
   const inp = "w-full px-3 py-2 bg-slate-900/50 border border-slate-700/60 rounded-lg text-white text-sm focus:outline-none focus:border-purple-500/60 transition-colors";
   return (
@@ -688,7 +704,9 @@ function CreatePlanModal({ app, onConfirm, onClose }: { app: Application; onConf
       <div className="relative bg-slate-900/95 border border-slate-700/60 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-700/50 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-lg flex items-center justify-center"><CalendarPlus className="w-4 h-4 text-white" /></div>
+            <div className="w-8 h-8 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-lg flex items-center justify-center">
+              <CalendarPlus className="w-4 h-4 text-white" />
+            </div>
             <div>
               <p className="text-sm font-semibold text-white">Create Prep Plan</p>
               <p className="text-xs text-slate-400 truncate max-w-[180px]">{app.jobTitle} @ {app.company}</p>
@@ -997,7 +1015,7 @@ export default function JobTrackerPage() {
                   <Sparkles className="w-5 h-5 text-violet-300 absolute inset-0 m-auto" />
                 </div>
                 <p className="text-white font-semibold mb-1">Generating your prep plan…</p>
-                <p className="text-slate-400 text-sm">Building your personalised prep roadmap with Preciprocal AI</p>
+                <p className="text-slate-400 text-sm">Building your personalised prep roadmap</p>
               </div>
             </div>
           )}
@@ -1005,7 +1023,9 @@ export default function JobTrackerPage() {
           {/* Grid */}
           {filtered.length === 0 ? (
             <div className="glass-card text-center py-16 px-6">
-              <div className="w-14 h-14 bg-slate-800 border border-slate-700/50 rounded-2xl flex items-center justify-center mx-auto mb-4"><Briefcase className="w-6 h-6 text-slate-500" /></div>
+              <div className="w-14 h-14 bg-slate-800 border border-slate-700/50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Briefcase className="w-6 h-6 text-slate-500" />
+              </div>
               <h3 className="text-white font-semibold mb-2">{apps.length === 0 ? 'No applications yet' : 'No results match your filters'}</h3>
               <p className="text-slate-500 text-sm mb-6 max-w-xs mx-auto">
                 {apps.length === 0 ? 'Start tracking your job search. Add your first application to see it here.' : 'Try adjusting your search or filters.'}
@@ -1019,7 +1039,10 @@ export default function JobTrackerPage() {
             </div>
           ) : (
             <>
-              <p className="text-xs text-slate-500">{filtered.length} application{filtered.length !== 1 ? 's' : ''}{search || filterStatus !== 'all' || filterWork !== 'all' ? ' matching filters' : ''}</p>
+              <p className="text-xs text-slate-500">
+                {filtered.length} application{filtered.length !== 1 ? 's' : ''}
+                {search || filterStatus !== 'all' || filterWork !== 'all' ? ' matching filters' : ''}
+              </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {filtered.map(app => (
                   <AppCard key={app.id} app={app}

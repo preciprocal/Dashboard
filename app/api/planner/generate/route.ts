@@ -2,18 +2,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { auth, db } from '@/firebase/admin';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import Anthropic from '@anthropic-ai/sdk';
 
-// Use correct environment variable name (same as your working route)
-const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+const apiKey = process.env.CLAUDE_API_KEY;
 
 if (!apiKey) {
-  console.error('❌ GOOGLE_GENERATIVE_AI_API_KEY is not set');
+  console.error('❌ CLAUDE_API_KEY is not set');
 }
 
-const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
+const anthropic = apiKey ? new Anthropic({ apiKey }) : null;
 
-// Define interfaces
 interface GeneratePlanRequest {
   role: string;
   company?: string;
@@ -113,38 +111,33 @@ Return your response as valid JSON with this exact structure:
       "completed": false
     }
   ]
-}`;
+}
+
+Return ONLY valid JSON, no markdown, no extra text.`;
 
 export async function POST(request: NextRequest) {
   try {
     console.log('🚀 Plan generation started');
     console.log('   API Key Available:', !!apiKey);
 
-    // Check API configuration
-    if (!genAI || !apiKey) {
-      console.error('❌ Gemini API not configured');
+    if (!anthropic || !apiKey) {
+      console.error('❌ Claude API not configured');
       return NextResponse.json(
-        { error: 'AI service not configured. Please add GOOGLE_GENERATIVE_AI_API_KEY to environment variables.' },
+        { error: 'AI service not configured. Please add CLAUDE_API_KEY to environment variables.' },
         { status: 500 }
       );
     }
 
-    // Get session cookie
     const cookieStore = await cookies();
     const session = cookieStore.get('session');
 
     if (!session) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Verify session
     const decodedClaims = await auth.verifySessionCookie(session.value, true);
     const userId = decodedClaims.uid;
 
-    // Parse request body
     const body = await request.json() as GeneratePlanRequest;
     const {
       role,
@@ -157,19 +150,14 @@ export async function POST(request: NextRequest) {
       weakAreas
     } = body;
 
-    // Validation
     if (!role || !interviewDate || !daysUntilInterview) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
     console.log('   User ID:', userId);
     console.log('   Role:', role);
     console.log('   Days until interview:', daysUntilInterview);
 
-    // Build user prompt
     const userPrompt = `Create a ${daysUntilInterview}-day interview preparation plan for:
 
 Role: ${role}
@@ -182,38 +170,39 @@ ${weakAreas?.length ? `Areas Needing Improvement: ${weakAreas.join(', ')}` : ''}
 
 Create a detailed, day-by-day plan with specific resources, practice problems, and behavioral questions.`;
 
-    // Use Gemini 2.0 Flash model (same as your working route)
-    console.log('   Calling Gemini AI...');
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.5-flash'
+    console.log('   Calling Claude AI...');
+
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 8192,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: userPrompt }],
     });
 
-    const fullPrompt = SYSTEM_PROMPT + '\n\n' + userPrompt + '\n\nIMPORTANT: Return ONLY valid JSON, no markdown, no extra text.';
-    
-    const result = await model.generateContent(fullPrompt);
-    const responseText = result.response.text();
-    
+    const responseText = response.content[0].type === 'text' ? response.content[0].text : '';
+
     console.log('   ✅ AI response received');
     console.log('   Response length:', responseText.length);
-    
-    // Extract JSON from response (same approach as your working route)
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
+
+    let cleaned = responseText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+    if (!cleaned.startsWith('{')) {
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+      if (jsonMatch) cleaned = jsonMatch[0];
+    }
+
+    if (!cleaned) {
       console.error('❌ No JSON found in response');
-      console.error('Response:', responseText.substring(0, 500));
       throw new Error('Failed to parse AI response - no JSON found');
     }
 
     let generatedPlan: GeneratedPlan;
     try {
-      generatedPlan = JSON.parse(jsonMatch[0]) as GeneratedPlan;
+      generatedPlan = JSON.parse(cleaned) as GeneratedPlan;
     } catch (parseError) {
       console.error('❌ JSON parsing error:', parseError);
-      console.error('Extracted text:', jsonMatch[0].substring(0, 500));
       throw new Error('Failed to parse AI response - invalid JSON');
     }
 
-    // Validate response structure
     if (!generatedPlan.dailyPlans || !Array.isArray(generatedPlan.dailyPlans)) {
       console.error('❌ Invalid plan structure');
       throw new Error('Invalid plan structure from AI');
@@ -222,15 +211,13 @@ Create a detailed, day-by-day plan with specific resources, practice problems, a
     console.log('   ✅ Plan structure validated');
     console.log('   Daily plans:', generatedPlan.dailyPlans.length);
 
-    // Add metadata and IDs
     const planId = db.collection('interviewPlans').doc().id;
     const currentDate = new Date();
 
-    // Generate task IDs and dates
     generatedPlan.dailyPlans = generatedPlan.dailyPlans.map((dailyPlan: DailyPlan, dayIndex: number) => {
       const planDate = new Date(currentDate);
       planDate.setDate(planDate.getDate() + dayIndex);
-      
+
       return {
         ...dailyPlan,
         day: dayIndex + 1,
@@ -244,13 +231,11 @@ Create a detailed, day-by-day plan with specific resources, practice problems, a
       };
     });
 
-    // Calculate total tasks
     const totalTasks = generatedPlan.dailyPlans.reduce(
-      (sum: number, day: DailyPlan) => sum + (day.tasks?.length || 0), 
+      (sum: number, day: DailyPlan) => sum + (day.tasks?.length || 0),
       0
     );
 
-    // Create complete plan object
     const completePlan = {
       id: planId,
       userId,
@@ -262,10 +247,8 @@ Create a detailed, day-by-day plan with specific resources, practice problems, a
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       status: 'active',
-      
       dailyPlans: generatedPlan.dailyPlans,
       customTasks: [],
-      
       progress: {
         totalTasks,
         completedTasks: 0,
@@ -273,13 +256,11 @@ Create a detailed, day-by-day plan with specific resources, practice problems, a
         currentStreak: 0,
         totalStudyHours: 0
       },
-      
-      generatedBy: 'gemini',
+      generatedBy: 'claude',
       generationPrompt: userPrompt,
       lastAIUpdate: new Date().toISOString()
     };
 
-    // Save to Firestore
     console.log('   Saving plan to Firestore...');
     await db.collection('interviewPlans').doc(planId).set(completePlan);
 
@@ -287,24 +268,13 @@ Create a detailed, day-by-day plan with specific resources, practice problems, a
     console.log('   Plan ID:', planId);
     console.log('   Total tasks:', totalTasks);
 
-    return NextResponse.json({
-      success: true,
-      planId,
-      plan: completePlan
-    });
+    return NextResponse.json({ success: true, planId, plan: completePlan });
 
   } catch (error) {
     console.error('❌ Error generating interview plan:', error);
     const err = error as Error;
-    console.error('   Error name:', err.name);
-    console.error('   Error message:', err.message);
-    
     return NextResponse.json(
-      { 
-        error: 'Failed to generate plan', 
-        details: err.message,
-        type: err.name 
-      },
+      { error: 'Failed to generate plan', details: err.message, type: err.name },
       { status: 500 }
     );
   }

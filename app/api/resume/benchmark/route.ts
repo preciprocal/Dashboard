@@ -1,11 +1,11 @@
 // app/api/resume/benchmark/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import Anthropic from '@anthropic-ai/sdk';
 import { auth, db } from '@/firebase/admin';
 
-const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-const genAI  = apiKey ? new GoogleGenerativeAI(apiKey) : null;
+const apiKey = process.env.CLAUDE_API_KEY;
+const anthropic = apiKey ? new Anthropic({ apiKey }) : null;
 
 // ─────────────────────────────────────────────────────────────────
 // Prompt — the key to brutal honesty
@@ -169,13 +169,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
     }
 
-    // ── Gemini check ──
-    if (!genAI || !apiKey) {
+    // ── Claude check ──
+    if (!anthropic || !apiKey) {
       return NextResponse.json({ error: 'AI service not configured' }, { status: 503 });
     }
 
     // ── Parse body ──
-    const { resumeId } = await request.json();
+    const { resumeId, force = false } = await request.json();
     if (!resumeId) {
       return NextResponse.json({ error: 'resumeId is required' }, { status: 400 });
     }
@@ -193,51 +193,57 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    // ── Check for cached result (valid for 24h) ──
+    // ── Check for cached result (skip if force=true) ──
     const cached    = resumeData.benchmarkResult as Record<string, unknown> | undefined;
     const cachedAt  = resumeData.benchmarkGeneratedAt as number | undefined;
-    const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+    const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-    if (cached && cachedAt && Date.now() - cachedAt < CACHE_TTL) {
+    if (!force && cached && cachedAt && Date.now() - cachedAt < CACHE_TTL) {
       console.log('✅ Returning cached benchmark for:', resumeId);
       return NextResponse.json({ success: true, data: cached, cached: true });
     }
 
-    // ── Call Gemini ──
-    console.log('🤖 Calling Gemini for benchmark:', resumeId);
-
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash-001',
-      generationConfig: {
-        temperature:     0.4, // Low randomness — we want consistent, not creative
-        topP:            0.85,
-        maxOutputTokens: 2048,
-      },
-    });
-
-    const fullPrompt = BENCHMARK_SYSTEM_PROMPT + '\n\n' + buildPrompt(resumeData);
+    // ── Call Claude ──
+    console.log('🤖 Calling Claude for benchmark:', resumeId);
 
     let rawText: string;
     try {
-      const result = await model.generateContent(fullPrompt);
-      rawText = result.response.text();
-    } catch (geminiError: unknown) {
-      console.error('❌ Gemini error:', geminiError);
-      const msg = geminiError instanceof Error ? geminiError.message : 'Unknown error';
-      if (msg.includes('quota')) return NextResponse.json({ error: 'AI quota exceeded, try again later' }, { status: 429 });
+      const response = await anthropic.messages.create({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 4096,
+        temperature: 0.4,
+        system: BENCHMARK_SYSTEM_PROMPT,
+        messages: [
+          { role: 'user', content: buildPrompt(resumeData) }
+        ],
+      });
+      rawText = response.content[0].type === 'text' ? response.content[0].text : '';
+    } catch (claudeError: unknown) {
+      console.error('❌ Claude error:', claudeError);
+      const msg = claudeError instanceof Error ? claudeError.message : 'Unknown error';
+      if (msg.includes('rate_limit') || msg.includes('overloaded')) {
+        return NextResponse.json({ error: 'AI quota exceeded, try again later' }, { status: 429 });
+      }
       return NextResponse.json({ error: 'AI generation failed' }, { status: 500 });
     }
 
     // ── Parse JSON ──
     let benchmarkData: Record<string, unknown>;
     try {
-      const cleaned = rawText
+      // Strip markdown fences if present
+      let cleaned = rawText
         .replace(/```json\s*/gi, '')
         .replace(/```\s*/g, '')
         .trim();
+
+      // Fallback: extract the first {...} block in case Claude added preamble text
+      if (!cleaned.startsWith('{')) {
+        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+        if (jsonMatch) cleaned = jsonMatch[0];
+      }
+
       benchmarkData = JSON.parse(cleaned);
     } catch {
-      // ✅ Fix: removed unused `parseError` binding — error detail logged via rawText below
       console.error('❌ JSON parse failed. Raw:', rawText.slice(0, 500));
       return NextResponse.json({ error: 'AI returned malformed response, please retry' }, { status: 500 });
     }

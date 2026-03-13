@@ -1,32 +1,28 @@
 // app/api/resume/interview-intel/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import Anthropic from '@anthropic-ai/sdk';
 import { db } from '@/firebase/admin';
 
-const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+const apiKey = process.env.CLAUDE_API_KEY;
 
 if (!apiKey) {
-  console.error('❌ GOOGLE_GENERATIVE_AI_API_KEY is not set');
+  console.error('❌ CLAUDE_API_KEY is not set');
 }
 
-const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
+const anthropic = apiKey ? new Anthropic({ apiKey }) : null;
 
 /**
  * Robust JSON extraction from messy LLM output.
- * Handles: markdown fences, truncated JSON, unescaped chars, etc.
  */
 function extractJSON(raw: string): Record<string, unknown> {
-  // Step 1: Strip markdown fences — ✅ Fix: let → const (never reassigned)
   const text = raw
     .replace(/^```(?:json)?\s*\n?/gim, '')
     .replace(/\n?\s*```\s*$/gim, '')
     .trim();
 
-  // Step 2: Find the outermost { ... } block
   const startIdx = text.indexOf('{');
   if (startIdx === -1) throw new Error('No JSON object found in response');
 
-  // Find matching closing brace by counting depth
   let depth = 0;
   let endIdx = -1;
   let inString = false;
@@ -34,35 +30,17 @@ function extractJSON(raw: string): Record<string, unknown> {
 
   for (let i = startIdx; i < text.length; i++) {
     const ch = text[i];
-
-    if (escaped) {
-      escaped = false;
-      continue;
-    }
-
-    if (ch === '\\') {
-      escaped = true;
-      continue;
-    }
-
-    if (ch === '"') {
-      inString = !inString;
-      continue;
-    }
-
+    if (escaped) { escaped = false; continue; }
+    if (ch === '\\') { escaped = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
     if (inString) continue;
-
     if (ch === '{') depth++;
     if (ch === '}') {
       depth--;
-      if (depth === 0) {
-        endIdx = i;
-        break;
-      }
+      if (depth === 0) { endIdx = i; break; }
     }
   }
 
-  // If no matching brace found, the JSON is truncated — try to fix it
   let jsonStr: string;
   if (endIdx === -1) {
     console.warn('⚠️ JSON appears truncated, attempting to repair...');
@@ -78,7 +56,6 @@ function extractJSON(raw: string): Record<string, unknown> {
     jsonStr = text.substring(startIdx, endIdx + 1);
   }
 
-  // Step 3: Clean the extracted JSON string
   const cleaned = jsonStr
     .replace(/,\s*([}\]])/g, '$1')
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
@@ -90,13 +67,10 @@ function extractJSON(raw: string): Record<string, unknown> {
     })
     .replace(/:\s*undefined\b/g, ': null');
 
-  // Step 4: Try parsing
-  // ✅ Fix: removed unused err1 / err2 bindings — use empty catch instead
   try {
     return JSON.parse(cleaned) as Record<string, unknown>;
   } catch {
     console.warn('⚠️ Standard parse failed, trying aggressive clean...');
-
     const aggressive = jsonStr
       .replace(/[\r\n\t]/g, ' ')
       .replace(/\s+/g, ' ')
@@ -110,7 +84,6 @@ function extractJSON(raw: string): Record<string, unknown> {
     } catch {
       console.error('❌ All parse attempts failed');
       console.error('   First 500 chars:', jsonStr.substring(0, 500));
-      console.error('   Last 200 chars:', jsonStr.substring(jsonStr.length - 200));
       throw new Error('Failed to parse AI response as valid JSON');
     }
   }
@@ -118,40 +91,42 @@ function extractJSON(raw: string): Record<string, unknown> {
 
 export async function POST(request: NextRequest) {
   try {
-    const { resumeId, companyName, jobTitle, jobDescription } = await request.json();
+    const { resumeId, companyName, jobTitle, jobDescription, force = false } = await request.json();
 
     console.log('🔍 Interview Intelligence Started');
     console.log('   Resume ID:', resumeId);
     console.log('   Company:', companyName);
-    console.log('   Job Title:', jobTitle);
-    console.log('   API Key Available:', !!apiKey);
+    console.log('   Force regenerate:', force);
 
     if (!resumeId) {
-      return NextResponse.json(
-        { error: 'Resume ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Resume ID is required' }, { status: 400 });
     }
 
-    if (!genAI || !apiKey) {
-      console.error('❌ Gemini API not configured');
+    if (!anthropic || !apiKey) {
+      console.error('❌ Claude API not configured');
       return NextResponse.json(
-        { error: 'AI service not configured. Please add GOOGLE_GENERATIVE_AI_API_KEY to environment variables.' },
+        { error: 'AI service not configured. Please add CLAUDE_API_KEY to environment variables.' },
         { status: 500 }
       );
     }
 
-    // Get resume data from Firestore
     const resumeDoc = await db.collection('resumes').doc(resumeId).get();
 
     if (!resumeDoc.exists) {
-      return NextResponse.json(
-        { error: 'Resume not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Resume not found' }, { status: 404 });
     }
 
     const resumeData = resumeDoc.data();
+
+    // ── Return cached result unless force=true ──
+    const cached = resumeData?.interviewIntel as Record<string, unknown> | undefined;
+    const cachedAt = resumeData?.interviewIntelGeneratedAt as string | undefined;
+    const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+    if (!force && cached && cachedAt && Date.now() - new Date(cachedAt).getTime() < CACHE_TTL) {
+      console.log('✅ Returning cached intel for:', resumeId);
+      return NextResponse.json({ success: true, intel: cached, cached: true });
+    }
     const company = companyName || resumeData?.companyName || '';
     const role = jobTitle || resumeData?.jobTitle || '';
     const jd = jobDescription || resumeData?.jobDescription || '';
@@ -164,11 +139,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Use Gemini 2.5 Flash model — same as simulation route
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.5-flash'
-    });
-
     const prompt = `You are a factual career intelligence analyst. Your job is to provide ONLY verified, real data about interview processes at companies.
 
 CRITICAL RULES:
@@ -180,7 +150,7 @@ CRITICAL RULES:
 6. For Glassdoor ratings — ONLY use the actual Glassdoor rating. If not on Glassdoor, set to null.
 7. null is ALWAYS better than fake data.
 8. For job openings — ONLY list roles that are commonly open or were recently posted. If unknown, set to null.
-9. For Reddit reviews — ONLY include real sentiments and themes from actual Reddit discussions (r/cscareerquestions, r/jobs, r/experienceddevs, etc.). Do NOT fabricate reviews.
+9. For Reddit reviews — ONLY include real sentiments and themes from actual Reddit discussions. Do NOT fabricate reviews.
 
 Company: ${company || 'Not specified'}
 Role: ${role || 'Software Engineer'}
@@ -278,21 +248,20 @@ IMPORTANT: Keep all string values SHORT (under 150 characters each). Do NOT use 
 
 Set any section to null if no real data exists. Keep strings SHORT and SIMPLE. No newlines inside strings. Output ONLY the JSON.`;
 
-    console.log('   Calling Gemini AI...');
-    
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
+    console.log('   Calling Claude AI...');
 
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 4096,
+      messages: [{ role: 'user', content: prompt }],
+    });
+
+    const responseText = response.content[0].type === 'text' ? response.content[0].text : '';
     console.log('   Response length:', responseText.length);
 
-    // Use robust JSON extractor
-    // ✅ Fix: let → const (never reassigned)
     const intel = extractJSON(responseText);
 
-    // ─────────────────────────────────────────────────
-    // POST-PROCESSING: Sanitize any remaining bad data
-    // ─────────────────────────────────────────────────
-    
+    // ── Post-processing: sanitize bad data ──
     if (!intel.companyOverview) {
       intel.companyOverview = {
         name: company || 'Unknown Company',
@@ -307,7 +276,6 @@ Set any section to null if no real data exists. Keep strings SHORT and SIMPLE. N
       };
     }
 
-    // Sanitize empty arrays
     if (intel.topQuestions && (intel.topQuestions as unknown[]).length === 0) intel.topQuestions = null;
     if (intel.insiderTips && (intel.insiderTips as unknown[]).length === 0) intel.insiderTips = null;
     if (intel.redFlags && (intel.redFlags as unknown[]).length === 0) intel.redFlags = null;
@@ -319,23 +287,14 @@ Set any section to null if no real data exists. Keep strings SHORT and SIMPLE. N
       interviewProcess.rounds = null;
     }
 
-    // Sanitize jobOpenings
     const jobOpenings = intel.jobOpenings as Record<string, unknown> | null | undefined;
     if (jobOpenings) {
-      if (jobOpenings.otherOpenRoles && (jobOpenings.otherOpenRoles as unknown[]).length === 0) {
-        jobOpenings.otherOpenRoles = null;
-      }
-      if (jobOpenings.hiringTeams && (jobOpenings.hiringTeams as unknown[]).length === 0) {
-        jobOpenings.hiringTeams = null;
-      }
-      const hasOpeningsData =
-        jobOpenings.targetRoleAvailable !== null ||
-        jobOpenings.otherOpenRoles ||
-        jobOpenings.hiringCycleTrend;
+      if (jobOpenings.otherOpenRoles && (jobOpenings.otherOpenRoles as unknown[]).length === 0) jobOpenings.otherOpenRoles = null;
+      if (jobOpenings.hiringTeams && (jobOpenings.hiringTeams as unknown[]).length === 0) jobOpenings.hiringTeams = null;
+      const hasOpeningsData = jobOpenings.targetRoleAvailable !== null || jobOpenings.otherOpenRoles || jobOpenings.hiringCycleTrend;
       if (!hasOpeningsData) intel.jobOpenings = null;
     }
 
-    // Sanitize candidateFitAnalysis if no resume was provided
     const fitAnalysis = intel.candidateFitAnalysis as Record<string, unknown> | null | undefined;
     if (!resumeText && fitAnalysis) {
       fitAnalysis.fitScore = null;
@@ -343,7 +302,6 @@ Set any section to null if no real data exists. Keep strings SHORT and SIMPLE. N
       fitAnalysis.gaps = null;
     }
 
-    // Ensure dataConfidence exists
     if (!intel.dataConfidence) {
       const hasData = intel.topQuestions && intel.salaryIntel && interviewProcess?.rounds;
       intel.dataConfidence = hasData ? 'medium' : 'low';
@@ -355,18 +313,10 @@ Set any section to null if no real data exists. Keep strings SHORT and SIMPLE. N
     }
 
     const companyOverview = intel.companyOverview as Record<string, unknown>;
-
     console.log('   ✅ Interview intelligence generated');
     console.log('   Company:', companyOverview.name);
     console.log('   Data Confidence:', intel.dataConfidence);
-    console.log('   Sources:', companyOverview.sources);
-    console.log('   Has rounds:', !!interviewProcess?.rounds);
-    console.log('   Has questions:', !!intel.topQuestions);
-    console.log('   Has salary:', !!intel.salaryIntel);
-    console.log('   Has openings:', !!intel.jobOpenings);
-    console.log('   Has reddit reviews:', !!intel.redditReviews);
 
-    // Cache in Firestore
     try {
       await db.collection('resumes').doc(resumeId).update({
         interviewIntel: intel,
@@ -379,21 +329,11 @@ Set any section to null if no real data exists. Keep strings SHORT and SIMPLE. N
       console.warn('   ⚠️ Failed to cache intel (non-critical):', cacheErr);
     }
 
-    return NextResponse.json({
-      success: true,
-      intel,
-    });
+    return NextResponse.json({ success: true, intel });
 
   } catch (error: unknown) {
-    // ✅ Fix: error: any → error: unknown with safe property access
     const err = error as Error & { status?: number; statusText?: string };
     console.error('❌ Interview intelligence error:', err);
-    console.error('   Error details:', {
-      message: err.message,
-      status: err.status,
-      statusText: err.statusText,
-    });
-
     return NextResponse.json(
       {
         error: err.message || 'Failed to generate interview intelligence',

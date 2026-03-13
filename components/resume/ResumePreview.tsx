@@ -28,21 +28,20 @@ export default function ResumePreview({
           <div className="w-full mx-auto">
             {imageUrl ? (
               <div className="mb-4">
-                <div className="relative overflow-hidden rounded-xl shadow-lg border border-gray-200 dark:border-gray-600">
-                  <Image
-                    src={imageUrl}
-                    alt="Resume preview"
-                    width={800}
-                    height={1100}
-                    className="w-full object-contain transition-all duration-200"
-                    style={{ maxHeight: 'calc(100vh - 180px)' }}
-                    onLoad={handleImageLoad}
-                    unoptimized
-                  />
-                  {!imageLoaded && (
-                    <div className="absolute inset-0 bg-gray-100 dark:bg-gray-700 animate-pulse"></div>
-                  )}
-                </div>
+                <div className="relative overflow-hidden rounded-xl shadow-lg border border-gray-200 dark:border-gray-600" style={{ maxHeight: 'calc(100vh - 220px)' }}>
+  <Image
+    src={imageUrl}
+    alt="Resume preview"
+    width={800}
+    height={1100}
+    className="w-full h-full object-contain object-top transition-all duration-200"
+    unoptimized
+    onLoad={handleImageLoad}
+  />
+  {!imageLoaded && (
+    <div className="absolute inset-0 bg-gray-100 dark:bg-gray-700 animate-pulse"></div>
+  )}
+</div>
               </div>
             ) : (
               <div className="w-full aspect-[3/4] bg-gray-100 dark:bg-gray-700 rounded-xl flex items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 mb-4">

@@ -1,16 +1,12 @@
 // app/api/career-tools/linkedin-optimize/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import Anthropic from '@anthropic-ai/sdk';
 import { auth, db } from '@/firebase/admin';
 
-const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-const genAI  = apiKey ? new GoogleGenerativeAI(apiKey) : null;
+const apiKey = process.env.CLAUDE_API_KEY;
+const anthropic = apiKey ? new Anthropic({ apiKey }) : null;
 
-// ─── Structured logger ───────────────────────────────────────────
-// Every log line has a prefix so you can grep/filter easily:
-//   [LI-OPT] = LinkedIn Optimizer route
-//   ✅ = success  ⚠️ = non-fatal warning  ❌ = error  📊 = metric/timing
 const TAG = '[LI-OPT]';
 
 function log(level: '✅' | '⚠️' | '❌' | '📊' | '🔍', step: string, detail?: unknown) {
@@ -22,30 +18,28 @@ function log(level: '✅' | '⚠️' | '❌' | '📊' | '🔍', step: string, de
   }
 }
 
-// ─── System prompt ───────────────────────────────────────────────
 const SYSTEM_PROMPT = `You are a LinkedIn optimization expert and personal branding specialist who has helped over 10,000 professionals land jobs at top companies. You understand exactly how LinkedIn's search algorithm works, how recruiters search for candidates, and what makes profiles get "InMailed" vs ignored.
 
 You are brutally honest about what is weak and specific about what to fix. You don't give generic advice. Every suggestion must be immediately actionable.
 
 Return ONLY valid JSON, no markdown, no preamble.`;
 
-// ─── Route handler ───────────────────────────────────────────────
 export async function POST(request: NextRequest) {
   const routeStart = Date.now();
   log('🔍', 'Request received');
 
   try {
 
-    // ── 1. Check Gemini is configured ──────────────────────────
-    log('🔍', 'Checking Gemini API configuration', { hasApiKey: !!apiKey });
-    if (!genAI || !apiKey) {
-      log('❌', 'GEMINI_NOT_CONFIGURED — GOOGLE_GENERATIVE_AI_API_KEY is missing from env');
+    // ── 1. Check Claude is configured ──────────────────────────
+    log('🔍', 'Checking Claude API configuration', { hasApiKey: !!apiKey });
+    if (!anthropic || !apiKey) {
+      log('❌', 'CLAUDE_NOT_CONFIGURED — CLAUDE_API_KEY is missing from env');
       return NextResponse.json(
-        { error: 'AI service not configured', code: 'GEMINI_NOT_CONFIGURED' },
+        { error: 'AI service not configured', code: 'CLAUDE_NOT_CONFIGURED' },
         { status: 503 }
       );
     }
-    log('✅', 'Gemini API key present');
+    log('✅', 'Claude API key present');
 
     // ── 2. Authenticate session ─────────────────────────────────
     log('🔍', 'Reading session cookie');
@@ -59,7 +53,6 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
-    log('✅', 'Session cookie present');
 
     let userId: string;
     try {
@@ -69,7 +62,6 @@ export async function POST(request: NextRequest) {
     } catch (authErr) {
       log('❌', 'AUTH_FAILED — Session cookie verification threw', {
         error: authErr instanceof Error ? authErr.message : String(authErr),
-        cookieLength: session.value.length,
       });
       return NextResponse.json(
         { error: 'Invalid or expired session', code: 'INVALID_SESSION' },
@@ -139,17 +131,13 @@ export async function POST(request: NextRequest) {
         log('⚠️', 'User profile document does not exist in Firestore', { userId });
       }
     } catch (profileErr) {
-      // Non-fatal — continue without profile context
       log('⚠️', 'PROFILE_FETCH_FAILED — proceeding without Firestore profile context', {
         error: profileErr instanceof Error ? profileErr.message : String(profileErr),
-        userId,
       });
     }
 
     // ── 5. Build prompt ─────────────────────────────────────────
-    const prompt = `${SYSTEM_PROMPT}
-
-${userContext}
+    const prompt = `${userContext}
 
 Analyse and rewrite this LinkedIn profile. Be specific, direct, and brutally honest.
 
@@ -206,78 +194,69 @@ Return this exact JSON structure:
   }
 }`;
 
-    log('📊', 'Prompt built', { promptLength: prompt.length, model: 'gemini-2.5-flash' });
+    log('📊', 'Prompt built', { promptLength: prompt.length });
 
-    // ── 6. Call Gemini ──────────────────────────────────────────
-    log('🔍', 'Calling Gemini API');
-    const geminiStart = Date.now();
+    // ── 6. Call Claude ──────────────────────────────────────────
+    log('🔍', 'Calling Claude API');
+    const claudeStart = Date.now();
     let rawText: string;
 
     try {
-      const model = genAI.getGenerativeModel({
-        model: 'gemini-2.5-flash',
-        generationConfig: {
-          temperature: 0.3,
-          maxOutputTokens: 4096,
-        },
+      const response = await anthropic.messages.create({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 4096,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: prompt }],
       });
-      const result = await model.generateContent(prompt);
-      rawText = result.response.text();
 
-      const geminiMs = Date.now() - geminiStart;
-      log('✅', 'Gemini response received', {
+      rawText = response.content[0].type === 'text' ? response.content[0].text : '';
+
+      const claudeMs = Date.now() - claudeStart;
+      log('✅', 'Claude response received', {
         responseLength: rawText.length,
-        durationMs:     geminiMs,
-        firstChars:     rawText.slice(0, 120).replace(/\n/g, ' '),
+        durationMs:     claudeMs,
       });
-    } catch (geminiErr: unknown) {
-      const msg     = geminiErr instanceof Error ? geminiErr.message : String(geminiErr);
-      const geminiMs = Date.now() - geminiStart;
+    } catch (claudeErr: unknown) {
+      const msg     = claudeErr instanceof Error ? claudeErr.message : String(claudeErr);
+      const claudeMs = Date.now() - claudeStart;
 
-      log('❌', 'GEMINI_CALL_FAILED', {
-        error:      msg,
-        durationMs: geminiMs,
-        isQuota:    msg.includes('quota'),
-        isSafety:   msg.includes('safety') || msg.includes('blocked'),
-        isNetwork:  msg.includes('fetch') || msg.includes('network') || msg.includes('ECONNREFUSED'),
-      });
+      log('❌', 'CLAUDE_CALL_FAILED', { error: msg, durationMs: claudeMs });
 
-      if (msg.includes('quota')) {
+      if (msg.includes('rate_limit') || msg.includes('overloaded')) {
         return NextResponse.json(
           { error: 'AI quota exceeded — please try again later', code: 'QUOTA_EXCEEDED' },
           { status: 429 }
         );
       }
-      if (msg.includes('safety') || msg.includes('blocked')) {
-        return NextResponse.json(
-          { error: 'Request blocked by AI safety filters', code: 'SAFETY_BLOCK' },
-          { status: 400 }
-        );
-      }
       return NextResponse.json(
-        { error: 'AI generation failed', code: 'GEMINI_ERROR', detail: msg },
+        { error: 'AI generation failed', code: 'CLAUDE_ERROR', detail: msg },
         { status: 500 }
       );
     }
 
     // ── 7. Parse JSON response ──────────────────────────────────
-    log('🔍', 'Parsing Gemini JSON response');
+    log('🔍', 'Parsing Claude JSON response');
     let data: Record<string, unknown>;
     try {
-      const cleaned = rawText
+      let cleaned = rawText
         .replace(/```json\s*/gi, '')
         .replace(/```\s*/g, '')
         .trim();
+
+      if (!cleaned.startsWith('{')) {
+        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+        if (jsonMatch) cleaned = jsonMatch[0];
+      }
+
       data = JSON.parse(cleaned);
       log('✅', 'JSON parsed successfully', {
         topLevelKeys: Object.keys(data),
         overallScore: data.overallScore,
       });
     } catch (jsonErr) {
-      log('❌', 'JSON_PARSE_FAILED — Gemini returned non-JSON', {
-        error:       jsonErr instanceof Error ? jsonErr.message : String(jsonErr),
-        rawPreview:  rawText.slice(0, 300).replace(/\n/g, ' '),
-        rawLength:   rawText.length,
+      log('❌', 'JSON_PARSE_FAILED', {
+        error:      jsonErr instanceof Error ? jsonErr.message : String(jsonErr),
+        rawPreview: rawText.slice(0, 300).replace(/\n/g, ' '),
       });
       return NextResponse.json(
         { error: 'AI returned malformed response — please retry', code: 'PARSE_ERROR' },
@@ -285,8 +264,7 @@ Return this exact JSON structure:
       );
     }
 
-    // ── 8. Cache result in Firestore (non-fatal) ────────────────
-    log('🔍', 'Saving result to Firestore cache');
+    // ── 8. Cache result in Firestore ────────────────────────────
     try {
       const docRef = await db.collection('linkedinOptimizations').add({
         userId,
@@ -301,23 +279,20 @@ Return this exact JSON structure:
       });
       log('✅', 'Result cached in Firestore', { docId: docRef.id });
     } catch (cacheErr) {
-      log('⚠️', 'CACHE_WRITE_FAILED — result not saved to Firestore (non-fatal)', {
+      log('⚠️', 'CACHE_WRITE_FAILED (non-fatal)', {
         error: cacheErr instanceof Error ? cacheErr.message : String(cacheErr),
       });
     }
 
-    // ── 9. Return ───────────────────────────────────────────────
     const totalMs = Date.now() - routeStart;
     log('📊', 'Request complete', { totalMs, userId, overallScore: data.overallScore });
 
     return NextResponse.json({ success: true, data });
 
   } catch (unhandled: unknown) {
-    // Catch-all for anything we didn't explicitly handle
     const totalMs = Date.now() - routeStart;
-    log('❌', 'UNHANDLED_ERROR — uncaught exception in route handler', {
-      error:      unhandled instanceof Error ? unhandled.message : String(unhandled),
-      stack:      unhandled instanceof Error ? unhandled.stack?.split('\n').slice(0, 5).join(' | ') : undefined,
+    log('❌', 'UNHANDLED_ERROR', {
+      error:   unhandled instanceof Error ? unhandled.message : String(unhandled),
       totalMs,
     });
     return NextResponse.json(

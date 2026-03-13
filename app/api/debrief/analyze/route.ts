@@ -1,11 +1,11 @@
 // app/api/interview-debrief/analyze/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import Anthropic from '@anthropic-ai/sdk';
 import { auth } from '@/firebase/admin';
 
-const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-const genAI  = apiKey ? new GoogleGenerativeAI(apiKey) : null;
+const apiKey = process.env.CLAUDE_API_KEY;
+const anthropic = apiKey ? new Anthropic({ apiKey }) : null;
 
 const SYSTEM_PROMPT = `You are a brutally honest career coach and interview strategist with 20+ years of experience helping people land jobs at top companies. You have seen thousands of candidate journeys.
 
@@ -52,10 +52,7 @@ Surprises: ${e.surprises || 'none noted'}
 Follow-up actions planned: ${e.followUpActions || 'none noted'}
 `).join('\n');
 
-  return `
-${SYSTEM_PROMPT}
-
-Here is this candidate's complete interview journal (${entries.length} entries):
+  return `Here is this candidate's complete interview journal (${entries.length} entries):
 
 ${entryText}
 
@@ -126,8 +123,7 @@ Analyse everything above and return this exact JSON:
       "howToAnswer": <specific guidance on how to answer it well>
     }
   ]
-}
-`;
+}`;
 }
 
 export async function POST(request: NextRequest) {
@@ -146,7 +142,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
     }
 
-    if (!genAI || !apiKey) {
+    if (!anthropic || !apiKey) {
       return NextResponse.json({ error: 'AI service not configured' }, { status: 503 });
     }
 
@@ -158,28 +154,31 @@ export async function POST(request: NextRequest) {
 
     console.log(`🎯 Debrief analysis for user ${userId} — ${entries.length} entries`);
 
-     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.0-flash-exp',
-      generationConfig: {
-        temperature: 0.3,
-        maxOutputTokens: 4096,
-      }
-    });
-
     let rawText: string;
     try {
-      const result = await model.generateContent(buildPrompt(entries));
-      rawText = result.response.text();
+      const response = await anthropic.messages.create({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 4096,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: buildPrompt(entries) }],
+      });
+      rawText = response.content[0].type === 'text' ? response.content[0].text : '';
     } catch (err: unknown) {
-      console.error('❌ Gemini error:', err);
+      console.error('❌ Claude error:', err);
       const msg = err instanceof Error ? err.message : '';
-      if (msg.includes('quota')) return NextResponse.json({ error: 'AI quota exceeded' }, { status: 429 });
+      if (msg.includes('rate_limit') || msg.includes('overloaded')) {
+        return NextResponse.json({ error: 'AI quota exceeded' }, { status: 429 });
+      }
       return NextResponse.json({ error: 'AI generation failed' }, { status: 500 });
     }
 
     let analysisData: Record<string, unknown>;
     try {
-      const cleaned = rawText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+      let cleaned = rawText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+      if (!cleaned.startsWith('{')) {
+        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+        if (jsonMatch) cleaned = jsonMatch[0];
+      }
       analysisData = JSON.parse(cleaned);
     } catch {
       console.error('❌ JSON parse failed:', rawText.slice(0, 400));

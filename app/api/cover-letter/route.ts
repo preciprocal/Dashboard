@@ -2,16 +2,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { auth, db } from '@/firebase/admin';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import Anthropic from '@anthropic-ai/sdk';
 import { hashResumeContent } from '@/lib/redis/resume-cache';
 import { redis, RedisKeys } from '@/lib/redis/redis-client';
 
-const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+const apiKey = process.env.CLAUDE_API_KEY;
 if (!apiKey) {
-  console.error('❌ GOOGLE_GENERATIVE_AI_API_KEY is not set');
+  console.error('❌ CLAUDE_API_KEY is not set');
 }
 
-const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
+const anthropic = apiKey ? new Anthropic({ apiKey }) : null;
 
 const COVER_LETTER_TTL = 7 * 24 * 60 * 60;
 const COMPANY_RESEARCH_TTL = 30 * 24 * 60 * 60;
@@ -44,7 +44,6 @@ interface UserProfile {
   careerGoals?: string;
 }
 
-// ✅ Fix: typed cache payload instead of any
 interface CoverLetterCache {
   content: string;
   wordCount: number;
@@ -52,74 +51,29 @@ interface CoverLetterCache {
   createdAt: string;
 }
 
-/**
- * Convert Base64 PDF to Image (same as resume analysis)
- * This ensures consistent, high-quality text extraction
- */
-async function convertBase64PDFToImage(base64PDF: string): Promise<string> {
-  try {
-    console.log('🖼️ Converting transcript PDF to image...');
-
-    // Extract base64 content
-    const base64Content = base64PDF.includes('base64,') 
-      ? base64PDF.split('base64,')[1] 
-      : base64PDF;
-
-    // Convert to binary
-    const binaryString = atob(base64Content);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-
-    // We'll return the base64 image format that Gemini expects
-    // In a real implementation, you'd use pdf.js to render to canvas
-    // For now, we'll pass the PDF directly to Gemini which can handle it
-    console.log('✅ PDF prepared for image analysis');
-    
-    return base64Content;
-  } catch (error) {
-    console.error('❌ PDF to image conversion error:', error);
-    throw error;
-  }
-}
-
-/**
- * Extract and analyze transcript using Gemini Vision
- * Uses IMAGE analysis (same approach as resume) for better accuracy
- */
 async function analyzeTranscriptImage(
   base64PDF: string,
   jobRole: string,
   jobDescription?: string
 ): Promise<{ courses: string; success: boolean }> {
-  if (!genAI) {
+  if (!anthropic) {
     return { courses: '', success: false };
   }
 
   try {
-    console.log('🎓 ANALYZING TRANSCRIPT IMAGE WITH GEMINI VISION');
+    console.log('🎓 ANALYZING TRANSCRIPT WITH CLAUDE VISION');
 
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.0-flash-exp',
-      generationConfig: {
-        temperature: 0.3,
-        maxOutputTokens: 4096,
-      }
-    });
+    const base64Content = base64PDF.includes('base64,')
+      ? base64PDF.split('base64,')[1]
+      : base64PDF;
 
-    // Convert PDF to image format
-    const imageData = await convertBase64PDFToImage(base64PDF);
-
-    console.log('📸 Sending transcript image to Gemini Vision...');
-
-    const analysisPrompt = `You are analyzing an ACADEMIC TRANSCRIPT image for a ${jobRole} position.
+    const analysisPrompt = `You are analyzing an ACADEMIC TRANSCRIPT for a ${jobRole} position.
 
 ${jobDescription ? `JOB REQUIREMENTS:\n${jobDescription.substring(0, 1500)}\n` : ''}
 
 INSTRUCTIONS:
-1. Look at this transcript image carefully
-2. Extract ALL courses visible in the image
+1. Look at this transcript carefully
+2. Extract ALL courses visible
 3. Identify 4-6 courses most relevant to the ${jobRole} position
 4. For each relevant course, provide detailed information
 
@@ -128,10 +82,10 @@ OUTPUT FORMAT:
 RELEVANT COURSES FOR ${jobRole.toUpperCase()} POSITION:
 
 Course 1: [EXACT Course Code]: [EXACT Course Name from transcript]
-- What I Learned: [Specific technologies, programming languages, frameworks, concepts taught in this course]
-- Course Project: [Describe a typical project or assignment from this type of course - what students build or implement]
-- Skills Gained: [Specific technical skills like SQL, Python, React, data structures, algorithms, etc.]
-- Application to Job: [How this course directly prepares you for ${jobRole} - be specific about which job requirements it addresses]
+- What I Learned: [Specific technologies, programming languages, frameworks, concepts]
+- Course Project: [Describe a typical project or assignment]
+- Skills Gained: [Specific technical skills]
+- Application to Job: [How this course directly prepares you for ${jobRole}]
 
 Course 2: [EXACT Course Code]: [EXACT Course Name from transcript]
 - What I Learned: [...]
@@ -152,33 +106,41 @@ Course 4: [EXACT Course Code]: [EXACT Course Name from transcript]
 - Application to Job: [...]
 
 CRITICAL REQUIREMENTS:
-- Use EXACT course codes and names from the image (e.g., "CS 340", "STAT 385", "ECON 101")
-- Be specific about technologies and skills (Python, SQL, React, pandas, machine learning, etc.)
-- Describe realistic course projects (database design, web app, data analysis, etc.)
+- Use EXACT course codes and names (e.g., "CS 340", "STAT 385")
+- Be specific about technologies and skills
+- Describe realistic course projects
 - Connect each course to specific ${jobRole} job requirements
 - Include GPA if visible and above 3.5
-- Mention honors/dean's list if visible
 
-Be thorough and accurate. Only use courses you can actually see in the transcript image.`;
+Only use courses you can actually see in the transcript.`;
 
-    const result = await model.generateContent([
-      {
-        inlineData: {
-          data: imageData,
-          mimeType: 'application/pdf'
-        }
-      },
-      analysisPrompt
-    ]);
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 4096,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'document',
+              source: {
+                type: 'base64',
+                media_type: 'application/pdf',
+                data: base64Content,
+              },
+            },
+            { type: 'text', text: analysisPrompt },
+          ],
+        },
+      ],
+    });
 
-    const analysisText = result.response.text();
-    
+    const analysisText = response.content[0].type === 'text' ? response.content[0].text : '';
+
     console.log('✅ TRANSCRIPT ANALYSIS COMPLETE');
     console.log('   Analysis length:', analysisText.length, 'characters');
-    console.log('   Preview:', analysisText.substring(0, 500));
 
-    // Verify we got actual course information
-    const hasCourseInfo = analysisText.includes('Course 1:') || 
+    const hasCourseInfo = analysisText.includes('Course 1:') ||
                           analysisText.includes('RELEVANT COURSES');
 
     if (!hasCourseInfo || analysisText.length < 200) {
@@ -195,36 +157,32 @@ Be thorough and accurate. Only use courses you can actually see in the transcrip
 }
 
 async function researchCompany(companyName: string, jobRole: string): Promise<string> {
-  if (!companyName || !genAI) return '';
+  if (!companyName || !anthropic) return '';
 
   const cached = await getCachedCompanyResearch(companyName);
   if (cached) return cached;
-  
-  try {
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.5-flash',
-      generationConfig: {
-        temperature: 0.3,
-        maxOutputTokens: 1024,
-      }
-    });
 
-    const currentDate = new Date().toLocaleDateString('en-US', { 
-      year: 'numeric', month: 'long', day: 'numeric' 
+  try {
+    const currentDate = new Date().toLocaleDateString('en-US', {
+      year: 'numeric', month: 'long', day: 'numeric'
     });
 
     const prompt = `Today is ${currentDate}. Research ${companyName} for a ${jobRole} cover letter:
 
 1. Company mission/business
 2. Recent news (2024-2025)
-3. Company culture/values  
+3. Company culture/values
 4. Products relevant to ${jobRole}
 
 Provide 2-3 sentences. If no info: "Company information not available".`;
 
-    const result = await model.generateContent(prompt);
-    const research = result.response.text();
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: prompt }],
+    });
 
+    const research = response.content[0].type === 'text' ? response.content[0].text : '';
     await cacheCompanyResearch(companyName, research);
     return research;
   } catch (error) {
@@ -272,7 +230,6 @@ async function getCachedCoverLetter(cacheKey: string): Promise<CoverLetterCache 
   } catch { return null; }
 }
 
-// ✅ Fix: replaced `any` with the typed CoverLetterCache interface
 async function cacheCoverLetter(cacheKey: string, data: CoverLetterCache): Promise<void> {
   if (!redis) return;
   try {
@@ -291,7 +248,7 @@ function buildProfessionalLinks(linkedin?: string, github?: string, website?: st
   if (linkedin?.trim()) links.push(`[LinkedIn](${linkedin})`);
   if (github?.trim()) links.push(`[GitHub](${github})`);
   if (website?.trim()) links.push(`[Portfolio](${website})`);
-  
+
   return {
     links,
     markdown: links.join(' | '),
@@ -312,10 +269,7 @@ export async function POST(request: NextRequest) {
     const session = cookieStore.get('session');
 
     if (!session) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     let userId: string;
@@ -324,17 +278,11 @@ export async function POST(request: NextRequest) {
       userId = decodedClaims.uid;
       console.log('✅ User authenticated:', userId);
     } catch {
-      return NextResponse.json(
-        { success: false, error: 'Invalid session' },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: 'Invalid session' }, { status: 401 });
     }
 
-    if (!genAI || !apiKey) {
-      return NextResponse.json(
-        { success: false, error: 'AI service not configured' },
-        { status: 500 }
-      );
+    if (!anthropic || !apiKey) {
+      return NextResponse.json({ success: false, error: 'AI service not configured' }, { status: 500 });
     }
 
     // ==================== PARSE REQUEST ====================
@@ -344,33 +292,21 @@ export async function POST(request: NextRequest) {
     console.log('📋 Request Details:');
     console.log('   Job Role:', jobRole);
     console.log('   Company:', companyName || 'Not specified');
-    console.log('   Has Job Description:', !!jobDescription);
 
     if (!jobRole) {
-      return NextResponse.json(
-        { success: false, error: 'Job role required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: 'Job role required' }, { status: 400 });
     }
 
     // ==================== FETCH USER PROFILE ====================
     console.log('👤 Fetching user profile...');
     const userDoc = await db.collection('users').doc(userId).get();
-    
+
     if (!userDoc.exists) {
-      return NextResponse.json(
-        { success: false, error: 'Profile not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: 'Profile not found' }, { status: 404 });
     }
 
     const userProfile = userDoc.data() as UserProfile;
     console.log('✅ Profile loaded:', userProfile.name);
-    console.log('📊 Profile Data:');
-    console.log('   Has transcript:', !!userProfile.transcript);
-    console.log('   Transcript type:', userProfile.transcript?.substring(0, 30));
-    console.log('   Transcript filename:', userProfile.transcriptFileName);
-    console.log('   Has resume:', !!userProfile.resume);
 
     // ==================== FETCH RESUME ====================
     let resumeText = '';
@@ -391,53 +327,31 @@ export async function POST(request: NextRequest) {
       console.log('⚠️ No resume found');
     }
 
-    // ==================== PROCESS TRANSCRIPT (PDF → IMAGE → ANALYSIS) ====================
+    // ==================== PROCESS TRANSCRIPT ====================
     let transcriptCourses = '';
     let hasTranscript = false;
 
     if (userProfile.transcript?.startsWith('data:application/pdf')) {
-      console.log('📜 ========================================');
       console.log('📜 TRANSCRIPT PROCESSING START');
-      console.log('📜 ========================================');
       console.log('   Filename:', userProfile.transcriptFileName);
-      console.log('   PDF size:', userProfile.transcript.length, 'chars');
-      
+
       try {
-        // Use Gemini Vision to analyze the PDF image (same as resume)
-        console.log('🎓 Analyzing transcript with Gemini Vision...');
-        
         const transcriptResult = await analyzeTranscriptImage(
           userProfile.transcript,
           jobRole,
           jobDescription
         );
 
-        console.log('📊 TRANSCRIPT ANALYSIS RESULT:');
-        console.log('   Success:', transcriptResult.success);
-        console.log('   Content length:', transcriptResult.courses.length);
-        console.log('   Content preview:', transcriptResult.courses.substring(0, 400));
-
         if (transcriptResult.success && transcriptResult.courses.length > 200) {
           transcriptCourses = transcriptResult.courses;
           hasTranscript = true;
-          console.log('✅ ========================================');
           console.log('✅ TRANSCRIPT SUCCESSFULLY PROCESSED');
-          console.log('✅ WILL BE USED IN COVER LETTER');
-          console.log('✅ ========================================');
         } else {
-          console.error('❌ ========================================');
           console.error('❌ TRANSCRIPT ANALYSIS FAILED');
-          console.error('❌ Insufficient content or analysis error');
-          console.error('❌ ========================================');
         }
       } catch (error) {
-        console.error('❌ ========================================');
-        console.error('❌ TRANSCRIPT PROCESSING ERROR');
-        console.error('❌', error);
-        console.error('❌ ========================================');
+        console.error('❌ TRANSCRIPT PROCESSING ERROR:', error);
       }
-    } else {
-      console.log('⚠️ No PDF transcript found in profile');
     }
 
     const professionalLinks = buildProfessionalLinks(
@@ -487,24 +401,10 @@ export async function POST(request: NextRequest) {
     }
 
     // ==================== GENERATE COVER LETTER ====================
-    console.log('🤖 ========================================');
     console.log('🤖 GENERATING COVER LETTER');
-    console.log('🤖 ========================================');
-    console.log('   Will use transcript:', hasTranscript);
-    console.log('   Will use resume:', resumeText.length > 0);
-    console.log('   Will use company research:', !!companyResearch);
 
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.5-flash',
-      generationConfig: {
-        temperature: 0.7,
-        topP: 0.9,
-        maxOutputTokens: 3000,
-      }
-    });
-
-    const currentDate = new Date().toLocaleDateString('en-US', { 
-      year: 'numeric', month: 'long', day: 'numeric' 
+    const currentDate = new Date().toLocaleDateString('en-US', {
+      year: 'numeric', month: 'long', day: 'numeric'
     });
 
     const contactLines = [userProfile.name];
@@ -548,18 +448,16 @@ ${transcriptCourses}
 
 You MUST write paragraph 2 using the courses above. Follow this structure:
 
-"During my academic career, I completed several courses that directly prepared me for this ${jobRole} position. In [Exact Course Code: Exact Course Name from above], I learned [specific technologies/skills] and completed a [specific project type] where I [what you built/implemented]. This hands-on experience with [technology] gave me practical knowledge in [application area]. Similarly, my [Course Code: Course Name] coursework involved [specific project], where I [specific implementation - built, designed, analyzed, developed]. I also completed [Course Code: Course Name], which focused on [topic], and I [specific project/activity with technologies used]. These courses equipped me with [specific technical skills] that directly align with your requirements for [specific job requirement]."
+"During my academic career, I completed several courses that directly prepared me for this ${jobRole} position. In [Exact Course Code: Exact Course Name from above], I learned [specific technologies/skills] and completed a [specific project type] where I [what you built/implemented]. This hands-on experience with [technology] gave me practical knowledge in [application area]. Similarly, my [Course Code: Course Name] coursework involved [specific project], where I [specific implementation]. I also completed [Course Code: Course Name], which focused on [topic], and I [specific project/activity]. These courses equipped me with [specific technical skills] that directly align with your requirements for [specific job requirement]."
 
 REQUIREMENTS:
 ✅ Use 3-4 ACTUAL course names from the analysis above
 ✅ Include course codes (e.g., CS 340, STAT 385)
-✅ Describe specific projects or activities from those courses
-✅ Mention technologies learned (Python, SQL, React, etc.)
-✅ Explain what you built or implemented
+✅ Describe specific projects or activities
+✅ Mention technologies learned
 ✅ Connect to job requirements
 
 ❌ DO NOT write: "While a specific academic transcript was not provided"
-❌ DO NOT use generic course names
 ❌ The transcript HAS been provided and analyzed above
 ` : ''}
 
@@ -577,7 +475,7 @@ Dear Hiring Team,
 
 [Body 1: 3-4 sentences on work experience with metrics]
 
-[Body 2: ${hasTranscript ? '4-5 sentences mentioning 3-4 SPECIFIC courses by code and name, describing projects completed, technologies used, and how they apply to this job' : '3-4 sentences on technical skills'}]
+[Body 2: ${hasTranscript ? '4-5 sentences mentioning 3-4 SPECIFIC courses by code and name' : '3-4 sentences on technical skills'}]
 
 [Body 3: 2-3 sentences on company interest]
 
@@ -586,23 +484,21 @@ Dear Hiring Team,
 Best regards,
 ${userProfile.name}
 
-${hasTranscript ? '\n🚨 REMINDER: Use SPECIFIC course codes and names from the transcript analysis in paragraph 2!' : ''}
-
 Generate the complete cover letter now.`;
 
     let coverLetterText: string;
     let tokensUsed = 0;
 
     try {
-      const result = await model.generateContent(prompt);
-      const response = result.response;
-      coverLetterText = response.text();
+      const response = await anthropic.messages.create({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 3000,
+        messages: [{ role: 'user', content: prompt }],
+      });
 
-      if (response.usageMetadata) {
-        tokensUsed = response.usageMetadata.totalTokenCount || 0;
-      }
+      coverLetterText = response.content[0].type === 'text' ? response.content[0].text : '';
+      tokensUsed = response.usage?.input_tokens + response.usage?.output_tokens || 0;
 
-      // Ensure proper closing
       if (!coverLetterText.includes('Best regards') && !coverLetterText.includes('Sincerely')) {
         coverLetterText += '\n\nBest regards,\n' + userProfile.name;
       }
@@ -610,24 +506,7 @@ Generate the complete cover letter now.`;
       const wordCount = coverLetterText.split(/\s+/).length;
       console.log('✅ GENERATED SUCCESSFULLY');
       console.log('   Words:', wordCount);
-      console.log('   Tokens:', tokensUsed);
 
-      // Verify transcript usage
-      if (hasTranscript) {
-        const mentionsCourses = coverLetterText.toLowerCase().includes('course') ||
-                                !!coverLetterText.match(/[A-Z]{2,4}\s*\d{3}/); // Course code pattern
-        
-        console.log('🔍 Transcript Usage Verification:');
-        console.log('   Mentions courses:', mentionsCourses);
-        
-        if (!mentionsCourses) {
-          console.error('❌ WARNING: Transcript available but NOT used in cover letter!');
-        } else {
-          console.log('✅ Transcript courses successfully integrated into cover letter');
-        }
-      }
-
-      // Cache
       await cacheCoverLetter(cacheKey, {
         content: coverLetterText,
         wordCount,
@@ -635,7 +514,6 @@ Generate the complete cover letter now.`;
         createdAt: new Date().toISOString()
       });
 
-      // Save to Firestore
       const docRef = await db.collection('coverLetters').add({
         userId,
         jobRole,
@@ -652,9 +530,6 @@ Generate the complete cover letter now.`;
       });
 
       console.log('💾 Saved to Firestore:', docRef.id);
-      console.log('✅ ========================================');
-      console.log('✅ COVER LETTER GENERATION COMPLETE');
-      console.log('✅ ========================================');
 
       return NextResponse.json({
         success: true,
@@ -680,25 +555,16 @@ Generate the complete cover letter now.`;
     } catch (error) {
       console.error('❌ GENERATION ERROR:', error);
       const err = error as Error;
-      
-      if (err.message?.includes('quota')) {
-        return NextResponse.json(
-          { success: false, error: 'API quota exceeded' },
-          { status: 429 }
-        );
+
+      if (err.message?.includes('rate_limit') || err.message?.includes('overloaded')) {
+        return NextResponse.json({ success: false, error: 'API quota exceeded' }, { status: 429 });
       }
 
-      return NextResponse.json(
-        { success: false, error: 'Generation failed' },
-        { status: 500 }
-      );
+      return NextResponse.json({ success: false, error: 'Generation failed' }, { status: 500 });
     }
 
   } catch (error) {
     console.error('❌ UNEXPECTED ERROR:', error);
-    return NextResponse.json(
-      { success: false, error: 'Unexpected error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Unexpected error' }, { status: 500 });
   }
 }

@@ -9,9 +9,10 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import CustomEditorPanel from '@/components/resume/CustomEditorPanel';
 
 import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
-import { ArrowLeft, FileText, AlertCircle, Sparkles, Eye, X } from 'lucide-react';
+import { ArrowLeft, FileText, AlertCircle, Sparkles, Eye } from 'lucide-react';
 import Link from 'next/link';
 import IntelligentAIPanel from '@/components/resume/IntelligentAIPanel';
+import type { OverallAnalysis } from '@/components/resume/IntelligentAIPanel';
 
 interface ResumeData {
   fileName?: string;
@@ -19,6 +20,10 @@ interface ResumeData {
   resumePath?: string;
   resumeHtml?: string;
   resumeText?: string;
+  jobTitle?: string;
+  companyName?: string;
+  jobDescription?: string;
+  deepAnalysis?: Record<string, unknown> | null;
   [key: string]: unknown;
 }
 
@@ -231,10 +236,7 @@ function ResumeWriterContent() {
             <FileText className="w-16 h-16 text-slate-600 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-white mb-2">Authentication Required</h2>
             <p className="text-slate-500 mb-6">Please sign in to continue</p>
-            <Link 
-              href="/sign-in"
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 inline-flex items-center gap-2 px-6 py-3 rounded-lg text-white transition-all duration-300"
-            >
+            <Link href="/sign-in" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 inline-flex items-center gap-2 px-6 py-3 rounded-lg text-white transition-all duration-300">
               Go to Login
             </Link>
           </div>
@@ -271,10 +273,7 @@ function ResumeWriterContent() {
             <h2 className="text-2xl font-semibold text-white mb-3">Resume Not Found</h2>
             <p className="text-slate-500 mb-8">{error || 'Could not load resume'}</p>
             <div className="flex gap-4 justify-center">
-              <button 
-                onClick={() => window.location.reload()} 
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 px-6 py-3 text-white rounded-lg font-medium transition-all duration-300"
-              >
+              <button onClick={() => window.location.reload()} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 px-6 py-3 text-white rounded-lg font-medium transition-all duration-300">
                 Try Again
               </button>
               <Link href="/resume">
@@ -295,23 +294,18 @@ function ResumeWriterContent() {
       <div className="bg-slate-900/95 backdrop-blur-xl border-b border-slate-800 px-6 py-3 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <button
-              onClick={handleExit}
-              className="p-2 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-slate-800/50 transition-colors"
-            >
+            <button onClick={handleExit} className="p-2 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-slate-800/50 transition-colors">
               <ArrowLeft className="w-5 h-5" />
             </button>
-            
             <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-purple-500/20">
               <Sparkles className="w-4 h-4 text-white" />
             </div>
-            
             <div>
-              <h1 className="text-white font-medium text-base">
-                AI Resume Writer
-              </h1>
+              <h1 className="text-white font-medium text-base">AI Resume Writer</h1>
               <p className="text-slate-500 text-sm">
-                {resumeData?.fileName || 'Intelligent optimization'}
+                {resumeData?.jobTitle && resumeData?.companyName
+                  ? `${resumeData.jobTitle} · ${resumeData.companyName}`
+                  : resumeData?.fileName || 'Intelligent optimization'}
               </p>
             </div>
           </div>
@@ -331,12 +325,6 @@ function ResumeWriterContent() {
                 <span className="hidden sm:inline">Analysis</span>
               </button>
             </Link>
-            <button
-              onClick={handleExit}
-              className="p-2 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-slate-800/50 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
           </div>
         </div>
       </div>
@@ -361,6 +349,10 @@ function ResumeWriterContent() {
             const updatedContent = resumeContent.replace(oldText, newText);
             setResumeContent(updatedContent);
           }}
+          initialJobDescription={resumeData?.jobDescription ?? ''}
+          initialJobTitle={resumeData?.jobTitle ?? ''}
+          initialCompanyName={resumeData?.companyName ?? ''}
+          initialDeepAnalysis={(resumeData?.deepAnalysis ?? null) as OverallAnalysis | null}
         />
       </div>
     </div>

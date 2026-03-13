@@ -1,18 +1,16 @@
 // app/api/resume/recruiter-simulation/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import Anthropic from '@anthropic-ai/sdk';
 import { db } from '@/firebase/admin';
 
-// Use correct environment variable name
-const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+const apiKey = process.env.CLAUDE_API_KEY;
 
 if (!apiKey) {
-  console.error('❌ GOOGLE_GENERATIVE_AI_API_KEY is not set');
+  console.error('❌ CLAUDE_API_KEY is not set');
 }
 
-const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
+const anthropic = apiKey ? new Anthropic({ apiKey }) : null;
 
-// Define interfaces
 interface RecruiterSimulationRequest {
   resumeId: string;
 }
@@ -50,12 +48,12 @@ interface RecruiterSimulation {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json() as RecruiterSimulationRequest;
-    const { resumeId } = body;
+    const body = await request.json() as RecruiterSimulationRequest & { force?: boolean };
+    const { resumeId, force = false } = body;
 
     console.log('👁️ Recruiter Simulation Started');
     console.log('   Resume ID:', resumeId);
-    console.log('   API Key Available:', !!apiKey);
+    console.log('   Force regenerate:', force);
 
     if (!resumeId) {
       return NextResponse.json(
@@ -64,17 +62,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!genAI || !apiKey) {
-      console.error('❌ Gemini API not configured');
+    if (!anthropic || !apiKey) {
+      console.error('❌ Claude API not configured');
       return NextResponse.json(
-        { error: 'AI service not configured. Please add GOOGLE_GENERATIVE_AI_API_KEY to environment variables.' },
+        { error: 'AI service not configured. Please add CLAUDE_API_KEY to environment variables.' },
         { status: 500 }
       );
     }
 
     // Get resume data from Firestore
     const resumeDoc = await db.collection('resumes').doc(resumeId).get();
-    
+
     if (!resumeDoc.exists) {
       return NextResponse.json(
         { error: 'Resume not found' },
@@ -82,26 +80,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const resumeData = resumeDoc.data() as ResumeData;
-    
-    // Use Gemini 2.0 Flash model
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.5-flash'
-    });
+    const resumeData = resumeDoc.data() as ResumeData & Record<string, unknown>;
 
-    // Get current date information
+    // ── Return cached result unless force=true ──
+    const cached = resumeData.recruiterSimulation as RecruiterSimulation | undefined;
+    const cachedAt = resumeData.recruiterSimulationGeneratedAt as number | undefined;
+    const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+    if (!force && cached && cachedAt && Date.now() - cachedAt < CACHE_TTL) {
+      console.log('✅ Returning cached simulation for:', resumeId);
+      return NextResponse.json({ success: true, simulation: cached, cached: true });
+    }
+
     const now = new Date();
-    const currentDate = now.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    const currentDate = now.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
     });
-    const currentMonth = now.toLocaleDateString('en-US', { 
-      year: 'numeric', 
+    const currentMonth = now.toLocaleDateString('en-US', {
+      year: 'numeric',
       month: 'long'
     });
 
-    const prompt = `IMPORTANT CONTEXT: Today's date is ${currentDate}. You are reviewing this resume in ${currentMonth}. Any dates in the resume that appear to be in 2024 or 2025 should be treated as current or recent experience, NOT future dates. Your knowledge cutoff may be outdated - trust the dates in the resume as accurate and current.
+    const prompt = `IMPORTANT CONTEXT: Today's date is ${currentDate}. You are reviewing this resume in ${currentMonth}. Any dates in the resume that appear to be in 2024 or 2025 should be treated as current or recent experience, NOT future dates. Trust the dates in the resume as accurate and current.
 
 You are a senior recruiter reviewing resumes. Simulate how you would review this resume in the first 6-10 seconds.
 
@@ -157,9 +159,7 @@ Provide a recruiter eye-tracking simulation in JSON format:
   "passScreening": true,
   "screenerNotes": [
     "Strong candidate for second round interview",
-    "Experience aligns well with role requirements",
-    "Technical skills match job requirements",
-    "Resume formatting is clean and easy to scan"
+    "Experience aligns well with role requirements"
   ]
 }
 
@@ -167,7 +167,6 @@ CRITICAL RULES:
 - DO NOT mention anything about "future dates" or dates being "in the future"
 - Treat all dates in the resume as valid and current relative to ${currentMonth}
 - If you see dates in 2024-2025, these are CURRENT or RECENT experiences
-- Focus your analysis on the actual content quality, not date validation
 - Never flag recent dates as a red flag or concerning element
 
 Base your simulation on typical recruiter behavior:
@@ -178,27 +177,30 @@ Base your simulation on typical recruiter behavior:
 5. AttentionScore represents focus level (0-100): 90+ = high focus, 70-89 = moderate, below 70 = quick glance
 6. Total timeToReview should be realistic (typically 6-10 seconds for initial scan)
 
-Provide realistic, actionable insights based on the resume content.`;
+Respond ONLY with valid JSON.`;
 
-    console.log('   Calling Gemini AI for simulation...');
-    console.log('   Current date context:', currentDate);
-    
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
-    
+    console.log('   Calling Claude AI for simulation...');
+
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 2048,
+      messages: [{ role: 'user', content: prompt }],
+    });
+
+    const responseText = response.content[0].type === 'text' ? response.content[0].text : '';
+
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       throw new Error('Failed to parse AI response');
     }
 
     const simulation = JSON.parse(jsonMatch[0]) as RecruiterSimulation;
-    
-    // Validate simulation data
+
     if (!simulation.firstImpression || !simulation.eyeTrackingHeatmap) {
       throw new Error('Invalid simulation data structure');
     }
 
-    // Post-process to filter out any future date mentions that slipped through
+    // Post-process to filter out any future date mentions
     const filterFutureDateMentions = (text: string): string => {
       return text
         .replace(/future date[s]?/gi, 'recent date')
@@ -207,18 +209,17 @@ Provide realistic, actionable insights based on the resume content.`;
         .replace(/scheduled for \d{4}/gi, 'from recent experience');
     };
 
-    // Clean up any potential future date references
-    simulation.firstImpression.concerningElements = 
+    simulation.firstImpression.concerningElements =
       simulation.firstImpression.concerningElements
         .map(filterFutureDateMentions)
-        .filter(element => 
-          !element.toLowerCase().includes('future') && 
+        .filter(element =>
+          !element.toLowerCase().includes('future') &&
           !element.toLowerCase().includes('2024') &&
           !element.toLowerCase().includes('2025')
         );
 
     simulation.screenerNotes = simulation.screenerNotes.map(filterFutureDateMentions);
-    
+
     simulation.eyeTrackingHeatmap = simulation.eyeTrackingHeatmap.map(section => ({
       ...section,
       notes: filterFutureDateMentions(section.notes)
@@ -228,22 +229,28 @@ Provide realistic, actionable insights based on the resume content.`;
     console.log('   Pass Screening:', simulation.passScreening);
     console.log('   First Impression Score:', simulation.firstImpression.score);
 
+    // ── Save to Firestore cache ──
+    try {
+      await db.collection('resumes').doc(resumeId).update({
+        recruiterSimulation: simulation,
+        recruiterSimulationGeneratedAt: Date.now(),
+      });
+    } catch (cacheErr) {
+      console.warn('⚠️ Failed to cache simulation (non-fatal):', cacheErr);
+    }
+
     return NextResponse.json({
       success: true,
       simulation,
+      cached: false,
     });
 
   } catch (error) {
     console.error('❌ Recruiter simulation error:', error);
     const err = error as Error & { status?: number; statusText?: string };
-    console.error('   Error details:', {
-      message: err.message,
-      status: err.status,
-      statusText: err.statusText
-    });
-    
+
     return NextResponse.json(
-      { 
+      {
         error: err.message || 'Failed to run recruiter simulation',
         details: process.env.NODE_ENV === 'development' ? err.toString() : undefined
       },

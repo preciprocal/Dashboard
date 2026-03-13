@@ -2,39 +2,37 @@
 // Enhanced with deep_analysis mode for the new IntelligentAIPanel
 
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import Anthropic from '@anthropic-ai/sdk';
+import { db } from '@/firebase/admin';
 
-const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
+const apiKey = process.env.CLAUDE_API_KEY;
+const anthropic = apiKey ? new Anthropic({ apiKey }) : null;
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // ✅ Fix: removed resumeId and userId from destructuring — they were
-    // declared but never read. If needed in future, add them back here.
     const {
+      resumeId,
       resumeHtml,
       jobDescription,
       customPrompt,
       mode,
       analysisVersion,
+      force = false,
     } = body;
 
     if (!resumeHtml || resumeHtml.length < 100) {
       return NextResponse.json({ error: 'Resume content is required' }, { status: 400 });
     }
 
-    // Strip HTML to get plain text for analysis
     const resumeText = stripHtml(resumeHtml);
 
-    // ─── DEEP ANALYSIS MODE (new v2 panel) ───────────────────────────────────
     if (mode === 'deep_analysis' && analysisVersion === 'v2') {
-      return await handleDeepAnalysis(resumeText, jobDescription, genAI);
+      return await handleDeepAnalysis(resumeText, jobDescription, resumeId, force);
     }
 
-    // ─── LEGACY MODE (old recommendations panel) ──────────────────────────────
-    return await handleLegacyAnalysis(resumeText, jobDescription, customPrompt, genAI);
+    return await handleLegacyAnalysis(resumeText, jobDescription, customPrompt);
 
   } catch (error) {
     console.error('❌ analyze-with-job error:', error);
@@ -47,16 +45,34 @@ export async function POST(request: NextRequest) {
 async function handleDeepAnalysis(
   resumeText: string,
   jobDescription: string | null,
-  genAI: GoogleGenerativeAI | null
+  resumeId?: string,
+  force = false,
 ) {
-  if (!genAI) {
+  if (!anthropic) {
     return NextResponse.json(
-      { error: 'AI service not configured — add GOOGLE_GENERATIVE_AI_API_KEY' },
+      { error: 'AI service not configured — add CLAUDE_API_KEY' },
       { status: 500 }
     );
   }
 
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-001' });
+  // ── Return cached result unless force=true ──
+  if (!force && resumeId) {
+    try {
+      const resumeDoc = await db.collection('resumes').doc(resumeId).get();
+      if (resumeDoc.exists) {
+        const data = resumeDoc.data() as Record<string, unknown>;
+        const cached    = data.deepAnalysis as Record<string, unknown> | undefined;
+        const cachedAt  = data.deepAnalysisGeneratedAt as number | undefined;
+        const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
+        if (cached && cachedAt && Date.now() - cachedAt < CACHE_TTL) {
+          console.log('✅ Returning cached deep analysis for:', resumeId);
+          return NextResponse.json({ deepAnalysis: cached, cached: true });
+        }
+      }
+    } catch (e) {
+      console.warn('⚠️ Cache read failed (non-fatal):', e);
+    }
+  }
 
   const prompt = `You are a senior resume analyst at a top recruiting firm. Perform a comprehensive, honest analysis of this resume.
 
@@ -154,27 +170,46 @@ SCORING GUIDELINES FOR ACCOMPLISHMENT BULLETS ONLY:
 Return ONLY valid JSON, no markdown, no explanation.`;
 
   try {
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 4096,
+      messages: [{ role: 'user', content: prompt }],
+    });
 
-    // Try to parse JSON
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('No JSON in response');
+    const text = response.content[0].type === 'text' ? response.content[0].text : '';
 
-    const deepAnalysis = JSON.parse(jsonMatch[0]);
+    let cleaned = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+    if (!cleaned.startsWith('{')) {
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+      if (jsonMatch) cleaned = jsonMatch[0];
+    }
+    if (!cleaned) throw new Error('No JSON in response');
 
-    // Add lineIds to bullets for editor highlighting
-    let lineIndex = 0;
+    const deepAnalysis = JSON.parse(cleaned);
+
+    // Use originalText as lineId so the editor can match by text content
     for (const section of deepAnalysis.sections || []) {
       for (const bullet of section.bullets || []) {
-        bullet.lineId = `line-${lineIndex++}`;
+        bullet.lineId = bullet.originalText || bullet.lineId || '';
       }
     }
     for (const win of deepAnalysis.quickWins || []) {
-      if (!win.lineId) win.lineId = `line-${lineIndex++}`;
+      win.lineId = win.originalText || win.lineId || '';
     }
 
-    return NextResponse.json({ deepAnalysis });
+    // ── Save to Firestore cache ──
+    if (resumeId) {
+      try {
+        await db.collection('resumes').doc(resumeId).update({
+          deepAnalysis,
+          deepAnalysisGeneratedAt: Date.now(),
+        });
+      } catch (e) {
+        console.warn('⚠️ Failed to cache deep analysis (non-fatal):', e);
+      }
+    }
+
+    return NextResponse.json({ deepAnalysis, cached: false });
 
   } catch (parseError) {
     console.error('❌ Deep analysis parse error:', parseError);
@@ -185,22 +220,19 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   }
 }
 
-// ─── Legacy Analysis (old recommendations format) ─────────────────────────────
+// ─── Legacy Analysis ──────────────────────────────────────────────────────────
 
 async function handleLegacyAnalysis(
   resumeText: string,
   jobDescription: string | null,
   customPrompt: string | null,
-  genAI: GoogleGenerativeAI | null
 ) {
-  if (!genAI) {
+  if (!anthropic) {
     return NextResponse.json(
       { error: 'AI service not configured' },
       { status: 500 }
     );
   }
-
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-001' });
 
   const prompt = `You are an expert resume writer and career coach.
 
@@ -232,11 +264,22 @@ Provide 5-8 specific, actionable recommendations. Focus on the weakest bullet po
 Return ONLY valid JSON.`;
 
   try {
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('No JSON');
-    const data = JSON.parse(jsonMatch[0]);
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 2048,
+      messages: [{ role: 'user', content: prompt }],
+    });
+
+    const text = response.content[0].type === 'text' ? response.content[0].text : '';
+
+    let cleaned = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+    if (!cleaned.startsWith('{')) {
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+      if (jsonMatch) cleaned = jsonMatch[0];
+    }
+    if (!cleaned) throw new Error('No JSON');
+
+    const data = JSON.parse(cleaned);
     return NextResponse.json(data);
   } catch {
     return NextResponse.json({ recommendations: [] });

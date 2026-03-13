@@ -14,13 +14,11 @@ import {
   FileText, 
   Building2, 
   Briefcase,
-  Target,
   CheckCircle2,
   Shield,
   Edit3,
   Star,
   TrendingUp,
-  Loader2,
   Award,
   Activity,
   PenTool,
@@ -32,10 +30,10 @@ import {
   Users,
 } from 'lucide-react';
 import ScoreCircle from '@/components/resume/ScoreCircle';
-import JobMatcher from '@/components/resume/JobMatcher';
 import RecruiterEyeSimulation from '@/components/resume/RecruiterEyeSimulation';
 import InterviewIntelligence from '@/components/resume/InterviewIntelligence';
 import CandidateBenchmarking from '@/components/resume/CandidateBenchmarking';
+import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
 import Image from 'next/image';
 
 // ─────────────────────────────────────────────────────────────────
@@ -269,12 +267,11 @@ function ImprovementRoadmap({ roadmap }: { roadmap: ImprovementRoadmapData }) {
   if (!roadmap) return null;
 
   const tabs = [
-    { key: 'quick'  as const, label: 'Quick Wins',  data: roadmap.quickWins          ?? [],                                icon: <Zap        className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> },
-    { key: 'medium' as const, label: 'Medium Term', data: roadmap.mediumTermGoals     ?? roadmap.mediumTerm ?? [],          icon: <Clock      className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> },
-    { key: 'long'   as const, label: 'Long Term',   data: roadmap.longTermStrategies  ?? roadmap.longTerm   ?? [],          icon: <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> },
+    { key: 'quick'  as const, label: 'Quick Wins',  data: roadmap.quickWins          ?? [],                               icon: <Zap        className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> },
+    { key: 'medium' as const, label: 'Medium Term', data: roadmap.mediumTermGoals     ?? roadmap.mediumTerm ?? [],         icon: <Clock      className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> },
+    { key: 'long'   as const, label: 'Long Term',   data: roadmap.longTermStrategies  ?? roadmap.longTerm   ?? [],         icon: <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> },
   ];
 
-  // ✅ Fix: find returns T | undefined — use nullish coalescing to guarantee defined value
   const activeTabData = tabs.find(t => t.key === activeTab) ?? tabs[0];
 
   return (
@@ -363,15 +360,23 @@ export default function ResumeDetailsPage() {
 
   const [resume,        setResume]        = useState<Resume | null>(null);
   const [loadingResume, setLoadingResume] = useState(true);
+  const [loadingStep,   setLoadingStep]   = useState(0);
   const [error,         setError]         = useState<string>('');
   const [imageUrl,      setImageUrl]      = useState<string>('');
-  const [activeTab,     setActiveTab]     = useState<'analysis' | 'jobmatch' | 'recruiter' | 'intel' | 'benchmark'>('analysis');
+  const [activeTab,     setActiveTab]     = useState<'analysis' | 'recruiter' | 'intel' | 'benchmark'>('analysis');
   const [showPreview,   setShowPreview]   = useState(false);
+
+  const loadingSteps: LoadingStep[] = [
+    { name: 'Authenticating user...',      weight: 1 },
+    { name: 'Fetching resume data...',     weight: 2 },
+    { name: 'Loading analysis results...', weight: 3 },
+    { name: 'Preparing visualizations...', weight: 2 },
+    { name: 'Finalizing report...',        weight: 1 },
+  ];
 
   // ── Normalize Firebase casing inconsistencies ──
   const normalizeFeedback = (fd: Resume['feedback']): Resume['feedback'] | undefined => {
     if (!fd) return undefined;
-    // ✅ Fix: use a plain object copy instead of Partial<> to avoid 'n is possibly undefined'
     const n   = { ...fd };
     const obj = fd as unknown as Record<string, unknown>;
     if (!n.ATS && obj['ats']) {
@@ -394,7 +399,11 @@ export default function ResumeDetailsPage() {
         return;
       }
       try {
+        setLoadingStep(1);
+        await new Promise(resolve => setTimeout(resolve, 150));
+        setLoadingStep(2);
         const data = await FirebaseService.getResume(params.id);
+        setLoadingStep(3);
         if (!data) {
           setError('Resume not found');
           setResume(null);
@@ -407,6 +416,8 @@ export default function ResumeDetailsPage() {
           if (data.imagePath) setImageUrl(data.imagePath);
           console.log('Resume loaded. Feedback keys:', data.feedback ? Object.keys(data.feedback) : 'none');
         }
+        setLoadingStep(4);
+        await new Promise(resolve => setTimeout(resolve, 150));
       } catch (err) {
         console.error('Error loading resume:', err);
         setError('Failed to load resume');
@@ -458,15 +469,17 @@ export default function ResumeDetailsPage() {
     }
   };
 
-  // ── Auth / loading guards ──
+  // ── Auth / loading guard ──
   if (loading || loadingResume) {
     return (
-      <div className="flex items-center justify-center min-h-screen px-4">
-        <div className="text-center">
-          <Loader2 className="w-10 h-10 sm:w-12 sm:h-12 text-purple-500 animate-spin mx-auto mb-3 sm:mb-4" />
-          <p className="text-slate-400 text-sm sm:text-base">Loading analysis...</p>
-        </div>
-      </div>
+      <AnimatedLoader
+        isVisible={true}
+        mode="steps"
+        steps={loadingSteps}
+        currentStep={loadingStep}
+        loadingText="Loading your resume analysis..."
+        showNavigation={true}
+      />
     );
   }
 
@@ -505,7 +518,6 @@ export default function ResumeDetailsPage() {
   // ── Section data ──
   const feedback = resume.feedback;
 
-  // ✅ Fix: use explicit section lookup with a type-safe helper instead of a Record index
   const getSectionData = (section: ResumeSection | undefined): { score: number; tips: Tip[] } => {
     if (!section) return { score: 0, tips: [] };
     return {
@@ -520,10 +532,9 @@ export default function ResumeDetailsPage() {
   const skillsData    = getSectionData(feedback?.skills       as ResumeSection | undefined);
   const toneData      = getSectionData(feedback?.toneAndStyle as ResumeSection | undefined);
 
-  // ── Tab config — 5 tabs ──
+  // ── Tab config — 4 tabs ──
   const tabConfig = [
     { id: 'analysis'  as const, label: 'Analysis',  icon: Shield    },
-    { id: 'jobmatch'  as const, label: 'Job Match', icon: Target    },
     { id: 'recruiter' as const, label: 'Recruiter', icon: Eye       },
     { id: 'intel'     as const, label: 'Intel',     icon: BarChart3 },
     { id: 'benchmark' as const, label: 'Benchmark', icon: Users     },
@@ -577,7 +588,6 @@ export default function ResumeDetailsPage() {
   const renderTabContent = () => (
     <>
       {activeTab === 'analysis'  && feedback && renderAnalysisSections()}
-      {activeTab === 'jobmatch'  && <JobMatcher resumeId={resume.id} />}
       {activeTab === 'benchmark' && (
         <CandidateBenchmarking
           resumeId={resume.id}

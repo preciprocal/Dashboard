@@ -2,12 +2,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { auth, db } from '@/firebase/admin';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import Anthropic from '@anthropic-ai/sdk';
 
-const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
+const apiKey = process.env.CLAUDE_API_KEY;
+const anthropic = apiKey ? new Anthropic({ apiKey }) : null;
 
-// Define interfaces
 interface QuizRequest {
   planId: string;
 }
@@ -66,7 +65,7 @@ interface PlanData {
   };
 }
 
-const QUIZ_PROMPT = `You are an expert interview coach. Generate a quiz based on the user's interview preparation plan.
+const QUIZ_SYSTEM_PROMPT = `You are an expert interview coach. Generate a quiz based on the user's interview preparation plan.
 
 Generate exactly 12 questions:
 - 6 Technical questions (from topics, coding problems, tasks)
@@ -101,104 +100,83 @@ export async function POST(request: NextRequest) {
   try {
     console.log('🎯 Quiz API called');
 
-    // Check Gemini API
-    if (!genAI || !apiKey) {
-      return NextResponse.json(
-        { error: 'AI service not configured' },
-        { status: 500 }
-      );
+    if (!anthropic || !apiKey) {
+      return NextResponse.json({ error: 'AI service not configured' }, { status: 500 });
     }
 
-    // Check Firebase
     if (!db) {
-      return NextResponse.json(
-        { error: 'Database not configured' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
     }
 
-    // Get session
     const cookieStore = await cookies();
     const session = cookieStore.get('session');
 
     if (!session) {
-      return NextResponse.json(
-        { error: 'Not authenticated' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    // Verify session
     const decodedClaims = await auth.verifySessionCookie(session.value, true);
     const userId = decodedClaims.uid;
     console.log('✅ User:', userId);
 
-    // Get planId from request
     const body = await request.json() as QuizRequest;
     const { planId } = body;
 
     if (!planId) {
-      return NextResponse.json(
-        { error: 'planId required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'planId required' }, { status: 400 });
     }
 
     console.log('📝 Plan ID:', planId);
 
-    // Fetch plan from Firestore
     const planDoc = await db.collection('interviewPlans').doc(planId).get();
 
     if (!planDoc.exists) {
       console.error('❌ Plan not found:', planId);
-      return NextResponse.json(
-        { error: 'Plan not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
     }
 
     const planData = planDoc.data() as PlanData;
     console.log('✅ Plan loaded:', planData?.role);
 
-    // Verify ownership
     if (planData?.userId !== userId) {
-      return NextResponse.json(
-        { error: 'Not your plan' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Not your plan' }, { status: 403 });
     }
 
-    // Check plan has content
     if (!planData.dailyPlans || planData.dailyPlans.length === 0) {
-      return NextResponse.json(
-        { error: 'Plan has no content' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Plan has no content' }, { status: 400 });
     }
 
-    // Build context
     const context = buildContext(planData);
     console.log('📋 Context built:', context.length, 'chars');
 
-    // Call Gemini
-    console.log('🤖 Calling Gemini...');
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.5-flash'
+    console.log('🤖 Calling Claude...');
+
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 4096,
+      system: QUIZ_SYSTEM_PROMPT,
+      messages: [
+        {
+          role: 'user',
+          content: `PLAN DATA:\n${context}\n\nGenerate quiz now.`,
+        },
+      ],
     });
 
-    const prompt = `${QUIZ_PROMPT}\n\nPLAN DATA:\n${context}\n\nGenerate quiz now.`;
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
-    
+    const responseText = response.content[0].type === 'text' ? response.content[0].text : '';
     console.log('✅ AI response received');
 
-    // Parse JSON
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
+    let cleaned = responseText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+    if (!cleaned.startsWith('{')) {
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+      if (jsonMatch) cleaned = jsonMatch[0];
+    }
+
+    if (!cleaned) {
       throw new Error('No JSON in response');
     }
 
-    const quizData = JSON.parse(jsonMatch[0]) as QuizData;
+    const quizData = JSON.parse(cleaned) as QuizData;
 
     if (!quizData.questions || !Array.isArray(quizData.questions)) {
       throw new Error('Invalid quiz structure');
@@ -206,7 +184,6 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Quiz generated:', quizData.questions.length, 'questions');
 
-    // Save to database (optional)
     const quizId = db.collection('quizzes').doc().id;
     await db.collection('quizzes').doc(quizId).set({
       id: quizId,
@@ -240,7 +217,7 @@ export async function POST(request: NextRequest) {
 
 function buildContext(planData: PlanData): string {
   const lines: string[] = [];
-  
+
   lines.push(`ROLE: ${planData.role}`);
   if (planData.company) lines.push(`COMPANY: ${planData.company}`);
   lines.push(`SKILL: ${planData.skillLevel}`);
@@ -248,18 +225,18 @@ function buildContext(planData: PlanData): string {
 
   planData.dailyPlans?.forEach((day: DailyPlan) => {
     lines.push(`DAY ${day.day}: ${day.focus}`);
-    
+
     if (day.topics?.length) {
       lines.push(`Topics: ${day.topics.join(', ')}`);
     }
-    
+
     if (day.resources?.length) {
       lines.push('Resources:');
       day.resources.forEach((r: Resource) => {
         lines.push(`  - ${r.title} (${r.type}${r.difficulty ? ', ' + r.difficulty : ''})`);
       });
     }
-    
+
     if (day.behavioral) {
       lines.push('Behavioral:');
       lines.push(`  Topic: ${day.behavioral.topic}`);
@@ -268,21 +245,21 @@ function buildContext(planData: PlanData): string {
         lines.push(`  Tips: ${day.behavioral.tips.join('; ')}`);
       }
     }
-    
+
     if (day.tasks?.length) {
       lines.push('Tasks:');
       day.tasks.forEach((t: Task) => {
         lines.push(`  - ${t.title}: ${t.description}`);
       });
     }
-    
+
     if (day.aiTips?.length) {
       lines.push('AI Tips:');
       day.aiTips.forEach((tip: string) => {
         lines.push(`  - ${tip}`);
       });
     }
-    
+
     lines.push('');
   });
 

@@ -1,14 +1,13 @@
 // app/api/job-tracker/find-contacts/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import Anthropic from '@anthropic-ai/sdk';
 import { auth, db } from '@/firebase/admin';
 
-const apiKey       = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+const apiKey       = process.env.CLAUDE_API_KEY;
 const hunterApiKey = process.env.HUNTER_API_KEY;
-const genAI        = apiKey ? new GoogleGenerativeAI(apiKey) : null;
+const anthropic    = apiKey ? new Anthropic({ apiKey }) : null;
 
-// Tell Vercel to allow up to 30s for this route (email generation takes time)
 export const maxDuration = 30;
 
 const TAG = '[FIND-CONTACTS]';
@@ -29,28 +28,23 @@ interface HunterContact {
   department: string;
   confidence: number;
   linkedin:   string | null;
-  tier?:      number; // 1=recruiter/C-suite, 2=VP/Director, 3=Manager/Lead, 4=IC
+  tier?:      number;
 }
 
 interface SenderContext {
-  // Identity
   name:             string;
   email:            string;
   phone:            string;
   location:         string;
-  // Socials
   linkedin:         string;
   github:           string;
   website:          string;
-  // Professional
   targetRole:       string;
   experienceLevel:  string;
   bio:              string;
   careerGoals:      string;
   skills:           string[];
-  // Resume content
   resumeText:       string;
-  // Derived highlights (extracted from resume)
   topAchievements:  string[];
   education:        string;
   recentRole:       string;
@@ -110,6 +104,7 @@ async function buildSenderContext(userId: string): Promise<SenderContext> {
   }
 
   // ── Latest resume ──
+  // FIX: check all possible text locations — feedback.resumeText is the primary store
   try {
     const snap = await db.collection('resumes')
       .where('userId', '==', userId)
@@ -118,12 +113,21 @@ async function buildSenderContext(userId: string): Promise<SenderContext> {
       .get();
 
     if (!snap.empty) {
-      const r    = snap.docs[0].data() as Record<string, unknown>;
-      const text = (r.resumeText as string) || (r.extractedText as string) || '';
-      ctx.resumeText = text.slice(0, 3000);
+      const r = snap.docs[0].data() as Record<string, unknown>;
 
-      if (text) {
-        // Extract bullet-point achievements (lines with metrics)
+      // Check all possible locations in priority order
+      const feedback = r.feedback as Record<string, unknown> | undefined;
+      const text = (
+        (feedback?.resumeText as string) ||
+        (r.resumeText         as string) ||
+        (r.extractedText      as string) ||
+        ''
+      );
+
+      if (text && text.trim().length > 50) {
+        ctx.resumeText = text.slice(0, 3000);
+
+        // Extract bullet-point achievements
         const achievementLines = text.match(/[•\-\*]\s*([^•\-\*\n]{30,150})/g) || [];
         ctx.topAchievements = achievementLines
           .map(l => l.replace(/^[•\-\*]\s*/, '').trim())
@@ -149,13 +153,14 @@ async function buildSenderContext(userId: string): Promise<SenderContext> {
         }
 
         log('✅', 'Resume parsed', {
-          textLen:       text.length,
-          achievements:  ctx.topAchievements.length,
-          courses:       ctx.courses.length,
-          education:     ctx.education,
+          textLen:      text.length,
+          source:       feedback?.resumeText ? 'feedback.resumeText' : r.resumeText ? 'resumeText' : 'extractedText',
+          achievements: ctx.topAchievements.length,
+          courses:      ctx.courses.length,
+          education:    ctx.education,
         });
       } else {
-        log('⚠️', 'Resume exists but no text content found');
+        log('⚠️', 'Resume exists but no text content found — checked feedback.resumeText, resumeText, extractedText');
       }
     } else {
       log('⚠️', 'No resume found for user');
@@ -215,46 +220,57 @@ async function fetchHunterContacts(domain: string): Promise<HunterContact[]> {
   if (!hunterApiKey) throw new Error('HUNTER_API_KEY not configured');
 
   log('🔍', 'Searching domain', { domain });
-  const url = `https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(domain)}&limit=20&api_key=${hunterApiKey}`;
+  const url = `https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(domain)}&limit=3&api_key=${hunterApiKey}`;
   const res = await fetch(url);
 
-  if (!res.ok) {
-    const errBody = await res.json().catch(() => ({})) as Record<string, unknown>;
-    const errors  = (errBody as Record<string, unknown[]>)?.errors;
-    const detail  = Array.isArray(errors) && errors.length > 0
-      ? (errors[0] as Record<string, string>)?.details || ''
-      : '';
-    log('❌', 'Domain search failed', { status: res.status, detail, domain });
+  // FIX: Hunter returns 400 with "limited to 10" when results exist but are capped by plan.
+  // Only treat it as an error if there's truly no data. Parse the body first.
+  const data = await res.json() as {
+    data?: { emails?: HunterEmail[]; domain?: string; organization?: string };
+    meta?: { results?: number };
+    errors?: { id: string; details: string }[];
+  };
 
-    if (res.status === 400) {
+  if (!res.ok) {
+    const errors = data.errors || [];
+    const detail = errors[0]?.details || '';
+    const emails = data.data?.emails || [];
+
+    // Plan limit hit — Hunter knows the domain is valid but won't return results
+    const isPlanLimit = detail.toLowerCase().includes('limited') || detail.toLowerCase().includes('plan');
+
+    if (emails.length > 0) {
+      // Non-200 but emails came back — proceed normally
+      log('⚠️', 'Hunter non-200 but emails present — proceeding', { status: res.status, detail, count: emails.length });
+    } else if (isPlanLimit) {
+      // Domain is real, plan just can't return results for this company
+      log('⚠️', 'Hunter plan limit hit — domain valid but results unavailable on free plan', { domain, detail });
+      throw new Error(
+        `Contacts exist at "${domain}" but your Hunter.io plan limits results for large companies. ` +
+        `Upgrade your Hunter plan or try a smaller company's domain.`
+      );
+    } else {
+      log('❌', 'Domain search failed', { status: res.status, detail, domain });
+      if (res.status === 401) throw new Error('Invalid API key — please check your HUNTER_API_KEY.');
+      if (res.status === 429) throw new Error('Search limit reached for this month. Upgrade your plan to search more companies.');
       throw new Error(
         `No contacts found for "${domain}". Try entering the company's actual website domain — ` +
         `e.g. if the company is "Match Group" try "match.com" or "gotinder.com".`
       );
     }
-    if (res.status === 401) throw new Error('Invalid API key — please check your HUNTER_API_KEY.');
-    if (res.status === 429) throw new Error('Search limit reached for this month. Upgrade your plan to search more companies.');
-    throw new Error(`Search failed (${res.status}). Try a different domain.`);
   }
 
-  const data = await res.json() as {
-    data: { emails: HunterEmail[]; domain: string; organization: string };
-    meta: { results: number };
-  };
-
-  log('✅', 'Domain search succeeded', { total: data.meta?.results, returned: data.data?.emails?.length });
-
   const emails = data.data?.emails || [];
+  log('✅', 'Domain search succeeded', { total: data.meta?.results, returned: emails.length });
+
   if (emails.length === 0) return [];
 
-  // Score each contact — tier (lower = better) + confidence bonus
   const scored = emails.map(e => ({
     ...e,
     _tier:  getRoleTier(e.position || '', e.department || ''),
     _score: (e.confidence || 0),
   }));
 
-  // Sort: tier first (ascending = best first), then confidence (descending)
   scored.sort((a, b) => a._tier !== b._tier ? a._tier - b._tier : b._score - a._score);
 
   const RECRUITING_KW = ['recruiter','talent','hr','hiring','people ops'];
@@ -263,7 +279,6 @@ async function fetchHunterContacts(domain: string): Promise<HunterContact[]> {
     RECRUITING_KW.some(kw => `${e.position} ${e.department}`.toLowerCase().includes(kw))
   );
 
-  // Pick top 2 recruiters only
   const picked: HunterEmail[] = [];
   const seen = new Set<string>();
 
@@ -277,10 +292,13 @@ async function fetchHunterContacts(domain: string): Promise<HunterContact[]> {
 
   add(recruiters.slice(0, 2), 2);
 
-  log('📊', 'Contact selection', {
-    recruitersFound: recruiters.length,
-    picked: picked.length,
-  });
+  // If no recruiters found, fall back to top-tier contacts
+  if (picked.length === 0) {
+    add(scored.slice(0, 2), 2);
+    log('⚠️', 'No recruiters found — using top-tier contacts as fallback', { picked: picked.length });
+  }
+
+  log('📊', 'Contact selection', { recruitersFound: recruiters.length, picked: picked.length });
 
   return picked.map(e => ({
     email:      e.value,
@@ -295,7 +313,7 @@ async function fetchHunterContacts(domain: string): Promise<HunterContact[]> {
   }));
 }
 
-// ─── Gemini personalised email ────────────────────────────────────
+// ─── Claude personalised email ────────────────────────────────────
 
 async function generatePersonalisedEmail(
   contact:        HunterContact,
@@ -304,7 +322,7 @@ async function generatePersonalisedEmail(
   jobDescription: string,
   ctx:            SenderContext,
 ): Promise<string> {
-  if (!genAI) throw new Error('Gemini not configured');
+  if (!anthropic) throw new Error('Claude not configured');
 
   const pos = contact.position.toLowerCase();
   let recipientAngle: string;
@@ -322,11 +340,12 @@ async function generatePersonalisedEmail(
     recipientAngle = `Write a professional, warm outreach expressing genuine interest in ${company} and asking about ${jobTitle} opportunities.`;
   }
 
-  const socials = [
-    ctx.linkedin && `LinkedIn: ${ctx.linkedin}`,
-    ctx.github   && `GitHub: ${ctx.github}`,
-    ctx.website  && `Portfolio: ${ctx.website}`,
-  ].filter(Boolean).join('\n');
+  const socialLinks = [
+    ctx.linkedin,
+    ctx.github,
+    ctx.website,
+  ].filter(Boolean);
+  const primarySocial = socialLinks[0] || '';
 
   const achievementsBlock = ctx.topAchievements.length > 0
     ? `Key achievements from resume:\n${ctx.topAchievements.map(a => `• ${a}`).join('\n')}`
@@ -336,97 +355,371 @@ async function generatePersonalisedEmail(
     ? `Courses/certifications: ${ctx.courses.join(', ')}`
     : '';
 
-  const prompt = `You are a world-class cold email writer helping a job seeker stand out. Write a highly personalised, authentic cold email.
+  const prompt = `Write a cold outreach email from ${ctx.name || 'the sender'} to ${contact.firstName || contact.fullName}.
 
-═══ RECIPIENT ═══
+RECIPIENT
 Name: ${contact.firstName || contact.fullName}
 Title: ${contact.position}
 Company: ${company}
-How to approach them: ${recipientAngle}
+Angle: ${recipientAngle}
 
-═══ SENDER ═══
-Name: ${ctx.name || 'the candidate'}
-Email: ${ctx.email}
-${ctx.phone    ? `Phone: ${ctx.phone}` : ''}
+SENDER CONTEXT
 ${ctx.location ? `Location: ${ctx.location}` : ''}
-${socials      ? `\nSocials:\n${socials}` : ''}
-
-Applying for: ${jobTitle} at ${company}
+Role they want: ${jobTitle} at ${company}
 Experience level: ${ctx.experienceLevel}
 ${ctx.bio ? `Bio: ${ctx.bio}` : ''}
 ${ctx.careerGoals ? `Career goals: ${ctx.careerGoals}` : ''}
-Top skills: ${ctx.skills.slice(0, 8).join(', ') || 'not specified'}
-
+Skills: ${ctx.skills.slice(0, 8).join(', ') || 'not specified'}
 ${achievementsBlock}
 ${ctx.education ? `Education: ${ctx.education}` : ''}
 ${ctx.recentRole ? `Most recent role: ${ctx.recentRole}` : ''}
 ${coursesBlock}
+${jobDescription ? `\nJOB CONTEXT\n${jobDescription.slice(0, 500)}` : ''}
+${ctx.resumeText ? `\nRESUME HIGHLIGHTS\n${ctx.resumeText.slice(0, 700)}` : ''}
 
-${jobDescription ? `═══ JOB CONTEXT ═══\n${jobDescription.slice(0, 600)}` : ''}
+WHAT TO WRITE
+3 short paragraphs, 100-150 words total.
 
-${ctx.resumeText ? `═══ RESUME HIGHLIGHTS ═══\n${ctx.resumeText.slice(0, 800)}` : ''}
+Paragraph 1: Something specific and genuine about the company or team's work. Not a compliment — an observation. Like something you'd actually say to someone at a networking event.
 
-═══ EMAIL REQUIREMENTS ═══
-1. 120-180 words — tight, not bloated
-2. NEVER start with: "I hope this finds you well", "My name is", "I am writing to"
-3. Open with something specific about THEM, their company, or their work — not yourself
-4. Weave in 1-2 specific achievements or skills from the resume naturally — don't list everything
-5. If the sender has GitHub/LinkedIn/portfolio, include ONE relevant link naturally in the body
-6. End with ONE small, clear ask (15-min call, quick reply, coffee chat)
-7. Sign off with: name, email, and any relevant social link
-8. Sound like a real smart human wrote this — warm, direct, confident, not desperate
-9. NO generic phrases like "I am a passionate professional" or "I would be a great fit"
-10. Reference the job title and company name naturally
+Paragraph 2: One or two sentences about relevant work. Just the most relevant fact from the resume. No preamble, no "I'm a X who has spent Y years doing Z." Just state what you did.
 
-Return ONLY the complete email including greeting, body, and signature. No subject line. No commentary.`;
+Paragraph 3: Ask for 15 minutes. One sentence. Natural, not servile.
 
-  const model = genAI.getGenerativeModel({
-    model: 'gemini-2.5-flash',
-    generationConfig: { temperature: 0.65, maxOutputTokens: 500 },
+Sign-off block (exactly this format, nothing else):
+[First name only],
+[email]
+${primarySocial ? primarySocial : '[one social link if available]'}
+
+BANNED WORDS AND PHRASES — if any appear, rewrite:
+- em dash (—) — use a comma or period instead
+- "I'm a [title] who" or "I'm a [title] based in"
+- "exactly what [excites/interests/gets] me"
+- "I came across"
+- "I would love to"
+- "I am passionate"
+- "happy to work around"
+- "I wanted to reach out"
+- "I hope this"
+- "My name is"
+- "I am writing"
+- "Here's my" or "My LinkedIn" or "My GitHub" — links go bare, no label
+- "Best regards" — use "Best," only
+- "looking forward"
+- "please feel free"
+- "don't hesitate"
+- "opportunity"
+- exclamation marks
+
+TONE RULES
+- Short sentences. Fragments are fine.
+- No filler words: very, really, truly, honestly, incredibly
+- Confident, not eager
+- Sounds like a person who has other options
+
+Return only the email. No subject line. No meta-commentary.`;
+
+  const response = await anthropic.messages.create({
+    model: 'claude-sonnet-4-5',
+    max_tokens: 500,
+    messages: [{ role: 'user', content: prompt }],
   });
 
-  const result = await model.generateContent(prompt);
-  const text   = result.response.text().trim();
+  let text = response.content[0].type === 'text' ? response.content[0].text.trim() : '';
+
+  // Post-process: strip anything that slipped through
+  text = text
+    .replace(/\s—\s/g, ', ')
+    .replace(/—/g, ', ')
+    .replace(/\bI'm a (\w+) (who|based)/gi, "I've been working as a $1,")
+    .replace(/\bexactly what (excites|interests|gets) me\b/gi, 'interesting work')
+    .replace(/\bI came across\b/gi, 'I saw')
+    .replace(/\bI would love to\b/gi, "I'd like to")
+    .replace(/\bHappy to work around your schedule\b/gi, '')
+    .replace(/\bBest regards\b/gi, 'Best')
+    .replace(/\blooking forward to hearing from you\b/gi, '')
+    .replace(/\bplease (feel free|don't hesitate)\b/gi, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
   if (!text || text.length < 50) throw new Error('AI returned empty response');
   return text;
 }
 
-// ─── Gemini domain guesser ───────────────────────────────────────
+// ─── Claude multi-domain resolver ────────────────────────────────
+// Returns an ordered list of candidate domains to try with Hunter.
+// We try them in sequence and stop at the first one that returns contacts.
 
-async function guessDomain(company: string, jobTitle: string): Promise<string> {
-  if (!genAI) return company.toLowerCase().replace(/[^a-z0-9]/g, '') + '.com';
+function sanitizeDomain(raw: string): string | null {
+  const d = raw
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//i, '')
+    .replace(/^www\./i, '')
+    .split('/')[0]
+    .split(' ')[0]
+    .trim();
+  return /^[a-z0-9][a-z0-9\-\.]{1,60}\.[a-z]{2,10}$/.test(d) ? d : null;
+}
 
+// Well-known companies whose domain differs from their name
+const KNOWN_DOMAINS: Record<string, string[]> = {
+  'google':        ['google.com'],
+  'alphabet':      ['google.com', 'abc.xyz'],
+  'meta':          ['meta.com', 'facebook.com'],
+  'facebook':      ['facebook.com', 'meta.com'],
+  'amazon':        ['amazon.com'],
+  'apple':         ['apple.com'],
+  'microsoft':     ['microsoft.com'],
+  'netflix':       ['netflix.com'],
+  'uber':          ['uber.com'],
+  'lyft':          ['lyft.com'],
+  'airbnb':        ['airbnb.com'],
+  'twitter':       ['twitter.com', 'x.com'],
+  'x':             ['x.com', 'twitter.com'],
+  'tiktok':        ['tiktok.com', 'bytedance.com'],
+  'bytedance':     ['bytedance.com', 'tiktok.com'],
+  'chewy':         ['chewy.com'],
+  'shopify':       ['shopify.com'],
+  'stripe':        ['stripe.com'],
+  'square':        ['squareup.com', 'block.xyz'],
+  'block':         ['block.xyz', 'squareup.com'],
+  'match group':   ['match.com', 'matchgroup.com'],
+  'tinder':        ['gotinder.com', 'match.com'],
+  'coinbase':      ['coinbase.com'],
+  'robinhood':     ['robinhood.com'],
+  'doordash':      ['doordash.com'],
+  'instacart':     ['instacart.com'],
+  'pinterest':     ['pinterest.com'],
+  'snap':          ['snap.com', 'snapchat.com'],
+  'snapchat':      ['snap.com'],
+  'discord':       ['discord.com'],
+  'slack':         ['slack.com'],
+  'zoom':          ['zoom.us'],
+  'salesforce':    ['salesforce.com'],
+  'oracle':        ['oracle.com'],
+  'ibm':           ['ibm.com'],
+  'intel':         ['intel.com'],
+  'nvidia':        ['nvidia.com'],
+  'amd':           ['amd.com'],
+  'qualcomm':      ['qualcomm.com'],
+  'palantir':      ['palantir.com'],
+  'snowflake':     ['snowflake.com'],
+  'databricks':    ['databricks.com'],
+  'openai':        ['openai.com'],
+  'anthropic':     ['anthropic.com'],
+  'hugging face':  ['huggingface.co'],
+  'huggingface':   ['huggingface.co'],
+  'goldman sachs': ['goldmansachs.com', 'gs.com'],
+  'jpmorgan':      ['jpmorgan.com', 'jpmorganchase.com'],
+  'morgan stanley':['morganstanley.com'],
+  'deloitte':      ['deloitte.com'],
+  'mckinsey':      ['mckinsey.com'],
+  'bain':          ['bain.com'],
+  'bcg':           ['bcg.com'],
+  'accenture':     ['accenture.com'],
+  'walmart':       ['walmart.com'],
+  'target':        ['target.com'],
+  'costco':        ['costco.com'],
+  'boeing':        ['boeing.com'],
+  'lockheed':      ['lockheedmartin.com'],
+  'spacex':        ['spacex.com'],
+  'tesla':         ['tesla.com'],
+  'ford':          ['ford.com'],
+  'gm':            ['gm.com'],
+  'general motors':['gm.com', 'generalmotors.com'],
+  'johnson & johnson': ['jnj.com'],
+  'pfizer':        ['pfizer.com'],
+  'cvs':           ['cvshealth.com', 'cvs.com'],
+  'united health': ['unitedhealthgroup.com'],
+};
+
+// ─── Extract domain directly from job posting URL ────────────────
+// This is the most reliable source — no guessing needed.
+// Strips known ATS subdomains/paths to get the actual company domain.
+
+const ATS_HOSTS = new Set([
+  'linkedin.com', 'indeed.com', 'glassdoor.com', 'ziprecruiter.com',
+  'monster.com', 'careerbuilder.com', 'simplyhired.com', 'dice.com',
+  'greenhouse.io', 'lever.co', 'ashbyhq.com', 'icims.com',
+  'jobvite.com', 'smartrecruiters.com', 'taleo.net', 'bamboohr.com',
+  'recruitee.com', 'wellfound.com', 'angel.co', 'myworkdayjobs.com',
+  'workday.com', 'breezy.hr', 'jazzhr.com', 'rippling.com',
+  'successfactors.com', 'oracle.com', 'kenexa.com',
+]);
+
+function extractDomainFromJobUrl(jobUrl: string): string | null {
+  if (!jobUrl) return null;
   try {
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
-      generationConfig: { temperature: 0, maxOutputTokens: 30 },
-    });
+    const url      = new URL(jobUrl);
+    const hostname = url.hostname.toLowerCase().replace(/^www\./, '');
 
-    const result = await model.generateContent(
-      `What is the official website domain (e.g. stripe.com, gotinder.com) for the company "${company}"?` +
-      (jobTitle ? ` The job title is "${jobTitle}".` : '') +
-      ` Reply with ONLY the domain name, nothing else. No https://, no www., no explanation.`
-    );
-
-    const raw = result.response.text().trim()
-      .toLowerCase()
-      .replace(/^https?:\/\//i, '')
-      .replace(/^www\./i, '')
-      .split('/')[0]
-      .split(' ')[0]
-      .trim();
-
-    if (raw && /^[a-z0-9][a-z0-9\-\.]{1,60}\.[a-z]{2,10}$/.test(raw)) {
-      log('✅', 'Domain guessed by AI', { company, domain: raw });
-      return raw;
+    // If it's a known ATS platform, skip — no useful company domain here
+    if (ATS_HOSTS.has(hostname) || [...ATS_HOSTS].some(ats => hostname.endsWith('.' + ats))) {
+      log('⚠️', 'Job URL is on ATS platform — skipping URL domain extraction', { hostname });
+      return null;
     }
 
-    log('⚠️', 'AI returned invalid domain, using fallback', { raw });
-  } catch (e) {
-    log('⚠️', 'Domain guess failed, using fallback', { error: e instanceof Error ? e.message : String(e) });
+    // For company-hosted ATS (e.g. jobs.stripe.com, careers.airbnb.com, stripe.greenhouse.io)
+    // Strip known ATS subdomains
+    const atsSubdomains = ['jobs', 'careers', 'apply', 'hiring', 'work', 'join', 'boards'];
+    const parts         = hostname.split('.');
+
+    if (parts.length >= 3) {
+      // e.g. jobs.stripe.com → stripe.com
+      if (atsSubdomains.includes(parts[0])) {
+        const candidate = parts.slice(1).join('.');
+        if (sanitizeDomain(candidate)) {
+          log('✅', 'Extracted domain from job URL (stripped ATS subdomain)', { jobUrl, domain: candidate });
+          return candidate;
+        }
+      }
+      // e.g. stripe.greenhouse.io → stripe.com (company is the first part)
+      const knownAtsTlds = ['greenhouse', 'lever', 'ashbyhq', 'jobvite', 'recruitee', 'bamboohr'];
+      if (knownAtsTlds.some(ats => hostname.includes(ats))) {
+        const companySlug  = parts[0];
+        const candidate    = `${companySlug}.com`;
+        if (sanitizeDomain(candidate)) {
+          log('✅', 'Extracted company slug from ATS subdomain', { jobUrl, domain: candidate });
+          return candidate;
+        }
+      }
+    }
+
+    // Otherwise use the hostname directly (e.g. careers.chewy.com → chewy.com, or chewy.com directly)
+    if (parts.length >= 3 && atsSubdomains.includes(parts[0])) {
+      return parts.slice(1).join('.');
+    }
+
+    log('✅', 'Using job URL hostname as domain', { jobUrl, domain: hostname });
+    return hostname;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveDomains(company: string, jobTitle: string): Promise<string[]> {
+  const companyLower = company.toLowerCase().trim();
+
+  // 1. Check known domains first
+  for (const [key, domains] of Object.entries(KNOWN_DOMAINS)) {
+    if (companyLower.includes(key) || key.includes(companyLower)) {
+      log('✅', 'Known domain matched', { company, domains });
+      return domains;
+    }
   }
 
-  return company.toLowerCase().replace(/[^a-z0-9]/g, '') + '.com';
+  // 2. Ask Claude for up to 4 candidate domains
+  if (anthropic) {
+    try {
+      const response = await anthropic.messages.create({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 120,
+        messages: [
+          {
+            role: 'user',
+            content: `List up to 4 possible website domains for the company "${company}"${jobTitle ? ` (hiring for "${jobTitle}")` : ''}.
+
+Many companies use a different domain than their name (e.g. "Match Group" → match.com, "Square" → squareup.com, "Twitter" → x.com).
+
+Reply with ONLY a JSON array of domain strings, most likely first. Example: ["chewy.com", "chewyfulfillment.com"]
+No explanation, no markdown, just the JSON array.`,
+          },
+        ],
+      });
+
+      const raw = response.content[0].type === 'text' ? response.content[0].text.trim() : '';
+      // Extract JSON array
+      const arrMatch = raw.match(/\[[\s\S]*?\]/);
+      if (arrMatch) {
+        const parsed = JSON.parse(arrMatch[0]) as unknown[];
+        const domains = parsed
+          .map(d => sanitizeDomain(String(d)))
+          .filter((d): d is string => d !== null);
+
+        if (domains.length > 0) {
+          log('✅', 'Claude returned candidate domains', { company, domains });
+          return domains;
+        }
+      }
+      log('⚠️', 'Claude domain list parse failed', { raw: raw.slice(0, 100) });
+    } catch (e) {
+      log('⚠️', 'Claude domain resolution failed', { error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  // 3. Deterministic fallbacks based on company name variations
+  const slug = companyLower.replace(/[^a-z0-9]/g, '');
+  const slugHyphen = companyLower.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return [
+    `${slug}.com`,
+    `${slugHyphen}.com`,
+    `${slug}.io`,
+    `${slug}.co`,
+  ];
+}
+
+// ─── Try domains until one works ─────────────────────────────────
+
+async function findContactsAcrossDomains(
+  company: string,
+  jobTitle: string,
+  domainOverride?: string,
+  jobUrl?: string,
+): Promise<{ contacts: HunterContact[]; domain: string }> {
+  // 1. User manually entered a domain — use only that
+  if (domainOverride) {
+    const contacts = await fetchHunterContacts(domainOverride);
+    return { contacts, domain: domainOverride };
+  }
+
+  // 2. Extract domain directly from the job posting URL — most reliable
+  const urlDomain = jobUrl ? extractDomainFromJobUrl(jobUrl) : null;
+  if (urlDomain) {
+    log('🔍', 'Trying domain extracted from job URL', { urlDomain });
+    try {
+      const contacts = await fetchHunterContacts(urlDomain);
+      if (contacts.length > 0) {
+        log('✅', 'Job URL domain worked', { urlDomain, contacts: contacts.length });
+        return { contacts, domain: urlDomain };
+      }
+      log('⚠️', 'Job URL domain returned 0 contacts — falling back to resolution', { urlDomain });
+    } catch (e) {
+      log('⚠️', 'Job URL domain failed — falling back to resolution', { urlDomain, error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  // 3. Fall back to known-domains + Claude + slug guesses
+  const candidates = await resolveDomains(company, jobTitle);
+  log('📊', 'Domain candidates to try', { company, candidates });
+
+  let lastError: string = '';
+
+  for (const domain of candidates) {
+    try {
+      log('🔍', 'Trying domain', { domain });
+      const contacts = await fetchHunterContacts(domain);
+      if (contacts.length > 0) {
+        log('✅', 'Domain worked', { domain, contacts: contacts.length });
+        return { contacts, domain };
+      }
+      log('⚠️', 'Domain returned 0 contacts, trying next', { domain });
+    } catch (e) {
+      lastError = e instanceof Error ? e.message : String(e);
+      // Plan limit errors are definitive — stop trying other domains
+      if (lastError.includes('plan limits results') || lastError.includes('Upgrade your Hunter')) {
+        log('❌', 'Plan limit hit — stopping domain search', { domain, error: lastError });
+        break;
+      }
+      log('⚠️', 'Domain failed, trying next', { domain, error: lastError });
+    }
+  }
+
+  // All candidates failed
+  throw new Error(
+    lastError ||
+    `No contacts found for "${company}". Try entering the domain manually (e.g. chewy.com).`
+  );
 }
 
 // ─── Route handler ────────────────────────────────────────────────
@@ -442,13 +735,13 @@ export async function POST(request: NextRequest) {
   try { body = await request.json(); }
   catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }); }
 
-  const { company, jobTitle, jobDescription, domain: domainOverride } = body;
+  const { company, jobTitle, jobDescription, domain: domainOverride, jobUrl } = body;
 
-  if (!company) return NextResponse.json({ error: 'company is required' }, { status: 400 });
+  if (!company)      return NextResponse.json({ error: 'company is required' }, { status: 400 });
   if (!hunterApiKey) return NextResponse.json({ error: 'HUNTER_API_KEY not configured' }, { status: 503 });
-  if (!genAI)        return NextResponse.json({ error: 'GOOGLE_GENERATIVE_AI_API_KEY not configured' }, { status: 503 });
+  if (!anthropic)    return NextResponse.json({ error: 'CLAUDE_API_KEY not configured' }, { status: 503 });
 
-  log('📊', 'Request', { company, jobTitle, domainOverride });
+  log('📊', 'Request', { company, jobTitle, domainOverride, jobUrl: jobUrl ? jobUrl.slice(0, 80) : null });
 
   log('🔍', 'Building sender context');
   const senderCtx = await buildSenderContext(userId);
@@ -462,27 +755,19 @@ export async function POST(request: NextRequest) {
     courses:      senderCtx.courses.length,
   });
 
-  const domain = domainOverride
-    ? domainOverride
-    : await guessDomain(company, jobTitle || '');
-  log('📊', 'Using domain', { domain, wasOverridden: !!domainOverride });
-
   let contacts: HunterContact[];
+  let domain: string;
   try {
-    contacts = await fetchHunterContacts(domain);
+    const result = await findContactsAcrossDomains(company, jobTitle || '', domainOverride, jobUrl);
+    contacts = result.contacts;
+    domain   = result.domain;
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Failed to fetch contacts';
-    log('❌', 'Hunter.io failed', { error: msg });
+    log('❌', 'All domains failed', { error: msg });
     return NextResponse.json({ error: msg }, { status: 502 });
   }
 
-  if (contacts.length === 0) {
-    log('⚠️', 'No recruiter contacts found', { domain });
-    return NextResponse.json({
-      contacts: [],
-      message: `No recruiter contacts found for ${domain}. Try entering the domain manually (e.g. stripe.com).`,
-    });
-  }
+  log('📊', 'Using domain', { domain, wasOverridden: !!domainOverride });
 
   log('✅', 'Contacts fetched', { count: contacts.length });
 

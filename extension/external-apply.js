@@ -1409,12 +1409,13 @@ async function fillWellfound(p) {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Smart scan — scopeSelector param removed (was declared but never used)
+// Smart scan — handles all field types including checkboxes
 // ─────────────────────────────────────────────────────────────────
 async function smartScan(p) {
   const root = document;
   let filled = 0;
 
+  // ── Text inputs ───────────────────────────────────────────────────
   const inputs = root.querySelectorAll(
     'input:not([type="hidden"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]):not([disabled]):not([readonly])'
   );
@@ -1434,6 +1435,7 @@ async function smartScan(p) {
     filled++;
   }
 
+  // ── Native selects ─────────────────────────────────────────────────
   const selects = root.querySelectorAll('select:not([disabled])');
   for (const sel of selects) {
     if (sel.value && sel.value !== '' && sel.value !== '0' && sel.value !== 'null') continue;
@@ -1473,6 +1475,7 @@ async function smartScan(p) {
     if (didFill) { filled++; console.log(`  📦 Custom dropdown "${lbl.slice(0,50)}" → "${val}"`); }
   }
 
+  // ── Textareas ─────────────────────────────────────────────────────
   const textareas = root.querySelectorAll('textarea:not([disabled])');
   for (const ta of textareas) {
     if (ta.value && ta.value.trim().length > 10) continue;
@@ -1515,9 +1518,9 @@ async function smartScan(p) {
   for (const cb of allCheckboxes) {
     if (cb.checked) continue;
 
-    const cbLbl        = getCbLabel(cb).toLowerCase().trim();
+    const cbLbl         = getCbLabel(cb).toLowerCase().trim();
     const questionLabel = getCheckboxGroupLabel(cb).toLowerCase().trim();
-    const fullText     = questionLabel + ' ' + cbLbl;
+    const fullText      = (questionLabel + ' ' + cbLbl).trim();
 
     // ── Pronouns ──────────────────────────────────────────────────
     if (/pronoun/i.test(questionLabel) && p.pronouns && p.pronouns !== 'Prefer not to say') {
@@ -1549,7 +1552,7 @@ async function smartScan(p) {
 
     // ── Veteran ───────────────────────────────────────────────────
     if (/veteran|military/i.test(questionLabel)) {
-      if (/not a.*veteran|not.*protected|prefer not|decline|i don|choose not|i am not/i.test(cbLbl)) {
+      if (/not a.*veteran|not.*protected|prefer not|decline|choose not|i don|i am not/i.test(cbLbl)) {
         cb.click(); cb.dispatchEvent(new Event('change', { bubbles: true })); filled++;
       }
       continue;
@@ -1581,15 +1584,54 @@ async function smartScan(p) {
       continue;
     }
 
-    // ── Consent / yes-no standalone checkboxes ────────────────────
+    // ── Screener yes/no checkbox groups ───────────────────────────
+    // Handles cases like a question "Are you authorized to work?" with
+    // separate Yes / No checkboxes (common on Greenhouse, Ashby, generic forms)
+    if (questionLabel && questionLabel.length >= 3) {
+      let screenerAnswer = null;
+
+      if (/authorized|legally.*work|eligible.*work|right.*work/i.test(fullText))   screenerAnswer = true;
+      if (/require.*sponsor|need.*sponsor/i.test(fullText))                         screenerAnswer = p.requireSponsorship ?? false;
+      if (/willing.*relocat|open.*relocat/i.test(fullText))                         screenerAnswer = p.willingToRelocate  ?? false;
+      if (/18.*year|over.*18|legal.*age|\bof age\b/i.test(fullText))               screenerAnswer = true;
+      if (/background.?check/i.test(fullText))                                      screenerAnswer = p.backgroundCheck ?? true;
+      if (/drug.?test|substance/i.test(fullText))                                   screenerAnswer = p.drugTest ?? true;
+      if (/driver.?licen/i.test(fullText))                                          screenerAnswer = p.driverLicense ?? true;
+      if (/full.?time/i.test(fullText))                                             screenerAnswer = true;
+      if (/currently.*employ/i.test(fullText))                                      screenerAnswer = p.currentlyEmployed ?? false;
+      if (/previously.*applied|applied.*before/i.test(fullText))                    screenerAnswer = false;
+
+      if (screenerAnswer !== null) {
+        const isYesCheckbox = /^yes$|^yes[\s,\b]/i.test(cbLbl);
+        const isNoCheckbox  = /^no$|^no[\s,\b]/i.test(cbLbl);
+
+        if (screenerAnswer === true  && isYesCheckbox) {
+          cb.click(); cb.dispatchEvent(new Event('change', { bubbles: true })); filled++;
+        } else if (screenerAnswer === false && isNoCheckbox) {
+          cb.click(); cb.dispatchEvent(new Event('change', { bubbles: true })); filled++;
+        } else if (!isYesCheckbox && !isNoCheckbox && screenerAnswer === true) {
+          // Single checkbox for this question (not a yes/no split) — check it
+          cb.click(); cb.dispatchEvent(new Event('change', { bubbles: true })); filled++;
+        }
+        continue;
+      }
+    }
+
+    // ── Consent / agreement standalone checkboxes ─────────────────
     let shouldCheck = null;
-    if (/i agree|i consent|i acknowledge|i certify|i confirm|i understand/i.test(fullText))       shouldCheck = true;
-    else if (/terms.*service|privacy.?policy|data.*polic|eula/i.test(fullText))                   shouldCheck = true;
-    else if (/background.?check/i.test(fullText))       shouldCheck = p.backgroundCheck ?? true;
-    else if (/drug.?test|substance/i.test(fullText))    shouldCheck = p.drugTest ?? true;
-    else if (/18.*year|over.*18|\bof age\b/i.test(fullText)) shouldCheck = p.over18 ?? true;
-    else if (/driver.?licen/i.test(fullText))           shouldCheck = p.driverLicense ?? true;
+
+    if (/i agree|i consent|i acknowledge|i certify|i confirm|i understand|i accept/i.test(fullText))  shouldCheck = true;
+    else if (/terms.*service|terms.*use|privacy.?polic|data.*polic|eula|cookie.*polic/i.test(fullText)) shouldCheck = true;
+    else if (/background.?check/i.test(fullText))            shouldCheck = p.backgroundCheck  ?? true;
+    else if (/drug.?test|substance/i.test(fullText))         shouldCheck = p.drugTest         ?? true;
+    else if (/18.*year|over.*18|\bof age\b/i.test(fullText)) shouldCheck = p.over18           ?? true;
+    else if (/driver.?licen/i.test(fullText))                shouldCheck = p.driverLicense    ?? true;
     else if (/authorized|eligible.*work|right.*work|legally.*work/i.test(fullText)) shouldCheck = true;
+    else if (/full.?time|open.*work|available.*work|actively.*seek/i.test(fullText)) shouldCheck = true;
+    else if (/sponsor/i.test(fullText))                      shouldCheck = p.requireSponsorship ?? false;
+    else if (/relocat/i.test(fullText))                      shouldCheck = p.willingToRelocate  ?? false;
+    // Don't auto-opt into newsletters/marketing emails
+    else if (/receive.*email|email.*update|newsletter|job.*alert|marketing/i.test(fullText)) shouldCheck = false;
 
     if (shouldCheck === true) {
       cb.click(); cb.dispatchEvent(new Event('change', { bubbles: true })); filled++;
