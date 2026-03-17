@@ -36,6 +36,7 @@ import { useNotifications } from '@/lib/hooks/useNotifications';
 import NotificationCenter from '@/components/Notifications';
 import type { LucideIcon } from 'lucide-react';
 import { Toaster } from 'sonner';
+import AnimatedLoader from '@/components/loader/AnimatedLoader';
 
 interface LayoutClientProps {
   children: React.ReactNode;
@@ -132,24 +133,7 @@ function UserAvatar({
   );
 }
 
-// ── Skeleton shown while Firebase auth resolves ───────────────────────────────
-function PageSkeleton() {
-  return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-      <div className="flex flex-col items-center gap-4">
-        <NextImage
-          src={logo}
-          alt="Preciprocal"
-          width={48}
-          height={48}
-          className="rounded-xl opacity-80 animate-pulse"
-          priority
-        />
-        <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    </div>
-  );
-}
+
 
 const PUBLIC_ROUTES = [
   '/sign-in',
@@ -539,14 +523,14 @@ function LayoutContent({ children, user }: LayoutClientProps) {
     return <div className="min-h-screen">{children}</div>;
   }
 
-  // ── Render: still waiting for Firebase — show skeleton, NEVER black screen ─
+  // ── Render: still waiting for Firebase — show loader, NEVER black screen ─
   if (!authResolved) {
-    return <PageSkeleton />;
+    return <AnimatedLoader isVisible={true} loadingText="Loading..." showNavigation={false} />;
   }
 
-  // ── Render: not authenticated and not a public route — show skeleton while redirect happens ─
+  // ── Render: not authenticated and not a public route — show loader while redirect happens ─
   if (!currentUser && !user && !isPublicRoute) {
-    return <PageSkeleton />;
+    return <AnimatedLoader isVisible={true} loadingText="Loading..." showNavigation={false} />;
   }
 
   // ── From here the user is authenticated ──────────────────────────────────
