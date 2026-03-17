@@ -207,15 +207,27 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
         <div className="absolute top-6 right-6 flex gap-2 z-50">
           <button
             onClick={handleBack}
-            className="glass-button hover-lift p-2.5 rounded-lg text-slate-400 hover:text-white transition-colors"
             title="Go back"
+            style={{
+              background: 'rgba(15, 23, 42, 0.7)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              border: '1px solid rgba(255,255,255,0.08)',
+            }}
+            className="p-2.5 rounded-lg text-slate-400 hover:text-white transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <button
             onClick={handleHelp}
-            className="glass-button hover-lift p-2.5 rounded-lg text-slate-400 hover:text-white transition-colors"
             title="Get help"
+            style={{
+              background: 'rgba(15, 23, 42, 0.7)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              border: '1px solid rgba(255,255,255,0.08)',
+            }}
+            className="p-2.5 rounded-lg text-slate-400 hover:text-white transition-colors"
           >
             <HelpCircle className="w-4 h-4" />
           </button>
