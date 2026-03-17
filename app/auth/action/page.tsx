@@ -1,63 +1,63 @@
 "use client";
-export const dynamic = "force-dynamic";
 
-import { z } from "zod";
-import Link from "next/link";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import { toast } from "sonner";
+import {
+  confirmPasswordReset,
+  verifyPasswordResetCode,
+  applyActionCode,
+  checkActionCode,
+} from "firebase/auth";
 import { auth } from "@/firebase/client";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { 
-  confirmPasswordReset, 
-  verifyPasswordResetCode,
-  applyActionCode,
-  checkActionCode
-} from "firebase/auth";
-
+import { z } from "zod";
 import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import logo from "@/public/logo.png";
 
-const resetPasswordSchema = z.object({
-  password: z.string().min(6, "Password must be at least 6 characters"),
-  confirmPassword: z.string().min(6, "Password must be at least 6 characters"),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
-});
+export const dynamic = "force-dynamic";
+
+const resetPasswordSchema = z
+  .object({
+    password: z.string().min(6, "Password must be at least 6 characters"),
+    confirmPassword: z.string().min(6, "Password must be at least 6 characters"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  });
 
 type ActionMode = "resetPassword" | "verifyEmail" | "recoverEmail" | null;
 
-const AuthActionPage = () => {
+export default function AuthActionPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [isLoading, setIsLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [email, setEmail] = useState<string>("");
-  const [isValidCode, setIsValidCode] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(true);
-  const [mode, setMode] = useState<ActionMode>(null);
-  const [errorMessage, setErrorMessage] = useState<string>("");
 
-  const oobCode = searchParams.get("oobCode");
+  const [isLoading, setIsLoading]               = useState(false);
+  const [showPassword, setShowPassword]         = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [email, setEmail]                       = useState<string>("");
+  const [isValidCode, setIsValidCode]           = useState(false);
+  const [isVerifying, setIsVerifying]           = useState(true);
+  const [mode, setMode]                         = useState<ActionMode>(null);
+  const [errorMessage, setErrorMessage]         = useState<string>("");
+
+  const oobCode    = searchParams.get("oobCode");
   const actionMode = searchParams.get("mode");
 
   const form = useForm<z.infer<typeof resetPasswordSchema>>({
     resolver: zodResolver(resetPasswordSchema),
-    defaultValues: {
-      password: "",
-      confirmPassword: "",
-    },
+    defaultValues: { password: "", confirmPassword: "" },
   });
 
   useEffect(() => {
     const handleAction = async () => {
       if (!oobCode || !actionMode) {
-        setErrorMessage("Invalid or missing action code");
+        setErrorMessage("Invalid or missing action code.");
         setIsVerifying(false);
         return;
       }
@@ -66,259 +66,235 @@ const AuthActionPage = () => {
 
       try {
         switch (actionMode) {
-          case "resetPassword":
-            await handleResetPasswordVerification();
+          case "resetPassword": {
+            try {
+              const userEmail = await verifyPasswordResetCode(auth, oobCode);
+              setEmail(userEmail);
+              setIsValidCode(true);
+            } catch (error) {
+              const err = error as { code?: string };
+              if (err.code === "auth/expired-action-code")
+                setErrorMessage("This reset link has expired. Please request a new one.");
+              else if (err.code === "auth/invalid-action-code")
+                setErrorMessage("This reset link is invalid or has already been used.");
+              else
+                setErrorMessage("Invalid or expired reset link.");
+              setIsValidCode(false);
+            }
             break;
-          case "verifyEmail":
-            await handleEmailVerification();
+          }
+
+          case "verifyEmail": {
+            try {
+              await applyActionCode(auth, oobCode);
+              // Reload current user if signed in so emailVerified updates
+              if (auth.currentUser) {
+                await auth.currentUser.reload();
+              }
+              setIsValidCode(true);
+              toast.success("Email verified successfully!");
+            } catch (error) {
+              const err = error as { code?: string };
+              if (err.code === "auth/expired-action-code")
+                setErrorMessage("This verification link has expired. Please request a new one.");
+              else if (err.code === "auth/invalid-action-code")
+                setErrorMessage("This link is invalid or has already been used.");
+              else
+                setErrorMessage("Failed to verify email. Please try again.");
+              setIsValidCode(false);
+            }
             break;
-          case "recoverEmail":
-            await handleRecoverEmail();
+          }
+
+          case "recoverEmail": {
+            try {
+              const info = await checkActionCode(auth, oobCode);
+              const restoredEmail = info.data.email;
+              await applyActionCode(auth, oobCode);
+              setEmail(restoredEmail || "");
+              setIsValidCode(true);
+              toast.success("Email recovered successfully!");
+            } catch {
+              setErrorMessage("Failed to recover email. The link may be invalid or expired.");
+              setIsValidCode(false);
+            }
             break;
+          }
+
           default:
-            setErrorMessage("Invalid action mode");
+            setErrorMessage("Invalid action mode.");
             setIsValidCode(false);
         }
       } catch (error) {
         console.error("Error handling action:", error);
         setIsValidCode(false);
+        setErrorMessage("Something went wrong. Please try again.");
       } finally {
         setIsVerifying(false);
       }
     };
 
-    const handleResetPasswordVerification = async () => {
-      try {
-        const userEmail = await verifyPasswordResetCode(auth, oobCode!);
-        setEmail(userEmail);
-        setIsValidCode(true);
-      } catch (error) {
-        console.error("Error verifying reset code:", error);
-        const err = error as { code?: string };
-        
-        if (err.code === "auth/expired-action-code") {
-          setErrorMessage("This reset link has expired. Please request a new one.");
-        } else if (err.code === "auth/invalid-action-code") {
-          setErrorMessage("This reset link is invalid or has already been used.");
-        } else {
-          setErrorMessage("Invalid or expired reset link");
-        }
-        
-        setIsValidCode(false);
-      }
-    };
-
-    const handleEmailVerification = async () => {
-      try {
-        await applyActionCode(auth, oobCode!);
-        setIsValidCode(true);
-        toast.success("Email verified successfully!");
-        
-        // Redirect to home/dashboard after 2 seconds
-        setTimeout(() => {
-          router.push("/");
-        }, 2000);
-      } catch (error) {
-        console.error("Error verifying email:", error);
-        const err = error as { code?: string };
-        
-        if (err.code === "auth/expired-action-code") {
-          setErrorMessage("This verification link has expired.");
-        } else if (err.code === "auth/invalid-action-code") {
-          setErrorMessage("This verification link is invalid or has already been used.");
-        } else {
-          setErrorMessage("Failed to verify email");
-        }
-        
-        setIsValidCode(false);
-      }
-    };
-
-    const handleRecoverEmail = async () => {
-      try {
-        const info = await checkActionCode(auth, oobCode!);
-        const restoredEmail = info.data.email;
-        
-        await applyActionCode(auth, oobCode!);
-        setEmail(restoredEmail || "");
-        setIsValidCode(true);
-        toast.success("Email recovered successfully!");
-        
-        // Redirect to sign in after 2 seconds
-        setTimeout(() => {
-          router.push("/sign-in");
-        }, 2000);
-      } catch (error) {
-        console.error("Error recovering email:", error);
-        setErrorMessage("Failed to recover email");
-        setIsValidCode(false);
-      }
-    };
-
     handleAction();
-  }, [oobCode, actionMode, router]);
+  }, [oobCode, actionMode]);
 
   const onSubmit = async (data: z.infer<typeof resetPasswordSchema>) => {
-    if (!oobCode) {
-      toast.error("Invalid reset code");
-      return;
-    }
-
+    if (!oobCode) { toast.error("Invalid reset code."); return; }
     setIsLoading(true);
     try {
       await confirmPasswordReset(auth, oobCode, data.password);
-      
-      toast.success("Password reset successfully! You can now sign in with your new password.");
-      
-      setTimeout(() => {
-        router.push("/sign-in");
-      }, 2000);
+      toast.success("Password reset! You can now sign in with your new password.");
+      setTimeout(() => router.push("/sign-in"), 2000);
     } catch (error) {
-      console.error("Password reset error:", error);
       const err = error as { code?: string };
-      
-      let errorMsg = "Failed to reset password";
-      if (err.code === "auth/expired-action-code") {
-        errorMsg = "This reset link has expired. Please request a new one.";
-      } else if (err.code === "auth/invalid-action-code") {
-        errorMsg = "This reset link is invalid or has already been used.";
-      } else if (err.code === "auth/weak-password") {
-        errorMsg = "Password is too weak. Please choose a stronger password.";
-      }
-      
-      toast.error(errorMsg);
+      let msg = "Failed to reset password.";
+      if (err.code === "auth/expired-action-code") msg = "This reset link has expired. Please request a new one.";
+      else if (err.code === "auth/invalid-action-code") msg = "This link is invalid or has already been used.";
+      else if (err.code === "auth/weak-password") msg = "Password is too weak. Please choose a stronger one.";
+      toast.error(msg);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Loading state
+  // ── Shared helpers ─────────────────────────────────────────────────────────
+  const handleGoToSignIn = () => {
+    // Always sign out first to clear any stale/partial session
+    // This prevents the black screen caused by a stale server cookie
+    auth.signOut().finally(() => {
+      window.location.replace("/sign-in?verified=true");
+    });
+  };
+
+  const handleGoToSignInRecovery = () => {
+    auth.signOut().finally(() => {
+      window.location.replace("/sign-in");
+    });
+  };
+
+  // ── Loading ────────────────────────────────────────────────────────────────
   if (isVerifying) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-400">Verifying...</p>
+        <div className="flex flex-col items-center gap-4">
+          <Image src={logo} alt="Preciprocal" width={48} height={48} className="rounded-xl opacity-80 animate-pulse" priority />
+          <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-slate-400 text-sm">Verifying...</p>
         </div>
       </div>
     );
   }
 
-  // Email Verification Success
+  // ── Email Verification Success ─────────────────────────────────────────────
   if (mode === "verifyEmail" && isValidCode) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 p-8">
-        <div className="max-w-md w-full text-center">
-          <Image 
-            src={logo} 
-            alt="Preciprocal" 
-            width={64} 
-            height={64} 
-            className="rounded-2xl mx-auto mb-6"
-            priority
-          />
-          
-          <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-2xl p-8 mb-6">
-            <div className="w-16 h-16 bg-green-500/10 border border-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-1/4 -left-32 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "2s" }} />
+        </div>
+
+        <div className="relative z-10 max-w-md w-full text-center">
+          <div className="flex items-center justify-center space-x-3 mb-8">
+            <Image src={logo} alt="Preciprocal" width={44} height={44} className="rounded-xl shadow-lg" priority />
+            <span className="text-2xl font-black text-white">Preciprocal</span>
+          </div>
+
+          <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-8 backdrop-blur-sm shadow-2xl mb-6">
+            <div className="w-20 h-20 bg-green-500/10 border border-green-500/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <svg className="w-10 h-10 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            
+
             <h1 className="text-2xl font-bold text-white mb-2">Email Verified!</h1>
-            <p className="text-slate-400">
-              Your email has been successfully verified. Redirecting you to your dashboard...
+            <p className="text-slate-400 text-sm leading-relaxed">
+              Your email has been verified. Sign in to access your dashboard.
             </p>
           </div>
 
-          <Link
-            href="/"
-            className="block w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+          <button
+            onClick={handleGoToSignIn}
+            className="w-full flex items-center justify-center space-x-2 py-3 px-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold rounded-lg transition-all duration-200 shadow-lg"
           >
-            Go to Dashboard
-          </Link>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+            </svg>
+            <span>Continue to Sign In</span>
+          </button>
         </div>
       </div>
     );
   }
 
-  // Email Recovery Success
+  // ── Email Recovery Success ─────────────────────────────────────────────────
   if (mode === "recoverEmail" && isValidCode) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 p-8">
-        <div className="max-w-md w-full text-center">
-          <Image 
-            src={logo} 
-            alt="Preciprocal" 
-            width={64} 
-            height={64} 
-            className="rounded-2xl mx-auto mb-6"
-            priority
-          />
-          
-          <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-2xl p-8 mb-6">
-            <div className="w-16 h-16 bg-blue-500/10 border border-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-            </div>
-            
-            <h1 className="text-2xl font-bold text-white mb-2">Email Recovered</h1>
-            <p className="text-slate-400 mb-3">
-              Your email has been successfully recovered.
-            </p>
-            {email && (
-              <p className="text-sm text-purple-400 font-semibold">
-                {email}
-              </p>
-            )}
+        <div className="relative z-10 max-w-md w-full text-center">
+          <div className="flex items-center justify-center space-x-3 mb-8">
+            <Image src={logo} alt="Preciprocal" width={44} height={44} className="rounded-xl shadow-lg" priority />
+            <span className="text-2xl font-black text-white">Preciprocal</span>
           </div>
 
-          <Link
-            href="/sign-in"
-            className="block w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+          <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-8 backdrop-blur-sm shadow-2xl mb-6">
+            <div className="w-20 h-20 bg-blue-500/10 border border-blue-500/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <svg className="w-10 h-10 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </div>
+
+            <h1 className="text-2xl font-bold text-white mb-2">Email Recovered</h1>
+            <p className="text-slate-400 text-sm mb-3">Your email has been successfully restored.</p>
+            {email && <p className="text-purple-400 font-semibold text-sm break-all">{email}</p>}
+          </div>
+
+          <button
+            onClick={handleGoToSignInRecovery}
+            className="w-full py-3 px-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold rounded-lg transition-all duration-200 shadow-lg"
           >
             Sign In
-          </Link>
+          </button>
         </div>
       </div>
     );
   }
 
-  // Error state
+  // ── Error ──────────────────────────────────────────────────────────────────
   if (!isValidCode) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 p-8">
-        <div className="max-w-md w-full text-center">
-          <Image 
-            src={logo} 
-            alt="Preciprocal" 
-            width={64} 
-            height={64} 
-            className="rounded-2xl mx-auto mb-6"
-            priority
-          />
-          
-          <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-2xl p-8 mb-6">
-            <div className="w-16 h-16 bg-red-500/10 border border-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <div className="relative z-10 max-w-md w-full text-center">
+          <div className="flex items-center justify-center space-x-3 mb-8">
+            <Image src={logo} alt="Preciprocal" width={44} height={44} className="rounded-xl shadow-lg" priority />
+            <span className="text-2xl font-black text-white">Preciprocal</span>
+          </div>
+
+          <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-8 backdrop-blur-sm shadow-2xl mb-6">
+            <div className="w-20 h-20 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <svg className="w-10 h-10 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            
+
             <h1 className="text-2xl font-bold text-white mb-2">Invalid Link</h1>
-            <p className="text-slate-400">
-              {errorMessage || "This link is invalid or has expired."}
-            </p>
+            <p className="text-slate-400 text-sm">{errorMessage || "This link is invalid or has expired."}</p>
           </div>
 
           <div className="space-y-3">
             {mode === "resetPassword" && (
               <Link
                 href="/forgot-password"
-                className="block w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+                className="block w-full py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold rounded-lg transition-all shadow-lg text-center"
               >
                 Request new reset link
+              </Link>
+            )}
+            {mode === "verifyEmail" && (
+              <Link
+                href="/verify-email"
+                className="block w-full py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold rounded-lg transition-all shadow-lg text-center"
+              >
+                Resend verification email
               </Link>
             )}
             <Link
@@ -333,42 +309,32 @@ const AuthActionPage = () => {
     );
   }
 
-  // Reset Password Form
+  // ── Reset Password Form ────────────────────────────────────────────────────
   if (mode === "resetPassword" && isValidCode) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 p-8">
-        <div className="w-full max-w-md">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <Image 
-              src={logo} 
-              alt="Preciprocal" 
-              width={56} 
-              height={56} 
-              className="rounded-2xl mx-auto mb-4"
-              priority
-            />
-            <h1 className="text-3xl font-bold text-white mb-2">
-              Reset Password
-            </h1>
-            <p className="text-slate-400 mb-1">
-              Enter your new password
-            </p>
-            {email && (
-              <p className="text-sm text-purple-400 font-semibold">
-                {email}
-              </p>
-            )}
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-1/4 -left-32 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "2s" }} />
+        </div>
+
+        <div className="relative z-10 w-full max-w-md">
+          <div className="flex items-center justify-center space-x-3 mb-8">
+            <Image src={logo} alt="Preciprocal" width={44} height={44} className="rounded-xl shadow-lg" priority />
+            <span className="text-2xl font-black text-white">Preciprocal</span>
           </div>
 
-          {/* Form Card */}
-          <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-2xl p-8">
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold text-white mb-1">Reset Password</h1>
+            <p className="text-slate-400 text-sm">Enter a new password for</p>
+            {email && <p className="text-purple-400 font-semibold text-sm mt-0.5">{email}</p>}
+          </div>
+
+          <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-8 backdrop-blur-sm shadow-2xl">
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    New Password
-                  </label>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">New Password</label>
                   <div className="relative">
                     <input
                       {...form.register("password")}
@@ -380,7 +346,7 @@ const AuthActionPage = () => {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-300 transition-colors"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-300"
                     >
                       {showPassword ? (
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -395,16 +361,12 @@ const AuthActionPage = () => {
                     </button>
                   </div>
                   {form.formState.errors.password && (
-                    <p className="text-red-400 text-sm mt-2">
-                      {form.formState.errors.password.message}
-                    </p>
+                    <p className="text-red-400 text-sm mt-2">{form.formState.errors.password.message}</p>
                   )}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Confirm Password
-                  </label>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Confirm Password</label>
                   <div className="relative">
                     <input
                       {...form.register("confirmPassword")}
@@ -416,7 +378,7 @@ const AuthActionPage = () => {
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-300 transition-colors"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-300"
                     >
                       {showConfirmPassword ? (
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -431,20 +393,18 @@ const AuthActionPage = () => {
                     </button>
                   </div>
                   {form.formState.errors.confirmPassword && (
-                    <p className="text-red-400 text-sm mt-2">
-                      {form.formState.errors.confirmPassword.message}
-                    </p>
+                    <p className="text-red-400 text-sm mt-2">{form.formState.errors.confirmPassword.message}</p>
                   )}
                 </div>
 
                 <Button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-3 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border-0 shadow-lg hover:shadow-xl"
+                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed border-0 shadow-lg"
                 >
                   {isLoading ? (
                     <div className="flex items-center justify-center space-x-2">
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                       <span>Resetting...</span>
                     </div>
                   ) : (
@@ -454,18 +414,17 @@ const AuthActionPage = () => {
               </form>
             </Form>
 
-            {/* Password Requirements */}
             <div className="mt-6 pt-6 border-t border-slate-800">
-              <p className="text-xs text-slate-500 mb-3">Password must contain:</p>
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2 text-xs text-slate-400">
-                  <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <p className="text-xs text-slate-500 mb-2">Password requirements</p>
+              <div className="space-y-1.5 text-xs text-slate-400">
+                <div className="flex items-center space-x-2">
+                  <svg className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                   <span>At least 6 characters</span>
                 </div>
-                <div className="flex items-center space-x-2 text-xs text-slate-400">
-                  <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="flex items-center space-x-2">
+                  <svg className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                   <span>Mix of letters, numbers, and symbols recommended</span>
@@ -474,7 +433,6 @@ const AuthActionPage = () => {
             </div>
           </div>
 
-          {/* Footer */}
           <div className="mt-6 text-center">
             <Link
               href="/sign-in"
@@ -486,22 +444,10 @@ const AuthActionPage = () => {
               <span>Back to sign in</span>
             </Link>
           </div>
-
-          <p className="mt-6 text-center text-xs text-slate-500">
-            Need help? Contact{" "}
-            <a 
-              href="mailto:support@preciprocal.com" 
-              className="text-slate-400 hover:text-slate-300 underline"
-            >
-              support@preciprocal.com
-            </a>
-          </p>
         </div>
       </div>
     );
   }
 
   return null;
-};
-
-export default AuthActionPage;
+}
