@@ -70,11 +70,11 @@ const VERDICT_STYLES: Record<BenchmarkDimension['verdict'], { bar: string; badge
 };
 
 const HIRING_CHANCE_STYLES: Record<BenchmarkResult['hiringChance'], { color: string; icon: React.ElementType; bg: string }> = {
-  'very low':  { color: 'text-red-400',     icon: XCircle,     bg: 'bg-red-500/10 border-red-500/20'         },
-  'low':       { color: 'text-orange-400',  icon: TrendingDown, bg: 'bg-orange-500/10 border-orange-500/20'  },
-  'moderate':  { color: 'text-amber-400',   icon: Minus,        bg: 'bg-amber-500/10 border-amber-500/20'    },
-  'high':      { color: 'text-emerald-400', icon: TrendingUp,   bg: 'bg-emerald-500/10 border-emerald-500/20'},
-  'very high': { color: 'text-teal-400',    icon: Award,        bg: 'bg-teal-500/10 border-teal-500/20'      },
+  'very low':  { color: 'text-red-400',     icon: XCircle,      bg: 'bg-red-500/10 border-red-500/20'          },
+  'low':       { color: 'text-orange-400',  icon: TrendingDown,  bg: 'bg-orange-500/10 border-orange-500/20'   },
+  'moderate':  { color: 'text-amber-400',   icon: Minus,         bg: 'bg-amber-500/10 border-amber-500/20'     },
+  'high':      { color: 'text-emerald-400', icon: TrendingUp,    bg: 'bg-emerald-500/10 border-emerald-500/20' },
+  'very high': { color: 'text-teal-400',    icon: Award,         bg: 'bg-teal-500/10 border-teal-500/20'       },
 };
 
 const BENCHMARK_FACTS = [
@@ -119,7 +119,6 @@ function BenchmarkLoadingState() {
           <p className="text-white font-medium mb-1">Analysing against hired candidates…</p>
           <p className="text-slate-400 text-sm mb-2">Benchmarking your resume against real-world data</p>
         </div>
-        {/* Rotating fact */}
         <div className="w-full max-w-sm mx-auto px-2">
           <div className="glass-morphism rounded-xl border border-white/5 p-4 min-h-[72px] flex flex-col items-center justify-center text-center">
             <p className="text-xs font-semibold text-purple-400 uppercase tracking-widest mb-2">Did you know?</p>
@@ -143,10 +142,8 @@ function PercentileGauge({ percentile }: { percentile: number }) {
   return (
     <div className="flex flex-col items-center">
       <div className="relative w-28 h-14 overflow-hidden">
-        {/* Track */}
         <svg viewBox="0 0 100 50" className="w-full h-full">
           <path d="M 5 50 A 45 45 0 0 1 95 50" fill="none" stroke="#334155" strokeWidth="8" strokeLinecap="round" />
-          {/* Fill */}
           <path
             d="M 5 50 A 45 45 0 0 1 95 50"
             fill="none"
@@ -156,7 +153,6 @@ function PercentileGauge({ percentile }: { percentile: number }) {
             strokeDasharray={`${(angle / 180) * 141.3} 141.3`}
             style={{ transition: 'stroke-dasharray 1s ease' }}
           />
-          {/* Needle */}
           <line
             x1="50" y1="50"
             x2={50 + 35 * Math.cos(Math.PI - (angle * Math.PI / 180))}
@@ -203,26 +199,19 @@ function DimensionRow({ dim }: { dim: BenchmarkDimension }) {
           </div>
         </div>
 
-        {/* 3-marker bar */}
         <div className="relative h-5 bg-slate-900/60 rounded-lg overflow-hidden border border-slate-700/30 mb-2">
-          {/* User fill */}
           <div
             className={`absolute top-0 left-0 bottom-0 bg-gradient-to-r ${style.bar} opacity-80 rounded-r-md transition-all duration-700`}
             style={{ width: `${Math.min(dim.userScore, 100)}%` }}
           />
-          {/* Peer median */}
           <div className="absolute top-0 bottom-0 w-0.5 bg-slate-400/60 z-10" style={{ left: `${dim.peerMedian}%` }} />
-          {/* Hired median */}
           <div className="absolute top-0 bottom-0 w-0.5 bg-violet-400/80 z-10" style={{ left: `${dim.hiredMedian}%` }} />
-          {/* Top 10% */}
           <div className="absolute top-0 bottom-0 w-0.5 bg-teal-400/60 z-10" style={{ left: `${dim.topTen}%` }} />
-          {/* Score label */}
           <div className="absolute inset-0 flex items-center px-2 z-20 pointer-events-none">
             <span className="text-xs font-bold text-white drop-shadow">{dim.userScore}</span>
           </div>
         </div>
 
-        {/* Legend */}
         <div className="flex items-center gap-3 text-xs text-slate-500">
           <span className="flex items-center gap-1"><span className="w-2 h-0.5 bg-slate-400/60 inline-block" />All applicants: {dim.peerMedian}</span>
           <span className="flex items-center gap-1"><span className="w-2 h-0.5 bg-violet-400/80 inline-block" />Hired: {dim.hiredMedian}</span>
@@ -231,7 +220,6 @@ function DimensionRow({ dim }: { dim: BenchmarkDimension }) {
         </div>
       </div>
 
-      {/* Expanded honest take */}
       {expanded && (
         <div className="px-3 sm:px-4 pb-3 sm:pb-4 border-t border-white/5 pt-3">
           <div className="flex items-start gap-2">
@@ -287,11 +275,6 @@ export default function CandidateBenchmarking({ resumeId, jobTitle }: CandidateB
     }
   }, [resumeId, loading]);
 
-  // Auto-fetch on mount
-  useEffect(() => {
-    fetchBenchmark();
-  }, [resumeId]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // ── Loading state ──
   if (loading) {
     return <BenchmarkLoadingState />;
@@ -316,7 +299,7 @@ export default function CandidateBenchmarking({ resumeId, jobTitle }: CandidateB
     );
   }
 
-  // ── Empty state ──
+  // ── Empty state — user must click to run ──
   if (!data) {
     return (
       <div className="glass-card-gradient hover-lift">
@@ -342,7 +325,11 @@ export default function CandidateBenchmarking({ resumeId, jobTitle }: CandidateB
   // ── Render results ──
   const chanceStyle   = HIRING_CHANCE_STYLES[data.hiringChance] || HIRING_CHANCE_STYLES['moderate'];
   const HireIcon      = chanceStyle.icon;
-  const urgencyColors = { critical: 'border-red-500/40 bg-red-500/10', high: 'border-orange-500/40 bg-orange-500/10', medium: 'border-amber-500/40 bg-amber-500/10' };
+  const urgencyColors = {
+    critical: 'border-red-500/40 bg-red-500/10',
+    high:     'border-orange-500/40 bg-orange-500/10',
+    medium:   'border-amber-500/40 bg-amber-500/10',
+  };
 
   return (
     <div className="space-y-5">
@@ -378,7 +365,6 @@ export default function CandidateBenchmarking({ resumeId, jobTitle }: CandidateB
             </div>
           </div>
 
-          {/* Percentile gauge + hiring chance side by side */}
           <div className="flex flex-col sm:flex-row items-center gap-5 mb-5">
             <PercentileGauge percentile={data.overallPercentile} />
             <div className={`flex-1 w-full p-4 rounded-xl border ${chanceStyle.bg}`}>
@@ -392,7 +378,6 @@ export default function CandidateBenchmarking({ resumeId, jobTitle }: CandidateB
             </div>
           </div>
 
-          {/* Recruiter's first impression */}
           <div className="glass-morphism rounded-xl p-4 border border-white/5">
             <div className="flex items-center gap-2 mb-2">
               <Eye className="w-3.5 h-3.5 text-slate-400" />
@@ -405,7 +390,7 @@ export default function CandidateBenchmarking({ resumeId, jobTitle }: CandidateB
 
       {/* ── Killer flaw ── */}
       {data.killerFlaw && (
-        <div className={`glass-card-gradient hover-lift`}>
+        <div className="glass-card-gradient hover-lift">
           <div className={`glass-card-gradient-inner rounded-xl border ${urgencyColors[data.killerFlaw.urgency] || urgencyColors.high}`}>
             <div className="flex items-start gap-3">
               <div className={`w-9 h-9 flex-shrink-0 rounded-lg flex items-center justify-center ${
