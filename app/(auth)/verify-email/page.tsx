@@ -5,11 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { toast } from "sonner";
-import {
-  sendEmailVerification,
-  reload,
-} from "firebase/auth";
+import { sendEmailVerification, reload } from "firebase/auth";
 import { auth } from "@/firebase/client";
+import { signUp } from "@/lib/actions/auth.action";
 import logo from "@/public/logo.png";
 
 function VerifyEmailContent() {
@@ -17,12 +15,11 @@ function VerifyEmailContent() {
   const searchParams = useSearchParams();
 
   const email = searchParams.get("email") || "";
-  const redirectUrl = searchParams.get("redirect") || "/";
 
-  const [isResending, setIsResending] = useState(false);
-  const [isChecking, setIsChecking] = useState(false);
+  const [isResending, setIsResending]       = useState(false);
+  const [isChecking, setIsChecking]         = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
-  const [checkAttempts, setCheckAttempts] = useState(0);
+  const [checkAttempts, setCheckAttempts]   = useState(0);
 
   // Countdown timer for resend cooldown
   useEffect(() => {
@@ -31,7 +28,45 @@ function VerifyEmailContent() {
     return () => clearTimeout(timer);
   }, [resendCooldown]);
 
-  // Poll for verification every 4 seconds (up to 30 polls = 2 min)
+  // Complete Firestore registration after email is verified
+  const completeRegistration = async () => {
+    try {
+      const pendingName  = sessionStorage.getItem("pending_signup_name");
+      const pendingUid   = sessionStorage.getItem("pending_signup_uid");
+      const pendingEmail = sessionStorage.getItem("pending_signup_email");
+
+      if (pendingName && pendingUid && pendingEmail) {
+        const result = await signUp({
+          uid: pendingUid,
+          name: pendingName,
+          email: pendingEmail,
+        });
+
+        if (result.success) {
+          sessionStorage.removeItem("pending_signup_name");
+          sessionStorage.removeItem("pending_signup_uid");
+          sessionStorage.removeItem("pending_signup_email");
+          console.log("✅ Firestore registration completed after email verification");
+        } else {
+          console.error("Firestore registration failed:", result.message);
+          // Non-fatal — sign-in guard will handle incomplete profiles
+        }
+      }
+    } catch (err) {
+      console.error("completeRegistration error:", err);
+      // Non-fatal — proceed with redirect regardless
+    }
+  };
+
+  const handleVerified = async () => {
+    await completeRegistration();
+    // Sign out to clear any stale session state, then redirect to sign-in
+    auth.signOut().finally(() => {
+      window.location.replace("/sign-in?verified=true");
+    });
+  };
+
+  // Poll for verification every 4 seconds (up to 30 polls ≈ 2 min)
   useEffect(() => {
     if (checkAttempts >= 30) return;
 
@@ -43,29 +78,25 @@ function VerifyEmailContent() {
         await reload(currentUser);
         if (currentUser.emailVerified) {
           clearInterval(interval);
-          toast.success("Email verified! Redirecting...");
-          setTimeout(() => {
-            const finalUrl =
-              redirectUrl === "/"
-                ? `/?_t=${Date.now()}`
-                : `${redirectUrl}${redirectUrl.includes("?") ? "&" : "?"}_t=${Date.now()}`;
-            window.location.replace(finalUrl);
-          }, 1200);
+          toast.success("Email verified! Setting up your account...");
+          await handleVerified();
         }
       } catch {
-        // ignore reload errors silently
+        // ignore transient reload errors
       }
 
       setCheckAttempts((n) => n + 1);
     }, 4000);
 
     return () => clearInterval(interval);
-  }, [checkAttempts, redirectUrl]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkAttempts]);
 
   const handleResend = async () => {
     const currentUser = auth.currentUser;
     if (!currentUser) {
-      toast.error("Session expired. Please go back and sign up again.");
+      toast.error("Session expired. Please sign up again.");
+      router.push("/sign-up");
       return;
     }
 
@@ -90,8 +121,8 @@ function VerifyEmailContent() {
   const handleCheckVerification = async () => {
     const currentUser = auth.currentUser;
     if (!currentUser) {
-      toast.error("Session expired. Please sign in again.");
-      router.push("/sign-in");
+      toast.error("Session expired. Please sign up again.");
+      router.push("/sign-up");
       return;
     }
 
@@ -99,14 +130,8 @@ function VerifyEmailContent() {
     try {
       await reload(currentUser);
       if (currentUser.emailVerified) {
-        toast.success("Email verified! Redirecting...");
-        setTimeout(() => {
-          const finalUrl =
-            redirectUrl === "/"
-              ? `/?_t=${Date.now()}`
-              : `${redirectUrl}${redirectUrl.includes("?") ? "&" : "?"}_t=${Date.now()}`;
-          window.location.replace(finalUrl);
-        }, 1000);
+        toast.success("Email verified! Setting up your account...");
+        await handleVerified();
       } else {
         toast.error("Email not verified yet. Please check your inbox and click the link.");
       }
@@ -131,14 +156,7 @@ function VerifyEmailContent() {
       <div className="relative z-10 w-full max-w-md">
         {/* Logo */}
         <div className="flex items-center justify-center space-x-3 mb-10">
-          <Image
-            src={logo}
-            alt="Preciprocal"
-            width={44}
-            height={44}
-            className="rounded-xl shadow-lg"
-            priority
-          />
+          <Image src={logo} alt="Preciprocal" width={44} height={44} className="rounded-xl shadow-lg" priority />
           <span className="text-2xl font-black text-white">Preciprocal</span>
         </div>
 
@@ -147,25 +165,13 @@ function VerifyEmailContent() {
           {/* Email icon */}
           <div className="flex justify-center mb-6">
             <div className="w-20 h-20 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
-              <svg
-                className="w-10 h-10 text-purple-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                />
+              <svg className="w-10 h-10 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
             </div>
           </div>
 
-          <h1 className="text-2xl font-bold text-white text-center mb-2">
-            Check your inbox
-          </h1>
+          <h1 className="text-2xl font-bold text-white text-center mb-2">Check your inbox</h1>
           <p className="text-slate-400 text-center text-sm leading-relaxed mb-1">
             We sent a verification link to
           </p>
@@ -175,7 +181,7 @@ function VerifyEmailContent() {
             </p>
           )}
           <p className="text-slate-500 text-center text-xs mb-8">
-            Click the link in that email to activate your account. This page will redirect you automatically once verified.
+            Your account will be created once you verify your email. This page redirects automatically.
           </p>
 
           {/* Primary CTA */}
@@ -187,14 +193,14 @@ function VerifyEmailContent() {
             {isChecking ? (
               <>
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span>Checking...</span>
+                <span>Setting up your account...</span>
               </>
             ) : (
               <>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                <span>I`&apos;`ve verified my email</span>
+                <span>I&apos;ve verified my email</span>
               </>
             )}
           </button>
@@ -224,9 +230,7 @@ function VerifyEmailContent() {
 
           {/* Tips */}
           <div className="mt-6 p-4 bg-slate-800/40 border border-slate-700/40 rounded-xl">
-            <p className="text-xs text-slate-500 font-medium mb-2">
-              Didn&apos;t receive it?
-            </p>
+            <p className="text-xs text-slate-500 font-medium mb-2">Didn&apos;t receive it?</p>
             <ul className="text-xs text-slate-500 space-y-1">
               <li className="flex items-start space-x-2">
                 <span className="text-slate-600 mt-0.5">•</span>
@@ -247,10 +251,7 @@ function VerifyEmailContent() {
         {/* Back link */}
         <p className="text-center mt-6 text-sm text-slate-500">
           Wrong email?{" "}
-          <Link
-            href="/sign-up"
-            className="text-purple-400 hover:text-purple-300 font-medium transition-colors"
-          >
+          <Link href="/sign-up" className="text-purple-400 hover:text-purple-300 font-medium transition-colors">
             Sign up again
           </Link>
         </p>
