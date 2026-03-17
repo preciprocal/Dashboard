@@ -204,7 +204,7 @@ async function trackJobApplication(platform) {
         }
       }
     );
-  } catch (e) {
+  } catch {
     console.warn('⚠️ Job tracker error:', e.message);
   }
 }
@@ -213,7 +213,6 @@ async function trackJobApplication(platform) {
 function showTrackingToast(jobTitle, company) {
   if (document.getElementById('prc-tracker-toast')) return;
 
-  // Inject keyframes safely (handles document_start)
   if (!document.getElementById('prc-toast-styles')) {
     const style = document.createElement('style');
     style.id = 'prc-toast-styles';
@@ -230,12 +229,12 @@ function showTrackingToast(jobTitle, company) {
     position: fixed;
     bottom: 24px;
     left: 24px;
-    background: linear-gradient(135deg, #1e1b4b, #1e293b);
-    border: 1px solid rgba(168,85,247,0.35);
-    color: #e2e8f0;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    color: #111827;
     padding: 12px 16px;
-    border-radius: 10px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    border-radius: 12px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.12);
     z-index: 2147483646;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     font-size: 12px;
@@ -248,8 +247,8 @@ function showTrackingToast(jobTitle, company) {
   toast.innerHTML = `
     <span style="font-size:18px;line-height:1;">✅</span>
     <div>
-      <div style="font-weight:700;font-size:12px;color:#c084fc;margin-bottom:2px;">Added to Job Tracker</div>
-      <div style="color:#94a3b8;font-size:11px;line-height:1.4;">${jobTitle}<br>@ ${company}</div>
+      <div style="font-weight:700;font-size:12px;color:#7c3aed;margin-bottom:2px;">Added to Job Tracker</div>
+      <div style="color:#6b7280;font-size:11px;line-height:1.4;">${jobTitle}<br>@ ${company}</div>
     </div>
   `;
 
@@ -263,13 +262,11 @@ function showTrackingToast(jobTitle, company) {
 
 // Watch for confirmation page — covers manual submits AND auto-fill bot submits
 function watchForApplicationSuccess(platform) {
-  // Immediate check — maybe already on success page
   if (isSuccessPage(platform)) {
     trackJobApplication(platform);
     return;
   }
 
-  // Poll for URL changes (SPA navigation)
   let lastUrl = window.location.href;
   const urlWatcher = setInterval(() => {
     if (window.location.href !== lastUrl) {
@@ -284,7 +281,6 @@ function watchForApplicationSuccess(platform) {
     }
   }, 600);
 
-  // DOM changes (Workday / iCIMS in-page confirmation)
   const domWatcher = new MutationObserver(() => {
     if (isSuccessPage(platform)) {
       domWatcher.disconnect();
@@ -294,7 +290,6 @@ function watchForApplicationSuccess(platform) {
   });
   domWatcher.observe(document.body, { childList: true, subtree: true });
 
-  // Also intercept native form submits
   document.addEventListener('submit', (e) => {
     const form = e.target;
     const action = (form.action || '').toLowerCase();
@@ -806,7 +801,7 @@ class FileInjector {
         const blob = await res.blob();
         file = new File([blob], fileName, { type: mime });
       }
-    } catch (e) {
+    } catch {
       console.error('❌ FileInjector failed:', e.message);
       return 0;
     }
@@ -822,7 +817,7 @@ class FileInjector {
         input.dispatchEvent(new Event('input',  { bubbles: true }));
         count++;
         console.log(`✅ Injected "${fileName}" (${Math.round(file.size/1024)}KB) into`, input);
-      } catch (e) {
+      } catch {
         console.warn('⚠️ Could not set file on input:', e.message);
       }
     }
@@ -1415,7 +1410,6 @@ async function smartScan(p) {
   const root = document;
   let filled = 0;
 
-  // ── Text inputs ───────────────────────────────────────────────────
   const inputs = root.querySelectorAll(
     'input:not([type="hidden"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]):not([disabled]):not([readonly])'
   );
@@ -1435,7 +1429,6 @@ async function smartScan(p) {
     filled++;
   }
 
-  // ── Native selects ─────────────────────────────────────────────────
   const selects = root.querySelectorAll('select:not([disabled])');
   for (const sel of selects) {
     if (sel.value && sel.value !== '' && sel.value !== '0' && sel.value !== 'null') continue;
@@ -1444,7 +1437,6 @@ async function smartScan(p) {
     if (val) setSelectValue(sel, val);
   }
 
-  // ── Custom div-based dropdowns (React-Select, Greenhouse screeners, etc.) ──
   const customDropdownTriggers = root.querySelectorAll(
     '[class*="control"]:not(input):not(select),' +
     '[role="combobox"]:not(input):not(select),' +
@@ -1475,7 +1467,6 @@ async function smartScan(p) {
     if (didFill) { filled++; console.log(`  📦 Custom dropdown "${lbl.slice(0,50)}" → "${val}"`); }
   }
 
-  // ── Textareas ─────────────────────────────────────────────────────
   const textareas = root.querySelectorAll('textarea:not([disabled])');
   for (const ta of textareas) {
     if (ta.value && ta.value.trim().length > 10) continue;
@@ -1485,7 +1476,6 @@ async function smartScan(p) {
     if (val) { setReactValue(ta, String(val)); filled++; }
   }
 
-  // ── Radio groups ──────────────────────────────────────────────────
   const groups = root.querySelectorAll('[role="radiogroup"], fieldset');
   for (const g of groups) {
     const legend = (g.querySelector('legend, [role="group"] label, p')?.textContent || '').toLowerCase();
@@ -1512,7 +1502,6 @@ async function smartScan(p) {
     }
   }
 
-  // ── Checkboxes ────────────────────────────────────────────────────
   const allCheckboxes = root.querySelectorAll('input[type="checkbox"]:not([disabled])');
 
   for (const cb of allCheckboxes) {
@@ -1522,7 +1511,6 @@ async function smartScan(p) {
     const questionLabel = getCheckboxGroupLabel(cb).toLowerCase().trim();
     const fullText      = (questionLabel + ' ' + cbLbl).trim();
 
-    // ── Pronouns ──────────────────────────────────────────────────
     if (/pronoun/i.test(questionLabel) && p.pronouns && p.pronouns !== 'Prefer not to say') {
       const target  = p.pronouns.toLowerCase().replace(/\s*\/\s*/g, '/').replace(/\s+/g, '');
       const cbNorm  = cbLbl.replace(/\s*\/\s*/g, '/').replace(/\s+/g, '');
@@ -1532,7 +1520,6 @@ async function smartScan(p) {
       continue;
     }
 
-    // ── Gender ────────────────────────────────────────────────────
     if (/gender|sex\b/i.test(questionLabel) && p.gender && p.gender !== 'Prefer not to say') {
       const target = p.gender.toLowerCase();
       if (cbLbl.includes(target.split(' ')[0]) || target.includes(cbLbl.split(' ')[0])) {
@@ -1541,7 +1528,6 @@ async function smartScan(p) {
       continue;
     }
 
-    // ── Race / Ethnicity ──────────────────────────────────────────
     if (/race|ethnicit/i.test(questionLabel) && p.race && p.race !== 'Prefer not to say') {
       const target = p.race.toLowerCase();
       if (cbLbl.includes(target.split(' ')[0]) || target.includes(cbLbl.split(' ')[0])) {
@@ -1550,7 +1536,6 @@ async function smartScan(p) {
       continue;
     }
 
-    // ── Veteran ───────────────────────────────────────────────────
     if (/veteran|military/i.test(questionLabel)) {
       if (/not a.*veteran|not.*protected|prefer not|decline|choose not|i don|i am not/i.test(cbLbl)) {
         cb.click(); cb.dispatchEvent(new Event('change', { bubbles: true })); filled++;
@@ -1558,7 +1543,6 @@ async function smartScan(p) {
       continue;
     }
 
-    // ── Disability ────────────────────────────────────────────────
     if (/disabilit/i.test(questionLabel)) {
       if (/no.*disab|i do not|prefer not|decline|choose not|not.*disab|i am not/i.test(cbLbl)) {
         cb.click(); cb.dispatchEvent(new Event('change', { bubbles: true })); filled++;
@@ -1566,7 +1550,6 @@ async function smartScan(p) {
       continue;
     }
 
-    // ── Skills / Tech ─────────────────────────────────────────────
     if (/skills?|technologies|tech.?stack|expertise/i.test(questionLabel) && p.skills?.length) {
       const skillList = (Array.isArray(p.skills) ? p.skills : String(p.skills).split(',')).map(s => s.trim().toLowerCase());
       if (skillList.some(s => s && cbLbl && (s === cbLbl || cbLbl.includes(s) || s.includes(cbLbl)))) {
@@ -1575,7 +1558,6 @@ async function smartScan(p) {
       continue;
     }
 
-    // ── Work/Employment type ───────────────────────────────────────
     if (/work.*type|employment.*type|job.*type|work.*arrangement/i.test(questionLabel)) {
       const target = (p.workType || p.employmentType || '').toLowerCase();
       if (target && (cbLbl.includes(target.split(/[-\s]/)[0]) || target.includes(cbLbl))) {
@@ -1584,9 +1566,6 @@ async function smartScan(p) {
       continue;
     }
 
-    // ── Screener yes/no checkbox groups ───────────────────────────
-    // Handles cases like a question "Are you authorized to work?" with
-    // separate Yes / No checkboxes (common on Greenhouse, Ashby, generic forms)
     if (questionLabel && questionLabel.length >= 3) {
       let screenerAnswer = null;
 
@@ -1610,14 +1589,12 @@ async function smartScan(p) {
         } else if (screenerAnswer === false && isNoCheckbox) {
           cb.click(); cb.dispatchEvent(new Event('change', { bubbles: true })); filled++;
         } else if (!isYesCheckbox && !isNoCheckbox && screenerAnswer === true) {
-          // Single checkbox for this question (not a yes/no split) — check it
           cb.click(); cb.dispatchEvent(new Event('change', { bubbles: true })); filled++;
         }
         continue;
       }
     }
 
-    // ── Consent / agreement standalone checkboxes ─────────────────
     let shouldCheck = null;
 
     if (/i agree|i consent|i acknowledge|i certify|i confirm|i understand|i accept/i.test(fullText))  shouldCheck = true;
@@ -1630,7 +1607,6 @@ async function smartScan(p) {
     else if (/full.?time|open.*work|available.*work|actively.*seek/i.test(fullText)) shouldCheck = true;
     else if (/sponsor/i.test(fullText))                      shouldCheck = p.requireSponsorship ?? false;
     else if (/relocat/i.test(fullText))                      shouldCheck = p.willingToRelocate  ?? false;
-    // Don't auto-opt into newsletters/marketing emails
     else if (/receive.*email|email.*update|newsletter|job.*alert|marketing/i.test(fullText)) shouldCheck = false;
 
     if (shouldCheck === true) {
@@ -1641,7 +1617,6 @@ async function smartScan(p) {
   return filled;
 }
 
-// ── Get the question label for a checkbox's group ─────────────────
 function getCheckboxGroupLabel(cb) {
   let node = cb.parentElement;
   for (let i = 0; i < 7; i++) {
@@ -1686,7 +1661,6 @@ function getCheckboxGroupLabel(cb) {
   return '';
 }
 
-// ── Get the label text for a single checkbox ──────────────────────
 function getCbLabel(cb) {
   const wrap = cb.closest('label');
   if (wrap) return (wrap.textContent || '').replace(/\s+/g, ' ').trim();
@@ -1769,7 +1743,6 @@ class PreciprocalSidebar {
     this._injectStyles();
     this._render();
 
-    // ── START JOB TRACKER — runs silently on every application page ──
     watchForApplicationSuccess(this.platform);
 
     console.log(`✅ Preciprocal sidebar on ${this.platform}`);
@@ -1784,121 +1757,148 @@ class PreciprocalSidebar {
       const tk        = await chrome.runtime.sendMessage({ type: 'GET_TOKEN' });
       this.authToken  = tk.token || tk.idToken || null;
       if (!this.authToken && this.authUserId) this.authToken = this.authUserId;
-    } catch (e) {
+    } catch {
       console.warn('⚠️ Auth check failed:', e.message);
     }
   }
 
   _platformLabel() {
     return {
-      greenhouse:      '🌿 Greenhouse',
-      lever:           '🎚️ Lever',
-      workday:         '☁️ Workday',
-      indeed:          '🔵 Indeed',
-      ashby:           '🔷 Ashby',
-      icims:           '🔵 iCIMS',
-      jobvite:         '📋 Jobvite',
-      smartrecruiters: '🧠 SmartRecruiters',
-      taleo:           '🟦 Taleo',
-      bamboohr:        '🎋 BambooHR',
-      recruitee:       '🔹 Recruitee',
-      wellfound:       '🚀 Wellfound',
-      generic:         '📄 Application',
-    }[this.platform] || '📄 Application';
+      greenhouse:      'Greenhouse',
+      lever:           'Lever',
+      workday:         'Workday',
+      indeed:          'Indeed',
+      ashby:           'Ashby',
+      icims:           'iCIMS',
+      jobvite:         'Jobvite',
+      smartrecruiters: 'SmartRecruiters',
+      taleo:           'Taleo',
+      bamboohr:        'BambooHR',
+      recruitee:       'Recruitee',
+      wellfound:       'Wellfound',
+      generic:         'Application',
+    }[this.platform] || 'Application';
   }
 
+  // ── UPDATED _render() ────────────────────────────────────────
   _render() {
     document.getElementById('prc-sidebar')?.remove();
     const sidebar = document.createElement('div');
     sidebar.id = 'prc-sidebar';
 
-    const platformName = this._platformLabel().replace(/^[^\s]+\s/, ''); // strip emoji
+    const platformName = this._platformLabel();
+
+    const platformColors = {
+      greenhouse: '#16a34a', lever: '#4f46e5', workday: '#0284c7',
+      indeed: '#1d4ed8', ashby: '#7c3aed', icims: '#0891b2',
+      jobvite: '#d97706', smartrecruiters: '#059669', taleo: '#2563eb',
+      bamboohr: '#15803d', recruitee: '#db2777', wellfound: '#ea580c',
+      generic: '#6b7280',
+    };
+    const platformColor = platformColors[this.platform] || '#7c3aed';
+
+    const _iconUrl = (typeof chrome !== 'undefined' && chrome.runtime?.getURL)
+      ? chrome.runtime.getURL('icons/icon48.png')
+      : '';
 
     sidebar.innerHTML = `
       <div id="prc-sidebar-inner">
 
-        <!-- Header -->
-        <div class="prc-sb-header">
+        <div class="prc-sb-header" id="prc-drag-handle">
           <div class="prc-sb-brand">
-            <svg width="18" height="18" viewBox="0 0 64 64" fill="none">
-              <path d="M32 10L54 32L32 54L10 32L32 10Z" fill="white" opacity="0.9"/>
-              <path d="M32 22L42 32L32 42L22 32L32 22Z" fill="white"/>
-            </svg>
+            <div class="prc-sb-logo">
+              ${_iconUrl
+                ? `<img src="${_iconUrl}" width="20" height="20" alt="Preciprocal" style="display:block;border-radius:6px;">`
+                : `<svg width="16" height="16" viewBox="0 0 64 64" fill="none"><path d="M32 10L54 32L32 54L10 32L32 10Z" fill="#7c3aed" opacity="0.9"/><path d="M32 22L42 32L32 42L22 32L32 22Z" fill="#7c3aed"/></svg>`
+              }
+            </div>
             <span class="prc-sb-name">Preciprocal</span>
           </div>
-          <button class="prc-sb-collapse" id="prc-collapse-btn" title="Collapse">
-            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+          <button class="prc-sb-collapse" id="prc-collapse-btn" title="Minimize">
+            <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+            </svg>
           </button>
         </div>
 
-        <!-- Body -->
+        <div class="prc-platform-bar">
+          <div class="prc-platform-dot" style="background:${platformColor};"></div>
+          <span class="prc-platform-name">${platformName}</span>
+          <span class="prc-platform-label">detected</span>
+        </div>
+
         <div class="prc-sb-body">
 
           ${!this.isAuth ? `
 
-            <!-- Unauthenticated -->
-            <div class="prc-sb-hero">
-              <p class="prc-sb-hero-title">Apply with Preciprocal</p>
-              <p class="prc-sb-hero-sub">Auto-fill any job application in seconds using your profile.</p>
+            <div class="prc-sb-section">
+              <p class="prc-sb-title">Auto-fill this application</p>
+              <p class="prc-sb-subtitle">Sign in to fill forms instantly using your saved profile.</p>
             </div>
 
-            <div class="prc-sb-checklist">
-              <div class="prc-sb-check-item">
-                <div class="prc-sb-check-icon">
-                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+            <div class="prc-steps">
+              <div class="prc-step">
+                <div class="prc-step-num">1</div>
+                <div class="prc-step-content">
+                  <span class="prc-step-label">Create your account</span>
+                  <span class="prc-step-hint">Free to get started</span>
                 </div>
-                <span>Create your Preciprocal account</span>
-                <button class="prc-sb-go" id="prc-signin-btn">GO</button>
+                <button class="prc-step-action" id="prc-signin-btn">Go</button>
               </div>
-              <div class="prc-sb-check-item prc-sb-check-dim">
-                <div class="prc-sb-check-icon">
-                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              <div class="prc-step prc-step-dim">
+                <div class="prc-step-num">2</div>
+                <div class="prc-step-content">
+                  <span class="prc-step-label">Complete your profile</span>
+                  <span class="prc-step-hint">Name, resume, preferences</span>
                 </div>
-                <span>Complete your profile</span>
-                <div class="prc-sb-go prc-sb-go-dim">GO</div>
+                <div class="prc-step-action prc-step-action-dim">Go</div>
               </div>
             </div>
 
-            <button class="prc-sb-cta prc-sb-cta-disabled">Start Applying</button>
+            <button class="prc-cta prc-cta-disabled">
+              <span>Auto-Fill Application</span>
+            </button>
 
           ` : `
 
-            <!-- Authenticated -->
-            <div class="prc-sb-hero">
-              <p class="prc-sb-hero-title">Apply with Preciprocal</p>
-              <p class="prc-sb-hero-sub">Auto-fill this ${platformName} application using your profile.</p>
+            <div class="prc-sb-section">
+              <p class="prc-sb-title">Ready to apply</p>
+              <p class="prc-sb-subtitle">Filling this ${platformName} form with your profile.</p>
             </div>
 
-            <div id="prc-fill-status" class="prc-sb-status" style="display:none;"></div>
-            <div id="prc-file-status" class="prc-sb-file-status" style="display:none;">
-              <div id="prc-resume-status" class="prc-sb-file-row"></div>
-              <div id="prc-transcript-status" class="prc-sb-file-row"></div>
+            <div id="prc-fill-status" class="prc-status-box" style="display:none;"></div>
+            <div id="prc-file-status" class="prc-file-box" style="display:none;">
+              <div id="prc-resume-status" class="prc-file-row"></div>
+              <div id="prc-transcript-status" class="prc-file-row"></div>
             </div>
 
-            <button class="prc-sb-cta" id="prc-autofill-btn">
+            <button class="prc-cta" id="prc-autofill-btn">
               <span id="prc-fill-icon">
-                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
               </span>
-              <span id="prc-fill-label">Start Applying</span>
+              <span id="prc-fill-label">Auto-Fill Application</span>
             </button>
 
             <div class="prc-sb-actions">
-              <button class="prc-sb-link" id="prc-rerun-btn">Re-run fill</button>
-              <span class="prc-sb-dot">·</span>
-              <button class="prc-sb-link prc-sb-link-dim" id="prc-debug-btn">Debug</button>
+              <button class="prc-link" id="prc-rerun-btn">Re-run fill</button>
             </div>
 
           `}
         </div>
 
+        <div class="prc-sb-footer">
+          <span class="prc-footer-text">Always review before submitting</span>
+        </div>
+
       </div>
 
-      <!-- Collapsed tab -->
       <button id="prc-expand-btn" class="prc-sb-tab" title="Open Preciprocal">
-        <svg width="14" height="14" viewBox="0 0 64 64" fill="none">
-          <path d="M32 10L54 32L32 54L10 32L32 10Z" fill="white" opacity="0.9"/>
-          <path d="M32 22L42 32L32 42L22 32L32 22Z" fill="white"/>
-        </svg>
+        ${_iconUrl
+          ? `<img src="${_iconUrl}" width="36" height="36" alt="" style="display:block;border-radius:8px;">`
+          : `<svg width="18" height="18" viewBox="0 0 64 64" fill="none"><path d="M32 10L54 32L32 54L10 32L32 10Z" fill="#7c3aed" opacity="0.85"/><path d="M32 22L42 32L32 42L22 32L32 22Z" fill="#7c3aed"/></svg>`
+        }
       </button>
     `;
 
@@ -1912,13 +1912,66 @@ class PreciprocalSidebar {
       document.getElementById('prc-expand-btn').style.display    = 'flex';
     });
     document.getElementById('prc-expand-btn')?.addEventListener('click', () => {
+      // only expand on click, not after a drag
+      if (this._wasDragging) { this._wasDragging = false; return; }
       document.getElementById('prc-sidebar-inner').style.display = 'flex';
       document.getElementById('prc-expand-btn').style.display    = 'none';
     });
     document.getElementById('prc-signin-btn')?.addEventListener('click',   () => window.open(`${PRECIPROCAL_URL}/sign-in`, '_blank'));
     document.getElementById('prc-autofill-btn')?.addEventListener('click', () => this._run());
     document.getElementById('prc-rerun-btn')?.addEventListener('click',    () => this._rerun());
-    document.getElementById('prc-debug-btn')?.addEventListener('click',    () => this._debug());
+
+    // ── Drag to reposition (works on header AND collapsed tab) ───
+    const sidebar = document.getElementById('prc-sidebar');
+    const header  = document.getElementById('prc-drag-handle');
+    const tab     = document.getElementById('prc-expand-btn');
+    if (!sidebar) return;
+
+    this._wasDragging = false;
+    let dragging  = false;
+    let startY    = 0;
+    let startTop  = 0;
+    let moved     = false;
+
+    const getTop = () => {
+      const rect = sidebar.getBoundingClientRect();
+      return rect.top;
+    };
+
+    const startDrag = (e) => {
+      if (e.target.closest('button') && e.currentTarget === header) return; // don't drag on header buttons
+      e.preventDefault();
+      dragging = true;
+      moved    = false;
+      if (sidebar.style.transform !== 'none' || !sidebar.style.top || sidebar.style.top === '') {
+        sidebar.style.top       = getTop() + 'px';
+        sidebar.style.transform = 'none';
+      }
+      startY   = e.clientY;
+      startTop = parseInt(sidebar.style.top, 10) || getTop();
+      document.body.style.cursor = 'grabbing';
+    };
+
+    const onMove = (e) => {
+      if (!dragging) return;
+      const delta  = e.clientY - startY;
+      if (Math.abs(delta) > 3) moved = true;
+      const newTop = Math.max(0, Math.min(window.innerHeight - sidebar.offsetHeight, startTop + delta));
+      sidebar.style.top = newTop + 'px';
+    };
+
+    const endDrag = () => {
+      if (!dragging) return;
+      dragging = false;
+      document.body.style.cursor = '';
+      if (moved) this._wasDragging = true;
+    };
+
+    if (header) header.addEventListener('mousedown', startDrag);
+    if (tab)    tab.addEventListener('mousedown',    startDrag);
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup',   endDrag);
   }
 
   async _run() {
@@ -1932,7 +1985,7 @@ class PreciprocalSidebar {
     this.state = 'loading';
     btn?.classList.add('loading');
     if (label) label.textContent = 'Loading profile…';
-    if (icon)  icon.innerHTML    = '<span class="prc-sb-spinner"></span>';
+    if (icon)  icon.innerHTML    = '<span class="prc-spinner"></span>';
 
     try {
       if (!this.profile) {
@@ -1974,12 +2027,12 @@ class PreciprocalSidebar {
         const clicked = await clickApplyAndWaitForForm(statusEl);
         if (!clicked) {
           if (label) label.textContent = 'Opening application…';
-          if (icon)  icon.textContent  = '🔗';
+          if (icon)  icon.textContent  = '↗';
           btn?.classList.remove('loading');
           if (statusEl) {
             statusEl.style.display = 'block';
-            statusEl.className = 'prc-sb-status info';
-            statusEl.innerHTML = '🔗 Application opened in new tab — auto-filling there.';
+            statusEl.className = 'prc-status-box info';
+            statusEl.innerHTML = '<span class="prc-status-icon">↗</span> Application opened in new tab — auto-filling there.';
           }
           this.state = 'filled';
           return;
@@ -1988,8 +2041,8 @@ class PreciprocalSidebar {
       } else {
         if (statusEl) {
           statusEl.style.display = 'block';
-          statusEl.className = 'prc-sb-status info';
-          statusEl.innerHTML = '📝 Application form detected — filling…';
+          statusEl.className = 'prc-status-box info';
+          statusEl.innerHTML = '<span class="prc-status-icon">📋</span> Form detected — filling fields…';
         }
       }
 
@@ -2002,23 +2055,28 @@ class PreciprocalSidebar {
       this.state = 'filled';
       btn?.classList.remove('loading');
       btn?.classList.add('done');
-      if (icon)  icon.textContent  = '✅';
-      if (label) label.textContent = `Filled ${filled} fields`;
+      if (icon)  icon.innerHTML = '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
+      if (label) label.textContent = `${filled} fields filled`;
 
-      let html = `<strong>✅ Done!</strong> ${filled} fields filled.`;
-      if (fileResult.resume)     html += '<br><small>📄 Resume uploaded</small>';
-      if (fileResult.transcript) html += '<br><small>🎓 Transcript uploaded</small>';
-      html += '<br><small>Review everything before submitting.</small>';
-      if (statusEl) { statusEl.style.display = 'block'; statusEl.className = 'prc-sb-status success'; statusEl.innerHTML = html; }
+      let statusHtml = `<span class="prc-status-icon">✓</span><span><strong>${filled} fields filled.</strong>`;
+      if (fileResult.resume)     statusHtml += ' Resume uploaded.';
+      if (fileResult.transcript) statusHtml += ' Transcript uploaded.';
+      statusHtml += '</span>';
+      if (statusEl) { statusEl.style.display = 'flex'; statusEl.className = 'prc-status-box success'; statusEl.innerHTML = statusHtml; }
 
     } catch (err) {
       console.error('❌ Autofill error:', err);
       this.state = 'error';
       btn?.classList.remove('loading');
-      if (icon)  icon.textContent  = '❌';
-      if (label) label.textContent = 'Try Again';
-      if (statusEl) { statusEl.style.display = 'block'; statusEl.className = 'prc-sb-status error'; statusEl.textContent = err.message || 'Auto-fill failed'; }
-      setTimeout(() => { if (icon) icon.textContent = '⚡'; if (label) label.textContent = 'Auto-Fill + Upload Files'; this.state = 'idle'; }, 4000);
+      if (icon)  icon.innerHTML = '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>';
+      if (label) label.textContent = 'Try again';
+      if (statusEl) { statusEl.style.display = 'flex'; statusEl.className = 'prc-status-box error'; statusEl.innerHTML = `<span class="prc-status-icon">!</span><span>${err.message || 'Auto-fill failed'}</span>`; }
+      setTimeout(() => {
+        if (icon) icon.innerHTML = '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>';
+        if (label) label.textContent = 'Auto-Fill Application';
+        this.state = 'idle';
+        btn?.classList.remove('error');
+      }, 4000);
     }
   }
 
@@ -2054,9 +2112,9 @@ class PreciprocalSidebar {
     console.groupEnd();
     const statusEl = document.getElementById('prc-fill-status');
     if (statusEl) {
-      statusEl.style.display = 'block';
-      statusEl.className = 'prc-sb-status info';
-      statusEl.innerHTML = `🔍 Found <strong>${info.length} fields</strong>.<br><small>F12 → Console for details.</small>`;
+      statusEl.style.display = 'flex';
+      statusEl.className = 'prc-status-box info';
+      statusEl.innerHTML = `<span class="prc-status-icon">🔍</span><span><strong>${info.length} fields</strong> found. Open DevTools for details.</span>`;
     }
   }
 
@@ -2066,20 +2124,20 @@ class PreciprocalSidebar {
     if (fileEl) fileEl.style.display = 'block';
     const { resume, transcript } = FileInjector.classify();
     if (this.files.resume?.available && this.files.resume.url) {
-      this._setFileRow('prc-resume-status', '📄 Resume', 'uploading');
+      this._setFileRow('prc-resume-status', 'Resume', 'uploading');
       const n = await FileInjector.injectFromUrl(this.files.resume.url, this.files.resume.fileName, resume);
       result.resume = n > 0;
-      this._setFileRow('prc-resume-status', '📄 Resume', result.resume ? 'done' : 'manual');
+      this._setFileRow('prc-resume-status', 'Resume', result.resume ? 'done' : 'manual');
     } else if (this.files.resume && !this.files.resume.available) {
-      this._setFileRow('prc-resume-status', '📄 Resume', 'missing');
+      this._setFileRow('prc-resume-status', 'Resume', 'missing');
     }
     if (this.files.transcript?.available && this.files.transcript.url) {
-      this._setFileRow('prc-transcript-status', '🎓 Transcript', 'uploading');
+      this._setFileRow('prc-transcript-status', 'Transcript', 'uploading');
       const n = await FileInjector.injectFromUrl(this.files.transcript.url, this.files.transcript.fileName, transcript);
       result.transcript = n > 0;
-      this._setFileRow('prc-transcript-status', '🎓 Transcript', result.transcript ? 'done' : 'manual');
+      this._setFileRow('prc-transcript-status', 'Transcript', result.transcript ? 'done' : 'manual');
     } else if (this.files.transcript && !this.files.transcript.available) {
-      this._setFileRow('prc-transcript-status', '🎓 Transcript', 'missing');
+      this._setFileRow('prc-transcript-status', 'Transcript', 'missing');
     }
     return result;
   }
@@ -2087,157 +2145,405 @@ class PreciprocalSidebar {
   _setFileRow(id, label, state) {
     const el = document.getElementById(id);
     if (!el) return;
-    const icons = { uploading:'⏳', done:'✅', manual:'⚠️', missing:'➖' };
-    const texts = { uploading:'Uploading…', done:'Uploaded', manual:'Attach manually', missing:'Not in profile' };
-    el.innerHTML = `${icons[state]} ${label}: <em>${texts[state]}</em>`;
-    el.className = `prc-sb-file-row prc-file-${state}`;
+    const configs = {
+      uploading: { icon: '⏳', text: 'Uploading…',       cls: 'uploading' },
+      done:      { icon: '✓',  text: 'Uploaded',         cls: 'done'      },
+      manual:    { icon: '⚠',  text: 'Attach manually',  cls: 'manual'    },
+      missing:   { icon: '–',  text: 'Not in profile',   cls: 'missing'   },
+    };
+    const c = configs[state] || configs.missing;
+    el.innerHTML = `<span class="prc-file-icon prc-file-${c.cls}">${c.icon}</span><span>${label}</span><span class="prc-file-state prc-file-${c.cls}">${c.text}</span>`;
+    el.className = `prc-file-row`;
   }
 
+  // ── UPDATED _injectStyles() ──────────────────────────────────
   _injectStyles() {
     if (document.getElementById('prc-sidebar-styles')) return;
     const s = document.createElement('style');
     s.id = 'prc-sidebar-styles';
     s.textContent = `
 
-      /* ─── Sidebar wrapper ─── */
+      /* ─── Wrapper ─── */
       #prc-sidebar {
-        position: fixed; top: 50%; right: 0;
+        position: fixed;
+        top: 50%;
+        right: 0;
         transform: translateY(-50%);
         z-index: 2147483647;
-        display: flex; align-items: center;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        display: flex;
+        align-items: center;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+
+      #prc-drag-handle {
+        cursor: grab;
+      }
+      #prc-drag-handle:active {
+        cursor: grabbing;
       }
 
       /* ─── Card ─── */
       #prc-sidebar-inner {
-        display: flex; flex-direction: column;
-        width: 240px;
-        background: #111827;
-        border: 1px solid rgba(255,255,255,0.1);
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        width: 260px;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
         border-right: none;
         border-radius: 16px 0 0 16px;
-        box-shadow: -6px 0 32px rgba(0,0,0,0.5);
+        box-shadow: -4px 0 32px rgba(0,0,0,0.10), -1px 0 8px rgba(0,0,0,0.06);
         overflow: hidden;
       }
 
       /* ─── Header ─── */
       .prc-sb-header {
-        display: flex; align-items: center; justify-content: space-between;
-        padding: 14px 16px;
-        border-bottom: 1px solid rgba(255,255,255,0.07);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 14px 11px;
+        border-bottom: 1px solid #f3f4f6;
+        background: #ffffff;
       }
-      .prc-sb-brand { display: flex; align-items: center; gap: 9px; }
-      .prc-sb-brand svg { flex-shrink: 0; }
-      .prc-sb-name { font-size: 14px; font-weight: 700; color: #f9fafb; letter-spacing: -0.02em; }
+      .prc-sb-brand { display: flex; align-items: center; gap: 8px; }
+      .prc-sb-logo {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        background: #f3f0ff;
+        border: 1px solid #ddd6fe;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        overflow: hidden;
+      }
+      .prc-sb-name {
+        font-size: 13.5px;
+        font-weight: 800;
+        color: #111827;
+        letter-spacing: -0.03em;
+      }
       .prc-sb-collapse {
-        background: none; border: none; color: rgba(255,255,255,0.25);
-        cursor: pointer; padding: 5px; border-radius: 6px;
-        display: flex; align-items: center; justify-content: center;
+        width: 24px;
+        height: 24px;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        color: #9ca3af;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         transition: all 0.15s;
+        flex-shrink: 0;
       }
-      .prc-sb-collapse:hover { color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.07); }
+      .prc-sb-collapse:hover {
+        background: #f3f4f6;
+        color: #374151;
+        border-color: #d1d5db;
+      }
+
+      /* ─── Platform bar ─── */
+      .prc-platform-bar {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 6px 14px;
+        background: #f9fafb;
+        border-bottom: 1px solid #f3f4f6;
+      }
+      .prc-platform-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .prc-platform-name {
+        font-size: 11.5px;
+        font-weight: 700;
+        color: #374151;
+        letter-spacing: -0.01em;
+      }
+      .prc-platform-label {
+        font-size: 10.5px;
+        color: #9ca3af;
+        margin-left: auto;
+      }
 
       /* ─── Body ─── */
-      .prc-sb-body { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
-
-      /* ─── Hero text ─── */
-      .prc-sb-hero { text-align: center; }
-      .prc-sb-hero-title { font-size: 14px; font-weight: 700; color: #f9fafb; margin: 0 0 6px; letter-spacing: -0.02em; }
-      .prc-sb-hero-sub { font-size: 11.5px; color: rgba(255,255,255,0.45); margin: 0; line-height: 1.6; }
-
-      /* ─── Checklist (unauthenticated) ─── */
-      .prc-sb-checklist {
-        display: flex; flex-direction: column; gap: 0;
-        background: rgba(255,255,255,0.04);
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 10px; overflow: hidden;
+      .prc-sb-body {
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 11px;
+        background: #ffffff;
       }
-      .prc-sb-check-item {
-        display: flex; align-items: center; gap: 10px;
-        padding: 11px 12px;
-        border-bottom: 1px solid rgba(255,255,255,0.06);
-      }
-      .prc-sb-check-item:last-child { border-bottom: none; }
-      .prc-sb-check-icon {
-        width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
-        background: rgba(255,255,255,0.06);
-        display: flex; align-items: center; justify-content: center;
-        color: rgba(255,255,255,0.5);
-      }
-      .prc-sb-check-item span { font-size: 11.5px; color: #e5e7eb; flex: 1; line-height: 1.4; font-weight: 500; }
-      .prc-sb-check-dim .prc-sb-check-icon { color: rgba(255,255,255,0.2); }
-      .prc-sb-check-dim span { color: rgba(255,255,255,0.3); }
 
-      /* GO badge */
-      .prc-sb-go {
-        display: flex; align-items: center; justify-content: center;
-        background: #4f46e5; color: #fff;
-        font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
-        padding: 4px 9px; border-radius: 20px; border: none; cursor: pointer;
-        flex-shrink: 0; font-family: inherit; transition: background 0.15s;
+      /* ─── Section heading ─── */
+      .prc-sb-section { display: flex; flex-direction: column; gap: 3px; }
+      .prc-sb-title {
+        font-size: 14px;
+        font-weight: 800;
+        color: #111827;
+        margin: 0;
+        letter-spacing: -0.03em;
       }
-      .prc-sb-go:hover { background: #4338ca; }
-      .prc-sb-go-dim { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.3); cursor: default; }
-
-      /* ─── Primary CTA button ─── */
-      .prc-sb-cta {
-        display: flex; align-items: center; justify-content: center; gap: 7px;
-        width: 100%; padding: 11px 16px; border-radius: 10px; border: none;
-        font-size: 13px; font-weight: 700; letter-spacing: -0.01em;
-        cursor: pointer; font-family: inherit; transition: all 0.15s;
-        background: #4f46e5; color: #fff;
-        box-shadow: 0 2px 12px rgba(79,70,229,0.35);
+      .prc-sb-subtitle {
+        font-size: 11.5px;
+        color: #6b7280;
+        margin: 0;
+        line-height: 1.55;
       }
-      .prc-sb-cta:hover { background: #4338ca; box-shadow: 0 2px 16px rgba(79,70,229,0.5); }
-      .prc-sb-cta:active { transform: scale(0.98); }
-      .prc-sb-cta.loading { opacity: 0.65; cursor: wait; pointer-events: none; }
-      .prc-sb-cta.done { background: #059669; box-shadow: 0 2px 12px rgba(5,150,105,0.3); pointer-events: none; }
-      .prc-sb-cta.error { background: #dc2626; box-shadow: none; }
-      .prc-sb-cta-disabled { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.3); box-shadow: none; cursor: default; pointer-events: none; }
 
-      /* ─── Link actions ─── */
-      .prc-sb-actions { display: flex; align-items: center; justify-content: center; gap: 6px; }
-      .prc-sb-dot { font-size: 11px; color: rgba(255,255,255,0.15); }
-      .prc-sb-link {
-        background: none; border: none; cursor: pointer; font-family: inherit;
-        font-size: 11px; color: rgba(255,255,255,0.4); padding: 0; transition: color 0.15s;
+      /* ─── Steps (unauthenticated) ─── */
+      .prc-steps {
+        display: flex;
+        flex-direction: column;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        overflow: hidden;
       }
-      .prc-sb-link:hover { color: rgba(255,255,255,0.75); }
-      .prc-sb-link-dim { color: rgba(255,255,255,0.2); font-size: 10px; }
-      .prc-sb-link-dim:hover { color: rgba(255,255,255,0.45); }
+      .prc-step {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border-bottom: 1px solid #f3f4f6;
+        background: #ffffff;
+      }
+      .prc-step:last-child { border-bottom: none; }
+      .prc-step-num {
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: #f3f0ff;
+        border: 1.5px solid #ddd6fe;
+        color: #7c3aed;
+        font-size: 11px;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .prc-step-dim .prc-step-num {
+        background: #f9fafb;
+        border-color: #e5e7eb;
+        color: #d1d5db;
+      }
+      .prc-step-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        min-width: 0;
+      }
+      .prc-step-label { font-size: 12px; font-weight: 700; color: #111827; }
+      .prc-step-hint  { font-size: 10.5px; color: #9ca3af; }
+      .prc-step-dim .prc-step-label { color: #d1d5db; }
+      .prc-step-dim .prc-step-hint  { color: #e5e7eb; }
+      .prc-step-action {
+        padding: 5px 11px;
+        background: #7c3aed;
+        color: #fff;
+        font-size: 11px;
+        font-weight: 700;
+        border: none;
+        border-radius: 20px;
+        cursor: pointer;
+        font-family: inherit;
+        letter-spacing: 0.01em;
+        flex-shrink: 0;
+        transition: background 0.15s, transform 0.1s;
+      }
+      .prc-step-action:hover { background: #6d28d9; transform: scale(1.04); }
+      .prc-step-action:active { transform: scale(0.98); }
+      .prc-step-action-dim {
+        background: #f3f4f6;
+        color: #d1d5db;
+        cursor: default;
+      }
+      .prc-step-action-dim:hover { background: #f3f4f6; transform: none; }
 
-      /* ─── Status ─── */
-      .prc-sb-status { padding: 9px 11px; border-radius: 8px; font-size: 11px; line-height: 1.5; }
-      .prc-sb-status.success { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.2); color: #6ee7b7; }
-      .prc-sb-status.error   { background: rgba(239,68,68,0.1);  border: 1px solid rgba(239,68,68,0.2);  color: #fca5a5; }
-      .prc-sb-status.info    { background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2); color: #a5b4fc; }
+      /* ─── Primary CTA ─── */
+      .prc-cta {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        width: 100%;
+        padding: 11px 16px;
+        background: #7c3aed;
+        color: #fff;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        border: none;
+        border-radius: 999px;
+        cursor: pointer;
+        font-family: inherit;
+        transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+        box-shadow: 0 2px 12px rgba(124,58,237,0.28);
+      }
+      .prc-cta:hover {
+        background: #6d28d9;
+        box-shadow: 0 4px 18px rgba(124,58,237,0.38);
+        transform: translateY(-1px);
+      }
+      .prc-cta:active { transform: translateY(0); box-shadow: 0 1px 6px rgba(124,58,237,0.2); }
+      .prc-cta.loading { opacity: 0.65; cursor: wait; pointer-events: none; }
+      .prc-cta.done {
+        background: #059669;
+        box-shadow: 0 2px 10px rgba(5,150,105,0.22);
+        pointer-events: none;
+      }
+      .prc-cta.error {
+        background: #dc2626;
+        box-shadow: none;
+      }
+      .prc-cta-disabled {
+        background: #f3f4f6;
+        color: #d1d5db;
+        box-shadow: none;
+        cursor: default;
+        pointer-events: none;
+        border: 1.5px solid #e5e7eb;
+      }
 
-      /* ─── File rows ─── */
-      .prc-sb-file-status { display: flex; flex-direction: column; gap: 4px; padding: 9px 11px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.07); }
-      .prc-sb-file-row { font-size: 11px; line-height: 1.4; color: rgba(255,255,255,0.3); }
-      .prc-sb-file-row em { font-style: normal; }
-      .prc-file-done      { color: #6ee7b7; }
-      .prc-file-uploading { color: #93c5fd; }
-      .prc-file-manual    { color: #fcd34d; }
-      .prc-file-missing   { color: rgba(255,255,255,0.2); }
+      /* ─── Link row ─── */
+      .prc-sb-actions {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+      }
+      .prc-dot { font-size: 10px; color: #d1d5db; }
+      .prc-link {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 11.5px;
+        color: #9ca3af;
+        padding: 0;
+        transition: color 0.15s;
+        font-weight: 500;
+      }
+      .prc-link:hover { color: #7c3aed; }
+      .prc-link-muted { color: #d1d5db; font-size: 10.5px; }
+      .prc-link-muted:hover { color: #6b7280; }
+
+      /* ─── Status box ─── */
+      .prc-status-box {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 9px 11px;
+        border-radius: 10px;
+        font-size: 11.5px;
+        line-height: 1.5;
+        color: #374151;
+      }
+      .prc-status-box.success {
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        color: #166534;
+      }
+      .prc-status-box.error {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        color: #991b1b;
+      }
+      .prc-status-box.info {
+        background: #faf5ff;
+        border: 1px solid #ddd6fe;
+        color: #5b21b6;
+      }
+      .prc-status-icon { flex-shrink: 0; font-size: 12px; line-height: 1.5; }
+
+      /* ─── File box ─── */
+      .prc-file-box {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        padding: 9px 11px;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+      }
+      .prc-file-row {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 11px;
+        color: #6b7280;
+      }
+      .prc-file-icon { font-size: 11px; flex-shrink: 0; }
+      .prc-file-state { margin-left: auto; font-size: 10.5px; font-weight: 600; }
+      .prc-file-done      { color: #059669; }
+      .prc-file-uploading { color: #2563eb; }
+      .prc-file-manual    { color: #d97706; }
+      .prc-file-missing   { color: #d1d5db; }
+
+      /* ─── Footer ─── */
+      .prc-sb-footer {
+        padding: 8px 14px;
+        border-top: 1px solid #f3f4f6;
+        background: #f9fafb;
+        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .prc-footer-text {
+        font-size: 10.5px;
+        color: #9ca3af;
+        letter-spacing: 0.01em;
+        font-weight: 500;
+      }
 
       /* ─── Spinner ─── */
-      .prc-sb-spinner { display: inline-block; width: 13px; height: 13px; border: 2px solid rgba(255,255,255,0.2); border-top-color: #fff; border-radius: 50%; animation: prc-sb-spin 0.65s linear infinite; }
-      @keyframes prc-sb-spin { to { transform: rotate(360deg); } }
+      .prc-spinner {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border: 2px solid rgba(255,255,255,0.35);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: prc-spin 0.65s linear infinite;
+        vertical-align: middle;
+      }
+      @keyframes prc-spin { to { transform: rotate(360deg); } }
 
       /* ─── Collapsed tab ─── */
       .prc-sb-tab {
-        display: none; width: 30px; height: 60px;
-        background: #111827;
-        border: 1px solid rgba(255,255,255,0.1); border-right: none;
-        border-radius: 10px 0 0 10px;
-        cursor: pointer; align-items: center; justify-content: center;
-        box-shadow: -3px 0 16px rgba(0,0,0,0.4);
-        transition: background 0.15s;
+        display: none;
+        width: 52px;
+        height: 52px;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-right: none;
+        border-radius: 14px 0 0 14px;
+        cursor: grab;
+        align-items: center;
+        justify-content: center;
+        box-shadow: -2px 0 12px rgba(0,0,0,0.08);
+        transition: background 0.15s, box-shadow 0.15s;
+        padding: 0;
       }
-      .prc-sb-tab:hover { background: #1e293b; }
+      .prc-sb-tab:hover {
+        background: #faf5ff;
+        box-shadow: -3px 0 16px rgba(124,58,237,0.12);
+        border-color: #ddd6fe;
+      }
+      .prc-sb-tab:active { cursor: grabbing; }
 
-      @media (max-width: 900px) { #prc-sidebar-inner { width: 220px; } }
+      @media (max-width: 900px) { #prc-sidebar-inner { width: 240px; } }
       @media print { #prc-sidebar { display: none !important; } }
 
     `;
@@ -2267,7 +2573,6 @@ async function onNavigation() {
   document.getElementById('prc-sidebar')?.remove();
   _instance = null;
 
-  // Reset tracker for the new page/job
   _applicationTracked = false;
 
   await new Promise(r => setTimeout(r, 500));
@@ -2289,7 +2594,7 @@ async function onNavigation() {
         const label    = document.getElementById('prc-fill-label');
         const icon     = document.getElementById('prc-fill-icon');
         if (label) label.textContent = 'Auto-filling…';
-        if (icon)  icon.innerHTML    = '<span class="prc-sb-spinner"></span>';
+        if (icon)  icon.innerHTML    = '<span class="prc-spinner"></span>';
         document.getElementById('prc-autofill-btn')?.classList.add('loading');
 
         const statusEl = document.getElementById('prc-fill-status');
@@ -2303,16 +2608,16 @@ async function onNavigation() {
         const btn = document.getElementById('prc-autofill-btn');
         btn?.classList.remove('loading');
         btn?.classList.add('done');
-        if (icon)  icon.textContent  = '✅';
-        if (label) label.textContent = `Filled ${filled} fields`;
+        if (icon)  icon.innerHTML = '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
+        if (label) label.textContent = `${filled} fields filled`;
         if (statusEl) {
-          statusEl.style.display = 'block';
-          statusEl.className = 'prc-sb-status success';
-          statusEl.innerHTML = `<strong>✅ Done!</strong> ${filled} fields filled.<br><small>Review before submitting.</small>`;
+          statusEl.style.display = 'flex';
+          statusEl.className = 'prc-status-box success';
+          statusEl.innerHTML = `<span class="prc-status-icon">✓</span><span><strong>${filled} fields filled.</strong> Review before submitting.</span>`;
         }
         _autoFilling = false;
       }
-    } catch (e) {
+    } catch {
       console.warn('⚠️ Auto-fill on navigation failed:', e.message);
       _autoFilling = false;
     }

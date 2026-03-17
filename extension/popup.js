@@ -3,6 +3,8 @@
 const IS_DEV   = false;
 const BASE_URL = IS_DEV ? 'http://localhost:3000' : 'https://preciprocal.com';
 
+const ICON_URL = chrome.runtime.getURL('icons/icon48.png');
+
 let authState = { authenticated: false, user: null, loading: true };
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -58,160 +60,122 @@ async function logout() {
   render();
 }
 
-function addClick(id, fn) {
+function on(id, fn) {
   const el = document.getElementById(id);
   if (el) el.addEventListener('click', fn);
 }
 
 function render() {
-  const container = document.getElementById('authContainer');
-  if (!container) return;
+  const c = document.getElementById('authContainer');
+  if (!c) return;
   if (authState.loading) {
-    container.innerHTML = renderLoading();
+    c.innerHTML = renderLoading();
   } else if (authState.authenticated && authState.user) {
-    container.innerHTML = renderConnected();
+    c.innerHTML = renderConnected();
   } else {
-    container.innerHTML = renderDisconnected();
+    c.innerHTML = renderDisconnected();
   }
-  attachListeners();
+  bindEvents();
 }
 
-function attachListeners() {
-  addClick('loginBtn',           () => openApp('/sign-in'));
-  addClick('openDashboardBtn',   () => openApp('/'));
-  addClick('logoutBtn',          () => logout());
-  addClick('resumeOptimizerBtn', () => openApp('/resume'));
-  addClick('coverLetterBtn',     () => openApp('/cover-letter'));
-  addClick('mockInterviewBtn',   () => openApp('/interview'));
+function bindEvents() {
+  on('btnLogin',  () => openApp('/sign-in'));
+  on('btnDash',   () => openApp('/'));
+  on('btnLogout', () => logout());
 }
 
-const LOGO_SVG = `<svg viewBox="0 0 64 64" fill="none">
-  <path d="M32 16L48 32L32 48L16 32L32 16Z" fill="white" opacity="0.85"/>
-  <path d="M32 24L40 32L32 40L24 32L32 24Z" fill="white"/>
-</svg>`;
-
-function headerHTML(connected) {
+function header(connected) {
   return `
-    <div class="header">
-      <div class="brand">
-        <div class="brand-icon">${LOGO_SVG}</div>
-        <span class="brand-name">Preciprocal</span>
+    <div class="hdr">
+      <div class="hdr-brand">
+        <div class="hdr-ico"><img src="${ICON_URL}" alt="Preciprocal"></div>
+        <span class="hdr-name">Preciprocal</span>
       </div>
       ${connected
-        ? `<div class="status-pill connected"><div class="status-dot pulse"></div>Connected</div>`
-        : `<div class="status-pill disconnected"><div class="status-dot"></div>Not connected</div>`
+        ? `<div class="pill on"><div class="dot pulse"></div>Connected</div>`
+        : `<div class="pill off"><div class="dot"></div>Not connected</div>`
       }
     </div>`;
 }
 
 function renderLoading() {
   return `
-    ${headerHTML(false)}
-    <div class="loading-view">
-      <div class="spinner"></div>
-      <p>Connecting...</p>
+    ${header(false)}
+    <div class="loading">
+      <div class="spin-ring"></div>
+      <p>Connecting…</p>
     </div>`;
 }
 
 function renderConnected() {
-  const user    = authState.user;
-  const initial = (user.displayName || user.email || 'U').charAt(0).toUpperCase();
-  const tier    = user.subscriptionTier || 'free';
-  const tierLabel = tier.charAt(0).toUpperCase() + tier.slice(1);
-  const tierClass = (tier === 'pro' || tier === 'premium') ? 'pro' : '';
+  const u    = authState.user;
+  const init = (u.displayName || u.email || 'U').charAt(0).toUpperCase();
+  const tier = u.subscriptionTier || 'free';
+  const tLbl = tier.charAt(0).toUpperCase() + tier.slice(1);
+  const tCls = (tier === 'pro' || tier === 'premium') ? 'pro' : '';
 
-  // Show photo if available, otherwise show initial
-  const avatarInner = user.photoURL
-    ? `<img src="${user.photoURL}" alt="${user.displayName}" onerror="this.style.display='none';this.parentElement.textContent='${initial}'" />`
-    : initial;
+  const avatarInner = u.photoURL
+    ? `<img src="${u.photoURL}" alt="${u.displayName}" onerror="this.style.display='none';this.parentElement.textContent='${init}'">`
+    : init;
 
   return `
-    ${headerHTML(true)}
-
-    <div class="user-section">
+    ${header(true)}
+    <div class="connected-wrap">
       <div class="user-card">
-        <div class="avatar-wrap">
-          <div class="avatar">${avatarInner}</div>
-          <div class="avatar-logo">${LOGO_SVG}</div>
+        <div class="av-wrap">
+          <div class="av">${avatarInner}</div>
+          <div class="av-badge"><img src="${ICON_URL}" alt=""></div>
         </div>
-        <div class="user-info">
-          <span class="user-name">${user.displayName || 'User'}</span>
-          <span class="user-email">${user.email || ''}</span>
+        <div class="u-info">
+          <div class="u-name">${u.displayName || 'User'}</div>
+          <div class="u-email">${u.email || ''}</div>
         </div>
-        <span class="tier-badge ${tierClass}">${tierLabel}</span>
+        <span class="tier ${tCls}">${tLbl}</span>
       </div>
-    </div>
-
-    <div class="section-label">Quick Access</div>
-
-    <div class="feature-list">
-      <button id="resumeOptimizerBtn" class="feature-btn">
-        <div class="feat-icon-wrap">📄</div>
-        <div class="feat-content">
-          <span class="feat-title">Resume Optimizer</span>
-          <span class="feat-desc">ATS score &amp; AI suggestions</span>
-        </div>
-        <span class="feat-arrow">›</span>
-      </button>
-      <button id="coverLetterBtn" class="feature-btn">
-        <div class="feat-icon-wrap">✉️</div>
-        <div class="feat-content">
-          <span class="feat-title">Cover Letter</span>
-          <span class="feat-desc">Tailored to any job posting</span>
-        </div>
-        <span class="feat-arrow">›</span>
-      </button>
-      <button id="mockInterviewBtn" class="feature-btn">
-        <div class="feat-icon-wrap">🎯</div>
-        <div class="feat-content">
-          <span class="feat-title">Mock Interview</span>
-          <span class="feat-desc">AI-powered practice sessions</span>
-        </div>
-        <span class="feat-arrow">›</span>
-      </button>
-    </div>
-
-    <div class="actions">
-      <button id="openDashboardBtn" class="btn-primary">Open Dashboard</button>
-      <button id="logoutBtn" class="btn-ghost">Disconnect account</button>
+      <button id="btnDash" class="btn-main">Open Dashboard</button>
+      <button id="btnLogout" class="btn-danger">Disconnect account</button>
     </div>`;
 }
 
 function renderDisconnected() {
   return `
-    ${headerHTML(false)}
-
+    ${header(false)}
     <div class="hero">
-      <div class="hero-icon">${LOGO_SVG}</div>
-      <h2>Your AI Career Assistant</h2>
-      <p>Auto-apply to jobs, optimize your resume,<br>and ace every interview.</p>
+      <div class="hero-logo"><img src="${ICON_URL}" alt="Preciprocal"></div>
+      <div class="hero-eyebrow">Welcome to Preciprocal</div>
+      <h2 class="hero-h">Land your next<br>job, faster.</h2>
+      <p class="hero-sub">Auto-fill applications, optimize your resume,<br>and ace every interview.</p>
     </div>
-
-    <div class="features-grid">
-      <div class="feat-card">
-        <span class="feat-icon">📊</span>
-        <span class="feat-card-title">ATS Score</span>
-        <span class="feat-card-desc">Resume check</span>
+    <div class="fc-list">
+      <div class="fc-row">
+        <div class="fc-ico i1">⚡</div>
+        <div class="fc-body">
+          <div class="fc-title">1-click Auto Apply</div>
+          <div class="fc-desc">Fill any application form instantly using your saved profile</div>
+        </div>
       </div>
-      <div class="feat-card">
-        <span class="feat-icon">⚡</span>
-        <span class="feat-card-title">Auto Apply</span>
-        <span class="feat-card-desc">1-click apply</span>
+      <div class="fc-row">
+        <div class="fc-ico i2">📄</div>
+        <div class="fc-body">
+          <div class="fc-title">Resume &amp; ATS Optimizer</div>
+          <div class="fc-desc">Get a tailored score and improvement suggestions</div>
+        </div>
       </div>
-      <div class="feat-card">
-        <span class="feat-icon">🎯</span>
-        <span class="feat-card-title">Interview</span>
-        <span class="feat-card-desc">AI practice</span>
+      <div class="fc-row">
+        <div class="fc-ico i3">🎯</div>
+        <div class="fc-body">
+          <div class="fc-title">AI Mock Interviews</div>
+          <div class="fc-desc">Practice with real-time AI feedback and coaching</div>
+        </div>
       </div>
     </div>
-
-    <div class="signin-section">
-      <button id="loginBtn" class="btn-signin">Sign in to Preciprocal</button>
-      <div class="how-to">
-        <p class="how-to-title">How to connect</p>
+    <div class="si-block">
+      <button id="btnLogin" class="btn-si">Get Started — It's Free</button>
+      <div class="how-box">
+        <div class="how-lbl">How to connect</div>
         <ol>
           <li>Click above and sign in to Preciprocal</li>
-          <li>Come back and open the extension</li>
+          <li>Come back and open this extension</li>
           <li>You'll be connected automatically</li>
         </ol>
       </div>

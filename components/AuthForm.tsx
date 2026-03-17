@@ -19,6 +19,7 @@ import {
   setPersistence,
   browserLocalPersistence,
   UserCredential,
+  sendEmailVerification,
 } from "firebase/auth";
 
 import { Form } from "@/components/ui/form";
@@ -254,18 +255,26 @@ const AuthForm = ({ type }: { type: FormType }) => {
         });
 
         if (!result.success) {
+          // Clean up the Firebase Auth user if Firestore registration failed
+          try {
+            await userCredential.user.delete();
+          } catch {
+            // ignore cleanup error
+          }
           toast.error(result.message);
           return;
         }
 
-        toast.success("Account created successfully. Please sign in.");
+        // Send verification email
+        await sendEmailVerification(userCredential.user);
 
-        const signInUrl =
+        toast.success("Account created! Check your email to verify before signing in.");
+
+        const verifyUrl =
           redirectUrl !== "/"
-            ? `/sign-in?redirect=${encodeURIComponent(redirectUrl)}`
-            : "/sign-in";
-        router.push(signInUrl);
-        router.refresh();
+            ? `/verify-email?email=${encodeURIComponent(email)}&redirect=${encodeURIComponent(redirectUrl)}`
+            : `/verify-email?email=${encodeURIComponent(email)}`;
+        router.push(verifyUrl);
       } else {
         const { email, password } = data;
 
@@ -274,6 +283,23 @@ const AuthForm = ({ type }: { type: FormType }) => {
 
         const userCredential: UserCredential =
           await signInWithEmailAndPassword(auth, email, password);
+
+        // Block sign-in for unverified email/password accounts
+        if (!userCredential.user.emailVerified) {
+          // Send a fresh verification email so they can act on it right away
+          await sendEmailVerification(userCredential.user);
+          await auth.signOut();
+
+          toast.error("Please verify your email before signing in. A new verification link has been sent.");
+
+          const verifyUrl =
+            redirectUrl !== "/"
+              ? `/verify-email?email=${encodeURIComponent(email)}&redirect=${encodeURIComponent(redirectUrl)}`
+              : `/verify-email?email=${encodeURIComponent(email)}`;
+          router.push(verifyUrl);
+          return;
+        }
+
         const idToken = await userCredential.user.getIdToken(true);
 
         if (!idToken) {
