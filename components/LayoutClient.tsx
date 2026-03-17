@@ -133,8 +133,7 @@ function UserAvatar({
   );
 }
 
-
-
+// Public routes that don't require authentication
 const PUBLIC_ROUTES = [
   '/sign-in',
   '/sign-up',
@@ -158,7 +157,10 @@ const useResumeCount = () => {
 
   useEffect(() => {
     const fetchResumeData = async () => {
-      if (!user) { setLoading(false); return; }
+      if (!user) {
+        setLoading(false);
+        return;
+      }
       try {
         const resumes = await FirebaseService.getUserResumes(user.uid);
         setResumeCount(resumes.length);
@@ -192,9 +194,9 @@ const FREE_PLAN_INFO: PlanInfo = {
 };
 
 const SearchDropdown = () => {
-  const [isOpen,      setIsOpen]      = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeIndex, setActiveIndex] = useState(-1);
+  const [isOpen,       setIsOpen]       = useState(false);
+  const [searchQuery,  setSearchQuery]  = useState('');
+  const [activeIndex,  setActiveIndex]  = useState(-1);
   const router = useRouter();
 
   const highlight = (text: string, query: string) => {
@@ -211,28 +213,65 @@ const SearchDropdown = () => {
   };
 
   const allItems: NavItem[] = [
-    { id: 'dashboard',     label: 'Dashboard',           href: '/',                 icon: Home        },
-    { id: 'resume',        label: 'Resume Analysis',     href: '/resume',           icon: FileText    },
-    { id: 'cover-letter',  label: 'Cover Letter',        href: '/cover-letter',     icon: Pen         },
-    { id: 'interviews',    label: 'Interviews',          href: '/interview',        icon: Video       },
-    { id: 'planner',       label: 'Planner',             href: '/planner',          icon: Calendar    },
-    { id: 'debrief',       label: 'Interview Journal',   href: '/debrief',          icon: NotebookPen },
-    { id: 'career-tools',  label: 'Career Tools',        href: '/career-tools',     icon: Sparkles    },
-    { id: 'job-tracker',   label: 'Job Tracker',         href: '/job-tracker',      icon: Briefcase   },
-    { id: 'new-interview', label: 'Start New Interview', href: '/interview/create', icon: Plus        },
-    { id: 'upload-resume', label: 'Upload Resume',       href: '/resume/upload',    icon: FileText    },
+    { id: 'dashboard',    label: 'Dashboard',            href: '/',                 icon: Home,        category: 'Navigation' },
+    { id: 'resume',       label: 'Resume Analysis',      href: '/resume',           icon: FileText,    category: 'Navigation' },
+    { id: 'cover-letter', label: 'Cover Letter',         href: '/cover-letter',     icon: Pen,         category: 'Navigation' },
+    { id: 'interviews',   label: 'Interviews',           href: '/interview',        icon: Video,       category: 'Navigation' },
+    { id: 'planner',      label: 'Planner',              href: '/planner',          icon: Calendar,    category: 'Navigation' },
+    { id: 'debrief',      label: 'Interview Journal',    href: '/debrief',          icon: NotebookPen, category: 'Navigation' },
+    { id: 'career-tools', label: 'Career Tools',         href: '/career-tools',     icon: Sparkles,    category: 'Navigation' },
+    { id: 'job-tracker',  label: 'Job Tracker',          href: '/job-tracker',      icon: Briefcase,   category: 'Navigation' },
+    { id: 'new-interview',label: 'Start New Interview',  href: '/interview/create', icon: Plus,        category: 'Actions'    },
+    { id: 'upload-resume',label: 'Upload Resume',        href: '/resume/upload',    icon: FileText,    category: 'Actions'    },
   ];
 
   const faqItems: FAQItem[] = [
-    { id: 'faq-g1',  label: 'What is Preciprocal?',                         category: 'general',      keywords: ['about', 'platform', 'overview'] },
-    { id: 'faq-g2',  label: 'How do I get started?',                        category: 'general',      keywords: ['start', 'begin', 'onboarding'] },
-    { id: 'faq-g4',  label: 'Is Preciprocal free to use?',                  category: 'general',      keywords: ['free', 'pricing', 'cost'] },
-    { id: 'faq-g5',  label: 'What are the subscription plans and limits?',  category: 'subscription', keywords: ['plans', 'pricing', 'limits'] },
-    { id: 'faq-g9',  label: 'Is my data secure and private?',               category: 'technical',    keywords: ['security', 'privacy', 'safe'] },
-    { id: 'faq-i1',  label: 'How does the AI interview simulation work?',   category: 'interviews',   keywords: ['interview', 'AI', 'simulation'] },
-    { id: 'faq-r1',  label: 'What does the ATS score mean?',                category: 'resume',       keywords: ['ATS', 'score', 'optimization'] },
-    { id: 'faq-c1',  label: 'How does the AI Cover Letter Generator work?', category: 'cover-letter', keywords: ['cover letter', 'generator'] },
-    { id: 'faq-p1',  label: 'How do I create an effective study plan?',     category: 'planner',      keywords: ['study plan', 'schedule'] },
+    { id: 'faq-g1',  label: 'What is Preciprocal?',                         category: 'general',      keywords: ['about', 'platform', 'overview', 'introduction'] },
+    { id: 'faq-g2',  label: 'How do I get started?',                        category: 'general',      keywords: ['start', 'begin', 'onboarding', 'setup', 'first steps'] },
+    { id: 'faq-g3',  label: 'Do I need to upload my resume?',               category: 'general',      keywords: ['resume', 'required', 'optional', 'mandatory'] },
+    { id: 'faq-g4',  label: 'Is Preciprocal free to use?',                  category: 'general',      keywords: ['free', 'pricing', 'cost', 'plans'] },
+    { id: 'faq-g5',  label: 'What are the subscription plans and limits?',  category: 'subscription', keywords: ['plans', 'pricing', 'limits', 'tiers', 'subscription'] },
+    { id: 'faq-g6',  label: 'Is there a student discount?',                 category: 'subscription', keywords: ['student', 'discount', 'education', 'university'] },
+    { id: 'faq-g7',  label: 'Can I cancel my subscription anytime?',        category: 'subscription', keywords: ['cancel', 'unsubscribe', 'stop', 'downgrade'] },
+    { id: 'faq-g8',  label: 'When do usage limits reset?',                  category: 'subscription', keywords: ['reset', 'limits', 'renewal', 'monthly'] },
+    { id: 'faq-g9',  label: 'Is my data secure and private?',               category: 'technical',    keywords: ['security', 'privacy', 'safe', 'encrypted', 'data'] },
+    { id: 'faq-g10', label: 'What browsers are supported?',                 category: 'technical',    keywords: ['browser', 'Chrome', 'Firefox', 'Safari', 'compatibility'] },
+    { id: 'faq-g11', label: 'Can I use Preciprocal on mobile?',             category: 'technical',    keywords: ['mobile', 'phone', 'tablet', 'responsive'] },
+    { id: 'faq-g12', label: 'Do I need a webcam or microphone?',            category: 'technical',    keywords: ['webcam', 'microphone', 'camera', 'audio', 'requirements'] },
+    { id: 'faq-g13', label: 'How do I update my profile?',                  category: 'account',      keywords: ['profile', 'update', 'edit', 'settings'] },
+    { id: 'faq-g14', label: 'Can I change my email address?',               category: 'account',      keywords: ['email', 'change email', 'update email'] },
+    { id: 'faq-g15', label: 'How do I delete my account?',                  category: 'account',      keywords: ['delete', 'remove', 'close account', 'deactivate'] },
+    { id: 'faq-g16', label: 'What is your refund policy?',                  category: 'support',      keywords: ['refund', 'money back', 'return', 'guarantee'] },
+    { id: 'faq-g17', label: 'How do I contact support?',                    category: 'support',      keywords: ['contact', 'support', 'help', 'ticket'] },
+    { id: 'faq-g18', label: 'What is your response time for tickets?',      category: 'support',      keywords: ['response time', 'support speed', 'wait time', '24 hours'] },
+    { id: 'faq-i1',  label: 'How does the AI interview simulation work?',   category: 'interviews',   keywords: ['interview', 'AI', 'simulation', 'how it works'] },
+    { id: 'faq-i2',  label: 'What interview types are supported?',          category: 'interviews',   keywords: ['types', 'technical', 'behavioral', 'system design'] },
+    { id: 'faq-i3',  label: 'Can I practice for specific companies?',       category: 'interviews',   keywords: ['company', 'specific', 'target', 'Google', 'Amazon'] },
+    { id: 'faq-i4',  label: 'How long does each interview session last?',   category: 'interviews',   keywords: ['duration', 'time', 'length', 'how long'] },
+    { id: 'faq-i5',  label: 'How accurate is the interview feedback?',      category: 'interviews',   keywords: ['feedback', 'accuracy', 'evaluation', 'scoring'] },
+    { id: 'faq-i6',  label: 'Can I review my past interview performances?', category: 'interviews',   keywords: ['review', 'history', 'past', 'transcripts'] },
+    { id: 'faq-i7',  label: 'Does the platform support voice interviews?',  category: 'interviews',   keywords: ['voice', 'audio', 'speaking', 'microphone', 'verbal'] },
+    { id: 'faq-i8',  label: 'What happens if I make a mistake?',            category: 'interviews',   keywords: ['mistake', 'error', 'wrong answer', 'retry'] },
+    { id: 'faq-i9',  label: 'What is the Interview Debrief Journal?',       category: 'interviews',   keywords: ['debrief', 'journal', 'log', 'track'] },
+    { id: 'faq-i10', label: 'How do I log a real interview?',               category: 'interviews',   keywords: ['log', 'real', 'debrief', 'record'] },
+    { id: 'faq-r1',  label: 'What does the ATS score mean?',                category: 'resume',       keywords: ['ATS', 'score', 'applicant tracking', 'optimization'] },
+    { id: 'faq-r2',  label: 'Can I analyze multiple resumes?',              category: 'resume',       keywords: ['multiple', 'versions', 'compare'] },
+    { id: 'faq-r3',  label: 'What file formats are supported for resume?',  category: 'resume',       keywords: ['format', 'PDF', 'upload', 'file type'] },
+    { id: 'faq-r4',  label: 'How does the Recruiter Eye Simulation work?',  category: 'resume',       keywords: ['recruiter', 'eye', 'simulation', 'perspective'] },
+    { id: 'faq-r5',  label: 'Does the AI improve my resume automatically?', category: 'resume',       keywords: ['automatic', 'AI editing', 'suggestions', 'improve'] },
+    { id: 'faq-r6',  label: 'How often should I update my resume?',         category: 'resume',       keywords: ['update', 'frequency', 'how often'] },
+    { id: 'faq-r7',  label: 'Can I download my analyzed resume?',           category: 'resume',       keywords: ['download', 'export', 'save', 'PDF'] },
+    { id: 'faq-c1',  label: 'How does the AI Cover Letter Generator work?', category: 'cover-letter', keywords: ['cover letter', 'generator', 'AI writing'] },
+    { id: 'faq-c2',  label: 'What information does the AI use?',            category: 'cover-letter', keywords: ['inputs', 'data sources', 'information', 'what does it use'] },
+    { id: 'faq-c3',  label: 'Can I customize the tone of my cover letter?', category: 'cover-letter', keywords: ['tone', 'style', 'customize', 'formal', 'casual'] },
+    { id: 'faq-c4',  label: 'How long does it take to generate?',           category: 'cover-letter', keywords: ['speed', 'time', 'how long', 'fast'] },
+    { id: 'faq-c5',  label: 'Does the cover letter use my resume?',         category: 'cover-letter', keywords: ['resume integration', 'uses resume', 'consistency'] },
+    { id: 'faq-c6',  label: 'Can I edit the generated cover letter?',       category: 'cover-letter', keywords: ['edit', 'modify', 'change', 'customize'] },
+    { id: 'faq-c7',  label: 'How many cover letters can I generate?',       category: 'cover-letter', keywords: ['limit', 'how many', 'count', 'quota'] },
+    { id: 'faq-p1',  label: 'How do I create an effective study plan?',     category: 'planner',      keywords: ['study plan', 'create plan', 'schedule'] },
+    { id: 'faq-p2',  label: 'Can I customize my study plan?',               category: 'planner',      keywords: ['customize', 'modify', 'adjust', 'personalize'] },
+    { id: 'faq-p3',  label: 'What happens if I miss a day in my plan?',     category: 'planner',      keywords: ['miss day', 'skip', 'behind schedule', 'late'] },
+    { id: 'faq-p4',  label: 'What happens when I complete all tasks?',      category: 'planner',      keywords: ['complete', 'finish', 'done', 'final quiz'] },
   ];
 
   const filteredNavigation = searchQuery
@@ -243,18 +282,20 @@ const SearchDropdown = () => {
     ? (() => {
         const q = searchQuery.toLowerCase().trim();
         if (!q) return [];
-        return faqItems
-          .map(item => {
-            const label = item.label.toLowerCase();
-            let score = 0;
-            if (label.startsWith(q))                                     score += 100;
-            if (label.includes(q))                                       score += 50;
-            if (item.keywords.some(k => k.toLowerCase().includes(q)))   score += 10;
-            return { item, score };
-          })
-          .filter(s => s.score > 0)
-          .sort((a, b) => b.score - a.score)
-          .map(s => s.item);
+        const scored = faqItems.map(item => {
+          const label = item.label.toLowerCase();
+          let score = 0;
+          if (label.startsWith(q))                                        score += 100;
+          if (label.includes(q))                                          score += 50;
+          if (item.keywords.some(k => k.toLowerCase().startsWith(q)))    score += 30;
+          if (item.keywords.some(k => k.toLowerCase().includes(q)))      score += 10;
+          q.split(' ').forEach(word => { if (word.length > 1 && label.includes(word)) score += 5; });
+          return { item, score };
+        })
+        .filter(s => s.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .map(s => s.item);
+        return scored;
       })()
     : [];
 
@@ -262,8 +303,10 @@ const SearchDropdown = () => {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      const el = document.getElementById('search-container');
-      if (el && !el.contains(event.target as Node)) setIsOpen(false);
+      const searchContainer = document.getElementById('search-container');
+      if (searchContainer && !searchContainer.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
     };
     if (isOpen) document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -318,7 +361,7 @@ const SearchDropdown = () => {
                 </div>
               </div>
               <div className="py-1">
-                {faqItems.map((item) => (
+                {faqItems.filter(f => ['faq-g1', 'faq-i1', 'faq-r1', 'faq-c1', 'faq-p1', 'faq-g5', 'faq-g9'].includes(f.id)).map((item) => (
                   <button
                     key={item.id}
                     onClick={() => handleFAQClick(item)}
@@ -335,7 +378,7 @@ const SearchDropdown = () => {
             </div>
           ) : !hasResults ? (
             <div className="p-6 text-center">
-              <p className="text-slate-400 text-sm font-medium">No results for &quot;{searchQuery}&quot;</p>
+              <p className="text-slate-400 text-sm font-medium">No results found for &quot;{searchQuery}&quot;</p>
             </div>
           ) : (
             <>
@@ -396,8 +439,8 @@ const SearchDropdown = () => {
                         onClick={() => { setIsOpen(false); setSearchQuery(''); }}
                         className="flex items-center justify-center gap-2 px-4 py-3.5
                                  bg-slate-800 text-purple-400 hover:text-purple-300
-                                 text-sm font-semibold transition-all duration-150 
-                                 border-t border-slate-700 cursor-pointer"
+                                 text-sm font-semibold hover:bg-slate-750
+                                 transition-all duration-150 border-t border-slate-700 cursor-pointer"
                       >
                         View all {filteredFAQs.length} FAQ results
                         <ChevronRight className="w-4 h-4" />
@@ -420,17 +463,14 @@ function LayoutContent({ children, user }: LayoutClientProps) {
   const [scrolled,        setScrolled]        = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [savedAccounts,   setSavedAccounts]   = useState<Array<{email: string, name: string}>>([]);
-  const [recentPages,     setRecentPages]     = React.useState<NavItem[]>([]);
-  const [authResolved,    setAuthResolved]    = useState(false);
-
-  const pathname = usePathname();
-  const router   = useRouter();
-
-  // Firebase client auth state — this is the source of truth on the client
-  const [currentUser, firebaseLoading] = useAuthState(auth);
+  const pathname  = usePathname();
+  const [recentPages, setRecentPages] = React.useState<NavItem[]>([]);
+  const router    = useRouter();
+  const [currentUser, loading] = useAuthState(auth);
+  const [authResolved, setAuthResolved] = useState(false);
 
   const { latestResume } = useResumeCount();
-
+  
   const {
     notifications,
     unreadCount,
@@ -440,38 +480,28 @@ function LayoutContent({ children, user }: LayoutClientProps) {
     deleteNotification,
   } = useNotifications(currentUser?.uid);
 
-  const photoURL   = currentUser?.photoURL ?? null;
+  const photoURL = currentUser?.photoURL ?? null;
 
-  // ── Route classification ───────────────────────────────────────────────────
-  const authPages   = ['/sign-in', '/sign-up', '/forgot-password', '/reset-password', '/verify-email', '/onboarding', '/auth'];
-  const publicPages = ['/help', '/terms', '/privacy', '/subscription'];
-  const isAuthPage    = authPages.some(p  => pathname.startsWith(p));
-  const isPublicPage  = publicPages.some(p => pathname.startsWith(p));
-  const isPublicRoute = PUBLIC_ROUTES.some(r => pathname.startsWith(r));
-
-  // ── Wait for Firebase to resolve before making any routing decisions ───────
+  // Wait for Firebase to resolve before making routing decisions
   useEffect(() => {
-    if (!firebaseLoading) {
-      setAuthResolved(true);
-    }
-  }, [firebaseLoading]);
-
-  // ── Redirect unauthenticated users ONLY after auth is resolved ────────────
-  useEffect(() => {
-    if (!authResolved) return;
-    if (isPublicRoute) return;
-    if (!currentUser && !user) {
-      router.push(`/sign-in?redirect=${encodeURIComponent(pathname)}`);
-    }
-  }, [authResolved, currentUser, user, isPublicRoute, pathname, router]);
+    if (!loading) setAuthResolved(true);
+  }, [loading]);
 
   useEffect(() => {
     const accounts = localStorage.getItem('saved_accounts');
     if (accounts) {
       try { setSavedAccounts(JSON.parse(accounts)); }
-      catch { /* ignore */ }
+      catch (e) { console.error('Failed to parse saved accounts:', e); }
     }
   }, []);
+
+  useEffect(() => {
+    const isPublicRoute = PUBLIC_ROUTES.some(route => pathname.startsWith(route));
+    if (!authResolved) return;
+    if (!user && !currentUser && !isPublicRoute) {
+      router.push(`/sign-in?redirect=${encodeURIComponent(pathname)}`);
+    }
+  }, [user, currentUser, authResolved, pathname, router]);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10);
@@ -481,33 +511,53 @@ function LayoutContent({ children, user }: LayoutClientProps) {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      const el = document.getElementById('account-menu-container');
-      if (el && !el.contains(event.target as Node)) setShowAccountMenu(false);
+      const accountMenu = document.getElementById('account-menu-container');
+      if (accountMenu && !accountMenu.contains(event.target as Node)) {
+        setShowAccountMenu(false);
+      }
     };
     if (showAccountMenu) document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showAccountMenu]);
 
-  // ── Recent pages tracking ─────────────────────────────────────────────────
-  const TRACKED: NavItem[] = [
-    { id: 'resume',       label: 'Resume',            icon: FileText,    href: '/resume'       },
-    { id: 'cover-letter', label: 'Cover Letter',      icon: Pen,         href: '/cover-letter' },
-    { id: 'interviews',   label: 'Interviews',        icon: Video,       href: '/interview'    },
-    { id: 'planner',      label: 'Planner',           icon: Calendar,    href: '/planner'      },
-    { id: 'debrief',      label: 'Interview Journal', icon: NotebookPen, href: '/debrief'      },
-    { id: 'career-tools', label: 'Career Tools',      icon: Sparkles,    href: '/career-tools' },
-    { id: 'job-tracker',  label: 'Job Tracker',       icon: Briefcase,   href: '/job-tracker'  },
-    { id: 'templates',    label: 'Templates',         icon: BookOpen,    href: '/templates'    },
+  const mainNavItems: NavItem[] = [
+    { id: 'overview',     label: 'Overview',          icon: Home,        href: '/'             },
+    { id: 'resume',       label: 'Resume',             icon: FileText,    href: '/resume'       },
+    { id: 'cover-letter', label: 'Cover Letter',       icon: Pen,         href: '/cover-letter' },
+    { id: 'interviews',   label: 'Interviews',         icon: Video,       href: '/interview'    },
+    { id: 'planner',      label: 'Planner',            icon: Calendar,    href: '/planner'      },
+    { id: 'debrief',      label: 'Interview Journal',  icon: NotebookPen, href: '/debrief'      },
+    { id: 'career-tools', label: 'Career Tools',       icon: Sparkles,    href: '/career-tools' },
+    { id: 'job-tracker',  label: 'Job Tracker',        icon: Briefcase,   href: '/job-tracker'  },
   ];
 
-  useEffect(() => {
-    try {
-      const stored: string[] = JSON.parse(localStorage.getItem('prc_recent') || '[]');
-      setRecentPages(stored.map(id => TRACKED.find(p => p.id === id)!).filter(Boolean));
-    } catch { /* ignore */ }
-  }, []);
+  const teamSpaces: NavItem[] = [
+    { id: 'templates', label: 'Templates', icon: BookOpen, href: '/templates' },
+  ];
 
-  useEffect(() => {
+  const otherItems: NavItem[] = [
+    { id: 'settings', label: 'Settings', icon: Settings,   href: '/settings' },
+    { id: 'help',     label: 'Support',  icon: HelpCircle, href: '/help'     },
+  ];
+
+  const authPages   = ['/sign-in', '/sign-up', '/forgot-password', '/reset-password', '/verify-email', '/onboarding', '/auth/action', '/auth'];
+  const publicPages = ['/help', '/terms', '/privacy', '/subscription'];
+
+  const isAuthPage    = authPages.some(page   => pathname.startsWith(page));
+  const isPublicPage  = publicPages.some(page => pathname.startsWith(page));
+  const isPublicRoute = PUBLIC_ROUTES.some(route => pathname.startsWith(route));
+
+  React.useEffect(() => {
+    const TRACKED = [
+      { id: 'resume',       label: 'Resume',            icon: FileText,    href: '/resume'       },
+      { id: 'cover-letter', label: 'Cover Letter',      icon: Pen,         href: '/cover-letter' },
+      { id: 'interviews',   label: 'Interviews',        icon: Video,       href: '/interview'    },
+      { id: 'planner',      label: 'Planner',           icon: Calendar,    href: '/planner'      },
+      { id: 'debrief',      label: 'Interview Journal', icon: NotebookPen, href: '/debrief'      },
+      { id: 'career-tools', label: 'Career Tools',      icon: Sparkles,    href: '/career-tools' },
+      { id: 'job-tracker',  label: 'Job Tracker',       icon: Briefcase,   href: '/job-tracker'  },
+      { id: 'templates',    label: 'Templates',         icon: BookOpen,    href: '/templates'    },
+    ];
     const match = TRACKED.find(p => pathname === p.href || pathname.startsWith(p.href + '/'));
     if (!match) return;
     try {
@@ -515,27 +565,41 @@ function LayoutContent({ children, user }: LayoutClientProps) {
       const updated = [match.id, ...stored.filter(id => id !== match.id)].slice(0, 3);
       localStorage.setItem('prc_recent', JSON.stringify(updated));
       setRecentPages(updated.map(id => TRACKED.find(p => p.id === id)!).filter(Boolean));
-    } catch { /* ignore */ }
+    } catch { /* localStorage unavailable */ }
   }, [pathname]);
 
-  // ── Render: auth/public pages — no shell ──────────────────────────────────
-  if (isAuthPage || isPublicPage) {
-    return <div className="min-h-screen">{children}</div>;
-  }
+  React.useEffect(() => {
+    const TRACKED = [
+      { id: 'resume',       label: 'Resume',            icon: FileText,    href: '/resume'       },
+      { id: 'cover-letter', label: 'Cover Letter',      icon: Pen,         href: '/cover-letter' },
+      { id: 'interviews',   label: 'Interviews',        icon: Video,       href: '/interview'    },
+      { id: 'planner',      label: 'Planner',           icon: Calendar,    href: '/planner'      },
+      { id: 'debrief',      label: 'Interview Journal', icon: NotebookPen, href: '/debrief'      },
+      { id: 'career-tools', label: 'Career Tools',      icon: Sparkles,    href: '/career-tools' },
+      { id: 'job-tracker',  label: 'Job Tracker',       icon: Briefcase,   href: '/job-tracker'  },
+      { id: 'templates',    label: 'Templates',         icon: BookOpen,    href: '/templates'    },
+    ];
+    try {
+      const stored: string[] = JSON.parse(localStorage.getItem('prc_recent') || '[]');
+      setRecentPages(stored.map(id => TRACKED.find(p => p.id === id)!).filter(Boolean));
+    } catch { /* localStorage unavailable */ }
+  }, []);
 
-  // ── Render: still waiting for Firebase — show loader, NEVER black screen ─
+  // Auth/public pages — no shell
+  if (isAuthPage || isPublicPage) return <div className="min-h-screen">{children}</div>;
+
+  // Firebase still resolving — show loader, never black screen
   if (!authResolved) {
     return <AnimatedLoader isVisible={true} loadingText="Loading..." showNavigation={false} />;
   }
 
-  // ── Render: not authenticated and not a public route — show loader while redirect happens ─
-  if (!currentUser && !user && !isPublicRoute) {
+  // Not authenticated on a protected route — loader while redirect fires
+  if (!user && !currentUser && !isPublicRoute) {
     return <AnimatedLoader isVisible={true} loadingText="Loading..." showNavigation={false} />;
   }
 
-  // ── From here the user is authenticated ──────────────────────────────────
-  const safeUser  = user || {};
-  const planInfo  = FREE_PLAN_INFO;
+  const safeUser = user || {};
+  const planInfo = FREE_PLAN_INFO;
 
   const getInitials = (name?: string | null) => {
     if (!name || typeof name !== 'string' || name.trim() === '') return "U";
@@ -560,35 +624,15 @@ function LayoutContent({ children, user }: LayoutClientProps) {
     if (typeof window !== 'undefined' && window.innerWidth < 1024) setSidebarOpen(false);
   };
 
-  const isActive  = (href: string) => pathname === href;
-  const PlanIcon  = planInfo.icon;
-
-  const mainNavItems: NavItem[] = [
-    { id: 'overview',     label: 'Overview',         icon: Home,        href: '/'             },
-    { id: 'resume',       label: 'Resume',            icon: FileText,    href: '/resume'       },
-    { id: 'cover-letter', label: 'Cover Letter',      icon: Pen,         href: '/cover-letter' },
-    { id: 'interviews',   label: 'Interviews',        icon: Video,       href: '/interview'    },
-    { id: 'planner',      label: 'Planner',           icon: Calendar,    href: '/planner'      },
-    { id: 'debrief',      label: 'Interview Journal', icon: NotebookPen, href: '/debrief'      },
-    { id: 'career-tools', label: 'Career Tools',      icon: Sparkles,    href: '/career-tools' },
-    { id: 'job-tracker',  label: 'Job Tracker',       icon: Briefcase,   href: '/job-tracker'  },
-  ];
-
-  const teamSpaces: NavItem[] = [
-    { id: 'templates', label: 'Templates', icon: BookOpen, href: '/templates' },
-  ];
-
-  const otherItems: NavItem[] = [
-    { id: 'settings', label: 'Settings', icon: Settings,   href: '/settings' },
-    { id: 'help',     label: 'Support',  icon: HelpCircle, href: '/help'     },
-  ];
+  const isActive = (href: string) => pathname === href;
+  const PlanIcon = planInfo.icon;
 
   return (
     <div className="min-h-screen relative overflow-hidden">
       <div className="fixed inset-0 bg-gradient-to-br from-slate-900/95 via-purple-900/90 to-slate-900/95 -z-10" />
-
+      
       {sidebarOpen && (
-        <div
+        <div 
           className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
@@ -614,7 +658,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
           </div>
 
           {/* Account switcher */}
-          <div
+          <div 
             id="account-menu-container"
             onClick={() => setShowAccountMenu(!showAccountMenu)}
             className="w-full flex items-center space-x-3 mt-4
@@ -630,13 +674,13 @@ function LayoutContent({ children, user }: LayoutClientProps) {
             <div className="flex-1 min-w-0">
               <p className="text-white font-medium text-sm truncate text-left">{safeUser?.name || 'User'}</p>
               <div className="flex items-center space-x-1 text-slate-400 text-xs">
-                <span className="truncate text-left">{safeUser?.email || currentUser?.email || 'user@example.com'}</span>
+                <span className="truncate text-left">{safeUser?.email || 'user@example.com'}</span>
                 <ChevronDown className={`w-3 h-3 flex-shrink-0 transition-transform ${showAccountMenu ? 'rotate-180' : ''}`} />
               </div>
             </div>
 
             {showAccountMenu && (
-              <div
+              <div 
                 className="absolute top-full left-0 right-0 mt-2 bg-slate-800/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-xl z-50 overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
               >
@@ -647,7 +691,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
                       <UserAvatar photoURL={photoURL} initials={userInitials} size="sm" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-white truncate">{safeUser?.name || 'User'}</p>
-                        <p className="text-xs text-slate-400 truncate">{safeUser?.email || currentUser?.email || ''}</p>
+                        <p className="text-xs text-slate-400 truncate">{safeUser?.email || 'user@example.com'}</p>
                       </div>
                     </div>
                   </div>
@@ -655,21 +699,24 @@ function LayoutContent({ children, user }: LayoutClientProps) {
                   {savedAccounts.length > 0 && (
                     <div className="px-3 py-2 border-b border-white/10">
                       <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Switch Account</p>
-                      {savedAccounts.map((account, index) => (
-                        <button
-                          key={index}
-                          onClick={() => { setShowAccountMenu(false); }}
-                          className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors mb-1 cursor-pointer"
-                        >
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
-                            {getInitials(account.name)}
-                          </div>
-                          <div className="flex-1 min-w-0 text-left">
-                            <p className="text-sm font-medium text-white truncate">{account.name}</p>
-                            <p className="text-xs text-slate-400 truncate">{account.email}</p>
-                          </div>
-                        </button>
-                      ))}
+                      {savedAccounts.map((account, index) => {
+                        const accountInitials = getInitials(account.name);
+                        return (
+                          <button
+                            key={index}
+                            onClick={() => { setShowAccountMenu(false); }}
+                            className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors mb-1 cursor-pointer"
+                          >
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+                              {accountInitials}
+                            </div>
+                            <div className="flex-1 min-w-0 text-left">
+                              <p className="text-sm font-medium text-white truncate">{account.name}</p>
+                              <p className="text-xs text-slate-400 truncate">{account.email}</p>
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
 
@@ -693,7 +740,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
                       <Settings className="w-4 h-4" />
                       <span className="text-sm">Account Settings</span>
                     </Link>
-
+                    
                     <Link
                       href="/pricing"
                       onClick={() => { setShowAccountMenu(false); handleLinkClick(); }}
@@ -722,7 +769,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
 
         {/* Quick actions */}
         <div className="p-3 space-y-2">
-          <Link
+          <Link 
             href="/interview/create"
             onClick={handleLinkClick}
             className="glass-button-primary w-full px-4 py-3 rounded-xl hover-lift flex items-center justify-center group
@@ -732,8 +779,8 @@ function LayoutContent({ children, user }: LayoutClientProps) {
             <Plus className="w-4 h-4 mr-2 group-hover:rotate-90 transition-transform duration-200" />
             <span className="font-medium text-white">Start Interview</span>
           </Link>
-
-          <Link
+          
+          <Link 
             href="/resume/upload"
             onClick={handleLinkClick}
             className="w-full px-4 py-3 rounded-xl hover-lift flex items-center justify-center group
@@ -750,11 +797,13 @@ function LayoutContent({ children, user }: LayoutClientProps) {
           <div className="px-3 py-2">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Menu</p>
           </div>
-
+          
           {mainNavItems.map((item) => {
             const Icon   = item.icon;
             const active = isActive(item.href);
-            const isNew  = ['debrief', 'career-tools', 'job-tracker'].includes(item.id);
+            const isDebrief     = item.id === 'debrief';
+            const isCareerTools = item.id === 'career-tools';
+            const isJobTracker  = item.id === 'job-tracker';
 
             return (
               <Link
@@ -762,8 +811,8 @@ function LayoutContent({ children, user }: LayoutClientProps) {
                 href={item.href}
                 onClick={handleLinkClick}
                 className={`group flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 cursor-pointer ${
-                  active
-                    ? 'bg-white/10 text-white shadow-sm'
+                  active 
+                    ? 'bg-white/10 text-white shadow-sm' 
                     : 'text-slate-300 hover:bg-white/5 hover:text-white'
                 }`}
               >
@@ -771,7 +820,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
                   <Icon className={`w-5 h-5 ${active ? 'text-purple-400' : 'text-slate-400'}`} />
                   <span className="font-medium text-sm">{item.label}</span>
                 </div>
-                {isNew && !active && (
+                {(isDebrief || isCareerTools || isJobTracker) && !active && (
                   <span className="text-xs px-1.5 py-0.5 rounded-full bg-violet-500/20 text-violet-400 border border-violet-500/30 font-medium leading-none">
                     New
                   </span>
@@ -782,7 +831,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
 
           {/* Resources */}
           <div className="pt-6">
-            <div className="px-3 py-2">
+            <div className="flex items-center justify-between px-3 py-2">
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Resources</p>
             </div>
             {teamSpaces.map((item) => {
@@ -805,8 +854,8 @@ function LayoutContent({ children, user }: LayoutClientProps) {
 
           {/* Recent */}
           {recentPages.length > 0 && (() => {
-            const item     = recentPages[0];
-            const Icon     = item.icon;
+            const item   = recentPages[0];
+            const Icon   = item.icon;
             const isResume = item.id === 'resume';
             return (
               <div className="pt-4">
@@ -875,8 +924,9 @@ function LayoutContent({ children, user }: LayoutClientProps) {
                 <span>{planInfo.text}</span>
               </div>
             </div>
+
             {planInfo.showUpgrade && (
-              <Link
+              <Link 
                 href="/pricing"
                 onClick={handleLinkClick}
                 className="glass-button-primary w-full px-4 py-2.5 rounded-lg hover-lift flex items-center justify-center text-white text-sm font-medium
@@ -909,8 +959,8 @@ function LayoutContent({ children, user }: LayoutClientProps) {
       <div className="lg:pl-64 min-h-screen flex flex-col">
         <header className={`fixed top-0 right-0 left-0 lg:left-64 z-40 
                           border-b border-white/10 backdrop-blur-xl transition-all duration-300 ${
-          scrolled
-            ? 'bg-slate-900/95 shadow-lg'
+          scrolled 
+            ? 'bg-slate-900/95 shadow-lg' 
             : 'bg-slate-900/80 shadow-sm'
         }`}>
           <div className="flex items-center justify-between px-6 py-4">
@@ -921,7 +971,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
               >
                 <Menu className="w-6 h-6 text-white" />
               </button>
-
+              
               <div className="hidden lg:block flex-1 max-w-2xl">
                 <SearchDropdown />
               </div>
