@@ -181,7 +181,7 @@ function VerifyEmailContent() {
             </p>
           )}
           <p className="text-slate-500 text-center text-xs mb-8">
-            Your account will be created once you verify your email. This page redirects automatically.
+            Click the link in that email to verify your address and finish setting up your account. This page redirects automatically once confirmed.
           </p>
 
           {/* Primary CTA */}
