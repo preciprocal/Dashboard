@@ -7,7 +7,7 @@ import logo from "@/public/logo.png";
 
 export interface LoadingStep {
   name: string;
-  weight?: number; // Weight of this step in total progress (default: 1)
+  weight?: number;
 }
 
 interface AnimatedLoaderProps {
@@ -18,10 +18,10 @@ interface AnimatedLoaderProps {
   onDashboard?: () => void;
   onBack?: () => void;
   showNavigation?: boolean;
-  progress?: number; // Manual progress control (0-100)
-  steps?: LoadingStep[]; // Define loading steps for automatic tracking
-  currentStep?: number; // Current step index (for step-based progress)
-  mode?: 'auto' | 'manual' | 'steps'; // Progress mode
+  progress?: number;
+  steps?: LoadingStep[];
+  currentStep?: number;
+  mode?: 'auto' | 'manual' | 'steps';
 }
 
 const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
@@ -36,12 +36,12 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
   mode = 'auto'
 }) => {
   const router = useRouter();
-  const [shouldRender, setShouldRender] = useState(isVisible);
-  const [fadeOut, setFadeOut] = useState(false);
+  const [shouldRender, setShouldRender]         = useState(isVisible);
+  const [fadeOut, setFadeOut]                   = useState(false);
   const [currentQuoteIndex, setCurrentQuoteIndex] = useState(0);
   const [randomizedMessages, setRandomizedMessages] = useState<string[]>([]);
-  const [progress, setProgress] = useState(0);
-  const [currentStepName, setCurrentStepName] = useState<string>('');
+  const [progress, setProgress]                 = useState(0);
+  const [currentStepName, setCurrentStepName]   = useState<string>('');
 
   const funnyMessages = useMemo(() => [
     "Convincing AI it's not a robot 🤖",
@@ -85,26 +85,20 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
     return shuffled;
   }, []);
 
-  // Calculate progress based on steps
   const calculateStepProgress = useCallback(() => {
     if (steps.length === 0) return 0;
-
     const totalWeight = steps.reduce((sum, step) => sum + (step.weight || 1), 0);
     let completedWeight = 0;
-
     for (let i = 0; i < Math.min(currentStep, steps.length); i++) {
       completedWeight += steps[i].weight || 1;
     }
-
     return Math.min(100, (completedWeight / totalWeight) * 100);
   }, [steps, currentStep]);
 
-  // Initialize randomized messages
   useEffect(() => {
     setRandomizedMessages(shuffleArray(funnyMessages));
   }, [shuffleArray, funnyMessages]);
 
-  // Progress animation based on mode
   useEffect(() => {
     if (isVisible) {
       setShouldRender(true);
@@ -114,37 +108,26 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
       let progressInterval: NodeJS.Timeout | null = null;
       let quoteInterval: NodeJS.Timeout | null = null;
 
-      // Handle different progress modes
       if (mode === 'manual' && manualProgress !== undefined) {
-        // Manual mode: use provided progress
         setProgress(Math.min(100, Math.max(0, manualProgress)));
       } else if (mode === 'steps') {
-        // Steps mode: calculate progress from current step
         const stepProgress = calculateStepProgress();
         setProgress(stepProgress);
-        
-        // Update current step name
         if (currentStep < steps.length) {
           setCurrentStepName(steps[currentStep].name);
         }
       } else {
-        // Auto mode: animate progress over duration
         setProgress(0);
         const startTime = Date.now();
         const interval = 50;
-
         progressInterval = setInterval(() => {
           const elapsed = Date.now() - startTime;
           const newProgress = Math.min(100, (elapsed / duration) * 100);
           setProgress(newProgress);
-
-          if (newProgress >= 100) {
-            clearInterval(progressInterval!);
-          }
+          if (newProgress >= 100) clearInterval(progressInterval!);
         }, interval);
       }
 
-      // Rotate quotes every 3 seconds
       quoteInterval = setInterval(() => {
         setCurrentQuoteIndex(prev => {
           const nextIndex = prev + 1;
@@ -169,66 +152,55 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
       return () => clearTimeout(timer);
     }
   }, [
-    isVisible,
-    onHide,
-    duration,
-    mode,
-    manualProgress,
-    currentStep,
-    steps,
-    calculateStepProgress,
-    randomizedMessages.length,
-    shuffleArray,
-    funnyMessages
+    isVisible, onHide, duration, mode, manualProgress, currentStep,
+    steps, calculateStepProgress, randomizedMessages.length, shuffleArray, funnyMessages
   ]);
 
-  // Update progress when manual progress changes
   useEffect(() => {
     if (mode === 'manual' && manualProgress !== undefined) {
       setProgress(Math.min(100, Math.max(0, manualProgress)));
     }
   }, [manualProgress, mode]);
 
-  // Update progress when step changes
   useEffect(() => {
     if (mode === 'steps') {
       const stepProgress = calculateStepProgress();
       setProgress(stepProgress);
-      
       if (currentStep < steps.length) {
         setCurrentStepName(steps[currentStep].name);
       }
     }
   }, [currentStep, mode, calculateStepProgress, steps]);
 
-  const handleBack = () => {
-    router.back();
-  };
-
-  const handleHelp = () => {
-    router.push('/help');
-  };
+  const handleBack = () => router.back();
+  const handleHelp = () => router.push('/help');
 
   if (!shouldRender) return null;
 
-  // Calculate circle properties
   const radius = 58;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
 
+  const currentMessage = randomizedMessages[currentQuoteIndex] || funnyMessages[0];
+
   return (
-    <div className={`fixed inset-0 z-[9999] flex items-center justify-center transition-opacity duration-600 ${
-      fadeOut ? 'opacity-0' : 'opacity-100'
-    }`}>
+    <div
+      className={`fixed inset-0 z-[9999] flex items-center justify-center transition-opacity duration-600 ${
+        fadeOut ? 'opacity-0' : 'opacity-100'
+      }`}
+    >
       {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800" />
-      
+
       {/* Subtle Grid */}
-      <div className="absolute inset-0 opacity-5" style={{
-        backgroundImage: `linear-gradient(rgba(139, 92, 246, 0.1) 1px, transparent 1px),
-                         linear-gradient(90deg, rgba(139, 92, 246, 0.1) 1px, transparent 1px)`,
-        backgroundSize: '50px 50px'
-      }} />
+      <div
+        className="absolute inset-0 opacity-5"
+        style={{
+          backgroundImage: `linear-gradient(rgba(139, 92, 246, 0.1) 1px, transparent 1px),
+                           linear-gradient(90deg, rgba(139, 92, 246, 0.1) 1px, transparent 1px)`,
+          backgroundSize: '50px 50px',
+        }}
+      />
 
       {/* Navigation Buttons */}
       {showNavigation && (
@@ -252,11 +224,10 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
 
       {/* Main Content */}
       <div className="flex flex-col items-center gap-10 px-4 relative z-10">
-        
+
         {/* Progress Circle */}
         <div className="relative">
           <svg className="w-32 h-32 -rotate-90">
-            {/* Background circle */}
             <circle
               cx="64"
               cy="64"
@@ -265,7 +236,6 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
               strokeWidth="4"
               fill="none"
             />
-            {/* Progress circle */}
             <circle
               cx="64"
               cy="64"
@@ -276,9 +246,7 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
               strokeDasharray={circumference}
               strokeDashoffset={strokeDashoffset}
               strokeLinecap="round"
-              style={{
-                transition: 'stroke-dashoffset 0.3s ease-out'
-              }}
+              style={{ transition: 'stroke-dashoffset 0.3s ease-out' }}
             />
             <defs>
               <linearGradient id="loaderGradient" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -289,13 +257,12 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
             </defs>
           </svg>
 
-          {/* Center Content - Logo only */}
+          {/* Logo */}
           <div className="absolute inset-0 flex items-center justify-center">
-            {/* Logo */}
             <div className="w-16 h-16 flex items-center justify-center">
               <Image
                 src={logo}
-                alt="Preciprocal Logo"
+                alt="Preciprocal"
                 width={64}
                 height={64}
                 className="object-contain"
@@ -304,9 +271,9 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
             </div>
           </div>
 
-          {/* Glow effect */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div 
+          {/* Glow */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div
               className="w-20 h-20 bg-purple-500/20 rounded-full blur-2xl transition-opacity duration-300"
               style={{ opacity: progress / 100 }}
             />
@@ -314,27 +281,32 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
         </div>
 
         {/* Loading Info */}
-        <div className="text-center space-y-4 max-w-md">
+        <div className="flex flex-col items-center gap-4 max-w-sm w-full text-center">
           <h2 className="text-xl font-semibold text-white">
             {loadingText}
           </h2>
 
-          {/* Current Step Name (if in steps mode) */}
           {mode === 'steps' && currentStepName && (
-            <p className="text-sm text-slate-400 font-medium">
-              {currentStepName}
-            </p>
+            <p className="text-sm text-slate-400 font-medium">{currentStepName}</p>
           )}
-          
-          {/* Rotating Quote */}
-          <div className="glass-morphism px-6 py-3 rounded-full inline-flex items-center gap-3 border border-white/10">
-            <div className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse" />
-            <span className="text-sm text-slate-300 font-medium">
-              {randomizedMessages[currentQuoteIndex] || funnyMessages[0]}
+
+          {/* Fun fact pill — explicit dark background, no glass-morphism class */}
+          <div
+            className="flex items-center gap-3 px-5 py-2.5 rounded-full border border-white/10 max-w-full"
+            style={{
+              background: 'rgba(15, 23, 42, 0.75)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+            }}
+          >
+            <div className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse flex-shrink-0" />
+            <span className="text-sm text-slate-300 font-medium leading-snug">
+              {currentMessage}
             </span>
           </div>
 
-          <div className="flex items-center justify-center gap-1.5 pt-2">
+          {/* Bouncing dots */}
+          <div className="flex items-center justify-center gap-1.5 pt-1">
             {[0, 150, 300].map((delay, idx) => (
               <div
                 key={idx}
