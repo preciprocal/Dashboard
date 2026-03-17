@@ -239,14 +239,14 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
 
         {/* Progress Circle */}
         <div className="relative">
-          <svg className="w-32 h-32 -rotate-90">
+          <svg className="w-32 h-32 -rotate-90" style={{ background: 'transparent' }}>
             <circle
               cx="64"
               cy="64"
               r={radius}
-              stroke="rgba(139, 92, 246, 0.1)"
+              fill="rgba(9, 13, 26, 0.85)"
+              stroke="rgba(139, 92, 246, 0.12)"
               strokeWidth="4"
-              fill="none"
             />
             <circle
               cx="64"
