@@ -8,7 +8,7 @@ const apiKey = process.env.CLAUDE_API_KEY;
 const anthropic = apiKey ? new Anthropic({ apiKey }) : null;
 
 // ─────────────────────────────────────────────────────────────────
-// Prompt — the key to brutal honesty
+// Prompt
 // ─────────────────────────────────────────────────────────────────
 
 const BENCHMARK_SYSTEM_PROMPT = `You are a senior technical recruiter and hiring manager with 15+ years of experience at top-tier companies (FAANG, top startups, Fortune 500). You have reviewed tens of thousands of resumes and have a sharp, unfiltered eye for what separates candidates who get interviews from those who get rejected immediately.
@@ -54,8 +54,10 @@ Content Quality: ${contentScore}/100
 Structure & Format: ${structureScore}/100
 Skills & Keywords: ${skillsScore}/100
 
-=== RESUME TEXT ===
-${resumeText ? resumeText.slice(0, 4000) : '[Resume text not available — base analysis on the scores and context provided]'}
+${resumeText
+  ? `=== RESUME TEXT ===\n${resumeText.slice(0, 4000)}`
+  : '=== NOTE === The resume PDF is attached above as a document. Read it directly — do not rely on extracted text.'
+}
 
 === YOUR TASK ===
 Produce a JSON object with this EXACT structure:
@@ -114,7 +116,7 @@ Produce a JSON object with this EXACT structure:
     },
     {
       "name": "Impact & Achievements",
-      "userScore": <assess from resume text, 0-100>,
+      "userScore": <assess from resume content, 0-100>,
       "peerMedian": <number>,
       "hiredMedian": <number>,
       "topTen": <number>,
@@ -146,6 +148,33 @@ Produce a JSON object with this EXACT structure:
 }
 `;
 };
+
+// ─────────────────────────────────────────────────────────────────
+// Fetch PDF bytes from resumePath (data: URL or remote URL)
+// Returns base64 string or null
+// ─────────────────────────────────────────────────────────────────
+async function fetchPdfAsBase64(resumePath: string): Promise<string | null> {
+  try {
+    // Case 1: inline data URL — data:application/pdf;base64,<data>
+    if (resumePath.startsWith('data:')) {
+      const commaIdx = resumePath.indexOf(',');
+      if (commaIdx === -1) return null;
+      return resumePath.slice(commaIdx + 1);
+    }
+
+    // Case 2: remote URL (Firebase Storage signed URL or public URL)
+    const response = await fetch(resumePath);
+    if (!response.ok) {
+      console.warn('⚠️ Could not fetch PDF from URL:', response.status);
+      return null;
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    return Buffer.from(arrayBuffer).toString('base64');
+  } catch (err) {
+    console.warn('⚠️ fetchPdfAsBase64 failed:', err);
+    return null;
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────
 // POST handler
@@ -203,8 +232,54 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, data: cached, cached: true });
     }
 
+    // ── Determine content strategy ──
+    // Use resumeText if it's rich enough (>300 chars = likely real content).
+    // Otherwise fetch the raw PDF and send it directly to Claude — this handles
+    // LaTeX resumes perfectly since Claude reads PDF natively without OCR loss.
+    const existingText = (resumeData.resumeText as string) || (resumeData.extractedText as string) || '';
+    const textIsRich   = existingText.trim().length > 300;
+
+    let pdfBase64: string | null = null;
+    if (!textIsRich) {
+      const resumePath = resumeData.resumePath as string | undefined;
+      if (resumePath) {
+        console.log('📄 Text thin/missing — fetching raw PDF for direct Claude analysis');
+        pdfBase64 = await fetchPdfAsBase64(resumePath);
+        if (pdfBase64) {
+          console.log(`✅ PDF fetched — ${Math.round(pdfBase64.length * 0.75 / 1024)}KB`);
+        } else {
+          console.warn('⚠️ Could not fetch PDF — falling back to text-only analysis');
+        }
+      }
+    }
+
+    // ── Build Claude message content ──
+    // When we have the raw PDF, prepend it as a document block so Claude reads
+    // the actual vector text rather than OCR'd output. Works perfectly for LaTeX.
+    type ContentBlock =
+      | { type: 'document'; source: { type: 'base64'; media_type: 'application/pdf'; data: string } }
+      | { type: 'text'; text: string };
+
+    const userContent: ContentBlock[] = [];
+
+    if (pdfBase64) {
+      userContent.push({
+        type: 'document',
+        source: {
+          type: 'base64',
+          media_type: 'application/pdf',
+          data: pdfBase64,
+        },
+      });
+    }
+
+    userContent.push({
+      type: 'text',
+      text: buildPrompt(resumeData),
+    });
+
     // ── Call Claude ──
-    console.log('🤖 Calling Claude for benchmark:', resumeId);
+    console.log('🤖 Calling Claude for benchmark:', resumeId, pdfBase64 ? '(with PDF)' : '(text only)');
 
     let rawText: string;
     try {
@@ -214,7 +289,7 @@ export async function POST(request: NextRequest) {
         temperature: 0.4,
         system: BENCHMARK_SYSTEM_PROMPT,
         messages: [
-          { role: 'user', content: buildPrompt(resumeData) }
+          { role: 'user', content: userContent },
         ],
       });
       rawText = response.content[0].type === 'text' ? response.content[0].text : '';
@@ -230,13 +305,11 @@ export async function POST(request: NextRequest) {
     // ── Parse JSON ──
     let benchmarkData: Record<string, unknown>;
     try {
-      // Strip markdown fences if present
       let cleaned = rawText
         .replace(/```json\s*/gi, '')
         .replace(/```\s*/g, '')
         .trim();
 
-      // Fallback: extract the first {...} block in case Claude added preamble text
       if (!cleaned.startsWith('{')) {
         const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
         if (jsonMatch) cleaned = jsonMatch[0];
@@ -251,12 +324,11 @@ export async function POST(request: NextRequest) {
     // ── Cache result in Firestore ──
     try {
       await db.collection('resumes').doc(resumeId).update({
-        benchmarkResult:       benchmarkData,
-        benchmarkGeneratedAt:  Date.now(),
+        benchmarkResult:      benchmarkData,
+        benchmarkGeneratedAt: Date.now(),
       });
     } catch (cacheError) {
       console.warn('⚠️ Failed to cache benchmark result:', cacheError);
-      // Non-fatal — still return the data
     }
 
     console.log('✅ Benchmark complete for:', resumeId);
