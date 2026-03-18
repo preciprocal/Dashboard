@@ -27,6 +27,8 @@ function detectPlatform() {
   if (host.includes('bamboohr.com'))        return 'bamboohr';
   if (host.includes('recruitee.com'))       return 'recruitee';
   if (host.includes('wellfound.com') || host.includes('angel.co')) return 'wellfound';
+  // iCIMS CX can serve from custom employer domains -- detect by data-fkit-id in DOM
+  if (document.querySelector('[data-fkit-id]')) return 'icims';
   return 'generic';
 }
 
@@ -527,15 +529,52 @@ function setReactValue(el, value) {
   } catch { return false; }
 }
 
+// ─────────────────────────────────────────────────────────────────
+// FIX 1: US state name <-> abbreviation lookup + enhanced setSelectValue
+// ─────────────────────────────────────────────────────────────────
+const US_STATES = {
+  'alabama':'AL','alaska':'AK','arizona':'AZ','arkansas':'AR','california':'CA',
+  'colorado':'CO','connecticut':'CT','delaware':'DE','florida':'FL','georgia':'GA',
+  'hawaii':'HI','idaho':'ID','illinois':'IL','indiana':'IN','iowa':'IA',
+  'kansas':'KS','kentucky':'KY','louisiana':'LA','maine':'ME','maryland':'MD',
+  'massachusetts':'MA','michigan':'MI','minnesota':'MN','mississippi':'MS',
+  'missouri':'MO','montana':'MT','nebraska':'NE','nevada':'NV','new hampshire':'NH',
+  'new jersey':'NJ','new mexico':'NM','new york':'NY','north carolina':'NC',
+  'north dakota':'ND','ohio':'OH','oklahoma':'OK','oregon':'OR','pennsylvania':'PA',
+  'rhode island':'RI','south carolina':'SC','south dakota':'SD','tennessee':'TN',
+  'texas':'TX','utah':'UT','vermont':'VT','virginia':'VA','washington':'WA',
+  'west virginia':'WV','wisconsin':'WI','wyoming':'WY','district of columbia':'DC',
+  'puerto rico':'PR','guam':'GU','virgin islands':'VI','american samoa':'AS',
+};
+const US_STATES_REVERSE = Object.fromEntries(
+  Object.entries(US_STATES).map(([k, v]) => [v.toLowerCase(), k])
+);
+
+function normalizeState(value) {
+  if (!value) return [];
+  const v = value.trim().toLowerCase();
+  const variants = [v];
+  if (US_STATES[v])         variants.push(US_STATES[v].toLowerCase());   // full name -> abbrev
+  if (US_STATES_REVERSE[v]) variants.push(US_STATES_REVERSE[v]);          // abbrev -> full name
+  return variants;
+}
+
 function setSelectValue(el, value) {
   if (!el || !value) return;
-  const lower   = value.toLowerCase();
-  const options = Array.from(el.options);
-  const match   =
-    options.find(o => o.text.toLowerCase() === lower) ||
-    options.find(o => o.text.toLowerCase().includes(lower)) ||
-    options.find(o => lower.includes(o.text.toLowerCase().replace(/\s+/g, ' ').split(' ')[0]));
-  if (match && el.value !== match.value) setReactValue(el, match.value);
+  const options  = Array.from(el.options);
+  const variants = normalizeState(value);
+
+  for (const v of variants) {
+    const match =
+      options.find(o => o.text.toLowerCase() === v) ||
+      options.find(o => o.value.toLowerCase() === v) ||
+      options.find(o => o.text.toLowerCase().includes(v)) ||
+      options.find(o => v.includes(o.text.toLowerCase().replace(/\s+/g, ' ').trim().split(' ')[0]) && o.text.trim().length < 50);
+    if (match && el.value !== match.value) {
+      setReactValue(el, match.value);
+      return;
+    }
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -553,14 +592,20 @@ async function fillCustomDropdown(trigger, desiredValue) {
   await new Promise(r => setTimeout(r, 350));
 
   const activeInput = document.activeElement;
+
+  // FIX 4: For state fields, try abbreviation first when typing into search box
+  // since most ATS search boxes match on abbreviation more reliably
+  const stateVariants = normalizeState(desiredValue);
+  const typeValue = stateVariants.length > 1 ? stateVariants[1] : desiredValue; // prefer abbrev variant
+
   const typeTarget = searchInput ||
     (activeInput?.tagName === 'INPUT' ? activeInput : null) ||
     trigger.querySelector('input');
 
   if (typeTarget && typeTarget.tagName === 'INPUT') {
-    setReactValue(typeTarget, desiredValue);
+    setReactValue(typeTarget, typeValue);
     typeTarget.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }));
-    typeTarget.dispatchEvent(new InputEvent('input', { bubbles: true, data: desiredValue }));
+    typeTarget.dispatchEvent(new InputEvent('input', { bubbles: true, data: typeValue }));
     await new Promise(r => setTimeout(r, 500));
   }
 
@@ -596,9 +641,23 @@ async function fillCustomDropdown(trigger, desiredValue) {
     return false;
   }
 
+  // Try all state variants against options
+  const variantsToTry = normalizeState(desiredValue);
+  for (const variant of variantsToTry) {
+    const match =
+      options.find(o => o.textContent?.trim().toLowerCase() === variant) ||
+      options.find(o => o.textContent?.trim().toLowerCase().startsWith(variant)) ||
+      options.find(o => o.textContent?.trim().toLowerCase().includes(variant));
+    if (match) {
+      match.click();
+      match.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      await new Promise(r => setTimeout(r, 200));
+      return true;
+    }
+  }
+
+  // Generic fallback
   const match =
-    options.find(o => o.textContent?.trim().toLowerCase() === desired) ||
-    options.find(o => o.textContent?.trim().toLowerCase().startsWith(desired)) ||
     options.find(o => o.textContent?.trim().toLowerCase().includes(desired)) ||
     options.find(o => desired.includes(o.textContent?.trim().toLowerCase().split(' ')[0]) && o.textContent?.trim().length < 50);
 
@@ -953,13 +1012,26 @@ async function wdTypeCombobox(automationId, value) {
   trigger.click();
   await delay(400);
   const inp = wrapper.querySelector('input') || document.querySelector('[data-automation-id="searchBox"] input');
-  if (inp) { wdSetValue(inp, value); await delay(700); }
+  if (inp) {
+    // Try abbreviation first for state fields
+    const variants = normalizeState(value);
+    const typeVal  = variants.length > 1 ? variants[1] : value;
+    wdSetValue(inp, typeVal);
+    await delay(700);
+  }
   const valueLow = value.toLowerCase();
+  const variants = normalizeState(value);
   const options  = Array.from(document.querySelectorAll(
     '[data-automation-id="promptOption"], [role="option"]'
   )).filter(o => o.offsetParent !== null);
   if (options.length) {
-    const match = options.find(o => o.textContent?.trim().toLowerCase().includes(valueLow)) || options[0];
+    let match = null;
+    for (const v of variants) {
+      match = options.find(o => o.textContent?.trim().toLowerCase() === v) ||
+              options.find(o => o.textContent?.trim().toLowerCase().includes(v));
+      if (match) break;
+    }
+    if (!match) match = options[0];
     if (match) { match.click(); await delay(300); return true; }
   }
   document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
@@ -996,7 +1068,7 @@ async function fillWorkdayStep(p) {
     { id: 'lastName',                    val: p.lastName   },
     { id: 'emailAddress',                val: p.email      },
     { id: 'email',                       val: p.email      },
-    { id: 'addressSection_addressLine1', val: p.location   },
+    { id: 'addressSection_addressLine1', val: p.streetAddress || p.location },
     { id: 'addressSection_postalCode',   val: p.zipCode    },
     { id: 'linkedIn',                    val: p.linkedInUrl },
     { id: 'website',                     val: p.portfolioUrl },
@@ -1006,32 +1078,163 @@ async function fillWorkdayStep(p) {
     const el = wdInput(id);
     if (el && !el.value?.trim() && !el.disabled) { if (wdSetValue(el, val)) { filled++; await delay(50); } }
   }
-  const phoneIds = ['phoneSection_phoneNumber', 'phone-number', 'phoneNumber', 'phone'];
-  for (const id of phoneIds) {
-    const el = wdInput(id);
-    if (el && !el.value?.trim() && p.phone) {
-      const digits = p.phone.replace(/^\+\d{1,3}[\s-]?/, '').replace(/\D/g, '');
-      if (wdSetValue(el, digits || p.phone)) { filled++; break; }
+
+  // ── Phone: Workday splits into Device Type / Country Code / Phone Number / Extension ──
+  // Step 1: Phone Device Type
+  await wdPickListbox('phoneDeviceType', 'Mobile');
+
+  // Step 2: Country Phone Code — it's a multi-select pill widget, not a simple listbox.
+  // It already defaults to +1 USA in most cases; only change if not US.
+  if (p.country && p.country !== 'United States' && p.country !== 'US') {
+    await wdPickListbox('phoneCountryCode', p.country);
+  }
+
+  // Step 3: Phone Number — Workday uses several possible automation IDs for this field.
+  // We try them all, plus a broad DOM search for any visible unfilled tel/text input
+  // inside a wrapper labeled "Phone Number".
+  if (p.phone) {
+    // Strip country code — Workday wants only the local number (e.g. "6175550100")
+    const localPhone = p.phone
+      .replace(/^\+\d{1,3}[\s\-.]?/, '')  // remove +1, +44, etc.
+      .replace(/\D/g, '');                 // digits only
+
+    const phoneVal = localPhone || p.phone.replace(/\D/g, '');
+
+    // Try known automation IDs
+    const phoneAutomationIds = [
+      'phoneSection_phoneNumber',
+      'phone-number',
+      'phoneNumber',
+      'phone',
+      'phoneNumberSection_phoneNumber',
+      'workPhone',
+      'mobilePhone',
+    ];
+
+    let phoneFilled = false;
+    for (const id of phoneAutomationIds) {
+      const el = wdInput(id);
+      if (el && !el.disabled) {
+        const cur = (el.value || '').trim();
+        if (!cur || /^\+?\d{1,3}$/.test(cur)) {
+          if (wdSetValue(el, phoneVal)) { filled++; phoneFilled = true; break; }
+        }
+      }
+    }
+
+    // Broad fallback: find any input inside a container whose label says "Phone Number"
+    if (!phoneFilled) {
+      const allWrappers = document.querySelectorAll('[data-automation-id]');
+      for (const wrapper of allWrappers) {
+        const aid = (wrapper.getAttribute('data-automation-id') || '').toLowerCase();
+        if (!/phone/i.test(aid)) continue;
+        const inp = wrapper.querySelector(
+          'input[type="text"]:not([disabled]):not([readonly]),' +
+          'input[type="tel"]:not([disabled]):not([readonly]),' +
+          'input:not([type]):not([disabled]):not([readonly])'
+        );
+        if (inp) {
+          const cur = (inp.value || '').trim();
+          if (!cur || /^\+?\d{1,3}$/.test(cur)) {
+            if (wdSetValue(inp, phoneVal)) { filled++; phoneFilled = true; break; }
+          }
+        }
+      }
+    }
+
+    // Last resort: scan ALL visible text/tel inputs that are empty and near a "phone" label
+    if (!phoneFilled) {
+      const allInputs = document.querySelectorAll(
+        'input[type="text"]:not([disabled]):not([readonly]),' +
+        'input[type="tel"]:not([disabled]):not([readonly])'
+      );
+      for (const inp of allInputs) {
+        if (inp.value && inp.value.trim()) continue;
+        const lbl = getLabel(inp).toLowerCase();
+        if (/phone.?number|telephone.?number/i.test(lbl)) {
+          if (wdSetValue(inp, phoneVal)) { filled++; break; }
+        }
+      }
     }
   }
-  await wdPickListbox('phoneDeviceType', 'Mobile');
+
+  // ── Address: Country → wait → State → City → Zip ──
+  // Country first (Workday listbox)
+  const targetCountry = p.country || 'United States';
   const countrySelect = document.querySelector(
     'select[data-automation-id="addressSection_countryRegion"], select[data-automation-id*="country" i]'
   );
-  if (countrySelect) setSelectValue(countrySelect, p.country || 'United States');
-  else await wdPickListbox('addressSection_countryRegion', p.country || 'United States');
-  if (p.state) {
-    const stateSelect = document.querySelector(
-      'select[data-automation-id="addressSection_stateProvince"], select[data-automation-id*="state" i]'
-    );
-    if (stateSelect) setSelectValue(stateSelect, p.state);
-    else await wdTypeCombobox('addressSection_stateProvince', p.state);
+  if (countrySelect) {
+    setSelectValue(countrySelect, targetCountry);
+  } else {
+    await wdPickListbox('addressSection_countryRegion', targetCountry);
   }
+
+  // Wait for state options to render — Workday fetches them dynamically after country change
+  await delay(1200);
+
+  // State — retry up to 5× with growing delays since options load async
+  if (p.state) {
+    let stateFilled = false;
+    for (let attempt = 0; attempt < 5 && !stateFilled; attempt++) {
+      if (attempt > 0) await delay(600 * attempt);
+
+      // Try native <select> first
+      const stateSelect = document.querySelector(
+        'select[data-automation-id="addressSection_stateProvince"],' +
+        'select[data-automation-id*="stateProvince" i],' +
+        'select[data-automation-id*="state" i]'
+      );
+      if (stateSelect) {
+        setSelectValue(stateSelect, p.state);
+        if (stateSelect.value) { stateFilled = true; break; }
+      }
+
+      // Workday custom combobox
+      const stateWrapper = document.querySelector(
+        '[data-automation-id="addressSection_stateProvince"],' +
+        '[data-automation-id*="stateProvince"]'
+      );
+      if (stateWrapper) {
+        // Check if already has a value
+        const currentText = stateWrapper.querySelector('[data-automation-id="selectedItem"], [role="option"][aria-selected="true"]')?.textContent?.trim();
+        if (currentText && currentText !== 'Select One' && currentText !== '') { stateFilled = true; break; }
+
+        stateFilled = await wdTypeCombobox('addressSection_stateProvince', p.state);
+        if (!stateFilled) {
+          // wdPickListbox approach as fallback
+          const trigger = stateWrapper.querySelector('button, [role="combobox"], [aria-haspopup]') || stateWrapper;
+          trigger.click();
+          await delay(800);
+          const stateVariants = normalizeState(p.state);
+          const options = Array.from(document.querySelectorAll(
+            '[data-automation-id="promptOption"], [role="option"]'
+          )).filter(o => o.offsetParent !== null);
+          if (options.length) {
+            let match = null;
+            for (const v of stateVariants) {
+              match = options.find(o => o.textContent?.trim().toLowerCase() === v) ||
+                      options.find(o => o.textContent?.trim().toLowerCase().includes(v));
+              if (match) break;
+            }
+            if (match) { match.click(); await delay(300); stateFilled = true; }
+            else document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+          } else {
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+          }
+        }
+      }
+    }
+    if (stateFilled) filled++;
+  }
+
+  // City
   const cityEl = wdInput('addressSection_city');
   if (cityEl && !cityEl.value?.trim() && p.city) {
-    if (!wdSetValue(cityEl, p.city)) await wdTypeCombobox('addressSection_city', p.city);
-    else filled++;
+    if (wdSetValue(cityEl, p.city)) filled++;
+    else await wdTypeCombobox('addressSection_city', p.city);
   }
+
   await wdPickListbox('howDidYouHearAboutUs', 'LinkedIn');
   await fillWorkdayRadios(p);
   filled += await smartScan(p);
@@ -1189,29 +1392,173 @@ async function fillAshby(p) {
 
 async function fillICims(p) {
   let filled = 0;
-  const patterns = [
+
+  // ── iCIMS CX Platform uses data-fkit-id attributes ──
+  // Selectors derived directly from DOM inspection of live forms.
+
+  // Helper: find input inside a data-fkit-id wrapper
+  function fkitInput(fkitId) {
+    const w = document.querySelector(`[data-fkit-id="${fkitId}"]`);
+    if (!w) return null;
+    return w.querySelector('input:not([type="hidden"]):not([type="file"]):not([disabled])') || null;
+  }
+
+  // Helper: fill fkit input if found and empty
+  function fillFkit(fkitId, val) {
+    if (!val) return false;
+    const el = fkitInput(fkitId);
+    if (el && !el.value?.trim()) { setReactValue(el, val); return true; }
+    return false;
+  }
+
+  // ── Standard text fields (data-fkit-id pattern) ──
+  if (fillFkit('name--firstName',   p.firstName))  filled++;
+  if (fillFkit('name--lastName',    p.lastName))   filled++;
+  if (fillFkit('email--emailAddress', p.email))    filled++;
+  if (fillFkit('address--addressLine1', p.streetAddress || p.location)) filled++;
+  if (fillFkit('address--city',     p.city))       filled++;
+  if (fillFkit('address--postalCode', p.zipCode))  filled++;
+
+  // ── Phone Number ──
+  // DOM: input[id="phoneNumber--phoneNumber"] name="phoneNumber"
+  // inside data-fkit-id="phoneNumber--phoneNumber"
+  if (p.phone) {
+    const localPhone = p.phone.replace(/^\+\d{1,3}[\s\-.]?/, '').replace(/\D/g, '');
+    const phoneVal   = localPhone || p.phone.replace(/\D/g, '');
+
+    // Try exact fkit id first
+    let phoneEl = fkitInput('phoneNumber--phoneNumber');
+
+    // Fallback: any input with id or name containing phoneNumber
+    if (!phoneEl) {
+      phoneEl = document.querySelector(
+        'input[id="phoneNumber--phoneNumber"],' +
+        'input[name="phoneNumber"],' +
+        'input[id*="phoneNumber" i]:not([id*="country" i]):not([id*="extension" i]):not([id*="type" i]),' +
+        'input[name*="phoneNumber" i]:not([name*="country" i]):not([name*="extension" i]):not([name*="type" i])'
+      );
+    }
+
+    if (phoneEl && !phoneEl.disabled) {
+      setReactValue(phoneEl, phoneVal);
+      filled++;
+    }
+  }
+
+  // ── State/Region — iCIMS CX uses a listbox button ──
+  // DOM: button[name="countryRegion"][id="address--countryRegion"][aria-haspopup="listbox"]
+  // with an input[type="text"] sibling for search, options are [role="option"]
+  if (p.state) {
+    const stateFilled = await icimsFillListbox('address--countryRegion', p.state);
+    if (stateFilled) filled++;
+  }
+
+  // ── Classic iCIMS (legacy) fallback — #iCIMS_MainColumn ──
+  const classicInputs = document.querySelectorAll(
+    '#iCIMS_MainColumn input[type="text"],' +
+    '#iCIMS_MainColumn input[type="email"],' +
+    '#iCIMS_MainColumn input[type="tel"]'
+  );
+  const classicPatterns = [
     { re: /firstname|fname|first.name/i, val: p.firstName },
     { re: /lastname|lname|last.name/i,   val: p.lastName  },
     { re: /email/i,                       val: p.email     },
-    { re: /phone/i,                       val: p.phone     },
-    { re: /address|addr1|addressLine1/i, val: p.location  },
+    { re: /phone/i,                       val: p.phone?.replace(/^\+\d{1,3}[\s\-.]?/, '').replace(/\D/g, '') },
+    { re: /address|addr/i,               val: p.streetAddress || p.location },
     { re: /city/i,                        val: p.city      },
     { re: /zip|postal/i,                  val: p.zipCode   },
     { re: /linkedin/i,                    val: p.linkedInUrl },
   ];
-  const inputs = document.querySelectorAll('#iCIMS_MainColumn input[type="text"], #iCIMS_MainColumn input[type="email"], #iCIMS_MainColumn input[type="tel"]');
-  for (const inp of inputs) {
-    if (inp.value || inp.disabled) continue;
-    const hint = (inp.id || '').toLowerCase() + ' ' + (inp.name || '').toLowerCase();
-    for (const { re, val } of patterns) {
+  for (const inp of classicInputs) {
+    if (inp.disabled) continue;
+    const cur = (inp.value || '').trim();
+    if (cur && !/^\+?\d{1,3}$/.test(cur)) continue;
+    const hint = ((inp.id || '') + ' ' + (inp.name || '')).toLowerCase();
+    for (const { re, val } of classicPatterns) {
       if (!val) continue;
       if (re.test(hint) || re.test(getLabel(inp).toLowerCase())) { setReactValue(inp, val); filled++; break; }
     }
   }
-  const stateEl = document.querySelector('select[id*="state" i], select[name*="state" i]');
-  if (stateEl && p.state) setSelectValue(stateEl, p.state);
+
+  // Classic state <select>
+  const classicStateEl = document.querySelector(
+    '#iCIMS_MainColumn select[id*="state" i],' +
+    '#iCIMS_MainColumn select[name*="state" i]'
+  );
+  if (classicStateEl && p.state) setSelectValue(classicStateEl, p.state);
+
   filled += await smartScan(p);
   return { filled };
+}
+
+// iCIMS CX listbox filler (button[aria-haspopup="listbox"] pattern)
+// Used for State, Country, and other dropdowns in the CX platform
+async function icimsFillListbox(fieldId, desiredValue) {
+  if (!desiredValue) return false;
+
+  // Find the trigger button — try fkit id, then element id, then name
+  const trigger =
+    document.querySelector(`[data-fkit-id="${fieldId}"] button[aria-haspopup="listbox"]`) ||
+    document.querySelector(`[data-fkit-id="${fieldId}"] button[aria-haspopup]`) ||
+    document.querySelector(`button[id="${fieldId}"]`) ||
+    document.querySelector(`button[name="${fieldId.replace(/.*--/, '')}"]`);
+
+  if (!trigger) return false;
+
+  // Check if already filled (button text isn't placeholder)
+  const currentText = (trigger.textContent || '').trim();
+  if (currentText && currentText !== 'Select One' && currentText !== '' && currentText !== '--') {
+    return true; // already has a value
+  }
+
+  trigger.click();
+  await delay(400);
+
+  // Try typing in the search input that appears
+  const searchInput =
+    trigger.parentElement?.querySelector('input[type="text"]') ||
+    trigger.closest('[data-fkit-id]')?.querySelector('input[type="text"]') ||
+    document.querySelector(`[data-fkit-id="${fieldId}"] input[type="text"]`);
+
+  const stateVariants = normalizeState(desiredValue);
+
+  if (searchInput) {
+    // Type abbreviation first (shorter = better search results in iCIMS)
+    const typeVal = stateVariants.length > 1 ? stateVariants[1].toUpperCase() : desiredValue;
+    setReactValue(searchInput, typeVal);
+    await delay(500);
+  }
+
+  // Collect visible options
+  const getOptions = () => Array.from(document.querySelectorAll('[role="option"]'))
+    .filter(o => o.offsetParent !== null && (o.textContent || '').trim());
+
+  let options = getOptions();
+  if (!options.length) { await delay(500); options = getOptions(); }
+  if (!options.length) { await delay(800); options = getOptions(); }
+
+  if (!options.length) {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    return false;
+  }
+
+  // Match against all state variants
+  for (const v of stateVariants) {
+    const match =
+      options.find(o => o.textContent.trim().toLowerCase() === v) ||
+      options.find(o => o.textContent.trim().toLowerCase().startsWith(v)) ||
+      options.find(o => o.textContent.trim().toLowerCase().includes(v));
+    if (match) {
+      match.click();
+      await delay(200);
+      return true;
+    }
+  }
+
+  // Last resort: first option
+  options[0].click();
+  await delay(200);
+  return true;
 }
 
 async function fillJobvite(p) {
@@ -1297,7 +1644,10 @@ async function fillSmartRecruiters(p) {
   for (const { val, tests } of fieldDefs) {
     if (!val) continue;
     for (const input of allInputs) {
-      if (input.value?.trim() || input.disabled) continue;
+      // FIX 2: Don't skip phone fields with only a country code
+      const currentVal = (input.value || '').trim();
+      const isOnlyCountryCode = /^\+?\d{1,3}$/.test(currentVal);
+      if (currentVal && !isOnlyCountryCode) continue;
       if (tests.some(test => { try { return test(input); } catch { return false; } })) {
         if (srSetValue(input, val)) { filled++; break; }
       }
@@ -1350,6 +1700,9 @@ async function fillBambooHR(p) {
       if (el && !el.value && !el.disabled) { setReactValue(el, val); filled++; break; }
     }
   }
+  // For BambooHR state selects
+  const stateEl = document.querySelector('#state, select[name="state"]');
+  if (stateEl && stateEl.tagName === 'SELECT' && p.state) setSelectValue(stateEl, p.state);
   filled += await smartScan(p);
   return { filled };
 }
@@ -1414,7 +1767,12 @@ async function smartScan(p) {
     'input:not([type="hidden"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]):not([disabled]):not([readonly])'
   );
   for (const inp of inputs) {
-    if (inp.value && inp.value.trim() !== '') continue;
+    // FIX 2: Don't skip phone fields that only contain a country code prefix (+1, +44, etc.)
+    if (inp.value && inp.value.trim() !== '') {
+      const isPhoneLike = /phone|mobile|cell|tel/i.test(getLabel(inp)) || inp.type === 'tel';
+      const isOnlyCountryCode = /^\+?\d{1,3}$/.test(inp.value.trim());
+      if (!(isPhoneLike && isOnlyCountryCode)) continue;
+    }
     const lbl = getLabel(inp);
     let val   = matchByLabel(lbl, p);
     if (val === null || val === undefined || String(val).trim() === '') continue;
@@ -1424,6 +1782,11 @@ async function smartScan(p) {
     }
     if (/year/i.test(lbl) && val.includes('-')) {
       val = rangeToSingleNumber(val);
+    }
+    // For phone fields, strip country code if the field likely doesn't want it
+    if ((inp.type === 'tel' || /phone|mobile|cell/i.test(lbl)) && val.startsWith('+')) {
+      const stripped = val.replace(/^\+\d{1,3}[\s-]?/, '').replace(/\D/g, '');
+      if (stripped.length >= 7) val = stripped;
     }
     setReactValue(inp, val);
     filled++;
@@ -1437,6 +1800,7 @@ async function smartScan(p) {
     if (val) setSelectValue(sel, val);
   }
 
+  // FIX 3: Sort custom dropdown triggers so country is always processed before state
   const customDropdownTriggers = root.querySelectorAll(
     '[class*="control"]:not(input):not(select),' +
     '[role="combobox"]:not(input):not(select),' +
@@ -1445,7 +1809,16 @@ async function smartScan(p) {
     '[class*="dropdown" i]:not(select):not(input)'
   );
 
-  for (const trigger of customDropdownTriggers) {
+  const sortedTriggers = Array.from(customDropdownTriggers).sort((a, b) => {
+    const lblA = getCustomDropdownLabel(a).toLowerCase();
+    const lblB = getCustomDropdownLabel(b).toLowerCase();
+    // Country = -2, State/Province = -1, everything else = 0
+    const rankA = /country/i.test(lblA) ? -2 : /\bstate\b|\bprovince\b/i.test(lblA) ? -1 : 0;
+    const rankB = /country/i.test(lblB) ? -2 : /\bstate\b|\bprovince\b/i.test(lblB) ? -1 : 0;
+    return rankA - rankB;
+  });
+
+  for (const trigger of sortedTriggers) {
     if (trigger.closest('select')) continue;
     if (trigger.querySelector('select, input[type="hidden"]')?.value &&
         trigger.querySelector('select, input[type="hidden"]').value !== '') continue;
@@ -1464,7 +1837,12 @@ async function smartScan(p) {
     if (!val) continue;
 
     const didFill = await fillCustomDropdown(trigger, val);
-    if (didFill) { filled++; console.log(`  📦 Custom dropdown "${lbl.slice(0,50)}" → "${val}"`); }
+    if (didFill) {
+      filled++;
+      console.log(`  📦 Custom dropdown "${lbl.slice(0,50)}" → "${val}"`);
+      // FIX 3: After filling country, wait for state options to load before continuing
+      if (/country/i.test(lbl)) await new Promise(r => setTimeout(r, 700));
+    }
   }
 
   const textareas = root.querySelectorAll('textarea:not([disabled])');
@@ -1780,7 +2158,6 @@ class PreciprocalSidebar {
     }[this.platform] || 'Application';
   }
 
-  // ── UPDATED _render() ────────────────────────────────────────
   _render() {
     document.getElementById('prc-sidebar')?.remove();
     const sidebar = document.createElement('div');
@@ -1912,7 +2289,6 @@ class PreciprocalSidebar {
       document.getElementById('prc-expand-btn').style.display    = 'flex';
     });
     document.getElementById('prc-expand-btn')?.addEventListener('click', () => {
-      // only expand on click, not after a drag
       if (this._wasDragging) { this._wasDragging = false; return; }
       document.getElementById('prc-sidebar-inner').style.display = 'flex';
       document.getElementById('prc-expand-btn').style.display    = 'none';
@@ -1921,7 +2297,6 @@ class PreciprocalSidebar {
     document.getElementById('prc-autofill-btn')?.addEventListener('click', () => this._run());
     document.getElementById('prc-rerun-btn')?.addEventListener('click',    () => this._rerun());
 
-    // ── Drag to reposition (works on header AND collapsed tab) ───
     const sidebar = document.getElementById('prc-sidebar');
     const header  = document.getElementById('prc-drag-handle');
     const tab     = document.getElementById('prc-expand-btn');
@@ -1939,7 +2314,7 @@ class PreciprocalSidebar {
     };
 
     const startDrag = (e) => {
-      if (e.target.closest('button') && e.currentTarget === header) return; // don't drag on header buttons
+      if (e.target.closest('button') && e.currentTarget === header) return;
       e.preventDefault();
       dragging = true;
       moved    = false;
@@ -2156,7 +2531,6 @@ class PreciprocalSidebar {
     el.className = `prc-file-row`;
   }
 
-  // ── UPDATED _injectStyles() ──────────────────────────────────
   _injectStyles() {
     if (document.getElementById('prc-sidebar-styles')) return;
     const s = document.createElement('style');

@@ -14,7 +14,6 @@ import {
   type ResumeFeedback,
   type ResumeFix
 } from "@/lib/redis/resume-cache";
-import { checkAndIncrementUsage, type UserTier } from "@/lib/redis/usage-tracker";
 
 // Define the feedback schema matching AI response format
 const resumeFeedbackSchema = z.object({
@@ -76,14 +75,6 @@ const resumeFixSchema = z.object({
   }))
 });
 
-// Type for usage info
-interface UsageInfo {
-  allowed: boolean;
-  remaining: number;
-  limit: number;
-  current: number;
-}
-
 // Define request interfaces
 interface GenerateFixesRequest {
   action: 'generateFixes';
@@ -91,7 +82,6 @@ interface GenerateFixesRequest {
   jobDescription?: string;
   feedback?: z.infer<typeof resumeFeedbackSchema>;
   userId?: string;
-  userTier?: UserTier;
 }
 
 interface RegenerateFixRequest {
@@ -108,10 +98,8 @@ interface RegenerateFixRequest {
   };
   resumeContent: string;
   userId?: string;
-  userTier?: UserTier;
 }
 
-// NEW: Extension job-based analysis request
 interface ExtensionJobAnalysisRequest {
   action: 'analyzeForJob';
   jobData: {
@@ -125,30 +113,19 @@ interface ExtensionJobAnalysisRequest {
     platform?: string;
   };
   userId?: string;
-  userTier?: UserTier;
 }
 
 type RequestData = GenerateFixesRequest | RegenerateFixRequest | ExtensionJobAnalysisRequest;
 
 export async function GET() {
-  const envTest = {
-    hasGoogleAI: !!process.env.GOOGLE_GENERATIVE_AI_API_KEY,
-    hasRedis: !!(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN),
-    keyLength: process.env.GOOGLE_GENERATIVE_AI_API_KEY?.length || 0,
-    keyPreview: process.env.GOOGLE_GENERATIVE_AI_API_KEY ? 
-      process.env.GOOGLE_GENERATIVE_AI_API_KEY.substring(0, 20) + '...' : 'NOT_FOUND',
-    nodeEnv: process.env.NODE_ENV
-  };
-
-  return NextResponse.json({ 
+  return NextResponse.json({
     message: 'AI Resume Analysis API with Gemini Resume Fixer + Redis Caching + Extension Support',
     timestamp: new Date().toISOString(),
     status: 'ok',
     model: 'gemini-2.5-flash',
     framework: 'ai-sdk',
-    features: ['analysis', 'text-extraction', 'fixes', 'regeneration', 'redis-caching', 'usage-tracking', 'extension-job-analysis'],
-    caching: envTest.hasRedis ? 'enabled' : 'disabled',
-    environment: envTest
+    features: ['analysis', 'text-extraction', 'fixes', 'regeneration', 'redis-caching', 'extension-job-analysis'],
+    caching: !!(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) ? 'enabled' : 'disabled',
   });
 }
 
@@ -157,14 +134,12 @@ export async function POST(request: NextRequest) {
 
   try {
     const contentType = request.headers.get('content-type');
-    
+
     if (contentType?.includes('multipart/form-data')) {
-      // Resume analysis request with file upload
       return await handleResumeAnalysis(request);
     } else {
-      // Resume fixes generation, regeneration, or extension job analysis request
       const requestData = await request.json() as RequestData;
-      
+
       if (requestData.action === 'generateFixes') {
         return await handleGenerateResumeFixes(requestData);
       } else if (requestData.action === 'regenerateFix') {
@@ -175,7 +150,6 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid action specified' }, { status: 400 });
       }
     }
-
   } catch (error) {
     console.error('❌ API error:', error);
     return NextResponse.json({
@@ -185,39 +159,18 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// NEW: Handle extension job-based analysis
 async function handleExtensionJobAnalysis(requestData: ExtensionJobAnalysisRequest) {
-  const { jobData, userId = 'anonymous', userTier = 'free' } = requestData;
+  const { jobData, userId = 'anonymous' } = requestData;
 
   console.log('🎯 Extension job analysis request:', {
     jobTitle: jobData.title,
     company: jobData.company,
     userId,
-    userTier
   });
 
   if (!jobData || !jobData.title || !jobData.description) {
     return NextResponse.json({ error: 'Invalid job data provided' }, { status: 400 });
   }
-
-  // Check usage limits
-  const usageCheck = await checkAndIncrementUsage(userId, 'resume-analysis', userTier);
-  
-  if (!usageCheck.allowed) {
-    return NextResponse.json({
-      error: 'Usage limit reached',
-      message: `You've used all ${usageCheck.limit} analyses for this month. Upgrade to Pro for unlimited analyses.`,
-      usage: {
-        current: usageCheck.current,
-        limit: usageCheck.limit,
-        remaining: usageCheck.remaining
-      }
-    }, { status: 429 });
-  }
-
-  // TODO: Fetch user's resume from Firebase/Firestore
-  // For now, we'll return a placeholder response
-  // You need to implement: const userResume = await getUserResume(userId);
 
   if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
     const mockAnalysis = createJobSpecificMockAnalysis(jobData);
@@ -226,7 +179,6 @@ async function handleExtensionJobAnalysis(requestData: ExtensionJobAnalysisReque
       suggestions: mockAnalysis.suggestions,
       keywordMatch: mockAnalysis.keywordMatch,
       missingSkills: mockAnalysis.missingSkills,
-      usage: usageCheck,
       meta: {
         timestamp: new Date().toISOString(),
         model: 'mock-job-analysis',
@@ -239,8 +191,7 @@ async function handleExtensionJobAnalysis(requestData: ExtensionJobAnalysisReque
   try {
     console.log('🤖 Analyzing resume against job posting with Gemini...');
 
-    // TODO: Replace with actual user resume content
-    const userResumeContent = "User resume content would go here"; // await getUserResume(userId);
+    const userResumeContent = "User resume content would go here";
 
     const analysisPrompt = `
 You are an expert ATS (Applicant Tracking System) analyzer and resume optimizer.
@@ -258,7 +209,7 @@ ${jobData.description}
 USER'S RESUME:
 ${userResumeContent}
 
-Please analyze the resume against this specific job posting and provide:
+Analyze the resume against this specific job posting and provide:
 1. An ATS compatibility score (0-100) for THIS specific job
 2. Keyword match percentage
 3. Specific suggestions for improvement to match the job requirements
@@ -269,13 +220,9 @@ Respond in JSON format:
 {
   "atsScore": number (0-100),
   "keywordMatch": number (0-100),
-  "suggestions": [
-    "specific actionable suggestion 1",
-    "specific actionable suggestion 2",
-    ...
-  ],
-  "missingSkills": ["skill1", "skill2", ...],
-  "strengthenSections": ["section1", "section2", ...]
+  "suggestions": ["suggestion 1", "suggestion 2"],
+  "missingSkills": ["skill1", "skill2"],
+  "strengthenSections": ["section1", "section2"]
 }`;
 
     const { text } = await generateText({
@@ -285,13 +232,9 @@ Respond in JSON format:
     });
 
     const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error('Failed to parse AI response');
-    }
+    if (!jsonMatch) throw new Error('Failed to parse AI response');
 
     const analysisData = JSON.parse(jsonMatch[0]);
-
-    console.log('✅ Job-specific analysis completed');
 
     return NextResponse.json({
       atsScore: analysisData.atsScore,
@@ -299,7 +242,6 @@ Respond in JSON format:
       suggestions: analysisData.suggestions,
       missingSkills: analysisData.missingSkills || [],
       strengthenSections: analysisData.strengthenSections || [],
-      usage: usageCheck,
       meta: {
         timestamp: new Date().toISOString(),
         model: 'gemini-2.5-flash',
@@ -311,19 +253,16 @@ Respond in JSON format:
 
   } catch (error) {
     console.error('❌ Extension job analysis failed:', error);
-    
     const fallbackAnalysis = createJobSpecificMockAnalysis(jobData);
     return NextResponse.json({
       atsScore: fallbackAnalysis.atsScore,
       suggestions: fallbackAnalysis.suggestions,
       keywordMatch: fallbackAnalysis.keywordMatch,
       missingSkills: fallbackAnalysis.missingSkills,
-      usage: usageCheck,
       meta: {
         timestamp: new Date().toISOString(),
         model: 'fallback-job-analysis',
         type: 'ai-error-recovery',
-        note: 'AI service issue - fallback analysis provided'
       }
     });
   }
@@ -335,8 +274,6 @@ async function handleResumeAnalysis(request: NextRequest) {
     const file = formData.get('file') as File;
     const jobTitle = (formData.get('jobTitle') as string) || '';
     const jobDescription = (formData.get('jobDescription') as string) || '';
-    const userId = (formData.get('userId') as string) || 'anonymous';
-    const userTier = (formData.get('userTier') as string || 'free') as UserTier;
 
     console.log('📋 Analysis request received:', {
       hasFile: !!file,
@@ -344,8 +281,6 @@ async function handleResumeAnalysis(request: NextRequest) {
       fileSize: file?.size ? `${(file.size / 1024).toFixed(1)}KB` : 'unknown',
       jobTitle: jobTitle || 'Not specified',
       jobDescLength: jobDescription?.length || 0,
-      userId,
-      userTier
     });
 
     if (!file) {
@@ -353,32 +288,15 @@ async function handleResumeAnalysis(request: NextRequest) {
     }
 
     if (!file.type.startsWith('image/')) {
-      return NextResponse.json({ 
-        error: 'File must be an image format (PNG, JPEG, WebP)' 
+      return NextResponse.json({
+        error: 'File must be an image format (PNG, JPEG, WebP)'
       }, { status: 400 });
     }
 
-    // Check usage limits (only for free tier)
-    const usageCheck = await checkAndIncrementUsage(userId, 'resume-analysis', userTier);
-    
-    if (!usageCheck.allowed) {
-      return NextResponse.json({
-        error: 'Usage limit reached',
-        message: `You've used all ${usageCheck.limit} resume analyses for this month. Upgrade to Pro for unlimited analyses.`,
-        usage: {
-          current: usageCheck.current,
-          limit: usageCheck.limit,
-          remaining: usageCheck.remaining
-        }
-      }, { status: 429 });
-    }
-
-    // Convert to base64
     const arrayBuffer = await file.arrayBuffer();
     const base64 = Buffer.from(arrayBuffer).toString('base64');
     const dataUrl = `data:${file.type};base64,${base64}`;
 
-    // Generate hash for caching (from base64 content)
     const contentHash = hashResumeContent(base64);
     console.log('🔑 Content hash:', contentHash);
 
@@ -387,16 +305,11 @@ async function handleResumeAnalysis(request: NextRequest) {
     const cachedText = await getCachedResumeText(contentHash);
 
     if (cachedAnalysis && cachedText) {
-      console.log('⚡ Returning cached analysis (0ms vs ~3000ms)');
+      console.log('⚡ Returning cached analysis');
       return NextResponse.json({
         feedback: cachedAnalysis,
         extractedText: cachedText,
         resumeText: cachedText,
-        usage: {
-          current: usageCheck.current,
-          limit: usageCheck.limit,
-          remaining: usageCheck.remaining
-        },
         meta: {
           timestamp: new Date().toISOString(),
           model: 'gemini-2.5-flash',
@@ -409,13 +322,11 @@ async function handleResumeAnalysis(request: NextRequest) {
       });
     }
 
-    // Perform fresh analysis with caching
     return await performResumeAnalysisWithTextExtraction(
       dataUrl,
       jobTitle,
       jobDescription,
       contentHash,
-      usageCheck
     );
 
   } catch (error) {
@@ -432,19 +343,17 @@ async function performResumeAnalysisWithTextExtraction(
   jobTitle: string,
   jobDescription: string,
   contentHash: string,
-  usageInfo: UsageInfo
 ) {
   if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-    console.log('⚠️ No API key found - using enhanced mock analysis with text');
-    
+    console.log('⚠️ No API key found - using mock analysis');
+
     const mockFeedback = createDetailedMockAnalysis(jobTitle, jobDescription);
     const mockText = generateMockExtractedText();
-    
-    return NextResponse.json({ 
+
+    return NextResponse.json({
       feedback: mockFeedback,
       extractedText: mockText,
       resumeText: mockText,
-      usage: usageInfo,
       meta: {
         timestamp: new Date().toISOString(),
         model: 'professional-comprehensive-mock-with-text',
@@ -473,14 +382,6 @@ CRITICAL INSTRUCTIONS:
 9. Include contact information (name, email, phone, LinkedIn, GitHub, etc.)
 10. Preserve all formatting cues (bullets, dates, locations)
 
-OUTPUT FORMAT:
-Return the text maintaining clear structure with:
-- Section headers on their own lines
-- Job/education entries with company/school, title/degree, location, dates
-- Bullet points clearly marked
-- Skills grouped together
-- All content verbatim from the image
-
 Return ONLY the extracted text with complete accuracy.
     `;
 
@@ -502,12 +403,7 @@ Return ONLY the extracted text with complete accuracy.
     const extractedText = textResponse.text.trim();
     console.log('📝 Text extracted successfully. Length:', extractedText.length);
 
-    // Cache extracted text immediately
     await cacheResumeText(contentHash, extractedText);
-
-    if (extractedText.length < 100) {
-      console.warn('⚠️ Extracted text seems too short, may be incomplete');
-    }
 
     const analysisPrompt = `
 Analyze this resume comprehensively as an expert recruiter and career coach.
@@ -521,28 +417,17 @@ ${jobDescription ? `Job Requirements:\n${jobDescription}` : 'Standard profession
 
 COMPREHENSIVE EVALUATION FRAMEWORK:
 
-1. ATS COMPATIBILITY (0-100):
-Examine formatting, keywords, structure for ATS parsing success.
-
-2. CONTENT QUALITY (0-100):
-Evaluate achievements, metrics, relevance, and impact.
-
-3. STRUCTURE (0-100):
-Assess layout, consistency, visual hierarchy, and readability.
-
-4. SKILLS (0-100):
-Review keyword optimization, organization, and relevance.
-
-5. TONE & STYLE (0-100):
-Analyze language, grammar, and professional communication.
+1. ATS COMPATIBILITY (0-100): Examine formatting, keywords, structure for ATS parsing success.
+2. CONTENT QUALITY (0-100): Evaluate achievements, metrics, relevance, and impact.
+3. STRUCTURE (0-100): Assess layout, consistency, visual hierarchy, and readability.
+4. SKILLS (0-100): Review keyword optimization, organization, and relevance.
+5. TONE & STYLE (0-100): Analyze language, grammar, and professional communication.
 
 FEEDBACK REQUIREMENTS:
 - Provide exactly 4-5 actionable tips per category
 - Be specific with concrete examples where possible
 - Be honest and realistic with scoring
 - Focus on high-impact improvements
-
-Generate comprehensive, professional feedback that helps improve interview chances.
     `;
 
     const { object } = await generateObject({
@@ -551,7 +436,7 @@ Generate comprehensive, professional feedback that helps improve interview chanc
       system: "You are Sarah Chen, a senior resume analyst with 15+ years of recruiting experience at top tech companies. Provide detailed, actionable feedback with honest scoring based on real industry standards.",
       messages: [
         {
-          role: "user", 
+          role: "user",
           content: [
             { type: "text", text: analysisPrompt },
             { type: "image", image: dataUrl }
@@ -562,22 +447,20 @@ Generate comprehensive, professional feedback that helps improve interview chanc
     });
 
     const processedObject = processAnalysisObject(object);
-    
+
     const feedbackWithText: ResumeFeedback = {
       ...processedObject,
       resumeText: extractedText
     };
 
-    // Cache the analysis result
     await cacheResumeAnalysis(contentHash, feedbackWithText);
-    
-    console.log('✅ Analysis completed successfully with Redis caching');
-    
-    return NextResponse.json({ 
+
+    console.log('✅ Analysis completed successfully');
+
+    return NextResponse.json({
       feedback: feedbackWithText,
       extractedText: extractedText,
       resumeText: extractedText,
-      usage: usageInfo,
       meta: {
         timestamp: new Date().toISOString(),
         model: 'gemini-2.5-flash',
@@ -586,8 +469,8 @@ Generate comprehensive, professional feedback that helps improve interview chanc
         textExtracted: true,
         textLength: extractedText.length,
         hasJobContext: !!(jobTitle || jobDescription),
-        extractionQuality: extractedText.length >= 500 ? 'excellent' : 
-                          extractedText.length >= 200 ? 'good' : 'needs_review',
+        extractionQuality: extractedText.length >= 500 ? 'excellent' :
+          extractedText.length >= 200 ? 'good' : 'needs_review',
         cached: false,
         cacheHit: false
       }
@@ -595,20 +478,19 @@ Generate comprehensive, professional feedback that helps improve interview chanc
 
   } catch (error) {
     console.error('❌ AI analysis failed:', error);
-    
+
     const fallbackAnalysis = createDetailedMockAnalysis(jobTitle, jobDescription);
     const mockText = generateMockExtractedText();
-    
+
     const fallbackWithText: ResumeFeedback = {
       ...fallbackAnalysis,
       resumeText: mockText
     };
-    
-    return NextResponse.json({ 
+
+    return NextResponse.json({
       feedback: fallbackWithText,
       extractedText: mockText,
       resumeText: mockText,
-      usage: usageInfo,
       meta: {
         timestamp: new Date().toISOString(),
         model: 'professional-fallback-enhanced',
@@ -623,26 +505,18 @@ Generate comprehensive, professional feedback that helps improve interview chanc
 }
 
 async function handleGenerateResumeFixes(requestData: GenerateFixesRequest) {
-  const { resumeContent, jobDescription, feedback, userId = 'anonymous', userTier = 'free' } = requestData;
+  const { resumeContent, jobDescription, feedback, userId = 'anonymous' } = requestData;
 
-  console.log('🔧 Fix generation request from user:', userId, 'tier:', userTier);
+  console.log('🔧 Fix generation request from user:', userId);
 
   if (!resumeContent) {
     return NextResponse.json({
       error: 'Resume content is required for fix generation',
-      details: {
-        hasApiKey: !!process.env.GOOGLE_GENERATIVE_AI_API_KEY,
-        hasResumeContent: false,
-        solution: 'Re-upload resume to extract text content'
-      }
     }, { status: 400 });
   }
 
-  // Generate hash for caching
   const contentHash = hashResumeContent(resumeContent + (jobDescription || ''));
-  console.log('🔑 Fixes hash:', contentHash);
 
-  // Check cache first
   const cachedFixes = await getCachedResumeFixes(contentHash);
   if (cachedFixes) {
     console.log('⚡ Returning cached fixes');
@@ -684,7 +558,7 @@ ${jobDescription ? `TARGET JOB DESCRIPTION:\n${jobDescription}\n` : ''}
 
 ${feedback ? `CURRENT ANALYSIS SCORES:
 - Overall Score: ${feedback.overallScore}/100
-- ATS Compatibility: ${feedback.ATS?.score}/100  
+- ATS Compatibility: ${feedback.ATS?.score}/100
 - Content Quality: ${feedback.content?.score}/100
 - Skills Optimization: ${feedback.skills?.score}/100
 - Structure & Format: ${feedback.structure?.score}/100
@@ -710,10 +584,9 @@ Provide 10-15 specific, actionable fixes with exact text from the resume.
         explanation: fix.explanation || 'AI-recommended improvement for better results'
       }));
 
-    // Cache the fixes
     await cacheResumeFixes(contentHash, validatedFixes);
 
-    console.log(`✅ Generated ${validatedFixes.length} validated fixes and cached`);
+    console.log(`✅ Generated ${validatedFixes.length} validated fixes`);
 
     return NextResponse.json({
       fixes: validatedFixes,
@@ -729,7 +602,6 @@ Provide 10-15 specific, actionable fixes with exact text from the resume.
 
   } catch (error) {
     console.error('❌ Fix generation failed:', error);
-    
     const mockFixes = generateMockFixes(resumeContent);
     return NextResponse.json({
       fixes: mockFixes,
@@ -738,16 +610,15 @@ Provide 10-15 specific, actionable fixes with exact text from the resume.
         model: 'mock-fixes-fallback',
         type: 'ai-error-recovery',
         count: mockFixes.length,
-        note: 'AI service issue - mock fixes generated from content'
       }
     });
   }
 }
 
 async function handleRegenerateSpecificFix(requestData: RegenerateFixRequest) {
-  const { originalFix, resumeContent, userId = 'anonymous', userTier = 'free' } = requestData;
+  const { originalFix, resumeContent, userId = 'anonymous' } = requestData;
 
-  console.log('🔄 Regenerate fix request from user:', userId, 'tier:', userTier);
+  console.log('🔄 Regenerate fix request from user:', userId);
 
   if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
     return NextResponse.json({
@@ -774,11 +645,9 @@ TASK: Provide a DIFFERENT but equally effective approach to fixing the same issu
 Return JSON format:
 {
   "improvedText": "your alternative improvement text",
-  "explanation": "why this alternative approach works effectively", 
+  "explanation": "why this alternative approach works effectively",
   "impact": "expected outcome of this alternative approach"
 }
-
-Make it meaningfully different while solving the same underlying issue.
     `;
 
     const { text } = await generateText({
@@ -787,18 +656,16 @@ Make it meaningfully different while solving the same underlying issue.
     });
 
     const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error('No valid JSON in AI response');
-    }
+    if (!jsonMatch) throw new Error('No valid JSON in AI response');
 
     const alternative = JSON.parse(jsonMatch[0]) as {
       improvedText: string;
       explanation: string;
       impact?: string;
     };
-    
-    console.log('✅ Fix regenerated with alternative approach');
-    
+
+    console.log('✅ Fix regenerated');
+
     return NextResponse.json({
       alternative: {
         improvedText: alternative.improvedText,
@@ -864,19 +731,17 @@ function processAnalysisObject(object: z.infer<typeof resumeFeedbackSchema>): Re
   };
 
   const weights = { ATS: 0.25, content: 0.30, structure: 0.15, skills: 0.20, toneAndStyle: 0.10 };
-  const weightedScore = 
+  const weightedScore =
     (processedObject.ATS.score * weights.ATS) +
     (processedObject.content.score * weights.content) +
     (processedObject.structure.score * weights.structure) +
     (processedObject.skills.score * weights.skills) +
     (processedObject.toneAndStyle.score * weights.toneAndStyle);
-  
-  processedObject.overallScore = Math.round(weightedScore);
 
+  processedObject.overallScore = Math.round(weightedScore);
   return processedObject;
 }
 
-// NEW: Create job-specific mock analysis for extension
 function createJobSpecificMockAnalysis(jobData: ExtensionJobAnalysisRequest['jobData']) {
   return {
     atsScore: 72,
@@ -898,7 +763,7 @@ function createJobSpecificMockAnalysis(jobData: ExtensionJobAnalysisRequest['job
 
 function createDetailedMockAnalysis(jobTitle: string, jobDescription: string): ResumeFeedback {
   const hasJobContext = !!(jobTitle || jobDescription);
-  
+
   return {
     overallScore: 74,
     ATS: {
@@ -915,9 +780,9 @@ function createDetailedMockAnalysis(jobTitle: string, jobDescription: string): R
           explanation: "Increase keyword density by incorporating exact terms from job postings. This improves ATS matching scores significantly."
         },
         {
-          type: "improve", 
+          type: "improve",
           tip: hasJobContext ? `Include ${jobTitle} specific terminology` : "Include more industry-specific terminology",
-          explanation: hasJobContext ? 
+          explanation: hasJobContext ?
             `Add technical terms and phrases specific to ${jobTitle} roles to improve relevance scoring in ATS systems.` :
             "Use industry-standard terminology and acronyms that hiring managers expect to see in your field."
         },
@@ -929,7 +794,7 @@ function createDetailedMockAnalysis(jobTitle: string, jobDescription: string): R
         {
           type: "improve",
           tip: "Ensure consistent date formatting throughout",
-          explanation: "Use uniform date format (e.g., 'Jan 2022 - Present' or 'January 2022 - Present') across all sections for better ATS parsing."
+          explanation: "Use uniform date format (e.g., 'Jan 2022 - Present') across all sections for better ATS parsing."
         }
       ]
     },
@@ -1070,7 +935,7 @@ Software Engineering Intern | ABC Tech Solutions, Boston, MA | June 2023 - Prese
 
 function generateMockFixes(resumeContent: string): ResumeFix[] {
   const fixes: ResumeFix[] = [];
-  
+
   if (resumeContent.toLowerCase().includes('responsible for')) {
     fixes.push({
       id: 'weak-verb-1',
@@ -1083,7 +948,7 @@ function generateMockFixes(resumeContent: string): ResumeFix[] {
       impact: 'Increases perceived leadership capability'
     });
   }
-  
+
   if (!resumeContent.includes('%')) {
     fixes.push({
       id: 'missing-metrics-1',
