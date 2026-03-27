@@ -1,6 +1,5 @@
 // lib/services/notification-service.ts
-// DELETE the old notification-services.ts file and use only this one.
-// Import path going forward: '@/lib/services/notification-service' (no trailing s)
+// Import path: '@/lib/services/notification-service' (no trailing s)
 
 import {
   collection,
@@ -64,15 +63,12 @@ function toNotification(id: string, data: FirestoreNotification): Notification {
 
 // ============================================================
 // SERVICE
-// Exported as both an object (NotificationService.xxx)
-// and individual static-style methods to match your old class API.
 // ============================================================
 
 export const NotificationService = {
 
   // ── CREATE ─────────────────────────────────────────────────
 
-  /** Generic create — use the named trigger functions below instead */
   async createNotification(
     userId: string,
     type: NotificationType,
@@ -89,12 +85,12 @@ export const NotificationService = {
       type,
       title,
       message,
-      actionUrl: options?.actionUrl ?? null,
+      actionUrl:   options?.actionUrl   ?? null,
       actionLabel: options?.actionLabel ?? null,
-      isRead: false,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      metadata: options?.metadata ?? null,
+      isRead:      false,
+      createdAt:   serverTimestamp(),
+      updatedAt:   serverTimestamp(),
+      metadata:    options?.metadata    ?? null,
     });
     return docRef.id;
   },
@@ -124,10 +120,6 @@ export const NotificationService = {
 
   // ── REAL-TIME ──────────────────────────────────────────────
 
-  /** 
-   * Real-time listener — matches your old class method name.
-   * Returns unsubscribe function, call it in useEffect cleanup.
-   */
   subscribeToNotifications(
     userId: string,
     callback: (notifications: Notification[]) => void,
@@ -158,7 +150,7 @@ export const NotificationService = {
 
   async markAsRead(notificationId: string): Promise<void> {
     await updateDoc(doc(db, COLLECTION, notificationId), {
-      isRead: true,
+      isRead:    true,
       updatedAt: serverTimestamp(),
     });
   },
@@ -169,7 +161,7 @@ export const NotificationService = {
       where('userId', '==', userId),
       where('isRead', '==', false)
     );
-    const snap = await getDocs(q);
+    const snap  = await getDocs(q);
     const batch = writeBatch(db);
     snap.docs.forEach((d) => {
       batch.update(d.ref, { isRead: true, updatedAt: serverTimestamp() });
@@ -179,20 +171,19 @@ export const NotificationService = {
 
   // ── DELETE ─────────────────────────────────────────────────
 
-  /** Matches your old class method name */
   async deleteNotification(notificationId: string): Promise<void> {
     await deleteDoc(doc(db, COLLECTION, notificationId));
   },
 
   async deleteAll(userId: string): Promise<void> {
-    const q = query(collection(db, COLLECTION), where('userId', '==', userId));
-    const snap = await getDocs(q);
+    const q     = query(collection(db, COLLECTION), where('userId', '==', userId));
+    const snap  = await getDocs(q);
     const batch = writeBatch(db);
     snap.docs.forEach((d) => batch.delete(d.ref));
     await batch.commit();
   },
 
-  // ── FEATURE HELPERS (match your old class helpers) ─────────
+  // ── FEATURE HELPERS ────────────────────────────────────────
 
   async notifyInterviewComplete(userId: string, interviewId: string, score: number): Promise<string> {
     return this.createNotification(
@@ -232,7 +223,7 @@ export const NotificationService = {
   },
 
   async notifyPlanMilestone(userId: string, planId: string, planName: string, progressPercent: number): Promise<string> {
-    const emoji = progressPercent >= 100 ? '🏆' : progressPercent >= 75 ? '🔥' : progressPercent >= 50 ? '💪' : '⭐';
+    const emoji      = progressPercent >= 100 ? '🏆' : progressPercent >= 75 ? '🔥' : progressPercent >= 50 ? '💪' : '⭐';
     const isComplete = progressPercent >= 100;
     return this.createNotification(
       userId,
@@ -250,7 +241,7 @@ export const NotificationService = {
       userId, 'achievement',
       `Achievement Unlocked! 🏆`,
       achievementMessage,
-      { metadata: { icon: '🏆' } }
+      { metadata: { icon: '🏆', achievementTitle } }
     );
   },
 

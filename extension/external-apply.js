@@ -27,7 +27,6 @@ function detectPlatform() {
   if (host.includes('bamboohr.com'))        return 'bamboohr';
   if (host.includes('recruitee.com'))       return 'recruitee';
   if (host.includes('wellfound.com') || host.includes('angel.co')) return 'wellfound';
-  // iCIMS CX can serve from custom employer domains -- detect by data-fkit-id in DOM
   if (document.querySelector('[data-fkit-id]')) return 'icims';
   return 'generic';
 }
@@ -52,7 +51,6 @@ const PLATFORM_NAMES = {
   generic:         'Other',
 };
 
-// Per-platform selectors to detect success/confirmation pages
 const SUCCESS_SIGNALS = {
   greenhouse:      { selectors: ['.confirmation', '[class*="confirmation"]', '#confirmation'], text: ['thank you', 'application submitted', 'application received', 'successfully applied'] },
   lever:           { selectors: ['.confirmation-page', '[class*="confirmation"]'], text: ['thank you', 'application submitted', 'successfully applied'] },
@@ -73,16 +71,12 @@ let _applicationTracked = false;
 
 function isSuccessPage(platform) {
   const signals = SUCCESS_SIGNALS[platform] || SUCCESS_SIGNALS.generic;
-
-  // Check DOM elements
   for (const sel of signals.selectors) {
     try {
       const el = document.querySelector(sel);
       if (el && el.offsetParent !== null) return true;
     } catch {}
   }
-
-  // Check page text
   const bodyText = (document.body?.textContent || '').toLowerCase();
   return signals.text.some(t => bodyText.includes(t));
 }
@@ -144,7 +138,6 @@ function extractJobInfoFromPage() {
     } catch {}
   }
 
-  // Fallback: extract company from subdomain
   if (!company) {
     const host  = window.location.hostname;
     const parts = host.split('.');
@@ -159,7 +152,6 @@ function extractJobInfoFromPage() {
     }
   }
 
-  // Fallback: document title
   if (!jobTitle) {
     const title = document.title || '';
     if (title.includes(' - '))      jobTitle = title.split(' - ')[0].trim();
@@ -201,8 +193,12 @@ async function trackJobApplication(platform) {
           return;
         }
         if (response?.success) {
-          console.log('✅ Job application tracked', response.queued ? '(queued locally)' : '(saved to server)');
-          showTrackingToast(jobTitle, company);
+          if (!response.queued) {
+            console.log('✅ Job application saved to tracker');
+            showTrackingToast(jobTitle, company);
+          } else {
+            console.log('📥 Job queued locally (will sync when signed in)');
+          }
         }
       }
     );
@@ -211,7 +207,6 @@ async function trackJobApplication(platform) {
   }
 }
 
-// Small non-intrusive toast (separate from the sidebar)
 function showTrackingToast(jobTitle, company) {
   if (document.getElementById('prc-tracker-toast')) return;
 
@@ -262,7 +257,6 @@ function showTrackingToast(jobTitle, company) {
   }, 4500);
 }
 
-// Watch for confirmation page — covers manual submits AND auto-fill bot submits
 function watchForApplicationSuccess(platform) {
   if (isSuccessPage(platform)) {
     trackJobApplication(platform);
@@ -476,9 +470,6 @@ function waitForApplicationForm(timeout = 8000) {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────
-// Detect if current page has a job application form
-// ─────────────────────────────────────────────────────────────────
 function isApplicationPage() {
   const host = window.location.hostname;
   const path = window.location.pathname.toLowerCase();
@@ -510,9 +501,6 @@ function isApplicationPage() {
   return hasForms || hasApplyBtn || keywordInUrl;
 }
 
-// ─────────────────────────────────────────────────────────────────
-// React-safe value setter
-// ─────────────────────────────────────────────────────────────────
 function setReactValue(el, value) {
   if (!el || el.disabled || el.readOnly) return false;
   try {
@@ -529,9 +517,6 @@ function setReactValue(el, value) {
   } catch { return false; }
 }
 
-// ─────────────────────────────────────────────────────────────────
-// FIX 1: US state name <-> abbreviation lookup + enhanced setSelectValue
-// ─────────────────────────────────────────────────────────────────
 const US_STATES = {
   'alabama':'AL','alaska':'AK','arizona':'AZ','arkansas':'AR','california':'CA',
   'colorado':'CO','connecticut':'CT','delaware':'DE','florida':'FL','georgia':'GA',
@@ -554,8 +539,8 @@ function normalizeState(value) {
   if (!value) return [];
   const v = value.trim().toLowerCase();
   const variants = [v];
-  if (US_STATES[v])         variants.push(US_STATES[v].toLowerCase());   // full name -> abbrev
-  if (US_STATES_REVERSE[v]) variants.push(US_STATES_REVERSE[v]);          // abbrev -> full name
+  if (US_STATES[v])         variants.push(US_STATES[v].toLowerCase());
+  if (US_STATES_REVERSE[v]) variants.push(US_STATES_REVERSE[v]);
   return variants;
 }
 
@@ -577,9 +562,6 @@ function setSelectValue(el, value) {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────
-// Custom (div-based) dropdown filler
-// ─────────────────────────────────────────────────────────────────
 async function fillCustomDropdown(trigger, desiredValue) {
   if (!trigger || !desiredValue) return false;
   const desired = desiredValue.toLowerCase().trim();
@@ -592,11 +574,8 @@ async function fillCustomDropdown(trigger, desiredValue) {
   await new Promise(r => setTimeout(r, 350));
 
   const activeInput = document.activeElement;
-
-  // FIX 4: For state fields, try abbreviation first when typing into search box
-  // since most ATS search boxes match on abbreviation more reliably
   const stateVariants = normalizeState(desiredValue);
-  const typeValue = stateVariants.length > 1 ? stateVariants[1] : desiredValue; // prefer abbrev variant
+  const typeValue = stateVariants.length > 1 ? stateVariants[1] : desiredValue;
 
   const typeTarget = searchInput ||
     (activeInput?.tagName === 'INPUT' ? activeInput : null) ||
@@ -630,7 +609,6 @@ async function fillCustomDropdown(trigger, desiredValue) {
   };
 
   let options = getOptions();
-
   if (!options.length) {
     await new Promise(r => setTimeout(r, 500));
     options = getOptions();
@@ -641,7 +619,6 @@ async function fillCustomDropdown(trigger, desiredValue) {
     return false;
   }
 
-  // Try all state variants against options
   const variantsToTry = normalizeState(desiredValue);
   for (const variant of variantsToTry) {
     const match =
@@ -656,7 +633,6 @@ async function fillCustomDropdown(trigger, desiredValue) {
     }
   }
 
-  // Generic fallback
   const match =
     options.find(o => o.textContent?.trim().toLowerCase().includes(desired)) ||
     options.find(o => desired.includes(o.textContent?.trim().toLowerCase().split(' ')[0]) && o.textContent?.trim().length < 50);
@@ -713,9 +689,6 @@ function rangeToSingleNumber(value) {
   return str;
 }
 
-// ─────────────────────────────────────────────────────────────────
-// Label resolver
-// ─────────────────────────────────────────────────────────────────
 function getLabel(el) {
   if (el.id) {
     const lbl = document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
@@ -744,9 +717,6 @@ function getLabel(el) {
   return el.name || el.id || '';
 }
 
-// ─────────────────────────────────────────────────────────────────
-// Map label text → profile field value
-// ─────────────────────────────────────────────────────────────────
 function matchByLabel(label, p) {
   if (!label) return null;
   const L = label.toLowerCase();
@@ -836,9 +806,6 @@ function matchSelectByLabel(label, p) {
   return null;
 }
 
-// ─────────────────────────────────────────────────────────────────
-// FileInjector
-// ─────────────────────────────────────────────────────────────────
 class FileInjector {
   static async injectFromUrl(url, fileName, inputs) {
     if (!url || !inputs?.length) return 0;
@@ -898,10 +865,6 @@ class FileInjector {
     return { resume, transcript };
   }
 }
-
-// ─────────────────────────────────────────────────────────────────
-// Platform fillers
-// ─────────────────────────────────────────────────────────────────
 
 async function fillGreenhouse(p) {
   let filled = 0;
@@ -1013,7 +976,6 @@ async function wdTypeCombobox(automationId, value) {
   await delay(400);
   const inp = wrapper.querySelector('input') || document.querySelector('[data-automation-id="searchBox"] input');
   if (inp) {
-    // Try abbreviation first for state fields
     const variants = normalizeState(value);
     const typeVal  = variants.length > 1 ? variants[1] : value;
     wdSetValue(inp, typeVal);
@@ -1079,28 +1041,19 @@ async function fillWorkdayStep(p) {
     if (el && !el.value?.trim() && !el.disabled) { if (wdSetValue(el, val)) { filled++; await delay(50); } }
   }
 
-  // ── Phone: Workday splits into Device Type / Country Code / Phone Number / Extension ──
-  // Step 1: Phone Device Type
   await wdPickListbox('phoneDeviceType', 'Mobile');
 
-  // Step 2: Country Phone Code — it's a multi-select pill widget, not a simple listbox.
-  // It already defaults to +1 USA in most cases; only change if not US.
   if (p.country && p.country !== 'United States' && p.country !== 'US') {
     await wdPickListbox('phoneCountryCode', p.country);
   }
 
-  // Step 3: Phone Number — Workday uses several possible automation IDs for this field.
-  // We try them all, plus a broad DOM search for any visible unfilled tel/text input
-  // inside a wrapper labeled "Phone Number".
   if (p.phone) {
-    // Strip country code — Workday wants only the local number (e.g. "6175550100")
     const localPhone = p.phone
-      .replace(/^\+\d{1,3}[\s\-.]?/, '')  // remove +1, +44, etc.
-      .replace(/\D/g, '');                 // digits only
+      .replace(/^\+\d{1,3}[\s\-.]?/, '')
+      .replace(/\D/g, '');
 
     const phoneVal = localPhone || p.phone.replace(/\D/g, '');
 
-    // Try known automation IDs
     const phoneAutomationIds = [
       'phoneSection_phoneNumber',
       'phone-number',
@@ -1122,7 +1075,6 @@ async function fillWorkdayStep(p) {
       }
     }
 
-    // Broad fallback: find any input inside a container whose label says "Phone Number"
     if (!phoneFilled) {
       const allWrappers = document.querySelectorAll('[data-automation-id]');
       for (const wrapper of allWrappers) {
@@ -1142,7 +1094,6 @@ async function fillWorkdayStep(p) {
       }
     }
 
-    // Last resort: scan ALL visible text/tel inputs that are empty and near a "phone" label
     if (!phoneFilled) {
       const allInputs = document.querySelectorAll(
         'input[type="text"]:not([disabled]):not([readonly]),' +
@@ -1158,8 +1109,6 @@ async function fillWorkdayStep(p) {
     }
   }
 
-  // ── Address: Country → wait → State → City → Zip ──
-  // Country first (Workday listbox)
   const targetCountry = p.country || 'United States';
   const countrySelect = document.querySelector(
     'select[data-automation-id="addressSection_countryRegion"], select[data-automation-id*="country" i]'
@@ -1170,16 +1119,13 @@ async function fillWorkdayStep(p) {
     await wdPickListbox('addressSection_countryRegion', targetCountry);
   }
 
-  // Wait for state options to render — Workday fetches them dynamically after country change
   await delay(1200);
 
-  // State — retry up to 5× with growing delays since options load async
   if (p.state) {
     let stateFilled = false;
     for (let attempt = 0; attempt < 5 && !stateFilled; attempt++) {
       if (attempt > 0) await delay(600 * attempt);
 
-      // Try native <select> first
       const stateSelect = document.querySelector(
         'select[data-automation-id="addressSection_stateProvince"],' +
         'select[data-automation-id*="stateProvince" i],' +
@@ -1190,19 +1136,16 @@ async function fillWorkdayStep(p) {
         if (stateSelect.value) { stateFilled = true; break; }
       }
 
-      // Workday custom combobox
       const stateWrapper = document.querySelector(
         '[data-automation-id="addressSection_stateProvince"],' +
         '[data-automation-id*="stateProvince"]'
       );
       if (stateWrapper) {
-        // Check if already has a value
         const currentText = stateWrapper.querySelector('[data-automation-id="selectedItem"], [role="option"][aria-selected="true"]')?.textContent?.trim();
         if (currentText && currentText !== 'Select One' && currentText !== '') { stateFilled = true; break; }
 
         stateFilled = await wdTypeCombobox('addressSection_stateProvince', p.state);
         if (!stateFilled) {
-          // wdPickListbox approach as fallback
           const trigger = stateWrapper.querySelector('button, [role="combobox"], [aria-haspopup]') || stateWrapper;
           trigger.click();
           await delay(800);
@@ -1228,7 +1171,6 @@ async function fillWorkdayStep(p) {
     if (stateFilled) filled++;
   }
 
-  // City
   const cityEl = wdInput('addressSection_city');
   if (cityEl && !cityEl.value?.trim() && p.city) {
     if (wdSetValue(cityEl, p.city)) filled++;
@@ -1393,17 +1335,12 @@ async function fillAshby(p) {
 async function fillICims(p) {
   let filled = 0;
 
-  // ── iCIMS CX Platform uses data-fkit-id attributes ──
-  // Selectors derived directly from DOM inspection of live forms.
-
-  // Helper: find input inside a data-fkit-id wrapper
   function fkitInput(fkitId) {
     const w = document.querySelector(`[data-fkit-id="${fkitId}"]`);
     if (!w) return null;
     return w.querySelector('input:not([type="hidden"]):not([type="file"]):not([disabled])') || null;
   }
 
-  // Helper: fill fkit input if found and empty
   function fillFkit(fkitId, val) {
     if (!val) return false;
     const el = fkitInput(fkitId);
@@ -1411,7 +1348,6 @@ async function fillICims(p) {
     return false;
   }
 
-  // ── Standard text fields (data-fkit-id pattern) ──
   if (fillFkit('name--firstName',   p.firstName))  filled++;
   if (fillFkit('name--lastName',    p.lastName))   filled++;
   if (fillFkit('email--emailAddress', p.email))    filled++;
@@ -1419,17 +1355,12 @@ async function fillICims(p) {
   if (fillFkit('address--city',     p.city))       filled++;
   if (fillFkit('address--postalCode', p.zipCode))  filled++;
 
-  // ── Phone Number ──
-  // DOM: input[id="phoneNumber--phoneNumber"] name="phoneNumber"
-  // inside data-fkit-id="phoneNumber--phoneNumber"
   if (p.phone) {
     const localPhone = p.phone.replace(/^\+\d{1,3}[\s\-.]?/, '').replace(/\D/g, '');
     const phoneVal   = localPhone || p.phone.replace(/\D/g, '');
 
-    // Try exact fkit id first
     let phoneEl = fkitInput('phoneNumber--phoneNumber');
 
-    // Fallback: any input with id or name containing phoneNumber
     if (!phoneEl) {
       phoneEl = document.querySelector(
         'input[id="phoneNumber--phoneNumber"],' +
@@ -1445,15 +1376,11 @@ async function fillICims(p) {
     }
   }
 
-  // ── State/Region — iCIMS CX uses a listbox button ──
-  // DOM: button[name="countryRegion"][id="address--countryRegion"][aria-haspopup="listbox"]
-  // with an input[type="text"] sibling for search, options are [role="option"]
   if (p.state) {
     const stateFilled = await icimsFillListbox('address--countryRegion', p.state);
     if (stateFilled) filled++;
   }
 
-  // ── Classic iCIMS (legacy) fallback — #iCIMS_MainColumn ──
   const classicInputs = document.querySelectorAll(
     '#iCIMS_MainColumn input[type="text"],' +
     '#iCIMS_MainColumn input[type="email"],' +
@@ -1480,7 +1407,6 @@ async function fillICims(p) {
     }
   }
 
-  // Classic state <select>
   const classicStateEl = document.querySelector(
     '#iCIMS_MainColumn select[id*="state" i],' +
     '#iCIMS_MainColumn select[name*="state" i]'
@@ -1491,12 +1417,9 @@ async function fillICims(p) {
   return { filled };
 }
 
-// iCIMS CX listbox filler (button[aria-haspopup="listbox"] pattern)
-// Used for State, Country, and other dropdowns in the CX platform
 async function icimsFillListbox(fieldId, desiredValue) {
   if (!desiredValue) return false;
 
-  // Find the trigger button — try fkit id, then element id, then name
   const trigger =
     document.querySelector(`[data-fkit-id="${fieldId}"] button[aria-haspopup="listbox"]`) ||
     document.querySelector(`[data-fkit-id="${fieldId}"] button[aria-haspopup]`) ||
@@ -1505,16 +1428,14 @@ async function icimsFillListbox(fieldId, desiredValue) {
 
   if (!trigger) return false;
 
-  // Check if already filled (button text isn't placeholder)
   const currentText = (trigger.textContent || '').trim();
   if (currentText && currentText !== 'Select One' && currentText !== '' && currentText !== '--') {
-    return true; // already has a value
+    return true;
   }
 
   trigger.click();
   await delay(400);
 
-  // Try typing in the search input that appears
   const searchInput =
     trigger.parentElement?.querySelector('input[type="text"]') ||
     trigger.closest('[data-fkit-id]')?.querySelector('input[type="text"]') ||
@@ -1523,13 +1444,11 @@ async function icimsFillListbox(fieldId, desiredValue) {
   const stateVariants = normalizeState(desiredValue);
 
   if (searchInput) {
-    // Type abbreviation first (shorter = better search results in iCIMS)
     const typeVal = stateVariants.length > 1 ? stateVariants[1].toUpperCase() : desiredValue;
     setReactValue(searchInput, typeVal);
     await delay(500);
   }
 
-  // Collect visible options
   const getOptions = () => Array.from(document.querySelectorAll('[role="option"]'))
     .filter(o => o.offsetParent !== null && (o.textContent || '').trim());
 
@@ -1542,7 +1461,6 @@ async function icimsFillListbox(fieldId, desiredValue) {
     return false;
   }
 
-  // Match against all state variants
   for (const v of stateVariants) {
     const match =
       options.find(o => o.textContent.trim().toLowerCase() === v) ||
@@ -1555,7 +1473,6 @@ async function icimsFillListbox(fieldId, desiredValue) {
     }
   }
 
-  // Last resort: first option
   options[0].click();
   await delay(200);
   return true;
@@ -1644,7 +1561,6 @@ async function fillSmartRecruiters(p) {
   for (const { val, tests } of fieldDefs) {
     if (!val) continue;
     for (const input of allInputs) {
-      // FIX 2: Don't skip phone fields with only a country code
       const currentVal = (input.value || '').trim();
       const isOnlyCountryCode = /^\+?\d{1,3}$/.test(currentVal);
       if (currentVal && !isOnlyCountryCode) continue;
@@ -1700,7 +1616,6 @@ async function fillBambooHR(p) {
       if (el && !el.value && !el.disabled) { setReactValue(el, val); filled++; break; }
     }
   }
-  // For BambooHR state selects
   const stateEl = document.querySelector('#state, select[name="state"]');
   if (stateEl && stateEl.tagName === 'SELECT' && p.state) setSelectValue(stateEl, p.state);
   filled += await smartScan(p);
@@ -1756,9 +1671,6 @@ async function fillWellfound(p) {
   return { filled };
 }
 
-// ─────────────────────────────────────────────────────────────────
-// Smart scan — handles all field types including checkboxes
-// ─────────────────────────────────────────────────────────────────
 async function smartScan(p) {
   const root = document;
   let filled = 0;
@@ -1767,7 +1679,6 @@ async function smartScan(p) {
     'input:not([type="hidden"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]):not([disabled]):not([readonly])'
   );
   for (const inp of inputs) {
-    // FIX 2: Don't skip phone fields that only contain a country code prefix (+1, +44, etc.)
     if (inp.value && inp.value.trim() !== '') {
       const isPhoneLike = /phone|mobile|cell|tel/i.test(getLabel(inp)) || inp.type === 'tel';
       const isOnlyCountryCode = /^\+?\d{1,3}$/.test(inp.value.trim());
@@ -1783,7 +1694,6 @@ async function smartScan(p) {
     if (/year/i.test(lbl) && val.includes('-')) {
       val = rangeToSingleNumber(val);
     }
-    // For phone fields, strip country code if the field likely doesn't want it
     if ((inp.type === 'tel' || /phone|mobile|cell/i.test(lbl)) && val.startsWith('+')) {
       const stripped = val.replace(/^\+\d{1,3}[\s-]?/, '').replace(/\D/g, '');
       if (stripped.length >= 7) val = stripped;
@@ -1800,7 +1710,6 @@ async function smartScan(p) {
     if (val) setSelectValue(sel, val);
   }
 
-  // FIX 3: Sort custom dropdown triggers so country is always processed before state
   const customDropdownTriggers = root.querySelectorAll(
     '[class*="control"]:not(input):not(select),' +
     '[role="combobox"]:not(input):not(select),' +
@@ -1812,7 +1721,6 @@ async function smartScan(p) {
   const sortedTriggers = Array.from(customDropdownTriggers).sort((a, b) => {
     const lblA = getCustomDropdownLabel(a).toLowerCase();
     const lblB = getCustomDropdownLabel(b).toLowerCase();
-    // Country = -2, State/Province = -1, everything else = 0
     const rankA = /country/i.test(lblA) ? -2 : /\bstate\b|\bprovince\b/i.test(lblA) ? -1 : 0;
     const rankB = /country/i.test(lblB) ? -2 : /\bstate\b|\bprovince\b/i.test(lblB) ? -1 : 0;
     return rankA - rankB;
@@ -1840,7 +1748,6 @@ async function smartScan(p) {
     if (didFill) {
       filled++;
       console.log(`  📦 Custom dropdown "${lbl.slice(0,50)}" → "${val}"`);
-      // FIX 3: After filling country, wait for state options to load before continuing
       if (/country/i.test(lbl)) await new Promise(r => setTimeout(r, 700));
     }
   }
@@ -2056,9 +1963,6 @@ function getCbLabel(cb) {
   return (cb.parentElement?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80);
 }
 
-// ─────────────────────────────────────────────────────────────────
-// Utilities
-// ─────────────────────────────────────────────────────────────────
 function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 function waitForSelector(selector, timeout = 6000) {
@@ -2072,9 +1976,6 @@ function waitForSelector(selector, timeout = 6000) {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────
-// Main dispatch
-// ─────────────────────────────────────────────────────────────────
 async function fillForm(profile, platform) {
   console.log(`🤖 Filling ${platform} form…`);
   let result;
@@ -2098,7 +1999,7 @@ async function fillForm(profile, platform) {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Floating sidebar
+// Floating sidebar — Jobright-inspired UI
 // ─────────────────────────────────────────────────────────────────
 class PreciprocalSidebar {
   constructor() {
@@ -2110,6 +2011,8 @@ class PreciprocalSidebar {
     this.profile    = null;
     this.files      = null;
     this.state      = 'idle';
+    this._filledCount = 0;
+    this._totalFields = 0;
   }
 
   async init() {
@@ -2120,9 +2023,7 @@ class PreciprocalSidebar {
     await this._checkAuth();
     this._injectStyles();
     this._render();
-
     watchForApplicationSuccess(this.platform);
-
     console.log(`✅ Preciprocal sidebar on ${this.platform}`);
   }
 
@@ -2158,122 +2059,175 @@ class PreciprocalSidebar {
     }[this.platform] || 'Application';
   }
 
+  _countPageFields() {
+    const inputs = document.querySelectorAll(
+      'input:not([type="hidden"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]):not([disabled])'
+    );
+    const selects = document.querySelectorAll('select:not([disabled])');
+    return inputs.length + selects.length;
+  }
+
+  _getFieldStatuses() {
+    // Returns filled/total counts for key field categories
+    const check = (selectors) => {
+      for (const s of selectors) {
+        try {
+          const el = document.querySelector(s);
+          if (el && el.value && el.value.trim()) return true;
+        } catch {}
+      }
+      return false;
+    };
+
+    return [
+      { label: 'Name',       filled: check(['input[name="first_name"]','#first_name','input[name="firstName"]','input[name="name"]']) },
+      { label: 'Phone',      filled: check(['input[type="tel"]','input[name="phone"]','#phone']) },
+      { label: 'Email',      filled: check(['input[type="email"]','input[name="email"]','#email']) },
+      { label: 'Experience', filled: check(['input[name="org"]','input[name*="company"]','[data-automation-id="addressSection_addressLine1"] input']) },
+    ];
+  }
+
   _render() {
     document.getElementById('prc-sidebar')?.remove();
     const sidebar = document.createElement('div');
     sidebar.id = 'prc-sidebar';
 
     const platformName = this._platformLabel();
-
-    const platformColors = {
-      greenhouse: '#16a34a', lever: '#4f46e5', workday: '#0284c7',
-      indeed: '#1d4ed8', ashby: '#7c3aed', icims: '#0891b2',
-      jobvite: '#d97706', smartrecruiters: '#059669', taleo: '#2563eb',
-      bamboohr: '#15803d', recruitee: '#db2777', wellfound: '#ea580c',
-      generic: '#6b7280',
-    };
-    const platformColor = platformColors[this.platform] || '#7c3aed';
+    const fields = this._getFieldStatuses();
+    const filledCount = fields.filter(f => f.filled).length;
+    const totalFields = fields.length;
 
     const _iconUrl = (typeof chrome !== 'undefined' && chrome.runtime?.getURL)
       ? chrome.runtime.getURL('icons/icon48.png')
       : '';
 
+    // Extract job title & company from page for display
+    const { jobTitle, company } = extractJobInfoFromPage();
+    const displayTitle = jobTitle !== 'Unknown Position' ? jobTitle : platformName + ' Application';
+    const displayCompany = company !== 'Unknown Company' ? company : window.location.hostname.split('.')[0];
+
     sidebar.innerHTML = `
       <div id="prc-sidebar-inner">
 
-        <div class="prc-sb-header" id="prc-drag-handle">
-          <div class="prc-sb-brand">
-            <div class="prc-sb-logo">
+        <!-- Header -->
+        <div class="prc-header" id="prc-drag-handle">
+          <div class="prc-brand">
+            <div class="prc-logo">
               ${_iconUrl
-                ? `<img src="${_iconUrl}" width="20" height="20" alt="Preciprocal" style="display:block;border-radius:6px;">`
+                ? `<img src="${_iconUrl}" width="22" height="22" alt="Preciprocal" style="display:block;border-radius:5px;">`
                 : `<svg width="16" height="16" viewBox="0 0 64 64" fill="none"><path d="M32 10L54 32L32 54L10 32L32 10Z" fill="#7c3aed" opacity="0.9"/><path d="M32 22L42 32L32 42L22 32L32 22Z" fill="#7c3aed"/></svg>`
               }
             </div>
-            <span class="prc-sb-name">Preciprocal</span>
+            <span class="prc-brand-name">Preciprocal</span>
           </div>
-          <button class="prc-sb-collapse" id="prc-collapse-btn" title="Minimize">
-            <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+          <button class="prc-close-btn" id="prc-collapse-btn" title="Minimize">
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
             </svg>
           </button>
         </div>
 
-        <div class="prc-platform-bar">
-          <div class="prc-platform-dot" style="background:${platformColor};"></div>
-          <span class="prc-platform-name">${platformName}</span>
-          <span class="prc-platform-label">detected</span>
+        <!-- Job info card -->
+        <div class="prc-job-card">
+          <div class="prc-company-row">
+            <div class="prc-company-avatar">${displayCompany.charAt(0).toUpperCase()}</div>
+            <div class="prc-company-info">
+              <div class="prc-company-name">${displayCompany}</div>
+              <div class="prc-platform-badge">${platformName}</div>
+            </div>
+            <div class="prc-match-ring" id="prc-match-ring">
+              <svg width="44" height="44" viewBox="0 0 44 44">
+                <circle cx="22" cy="22" r="17" fill="none" stroke="#e5e7eb" stroke-width="3.5"/>
+                <circle cx="22" cy="22" r="17" fill="none" stroke="#7c3aed" stroke-width="3.5"
+                  stroke-dasharray="106.8" stroke-dashoffset="106.8"
+                  stroke-linecap="round" transform="rotate(-90 22 22)"
+                  id="prc-ring-progress"/>
+              </svg>
+              <span class="prc-match-pct" id="prc-match-pct">–</span>
+            </div>
+          </div>
+          <div class="prc-job-title">${displayTitle}</div>
         </div>
 
-        <div class="prc-sb-body">
+        ${!this.isAuth ? `
 
-          ${!this.isAuth ? `
+          <!-- Unauthenticated state -->
+          <div class="prc-body">
+            <p class="prc-section-title">Sign in to auto-fill</p>
+            <p class="prc-section-sub">Fill this ${platformName} form instantly with your saved profile.</p>
 
-            <div class="prc-sb-section">
-              <p class="prc-sb-title">Auto-fill this application</p>
-              <p class="prc-sb-subtitle">Sign in to fill forms instantly using your saved profile.</p>
-            </div>
-
-            <div class="prc-steps">
-              <div class="prc-step">
-                <div class="prc-step-num">1</div>
-                <div class="prc-step-content">
-                  <span class="prc-step-label">Create your account</span>
-                  <span class="prc-step-hint">Free to get started</span>
-                </div>
-                <button class="prc-step-action" id="prc-signin-btn">Go</button>
-              </div>
-              <div class="prc-step prc-step-dim">
-                <div class="prc-step-num">2</div>
-                <div class="prc-step-content">
-                  <span class="prc-step-label">Complete your profile</span>
-                  <span class="prc-step-hint">Name, resume, preferences</span>
-                </div>
-                <div class="prc-step-action prc-step-action-dim">Go</div>
-              </div>
-            </div>
-
-            <button class="prc-cta prc-cta-disabled">
-              <span>Auto-Fill Application</span>
+            <button class="prc-cta" id="prc-signin-btn">
+              Sign In to Preciprocal
             </button>
 
-          ` : `
+            <p class="prc-footer-note">Free to get started · No credit card required</p>
+          </div>
 
-            <div class="prc-sb-section">
-              <p class="prc-sb-title">Ready to apply</p>
-              <p class="prc-sb-subtitle">Filling this ${platformName} form with your profile.</p>
+        ` : `
+
+          <!-- Authenticated state -->
+          <div class="prc-body">
+
+            <!-- Completion section -->
+            <div class="prc-completion-section" id="prc-completion-section">
+              <div class="prc-completion-header">
+                <span class="prc-completion-label">Completion</span>
+                <span class="prc-completion-pct" id="prc-completion-pct">0%</span>
+              </div>
+              <div class="prc-progress-track">
+                <div class="prc-progress-fill" id="prc-progress-fill" style="width:0%"></div>
+              </div>
             </div>
 
-            <div id="prc-fill-status" class="prc-status-box" style="display:none;"></div>
-            <div id="prc-file-status" class="prc-file-box" style="display:none;">
+            <!-- Field checklist -->
+            <div class="prc-fields-section">
+              <div class="prc-fields-label">Required (${filledCount}/${totalFields} filled)</div>
+              <div class="prc-fields-list" id="prc-fields-list">
+                ${fields.map(f => `
+                  <div class="prc-field-row" data-field="${f.label.toLowerCase()}">
+                    <div class="prc-field-dot ${f.filled ? 'filled' : 'empty'}">
+                      ${f.filled ? `<svg width="9" height="9" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>` : `<div class="prc-dash"></div>`}
+                    </div>
+                    <span class="prc-field-label">${f.label}</span>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+
+            <!-- Status message -->
+            <div id="prc-fill-status" class="prc-status-msg" style="display:none;"></div>
+
+            <!-- File upload status -->
+            <div id="prc-file-status" class="prc-file-section" style="display:none;">
               <div id="prc-resume-status" class="prc-file-row"></div>
               <div id="prc-transcript-status" class="prc-file-row"></div>
             </div>
 
+            <!-- CTA button -->
             <button class="prc-cta" id="prc-autofill-btn">
               <span id="prc-fill-icon">
-                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
                 </svg>
               </span>
-              <span id="prc-fill-label">Auto-Fill Application</span>
+              <span id="prc-fill-label">Autofill</span>
             </button>
 
-            <div class="prc-sb-actions">
-              <button class="prc-link" id="prc-rerun-btn">Re-run fill</button>
+            <!-- Credits row -->
+            <div class="prc-credits-row">
+              <button class="prc-rerun-link" id="prc-rerun-btn">Re-run fill</button>
             </div>
 
-          `}
-        </div>
+          </div>
 
-        <div class="prc-sb-footer">
-          <span class="prc-footer-text">Always review before submitting</span>
-        </div>
+        `}
 
       </div>
 
-      <button id="prc-expand-btn" class="prc-sb-tab" title="Open Preciprocal">
+      <!-- Collapsed tab -->
+      <button id="prc-expand-btn" class="prc-tab" title="Open Preciprocal">
         ${_iconUrl
-          ? `<img src="${_iconUrl}" width="36" height="36" alt="" style="display:block;border-radius:8px;">`
+          ? `<img src="${_iconUrl}" width="28" height="28" alt="" style="display:block;border-radius:7px;">`
           : `<svg width="18" height="18" viewBox="0 0 64 64" fill="none"><path d="M32 10L54 32L32 54L10 32L32 10Z" fill="#7c3aed" opacity="0.85"/><path d="M32 22L42 32L32 42L22 32L32 22Z" fill="#7c3aed"/></svg>`
         }
       </button>
@@ -2281,6 +2235,45 @@ class PreciprocalSidebar {
 
     document.body.appendChild(sidebar);
     this._listen();
+    this._animateRing(0);
+  }
+
+  _animateRing(pct) {
+    const circle = document.getElementById('prc-ring-progress');
+    const label  = document.getElementById('prc-match-pct');
+    if (!circle || !label) return;
+    const circumference = 106.8;
+    const offset = circumference - (pct / 100) * circumference;
+    circle.style.transition = 'stroke-dashoffset 0.7s cubic-bezier(0.4,0,0.2,1)';
+    circle.style.strokeDashoffset = offset;
+    label.textContent = pct > 0 ? pct + '%' : '–';
+  }
+
+  _updateCompletion(pct) {
+    const fill  = document.getElementById('prc-progress-fill');
+    const label = document.getElementById('prc-completion-pct');
+    if (fill)  { fill.style.width = pct + '%'; }
+    if (label) { label.textContent = pct + '%'; }
+    this._animateRing(pct);
+  }
+
+  _updateFieldChecks() {
+    const fields = this._getFieldStatuses();
+    const filledCount = fields.filter(f => f.filled).length;
+    const list = document.getElementById('prc-fields-list');
+    if (!list) return;
+    list.innerHTML = fields.map(f => `
+      <div class="prc-field-row" data-field="${f.label.toLowerCase()}">
+        <div class="prc-field-dot ${f.filled ? 'filled' : 'empty'}">
+          ${f.filled ? `<svg width="9" height="9" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>` : `<div class="prc-dash"></div>`}
+        </div>
+        <span class="prc-field-label">${f.label}</span>
+      </div>
+    `).join('');
+
+    // Update the fields label
+    const label = document.querySelector('.prc-fields-label');
+    if (label) label.textContent = `Required (${filledCount}/${fields.length} filled)`;
   }
 
   _listen() {
@@ -2396,32 +2389,19 @@ class PreciprocalSidebar {
         });
       } catch {}
 
-      if (label) label.textContent = 'Finding Apply button…';
+      if (label) label.textContent = 'Filling form…';
       const onDetailPage = isJobDetailPage();
       if (onDetailPage) {
         const clicked = await clickApplyAndWaitForForm(statusEl);
         if (!clicked) {
-          if (label) label.textContent = 'Opening application…';
-          if (icon)  icon.textContent  = '↗';
+          if (label) label.textContent = 'Opened in new tab';
           btn?.classList.remove('loading');
-          if (statusEl) {
-            statusEl.style.display = 'block';
-            statusEl.className = 'prc-status-box info';
-            statusEl.innerHTML = '<span class="prc-status-icon">↗</span> Application opened in new tab — auto-filling there.';
-          }
           this.state = 'filled';
           return;
         }
         await delay(800);
-      } else {
-        if (statusEl) {
-          statusEl.style.display = 'block';
-          statusEl.className = 'prc-status-box info';
-          statusEl.innerHTML = '<span class="prc-status-icon">📋</span> Form detected — filling fields…';
-        }
       }
 
-      if (label) label.textContent = 'Filling form…';
       const { filled } = await fillForm(this.profile, this.platform);
 
       if (label) label.textContent = 'Uploading files…';
@@ -2430,25 +2410,35 @@ class PreciprocalSidebar {
       this.state = 'filled';
       btn?.classList.remove('loading');
       btn?.classList.add('done');
-      if (icon)  icon.innerHTML = '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
+      if (icon)  icon.innerHTML = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
       if (label) label.textContent = `${filled} fields filled`;
 
-      let statusHtml = `<span class="prc-status-icon">✓</span><span><strong>${filled} fields filled.</strong>`;
-      if (fileResult.resume)     statusHtml += ' Resume uploaded.';
-      if (fileResult.transcript) statusHtml += ' Transcript uploaded.';
-      statusHtml += '</span>';
-      if (statusEl) { statusEl.style.display = 'flex'; statusEl.className = 'prc-status-box success'; statusEl.innerHTML = statusHtml; }
+      // Update completion UI
+      const totalOnPage = this._countPageFields();
+      const pct = totalOnPage > 0 ? Math.min(100, Math.round((filled / totalOnPage) * 100)) : 100;
+      this._updateCompletion(pct);
+      this._updateFieldChecks();
+
+      if (statusEl) {
+        statusEl.style.display = 'flex';
+        statusEl.innerHTML = `<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="#7c3aed" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span>Review all fields before submitting</span>`;
+      }
 
     } catch (err) {
       console.error('❌ Autofill error:', err);
       this.state = 'error';
       btn?.classList.remove('loading');
-      if (icon)  icon.innerHTML = '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>';
+      if (icon)  icon.innerHTML = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>';
       if (label) label.textContent = 'Try again';
-      if (statusEl) { statusEl.style.display = 'flex'; statusEl.className = 'prc-status-box error'; statusEl.innerHTML = `<span class="prc-status-icon">!</span><span>${err.message || 'Auto-fill failed'}</span>`; }
+      if (statusEl) {
+        statusEl.style.display = 'flex';
+        statusEl.classList.add('error');
+        statusEl.innerHTML = `<span>${err.message || 'Auto-fill failed'}</span>`;
+      }
       setTimeout(() => {
-        if (icon) icon.innerHTML = '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>';
-        if (label) label.textContent = 'Auto-Fill Application';
+        if (icon) icon.innerHTML = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>';
+        if (label) label.textContent = 'Autofill';
+        if (statusEl) { statusEl.style.display = 'none'; statusEl.classList.remove('error'); }
         this.state = 'idle';
         btn?.classList.remove('error');
       }, 4000);
@@ -2466,31 +2456,6 @@ class PreciprocalSidebar {
     if (fileEl) { fileEl.style.display = 'none'; }
     await new Promise(r => setTimeout(r, 150));
     this._run();
-  }
-
-  _debug() {
-    const inputs  = srQueryAll('input:not([type="hidden"])');
-    const selects = srQueryAll('select');
-    const info    = [];
-    for (const el of [...inputs, ...selects]) {
-      info.push({
-        tag: el.tagName.toLowerCase(), type: el.type || 'select',
-        name: el.name || '—', id: el.id || '—',
-        placeholder: el.placeholder || '—', autocomplete: el.getAttribute('autocomplete') || '—',
-        ariaLabel: el.getAttribute('aria-label') || '—', dataTest: el.getAttribute('data-test') || '—',
-        label: srGetLabel(el).slice(0, 60) || '—',
-        value: el.value ? '(filled)' : '(empty)', inShadow: el.getRootNode() !== document ? '✓' : '',
-      });
-    }
-    console.group(`🔍 Preciprocal Debug [${this.platform}] — ${info.length} fields`);
-    console.table(info);
-    console.groupEnd();
-    const statusEl = document.getElementById('prc-fill-status');
-    if (statusEl) {
-      statusEl.style.display = 'flex';
-      statusEl.className = 'prc-status-box info';
-      statusEl.innerHTML = `<span class="prc-status-icon">🔍</span><span><strong>${info.length} fields</strong> found. Open DevTools for details.</span>`;
-    }
   }
 
   async _injectFiles(fileEl) {
@@ -2528,7 +2493,6 @@ class PreciprocalSidebar {
     };
     const c = configs[state] || configs.missing;
     el.innerHTML = `<span class="prc-file-icon prc-file-${c.cls}">${c.icon}</span><span>${label}</span><span class="prc-file-state prc-file-${c.cls}">${c.text}</span>`;
-    el.className = `prc-file-row`;
   }
 
   _injectStyles() {
@@ -2536,8 +2500,9 @@ class PreciprocalSidebar {
     const s = document.createElement('style');
     s.id = 'prc-sidebar-styles';
     s.textContent = `
+      @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
 
-      /* ─── Wrapper ─── */
+      /* ─── Root wrapper ─── */
       #prc-sidebar {
         position: fixed;
         top: 50%;
@@ -2546,308 +2511,264 @@ class PreciprocalSidebar {
         z-index: 2147483647;
         display: flex;
         align-items: center;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+        font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
         -webkit-font-smoothing: antialiased;
         user-select: none;
         -webkit-user-select: none;
       }
 
-      #prc-drag-handle {
-        cursor: grab;
-      }
-      #prc-drag-handle:active {
-        cursor: grabbing;
-      }
-
       /* ─── Card ─── */
       #prc-sidebar-inner {
-        position: relative;
         display: flex;
         flex-direction: column;
-        width: 260px;
+        width: 280px;
         background: #ffffff;
-        border: 1px solid #e5e7eb;
+        border: 1.5px solid #e8e8ed;
         border-right: none;
-        border-radius: 16px 0 0 16px;
-        box-shadow: -4px 0 32px rgba(0,0,0,0.10), -1px 0 8px rgba(0,0,0,0.06);
+        border-radius: 20px 0 0 20px;
+        box-shadow: -6px 0 32px rgba(0,0,0,0.09), -1px 0 6px rgba(0,0,0,0.04);
         overflow: hidden;
       }
 
       /* ─── Header ─── */
-      .prc-sb-header {
+      .prc-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 12px 14px 11px;
-        border-bottom: 1px solid #f3f4f6;
+        padding: 14px 16px 12px;
+        cursor: grab;
         background: #ffffff;
+        border-bottom: 1.5px solid #f0f0f5;
       }
-      .prc-sb-brand { display: flex; align-items: center; gap: 8px; }
-      .prc-sb-logo {
-        width: 28px;
-        height: 28px;
+      .prc-header:active { cursor: grabbing; }
+      .prc-brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .prc-logo {
+        width: 30px; height: 30px;
         border-radius: 8px;
         background: #f3f0ff;
-        border: 1px solid #ddd6fe;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        overflow: hidden;
+        border: 1.5px solid #e0d9ff;
+        display: flex; align-items: center; justify-content: center;
+        overflow: hidden; flex-shrink: 0;
       }
-      .prc-sb-name {
-        font-size: 13.5px;
-        font-weight: 800;
-        color: #111827;
-        letter-spacing: -0.03em;
-      }
-      .prc-sb-collapse {
-        width: 24px;
-        height: 24px;
-        background: #f9fafb;
-        border: 1px solid #e5e7eb;
-        border-radius: 6px;
-        color: #9ca3af;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.15s;
-        flex-shrink: 0;
-      }
-      .prc-sb-collapse:hover {
-        background: #f3f4f6;
-        color: #374151;
-        border-color: #d1d5db;
-      }
-
-      /* ─── Platform bar ─── */
-      .prc-platform-bar {
-        display: flex;
-        align-items: center;
-        gap: 7px;
-        padding: 6px 14px;
-        background: #f9fafb;
-        border-bottom: 1px solid #f3f4f6;
-      }
-      .prc-platform-dot {
-        width: 7px;
-        height: 7px;
-        border-radius: 50%;
-        flex-shrink: 0;
-      }
-      .prc-platform-name {
-        font-size: 11.5px;
-        font-weight: 700;
-        color: #374151;
-        letter-spacing: -0.01em;
-      }
-      .prc-platform-label {
-        font-size: 10.5px;
-        color: #9ca3af;
-        margin-left: auto;
-      }
-
-      /* ─── Body ─── */
-      .prc-sb-body {
-        padding: 14px;
-        display: flex;
-        flex-direction: column;
-        gap: 11px;
-        background: #ffffff;
-      }
-
-      /* ─── Section heading ─── */
-      .prc-sb-section { display: flex; flex-direction: column; gap: 3px; }
-      .prc-sb-title {
+      .prc-brand-name {
         font-size: 14px;
         font-weight: 800;
-        color: #111827;
-        margin: 0;
-        letter-spacing: -0.03em;
+        color: #0f0f13;
+        letter-spacing: -0.04em;
       }
-      .prc-sb-subtitle {
-        font-size: 11.5px;
-        color: #6b7280;
-        margin: 0;
-        line-height: 1.55;
+      .prc-close-btn {
+        width: 26px; height: 26px;
+        background: #f5f5f8;
+        border: none;
+        border-radius: 50%;
+        color: #9999aa;
+        cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        transition: background 0.15s, color 0.15s;
+        flex-shrink: 0;
       }
+      .prc-close-btn:hover { background: #ebebf0; color: #333; }
 
-      /* ─── Steps (unauthenticated) ─── */
-      .prc-steps {
-        display: flex;
-        flex-direction: column;
-        background: #f9fafb;
-        border: 1px solid #e5e7eb;
-        border-radius: 12px;
-        overflow: hidden;
+      /* ─── Job card ─── */
+      .prc-job-card {
+        padding: 14px 16px 12px;
+        background: #fafafa;
+        border-bottom: 1.5px solid #f0f0f5;
       }
-      .prc-step {
+      .prc-company-row {
         display: flex;
         align-items: center;
         gap: 10px;
-        padding: 10px 12px;
-        border-bottom: 1px solid #f3f4f6;
-        background: #ffffff;
+        margin-bottom: 10px;
       }
-      .prc-step:last-child { border-bottom: none; }
-      .prc-step-num {
-        width: 22px;
-        height: 22px;
-        border-radius: 50%;
-        background: #f3f0ff;
-        border: 1.5px solid #ddd6fe;
-        color: #7c3aed;
-        font-size: 11px;
+      .prc-company-avatar {
+        width: 36px; height: 36px;
+        background: #1a1a2e;
+        color: #fff;
+        border-radius: 10px;
+        font-size: 15px;
         font-weight: 800;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        display: flex; align-items: center; justify-content: center;
         flex-shrink: 0;
+        letter-spacing: -0.02em;
       }
-      .prc-step-dim .prc-step-num {
-        background: #f9fafb;
-        border-color: #e5e7eb;
-        color: #d1d5db;
-      }
-      .prc-step-content {
+      .prc-company-info {
         flex: 1;
-        display: flex;
-        flex-direction: column;
-        gap: 1px;
         min-width: 0;
       }
-      .prc-step-label { font-size: 12px; font-weight: 700; color: #111827; }
-      .prc-step-hint  { font-size: 10.5px; color: #9ca3af; }
-      .prc-step-dim .prc-step-label { color: #d1d5db; }
-      .prc-step-dim .prc-step-hint  { color: #e5e7eb; }
-      .prc-step-action {
-        padding: 5px 11px;
-        background: #7c3aed;
-        color: #fff;
-        font-size: 11px;
-        font-weight: 700;
-        border: none;
-        border-radius: 20px;
-        cursor: pointer;
-        font-family: inherit;
-        letter-spacing: 0.01em;
-        flex-shrink: 0;
-        transition: background 0.15s, transform 0.1s;
-      }
-      .prc-step-action:hover { background: #6d28d9; transform: scale(1.04); }
-      .prc-step-action:active { transform: scale(0.98); }
-      .prc-step-action-dim {
-        background: #f3f4f6;
-        color: #d1d5db;
-        cursor: default;
-      }
-      .prc-step-action-dim:hover { background: #f3f4f6; transform: none; }
-
-      /* ─── Primary CTA ─── */
-      .prc-cta {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 7px;
-        width: 100%;
-        padding: 11px 16px;
-        background: #7c3aed;
-        color: #fff;
+      .prc-company-name {
         font-size: 13px;
         font-weight: 700;
-        letter-spacing: -0.01em;
-        border: none;
-        border-radius: 999px;
-        cursor: pointer;
-        font-family: inherit;
-        transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
-        box-shadow: 0 2px 12px rgba(124,58,237,0.28);
+        color: #0f0f13;
+        letter-spacing: -0.02em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
-      .prc-cta:hover {
-        background: #6d28d9;
-        box-shadow: 0 4px 18px rgba(124,58,237,0.38);
-        transform: translateY(-1px);
+      .prc-platform-badge {
+        font-size: 11px;
+        color: #888;
+        font-weight: 500;
+        margin-top: 1px;
       }
-      .prc-cta:active { transform: translateY(0); box-shadow: 0 1px 6px rgba(124,58,237,0.2); }
-      .prc-cta.loading { opacity: 0.65; cursor: wait; pointer-events: none; }
-      .prc-cta.done {
-        background: #059669;
-        box-shadow: 0 2px 10px rgba(5,150,105,0.22);
-        pointer-events: none;
+      .prc-match-ring {
+        position: relative;
+        width: 44px; height: 44px;
+        flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
       }
-      .prc-cta.error {
-        background: #dc2626;
-        box-shadow: none;
+      .prc-match-ring svg { position: absolute; top: 0; left: 0; }
+      .prc-match-pct {
+        font-size: 10px;
+        font-weight: 800;
+        color: #7c3aed;
+        position: relative;
+        z-index: 1;
+        letter-spacing: -0.03em;
       }
-      .prc-cta-disabled {
-        background: #f3f4f6;
-        color: #d1d5db;
-        box-shadow: none;
-        cursor: default;
-        pointer-events: none;
-        border: 1.5px solid #e5e7eb;
+      .prc-job-title {
+        font-size: 13.5px;
+        font-weight: 700;
+        color: #0f0f13;
+        letter-spacing: -0.03em;
+        line-height: 1.35;
+        text-decoration: underline;
+        text-decoration-color: #0f0f13;
+        text-underline-offset: 2px;
       }
 
-      /* ─── Link row ─── */
-      .prc-sb-actions {
+      /* ─── Body ─── */
+      .prc-body {
+        padding: 14px 16px 16px;
         display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
+        flex-direction: column;
+        gap: 12px;
       }
-      .prc-dot { font-size: 10px; color: #d1d5db; }
-      .prc-link {
-        background: none;
-        border: none;
-        cursor: pointer;
-        font-family: inherit;
-        font-size: 11.5px;
-        color: #9ca3af;
-        padding: 0;
-        transition: color 0.15s;
+
+      /* ─── Section title (unauthenticated) ─── */
+      .prc-section-title {
+        font-size: 14px;
+        font-weight: 800;
+        color: #0f0f13;
+        margin: 0;
+        letter-spacing: -0.03em;
+      }
+      .prc-section-sub {
+        font-size: 12px;
+        color: #888;
+        margin: 0;
+        line-height: 1.5;
+      }
+      .prc-footer-note {
+        text-align: center;
+        font-size: 11px;
+        color: #bbb;
+        margin: 0;
         font-weight: 500;
       }
-      .prc-link:hover { color: #7c3aed; }
-      .prc-link-muted { color: #d1d5db; font-size: 10.5px; }
-      .prc-link-muted:hover { color: #6b7280; }
 
-      /* ─── Status box ─── */
-      .prc-status-box {
+      /* ─── Completion section ─── */
+      .prc-completion-section { display: flex; flex-direction: column; gap: 6px; }
+      .prc-completion-header {
         display: flex;
-        align-items: flex-start;
-        gap: 8px;
-        padding: 9px 11px;
-        border-radius: 10px;
-        font-size: 11.5px;
-        line-height: 1.5;
-        color: #374151;
+        align-items: center;
+        justify-content: space-between;
       }
-      .prc-status-box.success {
-        background: #f0fdf4;
-        border: 1px solid #bbf7d0;
-        color: #166534;
+      .prc-completion-label {
+        font-size: 12.5px;
+        font-weight: 700;
+        color: #0f0f13;
+        letter-spacing: -0.02em;
       }
-      .prc-status-box.error {
-        background: #fef2f2;
-        border: 1px solid #fecaca;
-        color: #991b1b;
+      .prc-completion-pct {
+        font-size: 12.5px;
+        font-weight: 700;
+        color: #0f0f13;
       }
-      .prc-status-box.info {
-        background: #faf5ff;
-        border: 1px solid #ddd6fe;
-        color: #5b21b6;
+      .prc-progress-track {
+        height: 6px;
+        background: #ebebf0;
+        border-radius: 999px;
+        overflow: hidden;
       }
-      .prc-status-icon { flex-shrink: 0; font-size: 12px; line-height: 1.5; }
+      .prc-progress-fill {
+        height: 100%;
+        background: #7c3aed;
+        border-radius: 999px;
+        transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+      }
 
-      /* ─── File box ─── */
-      .prc-file-box {
+      /* ─── Fields section ─── */
+      .prc-fields-section { display: flex; flex-direction: column; gap: 7px; }
+      .prc-fields-label {
+        font-size: 12px;
+        font-weight: 700;
+        color: #0f0f13;
+        letter-spacing: -0.01em;
+      }
+      .prc-fields-list {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      .prc-field-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .prc-field-dot {
+        width: 20px; height: 20px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        transition: background 0.2s, border-color 0.2s;
+      }
+      .prc-field-dot.filled {
+        background: #7c3aed;
+        border: none;
+      }
+      .prc-field-dot.empty {
+        background: #ffffff;
+        border: 2px solid #e0e0ea;
+      }
+      .prc-dash {
+        width: 6px; height: 2px;
+        background: #d0d0dc;
+        border-radius: 1px;
+      }
+      .prc-field-label {
+        font-size: 12.5px;
+        font-weight: 600;
+        color: #444;
+        letter-spacing: -0.01em;
+      }
+
+      /* ─── Status message ─── */
+      .prc-status-msg {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11.5px;
+        color: #7c3aed;
+        font-weight: 600;
+        padding: 0 2px;
+      }
+      .prc-status-msg.error {
+        color: #dc2626;
+      }
+
+      /* ─── File section ─── */
+      .prc-file-section {
         display: flex;
         flex-direction: column;
         gap: 5px;
         padding: 9px 11px;
-        background: #f9fafb;
-        border: 1px solid #e5e7eb;
+        background: #f9f9fc;
+        border: 1.5px solid #ebebf0;
         border-radius: 10px;
       }
       .prc-file-row {
@@ -2855,38 +2776,80 @@ class PreciprocalSidebar {
         align-items: center;
         gap: 7px;
         font-size: 11px;
-        color: #6b7280;
+        color: #666;
+        font-weight: 600;
       }
       .prc-file-icon { font-size: 11px; flex-shrink: 0; }
-      .prc-file-state { margin-left: auto; font-size: 10.5px; font-weight: 600; }
-      .prc-file-done      { color: #059669; }
+      .prc-file-state { margin-left: auto; font-size: 10.5px; font-weight: 700; }
+      .prc-file-done      { color: #16a34a; }
       .prc-file-uploading { color: #2563eb; }
       .prc-file-manual    { color: #d97706; }
-      .prc-file-missing   { color: #d1d5db; }
+      .prc-file-missing   { color: #ccc; }
 
-      /* ─── Footer ─── */
-      .prc-sb-footer {
-        padding: 8px 14px;
-        border-top: 1px solid #f3f4f6;
-        background: #f9fafb;
-        text-align: center;
+      /* ─── CTA button ─── */
+      .prc-cta {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        width: 100%;
+        padding: 13px 16px;
+        background: #7c3aed;
+        color: #fff;
+        font-size: 15px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        font-family: inherit;
+        transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+        box-shadow: 0 2px 12px rgba(124,58,237,0.3);
+      }
+      .prc-cta:hover {
+        background: #6d28d9;
+        box-shadow: 0 4px 20px rgba(124,58,237,0.4);
+        transform: translateY(-1px);
+      }
+      .prc-cta:active { transform: translateY(0); }
+      .prc-cta.loading { opacity: 0.65; cursor: wait; pointer-events: none; }
+      .prc-cta.done {
+        background: #16a34a;
+        box-shadow: 0 2px 10px rgba(22,163,74,0.25);
+        pointer-events: none;
+      }
+      .prc-cta.error {
+        background: #dc2626;
+        box-shadow: none;
+      }
+
+      /* ─── Credits row ─── */
+      .prc-credits-row {
         display: flex;
         align-items: center;
         justify-content: center;
       }
-      .prc-footer-text {
-        font-size: 10.5px;
-        color: #9ca3af;
-        letter-spacing: 0.01em;
-        font-weight: 500;
+      .prc-rerun-link {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 12px;
+        color: #aaa;
+        padding: 0;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+        transition: color 0.15s;
       }
+      .prc-rerun-link:hover { color: #7c3aed; }
 
       /* ─── Spinner ─── */
       .prc-spinner {
         display: inline-block;
-        width: 12px;
-        height: 12px;
-        border: 2px solid rgba(255,255,255,0.35);
+        width: 13px; height: 13px;
+        border: 2.5px solid rgba(255,255,255,0.35);
         border-top-color: #fff;
         border-radius: 50%;
         animation: prc-spin 0.65s linear infinite;
@@ -2895,31 +2858,29 @@ class PreciprocalSidebar {
       @keyframes prc-spin { to { transform: rotate(360deg); } }
 
       /* ─── Collapsed tab ─── */
-      .prc-sb-tab {
+      .prc-tab {
         display: none;
-        width: 52px;
-        height: 52px;
+        width: 48px; height: 48px;
         background: #ffffff;
-        border: 1px solid #e5e7eb;
+        border: 1.5px solid #e8e8ed;
         border-right: none;
         border-radius: 14px 0 0 14px;
         cursor: grab;
         align-items: center;
         justify-content: center;
-        box-shadow: -2px 0 12px rgba(0,0,0,0.08);
+        box-shadow: -2px 0 12px rgba(0,0,0,0.07);
         transition: background 0.15s, box-shadow 0.15s;
         padding: 0;
       }
-      .prc-sb-tab:hover {
-        background: #faf5ff;
-        box-shadow: -3px 0 16px rgba(124,58,237,0.12);
+      .prc-tab:hover {
+        background: #f5f0ff;
+        box-shadow: -3px 0 16px rgba(124,58,237,0.14);
         border-color: #ddd6fe;
       }
-      .prc-sb-tab:active { cursor: grabbing; }
+      .prc-tab:active { cursor: grabbing; }
 
-      @media (max-width: 900px) { #prc-sidebar-inner { width: 240px; } }
+      @media (max-width: 900px) { #prc-sidebar-inner { width: 260px; } }
       @media print { #prc-sidebar { display: none !important; } }
-
     `;
     (document.head || document.documentElement).appendChild(s);
   }
@@ -2982,12 +2943,14 @@ async function onNavigation() {
         const btn = document.getElementById('prc-autofill-btn');
         btn?.classList.remove('loading');
         btn?.classList.add('done');
-        if (icon)  icon.innerHTML = '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
+        if (icon)  icon.innerHTML = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
         if (label) label.textContent = `${filled} fields filled`;
-        if (statusEl) {
-          statusEl.style.display = 'flex';
-          statusEl.className = 'prc-status-box success';
-          statusEl.innerHTML = `<span class="prc-status-icon">✓</span><span><strong>${filled} fields filled.</strong> Review before submitting.</span>`;
+
+        if (_instance) {
+          const totalOnPage = _instance._countPageFields();
+          const pct = totalOnPage > 0 ? Math.min(100, Math.round((filled / totalOnPage) * 100)) : 100;
+          _instance._updateCompletion(pct);
+          _instance._updateFieldChecks();
         }
         _autoFilling = false;
       }

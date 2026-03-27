@@ -1,8 +1,8 @@
 // lib/services/resumeClient.ts
-"use client"
-import { storage } from '@/lib/firebase/config';
+"use client";
+
+import { storage, auth } from '@/firebase/client';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { auth } from '@/lib/firebase/config';
 
 export interface Resume {
   id: string;
@@ -35,7 +35,6 @@ export interface ResumeStats {
   resumesLimit: number;
 }
 
-// Type guard for Firebase storage errors
 interface FirebaseStorageError {
   code?: string;
   message?: string;
@@ -46,57 +45,44 @@ function isFirebaseStorageError(error: unknown): error is FirebaseStorageError {
 }
 
 function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  if (isFirebaseStorageError(error) && error.message) {
-    return error.message;
-  }
+  if (error instanceof Error) return error.message;
+  if (isFirebaseStorageError(error) && error.message) return error.message;
   return 'Unknown error';
 }
 
 class ResumeClientService {
-  // Get auth token for API calls
   private async getAuthToken(): Promise<string | null> {
     const user = auth.currentUser;
     if (!user) return null;
-    
     try {
-      const token = await user.getIdToken();
-      return token;
+      return await user.getIdToken();
     } catch (error: unknown) {
       console.error('Error getting auth token:', error);
       return null;
     }
   }
 
-  // Upload file to Firebase Storage with CORS error handling
   async uploadFile(file: File, userId: string, resumeId: string): Promise<string | null> {
     try {
       const storageRef = ref(storage, `resumes/${userId}/${resumeId}/${file.name}`);
       const snapshot = await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(snapshot.ref);
-      return downloadURL;
+      return await getDownloadURL(snapshot.ref);
     } catch (error: unknown) {
       console.error('Error uploading file:', error);
-      
-      // Handle CORS errors gracefully
       if (isFirebaseStorageError(error)) {
-        if (error.code === 'storage/unauthorized' || 
-            error.message?.includes('CORS') || 
-            error.message?.includes('XMLHttpRequest')) {
+        if (
+          error.code === 'storage/unauthorized' ||
+          error.message?.includes('CORS') ||
+          error.message?.includes('XMLHttpRequest')
+        ) {
           console.warn('CORS error detected, using fallback upload method');
-          // For development, we'll create a mock URL
-          // In production, you'd want to implement a server-side upload
           return `mock://upload/${userId}/${resumeId}/${file.name}`;
         }
       }
-      
       return null;
     }
   }
 
-  // Create a new resume
   async createResume(data: {
     companyName: string;
     jobTitle: string;
@@ -107,195 +93,122 @@ class ResumeClientService {
   }): Promise<{ success: boolean; data?: Resume; error?: string }> {
     try {
       const token = await this.getAuthToken();
-      if (!token) {
-        return { success: false, error: 'Authentication required' };
-      }
+      if (!token) return { success: false, error: 'Authentication required' };
 
       const response = await fetch('/api/resume', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(data)
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(data),
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      return result;
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      return await response.json();
     } catch (error: unknown) {
       console.error('Error creating resume:', error);
-      return { 
-        success: false, 
-        error: getErrorMessage(error) || 'Failed to create resume' 
-      };
+      return { success: false, error: getErrorMessage(error) || 'Failed to create resume' };
     }
   }
 
-  // Get all resumes for user
   async getResumes(): Promise<{ success: boolean; data?: Resume[]; error?: string }> {
     try {
       const token = await this.getAuthToken();
-      if (!token) {
-        return { success: false, error: 'Authentication required' };
-      }
+      if (!token) return { success: false, error: 'Authentication required' };
 
       const response = await fetch('/api/resume', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      return result;
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      return await response.json();
     } catch (error: unknown) {
       console.error('Error fetching resumes:', error);
-      return { 
-        success: false, 
-        error: getErrorMessage(error) || 'Failed to fetch resumes' 
-      };
+      return { success: false, error: getErrorMessage(error) || 'Failed to fetch resumes' };
     }
   }
 
-  // Get single resume by ID
   async getResume(id: string): Promise<{ success: boolean; data?: Resume; error?: string }> {
     try {
       const token = await this.getAuthToken();
-      if (!token) {
-        return { success: false, error: 'Authentication required' };
-      }
+      if (!token) return { success: false, error: 'Authentication required' };
 
       const response = await fetch(`/api/resume/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!response.ok) {
-        if (response.status === 404) {
-          return { success: false, error: 'Resume not found' };
-        }
-        if (response.status === 403) {
-          return { success: false, error: 'Access denied' };
-        }
+        if (response.status === 404) return { success: false, error: 'Resume not found' };
+        if (response.status === 403) return { success: false, error: 'Access denied' };
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
-      const result = await response.json();
-      return result;
+      return await response.json();
     } catch (error: unknown) {
       console.error('Error fetching resume:', error);
-      return { 
-        success: false, 
-        error: getErrorMessage(error) || 'Failed to fetch resume' 
-      };
+      return { success: false, error: getErrorMessage(error) || 'Failed to fetch resume' };
     }
   }
 
-  // Update resume with analysis results
-  async updateResume(id: string, data: {
-    status: 'complete' | 'failed';
-    score?: number;
-    feedback?: Resume['feedback'];
-    error?: string;
-  }): Promise<{ success: boolean; error?: string }> {
+  async updateResume(
+    id: string,
+    data: {
+      status: 'complete' | 'failed';
+      score?: number;
+      feedback?: Resume['feedback'];
+      error?: string;
+    }
+  ): Promise<{ success: boolean; error?: string }> {
     try {
       const token = await this.getAuthToken();
-      if (!token) {
-        return { success: false, error: 'Authentication required' };
-      }
+      if (!token) return { success: false, error: 'Authentication required' };
 
       const response = await fetch(`/api/resume/${id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(data)
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(data),
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      return result;
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      return await response.json();
     } catch (error: unknown) {
       console.error('Error updating resume:', error);
-      return { 
-        success: false, 
-        error: getErrorMessage(error) || 'Failed to update resume' 
-      };
+      return { success: false, error: getErrorMessage(error) || 'Failed to update resume' };
     }
   }
 
-  // Delete resume
   async deleteResume(id: string): Promise<{ success: boolean; error?: string }> {
     try {
       const token = await this.getAuthToken();
-      if (!token) {
-        return { success: false, error: 'Authentication required' };
-      }
+      if (!token) return { success: false, error: 'Authentication required' };
 
       const response = await fetch(`/api/resume/${id}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      return result;
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      return await response.json();
     } catch (error: unknown) {
       console.error('Error deleting resume:', error);
-      return { 
-        success: false, 
-        error: getErrorMessage(error) || 'Failed to delete resume' 
-      };
+      return { success: false, error: getErrorMessage(error) || 'Failed to delete resume' };
     }
   }
 
-  // Get resume statistics
   async getStats(): Promise<{ success: boolean; data?: ResumeStats; error?: string }> {
     try {
       const token = await this.getAuthToken();
-      if (!token) {
-        return { success: false, error: 'Authentication required' };
-      }
+      if (!token) return { success: false, error: 'Authentication required' };
 
       const response = await fetch('/api/resume/stats', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      return result;
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      return await response.json();
     } catch (error: unknown) {
       console.error('Error fetching stats:', error);
-      return { 
-        success: false, 
-        error: getErrorMessage(error) || 'Failed to fetch stats' 
-      };
+      return { success: false, error: getErrorMessage(error) || 'Failed to fetch stats' };
     }
   }
 
-  // Analyze resume (mock implementation - replace with PuterJS)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async analyzeResume(_file: File, _jobDescription: string, _jobTitle: string): Promise<{
     overallScore: number;
@@ -303,30 +216,27 @@ class ResumeClientService {
     improvements: string[];
     suggestions: string[];
   }> {
-    // Simulate analysis time
     await new Promise(resolve => setTimeout(resolve, 3000));
-
-    // Mock analysis results - replace with actual PuterJS implementation
     return {
       overallScore: Math.floor(Math.random() * 30) + 70,
       strengths: [
         'Clear and professional formatting',
         'Relevant work experience highlighted',
         'Strong technical skills section',
-        'Quantified achievements with metrics'
+        'Quantified achievements with metrics',
       ],
       improvements: [
         'Add more industry-specific keywords',
         'Include recent certifications or training',
         'Expand on leadership experience',
-        'Tailor summary to job requirements'
+        'Tailor summary to job requirements',
       ],
       suggestions: [
         'Consider adding a professional summary',
         'Include links to portfolio projects',
         'Use more action verbs in descriptions',
-        'Ensure consistent formatting throughout'
-      ]
+        'Ensure consistent formatting throughout',
+      ],
     };
   }
 }

@@ -149,7 +149,7 @@ function HelpSupportContent() {
 
   const openTicketsCount = userTickets.filter(t => t.status !== 'resolved').length;
   const tabs: TabItem[] = [
-    { id: 'faq',     label: 'FAQs',    icon: BookOpen     },
+    { id: 'faq',     label: 'FAQs',    icon: BookOpen      },
     { id: 'contact', label: 'Contact', icon: MessageSquare },
     { id: 'tickets', label: 'Tickets', icon: FileText, badge: openTicketsCount },
   ];
@@ -181,8 +181,12 @@ function HelpSupportContent() {
       const q = query(repliesRef, orderBy('createdAt', 'asc'));
       const snapshot = await getDocs(q);
       setTicketReplies(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as TicketReply[]);
-    } catch (error) { console.error('Error loading replies:', error); toast.error('Failed to load conversation'); }
-    finally { setLoadingReplies(false); }
+    } catch (error) {
+      console.error('Error loading replies:', error);
+      toast.error('Failed to load conversation');
+    } finally {
+      setLoadingReplies(false);
+    }
   };
 
   const handleSubmitTicket = async (e: React.FormEvent) => {
@@ -210,20 +214,29 @@ function HelpSupportContent() {
 
       const docRef = await addDoc(ticketsRef, ticketData);
 
-      try {
-        await fetch('/api/firebase/emails', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ticketId: docRef.id, ticket: { ...ticketData, userEmail: user.email, userName: user.displayName || 'User' } }),
-        });
-      } catch (emailError) { console.error('Error sending email:', emailError); }
+      // Fire-and-forget — never let these block or throw to the outer catch
+      fetch('/api/firebase/emails', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ticketId: docRef.id,
+          ticket: { ...ticketData, userEmail: user.email, userName: user.displayName || 'User' },
+        }),
+      }).catch(err => console.error('Error sending email notification:', err));
 
-      await NotificationService.createNotification(
-        user.uid,
-        'system',
-        'Support Ticket Submitted 🎫',
-        `Your ticket "${subject.trim()}" has been received. We'll respond within 24 hours. Track it in Help & Support > Tickets.`,
-        { actionUrl: '/help?section=tickets', actionLabel: 'View Ticket' }
-      );
+      // Wrap notification in its own try/catch so it never blocks form reset
+      try {
+        await NotificationService.createNotification(
+          user.uid,
+          'system',
+          'Support Ticket Submitted 🎫',
+          `Your ticket "${subject.trim()}" has been received. We'll respond within 24 hours. Track it in Help & Support > Tickets.`,
+          { actionUrl: '/help?section=tickets', actionLabel: 'View Ticket' }
+        );
+      } catch (notifError) {
+        // Non-critical — ticket was already saved, just log it
+        console.error('Error creating notification:', notifError);
+      }
 
       setSubmitSuccess(true);
       setSubject('');
@@ -233,12 +246,19 @@ function HelpSupportContent() {
         setSubmitSuccess(false);
         setActiveSection('tickets');
       }, 2000);
+
     } catch (error) {
       console.error('Error submitting ticket:', error);
       const msg = error instanceof Error ? error.message : 'Unknown error';
-      if (msg.includes('Firebase')) { setCriticalError({ code: 'DATABASE', title: 'Submission Error', message: 'Unable to submit ticket', details: msg }); }
-      else { setSubmitError('Failed to submit. Please try again.'); }
-    } finally { setIsSubmitting(false); }
+      if (msg.includes('Firebase')) {
+        setCriticalError({ code: 'DATABASE', title: 'Submission Error', message: 'Unable to submit ticket', details: msg });
+      } else {
+        setSubmitError('Failed to submit. Please try again.');
+      }
+    } finally {
+      // Always reset — this was the stuck-button bug
+      setIsSubmitting(false);
+    }
   };
 
   const filteredFaqs = faqs.filter(faq => {
@@ -280,20 +300,13 @@ function HelpSupportContent() {
                 <p className="text-xs sm:text-sm text-slate-400">Get answers and assistance</p>
               </div>
             </div>
-
             {user ? (
-              <Link
-                href="/"
-                className="flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg glass-morphism border border-white/10 text-slate-300 hover:text-white hover:border-white/20 hover:bg-white/5 transition-all text-xs sm:text-sm font-medium group"
-              >
+              <Link href="/" className="flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg glass-morphism border border-white/10 text-slate-300 hover:text-white hover:border-white/20 hover:bg-white/5 transition-all text-xs sm:text-sm font-medium group">
                 <Home className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 group-hover:text-white transition-colors" />
                 <span className="hidden sm:inline">Home</span>
               </Link>
             ) : (
-              <Link
-                href="/sign-in"
-                className="flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg glass-morphism border border-white/10 text-slate-300 hover:text-white hover:border-white/20 hover:bg-white/5 transition-all text-xs sm:text-sm font-medium group"
-              >
+              <Link href="/sign-in" className="flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg glass-morphism border border-white/10 text-slate-300 hover:text-white hover:border-white/20 hover:bg-white/5 transition-all text-xs sm:text-sm font-medium group">
                 <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4 rotate-180 text-slate-400 group-hover:text-white transition-colors" />
                 <span className="hidden sm:inline">Login</span>
               </Link>
@@ -395,10 +408,7 @@ function HelpSupportContent() {
                       <h4 className="text-sm sm:text-base font-semibold text-white mb-1">Sign in to submit a ticket</h4>
                       <p className="text-slate-400 text-xs sm:text-sm">You need to be logged in to contact support and track your tickets.</p>
                     </div>
-                    <Link
-                      href="/sign-in"
-                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white text-sm font-medium shadow-md hover:shadow-lg transition-all"
-                    >
+                    <Link href="/sign-in" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white text-sm font-medium shadow-md hover:shadow-lg transition-all">
                       <LogOut className="w-4 h-4 rotate-180" />
                       Sign In
                     </Link>
@@ -500,10 +510,7 @@ function HelpSupportContent() {
                     <h3 className="text-sm sm:text-base font-semibold text-white mb-1">Sign in to view tickets</h3>
                     <p className="text-slate-400 text-xs sm:text-sm">You need to be logged in to view and manage your support tickets.</p>
                   </div>
-                  <Link
-                    href="/sign-in"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white text-sm font-medium shadow-md hover:shadow-lg transition-all"
-                  >
+                  <Link href="/sign-in" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white text-sm font-medium shadow-md hover:shadow-lg transition-all">
                     <LogOut className="w-4 h-4 rotate-180" />
                     Sign In
                   </Link>

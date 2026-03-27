@@ -1,242 +1,168 @@
 // app/api/resume/interview-intel/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
-import { db } from '@/firebase/admin';
+import OpenAI from 'openai';
+import { auth, db } from '@/firebase/admin';
 
-const apiKey = process.env.CLAUDE_API_KEY;
+export const runtime     = 'nodejs';
+export const maxDuration = 60;
 
-if (!apiKey) {
-  console.error('❌ CLAUDE_API_KEY is not set');
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
+
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+
+async function verifyToken(request: NextRequest): Promise<string | null> {
+  try {
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) return null;
+    const decoded = await auth.verifyIdToken(authHeader.split('Bearer ')[1]);
+    return decoded.uid;
+  } catch {
+    return null;
+  }
 }
 
-const anthropic = apiKey ? new Anthropic({ apiKey }) : null;
+// ─── Robust JSON extractor ────────────────────────────────────────────────────
 
-/**
- * Robust JSON extraction from messy LLM output.
- */
 function extractJSON(raw: string): Record<string, unknown> {
-  const text = raw
-    .replace(/^```(?:json)?\s*\n?/gim, '')
-    .replace(/\n?\s*```\s*$/gim, '')
-    .trim();
+  const text = raw.replace(/^```(?:json)?\s*\n?/gim, '').replace(/\n?\s*```\s*$/gim, '').trim();
 
   const startIdx = text.indexOf('{');
   if (startIdx === -1) throw new Error('No JSON object found in response');
 
-  let depth = 0;
-  let endIdx = -1;
-  let inString = false;
-  let escaped = false;
-
+  let depth = 0, endIdx = -1, inString = false, escaped = false;
   for (let i = startIdx; i < text.length; i++) {
     const ch = text[i];
-    if (escaped) { escaped = false; continue; }
-    if (ch === '\\') { escaped = true; continue; }
-    if (ch === '"') { inString = !inString; continue; }
-    if (inString) continue;
-    if (ch === '{') depth++;
-    if (ch === '}') {
-      depth--;
-      if (depth === 0) { endIdx = i; break; }
-    }
+    if (escaped)     { escaped = false; continue; }
+    if (ch === '\\') { escaped = true;  continue; }
+    if (ch === '"')  { inString = !inString; continue; }
+    if (inString)    continue;
+    if (ch === '{')  depth++;
+    if (ch === '}')  { depth--; if (depth === 0) { endIdx = i; break; } }
   }
 
-  let jsonStr: string;
-  if (endIdx === -1) {
-    console.warn('⚠️ JSON appears truncated, attempting to repair...');
-    jsonStr = text.substring(startIdx);
-    if (inString) jsonStr += '"';
-    while (depth > 0) {
-      const lastOpen = Math.max(jsonStr.lastIndexOf('['), jsonStr.lastIndexOf('{'));
-      const lastOpenChar = lastOpen >= 0 ? jsonStr[lastOpen] : '{';
-      jsonStr += lastOpenChar === '[' ? ']' : '}';
-      depth--;
-    }
-  } else {
-    jsonStr = text.substring(startIdx, endIdx + 1);
-  }
+  const jsonStr = endIdx === -1
+    ? (() => {
+        let s = text.substring(startIdx);
+        if (inString) s += '"';
+        while (depth-- > 0) s += '}';
+        return s;
+      })()
+    : text.substring(startIdx, endIdx + 1);
 
   const cleaned = jsonStr
     .replace(/,\s*([}\]])/g, '$1')
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
-    .replace(/"(?:[^"\\]|\\.)*"/g, (match) => {
-      return match
-        .replace(/(?<!\\)\n/g, '\\n')
-        .replace(/(?<!\\)\r/g, '\\r')
-        .replace(/(?<!\\)\t/g, '\\t');
-    })
-    .replace(/:\s*undefined\b/g, ': null');
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
 
-  try {
-    return JSON.parse(cleaned) as Record<string, unknown>;
-  } catch {
-    console.warn('⚠️ Standard parse failed, trying aggressive clean...');
-    const aggressive = jsonStr
-      .replace(/[\r\n\t]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .replace(/,\s*([}\]])/g, '$1')
-      .replace(/[\x00-\x1F\x7F]/g, '')
-      .replace(/(\w)'(\w)/g, '$1\\\'$2')
-      .replace(/:\s*undefined\b/g, ': null');
-
-    try {
-      return JSON.parse(aggressive) as Record<string, unknown>;
-    } catch {
-      console.error('❌ All parse attempts failed');
-      console.error('   First 500 chars:', jsonStr.substring(0, 500));
-      throw new Error('Failed to parse AI response as valid JSON');
-    }
-  }
+  return JSON.parse(cleaned) as Record<string, unknown>;
 }
+
+// ─── POST ─────────────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
   try {
-    const { resumeId, companyName, jobTitle, jobDescription, force = false } = await request.json();
+    const userId = await verifyToken(request);
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    console.log('🔍 Interview Intelligence Started');
-    console.log('   Resume ID:', resumeId);
-    console.log('   Company:', companyName);
-    console.log('   Force regenerate:', force);
-
-    if (!resumeId) {
-      return NextResponse.json({ error: 'Resume ID is required' }, { status: 400 });
-    }
-
-    if (!anthropic || !apiKey) {
-      console.error('❌ Claude API not configured');
+    if (!openai) {
       return NextResponse.json(
-        { error: 'AI service not configured. Please add CLAUDE_API_KEY to environment variables.' },
-        { status: 500 }
+        { error: 'AI service not configured — add OPENAI_API_KEY' },
+        { status: 500 },
       );
     }
+
+    const body = await request.json() as {
+      resumeId:        string;
+      companyName?:    string;
+      jobTitle?:       string;
+      jobDescription?: string;
+      force?:          boolean;
+    };
+
+    const { resumeId, force = false } = body;
+    const bodyCompany = body.companyName;
+    const bodyTitle   = body.jobTitle;
+    const bodyJd      = body.jobDescription;
+
+    if (!resumeId) return NextResponse.json({ error: 'Resume ID is required' }, { status: 400 });
 
     const resumeDoc = await db.collection('resumes').doc(resumeId).get();
+    if (!resumeDoc.exists) return NextResponse.json({ error: 'Resume not found' }, { status: 404 });
 
-    if (!resumeDoc.exists) {
-      return NextResponse.json({ error: 'Resume not found' }, { status: 404 });
-    }
+    const resumeData = resumeDoc.data() as Record<string, unknown>;
+    if (resumeData.userId !== userId) return NextResponse.json({ error: 'Access denied' }, { status: 403 });
 
-    const resumeData = resumeDoc.data();
-
-    // ── Return cached result unless force=true ──
-    const cached = resumeData?.interviewIntel as Record<string, unknown> | undefined;
-    const cachedAt = resumeData?.interviewIntelGeneratedAt as string | undefined;
-    const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
-
-    if (!force && cached && cachedAt && Date.now() - new Date(cachedAt).getTime() < CACHE_TTL) {
-      console.log('✅ Returning cached intel for:', resumeId);
+    // ── Cache check ───────────────────────────────────────────────
+    const cached   = resumeData.interviewIntel            as Record<string, unknown> | undefined;
+    const cachedAt = resumeData.interviewIntelGeneratedAt as string | undefined;
+    if (!force && cached && cachedAt && Date.now() - new Date(cachedAt).getTime() < 7 * 24 * 60 * 60 * 1000) {
+      console.log('✅ Returning cached intel:', resumeId);
       return NextResponse.json({ success: true, intel: cached, cached: true });
     }
-    const company = companyName || resumeData?.companyName || '';
-    const role = jobTitle || resumeData?.jobTitle || '';
-    const jd = jobDescription || resumeData?.jobDescription || '';
-    const resumeText = resumeData?.feedback?.resumeText || '';
+
+    // ── Resolve context ───────────────────────────────────────────
+    const company    = bodyCompany || (resumeData.companyName    as string) || '';
+    const role       = bodyTitle   || (resumeData.jobTitle       as string) || '';
+    const jd         = bodyJd      || (resumeData.jobDescription as string) || '';
+    const feedback   = resumeData.feedback as Record<string, unknown> | undefined;
+    const resumeText = (resumeData.resumeText as string)
+      || (feedback?.resumeText as string)
+      || (resumeData.extractedText as string)
+      || '';
 
     if (!company && !role) {
-      return NextResponse.json(
-        { error: 'Company name or job title is required. Please provide at least one.' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Company name or job title is required' }, { status: 400 });
     }
 
-    const prompt = `You are a factual career intelligence analyst. Your job is to provide ONLY verified, real data about interview processes at companies.
+    // ── Prompt ────────────────────────────────────────────────────
+    const prompt = `You are a factual career intelligence analyst. Provide ONLY verified, real data about interview processes at companies.
 
 CRITICAL RULES:
-1. ONLY include information you can verify from real sources (Glassdoor, Blind, Reddit, LeetCode Discuss, Levels.fyi, LinkedIn, official company career pages).
-2. If you CANNOT verify a specific data point, set that field to null. Do NOT guess or fabricate.
-3. For salary — ONLY use real data from Levels.fyi, Glassdoor, or Payscale. If none exists, set salaryIntel to null.
-4. For interview questions — ONLY include questions actually reported by real candidates. Do NOT make up questions.
-5. For acceptance rates, pass rates, time-to-hire — ONLY include if you find real data. Otherwise null.
-6. For Glassdoor ratings — ONLY use the actual Glassdoor rating. If not on Glassdoor, set to null.
-7. null is ALWAYS better than fake data.
-8. For job openings — ONLY list roles that are commonly open or were recently posted. If unknown, set to null.
-9. For Reddit reviews — ONLY include real sentiments and themes from actual Reddit discussions. Do NOT fabricate reviews.
+1. Only include information verifiable from real sources (Glassdoor, Blind, Reddit, LeetCode Discuss, Levels.fyi, LinkedIn, company career pages).
+2. If you CANNOT verify a data point, set it to null. Do NOT guess or fabricate.
+3. null is ALWAYS better than fake data.
+4. Keep all string values SHORT (under 150 characters). No newlines inside strings.
 
 Company: ${company || 'Not specified'}
 Role: ${role || 'Software Engineer'}
-${jd ? `Job Description:\n${jd.substring(0, 1500)}` : ''}
-${resumeText ? `Candidate Resume (for fit analysis):\n${resumeText.substring(0, 1000)}` : ''}
+${jd         ? `Job Description:\n${jd.substring(0, 1500)}`         : ''}
+${resumeText ? `Candidate Resume:\n${resumeText.substring(0, 1000)}` : ''}
 
-Respond with ONLY a JSON object. No markdown, no backticks, no explanation before or after. Just the raw JSON starting with { and ending with }.
-
-IMPORTANT: Keep all string values SHORT (under 150 characters each). Do NOT use newlines, tabs, or special characters inside string values. Use simple straight quotes only. This is critical for JSON parsing.
+Respond with ONLY a JSON object. No markdown, no backticks. Raw JSON starting with { and ending with }.
 
 {
   "companyOverview": {
-    "name": "${company || 'Company'}",
-    "hiringStatus": "active or moderate or slow or freeze or null",
-    "interviewDifficulty": "number 1-5 or null",
-    "avgTimeToHire": "string or null",
-    "acceptanceRate": "string or null",
+    "name": "string",
+    "hiringStatus": "actively hiring | slow hiring | hiring freeze | null",
+    "interviewDifficulty": "easy | medium | hard | very hard | null",
+    "avgTimeToHire": "string like '2-3 weeks' or null",
+    "acceptanceRate": "string like '< 1%' or null",
     "glassdoorRating": "number or null",
-    "interviewExperience": { "positive": "number or null", "neutral": "number or null", "negative": "number or null" },
-    "culture": "short string or null",
-    "sources": ["list of actual sources used"]
+    "interviewExperience": "positive | mixed | negative | null",
+    "culture": "short culture summary string or null",
+    "sources": ["source1", "source2"]
   },
-  "jobOpenings": {
-    "targetRoleAvailable": true or false or null,
-    "lastSeenPosted": "string like 'Jan 2025' or 'Currently open' or null",
-    "hiringTeams": ["team or department names known to be hiring or null"],
-    "otherOpenRoles": [
-      {
-        "title": "role title",
-        "department": "department or team name or null",
-        "level": "Junior or Mid or Senior or Staff or Lead or Manager or null",
-        "relevance": "high or medium or low"
-      }
-    ],
-    "hiringCycleTrend": "string describing when company typically ramps hiring or null",
-    "source": "string or null"
-  },
-  "redditReviews": [
-    {
-      "summary": "short summary of what the person said (under 120 chars)",
-      "sentiment": "positive or negative or mixed",
-      "topic": "interviews or culture or compensation or work-life balance or management or growth",
-      "subreddit": "subreddit name like r/cscareerquestions",
-      "upvoteContext": "highly upvoted or moderately discussed or single report or null"
-    }
-  ],
   "interviewProcess": {
-    "totalRounds": "number or null",
     "rounds": [
-      {
-        "name": "string",
-        "type": "recruiter_screen or technical_phone or coding or system_design or behavioral or hiring_manager or team_match or bar_raiser or take_home",
-        "duration": "string or null",
-        "description": "short string",
-        "passRate": "number or null",
-        "tips": ["short tip strings"]
-      }
+      { "round": "round name", "format": "format description", "duration": "duration string", "focus": "focus description" }
     ],
-    "overallPassRate": "number or null",
-    "pipelineConversion": "string or null"
+    "totalDuration": "string or null",
+    "onsite": true or false or null,
+    "remote": true or false or null,
+    "notes": "string or null"
   },
   "topQuestions": [
-    {
-      "question": "actual reported question",
-      "type": "Coding or System Design or Behavioral or Technical or Product Sense",
-      "frequency": "Very Common or Common or Occasional or null",
-      "difficulty": "Easy or Medium or Hard or null",
-      "tip": "short string or null",
-      "source": "Glassdoor or Blind or Reddit or LeetCode or null"
-    }
+    { "question": "string", "category": "behavioral | technical | system design | culture fit", "frequency": "very common | common | occasionally", "tips": "string or null" }
   ],
   "salaryIntel": {
-    "baseSalary": { "min": "number", "median": "number", "max": "number" },
-    "totalComp": { "min": "number", "median": "number", "max": "number" },
+    "base": "range string or null",
+    "total": "range string or null",
     "equity": "string or null",
-    "signingBonus": "string or null",
-    "negotiationRoom": "string or null",
-    "source": "string"
+    "bonus": "string or null",
+    "source": "string or null"
   },
-  "insiderTips": [
-    {
-      "tip": "short verified tip",
-      "source": "Glassdoor or Blind or Reddit or LinkedIn",
-      "importance": "critical or high or medium"
-    }
-  ],
+  "insiderTips": ["tip1", "tip2"],
   "candidateFitAnalysis": ${resumeText ? '{ "fitScore": "number 0-100", "strengths": ["string"], "gaps": ["string"], "prepPriorities": [{ "area": "string", "reason": "string", "timeNeeded": "string", "resources": ["string"] }], "estimatedPrepTime": "string" }' : 'null'},
   "redFlags": ["string or null if none"],
   "competitorComparison": [
@@ -244,67 +170,54 @@ IMPORTANT: Keep all string values SHORT (under 150 characters each). Do NOT use 
   ],
   "dataConfidence": "high or medium or low",
   "dataNote": "short note about data availability"
-}
+}`;
 
-Set any section to null if no real data exists. Keep strings SHORT and SIMPLE. No newlines inside strings. Output ONLY the JSON.`;
+    // ── Call OpenAI ───────────────────────────────────────────────
+    console.log('🤖 OpenAI interview intel:', resumeId, '|', company, role);
 
-    console.log('   Calling Claude AI...');
-
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5',
-      max_tokens: 4096,
+    const completion = await openai.chat.completions.create({
+      model:       'gpt-4o',
+      temperature: 0.3,
+      max_tokens:  4096,
       messages: [{ role: 'user', content: prompt }],
     });
 
-    const responseText = response.content[0].type === 'text' ? response.content[0].text : '';
+    const responseText = completion.choices[0]?.message?.content ?? '';
     console.log('   Response length:', responseText.length);
 
     const intel = extractJSON(responseText);
 
-    // ── Post-processing: sanitize bad data ──
+    // ── Post-process: sanitize empty arrays ───────────────────────
     if (!intel.companyOverview) {
       intel.companyOverview = {
-        name: company || 'Unknown Company',
-        hiringStatus: null,
-        interviewDifficulty: null,
-        avgTimeToHire: null,
-        acceptanceRate: null,
-        glassdoorRating: null,
-        interviewExperience: null,
-        culture: null,
-        sources: [],
+        name: company || 'Unknown', hiringStatus: null, interviewDifficulty: null,
+        avgTimeToHire: null, acceptanceRate: null, glassdoorRating: null,
+        interviewExperience: null, culture: null, sources: [],
       };
     }
 
-    if (intel.topQuestions && (intel.topQuestions as unknown[]).length === 0) intel.topQuestions = null;
-    if (intel.insiderTips && (intel.insiderTips as unknown[]).length === 0) intel.insiderTips = null;
-    if (intel.redFlags && (intel.redFlags as unknown[]).length === 0) intel.redFlags = null;
-    if (intel.competitorComparison && (intel.competitorComparison as unknown[]).length === 0) intel.competitorComparison = null;
-    if (intel.redditReviews && (intel.redditReviews as unknown[]).length === 0) intel.redditReviews = null;
+    const emptyToNull = (key: string) => {
+      if (Array.isArray(intel[key]) && (intel[key] as unknown[]).length === 0) intel[key] = null;
+    };
+    ['topQuestions', 'insiderTips', 'redFlags', 'competitorComparison', 'redditReviews'].forEach(emptyToNull);
 
-    const interviewProcess = intel.interviewProcess as Record<string, unknown> | undefined;
-    if (interviewProcess?.rounds && (interviewProcess.rounds as unknown[]).length === 0) {
-      interviewProcess.rounds = null;
+    const ip = intel.interviewProcess as Record<string, unknown> | undefined;
+    if (ip?.rounds && (ip.rounds as unknown[]).length === 0) ip.rounds = null;
+
+    const jo = intel.jobOpenings as Record<string, unknown> | null | undefined;
+    if (jo) {
+      if (Array.isArray(jo.otherOpenRoles) && (jo.otherOpenRoles as unknown[]).length === 0) jo.otherOpenRoles = null;
+      if (Array.isArray(jo.hiringTeams)    && (jo.hiringTeams    as unknown[]).length === 0) jo.hiringTeams    = null;
+      if (!jo.targetRoleAvailable && !jo.otherOpenRoles && !jo.hiringCycleTrend) intel.jobOpenings = null;
     }
 
-    const jobOpenings = intel.jobOpenings as Record<string, unknown> | null | undefined;
-    if (jobOpenings) {
-      if (jobOpenings.otherOpenRoles && (jobOpenings.otherOpenRoles as unknown[]).length === 0) jobOpenings.otherOpenRoles = null;
-      if (jobOpenings.hiringTeams && (jobOpenings.hiringTeams as unknown[]).length === 0) jobOpenings.hiringTeams = null;
-      const hasOpeningsData = jobOpenings.targetRoleAvailable !== null || jobOpenings.otherOpenRoles || jobOpenings.hiringCycleTrend;
-      if (!hasOpeningsData) intel.jobOpenings = null;
-    }
-
-    const fitAnalysis = intel.candidateFitAnalysis as Record<string, unknown> | null | undefined;
-    if (!resumeText && fitAnalysis) {
-      fitAnalysis.fitScore = null;
-      fitAnalysis.strengths = null;
-      fitAnalysis.gaps = null;
+    if (!resumeText) {
+      const fit = intel.candidateFitAnalysis as Record<string, unknown> | null | undefined;
+      if (fit) { fit.fitScore = null; fit.strengths = null; fit.gaps = null; }
     }
 
     if (!intel.dataConfidence) {
-      const hasData = intel.topQuestions && intel.salaryIntel && interviewProcess?.rounds;
-      intel.dataConfidence = hasData ? 'medium' : 'low';
+      intel.dataConfidence = (intel.topQuestions && intel.salaryIntel && ip?.rounds) ? 'medium' : 'low';
     }
     if (!intel.dataNote) {
       intel.dataNote = intel.dataConfidence === 'low'
@@ -312,34 +225,25 @@ Set any section to null if no real data exists. Keep strings SHORT and SIMPLE. N
         : 'Data compiled from available public sources.';
     }
 
-    const companyOverview = intel.companyOverview as Record<string, unknown>;
-    console.log('   ✅ Interview intelligence generated');
-    console.log('   Company:', companyOverview.name);
-    console.log('   Data Confidence:', intel.dataConfidence);
+    console.log('✅ Interview intel complete:', resumeId, '| Confidence:', intel.dataConfidence);
 
+    // ── Cache ─────────────────────────────────────────────────────
     try {
       await db.collection('resumes').doc(resumeId).update({
-        interviewIntel: intel,
+        interviewIntel:            intel,
         interviewIntelGeneratedAt: new Date().toISOString(),
-        interviewIntelCompany: company,
-        interviewIntelRole: role,
+        interviewIntelCompany:     company,
+        interviewIntelRole:        role,
       });
-      console.log('   📦 Cached intelligence data in Firestore');
-    } catch (cacheErr) {
-      console.warn('   ⚠️ Failed to cache intel (non-critical):', cacheErr);
-    }
+    } catch (e) { console.warn('⚠️ Cache write failed:', e); }
 
     return NextResponse.json({ success: true, intel });
 
-  } catch (error: unknown) {
-    const err = error as Error & { status?: number; statusText?: string };
-    console.error('❌ Interview intelligence error:', err);
+  } catch (error) {
+    console.error('❌ Interview intel error:', error);
     return NextResponse.json(
-      {
-        error: err.message || 'Failed to generate interview intelligence',
-        details: process.env.NODE_ENV === 'development' ? String(err) : undefined,
-      },
-      { status: 500 }
+      { error: error instanceof Error ? error.message : 'Failed to generate interview intelligence' },
+      { status: 500 },
     );
   }
 }

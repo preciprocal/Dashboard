@@ -1,84 +1,123 @@
 // app/api/extension/track-job/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, db } from '@/firebase/admin';
-
-const CORS = {
-  'Access-Control-Allow-Origin':  '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, x-extension-token, x-user-email, x-user-id, Authorization, Accept',
-  'Access-Control-Max-Age':       '86400',
-};
-
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: CORS });
-}
-
-async function getUserId(request: NextRequest): Promise<string | null> {
-  const token  = request.headers.get('x-extension-token') || '';
-  const email  = request.headers.get('x-user-email')      || '';
-  const userId = request.headers.get('x-user-id')         || '';
-  if (token) {
-    try { const d = await auth.verifyIdToken(token, true);       return d.uid; } catch {}
-    try { const d = await auth.verifySessionCookie(token, true); return d.uid; } catch {}
-  }
-  if (userId && /^[a-zA-Z0-9]{20,40}$/.test(userId)) {
-    try { await auth.getUser(userId); return userId; } catch {}
-  }
-  if (email) {
-    try { const u = await auth.getUserByEmail(email); return u.uid; } catch {}
-  }
-  return null;
-}
+import { db, auth } from '@/firebase/admin';
 
 export async function POST(request: NextRequest) {
-  const userId = await getUserId(request);
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: CORS });
-
-  let body: Record<string, unknown>;
-  try { body = await request.json(); }
-  catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400, headers: CORS }); }
-
-  const { title, company, location, description, url, jobId } = body as Record<string, string>;
-
-  if (!company?.trim() || !title?.trim()) {
-    return NextResponse.json({ error: 'company and title are required' }, { status: 400, headers: CORS });
-  }
-
   try {
-    if (url) {
-      const existing = await db.collection('jobApplications')
-        .where('userId', '==', userId).where('jobUrl', '==', url).limit(1).get();
-      if (!existing.empty) {
-        return NextResponse.json(
-          { success: true, duplicate: true, id: existing.docs[0].id, message: 'Already in your tracker' },
-          { headers: CORS }
-        );
+    // ── Auth ──
+    // background.js sends x-extension-token (Firebase ID token) + x-user-id (raw UID)
+    let userId: string | null = null;
+
+    const extensionToken = request.headers.get('x-extension-token');
+    const headerUserId   = request.headers.get('x-user-id');
+
+    if (extensionToken) {
+      try {
+        const decoded = await auth.verifyIdToken(extensionToken);
+        userId = decoded.uid;
+        console.log('[track-job] ✅ Auth via ID token:', userId);
+      } catch {
+        console.log('[track-job] ID token verify failed, falling back to x-user-id');
       }
     }
-  } catch {}
 
-  try {
-    const docRef = await db.collection('jobApplications').add({
-      userId,
-      company:       company.trim(),
-      jobTitle:      title.trim(),
-      jobUrl:        url              || null,
-      location:      location?.trim() || null,
-      salary:        null,
-      workType:      'onsite',
-      source:        'LinkedIn',
-      notes:         description ? `Job description:\n${description.slice(0, 1000)}` : null,
-      status:        'applied',
-      appliedDate:   new Date().toISOString().split('T')[0],
-      linkedInJobId: jobId           || null,
-      createdAt:     new Date(),
-      updatedAt:     new Date(),
-    });
-    return NextResponse.json(
-      { success: true, duplicate: false, id: docRef.id, message: 'Job added to your tracker' },
-      { headers: CORS }
+    // Fall back to raw UID — safe since it comes from our own extension storage
+    if (!userId && headerUserId && headerUserId.length >= 20) {
+      userId = headerUserId;
+      console.log('[track-job] ✅ Auth via x-user-id:', userId);
+    }
+
+    if (!userId) {
+      console.error('[track-job] ❌ Unauthorized — token:', extensionToken?.slice(0, 20), 'uid:', headerUserId);
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // ── Parse body ──
+    // banner.js sends:       { title, company, location, url, jobId, description }
+    // external-apply.js sends: { jobTitle, company, jobBoard, jobUrl, appliedAt, status, source }
+    const body = await request.json() as Record<string, unknown>;
+
+    const jobTitle = (
+      (typeof body.jobTitle === 'string' && body.jobTitle) ||
+      (typeof body.title    === 'string' && body.title)    ||
+      ''
     );
-  } catch {
-    return NextResponse.json({ error: 'Failed to save job' }, { status: 500, headers: CORS });
+    const company = typeof body.company === 'string' ? body.company : '';
+    const jobUrl  = (
+      (typeof body.jobUrl === 'string' && body.jobUrl) ||
+      (typeof body.url    === 'string' && body.url)    ||
+      null
+    );
+    const jobBoard = typeof body.jobBoard === 'string' ? body.jobBoard : 'Other';
+    const source   = typeof body.source   === 'string' ? body.source   : 'chrome_extension';
+
+    // appliedDate: the tracker page Application interface uses "appliedDate" (YYYY-MM-DD string)
+    // extension sends "appliedAt" as ISO string — convert to date-only
+    const rawDate    = typeof body.appliedAt === 'string' ? body.appliedAt : new Date().toISOString();
+    const appliedDate = rawDate.split('T')[0]; // "2025-03-18"
+
+    console.log('[track-job] Saving:', jobTitle, '@', company, '| url:', jobUrl?.slice(0, 60));
+
+    if (!jobTitle || !company) {
+      console.error('[track-job] ❌ Missing fields — jobTitle:', jobTitle, 'company:', company);
+      return NextResponse.json(
+        { error: 'jobTitle and company are required' },
+        { status: 400 }
+      );
+    }
+
+    // ── Deduplicate: skip if same URL already tracked in the last 24h ──
+    if (jobUrl) {
+      const recent = await db
+        .collection('jobApplications')
+        .where('userId', '==', userId)
+        .where('jobUrl', '==', jobUrl)
+        .orderBy('createdAt', 'desc')
+        .limit(1)
+        .get();
+
+      if (!recent.empty) {
+        const lastTs = new Date(
+          (recent.docs[0].data() as { createdAt: string }).createdAt
+        ).getTime();
+        if (Date.now() - lastTs < 24 * 60 * 60 * 1000) {
+          console.log('[track-job] ⚠️ Duplicate within 24h, skipping:', jobUrl);
+          return NextResponse.json({ success: true, duplicate: true, message: 'Already tracked' });
+        }
+      }
+    }
+
+    // ── Save to Firestore ──
+    // Fields match the Application interface in job-tracker/page.tsx exactly:
+    // company, jobTitle, jobUrl, location, salary, workType, source,
+    // notes, status, appliedDate, createdAt, updatedAt, userId
+    const now    = new Date().toISOString();
+    const docRef = db.collection('jobApplications').doc();
+
+    await docRef.set({
+      id:          docRef.id,
+      userId,
+      company:     company.trim().slice(0, 100),
+      jobTitle:    jobTitle.trim().slice(0, 150),
+      jobUrl:      jobUrl ?? null,
+      location:    null,
+      salary:      null,
+      workType:    'onsite',     // default — user can edit in tracker
+      source:      jobBoard !== 'Other' ? jobBoard : source,
+      notes:       null,
+      status:      'applied',   // matches AppStatus type in tracker page
+      appliedDate,
+      createdAt:   now,
+      updatedAt:   now,
+    });
+
+    console.log('[track-job] ✅ Saved:', docRef.id, '—', jobTitle, '@', company, 'for user:', userId);
+
+    return NextResponse.json({ success: true, id: docRef.id });
+
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to track job application';
+    console.error('[track-job] ❌ Error:', error);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

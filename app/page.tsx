@@ -1,38 +1,53 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
+import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import {
-  Activity,
-  Target,
   Brain,
-  TrendingUp,
   Calendar,
   Zap,
+  Plus,
   FileText,
+  Upload,
   Users,
-  Star,
+  ArrowUpRight,
+  ArrowDownRight,
   BookOpen,
-  CheckCircle2,
-  Sparkles
+  ChevronRight,
+  AlertCircle,
+  Star,
+  TrendingUp,
 } from "lucide-react";
 
-// Import the modular components
 import ProfileOverview from "@/components/profile/Overview";
-
-// Import the new dynamic recommendations engine
-import { 
-  generateDynamicAIRecommendations,
+import {
   analyzeInterviewPerformance,
   analyzeResumeData,
 } from "@/lib/ai/ai-recommendations-engine";
 
-// Import shared Resume type from types/resume
-import type { Resume } from "@/types/resume";
+// ─── Interfaces ───────────────────────────────────────────────────────────────
 
-// ============ INTERFACES ============
+interface Resume {
+  id: string;
+  userId: string;
+  filename: string;
+  originalName: string;
+  uploadedAt: Date;
+  jobTitle?: string;
+  companyName?: string;
+  createdAt: Date;
+  feedback: {
+    overallScore: number;
+    ATS:          { score: number; tips: Array<{ type: 'good' | 'improve'; message: string }> };
+    content:      { score: number; tips: Array<{ type: 'good' | 'improve'; message: string }> };
+    structure:    { score: number; tips: Array<{ type: 'good' | 'improve'; message: string }> };
+    skills:       { score: number; tips: Array<{ type: 'good' | 'improve'; message: string }> };
+    toneAndStyle: { score: number; tips: Array<{ type: 'good' | 'improve'; message: string }> };
+  };
+}
 
 interface Interview {
   id: string;
@@ -60,12 +75,7 @@ interface Interview {
     categoryScores?: { [key: string]: number };
     areasForImprovement?: string[];
   };
-  questions?: {
-    question: string;
-    answer: string;
-    score: number;
-    feedback: string;
-  }[];
+  questions?: { question: string; answer: string; score: number; feedback: string }[];
 }
 
 interface UserProfile {
@@ -113,18 +123,9 @@ interface UserStats {
   strengthsMap: { [key: string]: number };
   weaknessesMap: { [key: string]: number };
   monthlyProgress: { month: string; score: number; count: number }[];
-  companyPreparation: {
-    company: string;
-    interviews: number;
-    avgScore: number;
-  }[];
+  companyPreparation: { company: string; interviews: number; avgScore: number }[];
   skillProgress: { skill: string; progress: number; interviews: number }[];
-  typeBreakdown: {
-    type: string;
-    count: number;
-    avgScore: number;
-    percentage: number;
-  }[];
+  typeBreakdown: { type: string; count: number; avgScore: number; percentage: number }[];
   bestPerformingType?: string;
   worstPerformingType?: string;
   successRate?: number;
@@ -145,372 +146,281 @@ interface UserStats {
   plannerStats?: PlannerStats;
 }
 
-// Define type for Firebase user
-interface FirebaseUser {
-  uid: string;
-  displayName: string | null;
-  email: string | null;
-  photoURL: string | null;
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+/** Circular readiness ring */
+function ReadinessRing({ score }: { score: number }) {
+  const r      = 46;
+  const circ   = 2 * Math.PI * r;
+  const pct    = Math.min(100, Math.max(0, score));
+  const offset = circ - (pct / 100) * circ;
+  const color  = pct >= 70 ? '#34d399' : pct >= 40 ? '#f59e0b' : '#f87171';
+  const label  = pct >= 70 ? 'Ready' : pct >= 40 ? 'In Progress' : 'Getting Started';
+  const bgColor = pct >= 70
+    ? 'rgba(52,211,153,0.12)' : pct >= 40
+    ? 'rgba(245,158,11,0.12)' : 'rgba(248,113,113,0.12)';
+
+  return (
+    <div className="flex flex-col items-center" role="img" aria-label={`Career readiness score: ${score} out of 100`}>
+      <div className="relative w-28 h-28">
+        <svg className="w-28 h-28 -rotate-90" viewBox="0 0 112 112" aria-hidden="true">
+          <circle cx="56" cy="56" r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="8" />
+          <circle
+            cx="56" cy="56" r={r} fill="none" stroke={color} strokeWidth="8"
+            strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={offset}
+            style={{ transition: 'stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1)' }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-2xl font-bold text-white leading-none">{score}</span>
+          <span className="text-[10px] text-slate-500 mt-0.5">/100</span>
+        </div>
+      </div>
+      <span
+        className="text-[11px] font-semibold mt-2 px-3 py-1 rounded-full"
+        style={{ background: bgColor, color }}
+      >
+        {label}
+      </span>
+      <span className="text-[11px] text-slate-500 mt-1">Career Readiness</span>
+    </div>
+  );
 }
 
-// Define type for plan data from Firebase
-interface PlanData {
-  status: string;
-  progress: {
-    percentage: number;
-    completedTasks: number;
-  };
-  createdAt: string;
-  id: string;
-  role: string;
-  company?: string;
-  interviewDate: string;
+/** Stat pill — hero card only */
+function StatPill({ label, value, sub, trend }: {
+  label: string;
+  value: string | number;
+  sub?: string;
+  trend?: number;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-[11px] text-slate-500 uppercase tracking-wide font-medium">{label}</span>
+      <div className="flex items-baseline gap-1">
+        <span className="text-white font-bold text-xl leading-none">{value}</span>
+        {sub && <span className="text-slate-500 text-xs">{sub}</span>}
+      </div>
+      {trend !== undefined && (
+        <div className={`flex items-center gap-0.5 text-[11px] font-semibold ${trend >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+          {trend >= 0
+            ? <ArrowUpRight className="w-3 h-3" aria-hidden="true" />
+            : <ArrowDownRight className="w-3 h-3" aria-hidden="true" />}
+          {Math.abs(trend)}% vs before
+        </div>
+      )}
+    </div>
+  );
 }
 
-// Define type for stats from PlannerService
-interface PlannerServiceStats {
-  currentStreak?: number;
+/** Thin progress bar */
+function ProgressBar({ value, max = 100, color = 'bg-indigo-500' }: {
+  value: number;
+  max?: number;
+  color?: string;
+}) {
+  const pct = Math.round((Math.min(value, max) / max) * 100);
+  return (
+    <div className="h-1 w-full bg-white/[0.06] rounded-full overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+      <div
+        className={`h-full ${color} rounded-full transition-[width] duration-700`}
+        style={{ width: `${pct}%` }}
+      />
+    </div>
+  );
 }
 
-// ============ MAIN COMPONENT ============
+/** Metric card */
+function MetricCard({ icon: Icon, label, value, sub, accentClass, children }: {
+  icon: React.ElementType;
+  label: string;
+  value: string | number;
+  sub?: string;
+  accentClass: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="glass-card p-4 flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">{label}</span>
+        <Icon className={`w-3.5 h-3.5 ${accentClass} opacity-60`} aria-hidden="true" />
+      </div>
+      <div className="flex items-baseline gap-1.5">
+        <span className={`text-2xl font-bold leading-none ${accentClass}`}>{value}</span>
+        {sub && <span className="text-slate-500 text-[11px]">{sub}</span>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/** Quick-action card */
+function ActionCard({ icon: Icon, label, description, href, primary }: {
+  icon: React.ElementType;
+  label: string;
+  description: string;
+  href: string;
+  primary?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`group flex items-center gap-3 p-4 rounded-xl border transition-all duration-200 hover-lift
+        ${primary
+          ? 'gradient-primary border-indigo-500/30 shadow-glass hover:shadow-glass-lg'
+          : 'glass-card'}`}
+    >
+      <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0
+        ${primary ? 'bg-white/15' : 'bg-white/[0.05]'}`}>
+        <Icon className={`w-4 h-4 ${primary ? 'text-white' : 'text-slate-400'}`} aria-hidden="true" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className={`text-sm font-semibold ${primary ? 'text-white' : 'text-slate-200'}`}>{label}</p>
+        <p className={`text-[11px] truncate mt-0.5 ${primary ? 'text-indigo-200/80' : 'text-slate-500'}`}>{description}</p>
+      </div>
+      <ChevronRight
+        className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 group-hover:translate-x-0.5
+          ${primary ? 'text-white/60' : 'text-slate-600'}`}
+        aria-hidden="true"
+      />
+    </Link>
+  );
+}
+
+// ─── Main dashboard ───────────────────────────────────────────────────────────
 
 export default function Dashboard() {
-  const [currentTime, setCurrentTime] = useState(new Date());
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [interviews, setInterviews] = useState<Interview[]>([]);
-  const [resumes, setResumes] = useState<Resume[]>([]);
-  const [stats, setStats] = useState<UserStats | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadingStep, setLoadingStep] = useState(0);
+  const [currentTime,  setCurrentTime]  = useState(new Date());
+  const [userProfile,  setUserProfile]  = useState<UserProfile | null>(null);
+  const [interviews,   setInterviews]   = useState<Interview[]>([]);
+  const [resumes,      setResumes]      = useState<Resume[]>([]);
+  const [stats,        setStats]        = useState<UserStats | null>(null);
+  const [isLoading,    setIsLoading]    = useState(true);
 
-  // Define loading steps with weights
-  const loadingSteps: LoadingStep[] = [
-    { name: 'Authenticating user...', weight: 1 },
-    { name: 'Loading user profile...', weight: 1 },
-    { name: 'Fetching interview history...', weight: 2 },
-    { name: 'Loading resume data...', weight: 2 },
-    { name: 'Retrieving planner stats...', weight: 1 },
-    { name: 'Processing feedback data...', weight: 3 },
-    { name: 'Calculating performance metrics...', weight: 2 },
-    { name: 'Generating AI recommendations...', weight: 2 },
-    { name: 'Finalizing dashboard...', weight: 1 }
-  ];
-
-  // Update current time every minute
+  // Clock — update every minute, not every second (no ticking text on screen)
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 60000);
-
+    const timer = setInterval(() => setCurrentTime(new Date()), 60_000);
     return () => clearInterval(timer);
   }, []);
 
-  // ============ PLANNER STATS FUNCTION ============
-
+  // ── Planner stats ──────────────────────────────────────────────────────────
   const fetchPlannerStats = async (userId: string): Promise<PlannerStats> => {
     try {
       const { PlannerService } = await import('@/lib/services/planner-services');
-      
-      // Fetch user's plans
-      const plans = await PlannerService.getUserPlans(userId) as PlanData[];
-      const stats = await PlannerService.getUserPlanStats(userId) as PlannerServiceStats;
-      
-      const totalPlans = plans.length;
-      const activePlans = plans.filter((p) => p.status === 'active').length;
-      const completedPlans = plans.filter((p) => p.status === 'completed' || p.progress.percentage === 100).length;
-      
-      const averageProgress = plans.length > 0
-        ? Math.round(plans.reduce((sum, p) => sum + p.progress.percentage, 0) / plans.length)
-        : 0;
+      const plans     = await PlannerService.getUserPlans(userId);
+      const statsData = await PlannerService.getUserPlanStats(userId);
 
-      // Find most recent active plan
       const activePlansList = plans
-        .filter((p) => p.status === 'active' && p.progress.percentage < 100)
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      
-      let currentPlan = undefined;
+        .filter((p: any) => p.status === 'active' && p.progress.percentage < 100)
+        .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      let currentPlan;
       if (activePlansList.length > 0) {
-        const plan = activePlansList[0];
-        const interviewDate = new Date(plan.interviewDate);
-        const today = new Date();
-        const daysRemaining = Math.max(0, Math.ceil((interviewDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
-        
+        const p = activePlansList[0];
+        const daysRemaining = Math.max(0, Math.ceil(
+          (new Date(p.interviewDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+        ));
         currentPlan = {
-          id: plan.id,
-          role: plan.role,
-          company: plan.company,
-          progress: plan.progress.percentage,
-          daysRemaining,
-          interviewDate: plan.interviewDate
+          id: p.id, role: p.role, company: p.company,
+          progress: p.progress.percentage, daysRemaining,
+          interviewDate: p.interviewDate,
         };
       }
 
-      const totalTasksCompleted = plans.reduce((sum, p) => sum + p.progress.completedTasks, 0);
-      const currentStreak = stats?.currentStreak || 0;
-
       return {
-        totalPlans,
-        activePlans,
-        completedPlans,
-        averageProgress,
+        totalPlans: plans.length,
+        activePlans: plans.filter((p: any) => p.status === 'active').length,
+        completedPlans: plans.filter((p: any) => p.status === 'completed' || p.progress.percentage === 100).length,
+        averageProgress: plans.length > 0
+          ? Math.round(plans.reduce((s: number, p: any) => s + p.progress.percentage, 0) / plans.length)
+          : 0,
         currentPlan,
-        totalTasksCompleted,
-        currentStreak
+        totalTasksCompleted: plans.reduce((s: number, p: any) => s + p.progress.completedTasks, 0),
+        currentStreak: statsData?.currentStreak || 0,
       };
-    } catch (error) {
-      console.error('Error fetching planner stats:', error);
+    } catch {
       return {
-        totalPlans: 0,
-        activePlans: 0,
-        completedPlans: 0,
-        averageProgress: 0,
-        totalTasksCompleted: 0,
-        currentStreak: 0
+        totalPlans: 0, activePlans: 0, completedPlans: 0,
+        averageProgress: 0, totalTasksCompleted: 0, currentStreak: 0,
       };
     }
   };
 
-  // ============ DATA FETCHING ============
-
+  // ── Data fetch ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const fetchUserData = async () => {
       try {
         setIsLoading(true);
-        setLoadingStep(0);
-
-        // Step 0: Authenticating user
         const { auth } = await import('@/firebase/client');
         const { onAuthStateChanged } = await import('firebase/auth');
         const { FirebaseService } = await import('@/lib/services/firebase-service');
-        const { getInterviewsByUserId } = await import('@/lib/actions/general.action');
-        const { getFeedbackByInterviewId } = await import('@/lib/actions/general.action');
+        const { getInterviewsByUserId, getFeedbackByInterviewId } = await import('@/lib/actions/general.action');
 
-        // Wait for auth state
-        const currentUser = await new Promise<FirebaseUser | null>((resolve) => {
-          const unsubscribe = onAuthStateChanged(auth, (user) => {
-            unsubscribe();
-            resolve(user as FirebaseUser | null);
-          });
+        const currentUser = await new Promise<any>(resolve => {
+          const unsub = onAuthStateChanged(auth, user => { unsub(); resolve(user); });
         });
 
         if (!currentUser) {
-          toast.error("Please log in to view your dashboard");
+          toast.error('Please sign in to view your dashboard');
           setIsLoading(false);
           return;
         }
 
-        setLoadingStep(1); // Move to step 1: Loading user profile
-
-        // Set basic user profile
         setUserProfile({
           id: currentUser.uid,
-          name: currentUser.displayName || "User",
-          email: currentUser.email || "",
+          name: currentUser.displayName || 'User',
+          email: currentUser.email || '',
           createdAt: new Date(),
           lastLogin: new Date(),
-          targetRole: "Software Engineer",
-          experienceLevel: "mid",
-          preferredTech: ["JavaScript", "React", "Node.js"],
+          targetRole: 'Software Engineer',
+          experienceLevel: 'mid',
+          preferredTech: ['JavaScript', 'React', 'Node.js'],
           avatar: currentUser.photoURL || undefined,
-          bio: "",
-          location: "",
+          bio: '',
+          location: '',
         });
 
-        setLoadingStep(2); // Move to step 2: Fetching interview history
-
-        // Fetch user interviews using server action
-        const userInterviews = await getInterviewsByUserId(currentUser.uid);
-        
-        setLoadingStep(3); // Move to step 3: Loading resume data
-
-        // Fetch user resumes using Firebase service
         let userResumes: Resume[] = [];
         try {
           userResumes = await FirebaseService.getUserResumes(currentUser.uid);
           setResumes(userResumes);
-          console.log('📄 Loaded resumes:', userResumes.length);
-        } catch (error) {
-          console.error('Error fetching resumes:', error);
-        }
+        } catch {}
 
-        setLoadingStep(4); // Move to step 4: Retrieving planner stats
-
-        // Fetch planner stats
         let plannerStats: PlannerStats | undefined;
         try {
           plannerStats = await fetchPlannerStats(currentUser.uid);
-          console.log('📅 Loaded planner stats:', plannerStats);
-        } catch (error) {
-          console.error('Error fetching planner stats:', error);
-        }
+        } catch {}
 
-        if (!userInterviews) {
-          console.log('No interviews found for user');
-          setInterviews([]);
-          
-          setLoadingStep(6); // Skip to calculation step
-          
-          const calculatedStats = calculateEnhancedUserStats([], userResumes, plannerStats);
-          setStats(calculatedStats);
-          
-          setLoadingStep(7); // Generate recommendations
-          
-          const dynamicRecommendations = generateDynamicAIRecommendations(
-            [],
-            userResumes as unknown as Parameters<typeof generateDynamicAIRecommendations>[1]
-          );
-          
-          console.log('🤖 Generated recommendations:', dynamicRecommendations);
-          
-          setLoadingStep(8); // Finalizing
-          
-          setTimeout(() => {
-            setIsLoading(false);
-          }, 300);
-          
+        const userInterviews = await getInterviewsByUserId(currentUser.uid);
+        if (!userInterviews?.length) {
+          setStats(calculateStats([], userResumes, plannerStats));
+          setIsLoading(false);
           return;
         }
 
-        console.log('🎯 Loaded interviews:', userInterviews.length);
+        const withDates = userInterviews.map((i: any) => ({
+          ...i,
+          createdAt: i.createdAt?.toDate ? i.createdAt.toDate() : new Date(i.createdAt),
+          updatedAt: i.updatedAt?.toDate ? i.updatedAt.toDate() : new Date(i.updatedAt || i.createdAt),
+        }));
 
-        const interviewsWithDates: Interview[] = userInterviews.map((interview) => {
-          let createdAt: Date;
-          let updatedAt: Date;
+        const withFeedback = await Promise.all(
+          withDates.map(async (i: any) => {
+            try {
+              const fb = await getFeedbackByInterviewId({ interviewId: i.id, userId: currentUser.uid });
+              return fb ? { ...i, feedback: fb, score: fb.totalScore || 0 } : i;
+            } catch { return i; }
+          })
+        );
 
-          // Handle createdAt
-          if (interview.createdAt instanceof Date) {
-            createdAt = interview.createdAt;
-          } else if (typeof interview.createdAt === 'string') {
-            createdAt = new Date(interview.createdAt);
-          } else if (interview.createdAt && typeof interview.createdAt === 'object' && 'toDate' in interview.createdAt) {
-            createdAt = interview.createdAt.toDate();
-          } else {
-            createdAt = new Date();
-          }
-
-          // Handle updatedAt
-          if (interview.updatedAt instanceof Date) {
-            updatedAt = interview.updatedAt;
-          } else if (typeof interview.updatedAt === 'string') {
-            updatedAt = new Date(interview.updatedAt);
-          } else if (interview.updatedAt && typeof interview.updatedAt === 'object' && 'toDate' in interview.updatedAt) {
-            updatedAt = interview.updatedAt.toDate();
-          } else {
-            updatedAt = createdAt;
-          }
-
-          return {
-            id: interview.id,
-            userId: interview.userId,
-            role: interview.role,
-            type: interview.type,
-            techstack: interview.techstack,
-            company: interview.company,
-            position: interview.position,
-            createdAt,
-            updatedAt,
-            duration: interview.duration,
-            score: interview.score,
-            status: interview.status,
-            questions: interview.questions,
-          } as Interview;
-        });
-
-        if (interviewsWithDates && interviewsWithDates.length > 0) {
-          setLoadingStep(5); // Move to step 5: Processing feedback data
-          
-          // Fetch feedback for each interview
-          console.log('🔍 Fetching feedback for interviews...');
-          const interviewsWithFeedback: Interview[] = await Promise.all(
-            interviewsWithDates.map(async (interview) => {
-              try {
-                const feedback = await getFeedbackByInterviewId({
-                  interviewId: interview.id,
-                  userId: currentUser.uid,
-                });
-
-                if (feedback) {
-                  return {
-                    ...interview,
-                    feedback: {
-                      strengths: feedback.strengths || [],
-                      weaknesses: feedback.areasForImprovement || [],
-                      overallRating: feedback.totalScore || 0,
-                      technicalAccuracy: feedback.technicalAccuracy || 0,
-                      communication: feedback.communication || 0,
-                      problemSolving: feedback.problemSolving || 0,
-                      confidence: feedback.confidence || 0,
-                      totalScore: feedback.totalScore,
-                      finalAssessment: feedback.finalAssessment,
-                      categoryScores: feedback.categoryScores,
-                      areasForImprovement: feedback.areasForImprovement || [],
-                    },
-                    score: feedback.totalScore || 0,
-                  };
-                }
-                return interview;
-              } catch (error) {
-                console.error('Error fetching feedback for interview:', interview.id, error);
-                return interview;
-              }
-            })
-          );
-
-          console.log('✅ Interviews with feedback loaded');
-          setInterviews(interviewsWithFeedback);
-          
-          setLoadingStep(6); // Move to step 6: Calculating metrics
-          
-          // Calculate enhanced stats with planner stats
-          const calculatedStats = calculateEnhancedUserStats(interviewsWithFeedback, userResumes, plannerStats);
-          setStats(calculatedStats);
-          console.log('📊 Stats calculated:', calculatedStats);
-
-          setLoadingStep(7); // Move to step 7: Generating AI recommendations
-
-          // Generate dynamic AI recommendations - use type assertion
-          const dynamicRecommendations = generateDynamicAIRecommendations(
-            interviewsWithFeedback,
-            userResumes as unknown as Parameters<typeof generateDynamicAIRecommendations>[1]
-          );
-          
-          console.log('🤖 Generated Dynamic Recommendations:', dynamicRecommendations);
-
-          // Log analysis for debugging
-          const interviewAnalysis = analyzeInterviewPerformance(interviewsWithFeedback);
-          const resumeAnalysis = analyzeResumeData(userResumes as unknown as Parameters<typeof analyzeResumeData>[0]);
-          
-          console.log('📊 Interview Analysis:', interviewAnalysis);
-          console.log('📄 Resume Analysis:', resumeAnalysis);
-
-        } else {
-          setInterviews([]);
-          
-          setLoadingStep(6);
-          
-          const calculatedStats = calculateEnhancedUserStats([], userResumes, plannerStats);
-          setStats(calculatedStats);
-          
-          setLoadingStep(7);
-          
-          const dynamicRecommendations = generateDynamicAIRecommendations(
-            [],
-            userResumes as unknown as Parameters<typeof generateDynamicAIRecommendations>[1]
-          );
-          
-          console.log('🤖 Generated recommendations:', dynamicRecommendations);
-        }
-
-        setLoadingStep(8); // Move to step 8: Finalizing dashboard
-        
-        // Small delay to show finalization
-        setTimeout(() => {
-          setIsLoading(false);
-        }, 300);
-        
-      } catch (error) {
-        console.error("Failed to fetch user data:", error);
-        toast.error("Failed to load dashboard data");
+        setInterviews(withFeedback);
+        setStats(calculateStats(withFeedback, userResumes, plannerStats));
+        analyzeInterviewPerformance(withFeedback);
+        analyzeResumeData(userResumes);
+      } catch (err) {
+        console.error('Dashboard fetch error:', err);
+        toast.error('Failed to load dashboard data');
+      } finally {
         setIsLoading(false);
       }
     };
@@ -518,345 +428,160 @@ export default function Dashboard() {
     fetchUserData();
   }, []);
 
-  // ============ HELPER FUNCTIONS ============
-
-  // Helper to convert Resume from types/resume to ProfileOverview's expected format
-  const convertResumeForOverview = (resume: Resume) => {
-    // Create default feedback structure if missing
-    const defaultFeedback = {
-      overallScore: 0,
-      ATS: {
-        score: 0,
-        tips: [] as Array<{ type: 'good' | 'improve'; message: string }>
-      },
-      content: {
-        score: 0,
-        tips: [] as Array<{ type: 'good' | 'improve'; message: string }>
-      },
-      structure: {
-        score: 0,
-        tips: [] as Array<{ type: 'good' | 'improve'; message: string }>
-      },
-      skills: {
-        score: 0,
-        tips: [] as Array<{ type: 'good' | 'improve'; message: string }>
-      },
-      toneAndStyle: {
-        score: 0,
-        tips: [] as Array<{ type: 'good' | 'improve'; message: string }>
-      }
-    };
-
-    // Check if feedback exists and has the expected structure
-    let feedback = defaultFeedback;
-    if (resume.feedback && typeof resume.feedback === 'object') {
-      // If feedback has the new structure with ATS, content, etc., use it
-      if ('ATS' in resume.feedback && 'content' in resume.feedback) {
-        feedback = resume.feedback as unknown as typeof defaultFeedback;
-      } else {
-        // Otherwise, use the feedback's overallScore if available
-        feedback = {
-          ...defaultFeedback,
-          overallScore: resume.feedback.overallScore || 0
-        };
-      }
-    }
-
-    return {
-      ...resume,
-      filename: resume.fileName,
-      originalName: resume.originalFileName || resume.fileName,
-      uploadedAt: resume.createdAt instanceof Date ? resume.createdAt : new Date(resume.createdAt),
-      feedback
-    };
-  };
-
-  // Enhanced stats calculation including resume stats, new KPIs, and planner stats
-  const calculateEnhancedUserStats = (
-    interviews: Interview[], 
+  // ── Stats calculation ──────────────────────────────────────────────────────
+  const calculateStats = (
+    interviews: Interview[],
     resumes: Resume[],
-    plannerStats?: PlannerStats
+    plannerStats?: PlannerStats,
   ): UserStats => {
-    const completedInterviews = interviews.filter(
-      (i) => i.feedback && i.score && i.score > 0
-    );
-
-    // Basic Interview Stats
-    const totalInterviews = interviews.length;
-    const averageScore =
-      completedInterviews.length > 0
-        ? Math.round(
-            completedInterviews.reduce((sum, i) => sum + (i.score || 0), 0) /
-              completedInterviews.length
-          )
-        : 0;
-
-    // Resume Stats
-    const totalResumes = resumes.length;
-    const averageResumeScore = totalResumes > 0
-      ? Math.round(
-          resumes.reduce((sum, r) => sum + (r.feedback?.overallScore || 0), 0) / totalResumes
-        )
-      : 0;
-
-    const resumeScores = resumes.map(r => r.feedback?.overallScore || 0);
-    const bestResumeScore = resumeScores.length > 0 ? Math.max(...resumeScores) : 0;
-    
+    const completed          = interviews.filter(i => i.feedback && (i.score ?? 0) > 0);
+    const totalInterviews    = interviews.length;
+    const averageScore       = completed.length
+      ? Math.round(completed.reduce((s, i) => s + (i.score || 0), 0) / completed.length) : 0;
+    const totalResumes       = resumes.length;
+    const averageResumeScore = totalResumes
+      ? Math.round(resumes.reduce((s, r) => s + (r.feedback?.overallScore || 0), 0) / totalResumes) : 0;
+    const scores             = resumes.map(r => r.feedback?.overallScore || 0);
+    const bestResumeScore    = scores.length ? Math.max(...scores) : 0;
     const resumeImprovementRate = resumes.length >= 2
-      ? Math.round(((resumes[resumes.length - 1].feedback?.overallScore || 0) - (resumes[0].feedback?.overallScore || 0)) 
-          / (resumes[0].feedback?.overallScore || 1) * 100)
-      : 0;
+      ? Math.round(
+          ((resumes[resumes.length - 1].feedback?.overallScore || 0) - (resumes[0].feedback?.overallScore || 0))
+          / (resumes[0].feedback?.overallScore || 1) * 100
+        ) : 0;
+    const resumeIssuesResolved = resumes.reduce((t, r) =>
+      t + Object.values(r.feedback || {}).reduce((s: number, sec: any) =>
+        s + (Array.isArray(sec?.tips) ? sec.tips.filter((tip: any) => tip.type === 'good').length : 0), 0), 0);
 
-    const resumeIssuesResolved = resumes.reduce((total, resume) => {
-      return total + Object.values(resume.feedback || {}).reduce((sum: number, section) => {
-        const sectionData = section as { tips?: Array<{ type?: string }> };
-        if (sectionData?.tips && Array.isArray(sectionData.tips)) {
-          return sum + sectionData.tips.filter((tip) => tip.type === 'good').length;
-        }
-        return sum;
-      }, 0);
-    }, 0);
-
-    // NEW KPI: Interview Readiness Score (0-100)
     const interviewReadinessScore = Math.round(
-      (averageScore * 0.4) +
-      (averageResumeScore * 0.3) +
-      (Math.min(totalInterviews * 5, 30))
+      (averageScore * 0.4) + (averageResumeScore * 0.3) + Math.min(totalInterviews * 5, 30)
     );
 
-    // NEW KPI: Weekly Practice Velocity
-    const currentWeek = new Date();
-    const weekStart = new Date(currentWeek.setDate(currentWeek.getDate() - currentWeek.getDay()));
-    
-    const weeklyVelocity = interviews.filter(interview => {
-      const interviewDate = interview.createdAt instanceof Date 
-        ? interview.createdAt 
-        : new Date(interview.createdAt);
-      return interviewDate >= weekStart;
+    const weekStart = new Date();
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+    const weeklyVelocity = interviews.filter(i => {
+      const d = i.createdAt instanceof Date ? i.createdAt : new Date(i.createdAt);
+      return d >= weekStart;
     }).length;
-
     const weeklyTarget = Math.max(3, Math.min(7, Math.round(totalInterviews / 4)));
 
-    // NEW KPI: Technical Depth Score (0-10 scale)
-    const technicalInterviews = completedInterviews.filter(i => 
-      i.type === 'technical' || i.type === 'coding' || i.type === 'system-design'
-    );
-    
-    const technicalDepth = technicalInterviews.length > 0 
-      ? Math.round(
-          (technicalInterviews.reduce((sum, i) => {
-            const score = i.score || 0;
-            let depthPoints = score / 10;
-            
-            if (i.type === 'system-design') depthPoints *= 1.2;
-            if (i.type === 'coding') depthPoints *= 1.1;
-            
-            return sum + Math.min(10, depthPoints);
-          }, 0) / technicalInterviews.length) * 10
-        ) / 10
+    const techInterviews  = completed.filter(i => ['technical', 'coding', 'system-design'].includes(i.type));
+    const technicalDepth  = techInterviews.length
+      ? Math.round(techInterviews.reduce((s, i) => {
+          let pts = (i.score || 0) / 20;
+          if (i.type === 'system-design') pts *= 1.2;
+          if (i.type === 'coding')        pts *= 1.1;
+          return s + Math.min(5, pts);
+        }, 0) / techInterviews.length * 10) / 10
       : 0;
 
-    // NEW KPI: Communication Score
-    const communicationScore = completedInterviews.length > 0
-      ? Math.round(
-          completedInterviews.reduce((sum, i) => {
-            const feedback = i.feedback;
-            if (feedback?.communication) {
-              return sum + feedback.communication;
-            }
-            const behavioralBonus = i.type === 'behavioral' ? 5 : 0;
-            return sum + (i.score || 0) * 0.3 + behavioralBonus;
-          }, 0) / completedInterviews.length
-        )
+    const communicationScore = completed.length
+      ? Math.round(completed.reduce((s, i) =>
+          s + (i.feedback?.communication || (i.score || 0) * 0.3 + (i.type === 'behavioral' ? 5 : 0)), 0)
+          / completed.length)
       : 0;
 
-    // Calculate strengths and weaknesses
-    const strengthsMap: { [key: string]: number } = {};
-    const weaknessesMap: { [key: string]: number } = {};
-
-    completedInterviews.forEach((interview) => {
-      if (interview.feedback) {
-        interview.feedback.strengths?.forEach((strength) => {
-          strengthsMap[strength] = (strengthsMap[strength] || 0) + 1;
-        });
-        interview.feedback.weaknesses?.forEach((weakness) => {
-          weaknessesMap[weakness] = (weaknessesMap[weakness] || 0) + 1;
-        });
-      }
+    const strengthsMap:  { [k: string]: number } = {};
+    const weaknessesMap: { [k: string]: number } = {};
+    completed.forEach(i => {
+      i.feedback?.strengths?.forEach(s => { strengthsMap[s]  = (strengthsMap[s]  || 0) + 1; });
+      i.feedback?.weaknesses?.forEach(w => { weaknessesMap[w] = (weaknessesMap[w] || 0) + 1; });
     });
 
-    // Calculate improvement rate
-    const sortedInterviews = [...completedInterviews].sort(
-      (a, b) =>
-        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-    );
-    const recentAvg =
-      sortedInterviews.slice(-5).reduce((sum, i) => sum + (i.score || 0), 0) /
-      Math.min(5, sortedInterviews.length);
-    const oldAvg =
-      sortedInterviews.slice(0, 5).reduce((sum, i) => sum + (i.score || 0), 0) /
-      Math.min(5, sortedInterviews.length);
+    const sorted    = [...completed].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    const n         = Math.max(1, Math.min(5, sorted.length));
+    const recentAvg = sorted.slice(-5).reduce((s, i) => s + (i.score || 0), 0) / n;
+    const oldAvg    = sorted.slice(0, 5).reduce((s, i)  => s + (i.score || 0), 0) / n;
     const improvementRate = oldAvg > 0 ? Math.round(((recentAvg - oldAvg) / oldAvg) * 100) : 0;
 
-    // Calculate monthly progress
-    const monthlyProgress: { month: string; score: number; count: number }[] = [];
     const monthMap = new Map<string, { totalScore: number; count: number }>();
-
-    completedInterviews.forEach((interview) => {
-      const date = new Date(interview.createdAt);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-      const existing = monthMap.get(monthKey) || { totalScore: 0, count: 0 };
-      monthMap.set(monthKey, {
-        totalScore: existing.totalScore + (interview.score || 0),
-        count: existing.count + 1,
-      });
+    completed.forEach(i => {
+      const d = new Date(i.createdAt);
+      const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const ex = monthMap.get(k) || { totalScore: 0, count: 0 };
+      monthMap.set(k, { totalScore: ex.totalScore + (i.score || 0), count: ex.count + 1 });
     });
+    const monthlyProgress = Array.from(monthMap.entries()).map(([month, d]) => ({
+      month, score: Math.round(d.totalScore / d.count), count: d.count,
+    }));
 
-    monthMap.forEach((data, month) => {
-      monthlyProgress.push({
-        month,
-        score: Math.round(data.totalScore / data.count),
-        count: data.count,
-      });
-    });
-
-    // Calculate type breakdown
     const typeMap = new Map<string, { total: number; count: number }>();
-    completedInterviews.forEach((interview) => {
-      const existing = typeMap.get(interview.type) || { total: 0, count: 0 };
-      typeMap.set(interview.type, {
-        total: existing.total + (interview.score || 0),
-        count: existing.count + 1,
-      });
+    completed.forEach(i => {
+      const ex = typeMap.get(i.type) || { total: 0, count: 0 };
+      typeMap.set(i.type, { total: ex.total + (i.score || 0), count: ex.count + 1 });
     });
-
-    const typeBreakdown = Array.from(typeMap.entries()).map(([type, data]) => ({
-      type,
-      count: data.count,
-      avgScore: Math.round(data.total / data.count),
-      percentage: Math.round((data.count / totalInterviews) * 100),
+    const typeBreakdown = Array.from(typeMap.entries()).map(([type, d]) => ({
+      type, count: d.count,
+      avgScore: Math.round(d.total / d.count),
+      percentage: Math.round((d.count / Math.max(1, totalInterviews)) * 100),
     }));
 
     return {
-      totalInterviews,
-      averageScore,
-      improvementRate,
+      totalInterviews, averageScore, improvementRate,
       currentStreak: Math.min(totalInterviews, 7),
       longestStreak: Math.min(totalInterviews, 7) + 2,
       hoursSpent: Math.round(totalInterviews * 0.75),
-      strengthsMap,
-      weaknessesMap,
-      monthlyProgress,
-      companyPreparation: [],
-      skillProgress: [],
-      typeBreakdown,
-      bestPerformingType: typeBreakdown[0]?.type || "Technical",
-      worstPerformingType: typeBreakdown[typeBreakdown.length - 1]?.type || "Behavioral",
-      successRate: Math.min(95, 70 + totalInterviews * 2),
+      strengthsMap, weaknessesMap, monthlyProgress,
+      companyPreparation: [], skillProgress: [], typeBreakdown,
+      bestPerformingType:  typeBreakdown[0]?.type || 'Technical',
+      worstPerformingType: typeBreakdown[typeBreakdown.length - 1]?.type || 'Behavioral',
+      successRate:    Math.min(95, 70 + totalInterviews * 2),
       completionRate: Math.min(98, 85 + totalInterviews),
-      totalResumes,
-      averageResumeScore,
-      bestResumeScore,
-      resumeImprovementRate,
-      resumeIssuesResolved,
-      interviewReadinessScore,
-      weeklyVelocity,
-      weeklyTarget,
-      technicalDepth,
-      communicationScore,
-      plannerStats
+      totalResumes, averageResumeScore, bestResumeScore,
+      resumeImprovementRate, resumeIssuesResolved,
+      interviewReadinessScore, weeklyVelocity, weeklyTarget,
+      technicalDepth, communicationScore, plannerStats,
     };
   };
 
-  // Generate enhanced daily focus including resume tasks
+  // ── Daily focus ────────────────────────────────────────────────────────────
   const generateEnhancedDailyFocus = (
-    interviews: unknown, 
-    resumes: unknown, 
-    stats: unknown
+    interviews: Interview[],
+    resumes: Resume[],
+    stats: UserStats,
   ) => {
-    // Cast to our local types for processing
-    const typedInterviews = interviews as Array<Interview & { score: number }>;
-    const typedResumes = resumes as ReturnType<typeof convertResumeForOverview>[];
-    const typedStats = stats as UserStats;
-    
-    const today = new Date();
-    const todayStart = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate()
-    );
-
-    const todayInterviews = typedInterviews.filter((interview) => {
-      const interviewDate =
-        interview.createdAt instanceof Date
-          ? interview.createdAt
-          : new Date(interview.createdAt);
-      return (
-        interviewDate >= todayStart &&
-        (interview.score > 0 ||
-          (interview.feedback && Object.keys(interview.feedback).length > 0))
-      );
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayDone = interviews.filter(i => {
+      const d = i.createdAt instanceof Date ? i.createdAt : new Date(i.createdAt);
+      return d >= todayStart && ((i.score ?? 0) > 0 || !!i.feedback);
     });
 
-    const focuses = [];
-
-    if (todayInterviews.length === 0) {
-      focuses.push({
+    const focuses = [
+      {
         id: 1,
-        text: "Complete 1 Interview",
-        description: "Start your daily practice",
-        completed: false,
-        type: "basic",
-        icon: "🎯",
+        text: 'Complete 1 Interview',
+        description: todayDone.length > 0 ? 'Great start today!' : 'Start your daily practice',
+        completed: todayDone.length > 0,
+        type: 'basic',
+        icon: todayDone.length > 0 ? '✅' : '🎯',
+      },
+    ];
+
+    if (resumes.length === 0) {
+      focuses.push({
+        id: 2, text: 'Upload Your First Resume',
+        description: 'Get AI-powered ATS feedback',
+        completed: false, type: 'resume', icon: '📄',
+      });
+    } else if ((stats.averageResumeScore ?? 0) < 70) {
+      focuses.push({
+        id: 2, text: 'Improve Resume Score',
+        description: `Current: ${stats.averageResumeScore}%`,
+        completed: false, type: 'improvement', icon: '📈',
       });
     } else {
       focuses.push({
-        id: 1,
-        text: "Complete 1 Interview",
-        description: "Great start!",
-        completed: true,
-        type: "basic",
-        icon: "✅",
+        id: 2, text: 'Resume Looking Great!',
+        description: `Score: ${stats.averageResumeScore}%`,
+        completed: true, type: 'resume', icon: '⭐',
       });
     }
 
-    if (typedResumes.length === 0) {
+    if (interviews.length > 0 && resumes.length > 0 && stats.averageScore > 70 && (stats.averageResumeScore ?? 0) > 70) {
       focuses.push({
-        id: 2,
-        text: "Upload Your First Resume",
-        description: "Get AI-powered feedback",
-        completed: false,
-        type: "resume",
-        icon: "📄",
-      });
-    } else if (typedStats.averageResumeScore! < 70) {
-      focuses.push({
-        id: 2,
-        text: "Improve Resume Score",
-        description: `Current: ${typedStats.averageResumeScore}%`,
-        completed: false,
-        type: "improvement",
-        icon: "📈",
-      });
-    } else {
-      focuses.push({
-        id: 2,
-        text: "Resume Looking Great!",
-        description: `Score: ${typedStats.averageResumeScore}%`,
-        completed: true,
-        type: "resume",
-        icon: "⭐",
-      });
-    }
-
-    if (typedInterviews.length > 0 && typedResumes.length > 0 && typedStats.averageScore > 70 && typedStats.averageResumeScore! > 70) {
-      focuses.push({
-        id: 3,
-        text: "Ready for Applications!",
-        description: "Both skills & resume optimized",
-        completed: true,
-        type: "challenge",
-        icon: "🚀",
+        id: 3, text: 'Ready for Applications!',
+        description: 'Skills and resume optimised',
+        completed: true, type: 'challenge', icon: '🚀',
       });
     }
 
@@ -864,343 +589,333 @@ export default function Dashboard() {
   };
 
   const getGreeting = () => {
-    const hour = currentTime.getHours();
-    if (hour < 12) return "Good morning";
-    if (hour < 17) return "Good afternoon";
-    return "Good evening";
+    const h = currentTime.getHours();
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
   };
 
-  // ============ RENDER ============
-
-  // Main loading screen with dynamic progress
+  // ── Loading state ──────────────────────────────────────────────────────────
   if (isLoading) {
     return (
       <AnimatedLoader
         isVisible={true}
-        mode="steps"
-        steps={loadingSteps}
-        currentStep={loadingStep}
-        loadingText="Loading your professional dashboard..."
-        showNavigation={true}
-        onHide={() => console.log('Dashboard loaded')}
+        loadingText="Loading your dashboard"
+        tone="focused"
+        showNavigation={false}
       />
     );
   }
 
+  // ── Error / unauthenticated state ──────────────────────────────────────────
   if (!userProfile || !stats) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh] px-4">
-        <div className="text-center glass-card p-6 sm:p-8 max-w-md w-full">
-          <div className="text-red-400 text-base sm:text-lg mb-4 font-medium">
-            Failed to load dashboard data
-          </div>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center glass-card p-10 max-w-sm w-full mx-4">
+          <AlertCircle className="w-8 h-8 text-slate-500 mx-auto mb-4" aria-hidden="true" />
+          <p className="text-slate-400 text-sm mb-6">Failed to load dashboard data</p>
           <Button
             onClick={() => window.location.reload()}
-            className="glass-button-primary w-full sm:w-auto"
+            className="glass-button-primary px-5 py-2.5 rounded-xl text-white text-sm w-full"
           >
-            Retry
+            Try again
           </Button>
         </div>
       </div>
     );
   }
 
+  // ── Derived values ─────────────────────────────────────────────────────────
+  const readiness     = stats.interviewReadinessScore ?? 0;
+  const hasResume     = (stats.totalResumes ?? 0) > 0;
+  const hasInterviews = stats.totalInterviews > 0;
+
+  // Contextual nudge — only shown when there's something actionable
+  const nudge = !hasResume
+    ? {
+        icon: Upload,
+        text: 'Upload a resume to unlock your full readiness score.',
+        color: 'text-amber-400',
+        borderColor: 'border-amber-500/20',
+        bg: 'bg-amber-500/[0.04]',
+        href: '/resume',
+        cta: 'Upload now',
+      }
+    : !hasInterviews
+    ? {
+        icon: Plus,
+        text: 'Complete your first mock interview to start tracking progress.',
+        color: 'text-blue-400',
+        borderColor: 'border-blue-500/20',
+        bg: 'bg-blue-500/[0.04]',
+        href: '/interview',
+        cta: 'Start now',
+      }
+    : readiness < 50
+    ? {
+        icon: TrendingUp,
+        text: 'Keep practicing — consistency drives your readiness score up.',
+        color: 'text-indigo-400',
+        borderColor: 'border-indigo-500/20',
+        bg: 'bg-indigo-500/[0.04]',
+        href: '/interview',
+        cta: 'Practice',
+      }
+    : null;
+
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6">
-      {/* Glass Header Card - Fully Responsive */}
-      <div className="glass-card p-6 hover-lift animate-fade-in-up">
-        <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center text-white text-2xl font-bold shadow-glass">
-                {userProfile.name.charAt(0)}
-              </div>
-              <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-3 border-slate-900 flex items-center justify-center">
-                <Sparkles className="w-3 h-3 text-white" />
-              </div>
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-white mb-1">
-                {getGreeting()}, {userProfile.name} 👋
-              </h2>
-              <p className="text-slate-400 text-sm">
-                {currentTime.toLocaleDateString("en-US", {
-                  weekday: "long",
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+    <div className="space-y-4 pt-4">
 
-      {/* 8 Enhanced KPI Cards - Desktop preserved, Mobile/Tablet responsive */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in-up">
-        {/* Interview Readiness Score */}
-        <div className="glass-card p-5 hover-lift group">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 gradient-primary rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-glass">
-              <Target className="w-6 h-6 text-white" />
-            </div>
-            <div className="text-right">
-              <div className="text-3xl font-bold text-purple-400 mb-1 leading-none">
-                {stats.interviewReadinessScore || 0}
-              </div>
-              <div className="text-purple-300 text-xs font-medium">/100</div>
-            </div>
-          </div>
-          <div className="space-y-1">
-            <div className="text-white font-semibold text-sm">
-              Interview Readiness
-            </div>
-            <div className="text-slate-400 text-xs">
-              Overall preparation level
-            </div>
-          </div>
-        </div>
+      {/* ── Hero ─────────────────────────────────────── */}
+      <div className="glass-card p-5 sm:p-6 animate-fade-in-up">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center gap-6">
 
-        {/* Planner Progress - DYNAMIC CARD */}
-        {stats.plannerStats && stats.plannerStats.currentPlan ? (
-          <div 
-            className="glass-card p-5 hover-lift group cursor-pointer"
-            onClick={() => window.location.href = `/planner/${stats.plannerStats?.currentPlan?.id}`}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 gradient-success rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-glass">
-                <Calendar className="w-6 h-6 text-white" />
-              </div>
-              <div className="text-right">
-                <div className="text-3xl font-bold text-emerald-400 mb-1 leading-none">
-                  {stats.plannerStats.currentPlan.progress}%
+          {/* Left: greeting + nudge + stats */}
+          <div className="flex-1 min-w-0">
+
+            {/* Greeting row */}
+            <div className="flex items-center gap-3 mb-4">
+              <div className="relative flex-shrink-0">
+                <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center
+                                text-white font-bold text-base shadow-[0_4px_16px_rgba(102,126,234,0.35)]"
+                     aria-hidden="true">
+                  {userProfile.name.charAt(0).toUpperCase()}
                 </div>
-                <div className="text-emerald-300 text-xs font-medium">
-                  {stats.plannerStats.currentPlan.daysRemaining}d left
-                </div>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <div className="text-white font-semibold text-sm truncate" title={stats.plannerStats.currentPlan.role}>
-                {stats.plannerStats.currentPlan.role}
-              </div>
-              <div className="text-slate-400 text-xs">Active preparation plan</div>
-              <div className="h-2 bg-slate-700/50 rounded-full overflow-hidden">
-                <div 
-                  className="h-full gradient-success transition-all duration-500"
-                  style={{ width: `${stats.plannerStats.currentPlan.progress}%` }}
+                {/* Online indicator */}
+                <span
+                  className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-[1.5px] border-[#090d1a]"
+                  aria-hidden="true"
                 />
               </div>
-            </div>
-          </div>
-        ) : stats.plannerStats && stats.plannerStats.totalPlans > 0 ? (
-          <div className="glass-card p-5 group">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 gradient-success rounded-xl flex items-center justify-center shadow-glass">
-                <CheckCircle2 className="w-6 h-6 text-white" />
-              </div>
-              <div className="text-right">
-                <div className="text-3xl font-bold text-emerald-400 mb-1 leading-none">
-                  {stats.plannerStats.completedPlans}
-                </div>
-                <div className="text-emerald-300 text-xs font-medium">of {stats.plannerStats.totalPlans}</div>
+              <div>
+                <h1 className="text-base sm:text-lg font-bold text-white leading-tight">
+                  {getGreeting()}, {userProfile.name.split(' ')[0]} 👋
+                </h1>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {currentTime.toLocaleDateString('en-US', {
+                    weekday: 'long', month: 'long', day: 'numeric',
+                  })}
+                </p>
               </div>
             </div>
-            <div className="space-y-1">
-              <div className="text-white font-semibold text-sm">
-                Plans Completed
-              </div>
-              <div className="text-slate-400 text-xs">
-                {stats.plannerStats.totalTasksCompleted} tasks done
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div 
-            className="glass-card p-5 hover-lift group cursor-pointer"
-            onClick={() => window.location.href = '/planner/create'}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 gradient-accent rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-glass">
-                <BookOpen className="w-6 h-6 text-white" />
-              </div>
-              <div className="text-right">
-                <div className="text-3xl font-bold text-cyan-400 mb-1 leading-none">0</div>
-                <div className="text-cyan-300 text-xs font-medium">plans</div>
-              </div>
-            </div>
-            <div className="space-y-1">
-              <div className="text-white font-semibold text-sm">
-                Study Planner
-              </div>
-              <div className="text-slate-400 text-xs">
-                Click to create your first plan
-              </div>
-            </div>
-          </div>
-        )}
 
-        {/* Weekly Velocity */}
-        <div className="glass-card p-5 hover-lift group">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 gradient-accent rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-glass">
-              <Zap className="w-6 h-6 text-white" />
-            </div>
-            <div className="text-right">
-              <div className="text-3xl font-bold text-blue-400 mb-1 leading-none">
-                {stats.weeklyVelocity || 0}
+            {/* Contextual nudge — only shown when relevant */}
+            {nudge && (
+              <div className={`flex items-center gap-2.5 text-xs ${nudge.color}
+                               ${nudge.bg} border ${nudge.borderColor}
+                               rounded-lg px-3 py-2.5 mb-4`}
+                   role="status">
+                <nudge.icon className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
+                <span className="flex-1 leading-snug">{nudge.text}</span>
+                <Link
+                  href={nudge.href}
+                  className="ml-2 text-xs font-semibold whitespace-nowrap opacity-80 hover:opacity-100
+                             underline underline-offset-2 transition-opacity"
+                >
+                  {nudge.cta} →
+                </Link>
               </div>
-              <div className="text-blue-300 text-xs font-medium">of {stats.weeklyTarget || 3}</div>
-            </div>
-          </div>
-          <div className="space-y-1">
-            <div className="text-white font-semibold text-sm">
-              Weekly Velocity
-            </div>
-            <div className="text-slate-400 text-xs">
-              This week&apos;s practice count
-            </div>
-          </div>
-        </div>
+            )}
 
-        {/* Technical Depth */}
-        <div className="glass-card p-5 hover-lift group">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 gradient-success rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-glass">
-              <Brain className="w-6 h-6 text-white" />
-            </div>
-            <div className="text-right">
-              <div className="flex items-center justify-end gap-0.5 mb-1">
-                {[1, 2, 3, 4, 5].map((starNumber) => {
-                  const depth = stats.technicalDepth || 0;
-                  const filledStars = Math.floor((depth / 10) * 5);
-                  
-                  return (
-                    <Star
-                      key={starNumber}
-                      className={`w-4 h-4 transition-all ${
-                        starNumber <= filledStars
-                          ? "text-emerald-400 fill-emerald-400"
-                          : "text-slate-600"
-                      }`}
-                    />
-                  );
-                })}
-              </div>
-              <div className="text-emerald-300 text-xs font-medium">{stats.technicalDepth || 0}/10</div>
+            {/* Core stats */}
+            <div className="grid grid-cols-3 gap-4 pt-4 border-t border-white/[0.05]">
+              <StatPill
+                label="Avg score"
+                value={`${stats.averageScore}%`}
+                trend={stats.improvementRate}
+              />
+              <StatPill
+                label="Sessions"
+                value={stats.totalInterviews}
+                sub={`${stats.hoursSpent}h`}
+              />
+              <StatPill
+                label="This week"
+                value={stats.weeklyVelocity ?? 0}
+                sub={`/ ${stats.weeklyTarget ?? 3} goal`}
+              />
             </div>
           </div>
-          <div className="space-y-1">
-            <div className="text-white font-semibold text-sm">
-              Technical Depth
-            </div>
-            <div className="text-slate-400 text-xs">
-              Expertise level rating
-            </div>
-          </div>
-        </div>
 
-        {/* Communication Score */}
-        <div className="glass-card p-5 hover-lift group">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 gradient-warning rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-glass">
-              <Users className="w-6 h-6 text-white" />
-            </div>
-            <div className="text-right">
-              <div className="text-3xl font-bold text-amber-400 mb-1 leading-none">
-                {stats.communicationScore || 0}
-              </div>
-              <div className="text-amber-300 text-xs font-medium">/100</div>
-            </div>
-          </div>
-          <div className="space-y-1">
-            <div className="text-white font-semibold text-sm">
-              Communication
-            </div>
-            <div className="text-slate-400 text-xs">
-              Articulation & clarity
-            </div>
-          </div>
-        </div>
+          {/* Vertical divider — desktop only */}
+          <div className="hidden lg:block w-px self-stretch bg-white/[0.05]" aria-hidden="true" />
 
-        {/* Average Score */}
-        <div className="glass-card p-5 hover-lift group">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 gradient-primary rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-glass">
-              <TrendingUp className="w-6 h-6 text-white" />
-            </div>
-            <div className="text-right">
-              <div className="text-3xl font-bold text-indigo-400 mb-1 leading-none">{stats.averageScore}%</div>
-              <div className="text-indigo-300 text-xs font-medium">
-                {stats.improvementRate > 0 ? `+${stats.improvementRate}%` : `${stats.improvementRate}%`}
-              </div>
-            </div>
-          </div>
-          <div className="space-y-1">
-            <div className="text-white font-semibold text-sm">
-              Average Score
-            </div>
-            <div className="text-slate-400 text-xs">
-              Overall performance
-            </div>
-          </div>
-        </div>
-
-        {/* Resume Score */}
-        <div className="glass-card p-5 hover-lift group">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 gradient-secondary rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-glass">
-              <FileText className="w-6 h-6 text-white" />
-            </div>
-            <div className="text-right">
-              <div className="text-3xl font-bold text-pink-400 mb-1 leading-none">
-                {stats.averageResumeScore || 0}%
-              </div>
-              <div className="text-pink-300 text-xs font-medium">{stats.totalResumes || 0} resumes</div>
-            </div>
-          </div>
-          <div className="space-y-1">
-            <div className="text-white font-semibold text-sm">
-              Resume Quality
-            </div>
-            <div className="text-slate-400 text-xs">
-              ATS & content score
-            </div>
-          </div>
-        </div>
-
-        {/* Total Interviews */}
-        <div className="glass-card p-5 hover-lift group">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 gradient-accent rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-glass">
-              <Activity className="w-6 h-6 text-white" />
-            </div>
-            <div className="text-right">
-              <div className="text-3xl font-bold text-violet-400 mb-1 leading-none">{stats.totalInterviews}</div>
-              <div className="text-violet-300 text-xs font-medium">{stats.hoursSpent}h practiced</div>
-            </div>
-          </div>
-          <div className="space-y-1">
-            <div className="text-white font-semibold text-sm">
-              Total Interviews
-            </div>
-            <div className="text-slate-400 text-xs">
-              Practice sessions
-            </div>
+          {/* Right: readiness ring */}
+          <div className="flex-shrink-0 self-center lg:self-auto">
+            <ReadinessRing score={readiness} />
           </div>
         </div>
       </div>
 
-      {/* Profile Overview Component */}
-      <ProfileOverview
-        stats={stats}
-        interviews={interviews.map(interview => ({
-          ...interview,
-          score: interview.score ?? 0
-        }))}
-        resumes={resumes.map(convertResumeForOverview) as unknown as Parameters<typeof ProfileOverview>[0]['resumes']}
-        generateDailyFocus={generateEnhancedDailyFocus as unknown as Parameters<typeof ProfileOverview>[0]['generateDailyFocus']}
-      />
+      {/* ── Quick actions ─────────────────────────────── */}
+      <div
+        className="grid grid-cols-1 sm:grid-cols-3 gap-3 animate-fade-in-up"
+        style={{ animationDelay: '60ms' }}
+      >
+        <ActionCard
+          icon={Plus}
+          label="Start Interview"
+          description="AI mock session, any role"
+          href="/interview"
+          primary
+        />
+        <ActionCard
+          icon={Upload}
+          label="Analyze Resume"
+          description="ATS score + AI feedback"
+          href="/resume"
+        />
+        <ActionCard
+          icon={BookOpen}
+          label={stats.plannerStats?.currentPlan ? 'Continue Plan' : 'Create Study Plan'}
+          description={
+            stats.plannerStats?.currentPlan
+              ? `${stats.plannerStats.currentPlan.progress}% complete · ${stats.plannerStats.currentPlan.daysRemaining}d left`
+              : 'Day-by-day prep schedule'
+          }
+          href={
+            stats.plannerStats?.currentPlan
+              ? `/planner/${stats.plannerStats.currentPlan.id}`
+              : '/planner/create'
+          }
+        />
+      </div>
+
+      {/* ── Metric row ────────────────────────────────── */}
+      <div
+        className="grid grid-cols-2 lg:grid-cols-4 gap-3 animate-fade-in-up"
+        style={{ animationDelay: '120ms' }}
+      >
+        {/* Resume quality */}
+        <MetricCard
+          icon={FileText}
+          label="Resume quality"
+          value={hasResume ? `${stats.averageResumeScore ?? 0}%` : '—'}
+          sub={
+            hasResume
+              ? `${stats.totalResumes} file${stats.totalResumes !== 1 ? 's' : ''}`
+              : 'No resume yet'
+          }
+          accentClass={
+            !hasResume
+              ? 'text-slate-600'
+              : (stats.averageResumeScore ?? 0) >= 70
+              ? 'text-emerald-400'
+              : 'text-amber-400'
+          }
+        >
+          {hasResume && (
+            <ProgressBar
+              value={stats.averageResumeScore ?? 0}
+              color={(stats.averageResumeScore ?? 0) >= 70 ? 'bg-emerald-500' : 'bg-amber-500'}
+            />
+          )}
+        </MetricCard>
+
+        {/* Technical depth */}
+        <MetricCard
+          icon={Brain}
+          label="Technical depth"
+          value={stats.technicalDepth ? `${stats.technicalDepth}/5` : '—'}
+          sub={stats.technicalDepth ? 'rating' : 'No tech sessions'}
+          accentClass={!stats.technicalDepth ? 'text-slate-600' : 'text-violet-400'}
+        >
+          {!!stats.technicalDepth && (
+            <div className="flex gap-0.5" aria-label={`${Math.round(stats.technicalDepth)} out of 5 stars`}>
+              {[1, 2, 3, 4, 5].map(n => (
+                <Star
+                  key={n}
+                  className={`w-3 h-3 ${
+                    n <= Math.round(stats.technicalDepth ?? 0)
+                      ? 'text-violet-400 fill-violet-400'
+                      : 'text-slate-700'
+                  }`}
+                  aria-hidden="true"
+                />
+              ))}
+            </div>
+          )}
+        </MetricCard>
+
+        {/* Communication */}
+        <MetricCard
+          icon={Users}
+          label="Communication"
+          value={stats.communicationScore ? `${stats.communicationScore}` : '—'}
+          sub={stats.communicationScore ? '/100' : 'No data yet'}
+          accentClass={
+            !stats.communicationScore
+              ? 'text-slate-600'
+              : stats.communicationScore >= 70
+              ? 'text-sky-400'
+              : 'text-amber-400'
+          }
+        >
+          {!!stats.communicationScore && (
+            <ProgressBar
+              value={stats.communicationScore}
+              color={stats.communicationScore >= 70 ? 'bg-sky-500' : 'bg-amber-500'}
+            />
+          )}
+        </MetricCard>
+
+        {/* Active plan or weekly goal */}
+        {stats.plannerStats?.currentPlan ? (
+          <Link href={`/planner/${stats.plannerStats.currentPlan.id}`} className="block">
+            <MetricCard
+              icon={Calendar}
+              label="Active plan"
+              value={`${stats.plannerStats.currentPlan.progress}%`}
+              sub={`${stats.plannerStats.currentPlan.daysRemaining}d left`}
+              accentClass="text-emerald-400"
+            >
+              <ProgressBar
+                value={stats.plannerStats.currentPlan.progress}
+                color="bg-emerald-500"
+              />
+            </MetricCard>
+          </Link>
+        ) : (
+          <MetricCard
+            icon={Zap}
+            label="Weekly goal"
+            value={`${stats.weeklyVelocity ?? 0}`}
+            sub={`/ ${stats.weeklyTarget ?? 3} sessions`}
+            accentClass={
+              (stats.weeklyVelocity ?? 0) >= (stats.weeklyTarget ?? 3)
+                ? 'text-emerald-400'
+                : 'text-blue-400'
+            }
+          >
+            <ProgressBar
+              value={stats.weeklyVelocity ?? 0}
+              max={stats.weeklyTarget ?? 3}
+              color={
+                (stats.weeklyVelocity ?? 0) >= (stats.weeklyTarget ?? 3)
+                  ? 'bg-emerald-500'
+                  : 'bg-blue-500'
+              }
+            />
+          </MetricCard>
+        )}
+      </div>
+
+      {/* ── Profile overview ──────────────────────────── */}
+      <div
+        className="glass-card p-5 sm:p-6 animate-fade-in-up"
+        style={{ animationDelay: '180ms' }}
+      >
+        <ProfileOverview
+          userProfile={userProfile}
+          stats={stats}
+          interviews={interviews}
+          resumes={resumes}
+          generateDailyFocus={generateEnhancedDailyFocus}
+          loading={false}
+        />
+      </div>
+
     </div>
   );
 }

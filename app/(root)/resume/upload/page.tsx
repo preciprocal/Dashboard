@@ -9,136 +9,187 @@ import { FirebaseService } from '@/lib/services/firebase-service';
 import FileUploader from '@/components/resume/FileUploader';
 import { Resume, ResumeFeedback } from '@/types/resume';
 import {
-  FileText, Sparkles, Shield, CheckCircle2, AlertCircle, Info, Loader2, Upload,
+  FileText, Sparkles, Shield, CheckCircle2, AlertCircle, Loader2, Upload, X,
 } from 'lucide-react';
-import { compressPDF, validatePDF } from '@/lib/resume/pdf-compression';
-import { convertPdfToImage } from '@/lib/resume/pdf2img';
 import { toast } from 'sonner';
 import { NotificationService } from '@/lib/services/notification-services';
 import UsersFeedback from '@/components/UserFeedback';
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
 const PROCESSING_STEPS = [
-  { step: 0, message: 'Compressing file...',      progress: 10  },
-  { step: 1, message: 'Converting PDF to image...', progress: 30 },
-  { step: 2, message: 'Analyzing with AI...',      progress: 60  },
-  { step: 3, message: 'Saving results...',         progress: 85  },
-  { step: 4, message: 'Complete!',                 progress: 100 },
+  { message: 'Preparing upload…',  progress: 10  },
+  { message: 'Analysing with AI…', progress: 55  },
+  { message: 'Saving results…',    progress: 85  },
+  { message: 'Complete!',          progress: 100 },
 ];
 
 const RESUME_FACTS = [
-  "💼 Recruiters spend an average of 6-7 seconds on initial resume screening",
-  "📊 75% of resumes are rejected by ATS systems before reaching human eyes",
-  "✨ Resumes with quantified achievements get 40% more interview callbacks",
-  "🎯 Using keywords from the job description increases ATS match by 60%",
-  "📝 One-page resumes are ideal for <10 years experience, two pages for more",
-  "🚀 Action verbs at the start of bullet points increase readability by 35%",
-  "💡 White space improves resume readability and reduces rejection rates",
-  "🔍 90% of large companies use ATS to filter applications",
-  "📈 Tailored resumes get 2x more interviews than generic ones",
-  "⚡ PDF format is preferred by 83% of recruiters over Word documents",
-  "🎨 Clean, professional fonts like Calibri or Arial score higher in ATS",
-  "📞 Including LinkedIn URL increases profile views by 71%",
-  "💪 Skills sections with 6-12 relevant skills perform best",
-  "🏆 Resumes starting with a strong summary get 50% more attention",
-  "📧 Professional email addresses increase callback rates by 24%",
+  '💼 Recruiters spend an average of 6–7 seconds on initial resume screening',
+  '📊 75% of resumes are rejected by ATS systems before reaching human eyes',
+  '✨ Resumes with quantified achievements get 40% more interview callbacks',
+  '🎯 Using keywords from the job description increases ATS match by 60%',
+  '📝 One-page resumes are ideal for <10 years experience, two pages for more',
+  '🚀 Action verbs at the start of bullet points increase readability by 35%',
+  '💡 White space improves resume readability and reduces rejection rates',
+  '🔍 90% of large companies use ATS to filter applications',
+  '📈 Tailored resumes get 2× more interviews than generic ones',
+  '⚡ PDF format is preferred by 83% of recruiters over Word documents',
+  '🎨 Clean, professional fonts like Calibri or Arial score higher in ATS',
+  '📞 Including a LinkedIn URL increases profile views by 71%',
+  '💪 Skills sections with 6–12 relevant skills perform best',
+  '🏆 Resumes starting with a strong summary get 50% more attention',
+  '📧 Professional email addresses increase callback rates by 24%',
 ];
+
+const MAX_PDF_SIZE = 10 * 1024 * 1024; // 10 MB
 
 interface FormData {
   companyName:    string;
   jobTitle:       string;
   jobDescription: string;
-  analysisType:   'full' | 'quick' | 'ats-only';
 }
+
+const inp = [
+  'w-full px-3 py-2.5 rounded-xl text-[13px] text-white',
+  'bg-white/[0.04] border border-white/[0.08]',
+  'placeholder-slate-600',
+  'focus:outline-none focus:ring-1 focus:ring-purple-500/40 focus:border-purple-500/40',
+  'transition-all duration-150',
+].join(' ');
+
+function validatePDF(file: File): { valid: boolean; error?: string } {
+  if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+    return { valid: false, error: 'Please upload a PDF file' };
+  }
+  if (file.size > MAX_PDF_SIZE) {
+    return { valid: false, error: `File too large — max 10 MB (yours is ${(file.size / 1024 / 1024).toFixed(1)} MB)` };
+  }
+  if (file.size < 1024) {
+    return { valid: false, error: 'File appears to be empty or corrupted' };
+  }
+  return { valid: true };
+}
+
+// Fire-and-forget — notifications must NEVER block the main upload flow
+function fireNotification(...args: Parameters<typeof NotificationService.createNotification>) {
+  NotificationService.createNotification(...args).catch(e =>
+    console.warn('⚠️ Notification failed (non-fatal):', e),
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function UploadResume() {
   const [user, loading] = useAuthState(auth);
   const router = useRouter();
 
-  const [isProcessing,    setIsProcessing]    = useState(false);
-  const [currentStep,     setCurrentStep]     = useState(0);
-  const [file,            setFile]            = useState<File | null>(null);
-  const [error,           setError]           = useState<string>('');
-  const [currentFactIndex,setCurrentFactIndex]= useState(0);
-  const [formData,        setFormData]        = useState<FormData>({
-    companyName: '', jobTitle: '', jobDescription: '', analysisType: 'full',
+  const [isProcessing,     setIsProcessing]     = useState(false);
+  const [currentStep,      setCurrentStep]      = useState(0);
+  const [file,             setFile]             = useState<File | null>(null);
+  const [error,            setError]            = useState('');
+  const [currentFactIndex, setCurrentFactIndex] = useState(0);
+  const [formData,         setFormData]         = useState<FormData>({
+    companyName: '', jobTitle: '', jobDescription: '',
   });
 
-  const handleFileSelect = (selectedFile: File | null) => { setFile(selectedFile); setError(''); };
-
-  const updateProgress = (step: number) => {
-    console.log(`📊 Progress: Step ${step} - ${PROCESSING_STEPS[step]?.message}`);
-    setCurrentStep(step);
-  };
+  const handleFileSelect = (f: File | null) => { setFile(f); setError(''); };
 
   const handleAnalyze = async () => {
     if (!user || !file) { setError('User or file is missing'); return; }
+
+    // ── Get Firebase ID token — required by the API for auth ──────────────────
+    // Must use auth.currentUser (not `user` from useAuthState) to guarantee
+    // we get a fresh token even if the hook value is slightly stale.
+    const token = await auth.currentUser?.getIdToken().catch(() => null);
+    if (!token) {
+      setError('Session expired — please sign in again');
+      toast.error('Session expired. Please sign in again.');
+      router.push('/auth');
+      return;
+    }
 
     setIsProcessing(true);
     setError('');
     setCurrentFactIndex(Math.floor(Math.random() * RESUME_FACTS.length));
 
     const factInterval = setInterval(() => {
-      setCurrentFactIndex(prev => (prev + 1) % RESUME_FACTS.length);
+      setCurrentFactIndex(i => (i + 1) % RESUME_FACTS.length);
     }, 4000);
 
-    const resumeId: string = crypto.randomUUID();
+    const resumeId = crypto.randomUUID();
 
     try {
-      console.log('🚀 Starting resume analysis — ID:', resumeId);
+      // ── Step 0: Fire notification (non-blocking) then immediately advance ──
+      setCurrentStep(0);
+      console.log('🚀 Analysing resume:', file.name, `(${(file.size / 1024).toFixed(1)} KB)`);
 
-      // Step 0: Compress
-      updateProgress(0);
-      let fileToUpload = file;
-      if (file.size > 2 * 1024 * 1024) {
-        try { fileToUpload = await compressPDF(file); }
-        catch (compressionError) { console.warn('Compression failed, using original:', compressionError); fileToUpload = file; }
-      }
-      await new Promise(resolve => setTimeout(resolve, 300));
-
-      // Step 1: Convert to image
-      updateProgress(1);
-      const imageResult = await convertPdfToImage(fileToUpload);
-      if (!imageResult.file || imageResult.error) throw new Error(imageResult.error || 'Failed to convert PDF');
-
-      // ── Notification: resume uploaded & being analyzed ──
-      await NotificationService.createNotification(
-        user.uid,
-        'resume',
-        'Resume Uploaded 📄',
-        `"${file.name}" has been uploaded and is being analyzed by AI. We'll have your results shortly.`,
-        { actionUrl: `/resume/${resumeId}`, actionLabel: 'View Resume' }
+      fireNotification(
+        user.uid, 'resume', 'Resume Uploaded 📄',
+        `"${file.name}" has been uploaded and is being analysed by AI.`,
+        { actionUrl: `/resume/${resumeId}`, actionLabel: 'View Resume' },
       );
 
-      // Step 2: Analyze
-      updateProgress(2);
-      const apiFormData = new window.FormData();
-      apiFormData.append('file', imageResult.file);
-      apiFormData.append('jobTitle', formData.jobTitle);
-      apiFormData.append('jobDescription', formData.jobDescription);
+      // ── Step 1: Send PDF to AI ─────────────────────────────────────────────
+      setCurrentStep(1);
+      console.log('🤖 Sending PDF to AI…');
 
-      const response = await fetch('/api/analyze-resume', { method: 'POST', body: apiFormData });
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(errorData.error || `Analysis failed with status ${response.status}`);
+      const apiForm = new window.FormData();
+      apiForm.append('file',           file);
+      apiForm.append('jobTitle',       formData.jobTitle);
+      apiForm.append('jobDescription', formData.jobDescription);
+      apiForm.append('companyName',    formData.companyName);
+
+
+      // ── THE FIX: Authorization header added here ───────────────────────────
+      // Do NOT set Content-Type manually for multipart/form-data — the browser
+      // must generate the boundary automatically or the server can't parse it.
+      const res = await fetch('/api/analyze-resume', {
+        method:  'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body:    apiForm,
+      });
+
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({ error: 'Unknown error' }));
+
+        // Surface specific error codes as useful messages
+        if (res.status === 401) {
+          // Token may have expired mid-flight — force a refresh for the next attempt
+          await auth.currentUser?.getIdToken(true).catch(() => null);
+          throw new Error('Session expired. Please try again.');
+        }
+        if (res.status === 429) {
+          throw new Error('Too many requests. Please wait a moment and try again.');
+        }
+        if (res.status === 503) {
+          throw new Error('AI service is temporarily unavailable. Please try again shortly.');
+        }
+
+        throw new Error(e.error || `Analysis failed (${res.status})`);
       }
 
-      const { feedback } = await response.json();
-      console.log('Analysis complete. Score:', feedback?.overallScore);
+      const { feedback } = await res.json();
+      if (!feedback || typeof feedback.overallScore !== 'number') {
+        throw new Error('Invalid response from AI service');
+      }
 
-      if (!feedback || typeof feedback.overallScore !== 'number') throw new Error('Invalid response from AI service');
+      console.log('✅ Analysis complete. Score:', feedback.overallScore);
 
-      // Step 3: Save
-      updateProgress(3);
+      // ── Step 2: Upload PDF to Storage + write Firestore record ─────────────
+      setCurrentStep(2);
+      console.log('💾 Saving to Firebase…');
+
       const resumeToSave: Omit<Resume, 'imagePath' | 'resumePath'> = {
         id:               resumeId,
         userId:           user.uid,
-        fileName:         fileToUpload.name,
+        fileName:         file.name,
         originalFileName: file.name,
-        fileSize:         fileToUpload.size,
+        fileSize:         file.size,
         companyName:      formData.companyName.trim(),
         jobTitle:         formData.jobTitle.trim(),
         jobDescription:   formData.jobDescription.trim(),
-        status:           'complete' as const,
+        status:           'complete',
         score:            feedback.overallScore,
         feedback:         feedback as ResumeFeedback,
         createdAt:        new Date(),
@@ -146,38 +197,38 @@ export default function UploadResume() {
         analyzedAt:       new Date(),
       };
 
-      await FirebaseService.saveResumeWithFiles(resumeToSave, fileToUpload, imageResult.file);
-      console.log('Saved successfully');
+      await FirebaseService.saveResumeWithFiles(resumeToSave, file);
+      console.log('✅ Saved to Firebase');
 
-      // ── Notification: analysis complete with score ──
+      // Fire completion notification (non-blocking)
       const score      = feedback.overallScore as number;
       const scoreLabel = score >= 80 ? 'Excellent' : score >= 60 ? 'Good' : 'Needs Improvement';
       const target     = formData.companyName.trim()
-        ? `for ${formData.jobTitle.trim() || 'this role'} at ${formData.companyName.trim()}`
-        : formData.jobTitle.trim()
-          ? `for ${formData.jobTitle.trim()}`
-          : '';
+        ? ` for ${formData.jobTitle.trim() || 'this role'} at ${formData.companyName.trim()}`
+        : formData.jobTitle.trim() ? ` for ${formData.jobTitle.trim()}` : '';
 
-      await NotificationService.createNotification(
-        user.uid,
-        'resume',
-        'Resume Analysis Complete ✅',
-        `"${file.name}" scored ${score}/100 (${scoreLabel})${target ? ` ${target}` : ''}. Check your detailed feedback now.`,
-        { actionUrl: `/resume/${resumeId}`, actionLabel: 'View Analysis' }
+      fireNotification(
+        user.uid, 'resume', 'Resume Analysis Complete ✅',
+        `"${file.name}" scored ${score}/100 (${scoreLabel})${target}. Check your detailed feedback.`,
+        { actionUrl: `/resume/${resumeId}`, actionLabel: 'View Analysis' },
       );
 
-      // Step 4: Done
-      updateProgress(4);
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // ── Step 3: Done ───────────────────────────────────────────────────────
+      setCurrentStep(3);
+      await new Promise(r => setTimeout(r, 800));
       router.push(`/resume/${resumeId}`);
-      setTimeout(() => { if (window.location.pathname.includes('upload')) window.location.href = `/resume/${resumeId}`; }, 2000);
+      setTimeout(() => {
+        if (window.location.pathname.includes('upload')) {
+          window.location.href = `/resume/${resumeId}`;
+        }
+      }, 2000);
 
     } catch (err) {
       console.error('❌ Analysis failed:', err);
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
       setIsProcessing(false);
       setCurrentStep(0);
-      toast.error('Failed to analyze resume');
+      toast.error('Failed to analyse resume');
     } finally {
       clearInterval(factInterval);
     }
@@ -186,58 +237,63 @@ export default function UploadResume() {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!file) { setError('Please select a PDF file to upload'); return; }
-    const validation = validatePDF(file);
-    if (!validation.valid) { setError(validation.error || 'Invalid file'); return; }
+    const v = validatePDF(file);
+    if (!v.valid) { setError(v.error!); return; }
     setError('');
     await handleAnalyze();
   };
 
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 text-blue-400 animate-spin mx-auto mb-4" />
-          <p className="text-slate-400 text-sm">Loading...</p>
-        </div>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-7 h-7 text-purple-400 animate-spin" />
       </div>
     );
   }
-
   if (!user) { router.push('/auth'); return null; }
 
   return (
-    <div className="min-h-screen py-6 px-4 sm:px-6 lg:px-8">
-
-      {/* Processing Overlay */}
+    <>
+      {/* ── Processing overlay ──────────────────────────────────────────────── */}
       {isProcessing && (
-        <div className="fixed inset-0 bg-slate-950/95 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900/90 border border-slate-800 rounded-xl max-w-md w-full p-6 sm:p-8">
-            <div className="text-center mb-6 sm:mb-8">
-              <div className="inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg mb-4">
-                <Sparkles className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+        <div className="fixed inset-0 bg-[#090d1a]/95 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#0d1526]/98 border border-white/[0.09] rounded-2xl
+                         max-w-md w-full p-6 shadow-[0_32px_64px_rgba(0,0,0,0.6)]">
+            <div className="text-center mb-6">
+              <div className="w-12 h-12 gradient-primary rounded-2xl flex items-center justify-center mx-auto mb-4
+                             shadow-[0_4px_16px_rgba(102,126,234,0.35)]">
+                <Sparkles className="w-5 h-5 text-white" />
               </div>
-              <h3 className="text-base sm:text-lg font-medium text-white mb-2 sm:mb-3">
+              <p className="text-[15px] font-bold text-white mb-2">
                 {PROCESSING_STEPS[currentStep]?.message}
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
+              </p>
+              <p className="text-[12px] text-slate-500 leading-relaxed min-h-[36px]">
                 {RESUME_FACTS[currentFactIndex]}
               </p>
             </div>
 
-            <div className="relative w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mb-4 sm:mb-6">
-              <div className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-500 to-purple-600 transition-all duration-500"
-                style={{ width: `${PROCESSING_STEPS[currentStep]?.progress || 0}%` }} />
+            {/* Progress bar */}
+            <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden mb-5">
+              <div
+                className="h-full bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full transition-all duration-500"
+                style={{ width: `${PROCESSING_STEPS[currentStep]?.progress ?? 0}%` }}
+              />
             </div>
 
-            <div className="space-y-2 sm:space-y-3">
-              {PROCESSING_STEPS.map((step, idx) => (
-                <div key={idx} className={`flex items-center text-xs sm:text-sm ${idx < currentStep ? 'text-emerald-400' : idx === currentStep ? 'text-blue-400' : 'text-slate-600'}`}>
-                  {idx < currentStep
-                    ? <CheckCircle2 className="w-4 h-4 mr-3 flex-shrink-0" />
-                    : idx === currentStep
-                    ? <Loader2 className="w-4 h-4 mr-3 flex-shrink-0 animate-spin" />
-                    : <div className="w-4 h-4 mr-3 border border-slate-700 rounded-full flex-shrink-0" />}
-                  <span>{step.message}</span>
+            {/* Step list */}
+            <div className="space-y-2.5">
+              {PROCESSING_STEPS.map((step, i) => (
+                <div key={i} className={`flex items-center gap-3 text-[12px] font-medium ${
+                  i < currentStep     ? 'text-emerald-400'
+                  : i === currentStep ? 'text-indigo-400'
+                  : 'text-slate-700'
+                }`}>
+                  {i < currentStep
+                    ? <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                    : i === currentStep
+                    ? <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" />
+                    : <div className="w-4 h-4 border border-white/[0.10] rounded-full flex-shrink-0" />}
+                  {step.message}
                 </div>
               ))}
             </div>
@@ -245,138 +301,155 @@ export default function UploadResume() {
         </div>
       )}
 
-      <div className="max-w-5xl mx-auto">
+      <div className="space-y-4 pt-4">
+
         {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
-          <div>
-            <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-full px-3 py-1.5 mb-3">
-              <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400" />
-              <span className="text-blue-400 text-xs sm:text-sm font-medium">AI-Powered</span>
+        <div className="glass-card p-5 animate-fade-in-up">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="inline-flex items-center gap-1.5 bg-blue-500/[0.08] border border-blue-500/20
+                              rounded-full px-3 py-1 mb-2">
+                <Sparkles className="w-3 h-3 text-blue-400" />
+                <span className="text-[11px] font-semibold text-blue-400">AI-Powered</span>
+              </div>
+              <h1 className="text-[18px] font-bold text-white leading-tight">Resume Analyser</h1>
+              <p className="text-[12px] text-slate-500 mt-0.5">
+                Get instant AI feedback — Gemini reads your PDF directly for accurate results
+              </p>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-semibold text-white mb-2">Resume Analyzer</h1>
-            <p className="text-slate-400 text-sm">Get instant AI-powered feedback and detailed insights to optimize your resume</p>
-          </div>
-          <div className="px-4 py-2 rounded-lg border bg-purple-500/5 border-purple-500/20 text-purple-400 flex-shrink-0">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <Shield className="w-4 h-4" /><span>Unlimited</span>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl flex-shrink-0
+                           bg-violet-500/[0.07] border border-violet-500/20">
+              <Shield className="w-3.5 h-3.5 text-violet-400" />
+              <span className="text-[12px] font-semibold text-violet-400">Unlimited</span>
             </div>
           </div>
         </div>
 
         {/* Form */}
-        <div className="bg-slate-800/30 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-4 sm:p-6">
+        <div className="glass-card p-5 animate-fade-in-up" style={{ animationDelay: '60ms' }}>
+
           {error && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 mb-4">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-medium text-red-400 mb-0.5 text-sm">Analysis Failed</h3>
-                  <p className="text-xs text-red-300 break-words">{error}</p>
-                </div>
-                <button onClick={() => setError('')} className="text-red-400 hover:text-red-300 text-lg leading-none flex-shrink-0">×</button>
+            <div className="flex items-start gap-2.5 p-3 mb-5
+                           bg-red-500/[0.07] border border-red-500/20 rounded-xl">
+              <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[12px] font-semibold text-red-400 mb-0.5">Analysis failed</p>
+                <p className="text-[11px] text-red-400/70 break-words">{error}</p>
               </div>
+              <button onClick={() => setError('')}
+                className="text-red-400/60 hover:text-red-300 transition-colors flex-shrink-0">
+                <X className="w-4 h-4" />
+              </button>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Analysis Type */}
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Analysis Type</label>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { value: 'full',     label: 'Full',  fullLabel: 'Full Analysis', time: '~30s' },
-                  { value: 'quick',    label: 'Quick', fullLabel: 'Quick Scan',    time: '~10s' },
-                  { value: 'ats-only', label: 'ATS',   fullLabel: 'ATS Check',     time: '~15s' },
-                ].map(type => (
-                  <button key={type.value} type="button"
-                    onClick={() => setFormData({ ...formData, analysisType: type.value as 'full' | 'quick' | 'ats-only' })}
-                    className={`p-2.5 rounded-lg border transition-all text-center ${formData.analysisType === type.value ? 'border-blue-500 bg-blue-500/10 text-white' : 'border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600'}`}>
-                    <div className="font-medium text-xs sm:text-sm mb-0.5">
-                      <span className="hidden sm:inline">{type.fullLabel}</span>
-                      <span className="sm:hidden">{type.label}</span>
-                    </div>
-                    <div className="text-xs opacity-70">{type.time}</div>
-                  </button>
-                ))}
+          <form onSubmit={handleSubmit} className="space-y-5">
+
+            {/* Company + title */}
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[12px] font-medium text-slate-400 mb-1.5">
+                  Company <span className="text-slate-700 font-normal">optional</span>
+                </label>
+                <input type="text" value={formData.companyName}
+                  onChange={e => setFormData(p => ({ ...p, companyName: e.target.value }))}
+                  placeholder="e.g. Google" className={inp} />
+              </div>
+              <div>
+                <label className="block text-[12px] font-medium text-slate-400 mb-1.5">
+                  Job Title <span className="text-slate-700 font-normal">optional</span>
+                </label>
+                <input type="text" value={formData.jobTitle}
+                  onChange={e => setFormData(p => ({ ...p, jobTitle: e.target.value }))}
+                  placeholder="e.g. Software Engineer" className={inp} />
               </div>
             </div>
 
-            {/* Company & Job Title */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label htmlFor="company-name" className="block text-sm font-medium text-slate-300 mb-1.5">
-                  Company <span className="text-slate-500 text-xs">(Optional)</span>
-                </label>
-                <input type="text" id="company-name" value={formData.companyName}
-                  onChange={e => setFormData({ ...formData, companyName: e.target.value })}
-                  placeholder="e.g., Google"
-                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 transition-colors" />
-              </div>
-              <div>
-                <label htmlFor="job-title" className="block text-sm font-medium text-slate-300 mb-1.5">
-                  Job Title <span className="text-slate-500 text-xs">(Optional)</span>
-                </label>
-                <input type="text" id="job-title" value={formData.jobTitle}
-                  onChange={e => setFormData({ ...formData, jobTitle: e.target.value })}
-                  placeholder="e.g., Software Engineer"
-                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 transition-colors" />
-              </div>
-            </div>
-
-            {/* Job Description */}
+            {/* Job description */}
             <div>
-              <label htmlFor="job-description" className="block text-sm font-medium text-slate-300 mb-1.5">
-                Job Description <span className="text-slate-500 text-xs">(Optional)</span>
+              <label className="block text-[12px] font-medium text-slate-400 mb-1.5">
+                Job Description <span className="text-slate-700 font-normal">optional</span>
               </label>
-              <textarea id="job-description" rows={2} value={formData.jobDescription}
-                onChange={e => setFormData({ ...formData, jobDescription: e.target.value })}
-                placeholder="Paste job description for better keyword matching..."
-                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 transition-colors resize-none" />
+              <textarea rows={3} value={formData.jobDescription}
+                onChange={e => setFormData(p => ({ ...p, jobDescription: e.target.value }))}
+                placeholder="Paste the job description for better keyword matching…"
+                className={`${inp} resize-none`} />
             </div>
 
-            {/* File Upload */}
+            {/* File */}
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">
+              <label className="block text-[12px] font-medium text-slate-400 mb-1.5">
                 Upload Resume <span className="text-red-400">*</span>
               </label>
               <FileUploader onFileSelect={handleFileSelect} />
               {file && (
-                <div className="mt-3 p-3 bg-slate-800/50 border border-slate-700 rounded-lg">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <div className="w-8 h-8 bg-emerald-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <FileText className="w-4 h-4 text-emerald-400" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-white text-xs truncate">{file.name}</p>
-                        <p className="text-xs text-slate-400">{(file.size / 1024).toFixed(2)} KB</p>
-                      </div>
-                    </div>
-                    <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+                <div className="mt-3 flex items-center gap-3 p-3
+                               bg-white/[0.03] border border-white/[0.07] rounded-xl">
+                  <div className="w-8 h-8 bg-emerald-500/[0.08] rounded-lg flex items-center justify-center flex-shrink-0">
+                    <FileText className="w-4 h-4 text-emerald-400" />
                   </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[12px] font-semibold text-white truncate">{file.name}</p>
+                    <p className="text-[11px] text-slate-600">{(file.size / 1024).toFixed(1)} KB · PDF</p>
+                  </div>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
                 </div>
               )}
             </div>
 
             {/* Submit */}
-            <div className="space-y-3 pt-2">
+            <div className="space-y-3 pt-1">
               <button type="submit" disabled={!file || isProcessing}
-                className={`w-full py-2.5 sm:py-3 px-6 rounded-xl font-medium transition-all text-sm sm:text-base ${!file || isProcessing ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white shadow-lg shadow-blue-500/25'}`}>
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
+                           text-[13px] font-semibold text-white
+                           bg-gradient-to-r from-indigo-600 to-purple-600
+                           hover:from-indigo-500 hover:to-purple-500
+                           shadow-[0_4px_14px_rgba(102,126,234,0.28)]
+                           transition-all disabled:opacity-40 disabled:cursor-not-allowed">
                 {isProcessing
-                  ? <span className="flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />Analyzing...</span>
-                  : <span className="flex items-center justify-center gap-2"><Upload className="w-4 h-4 sm:w-5 sm:h-5" />Analyze Resume</span>}
+                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Analysing…</>
+                  : <><Upload className="w-4 h-4" /> Analyse Resume</>}
               </button>
-              <div className="text-center">
-                <p className="text-xs text-slate-500 flex items-center justify-center gap-2">
-                  <Info className="w-3 h-3 flex-shrink-0" />
-                  <span>PDF only • Max 10MB • 10-30 seconds</span>
-                </p>
-              </div>
+              <p className="text-center text-[11px] text-slate-600">
+                PDF only · Max 10 MB · Takes 10–20 seconds
+              </p>
             </div>
           </form>
         </div>
+
+        {/* Info cards */}
+        <div className="grid sm:grid-cols-2 gap-4 animate-fade-in-up" style={{ animationDelay: '120ms' }}>
+          <div className="glass-card p-5">
+            <p className="text-[12px] font-bold text-white mb-3 flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> What we analyse
+            </p>
+            <div className="space-y-2">
+              {['ATS compatibility and keywords', 'Content quality and metrics', 'Structure and formatting', 'Skills alignment'].map(item => (
+                <div key={item} className="flex items-center gap-2 text-[12px] text-slate-500">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-400/40 flex-shrink-0" />
+                  {item}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="glass-card p-5">
+            <p className="text-[12px] font-bold text-white mb-3 flex items-center gap-1.5">
+              <Shield className="w-3.5 h-3.5 text-blue-400" /> File requirements
+            </p>
+            <div className="space-y-2">
+              {['PDF format only', 'Maximum size: 10 MB', 'Text-based PDF works best', 'Takes 10–20 seconds'].map(item => (
+                <div key={item} className="flex items-center gap-2 text-[12px] text-slate-500">
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400/40 flex-shrink-0" />
+                  {item}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
       </div>
-       <UsersFeedback page="resume" />
-    </div>
+
+      <UsersFeedback page="resume" />
+    </>
   );
 }

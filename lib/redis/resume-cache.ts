@@ -19,6 +19,7 @@ interface CategoryScore {
     type: 'good' | 'improve';
     tip: string;
     explanation?: string;
+    solution?: string;
   }>;
 }
 

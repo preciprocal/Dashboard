@@ -1,75 +1,105 @@
 // app/api/resume/benchmark/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import { auth, db } from '@/firebase/admin';
 
-const apiKey = process.env.CLAUDE_API_KEY;
-const anthropic = apiKey ? new Anthropic({ apiKey }) : null;
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
 // ─────────────────────────────────────────────────────────────────
-// Prompt
+// System prompt — rewritten to be genuinely brutal
 // ─────────────────────────────────────────────────────────────────
 
-const BENCHMARK_SYSTEM_PROMPT = `You are a senior technical recruiter and hiring manager with 15+ years of experience at top-tier companies (FAANG, top startups, Fortune 500). You have reviewed tens of thousands of resumes and have a sharp, unfiltered eye for what separates candidates who get interviews from those who get rejected immediately.
+const BENCHMARK_SYSTEM_PROMPT = `You are a senior technical recruiter and hiring manager with 15+ years of experience at FAANG, top-tier startups, and Fortune 500 companies. You have personally reviewed over 50,000 resumes and made the call on thousands of hire/no-hire decisions.
 
-Your job is to benchmark this resume against real hired candidates. You are NOT here to be encouraging — you are here to be TRUTHFUL. Sugarcoating does not help job seekers. Real feedback does.
+Your ONE job here is to tell the candidate the truth — not a polished, softened version of it. The truth. The kind of feedback a good mentor gives behind closed doors, not the kind a career coach gives to avoid losing a client.
 
-Rules:
-- Be direct and specific. Don't say "consider improving" — say EXACTLY what is wrong and why it matters.
-- Every score must be defensible. If you give a low score, explain the specific reason with examples from the resume.
-- Compare to REAL hired candidates, not theoretical perfection. What do people who actually got this role look like vs. this resume?
-- Identify the single biggest thing holding this resume back from getting an interview.
-- Do not praise things that are merely adequate — adequate is NOT impressive.
-- If the resume is genuinely strong in an area, say so but be specific about why.
-- Percentile rankings should be realistic. Most resumes are mediocre. Only exceptional work deserves top percentile.
+HARD RULES — violate none of these:
 
-Return ONLY valid JSON, no markdown, no preamble, no trailing text.`;
+1. SCORE CALIBRATION IS MANDATORY.
+   - 90–99th percentile: Reserved for candidates whose resumes are genuinely exceptional. Less than 5% of resumes you see. Do not give this unless the resume would make a FAANG recruiter stop scrolling.
+   - 70–89th percentile: Above average. Competitive but with clear, fixable gaps.
+   - 50–69th percentile: Mediocre. Will pass some ATS but get cut by humans. This is where most resumes live.
+   - 30–49th percentile: Weak. Significant problems that will cause rejections at most companies.
+   - 1–29th percentile: Would be rejected immediately by any competent recruiter. No sugarcoating.
+
+2. CITE EVIDENCE. Every score, every verdict, every claim must reference specific content from the resume. "Your bullet points are vague" is not feedback. "Your bullet 'Worked on backend systems' under Company X has zero impact, no metric, no ownership, and no result" is feedback.
+
+3. NO EMPTY PRAISE. Do not compliment things that are merely adequate. Adequate is the baseline, not an achievement. If the formatting is clean, that's table stakes — it does not warrant praise.
+
+4. THE KILLER FLAW must be the single most damaging thing on this resume, with a clear explanation of how it is actively costing this person interviews right now. If everything is mediocre, say that plainly.
+
+5. WHAT HIRED CANDIDATES HAVE must reflect what real people who got this role actually look like — not theoretical perfection. If this is a mid-level SWE role, compare to real mid-level SWE resumes that got interviews, not to staff engineers at Google.
+
+6. THE THREE FIXES must be specific enough that the candidate can act on them today. "Add more metrics" is not a fix. "Replace your bullet 'Improved system performance' with 'Reduced API latency by 40% by migrating from REST polling to WebSockets, supporting 10k concurrent users' " is a fix.
+
+7. RECRUITER'S FIRST IMPRESSION must be written as an unfiltered internal monologue — what you actually think in the first 6 seconds. Not what you would say to the candidate's face. The real reaction.
+
+7. MISSING USER CONTEXT IS NOT A RESUME FLAW. If the user did not provide a target role, job description, or resume summary, do NOT list any of these as a fix in killerFlaw or threeThingsToFixNow. These are inputs the user chose not to supply — they are not defects in the resume. You may acknowledge the absence of a job description as a caveat to your analysis (e.g. "without a JD, keyword matching is estimated") but never as an actionable fix for the candidate.
+
+Return ONLY valid JSON. No markdown. No preamble. No trailing text.`;
+
+// ─────────────────────────────────────────────────────────────────
+// Prompt builder — rewritten with sharper framing and constraints
+// ─────────────────────────────────────────────────────────────────
 
 const buildPrompt = (resumeData: Record<string, unknown>): string => {
-  const scores = resumeData.feedback as Record<string, unknown> | undefined;
-  const atsScore       = (scores?.ATS       as Record<string,number>)?.score ?? 0;
-  const contentScore   = (scores?.content   as Record<string,number>)?.score ?? 0;
-  const structureScore = (scores?.structure as Record<string,number>)?.score ?? 0;
-  const skillsScore    = (scores?.skills    as Record<string,number>)?.score ?? 0;
+  const scores         = resumeData.feedback as Record<string, unknown> | undefined;
+  const atsScore       = (scores?.ATS       as Record<string, number>)?.score ?? 0;
+  const contentScore   = (scores?.content   as Record<string, number>)?.score ?? 0;
+  const structureScore = (scores?.structure as Record<string, number>)?.score ?? 0;
+  const skillsScore    = (scores?.skills    as Record<string, number>)?.score ?? 0;
   const overallScore   = (scores?.overallScore as number) ?? 0;
 
-  const resumeText     = (resumeData.resumeText   as string) || (resumeData.extractedText as string) || '';
-  const jobTitle       = (resumeData.jobTitle     as string) || 'Not specified';
-  const companyName    = (resumeData.companyName  as string) || '';
+  const resumeText     = (resumeData.resumeText     as string)
+                      || (resumeData.extractedText  as string)
+                      || '';
+  const jobTitle       = (resumeData.jobTitle       as string) || 'Not specified';
+  const companyName    = (resumeData.companyName    as string) || '';
   const jobDescription = (resumeData.jobDescription as string) || '';
 
-  return `
-Analyze this resume and benchmark it against real hired candidates.
+  return `Benchmark this resume against real candidates who actually got interviews for this role. Do not compare against theoretical perfection — compare against the real applicant pool.
 
-=== RESUME CONTEXT ===
-Target Role: ${jobTitle}
-${companyName ? `Target Company: ${companyName}` : ''}
-${jobDescription ? `Job Description:\n${jobDescription.slice(0, 1500)}` : ''}
+=== TARGET ROLE ===
+Job Title: ${jobTitle}
+${companyName    ? `Company: ${companyName}`                                   : ''}
+${jobDescription ? `Job Description:\n${jobDescription.slice(0, 1500)}`        : 'No job description provided — benchmark against general applicants for this role type.'}
 
-=== CURRENT AI SCORES (from our system) ===
-Overall: ${overallScore}/100
+=== CURRENT SYSTEM SCORES ===
+These scores come from our ATS analysis pipeline. Use them as anchors but apply your own judgment based on the actual resume content.
+Overall:          ${overallScore}/100
 ATS Compatibility: ${atsScore}/100
-Content Quality: ${contentScore}/100
-Structure & Format: ${structureScore}/100
-Skills & Keywords: ${skillsScore}/100
+Content Quality:   ${contentScore}/100
+Structure/Format:  ${structureScore}/100
+Skills/Keywords:   ${skillsScore}/100
 
 ${resumeText
-  ? `=== RESUME TEXT ===\n${resumeText.slice(0, 4000)}`
-  : '=== NOTE === The resume PDF is attached above as a document. Read it directly — do not rely on extracted text.'
-}
+  ? `=== RESUME TEXT ===\n${resumeText.slice(0, 4000)}\n\n`
+  : '=== NOTE ===\nThe resume PDF is attached above. Read it directly — do not rely on extracted text.\n\n'
+}=== REQUIRED OUTPUT ===
+Return this exact JSON structure. Every field is mandatory. Do NOT omit fields or add extras.
 
-=== YOUR TASK ===
-Produce a JSON object with this EXACT structure:
+Calibration reminder before you score:
+- Most applicants for any role score 45–65th percentile. Be realistic.
+- hiringChance of "high" or "very high" should be rare — only for genuinely strong resumes.
+- The killerFlaw must be real and specific. If you cannot identify one, you are not looking hard enough.
+- estimatedScoreGain values must be realistic. "+5-8 points" is realistic. "+40 points" is not.
+
+IMPORTANT — Missing context rule:
+${!jobTitle || jobTitle === 'Not specified' ? '- No target role was provided. Do NOT treat "add a target role" as a fix in killerFlaw or threeThingsToFixNow. It is not something wrong with the resume itself. You may mention it briefly as a minor note at most.' : '- A target role was provided. You may reference it in your analysis.'}
+${!jobDescription ? '- No job description was provided. Do NOT treat "add a summary" or "tailor your resume to a job description" as a fix. Benchmark against the general applicant pool for this role type instead.' : '- A job description was provided. Use it for keyword and alignment analysis.'}
+- In general: missing context from the USER (no job title, no JD, no summary) is NOT a flaw in the resume. Only flag things that are actually wrong with the resume content itself.
 
 {
-  "overallPercentile": <number 1-99, where are they vs. candidates who got interviews for this role>,
+  "overallPercentile": <number 1–99, calibrated against real applicants for this exact role — not theoretical>,
   "hiringChance": <"very low" | "low" | "moderate" | "high" | "very high">,
-  "hiringChanceReason": <1-2 sentences, brutally honest — what is the actual probability and why>,
-  
+  "hiringChanceReason": <2 sentences max. Name the specific reason this resume will or won't get an interview. Reference actual content from the resume.>,
+
   "killerFlaw": {
-    "title": <the single biggest thing killing their chances>,
-    "detail": <2-3 sentences, be specific and cite actual evidence from the resume or scores>,
+    "title": <5–8 words naming the single biggest problem>,
+    "detail": <2–3 sentences. Cite specific evidence — section name, bullet text, or pattern. Explain exactly how this is costing them interviews right now.>,
     "urgency": <"critical" | "high" | "medium">
   },
 
@@ -77,12 +107,12 @@ Produce a JSON object with this EXACT structure:
     {
       "name": "ATS Compatibility",
       "userScore": ${atsScore},
-      "peerMedian": <score of a median candidate applying for this role, 0-100>,
-      "hiredMedian": <score of candidates who actually got hired, 0-100>,
-      "topTen": <score of top 10% of hired candidates, 0-100>,
-      "userPercentile": <where this user sits vs. all applicants, 1-99>,
+      "peerMedian": <realistic median score for ALL applicants to this role type, not just good ones>,
+      "hiredMedian": <median score of candidates who actually got interviews for this role>,
+      "topTen": <score of the top 10% of hired candidates for this role>,
+      "userPercentile": <where this resume sits vs. all applicants, 1–99>,
       "verdict": <"strong" | "competitive" | "weak" | "critical">,
-      "honestTake": <1-2 sentences of genuinely useful, direct feedback. No fluff.>
+      "honestTake": <1–2 sentences. Specific to this resume. No generic advice. Cite an actual issue or strength.>
     },
     {
       "name": "Content Quality",
@@ -91,8 +121,8 @@ Produce a JSON object with this EXACT structure:
       "hiredMedian": <number>,
       "topTen": <number>,
       "userPercentile": <number>,
-      "verdict": <string>,
-      "honestTake": <string>
+      "verdict": <"strong" | "competitive" | "weak" | "critical">,
+      "honestTake": <string — cite a specific bullet or section, not a generic observation>
     },
     {
       "name": "Structure & Format",
@@ -101,7 +131,7 @@ Produce a JSON object with this EXACT structure:
       "hiredMedian": <number>,
       "topTen": <number>,
       "userPercentile": <number>,
-      "verdict": <string>,
+      "verdict": <"strong" | "competitive" | "weak" | "critical">,
       "honestTake": <string>
     },
     {
@@ -111,58 +141,62 @@ Produce a JSON object with this EXACT structure:
       "hiredMedian": <number>,
       "topTen": <number>,
       "userPercentile": <number>,
-      "verdict": <string>,
-      "honestTake": <string>
+      "verdict": <"strong" | "competitive" | "weak" | "critical">,
+      "honestTake": <string — name the specific keywords that are missing or present>
     },
     {
       "name": "Impact & Achievements",
-      "userScore": <assess from resume content, 0-100>,
+      "userScore": <your honest assessment 0–100, based on how many bullets are quantified, specific, and impressive vs. vague duty-lists>,
       "peerMedian": <number>,
       "hiredMedian": <number>,
       "topTen": <number>,
       "userPercentile": <number>,
-      "verdict": <string>,
-      "honestTake": <string about whether achievements are quantified, specific, and impressive>
+      "verdict": <"strong" | "competitive" | "weak" | "critical">,
+      "honestTake": <string — be specific: what percentage of bullets have metrics? what's the worst offender?>
     }
   ],
 
   "whatHiredCandidatesHaveThatYouDont": [
-    <string: specific, concrete thing hired candidates have that this resume is missing>,
-    <string>,
-    <string>
+    <string: a concrete, specific thing real hired candidates in this role have that this resume is missing — not "more metrics", but "quantified business impact on at least 3 of 5 most recent roles">,
+    <string: another specific gap — e.g. "a skills section that matches the JD's exact tool names rather than generic equivalents">,
+    <string: a third specific gap>
   ],
 
   "threeThingsToFixNow": [
     {
-      "action": <specific, actionable improvement — not generic advice>,
-      "whyItMatters": <why a recruiter would care about this specific thing>,
-      "estimatedScoreGain": <realistic score improvement, e.g. "+8-12 points on ATS">
+      "action": <specific, copy-pasteable or immediately actionable instruction. Bad: 'Add metrics'. Good: 'Rewrite your top 3 bullets at [Company] to follow this pattern: [Action verb] + [what you built/changed] + [measurable result] + [scale or context]'>,
+      "whyItMatters": <explain what a recruiter's specific reaction will be if this is fixed vs. not fixed>,
+      "estimatedScoreGain": <realistic range only — e.g. '+6–10 points on Content Quality'>
     },
-    { "action": <string>, "whyItMatters": <string>, "estimatedScoreGain": <string> },
-    { "action": <string>, "whyItMatters": <string>, "estimatedScoreGain": <string> }
+    {
+      "action": <string>,
+      "whyItMatters": <string>,
+      "estimatedScoreGain": <string>
+    },
+    {
+      "action": <string>,
+      "whyItMatters": <string>,
+      "estimatedScoreGain": <string>
+    }
   ],
 
-  "recruitersFirstImpression": <2-3 sentences written AS a recruiter reading this resume for the first time. Unfiltered. What do you actually think in the first 6 seconds?>,
+  "recruitersFirstImpression": <2–3 sentences written AS the recruiter's unfiltered internal monologue reading this resume for the first time. Not what you'd say to the candidate — what you actually think. Include the specific thing that first caught your eye, for better or worse.>,
 
-  "ifThisResumeAppliedToday": <1 sentence: would it get an interview or not, and why — be direct>
-}
-`;
+  "ifThisResumeAppliedToday": <1 sentence. Direct verdict: would it get an interview at the target company/role, and the single reason why or why not. No hedging.>
+}`;
 };
 
 // ─────────────────────────────────────────────────────────────────
-// Fetch PDF bytes from resumePath (data: URL or remote URL)
-// Returns base64 string or null
+// Fetch PDF bytes from resumePath (unchanged)
 // ─────────────────────────────────────────────────────────────────
+
 async function fetchPdfAsBase64(resumePath: string): Promise<string | null> {
   try {
-    // Case 1: inline data URL — data:application/pdf;base64,<data>
     if (resumePath.startsWith('data:')) {
       const commaIdx = resumePath.indexOf(',');
       if (commaIdx === -1) return null;
       return resumePath.slice(commaIdx + 1);
     }
-
-    // Case 2: remote URL (Firebase Storage signed URL or public URL)
     const response = await fetch(resumePath);
     if (!response.ok) {
       console.warn('⚠️ Could not fetch PDF from URL:', response.status);
@@ -177,39 +211,46 @@ async function fetchPdfAsBase64(resumePath: string): Promise<string | null> {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// POST handler
+// POST handler (unchanged)
 // ─────────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
   try {
-    // ── Auth ──
+    // ── Auth: session cookie (web) OR Bearer token (component) ──
+    let userId: string | null = null;
+
     const cookieStore = await cookies();
     const session     = cookieStore.get('session');
+    if (session) {
+      try {
+        const claims = await auth.verifySessionCookie(session.value, true);
+        userId = claims.uid;
+      } catch { /* fall through */ }
+    }
 
-    if (!session) {
+    if (!userId) {
+      const authHeader = request.headers.get('authorization');
+      if (authHeader?.startsWith('Bearer ')) {
+        try {
+          const decoded = await auth.verifyIdToken(authHeader.slice(7));
+          userId = decoded.uid;
+        } catch { /* fall through */ }
+      }
+    }
+
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    let userId: string;
-    try {
-      const claims = await auth.verifySessionCookie(session.value, true);
-      userId = claims.uid;
-    } catch {
-      return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
-    }
-
-    // ── Claude check ──
-    if (!anthropic || !apiKey) {
+    if (!openai) {
       return NextResponse.json({ error: 'AI service not configured' }, { status: 503 });
     }
 
-    // ── Parse body ──
     const { resumeId, force = false } = await request.json();
     if (!resumeId) {
       return NextResponse.json({ error: 'resumeId is required' }, { status: 400 });
     }
 
-    // ── Fetch resume from Firestore ──
     const resumeDoc = await db.collection('resumes').doc(resumeId).get();
     if (!resumeDoc.exists) {
       return NextResponse.json({ error: 'Resume not found' }, { status: 404 });
@@ -217,25 +258,19 @@ export async function POST(request: NextRequest) {
 
     const resumeData = resumeDoc.data() as Record<string, unknown>;
 
-    // Auth check — user must own this resume
     if (resumeData.userId !== userId) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    // ── Check for cached result (skip if force=true) ──
-    const cached    = resumeData.benchmarkResult as Record<string, unknown> | undefined;
+    const cached    = resumeData.benchmarkResult      as Record<string, unknown> | undefined;
     const cachedAt  = resumeData.benchmarkGeneratedAt as number | undefined;
-    const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
+    const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
 
     if (!force && cached && cachedAt && Date.now() - cachedAt < CACHE_TTL) {
       console.log('✅ Returning cached benchmark for:', resumeId);
       return NextResponse.json({ success: true, data: cached, cached: true });
     }
 
-    // ── Determine content strategy ──
-    // Use resumeText if it's rich enough (>300 chars = likely real content).
-    // Otherwise fetch the raw PDF and send it directly to Claude — this handles
-    // LaTeX resumes perfectly since Claude reads PDF natively without OCR loss.
     const existingText = (resumeData.resumeText as string) || (resumeData.extractedText as string) || '';
     const textIsRich   = existingText.trim().length > 300;
 
@@ -243,7 +278,7 @@ export async function POST(request: NextRequest) {
     if (!textIsRich) {
       const resumePath = resumeData.resumePath as string | undefined;
       if (resumePath) {
-        console.log('📄 Text thin/missing — fetching raw PDF for direct Claude analysis');
+        console.log('📄 Text thin/missing — fetching raw PDF for direct analysis');
         pdfBase64 = await fetchPdfAsBase64(resumePath);
         if (pdfBase64) {
           console.log(`✅ PDF fetched — ${Math.round(pdfBase64.length * 0.75 / 1024)}KB`);
@@ -253,56 +288,33 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ── Build Claude message content ──
-    // When we have the raw PDF, prepend it as a document block so Claude reads
-    // the actual vector text rather than OCR'd output. Works perfectly for LaTeX.
-    type ContentBlock =
-      | { type: 'document'; source: { type: 'base64'; media_type: 'application/pdf'; data: string } }
-      | { type: 'text'; text: string };
+    console.log('🤖 Calling OpenAI for benchmark:', resumeId, pdfBase64 ? '(with PDF)' : '(text only)');
 
-    const userContent: ContentBlock[] = [];
-
-    if (pdfBase64) {
-      userContent.push({
-        type: 'document',
-        source: {
-          type: 'base64',
-          media_type: 'application/pdf',
-          data: pdfBase64,
-        },
-      });
-    }
-
-    userContent.push({
-      type: 'text',
-      text: buildPrompt(resumeData),
-    });
-
-    // ── Call Claude ──
-    console.log('🤖 Calling Claude for benchmark:', resumeId, pdfBase64 ? '(with PDF)' : '(text only)');
+    const inputContent: OpenAI.Responses.ResponseInputMessageContentList = pdfBase64
+      ? [
+          { type: 'input_file', filename: 'resume.pdf', file_data: `data:application/pdf;base64,${pdfBase64}` },
+          { type: 'input_text', text: buildPrompt(resumeData) },
+        ]
+      : [{ type: 'input_text', text: buildPrompt(resumeData) }];
 
     let rawText: string;
     try {
-      const response = await anthropic.messages.create({
-        model: 'claude-sonnet-4-5',
-        max_tokens: 4096,
-        temperature: 0.4,
-        system: BENCHMARK_SYSTEM_PROMPT,
-        messages: [
-          { role: 'user', content: userContent },
-        ],
+      const response = await openai.responses.create({
+        model:        'gpt-4o-mini',
+        temperature:  0.3, // lowered from 0.4 — less creative, more consistent scoring
+        instructions: BENCHMARK_SYSTEM_PROMPT,
+        input: [{ role: 'user', content: inputContent }],
       });
-      rawText = response.content[0].type === 'text' ? response.content[0].text : '';
-    } catch (claudeError: unknown) {
-      console.error('❌ Claude error:', claudeError);
-      const msg = claudeError instanceof Error ? claudeError.message : 'Unknown error';
-      if (msg.includes('rate_limit') || msg.includes('overloaded')) {
+      rawText = response.output_text ?? '';
+    } catch (openaiError: unknown) {
+      console.error('❌ OpenAI error:', openaiError);
+      const msg = openaiError instanceof Error ? openaiError.message : 'Unknown error';
+      if (msg.includes('rate_limit') || msg.includes('quota')) {
         return NextResponse.json({ error: 'AI quota exceeded, try again later' }, { status: 429 });
       }
       return NextResponse.json({ error: 'AI generation failed' }, { status: 500 });
     }
 
-    // ── Parse JSON ──
     let benchmarkData: Record<string, unknown>;
     try {
       let cleaned = rawText
@@ -321,7 +333,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'AI returned malformed response, please retry' }, { status: 500 });
     }
 
-    // ── Cache result in Firestore ──
     try {
       await db.collection('resumes').doc(resumeId).update({
         benchmarkResult:      benchmarkData,

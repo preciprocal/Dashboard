@@ -1,22 +1,25 @@
 'use client';
 
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Resume } from '@/types/resume';
-import { 
-  Calendar, 
-  TrendingUp, 
-  CheckCircle, 
+import {
+  Calendar,
+  CheckCircle2,
   AlertTriangle,
-  Zap,
-  ArrowUpRight,
-  BarChart3
+  FileText,
+  Trash2,
+  Download,
+  ArrowRight,
+  X,
 } from 'lucide-react';
 
 interface ResumeCardProps {
   resume: Resume;
   viewMode?: 'grid' | 'list';
   className?: string;
+  onDelete?: (id: string) => void;
 }
 
 interface FirestoreTimestamp {
@@ -30,321 +33,462 @@ interface FeedbackCategory {
   tips?: Array<{ type: string; message: string }>;
 }
 
-export default function ResumeCard({ resume, viewMode = 'grid', className = '' }: ResumeCardProps) {
-  const formatDate = (date: Date | string | number | FirestoreTimestamp | null | undefined): string => {
-    try {
-      let dateObj: Date;
-      
-      if (!date) {
-        return 'Recent';
-      }
-      
-      if (date instanceof Date) {
-        dateObj = date;
-      } else if (typeof date === 'string' || typeof date === 'number') {
-        dateObj = new Date(date);
-      } else if (typeof date === 'object') {
-        // Handle Firestore timestamp
-        if ('seconds' in date && typeof date.seconds === 'number') {
-          dateObj = new Date(date.seconds * 1000);
-        } else if ('toDate' in date && typeof date.toDate === 'function') {
-          dateObj = date.toDate();
+// ─── PdfThumbnail ─────────────────────────────────────────────────────────────
+
+function PdfThumbnail({ resumePath, small = false }: { resumePath: string; small?: boolean }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [status, setStatus] = useState<'loading' | 'done' | 'error'>('loading');
+
+  useEffect(() => {
+    if (!resumePath) { setStatus('error'); return; }
+    let cancelled = false;
+
+    (async () => {
+      try {
+        let pdfBytes: ArrayBuffer;
+
+        if (resumePath.startsWith('http')) {
+          const res = await fetch('/api/resume/proxy-pdf', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: resumePath }),
+          });
+          if (!res.ok) throw new Error(`proxy-pdf ${res.status}`);
+          pdfBytes = await res.arrayBuffer();
         } else {
-          return 'Recent';
+          const base64 = resumePath.includes('base64,')
+            ? resumePath.split('base64,')[1]
+            : resumePath;
+          const binary = atob(base64);
+          const buf    = new ArrayBuffer(binary.length);
+          const view   = new Uint8Array(buf);
+          for (let i = 0; i < binary.length; i++) view[i] = binary.charCodeAt(i);
+          pdfBytes = buf;
         }
-      } else {
-        return 'Recent';
+
+        if (cancelled) return;
+
+        const pdfjsLib = (await import('pdfjs-dist')) as any;
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+          `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+
+        const pdf      = await pdfjsLib.getDocument({ data: new Uint8Array(pdfBytes) }).promise;
+        const page     = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: small ? 1 : 1.5 });
+
+        if (cancelled) return;
+
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        canvas.width  = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        if (!cancelled) setStatus('done');
+      } catch {
+        if (!cancelled) setStatus('error');
       }
-      
-      if (isNaN(dateObj.getTime())) {
-        return 'Recent';
-      }
-      
-      return new Intl.DateTimeFormat('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      }).format(dateObj);
-    } catch (error) {
-      console.error('Error formatting date:', error);
-      return 'Recent';
-    }
-  };
+    })();
 
-  const getScoreColor = (score: number): string => {
-    if (score >= 85) return 'text-emerald-600 dark:text-emerald-400';
-    if (score >= 70) return 'text-amber-600 dark:text-amber-400';
-    return 'text-red-600 dark:text-red-400';
-  };
+    return () => { cancelled = true; };
+  }, [resumePath, small]);
 
-  const getScoreBadgeColor = (score: number): string => {
-    if (score >= 85) return 'bg-emerald-100 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-700';
-    if (score >= 70) return 'bg-amber-100 dark:bg-amber-900/30 border-amber-200 dark:border-amber-700';
-    return 'bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-700';
-  };
-
-  const getTips = (category: FeedbackCategory | undefined, type?: 'improve' | 'good'): Array<{ type: string; message: string }> => {
-    if (!category || !category.tips || !Array.isArray(category.tips)) {
-      return [];
-    }
-    if (type) {
-      return category.tips.filter((tip) => tip && tip.type === type);
-    }
-    return category.tips;
-  };
-
-  const getImprovementCount = (): number => {
-    if (!resume.feedback) return 0;
-    
-    let count = 0;
-    const categories = ['ATS', 'ats', 'content', 'structure', 'skills', 'toneAndStyle', 'impact', 'grammar'];
-    const feedback = resume.feedback;
-    
-    categories.forEach(key => {
-      const category = feedback[key as keyof typeof feedback] as FeedbackCategory | undefined;
-      if (category && typeof category === 'object') {
-        count += getTips(category, 'improve').length;
-      }
-    });
-    
-    return count;
-  };
-
-  const getStrengthCount = (): number => {
-    if (!resume.feedback) return 0;
-    
-    let count = 0;
-    const categories = ['ATS', 'ats', 'content', 'structure', 'skills', 'toneAndStyle', 'impact', 'grammar'];
-    const feedback = resume.feedback;
-    
-    categories.forEach(key => {
-      const category = feedback[key as keyof typeof feedback] as FeedbackCategory | undefined;
-      if (category && typeof category === 'object') {
-        count += getTips(category, 'good').length;
-      }
-    });
-    
-    return count;
-  };
-
-  const getOverallScore = (): number => {
-    if (resume.feedback?.overallScore) {
-      return resume.feedback.overallScore;
-    }
-    if (resume.score) {
-      return resume.score;
-    }
-    return 0;
-  };
-
-  const getCategoryScore = (categoryName: string): number => {
-    if (!resume.feedback) return 0;
-    const feedback = resume.feedback;
-    const category = feedback[categoryName as keyof typeof feedback] as FeedbackCategory | undefined;
-    if (category && typeof category === 'object' && 'score' in category) {
-      return category.score || 0;
-    }
-    return 0;
-  };
-
-  const overallScore = getOverallScore();
-  const atsScore = getCategoryScore('ATS') || getCategoryScore('ats');
-  const contentScore = getCategoryScore('content');
-
-  if (viewMode === 'list') {
+  if (status === 'error') {
     return (
-      <Link href={`/resume/${resume.id}`} className="block group">
-        <div className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-300 ${className}`}>
-          <div className="p-6 flex items-center justify-between">
-            <div className="flex items-center space-x-4 flex-1">
-              <div className="w-16 h-20 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden flex-shrink-0">
-                {resume.imagePath && (
-                  <Image
-                    src={resume.imagePath}
-                    alt="Resume preview"
-                    width={64}
-                    height={80}
-                    className="w-full h-full object-cover object-top"
-                    loading="lazy"
-                  />
-                )}
-              </div>
-              
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
-                      {resume.companyName || resume.jobTitle || 'Resume Analysis'}
-                    </h3>
-                    {resume.jobTitle && resume.companyName && (
-                      <p className="text-gray-600 dark:text-gray-300 truncate mt-1">
-                        {resume.jobTitle}
-                      </p>
-                    )}
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                      Created {formatDate(resume.createdAt)}
-                    </p>
-                  </div>
-                  
-                  <div className="flex items-center space-x-6">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                        {overallScore}%
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">Overall</div>
-                    </div>
-                    
-                    <div className="text-center">
-                      <div className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">
-                        {getStrengthCount()}
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">Strengths</div>
-                    </div>
-                    
-                    <div className="text-center">
-                      <div className="text-lg font-semibold text-amber-600 dark:text-amber-400">
-                        {getImprovementCount()}
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">To Fix</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Link>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <FileText className={`${small ? 'w-5 h-5' : 'w-10 h-10'} text-slate-700`} />
+      </div>
     );
   }
 
   return (
-    <Link href={`/resume/${resume.id}`} className="block group">
-      <div className={`relative bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-xl hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-700 ease-out overflow-hidden hover:-translate-y-2 ${className}`}>
-        
-        {/* Header Section */}
-        <div className="p-5 pb-3 transition-all duration-500 ease-out">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-500 ease-out">
+    <>
+      {status === 'loading' && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-5 h-5 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
+        </div>
+      )}
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 w-full h-full object-cover object-top"
+        style={{ opacity: status === 'done' ? 1 : 0, transition: 'opacity 0.3s' }}
+      />
+    </>
+  );
+}
+
+// ─── ResumeCard ───────────────────────────────────────────────────────────────
+
+export default function ResumeCard({
+  resume,
+  viewMode = 'grid',
+  className = '',
+  onDelete,
+}: ResumeCardProps) {
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
+  const formatDate = (date: Date | string | number | FirestoreTimestamp | null | undefined): string => {
+    try {
+      let d: Date;
+      if (!date) return 'Recent';
+      if (date instanceof Date) { d = date; }
+      else if (typeof date === 'string' || typeof date === 'number') { d = new Date(date); }
+      else if (typeof date === 'object') {
+        if ('seconds' in date && typeof date.seconds === 'number') { d = new Date(date.seconds * 1000); }
+        else if ('toDate' in date && typeof date.toDate === 'function') { d = date.toDate(); }
+        else return 'Recent';
+      } else return 'Recent';
+      if (isNaN(d.getTime())) return 'Recent';
+      return new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: 'numeric' }).format(d);
+    } catch { return 'Recent'; }
+  };
+
+  const getTips = (cat: FeedbackCategory | undefined, type?: 'improve' | 'good') => {
+    if (!cat?.tips || !Array.isArray(cat.tips)) return [];
+    return type ? cat.tips.filter(t => t?.type === type) : cat.tips;
+  };
+
+  const countTips = (tipType: 'improve' | 'good'): number => {
+    if (!resume.feedback) return 0;
+    let n = 0;
+    const keys = ['ATS', 'ats', 'content', 'structure', 'skills', 'toneAndStyle', 'impact', 'grammar'];
+    keys.forEach(k => {
+      const cat = resume.feedback[k as keyof typeof resume.feedback] as FeedbackCategory | undefined;
+      if (cat && typeof cat === 'object') n += getTips(cat, tipType).length;
+    });
+    return n;
+  };
+
+  const getCategoryScore = (key: string): number => {
+    if (!resume.feedback) return 0;
+    const cat = resume.feedback[key as keyof typeof resume.feedback] as FeedbackCategory | undefined;
+    return (cat && typeof cat === 'object' && 'score' in cat) ? (cat.score ?? 0) : 0;
+  };
+
+  const overallScore = resume.feedback?.overallScore ?? resume.score ?? 0;
+  const atsScore     = getCategoryScore('ATS') || getCategoryScore('ats');
+  const contentScore = getCategoryScore('content');
+  const strengths    = countTips('good');
+  const improvements = countTips('improve');
+  const resumeLabel  = resume.jobTitle || resume.companyName || 'this resume';
+
+  const scoreFg = (s: number) =>
+    s >= 85 ? 'text-emerald-400' : s >= 70 ? 'text-amber-400' : 'text-red-400';
+
+  const scoreBg = (s: number) =>
+    s >= 85
+      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+      : s >= 70
+      ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+      : 'bg-red-500/10 border-red-500/20 text-red-400';
+
+  const dotColor = (s: number) =>
+    s >= 80 ? 'bg-emerald-400' : s >= 60 ? 'bg-amber-400' : 'bg-red-400';
+
+  // ── Thumbnail helper ───────────────────────────────────────────────────────
+
+  const Thumbnail = ({ small = false }: { small?: boolean }) => {
+    if (resume.imagePath) {
+      return (
+        <Image
+          src={resume.imagePath}
+          alt="Resume preview"
+          fill={!small}
+          width={small ? 48 : undefined}
+          height={small ? 64 : undefined}
+          className={small ? 'w-full h-full object-cover object-top' : 'object-cover object-top'}
+          loading="lazy"
+        />
+      );
+    }
+    if (resume.resumePath) {
+      return <PdfThumbnail resumePath={resume.resumePath} small={small} />;
+    }
+    return (
+      <div className="absolute inset-0 flex items-center justify-center">
+        <FileText className={`${small ? 'w-5 h-5' : 'w-10 h-10'} text-slate-700`} />
+      </div>
+    );
+  };
+
+  // ── Handlers ───────────────────────────────────────────────────────────────
+
+  const handleDownload = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const url = resume.resumePath || resume.fileUrl || resume.imagePath;
+    if (url) window.open(url, '_blank');
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirm = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowDeleteModal(false);
+    try {
+      await onDelete?.(resume.id);
+    } catch {
+      // toast handled inside onDelete in dashboard
+    }
+  };
+
+  const handleDeleteCancel = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowDeleteModal(false);
+  };
+
+  // ── Delete modal ───────────────────────────────────────────────────────────
+
+  const DeleteModal = () => (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      onClick={e => { e.stopPropagation(); setShowDeleteModal(false); }}
+    >
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+      <div
+        className="relative w-full max-w-sm rounded-2xl border border-white/[0.08] p-6 animate-fade-in-up"
+        style={{ background: '#0d1526', boxShadow: '0 24px 64px rgba(0,0,0,0.7)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <button
+          onClick={handleDeleteCancel}
+          className="absolute top-4 right-4 w-7 h-7 rounded-lg flex items-center justify-center
+                     text-slate-500 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+
+        <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4 bg-red-500/10 border border-red-500/20">
+          <Trash2 className="w-5 h-5 text-red-400" />
+        </div>
+
+        <h3 className="text-base font-semibold text-white mb-1">Delete Resume</h3>
+        <p className="text-sm text-slate-400 mb-1 leading-relaxed">
+          Are you sure you want to delete{' '}
+          <span className="text-white font-medium">&ldquo;{resumeLabel}&rdquo;</span>?
+        </p>
+        <p className="text-xs text-slate-600 mb-5">
+          This permanently removes the resume and all its analysis data. This action cannot be undone.
+        </p>
+
+        <div className="flex gap-2.5">
+          <button
+            onClick={handleDeleteCancel}
+            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium
+                       bg-white/[0.05] border border-white/[0.08]
+                       text-slate-300 hover:text-white hover:bg-white/[0.08]
+                       transition-all cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleDeleteConfirm}
+            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5
+                       rounded-xl text-sm font-medium
+                       bg-red-500/15 hover:bg-red-500/25
+                       border border-red-500/25 hover:border-red-500/40
+                       text-red-300 hover:text-red-200
+                       transition-all cursor-pointer"
+          >
+            <Trash2 className="w-3.5 h-3.5" />Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ── List view ──────────────────────────────────────────────────────────────
+
+  if (viewMode === 'list') {
+    return (
+      <>
+        {showDeleteModal && <DeleteModal />}
+
+        <div className={`glass-card transition-all duration-300 hover:border-purple-500/20 ${className}`}>
+          <div className="p-5 flex items-center gap-5">
+
+            <Link href={`/resume/${resume.id}`} className="flex-shrink-0">
+              <div className="w-12 h-16 rounded-lg overflow-hidden bg-slate-800 border border-white/10 relative flex items-center justify-center">
+                <Thumbnail small />
+              </div>
+            </Link>
+
+            <Link href={`/resume/${resume.id}`} className="flex-1 min-w-0">
+              <h3 className="text-sm font-semibold text-white truncate hover:text-purple-300 transition-colors duration-200">
                 {resume.companyName || resume.jobTitle || 'Resume Analysis'}
               </h3>
               {resume.jobTitle && resume.companyName && (
-                <p className="text-gray-600 dark:text-gray-300 truncate text-sm mt-1 group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors duration-500 ease-out">
-                  {resume.jobTitle}
-                </p>
+                <p className="text-xs text-slate-400 truncate mt-0.5">{resume.jobTitle}</p>
               )}
+              <div className="flex items-center gap-1 mt-1.5 text-slate-600 text-[11px]">
+                <Calendar className="w-3 h-3" />
+                <span>{formatDate(resume.createdAt)}</span>
+              </div>
+            </Link>
+
+            <div className="flex items-center gap-6 flex-shrink-0">
+              <div className="text-center">
+                <p className={`text-xl font-bold leading-none ${scoreFg(overallScore)}`}>{overallScore}%</p>
+                <p className="text-[10px] text-slate-500 mt-1">Overall</p>
+              </div>
+              <div className="text-center">
+                <p className="text-base font-semibold text-emerald-400 leading-none">{strengths}</p>
+                <p className="text-[10px] text-slate-500 mt-1">Strengths</p>
+              </div>
+              <div className="text-center">
+                <p className="text-base font-semibold text-amber-400 leading-none">{improvements}</p>
+                <p className="text-[10px] text-slate-500 mt-1">To fix</p>
+              </div>
             </div>
-            
-            {/* Score Badge */}
-            <div className={`px-3 py-1.5 rounded-full border text-sm font-semibold transition-all duration-500 ease-out group-hover:scale-105 group-hover:shadow-md ${getScoreBadgeColor(overallScore)}`}>
-              <span className={`${getScoreColor(overallScore)} transition-colors duration-500 ease-out`}>
-                {overallScore}%
-              </span>
+
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={handleDownload}
+                title="Download"
+                className="w-8 h-8 rounded-lg flex items-center justify-center
+                           bg-slate-800/60 border border-white/10
+                           text-slate-400 hover:text-blue-400 hover:border-blue-500/30
+                           transition-colors duration-150 cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={handleDeleteClick}
+                title="Delete"
+                className="w-8 h-8 rounded-lg flex items-center justify-center
+                           bg-slate-800/60 border border-white/10
+                           text-slate-400 hover:text-red-400 hover:border-red-500/30
+                           transition-colors duration-150 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
         </div>
+      </>
+    );
+  }
 
-        {/* Resume Preview */}
-        <div className="px-5 pb-3">
-          <div className="aspect-[3/4] bg-gray-50 dark:bg-gray-700 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 group-hover:border-blue-200 dark:group-hover:border-blue-500 transition-all duration-700 ease-out relative">
-            {resume.imagePath && (
-              <Image
-                src={resume.imagePath}
-                alt="Resume preview"
-                fill
-                className="object-cover object-top group-hover:scale-105 transition-transform duration-700 ease-out"
-                loading="lazy"
-              />
+  // ── Grid view ──────────────────────────────────────────────────────────────
+
+  return (
+    <>
+      {showDeleteModal && <DeleteModal />}
+
+      <div className={`relative glass-card overflow-hidden transition-all duration-300
+                       hover:border-purple-500/30 hover:-translate-y-1
+                       hover:shadow-[0_8px_32px_rgba(139,92,246,0.12)]
+                       ${className}`}>
+
+        {/* Top bar */}
+        <div className="px-5 pt-5 pb-3 flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-semibold text-white truncate leading-tight">
+              {resume.companyName || resume.jobTitle || 'Resume Analysis'}
+            </h3>
+            {resume.jobTitle && resume.companyName && (
+              <p className="text-xs text-slate-400 truncate mt-0.5">{resume.jobTitle}</p>
             )}
-            
-            {/* Hover Overlay */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-600 ease-out">
-              <div className="absolute bottom-0 left-0 right-0 p-4 transform translate-y-4 group-hover:translate-y-0 transition-all duration-600 ease-out">
-                <div className="flex items-center justify-between text-white">
-                  <div className="flex items-center space-x-3">
-                    <div className="flex items-center space-x-1 transform scale-95 group-hover:scale-100 transition-all duration-500 ease-out">
-                      <CheckCircle className="w-4 h-4" />
-                      <span className="text-sm font-medium">{getStrengthCount()} strong</span>
-                    </div>
-                    <div className="flex items-center space-x-1 transform scale-95 group-hover:scale-100 transition-all duration-500 ease-out delay-75">
-                      <AlertTriangle className="w-4 h-4" />
-                      <span className="text-sm font-medium">{getImprovementCount()} to fix</span>
-                    </div>
-                  </div>
-                  <ArrowUpRight className="w-5 h-5 transform -translate-x-1 translate-y-1 group-hover:translate-x-0 group-hover:translate-y-0 transition-all duration-500 ease-out" />
-                </div>
+          </div>
+          <div className={`flex-shrink-0 px-2.5 py-1 rounded-lg border text-xs font-semibold ${scoreBg(overallScore)}`}>
+            {overallScore}%
+          </div>
+        </div>
+
+        {/* Thumbnail */}
+        <div className="px-5 pb-4">
+          <div className="aspect-[3/4] rounded-xl overflow-hidden bg-slate-800/60 border border-white/10 relative">
+            <Thumbnail />
+            {/* Stats overlay */}
+            <div className="absolute bottom-0 left-0 right-0 px-3 py-2.5
+                            bg-gradient-to-t from-slate-950/90 to-transparent">
+              <div className="flex items-center gap-3 text-xs font-medium">
+                <span className="flex items-center gap-1 text-emerald-400">
+                  <CheckCircle2 className="w-3 h-3" />{strengths} strong
+                </span>
+                <span className="flex items-center gap-1 text-amber-400">
+                  <AlertTriangle className="w-3 h-3" />{improvements} to fix
+                </span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Analytics Section */}
-        <div className="px-5 pb-4">
-          <div className="grid grid-cols-2 gap-3">
-            {/* ATS Score */}
-            <div className="flex items-center space-x-2 p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20 transition-all duration-500 ease-out group-hover:scale-105">
-              <div className={`w-2 h-2 rounded-full transition-all duration-500 ease-out group-hover:scale-125 ${
-                atsScore >= 80 ? 'bg-emerald-500' : 
-                atsScore >= 60 ? 'bg-amber-500' : 'bg-red-500'
-              }`}></div>
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-medium text-gray-900 dark:text-white transition-colors duration-500 ease-out group-hover:text-blue-600 dark:group-hover:text-blue-400">
-                  ATS {atsScore}%
-                </div>
-              </div>
+        {/* Score breakdown */}
+        <div className="px-5 pb-4 grid grid-cols-2 gap-2">
+          <div className="bg-slate-800/40 border border-white/[5%] rounded-lg px-3 py-2">
+            <div className="flex items-center gap-1.5 mb-1">
+              <div className={`w-1.5 h-1.5 rounded-full ${dotColor(atsScore)}`} />
+              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">ATS</span>
             </div>
-
-            {/* Content Score */}
-            <div className="flex items-center space-x-2 p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20 transition-all duration-500 ease-out delay-75 group-hover:scale-105">
-              <div className={`w-2 h-2 rounded-full transition-all duration-500 ease-out group-hover:scale-125 ${
-                contentScore >= 80 ? 'bg-emerald-500' : 
-                contentScore >= 60 ? 'bg-amber-500' : 'bg-red-500'
-              }`}></div>
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-medium text-gray-900 dark:text-white transition-colors duration-500 ease-out group-hover:text-blue-600 dark:group-hover:text-blue-400">
-                  Content {contentScore}%
-                </div>
-              </div>
+            <p className={`text-sm font-bold ${scoreFg(atsScore)}`}>{atsScore}%</p>
+          </div>
+          <div className="bg-slate-800/40 border border-white/[5%] rounded-lg px-3 py-2">
+            <div className="flex items-center gap-1.5 mb-1">
+              <div className={`w-1.5 h-1.5 rounded-full ${dotColor(contentScore)}`} />
+              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Content</span>
             </div>
+            <p className={`text-sm font-bold ${scoreFg(contentScore)}`}>{contentScore}%</p>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="px-5 pb-4 border-t border-gray-100 dark:border-gray-700 pt-3 transition-colors duration-500 ease-out group-hover:border-blue-100 dark:group-hover:border-blue-800">
-          <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-            <div className="flex items-center space-x-1 transition-colors duration-500 ease-out group-hover:text-gray-700 dark:group-hover:text-gray-300">
+        <div className="px-5 pb-5 pt-3 border-t border-white/[5%] space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
               <Calendar className="w-3 h-3" />
-              <span>Created {formatDate(resume.createdAt)}</span>
+              <span>{formatDate(resume.createdAt)}</span>
             </div>
-            
-            <div className="opacity-0 group-hover:opacity-100 transition-all duration-600 ease-out transform translate-x-2 group-hover:translate-x-0 flex items-center space-x-1 text-blue-600 dark:text-blue-400 font-medium">
-              <BarChart3 className="w-3 h-3" />
-              <span>View Analysis</span>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={handleDownload}
+                title="Download"
+                className="w-7 h-7 rounded-lg flex items-center justify-center
+                           bg-slate-800/60 border border-white/10
+                           text-slate-400 hover:text-blue-400 hover:border-blue-500/30
+                           transition-colors duration-150 cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={handleDeleteClick}
+                title="Delete"
+                className="w-7 h-7 rounded-lg flex items-center justify-center
+                           bg-slate-800/60 border border-white/10
+                           text-slate-400 hover:text-red-400 hover:border-red-500/30
+                           transition-colors duration-150 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
-        </div>
 
-        {/* Performance Indicator */}
-        <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-600 ease-out transform translate-y-2 scale-90 group-hover:translate-y-0 group-hover:scale-100">
-          <div className={`p-1.5 rounded-lg backdrop-blur-sm shadow-lg transition-all duration-500 ease-out ${
-            overallScore >= 85 ? 'bg-emerald-500/90' :
-            overallScore >= 70 ? 'bg-amber-500/90' :
-            'bg-red-500/90'
-          }`}>
-            {overallScore >= 85 ? 
-              <TrendingUp className="w-4 h-4 text-white" /> :
-              overallScore >= 70 ? 
-              <Zap className="w-4 h-4 text-white" /> :
-              <AlertTriangle className="w-4 h-4 text-white" />
-            }
-          </div>
-        </div>
-
-        {/* Subtle glow effect on hover */}
-        <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-800 ease-out pointer-events-none">
-          <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/5 via-purple-500/5 to-blue-500/5"></div>
+          <Link
+            href={`/resume/${resume.id}`}
+            className="flex items-center justify-between w-full
+                       px-4 py-2.5 rounded-xl
+                       bg-gradient-to-r from-indigo-600/80 to-violet-600/80
+                       hover:from-indigo-600 hover:to-violet-600
+                       border border-indigo-500/30
+                       text-white text-sm font-medium
+                       transition-all duration-200 cursor-pointer"
+          >
+            <span>View analysis</span>
+            <ArrowRight className="w-4 h-4 text-indigo-300" />
+          </Link>
         </div>
       </div>
-    </Link>
+    </>
   );
 }

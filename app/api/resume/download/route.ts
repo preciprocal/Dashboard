@@ -5,305 +5,176 @@ import { auth } from '@/firebase/admin';
 import puppeteer from 'puppeteer';
 import * as htmlDocx from 'html-docx-js';
 
+interface EditorPadding {
+  top: string; right: string; bottom: string; left: string;
+}
+
 interface DownloadRequest {
-  resumeId?: string;
-  htmlContent: string;
-  format: 'pdf' | 'docx';
+  resumeId?:     string;
+  htmlContent:   string;
+  format:        'pdf' | 'docx';
+  editorPadding?: EditorPadding;
 }
 
 export async function POST(request: NextRequest) {
   try {
     console.log('📥 Resume Download Request');
 
-    // ==================== AUTHENTICATION ====================
+    // ── Auth ─────────────────────────────────────────────────────────────────
     const cookieStore = await cookies();
     const session = cookieStore.get('session');
+    if (!session) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    try { await auth.verifySessionCookie(session.value, true); }
+    catch { return NextResponse.json({ success: false, error: 'Invalid session' }, { status: 401 }); }
 
-    if (!session) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    try {
-      await auth.verifySessionCookie(session.value, true);
-    } catch {
-      return NextResponse.json(
-        { success: false, error: 'Invalid session' },
-        { status: 401 }
-      );
-    }
-
-    // ==================== PARSE REQUEST ====================
+    // ── Parse body ───────────────────────────────────────────────────────────
     const body = await request.json() as DownloadRequest;
-    const { htmlContent, resumeId, format } = body;
+    const { htmlContent, resumeId, format, editorPadding } = body;
+    if (!htmlContent || !format)
+      return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 });
 
-    if (!htmlContent || !format) {
-      return NextResponse.json(
-        { success: false, error: 'Missing required fields' },
-        { status: 400 }
-      );
-    }
-
-    console.log(`📄 Generating ${format.toUpperCase()} resume`);
-
-    // Generate filename
+    console.log(`📄 Generating ${format.toUpperCase()}`);
     const timestamp = Date.now();
-    const filename = resumeId 
-      ? `resume_${resumeId}_${timestamp}` 
-      : `resume_${timestamp}`;
+    const filename  = resumeId ? `resume_${resumeId}_${timestamp}` : `resume_${timestamp}`;
 
-    // ==================== GENERATE PDF ====================
+    // Use whatever padding the editor actually had; fall back to its default (72px all round)
+    const pad = editorPadding ?? { top: '72px', right: '72px', bottom: '72px', left: '72px' };
+
+    // ── PDF ──────────────────────────────────────────────────────────────────
     if (format === 'pdf') {
       try {
         const browser = await puppeteer.launch({
           headless: true,
-          args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--disable-gpu'
-          ]
+          args: ['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage',
+                 '--disable-accelerated-2d-canvas','--disable-gpu'],
         });
 
-        const page = await browser.newPage();
+        const pg = await browser.newPage();
+        await pg.setViewport({ width: 816, height: 1056, deviceScaleFactor: 2 });
 
-        // Set viewport to match Letter size at 96 DPI
-        await page.setViewport({
-          width: 816,  // 8.5 inches * 96 DPI
-          height: 1056, // 11 inches * 96 DPI
-          deviceScaleFactor: 2
-        });
-
-        // CRITICAL: Minimal CSS - preserve exact HTML structure and inline styles
-        const fullHtml = `
-<!DOCTYPE html>
+        // Wrap the raw innerHTML exactly as the editor displayed it:
+        // - same padding the editor had (read from computed styles on the client)
+        // - NO font / size / color / margin overrides — everything comes from
+        //   the inline styles already baked into the HTML
+        const fullHtml = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
   <style>
-    @page {
-      size: Letter;
-      margin: 0.5in 0.6in;
-    }
-    
+    @page { size: 8.5in auto; margin: 0; }
+
+    html { margin: 0; padding: 0; background: #fff; }
+
     body {
-      font-family: Calibri, Arial, sans-serif;
-      font-size: 10pt;
-      color: #000000;
-      background: #ffffff;
       margin: 0;
-      padding: 0;
+      /* Mirror the exact padding the contentEditable div had in the editor */
+      padding: ${pad.top} ${pad.right} ${pad.bottom} ${pad.left};
+      background: #ffffff;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
+      /* No font / size / color: honour whatever is inside htmlContent */
     }
-    
-    /* Only override editor-specific classes */
-    .highlighted-line {
+
+    /* Strip editor-only chrome */
+    .highlighted-line, [data-ai-highlight] {
       background: transparent !important;
       border-left: none !important;
-      padding-left: 0 !important;
-      margin-left: 0 !important;
-      animation: none !important;
+      outline: none !important;
     }
-    
-    [id^="line-"] {
-      background: transparent !important;
-      border: none !important;
-    }
-    
-    /* Ensure links are clickable and blue */
-    a {
-      color: #0066cc !important;
-      text-decoration: underline !important;
-    }
-    
-    a[href^="mailto:"],
-    a[href^="tel:"],
-    a[href^="http"] {
-      color: #0066cc !important;
-      text-decoration: underline !important;
-    }
-    
-    /* Ensure text is black */
-    body, p, div, span, li, h1, h2, h3, h4, h5, h6, strong, b, em, i, u {
-      color: #000000 !important;
-    }
-    
-    a {
-      color: #0066cc !important;
-    }
-    
-    @media print {
-      body {
-        background: white;
-      }
-      
-      a {
-        color: #0066cc !important;
-        text-decoration: underline !important;
-      }
-    }
+    [id^="line-"] { background: transparent !important; border: none !important; }
   </style>
 </head>
-<body>
-  ${htmlContent}
-</body>
+<body>${htmlContent}</body>
 </html>`;
 
-        await page.setContent(fullHtml, { 
-          waitUntil: 'networkidle0',
-          timeout: 30000
-        });
+        await pg.setContent(fullHtml, { waitUntil: 'networkidle0', timeout: 30000 });
+        await pg.evaluateHandle('document.fonts.ready');
 
-        // Wait for fonts to load
-        await page.evaluateHandle('document.fonts.ready');
+        // Measure real content height so we never add a blank second page
+        const contentH: number = await pg.evaluate(() => document.documentElement.scrollHeight);
+        const minH    = 1056; // one Letter page @ 96dpi
+        const pageH   = `${(Math.max(contentH, minH) / 96).toFixed(4)}in`;
 
-        // Generate PDF with exact Letter size
-        const pdfBuffer = await page.pdf({
-          format: 'Letter',
+        const pdfBuffer = await pg.pdf({
+          width:  '8.5in',
+          height: pageH,          // content-driven — not fixed Letter
           printBackground: true,
-          margin: {
-            top: '0.5in',
-            right: '0.6in',
-            bottom: '0.5in',
-            left: '0.6in'
-          },
-          preferCSSPageSize: true,
+          margin: { top: '0', right: '0', bottom: '0', left: '0' }, // padding already in body
           displayHeaderFooter: false,
-          scale: 1,
-          omitBackground: false
         });
 
         await browser.close();
-
-        console.log('✅ PDF generated successfully');
+        console.log(`✅ PDF: contentH=${contentH}px → pageH=${pageH}`);
 
         return new NextResponse(Buffer.from(pdfBuffer), {
           headers: {
             'Content-Type': 'application/pdf',
-            'Content-Disposition': `attachment; filename="${filename}.pdf"`
-          }
+            'Content-Disposition': `attachment; filename="${filename}.pdf"`,
+          },
         });
-
-      } catch (pdfError) {
-        console.error('❌ PDF generation error:', pdfError);
-        return NextResponse.json(
-          { success: false, error: 'Failed to generate PDF' },
-          { status: 500 }
-        );
+      } catch (e) {
+        console.error('❌ PDF error:', e);
+        return NextResponse.json({ success: false, error: 'Failed to generate PDF' }, { status: 500 });
       }
     }
 
-    // ==================== GENERATE DOCX ====================
+    // ── DOCX ─────────────────────────────────────────────────────────────────
     if (format === 'docx') {
       try {
-        // Minimal HTML for Word - preserve structure
-        const fullHtml = `
-<!DOCTYPE html>
-<html xmlns:o='urn:schemas-microsoft-com:office:office' 
-      xmlns:w='urn:schemas-microsoft-com:office:word' 
+        // Convert the editor padding (px) to inches for Word's @page rule
+        const pxToIn = (px: string) => `${(parseFloat(px) / 96).toFixed(4)}in`;
+        const mTop   = pxToIn(pad.top);
+        const mRight = pxToIn(pad.right);
+        const mBot   = pxToIn(pad.bottom);
+        const mLeft  = pxToIn(pad.left);
+
+        const fullHtml = `<!DOCTYPE html>
+<html xmlns:o='urn:schemas-microsoft-com:office:office'
+      xmlns:w='urn:schemas-microsoft-com:office:word'
       xmlns='http://www.w3.org/TR/REC-html40'>
 <head>
   <meta charset="UTF-8">
   <xml>
     <w:WordDocument>
-      <w:View>Print</w:View>
-      <w:Zoom>100</w:Zoom>
-      <w:DoNotOptimizeForBrowser/>
+      <w:View>Print</w:View><w:Zoom>100</w:Zoom><w:DoNotOptimizeForBrowser/>
     </w:WordDocument>
   </xml>
   <style>
     @page Section1 {
       size: 8.5in 11in;
-      margin: 0.5in 0.6in 0.5in 0.6in;
-      mso-header-margin: 0.5in;
-      mso-footer-margin: 0.5in;
-      mso-paper-source: 0;
+      margin: ${mTop} ${mRight} ${mBot} ${mLeft};
+      mso-header-margin: 0; mso-footer-margin: 0; mso-paper-source: 0;
     }
-    
-    div.Section1 {
-      page: Section1;
-    }
-    
-    body {
-      font-family: Calibri, Arial, sans-serif;
-      font-size: 10pt;
-      color: #000000;
-      margin: 0;
-      padding: 0;
-    }
-    
-    /* Remove editor highlighting */
-    .highlighted-line {
-      background: transparent;
-      border-left: none;
-      padding-left: 0;
-      margin-left: 0;
-    }
-    
-    [id^="line-"] {
-      background: transparent;
-      border: none;
-    }
-    
-    /* Ensure links are blue and clickable */
-    a {
-      color: #0066cc;
-      text-decoration: underline;
-    }
-    
-    a:link, a:visited {
-      color: #0066cc;
-      text-decoration: underline;
-    }
-    
-    /* Ensure text is black except links */
-    body, p, div, span, li, h1, h2, h3, h4, h5, h6, strong, b, em, i, u {
-      color: #000000;
+    div.Section1 { page: Section1; }
+    /* No body overrides — preserve every inline style from the editor */
+    .highlighted-line, [data-ai-highlight] {
+      background: transparent; border-left: none; outline: none;
     }
   </style>
 </head>
-<body>
-<div class="Section1">
-  ${htmlContent}
-</div>
-</body>
+<body><div class="Section1">${htmlContent}</div></body>
 </html>`;
 
-        const docxBlob = htmlDocx.asBlob(fullHtml);
-        const buffer = await docxBlob.arrayBuffer();
-
-        console.log('✅ Word document generated successfully');
+        const blob   = htmlDocx.asBlob(fullHtml);
+        const buffer = await blob.arrayBuffer();
+        console.log('✅ DOCX generated');
 
         return new NextResponse(Buffer.from(buffer), {
           headers: {
             'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'Content-Disposition': `attachment; filename="${filename}.docx"`
-          }
+            'Content-Disposition': `attachment; filename="${filename}.docx"`,
+          },
         });
-
-      } catch (docxError) {
-        console.error('❌ DOCX generation error:', docxError);
-        return NextResponse.json(
-          { success: false, error: 'Failed to generate Word document' },
-          { status: 500 }
-        );
+      } catch (e) {
+        console.error('❌ DOCX error:', e);
+        return NextResponse.json({ success: false, error: 'Failed to generate Word document' }, { status: 500 });
       }
     }
 
-    return NextResponse.json(
-      { success: false, error: 'Invalid format specified' },
-      { status: 400 }
-    );
+    return NextResponse.json({ success: false, error: 'Invalid format' }, { status: 400 });
 
-  } catch (error) {
-    console.error('❌ Unexpected error:', error);
-    return NextResponse.json(
-      { success: false, error: 'An unexpected error occurred' },
-      { status: 500 }
-    );
+  } catch (e) {
+    console.error('❌ Unexpected error:', e);
+    return NextResponse.json({ success: false, error: 'An unexpected error occurred' }, { status: 500 });
   }
 }

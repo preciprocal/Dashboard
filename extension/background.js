@@ -2,7 +2,10 @@
 
 console.log('🚀 Preciprocal background.js loaded');
 
-const STORAGE_KEY = 'preciprocal_auth';
+const STORAGE_KEY  = 'preciprocal_auth';
+const JOB_QUEUE_KEY = 'preciprocal_job_queue';
+const IS_DEV_BG    = false;
+const BASE_URL     = IS_DEV_BG ? 'http://localhost:3000' : 'https://preciprocal.com';
 
 // ─────────────────────────────────────────────────────────────────
 // Read Firebase auth from a preciprocal.com tab via scripting API
@@ -115,6 +118,8 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         }
       });
       console.log('[BG] ✅ Auto-synced on tab load:', user.email);
+      // Flush any queued job applications now that we have fresh auth
+      flushJobQueue(user.token, user.uid, user.email);
     }
   }, 2000);
 });
@@ -137,6 +142,59 @@ chrome.tabs.onActivated.addListener(async () => {
   // No valid auth — try to sync from any open preciprocal tab
   await syncAuthFromPreciprocal();
 });
+
+// ─────────────────────────────────────────────────────────────────
+// Job application queue helpers
+// Applications are queued locally when auth is unavailable and
+// flushed automatically once a valid token is present.
+// ─────────────────────────────────────────────────────────────────
+async function enqueueJobApplication(jobData) {
+  try {
+    const stored = await chrome.storage.local.get([JOB_QUEUE_KEY]);
+    const queue  = stored[JOB_QUEUE_KEY] || [];
+    queue.push({ ...jobData, _queuedAt: Date.now() });
+    await chrome.storage.local.set({ [JOB_QUEUE_KEY]: queue });
+    console.log('[BG] 📥 Job queued locally. Queue size:', queue.length);
+  } catch (e) {
+    console.warn('[BG] ⚠️ Failed to enqueue job:', e.message);
+  }
+}
+
+async function flushJobQueue(token, userId, email) {
+  try {
+    const stored = await chrome.storage.local.get([JOB_QUEUE_KEY]);
+    const queue  = stored[JOB_QUEUE_KEY] || [];
+    if (!queue.length) return;
+
+    console.log(`[BG] 🔄 Flushing ${queue.length} queued job(s)…`);
+    const failed = [];
+
+    for (const jobData of queue) {
+      try {
+        const res  = await fetch(`${BASE_URL}/api/extension/track-job`, {
+          method: 'POST',
+          headers: {
+            'Content-Type':      'application/json',
+            'x-extension-token': token  || '',
+            'x-user-id':         userId || '',
+            'x-user-email':      email  || '',
+          },
+          body: JSON.stringify(jobData),
+        });
+        const data = await res.json();
+        if (!data.success && !data.duplicate) failed.push(jobData);
+        else console.log('[BG] ✅ Flushed queued job:', jobData.jobTitle);
+      } catch {
+        failed.push(jobData);
+      }
+    }
+
+    await chrome.storage.local.set({ [JOB_QUEUE_KEY]: failed });
+    console.log(`[BG] Queue flush done. Saved: ${queue.length - failed.length}, still queued: ${failed.length}`);
+  } catch (e) {
+    console.warn('[BG] ⚠️ Queue flush error:', e.message);
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────
 // Messages from popup.js and banner.js
@@ -256,6 +314,59 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       .catch(err => sendResponse({ success: false, error: err.message }));
     return true;
   }
+
+  // ── JOB APPLICATION SUBMITTED (fired by external-apply.js on confirmation page) ──
+  if (message.type === 'JOB_APPLICATION_SUBMITTED') {
+    const jobData = message.data;
+    if (!jobData?.jobTitle) {
+      sendResponse({ success: false, error: 'Missing job data' });
+      return true;
+    }
+
+    chrome.storage.local.get([STORAGE_KEY], (result) => {
+      const auth = result[STORAGE_KEY];
+
+      if (!auth?.uid || !auth?.token) {
+        // Not signed in — queue locally and retry when auth is available
+        enqueueJobApplication(jobData).then(() =>
+          sendResponse({ success: true, queued: true })
+        );
+        return;
+      }
+
+      fetch(`${BASE_URL}/api/extension/track-job`, {
+        method: 'POST',
+        headers: {
+          'Content-Type':      'application/json',
+          'x-extension-token': auth.token || '',
+          'x-user-id':         auth.uid   || '',
+          'x-user-email':      auth.email || '',
+        },
+        body: JSON.stringify(jobData),
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.success || data.duplicate) {
+            console.log('[BG] ✅ Job tracked:', jobData.jobTitle, '@', jobData.company);
+            sendResponse({ success: true, queued: false });
+            flushJobQueue(auth.token, auth.uid, auth.email);
+          } else {
+            console.warn('[BG] ⚠️ track-job API error:', data.error);
+            enqueueJobApplication(jobData).then(() =>
+              sendResponse({ success: true, queued: true })
+            );
+          }
+        })
+        .catch(err => {
+          console.warn('[BG] ⚠️ track-job network error:', err.message);
+          enqueueJobApplication(jobData).then(() =>
+            sendResponse({ success: true, queued: true })
+          );
+        });
+    });
+    return true;
+  }
+
 });
 
 // ─────────────────────────────────────────────────────────────────

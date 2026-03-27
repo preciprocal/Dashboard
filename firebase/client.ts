@@ -1,8 +1,8 @@
 // firebase/client.ts
 
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getAuth, browserLocalPersistence, setPersistence } from 'firebase/auth';
+import { initializeFirestore, Firestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
@@ -14,31 +14,37 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Debug: Check if config is loaded
-console.log('🔥 Firebase Config Check:', {
-  hasApiKey: !!firebaseConfig.apiKey,
-  hasAuthDomain: !!firebaseConfig.authDomain,
-  hasProjectId: !!firebaseConfig.projectId,
-  projectId: firebaseConfig.projectId,
-  authDomain: firebaseConfig.authDomain
-});
-
-// Validate config
 if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
-  console.error('❌ Firebase configuration is missing!');
-  console.error('Check your .env.local file has all NEXT_PUBLIC_FIREBASE_* variables');
+  throw new Error(
+    '❌ Firebase configuration is incomplete. ' +
+    'Ensure all NEXT_PUBLIC_FIREBASE_* variables are set in .env.local'
+  );
 }
 
-// Initialize Firebase
+// Initialise once — Next.js hot-reload can re-run this module
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
-console.log('✅ Firebase initialized:', {
-  appName: app.name,
-  projectId: app.options.projectId
+export const auth = getAuth(app);
+
+// Always use local persistence — prevents login loops when tabs are backgrounded
+setPersistence(auth, browserLocalPersistence).catch((err) => {
+  console.error('❌ Failed to set auth persistence:', err);
 });
 
-export const auth = getAuth(app);
-export const db = getFirestore(app);
+// initializeFirestore must be called before any other module calls getFirestore(app).
+// We use the app's _isDeleted check via getApps() to detect if this module has
+// already run (Next.js hot-reload re-executes modules). On the first run we
+// call initializeFirestore with experimentalForceLongPolling which replaces the
+// WebChannel with standard HTTP long-polling — permanently eliminating the CORS
+// wildcard error on both localhost and production. On subsequent module
+// evaluations (hot-reload) we fall back to getFirestore which returns the
+// already-configured instance.
+const g = globalThis as typeof globalThis & { __preciprocal_db?: Firestore };
+if (!g.__preciprocal_db) {
+  g.__preciprocal_db = initializeFirestore(app, {
+    experimentalForceLongPolling: true,
+  });
+}
+export const db: Firestore = g.__preciprocal_db;
 export const storage = getStorage(app);
-
 export default app;

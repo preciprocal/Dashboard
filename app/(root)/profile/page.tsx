@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/firebase/client';
@@ -18,7 +17,7 @@ import JobApplicationProfile from "@/components/profile/JobApplication";
 import ProfileSaved from "@/components/profile/Saved";
 import { NotificationService } from "@/lib/services/notification-services";
 
-// ─── Existing types ────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface UserProfile {
   id: string; name: string; email: string; avatar?: string; phone?: string;
@@ -30,7 +29,7 @@ interface UserProfile {
   experienceLevel?: "junior" | "mid" | "senior" | "lead" | "executive";
   preferredTech?: string[]; careerGoals?: string;
   createdAt: Date; lastLogin: Date; provider?: string;
-  subscription?: { plan: string; status: string; interviewsUsed: number; interviewsLimit: number; };
+  subscription?: { plan: string; status: string; interviewsUsed: number; interviewsLimit: number };
 }
 
 interface UserStats {
@@ -39,7 +38,7 @@ interface UserStats {
   totalResumes?: number; averageResumeScore?: number; successRate?: number; completionRate?: number;
 }
 
-interface CriticalError { code: string; title: string; message: string; details?: string; }
+interface CriticalError { code: string; title: string; message: string; details?: string }
 
 interface SavedTemplate {
   id: string; title: string; category: string; role?: string; description?: string;
@@ -62,16 +61,15 @@ interface UserCreatedContent {
   blogs: BookmarkedBlog[]; templates: SavedTemplate[]; customInterviews: CustomInterview[];
 }
 
-interface FirebaseTimestamp { toDate: () => Date; }
+interface FirebaseTimestamp { toDate: () => Date }
 
 interface InterviewData {
   createdAt?: FirebaseTimestamp | string | Date; status?: string; duration?: number;
-  score?: number; feedback?: { overallRating?: number; totalScore?: number; strengths?: string[]; weaknesses?: string[]; communication?: number; };
+  score?: number; feedback?: { overallRating?: number; totalScore?: number; strengths?: string[]; weaknesses?: string[]; communication?: number };
   type?: string; [key: string]: unknown;
 }
 
-
-// ─── Main Profile Page ─────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function isProfileComplete(profile: Partial<UserProfile>): boolean {
   return !!(
@@ -82,552 +80,651 @@ function isProfileComplete(profile: Partial<UserProfile>): boolean {
   );
 }
 
+function convertToDate(val: FirebaseTimestamp | string | Date | undefined): Date {
+  if (!val) return new Date();
+  if (typeof val === 'object' && 'toDate' in val) return val.toDate();
+  if (val instanceof Date) return val;
+  return new Date(val as string | number);
+}
+
+// ─── Shared input style ───────────────────────────────────────────────────────
+
+const inp = [
+  'w-full px-3 py-2.5 rounded-xl text-sm text-white',
+  'bg-white/[0.04] border border-white/[0.08]',
+  'placeholder-slate-600',
+  'focus:outline-none focus:ring-1 focus:ring-purple-500/40 focus:border-purple-500/40',
+  'transition-all duration-150',
+].join(' ');
+
+// ─── Stat card ────────────────────────────────────────────────────────────────
+
+function StatCard({ icon: Icon, value, label, accentClass }: {
+  icon: React.ElementType; value: string | number; label: string; accentClass: string;
+}) {
+  return (
+    <div className="glass-card p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className={`w-8 h-8 rounded-lg flex items-center justify-center
+                         ${accentClass.replace('text-', 'bg-').replace('-400', '-500/10')}`}>
+          <Icon className={`w-4 h-4 ${accentClass}`} />
+        </div>
+        <span className="text-2xl font-bold text-white tabular-nums">{value}</span>
+      </div>
+      <p className="text-[11px] text-slate-500 uppercase tracking-wide font-semibold">{label}</p>
+    </div>
+  );
+}
+
+// ─── File upload row ──────────────────────────────────────────────────────────
+
+function FileRow({
+  label, hint, fileName, isUploading, uploadingLabel,
+  accentClass, iconEl, inputId, inputRef,
+  onDelete, onFileChange,
+}: {
+  label: string; hint?: string; fileName: string | undefined;
+  isUploading: boolean; uploadingLabel: string;
+  accentClass: string; iconEl: React.ReactNode;
+  inputId: string; inputRef: React.RefObject<HTMLInputElement | null>;
+  onDelete: () => void; onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-slate-400 mb-1.5">
+        {label}
+        {hint && <span className="text-[10px] text-slate-700 ml-1.5 font-normal">{hint}</span>}
+      </label>
+      {fileName ? (
+        <div className={`${inp} flex items-center justify-between`}>
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            {iconEl}
+            <span className="text-white text-sm truncate">{fileName}</span>
+          </div>
+          <button type="button" onClick={onDelete} disabled={isUploading}
+            className="ml-2 p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/[0.08]
+                       transition-all flex-shrink-0 disabled:opacity-40">
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ) : (
+        <>
+          <input ref={inputRef} id={inputId} type="file" accept=".pdf" onChange={onFileChange} disabled={isUploading} className="hidden" />
+          <label htmlFor={inputId}
+            className={`${inp} flex items-center justify-center gap-2 cursor-pointer hover:bg-white/[0.07] ${isUploading ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}>
+            {isUploading ? (
+              <>
+                <div className={`w-3.5 h-3.5 border-2 ${accentClass.replace('text-', 'border-')} border-t-transparent rounded-full animate-spin`} />
+                <span className="text-sm text-slate-400">{uploadingLabel}</span>
+              </>
+            ) : (
+              <>
+                <Upload className={`w-3.5 h-3.5 ${accentClass}`} />
+                <span className="text-sm text-slate-400">{label} <span className="text-slate-600">(PDF, max 5 MB)</span></span>
+              </>
+            )}
+          </label>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
+
 const ProfilePage = () => {
   const router = useRouter();
   const [user, authLoading] = useAuthState(auth);
-  const [activeTab, setActiveTab] = useState<"profile" | "saved" | "auto-apply">("profile");
+  const [activeTab, setActiveTab] = useState<'profile' | 'saved' | 'auto-apply'>('profile');
+
   const transcriptFileInputRef = useRef<HTMLInputElement>(null);
   const resumeFileInputRef     = useRef<HTMLInputElement>(null);
 
-  const [userProfile, setUserProfile]   = useState<UserProfile | null>(null);
-  const [stats, setStats]               = useState<UserStats | null>(null);
-  const [savedTemplates, setSavedTemplates]   = useState<SavedTemplate[]>([]);
-  const [bookmarkedBlogs, setBookmarkedBlogs] = useState<BookmarkedBlog[]>([]);
-  const [userCreatedContent, setUserCreatedContent] = useState<UserCreatedContent>({ blogs: [], templates: [], customInterviews: [] });
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [stats,       setStats]       = useState<UserStats | null>(null);
+  const [savedTemplates,    setSavedTemplates]    = useState<SavedTemplate[]>([]);
+  const [bookmarkedBlogs,   setBookmarkedBlogs]   = useState<BookmarkedBlog[]>([]);
+  const [userCreatedContent,setUserCreatedContent]= useState<UserCreatedContent>({ blogs:[], templates:[], customInterviews:[] });
 
-  const [isLoading,             setIsLoading]             = useState<boolean>(true);
-  const [loadingStep,           setLoadingStep]           = useState(0);
-  const [isEditing,             setIsEditing]             = useState<boolean>(false);
-  const [isLoggingOut,          setIsLoggingOut]          = useState<boolean>(false);
-  const [isSaving,              setIsSaving]              = useState<boolean>(false);
-  const [isUploadingTranscript, setIsUploadingTranscript] = useState<boolean>(false);
-  const [isUploadingResume,     setIsUploadingResume]     = useState<boolean>(false);
-  const [editedProfile,         setEditedProfile]         = useState<Partial<UserProfile>>({});
-  const [criticalError,         setCriticalError]         = useState<CriticalError | null>(null);
-  const [profileError,          setProfileError]          = useState<string>("");
+  const [isLoading,              setIsLoading]              = useState(true);
+  const [loadingStep,            setLoadingStep]            = useState(0);
+  const [isEditing,              setIsEditing]              = useState(false);
+  const [isSaving,               setIsSaving]               = useState(false);
+  const [isUploadingTranscript,  setIsUploadingTranscript]  = useState(false);
+  const [isUploadingResume,      setIsUploadingResume]      = useState(false);
+  const [editedProfile,          setEditedProfile]          = useState<Partial<UserProfile>>({});
+  const [criticalError,          setCriticalError]          = useState<CriticalError | null>(null);
+  const [profileError,           setProfileError]           = useState('');
 
   const loadingSteps: LoadingStep[] = [
-    { name: 'Authenticating user...',        weight: 1 },
-    { name: 'Loading profile data...',       weight: 2 },
-    { name: 'Fetching interview history...', weight: 2 },
-    { name: 'Calculating statistics...',     weight: 2 },
-    { name: 'Loading saved content...',      weight: 1 },
-    { name: 'Finalizing profile...',         weight: 1 },
+    { name: 'Authenticating…',            weight: 1 },
+    { name: 'Loading profile data…',      weight: 2 },
+    { name: 'Fetching interview history…',weight: 2 },
+    { name: 'Calculating statistics…',    weight: 2 },
+    { name: 'Loading saved content…',     weight: 1 },
+    { name: 'Done!',                      weight: 1 },
   ];
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/sign-in');
   }, [authLoading, user, router]);
 
+  // Load localStorage-based saved content
   useEffect(() => {
-    const loadSavedContent = (): void => {
+    if (!user || authLoading) return;
+    const parseArr = <T extends { id: unknown }>(raw: string | null): T[] => {
       try {
-        setLoadingStep(4);
-        const savedTemplatesData = localStorage.getItem("bookmarkedTemplates");
-        if (savedTemplatesData) {
-          const templates: unknown = JSON.parse(savedTemplatesData);
-          if (Array.isArray(templates)) setSavedTemplates(templates.map((t: unknown) => { const template = t as Record<string, unknown>; return { ...template, id: String(template.id) } as SavedTemplate; }));
-        }
-        const bookmarkedBlogsData = localStorage.getItem("bookmarkedPosts");
-        if (bookmarkedBlogsData) {
-          const bookmarkedIds: unknown = JSON.parse(bookmarkedBlogsData);
-          if (Array.isArray(bookmarkedIds)) setBookmarkedBlogs(bookmarkedIds.map((id: unknown) => ({ id: String(id), title: `How to Ace Your Interview: Advanced Tips ${id}`, excerpt: "Comprehensive guide covering advanced interview techniques...", category: "career-tips", author: "Career Expert", publishDate: "2025-01-10", readTime: "8 min read", tags: ["Career", "Interview Tips", "Success"], savedAt: new Date().toISOString() })));
-        }
-        const userPosts       = localStorage.getItem("userPosts");
-        const userTemplates   = localStorage.getItem("userTemplates");
-        const customInterviews = localStorage.getItem("customInterviews");
-        setUserCreatedContent({
-          blogs:            userPosts        ? (() => { const p: unknown = JSON.parse(userPosts);        return Array.isArray(p) ? p.map((b: unknown) => { const blog = b as Record<string,unknown>; return { ...blog, id: String(blog.id) } as BookmarkedBlog; }) : []; })() : [],
-          templates:        userTemplates    ? (() => { const p: unknown = JSON.parse(userTemplates);    return Array.isArray(p) ? p.map((t: unknown) => { const tmpl = t as Record<string,unknown>; return { ...tmpl, id: String(tmpl.id) } as SavedTemplate; }) : []; })() : [],
-          customInterviews: customInterviews ? (() => { const p: unknown = JSON.parse(customInterviews); return Array.isArray(p) ? p.map((ci: unknown) => { const intv = ci as Record<string,unknown>; return { ...intv, id: String(intv.id) } as CustomInterview; }) : []; })() : [],
-        });
-      } catch (err) { console.error("Failed to load saved content:", err); }
+        const parsed: unknown = JSON.parse(raw || '[]');
+        return Array.isArray(parsed) ? parsed.map(x => ({ ...(x as Record<string, unknown>), id: String((x as Record<string, unknown>).id) }) as T) : [];
+      } catch { return []; }
     };
-    if (user && !authLoading) loadSavedContent();
+    setSavedTemplates(parseArr<SavedTemplate>(localStorage.getItem('bookmarkedTemplates')));
+    const blogIds: string[] = parseArr<{ id: string }>(localStorage.getItem('bookmarkedPosts')).map(x => x.id);
+    setBookmarkedBlogs(blogIds.map(id => ({
+      id, title: `How to Ace Your Interview: Advanced Tips ${id}`,
+      excerpt: 'Comprehensive guide covering advanced interview techniques…',
+      category: 'career-tips', author: 'Career Expert', publishDate: '2025-01-10',
+      readTime: '8 min read', tags: ['Career', 'Interview Tips', 'Success'], savedAt: new Date().toISOString(),
+    })));
+    setUserCreatedContent({
+      blogs:            parseArr<BookmarkedBlog>(localStorage.getItem('userPosts')),
+      templates:        parseArr<SavedTemplate>(localStorage.getItem('userTemplates')),
+      customInterviews: parseArr<CustomInterview>(localStorage.getItem('customInterviews')),
+    });
   }, [user, authLoading]);
 
-  const convertToDate = (createdAt: FirebaseTimestamp | string | Date | undefined): Date => {
-    if (!createdAt) return new Date();
-    if (typeof createdAt === 'object' && 'toDate' in createdAt && typeof createdAt.toDate === 'function') return createdAt.toDate();
-    if (createdAt instanceof Date) return createdAt;
-    return new Date(createdAt as string | number);
-  };
-
+  // Fetch profile + stats from API
   useEffect(() => {
-    const fetchUserData = async (): Promise<void> => {
-      if (!user) return;
-      setIsLoading(true); setProfileError(""); setLoadingStep(0);
+    if (!user) return;
+    const fetchUserData = async () => {
+      setIsLoading(true); setProfileError(''); setLoadingStep(0);
       try {
         setLoadingStep(1);
-        const profileResponse = await fetch("/api/profile", { headers: { "Content-Type": "application/json" } });
-        if (!profileResponse.ok) {
-          if (profileResponse.status === 401) { setCriticalError({ code: '401', title: 'Authentication Required', message: 'Your session has expired. Please log in again.' }); return; }
-          if (profileResponse.status === 403) { setCriticalError({ code: '403', title: 'Access Denied', message: 'You do not have permission to view this profile.' }); return; }
-          throw new Error("Failed to fetch profile data");
+        const res = await fetch('/api/profile', { headers: { 'Content-Type': 'application/json' } });
+        if (!res.ok) {
+          if (res.status === 401) { setCriticalError({ code: '401', title: 'Authentication Required', message: 'Your session has expired. Please log in again.' }); return; }
+          if (res.status === 403) { setCriticalError({ code: '403', title: 'Access Denied', message: 'You do not have permission to view this profile.' }); return; }
+          throw new Error('Failed to fetch profile data');
         }
-        const { user: currentUser, interviews: userInterviews } = await profileResponse.json();
-        if (!currentUser) { router.push("/sign-in"); return; }
+        const { user: cu, interviews: userInterviews } = await res.json();
+        if (!cu) { router.push('/sign-in'); return; }
         setLoadingStep(2);
+
         const profile: UserProfile = {
-          id: currentUser.id, name: currentUser.name || "User", email: currentUser.email || "",
-          phone: currentUser.phone || "", streetAddress: currentUser.streetAddress || "",
-          city: currentUser.city || "", state: currentUser.state || "",
-          bio: currentUser.bio || "", targetRole: currentUser.targetRole || "",
-          experienceLevel: currentUser.experienceLevel || "mid",
-          preferredTech: currentUser.preferredTech || [], careerGoals: currentUser.careerGoals || "",
-          linkedIn: currentUser.linkedIn || "", github: currentUser.github || "",
-          website: currentUser.website || "", transcript: currentUser.transcript || "",
-          transcriptFileName: currentUser.transcriptFileName || "",
-          resume: currentUser.resume || "", resumeFileName: currentUser.resumeFileName || "",
-          provider: currentUser.provider || "email", subscription: currentUser.subscription,
-          createdAt: currentUser.createdAt ? new Date(currentUser.createdAt) : new Date(),
+          id: cu.id, name: cu.name || 'User', email: cu.email || '',
+          phone: cu.phone || '', streetAddress: cu.streetAddress || '',
+          city: cu.city || '', state: cu.state || '',
+          bio: cu.bio || '', targetRole: cu.targetRole || '',
+          experienceLevel: cu.experienceLevel || 'mid',
+          preferredTech: cu.preferredTech || [], careerGoals: cu.careerGoals || '',
+          linkedIn: cu.linkedIn || '', github: cu.github || '', website: cu.website || '',
+          transcript: cu.transcript || '', transcriptFileName: cu.transcriptFileName || '',
+          resume: cu.resume || '', resumeFileName: cu.resumeFileName || '',
+          provider: cu.provider || 'email', subscription: cu.subscription,
+          createdAt: cu.createdAt ? new Date(cu.createdAt) : new Date(),
           lastLogin: new Date(),
         };
         setUserProfile(profile); setEditedProfile(profile); setLoadingStep(3);
-        const interviewsWithDates = (userInterviews || []).map((interview: InterviewData) => ({ ...interview, createdAt: convertToDate(interview.createdAt) }));
-        const totalInterviews = interviewsWithDates.length;
-        const completedInterviews = interviewsWithDates.filter((i: InterviewData) => { const hasScore = typeof i.score === 'number' && i.score > 0; const hasFeedback = i.feedback && typeof i.feedback === 'object'; const isCompleted = i.status === 'completed' || i.status === 'complete'; return (hasScore || hasFeedback) && isCompleted; });
-        const totalScore = completedInterviews.reduce((sum: number, i: InterviewData) => sum + ((i.feedback?.totalScore as number) || (i.feedback?.overallRating as number) || (i.score as number) || 0), 0);
-        const averageScore = completedInterviews.length > 0 ? totalScore / completedInterviews.length : 0;
-        const totalMinutes = interviewsWithDates.reduce((sum: number, i: InterviewData) => sum + ((i.duration as number) || 0), 0);
-        const sortedByDate = [...completedInterviews].sort((a, b) => convertToDate(a.createdAt).getTime() - convertToDate(b.createdAt).getTime());
+
+        const withDates = (userInterviews || []).map((i: InterviewData) => ({ ...i, createdAt: convertToDate(i.createdAt) }));
+        const total     = withDates.length;
+        const completed = withDates.filter((i: InterviewData) => (typeof i.score === 'number' && i.score > 0 || i.feedback) && (i.status === 'completed' || i.status === 'complete'));
+        const totalScore = completed.reduce((s: number, i: InterviewData) => s + ((i.feedback?.totalScore as number) || (i.feedback?.overallRating as number) || (i.score as number) || 0), 0);
+        const avgScore   = completed.length > 0 ? totalScore / completed.length : 0;
+        const totalMins  = withDates.reduce((s: number, i: InterviewData) => s + ((i.duration as number) || 0), 0);
+
+        const sorted = [...completed].sort((a, b) => convertToDate(a.createdAt).getTime() - convertToDate(b.createdAt).getTime());
         let improvementRate = 0;
-        if (sortedByDate.length >= 2) {
-          const recentScores = sortedByDate.slice(-3); const olderScores = sortedByDate.slice(0, 3);
-          const recentAvg = recentScores.reduce((sum, i) => sum + ((i.feedback?.totalScore as number) || (i.score as number) || 0), 0) / recentScores.length;
-          const olderAvg  = olderScores.reduce((sum, i)  => sum + ((i.feedback?.totalScore as number) || (i.score as number) || 0), 0) / olderScores.length;
-          if (olderAvg > 0) improvementRate = Math.round(((recentAvg - olderAvg) / olderAvg) * 100);
+        if (sorted.length >= 2) {
+          const recent = sorted.slice(-3); const older = sorted.slice(0, 3);
+          const ra = recent.reduce((s,i) => s + ((i.feedback?.totalScore as number) || (i.score as number) || 0), 0) / recent.length;
+          const oa = older.reduce((s,i)  => s + ((i.feedback?.totalScore as number) || (i.score as number) || 0), 0) / older.length;
+          if (oa > 0) improvementRate = Math.round(((ra - oa) / oa) * 100);
         }
-        const sortedInterviews = [...interviewsWithDates].sort((a, b) => convertToDate(b.createdAt).getTime() - convertToDate(a.createdAt).getTime());
+
         let currentStreak = 0; let longestStreak = 0; let tempStreak = 0;
-        let lastDate = new Date(); lastDate.setHours(0, 0, 0, 0);
-        for (const interview of sortedInterviews) {
-          const interviewDate = convertToDate(interview.createdAt); interviewDate.setHours(0, 0, 0, 0);
-          const diffDays = Math.floor((lastDate.getTime() - interviewDate.getTime()) / (1000 * 60 * 60 * 24));
-          if (diffDays === 0 || diffDays === 1) { tempStreak++; if (currentStreak === 0 || diffDays <= 1) currentStreak = tempStreak; longestStreak = Math.max(longestStreak, tempStreak); lastDate = interviewDate; }
-          else { tempStreak = 1; lastDate = interviewDate; }
+        let lastDate = new Date(); lastDate.setHours(0,0,0,0);
+        for (const i of [...withDates].sort((a,b) => convertToDate(b.createdAt).getTime() - convertToDate(a.createdAt).getTime())) {
+          const d = convertToDate(i.createdAt); d.setHours(0,0,0,0);
+          const diff = Math.floor((lastDate.getTime() - d.getTime()) / 86_400_000);
+          if (diff === 0 || diff === 1) { tempStreak++; if (!currentStreak || diff <= 1) currentStreak = tempStreak; longestStreak = Math.max(longestStreak, tempStreak); lastDate = d; }
+          else { tempStreak = 1; lastDate = d; }
         }
-        const successfulInterviews = completedInterviews.filter((i: InterviewData) => ((i.feedback?.totalScore as number) || (i.score as number) || 0) >= 70);
-        setStats({ totalInterviews, averageScore: Math.round(averageScore) || 0, improvementRate, currentStreak, longestStreak: Math.max(longestStreak, currentStreak), hoursSpent: totalMinutes > 0 ? Math.round((totalMinutes / 60) * 10) / 10 : 0, totalResumes: 0, averageResumeScore: 0, successRate: completedInterviews.length > 0 ? Math.round((successfulInterviews.length / completedInterviews.length) * 100) : 0, completionRate: totalInterviews > 0 ? Math.round((completedInterviews.length / totalInterviews) * 100) : 0 });
+
+        const successful = completed.filter((i: InterviewData) => ((i.feedback?.totalScore as number) || (i.score as number) || 0) >= 70);
+        setStats({
+          totalInterviews: total, averageScore: Math.round(avgScore) || 0, improvementRate,
+          currentStreak, longestStreak: Math.max(longestStreak, currentStreak),
+          hoursSpent: totalMins > 0 ? Math.round((totalMins / 60) * 10) / 10 : 0,
+          totalResumes: 0, averageResumeScore: 0,
+          successRate:    completed.length > 0 ? Math.round((successful.length / completed.length) * 100) : 0,
+          completionRate: total > 0 ? Math.round((completed.length / total) * 100) : 0,
+        });
         setLoadingStep(5);
-        await new Promise(resolve => setTimeout(resolve, 150));
+        await new Promise(r => setTimeout(r, 100));
       } catch (err: unknown) {
-        console.error("Failed to fetch user data:", err);
-        const error = err instanceof Error ? err : new Error('Unknown error');
-        if (error.message.includes('Firebase') || error.message.includes('firestore')) { setCriticalError({ code: 'DATABASE', title: 'Database Connection Error', message: 'Unable to load your profile data. Please check your internet connection.', details: error.message }); }
-        else if (error.message.includes('fetch') || error.message.includes('network')) { setCriticalError({ code: 'NETWORK', title: 'Network Error', message: 'Unable to connect to the server. Please check your internet connection.', details: error.message }); }
-        else { setProfileError('Failed to load profile data. Please try again.'); }
-      } finally { setIsLoading(false); }
+        const msg = err instanceof Error ? err.message : '';
+        if (msg.includes('Firebase') || msg.includes('firestore')) {
+          setCriticalError({ code: 'DATABASE', title: 'Database Error', message: 'Unable to load your profile data.', details: msg });
+        } else if (msg.includes('fetch') || msg.includes('network')) {
+          setCriticalError({ code: 'NETWORK', title: 'Network Error', message: 'Check your internet connection and try again.', details: msg });
+        } else {
+          setProfileError('Failed to load profile data. Please try again.');
+        }
+      } finally {
+        setIsLoading(false);
+      }
     };
-    if (user) fetchUserData();
+    fetchUserData();
   }, [user, router]);
 
-  const handleTranscriptUpload = async (event: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
-    const file = event.target.files?.[0];
-    if (!file || !user?.uid) { if (!file) toast.error('No file selected'); if (!user?.uid) toast.error('User not authenticated'); return; }
-    if (file.type !== 'application/pdf') { toast.error('Please upload a PDF file'); return; }
-    if (file.size > 5 * 1024 * 1024) { toast.error('File size must be less than 5MB'); return; }
-    setIsUploadingTranscript(true);
-    const uploadToast = toast.loading('Uploading transcript...');
+  const readFileAsBase64 = (file: File): Promise<string> =>
+    new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result as string); r.onerror = rej; r.readAsDataURL(file); });
+
+  const validatePDF = (file: File): string | null => {
+    if (file.type !== 'application/pdf') return 'Please upload a PDF file';
+    if (file.size > 5 * 1024 * 1024) return 'File size must be less than 5 MB';
+    return null;
+  };
+
+  // ✅ Fixed: inputRef typed as RefObject<HTMLInputElement | null> to match React 19 useRef
+  const handleFileUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    field: 'resume' | 'transcript',
+    setUploading: (v: boolean) => void,
+    inputRef: React.RefObject<HTMLInputElement | null>,
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.uid) return;
+    const err = validatePDF(file);
+    if (err) { toast.error(err); return; }
+    setUploading(true);
+    const t = toast.loading(`Uploading ${field}…`);
     try {
-      const base64 = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result as string); reader.onerror = reject; reader.readAsDataURL(file); });
-      setEditedProfile({ ...editedProfile, transcript: base64, transcriptFileName: file.name });
-      toast.success('Transcript uploaded successfully!', { id: uploadToast });
-    } catch (err: unknown) { console.error('Upload error:', err); toast.error('Failed to upload transcript. Please try again.', { id: uploadToast }); }
-    finally { setIsUploadingTranscript(false); if (transcriptFileInputRef.current) transcriptFileInputRef.current.value = ''; }
+      const base64 = await readFileAsBase64(file);
+      setEditedProfile(p => ({ ...p, [field]: base64, [`${field}FileName`]: file.name }));
+      toast.success(`${field.charAt(0).toUpperCase() + field.slice(1)} uploaded!`, { id: t });
+    } catch { toast.error(`Failed to upload ${field}.`, { id: t }); }
+    finally { setUploading(false); if (inputRef.current) inputRef.current.value = ''; }
   };
 
-  const handleResumeUpload = async (event: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
-    const file = event.target.files?.[0];
-    if (!file || !user?.uid) { if (!file) toast.error('No file selected'); if (!user?.uid) toast.error('User not authenticated'); return; }
-    if (file.type !== 'application/pdf') { toast.error('Please upload a PDF file'); return; }
-    if (file.size > 5 * 1024 * 1024) { toast.error('File size must be less than 5MB'); return; }
-    setIsUploadingResume(true);
-    const uploadToast = toast.loading('Uploading resume...');
-    try {
-      const base64 = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result as string); reader.onerror = reject; reader.readAsDataURL(file); });
-      setEditedProfile({ ...editedProfile, resume: base64, resumeFileName: file.name });
-      toast.success('Resume uploaded successfully!', { id: uploadToast });
-    } catch (err: unknown) { console.error('Upload error:', err); toast.error('Failed to upload resume. Please try again.', { id: uploadToast }); }
-    finally { setIsUploadingResume(false); if (resumeFileInputRef.current) resumeFileInputRef.current.value = ''; }
+  const handleDeleteFile = (field: 'resume' | 'transcript') => {
+    setEditedProfile(p => ({ ...p, [field]: '', [`${field}FileName`]: '' }));
+    toast.success(`${field.charAt(0).toUpperCase() + field.slice(1)} removed`);
   };
 
-  const handleDeleteTranscript = async (): Promise<void> => {
-    if (!user?.uid || !editedProfile.transcript) return;
-    const deleteToast = toast.loading('Deleting transcript...');
-    try { setEditedProfile({ ...editedProfile, transcript: '', transcriptFileName: '' }); toast.success('Transcript deleted successfully!', { id: deleteToast }); }
-    catch (err: unknown) { console.error('Delete error:', err); toast.error('Failed to delete transcript.', { id: deleteToast }); }
-  };
-
-  const handleDeleteResume = async (): Promise<void> => {
-    if (!user?.uid || !editedProfile.resume) return;
-    const deleteToast = toast.loading('Deleting resume...');
-    try { setEditedProfile({ ...editedProfile, resume: '', resumeFileName: '' }); toast.success('Resume deleted successfully!', { id: deleteToast }); }
-    catch (err: unknown) { console.error('Delete error:', err); toast.error('Failed to delete resume.', { id: deleteToast }); }
-  };
-
-  const handleUpdateProfile = async (updatedProfile: Partial<UserProfile>): Promise<void> => {
+  const handleUpdateProfile = async (updatedProfile: Partial<UserProfile>) => {
     if (!user?.uid) return;
     setIsSaving(true);
     try {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { subscription, id, provider, ...profileWithoutSubscription } = updatedProfile;
-      const profileForUpdate = {
-        ...profileWithoutSubscription,
+      const { subscription, id, provider, ...rest } = updatedProfile;
+      const body = {
+        ...rest,
         createdAt: updatedProfile.createdAt instanceof Date ? updatedProfile.createdAt.toISOString() : updatedProfile.createdAt,
-        lastLogin: updatedProfile.lastLogin instanceof Date ? updatedProfile.lastLogin.toISOString() : updatedProfile.lastLogin,
+        lastLogin:  updatedProfile.lastLogin  instanceof Date ? updatedProfile.lastLogin.toISOString()  : updatedProfile.lastLogin,
       };
-      const response = await fetch('/api/profile', {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(profileForUpdate),
-      });
-      const result = await response.json();
-      if (response.ok && result.success) {
+      const res    = await fetch('/api/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const result = await res.json();
+      if (res.ok && result.success) {
         const wasComplete = isProfileComplete(userProfile || {});
         const nowComplete = isProfileComplete(updatedProfile);
-        setUserProfile(prev => prev ? { ...prev, ...updatedProfile } : null);
+        setUserProfile(p => p ? { ...p, ...updatedProfile } : null);
         setIsEditing(false);
-        toast.success("Profile updated successfully!");
-        await NotificationService.createNotification(user.uid, 'system', 'Profile Updated ✅', 'Your profile has been saved. A complete profile helps generate better cover letters and interview preparation.', { actionUrl: '/profile', actionLabel: 'View Profile' });
+        toast.success('Profile updated!');
+        await NotificationService.createNotification(user.uid, 'system', 'Profile Updated ✅', 'Your profile has been saved.', { actionUrl: '/profile', actionLabel: 'View Profile' });
         if (!wasComplete && nowComplete) {
-          await NotificationService.createNotification(user.uid, 'achievement', 'Profile Complete! 🏆', 'Your profile is now complete. AI features like cover letters and interview prep will now be fully personalized to you.', { actionUrl: '/cover-letter', actionLabel: 'Try Cover Letter' });
+          await NotificationService.createNotification(user.uid, 'achievement', 'Profile Complete! 🏆', 'AI features will now be fully personalised to you.', { actionUrl: '/cover-letter', actionLabel: 'Try Cover Letter' });
         }
-      } else { toast.error(result.message || "Failed to update profile"); }
-    } catch (err: unknown) { console.error("Failed to update profile:", err); toast.error("Failed to update profile"); }
+      } else {
+        toast.error(result.message || 'Failed to update profile');
+      }
+    } catch { toast.error('Failed to update profile'); }
     finally { setIsSaving(false); }
   };
 
   const handleOpenFile = (base64Data: string) => {
     try {
-      const byteString = atob(base64Data.split(',')[1]);
-      const mimeString = base64Data.split(',')[0].split(':')[1].split(';')[0];
-      const ab = new ArrayBuffer(byteString.length); const ia = new Uint8Array(ab);
-      for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
-      const blob = new Blob([ab], { type: mimeString }); const blobUrl = URL.createObjectURL(blob);
-      window.open(blobUrl, '_blank'); setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
-    } catch (error) { console.error('Error opening file:', error); toast.error('Failed to open file'); }
+      const byteStr = atob(base64Data.split(',')[1]);
+      const mime    = base64Data.split(',')[0].split(':')[1].split(';')[0];
+      const ab = new ArrayBuffer(byteStr.length); const ia = new Uint8Array(ab);
+      for (let i = 0; i < byteStr.length; i++) ia[i] = byteStr.charCodeAt(i);
+      const url = URL.createObjectURL(new Blob([ab], { type: mime }));
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+    } catch { toast.error('Failed to open file'); }
   };
 
-  const handleLogout = async (): Promise<void> => {
-    try {
-      setIsLoggingOut(true);
-      const { signOut } = await import("@/lib/actions/auth.action");
-      await signOut(); toast.success("Logged out successfully"); router.push("/sign-in");
-    } catch (err) { console.error("Logout failed:", err); toast.error("Failed to logout"); setIsLoggingOut(false); }
+  const handleEditToggle = () => {
+    if (isEditing) setEditedProfile(userProfile || {});
+    setIsEditing(v => !v);
   };
 
-  // suppress unused warning — kept for logout button if needed elsewhere
-  void handleLogout;
-  void isLoggingOut;
+  const handleRetry = () => { setCriticalError(null); setProfileError(''); setIsLoading(true); };
 
-  const handleEditToggle = (): void => { if (isEditing) setEditedProfile(userProfile || {}); setIsEditing(!isEditing); };
-  const handleSaveProfile = (): void => { handleUpdateProfile(editedProfile); };
-  const handleRetryError  = (): void => { setCriticalError(null); setProfileError(""); setIsLoading(true); };
+  // ── Guards ────────────────────────────────────────────────────
+  if (criticalError) {
+    return <ErrorPage errorCode={criticalError.code} errorTitle={criticalError.title} errorMessage={criticalError.message} errorDetails={criticalError.details} showBackButton showHomeButton showRefreshButton onRetry={handleRetry} />;
+  }
 
-  if (criticalError) return <ErrorPage errorCode={criticalError.code} errorTitle={criticalError.title} errorMessage={criticalError.message} errorDetails={criticalError.details} showBackButton showHomeButton showRefreshButton onRetry={handleRetryError} />;
-  if (authLoading || isLoading) return <AnimatedLoader isVisible={true} mode="steps" steps={loadingSteps} currentStep={loadingStep} loadingText="Loading your profile..." showNavigation={true} />;
+  if (authLoading || isLoading) {
+    return <AnimatedLoader isVisible={true} mode="steps" steps={loadingSteps} currentStep={loadingStep} loadingText="Loading your profile…" showNavigation={true} />;
+  }
+
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-[60vh] px-4">
-        <div className="glass-card hover-lift max-w-md w-full">
-          <div className="text-center p-8 sm:p-12">
-            <AlertCircle className="w-12 h-12 sm:w-16 sm:h-16 text-red-400 mx-auto mb-4" />
-            <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">Authentication Required</h2>
-            <p className="text-sm sm:text-base text-slate-400 mb-6">Please log in to view your profile</p>
-            <Link href="/sign-in" className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 py-3 rounded-lg w-full sm:w-auto justify-center">Go to Login</Link>
-          </div>
+        <div className="glass-card p-10 text-center max-w-sm w-full">
+          <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-white mb-2">Sign in required</h2>
+          <p className="text-sm text-slate-500 mb-6">Please sign in to view your profile</p>
+          <Link href="/sign-in" className="inline-flex items-center justify-center gap-2 w-full px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm font-semibold hover:from-indigo-500 hover:to-purple-500 transition-all">
+            Go to sign in
+          </Link>
         </div>
       </div>
     );
   }
+
   if (profileError) {
     return (
       <div className="flex items-center justify-center min-h-[60vh] px-4">
-        <div className="glass-card hover-lift max-w-md w-full">
-          <div className="text-center p-8 sm:p-12">
-            <AlertCircle className="w-12 h-12 sm:w-16 sm:h-16 text-yellow-400 mx-auto mb-4" />
-            <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">Profile Load Error</h2>
-            <p className="text-sm sm:text-base text-slate-400 mb-6">{profileError}</p>
-            <button onClick={handleRetryError} className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 py-3 rounded-lg w-full sm:w-auto justify-center"><RefreshCw className="w-5 h-5" /> Try Again</button>
-          </div>
+        <div className="glass-card p-10 text-center max-w-sm w-full">
+          <AlertCircle className="w-10 h-10 text-amber-400 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-white mb-2">Failed to load profile</h2>
+          <p className="text-sm text-slate-500 mb-6">{profileError}</p>
+          <button onClick={handleRetry} className="inline-flex items-center justify-center gap-2 w-full px-5 py-2.5 rounded-xl bg-white/[0.05] border border-white/[0.09] text-white text-sm font-semibold hover:bg-white/[0.08] transition-all">
+            <RefreshCw className="w-4 h-4" /> Try again
+          </button>
         </div>
       </div>
     );
   }
+
   if (!userProfile || !stats) {
     return (
       <div className="flex items-center justify-center min-h-[60vh] px-4">
-        <div className="glass-card hover-lift max-w-md w-full">
-          <div className="text-center p-8 sm:p-12">
-            <AlertCircle className="w-12 h-12 sm:w-16 sm:h-16 text-red-400 mx-auto mb-4" />
-            <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">Profile Not Found</h2>
-            <p className="text-sm sm:text-base text-slate-400 mb-6">Unable to load your profile data</p>
-            <button onClick={() => window.location.reload()} className="glass-button-primary hover-lift inline-flex items-center gap-2 px-6 py-3 rounded-lg w-full sm:w-auto justify-center"><RefreshCw className="w-5 h-5" /> Reload Page</button>
-          </div>
+        <div className="glass-card p-10 text-center max-w-sm w-full">
+          <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-white mb-2">Profile not found</h2>
+          <p className="text-sm text-slate-500 mb-6">Unable to load your profile data</p>
+          <button onClick={() => window.location.reload()} className="inline-flex items-center justify-center gap-2 w-full px-5 py-2.5 rounded-xl bg-white/[0.05] border border-white/[0.09] text-white text-sm font-semibold hover:bg-white/[0.08] transition-all">
+            <RefreshCw className="w-4 h-4" /> Reload page
+          </button>
         </div>
       </div>
     );
   }
 
+  // ── Render ────────────────────────────────────────────────────
   return (
-    <div className="space-y-4 sm:space-y-6 px-4 sm:px-0">
+    <div className="space-y-4 pt-4">
 
       {/* Page header */}
-      <div className="glass-card hover-lift">
-        <div className="p-4 sm:p-6">
-          <div className="flex items-center justify-between">
-            <Link href="/"><Button variant="ghost" size="sm" className="text-slate-300 hover:text-white hover:bg-white/5 text-xs sm:text-sm"><ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-2" />Back</Button></Link>
-            <h1 className="text-xl sm:text-2xl font-semibold text-white">Profile</h1>
-            <div className="w-16 sm:w-20" />
-          </div>
+      <div className="glass-card p-4 animate-fade-in-up">
+        <div className="flex items-center justify-between">
+          <Link href="/" className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors">
+            <ArrowLeft className="w-3.5 h-3.5" /> Back
+          </Link>
+          <h1 className="text-lg font-bold text-white">Profile</h1>
+          <div className="w-12" />
         </div>
       </div>
 
-      {/* Tab bar — 3 tabs */}
-      <div className="glass-card">
-        <div className="p-2">
-          <div className="flex gap-1.5 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-            {([
-              { id: 'profile',    label: 'Profile',    Icon: User     },
-              { id: 'auto-apply', label: 'Auto-Apply', Icon: Zap      },
-              { id: 'saved',      label: 'Saved',      Icon: Bookmark },
-            ] as { id: 'profile' | 'saved' | 'auto-apply'; label: string; Icon: React.ElementType }[]).map(tab => (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 px-3 sm:px-4 py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap min-w-0
-                  ${activeTab === tab.id
-                    ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-glass'
-                    : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
-                <tab.Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 inline mr-1 sm:mr-1.5" />
-                {tab.label}
-              </button>
-            ))}
-          </div>
+      {/* Tab bar */}
+      <div className="glass-card p-1.5">
+        <div className="flex gap-1">
+          {([
+            { id: 'profile',    label: 'Profile',    icon: User     },
+            { id: 'auto-apply', label: 'Auto-Apply', icon: Zap      },
+            { id: 'saved',      label: 'Saved',      icon: Bookmark },
+          ] as { id: typeof activeTab; label: string; icon: React.ElementType }[]).map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl
+                          text-xs font-semibold whitespace-nowrap transition-all duration-150
+                          ${activeTab === tab.id
+                            ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-[0_2px_10px_rgba(124,58,237,0.35)]'
+                            : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'}`}
+            >
+              <tab.icon className="w-3.5 h-3.5" /> {tab.label}
+            </button>
+          ))}
         </div>
       </div>
 
       {/* ── Profile tab ── */}
-      {activeTab === "profile" && (
+      {activeTab === 'profile' && (
         <>
-          <div className="glass-card hover-lift">
-            <div className="p-4 sm:p-6">
-              <div className="flex flex-col sm:flex-row items-start justify-between gap-4 mb-6">
-                <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-purple-600 to-blue-600 rounded-xl sm:rounded-2xl flex items-center justify-center text-white text-xl sm:text-2xl font-bold flex-shrink-0">
-                    {userProfile.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h2 className="text-lg sm:text-2xl font-semibold text-white mb-1 truncate">{userProfile.name}</h2>
-                    <p className="text-slate-400 text-xs sm:text-sm mb-2 truncate">{userProfile.email}</p>
-                    {userProfile.targetRole && (
-                      <div className="flex items-center gap-2 text-xs sm:text-sm">
-                        <Briefcase className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400 flex-shrink-0" />
-                        <span className="text-slate-300 truncate">{userProfile.targetRole}</span>
-                      </div>
-                    )}
-                  </div>
+          {/* Identity card */}
+          <div className="glass-card p-5 animate-fade-in-up">
+            <div className="flex flex-col sm:flex-row items-start justify-between gap-4 mb-5">
+              <div className="flex items-center gap-3.5 flex-1 min-w-0">
+                <div className="w-14 h-14 gradient-primary rounded-2xl flex items-center justify-center
+                               text-white text-xl font-bold flex-shrink-0
+                               shadow-[0_4px_16px_rgba(102,126,234,0.35)]">
+                  {userProfile.name.charAt(0).toUpperCase()}
                 </div>
-                {!isEditing ? (
-                  <button onClick={handleEditToggle} className="glass-button hover-lift flex items-center gap-2 px-4 py-2 rounded-lg text-sm w-full sm:w-auto justify-center">
-                    <Edit className="w-4 h-4" /><span>Edit</span>
-                  </button>
-                ) : (
-                  <div className="flex gap-2 w-full sm:w-auto">
-                    <button onClick={handleSaveProfile} disabled={isSaving} className="glass-button-primary hover-lift flex items-center gap-2 px-4 py-2 rounded-lg text-sm flex-1 sm:flex-initial justify-center">
-                      <Save className="w-4 h-4" /><span>{isSaving ? 'Saving...' : 'Save'}</span>
-                    </button>
-                    <button onClick={handleEditToggle} disabled={isSaving} className="glass-button hover-lift flex items-center justify-center gap-2 px-4 py-2 rounded-lg">
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-xl font-bold text-white truncate">{userProfile.name}</h2>
+                  <p className="text-xs text-slate-500 truncate mt-0.5">{userProfile.email}</p>
+                  {userProfile.targetRole && (
+                    <div className="flex items-center gap-1.5 mt-1.5">
+                      <Briefcase className="w-3 h-3 text-blue-400 flex-shrink-0" />
+                      <span className="text-xs text-slate-400 truncate">{userProfile.targetRole}</span>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {isEditing ? (
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-xs sm:text-sm text-slate-400 mb-2 block">Bio</label>
-                    <textarea value={editedProfile.bio || ""} onChange={e => setEditedProfile({ ...editedProfile, bio: e.target.value })} placeholder="Tell us about yourself..." rows={3} className="w-full glass-input rounded-lg text-white placeholder-slate-500 text-sm p-3" />
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs sm:text-sm text-slate-400 mb-2 block">Phone</label>
-                      <input type="tel" value={editedProfile.phone || ""} onChange={e => setEditedProfile({ ...editedProfile, phone: e.target.value })} placeholder="Your phone number" className="w-full glass-input rounded-lg text-white placeholder-slate-500 text-sm p-2.5" />
-                    </div>
-                  </div>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-xs sm:text-sm text-slate-400 mb-2 block">Street Address</label>
-                      <input type="text" value={editedProfile.streetAddress || ""} onChange={e => setEditedProfile({ ...editedProfile, streetAddress: e.target.value })} placeholder="123 Main Street" className="w-full glass-input rounded-lg text-white placeholder-slate-500 text-sm p-2.5" />
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-xs sm:text-sm text-slate-400 mb-2 block">City</label>
-                        <input type="text" value={editedProfile.city || ""} onChange={e => setEditedProfile({ ...editedProfile, city: e.target.value })} placeholder="Boston" className="w-full glass-input rounded-lg text-white placeholder-slate-500 text-sm p-2.5" />
-                      </div>
-                      <div>
-                        <label className="text-xs sm:text-sm text-slate-400 mb-2 block">State</label>
-                        <input type="text" value={editedProfile.state || ""} onChange={e => setEditedProfile({ ...editedProfile, state: e.target.value })} placeholder="Massachusetts" className="w-full glass-input rounded-lg text-white placeholder-slate-500 text-sm p-2.5" />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
-                      <label className="text-xs sm:text-sm text-slate-400 mb-2 block">LinkedIn</label>
-                      <input type="url" value={editedProfile.linkedIn || ""} onChange={e => setEditedProfile({ ...editedProfile, linkedIn: e.target.value })} placeholder="LinkedIn URL" className="w-full glass-input rounded-lg text-white placeholder-slate-500 text-sm p-2.5" />
-                    </div>
-                    <div>
-                      <label className="text-xs sm:text-sm text-slate-400 mb-2 block">GitHub</label>
-                      <input type="url" value={editedProfile.github || ""} onChange={e => setEditedProfile({ ...editedProfile, github: e.target.value })} placeholder="GitHub URL" className="w-full glass-input rounded-lg text-white placeholder-slate-500 text-sm p-2.5" />
-                    </div>
-                    <div>
-                      <label className="text-xs sm:text-sm text-slate-400 mb-2 block">Website</label>
-                      <input type="url" value={editedProfile.website || ""} onChange={e => setEditedProfile({ ...editedProfile, website: e.target.value })} placeholder="Website URL" className="w-full glass-input rounded-lg text-white placeholder-slate-500 text-sm p-2.5" />
-                    </div>
-                  </div>
-                  {/* Resume */}
-                  <div>
-                    <label className="text-xs sm:text-sm text-slate-400 mb-2 block">Resume <span className="text-xs text-slate-500">(Stored securely)</span></label>
-                    {editedProfile.resume ? (
-                      <div className="glass-input rounded-lg p-3 flex items-center justify-between">
-                        <div className="flex items-center gap-2 flex-1 min-w-0"><FileBadge className="w-4 h-4 text-purple-400 flex-shrink-0" /><span className="text-white text-sm truncate">{editedProfile.resumeFileName || 'Resume.pdf'}</span></div>
-                        <button type="button" onClick={handleDeleteResume} disabled={isUploadingResume} className="ml-2 p-2 hover:bg-red-500/10 rounded-lg transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed" title="Delete resume"><Trash2 className="w-4 h-4 text-red-400" /></button>
-                      </div>
-                    ) : (
-                      <div>
-                        <input ref={resumeFileInputRef} type="file" accept=".pdf" onChange={handleResumeUpload} disabled={isUploadingResume} className="hidden" id="resume-upload" />
-                        <label htmlFor="resume-upload" className={`glass-input rounded-lg p-3 flex items-center justify-center gap-2 transition-colors ${isUploadingResume ? 'opacity-50 cursor-not-allowed bg-white/5' : 'cursor-pointer hover:bg-white/5'}`}>
-                          {isUploadingResume ? (<><div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" /><span className="text-slate-300 text-sm">Uploading resume...</span></>) : (<><Upload className="w-4 h-4 text-purple-400" /><span className="text-slate-300 text-sm">Upload Resume (PDF, max 5MB)</span></>)}
-                        </label>
-                      </div>
-                    )}
-                  </div>
-                  {/* Transcript */}
-                  <div>
-                    <label className="text-xs sm:text-sm text-slate-400 mb-2 block">Official Transcript <span className="text-xs text-slate-500">(Stored securely)</span></label>
-                    {editedProfile.transcript ? (
-                      <div className="glass-input rounded-lg p-3 flex items-center justify-between">
-                        <div className="flex items-center gap-2 flex-1 min-w-0"><FileText className="w-4 h-4 text-blue-400 flex-shrink-0" /><span className="text-white text-sm truncate">{editedProfile.transcriptFileName || 'Transcript.pdf'}</span></div>
-                        <button type="button" onClick={handleDeleteTranscript} disabled={isUploadingTranscript} className="ml-2 p-2 hover:bg-red-500/10 rounded-lg transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed" title="Delete transcript"><Trash2 className="w-4 h-4 text-red-400" /></button>
-                      </div>
-                    ) : (
-                      <div>
-                        <input ref={transcriptFileInputRef} type="file" accept=".pdf" onChange={handleTranscriptUpload} disabled={isUploadingTranscript} className="hidden" id="transcript-upload" />
-                        <label htmlFor="transcript-upload" className={`glass-input rounded-lg p-3 flex items-center justify-center gap-2 transition-colors ${isUploadingTranscript ? 'opacity-50 cursor-not-allowed bg-white/5' : 'cursor-pointer hover:bg-white/5'}`}>
-                          {isUploadingTranscript ? (<><div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" /><span className="text-slate-300 text-sm">Uploading transcript...</span></>) : (<><Upload className="w-4 h-4 text-blue-400" /><span className="text-slate-300 text-sm">Upload Transcript (PDF, max 5MB)</span></>)}
-                        </label>
-                      </div>
-                    )}
-                  </div>
-                </div>
+              {/* Edit / save actions */}
+              {!isEditing ? (
+                <button
+                  onClick={handleEditToggle}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl flex-shrink-0
+                             bg-white/[0.05] border border-white/[0.08]
+                             text-sm font-semibold text-slate-300
+                             hover:text-white hover:bg-white/[0.08] transition-all w-full sm:w-auto justify-center"
+                >
+                  <Edit className="w-3.5 h-3.5" /> Edit
+                </button>
               ) : (
-                <div className="space-y-4">
-                  {userProfile.bio && <p className="text-slate-300 text-sm leading-relaxed break-words">{userProfile.bio}</p>}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 pt-4 border-t border-white/5">
-                    {userProfile.phone && (
-                      <div className="flex items-center gap-2 text-xs sm:text-sm">
-                        <Phone className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                        <span className="text-slate-300 break-all">{userProfile.phone}</span>
-                      </div>
-                    )}
-                    {(userProfile.streetAddress || userProfile.city || userProfile.state) && (
-                      <div className="flex items-start gap-2 text-xs sm:text-sm">
-                        <MapPin className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
-                        <div className="text-slate-300 break-words min-w-0">
-                          {userProfile.streetAddress && <div>{userProfile.streetAddress}</div>}
-                          {(userProfile.city || userProfile.state) && <div>{userProfile.city}{userProfile.city && userProfile.state ? ', ' : ''}{userProfile.state}</div>}
-                        </div>
-                      </div>
-                    )}
-                    {userProfile.linkedIn && (
-                      <div className="flex items-center gap-2 text-xs sm:text-sm">
-                        <svg className="w-4 h-4 flex-shrink-0 text-slate-400" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
-                        <a href={userProfile.linkedIn} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 truncate">LinkedIn</a>
-                      </div>
-                    )}
-                    {userProfile.github && (
-                      <div className="flex items-center gap-2 text-xs sm:text-sm">
-                        <svg className="w-4 h-4 flex-shrink-0 text-slate-400" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
-                        <a href={userProfile.github} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 truncate">GitHub</a>
-                      </div>
-                    )}
-                    {userProfile.website && (
-                      <div className="flex items-center gap-2 text-xs sm:text-sm">
-                        <Globe className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                        <a href={userProfile.website} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 truncate">Website</a>
-                      </div>
-                    )}
-                    {userProfile.resume && (
-                      <div className="flex items-center gap-2 text-xs sm:text-sm">
-                        <FileBadge className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                        <button onClick={() => handleOpenFile(userProfile.resume!)} className="text-blue-400 hover:text-blue-300 truncate text-left cursor-pointer">{userProfile.resumeFileName || 'Resume.pdf'}</button>
-                      </div>
-                    )}
-                    {userProfile.transcript && (
-                      <div className="flex items-center gap-2 text-xs sm:text-sm">
-                        <FileText className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                        <button onClick={() => handleOpenFile(userProfile.transcript!)} className="text-blue-400 hover:text-blue-300 truncate text-left cursor-pointer">{userProfile.transcriptFileName || 'Transcript.pdf'}</button>
-                      </div>
-                    )}
-                  </div>
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <button
+                    onClick={() => handleUpdateProfile(editedProfile)}
+                    disabled={isSaving}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl flex-1 sm:flex-initial justify-center
+                               bg-gradient-to-r from-purple-600 to-indigo-600
+                               hover:from-purple-500 hover:to-indigo-500
+                               text-white text-sm font-semibold
+                               transition-all disabled:opacity-50"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    {isSaving ? 'Saving…' : 'Save'}
+                  </button>
+                  <button
+                    onClick={handleEditToggle}
+                    disabled={isSaving}
+                    className="w-10 h-10 flex items-center justify-center rounded-xl
+                               bg-white/[0.05] border border-white/[0.08]
+                               text-slate-500 hover:text-white hover:bg-white/[0.08] transition-all"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
               )}
             </div>
-          </div>
 
-          {/* Stats cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            {[
-              { icon: FileText,   color: 'blue',    value: stats.totalInterviews,                                   label: 'Total Interviews' },
-              { icon: TrendingUp, color: 'emerald', value: stats.averageScore,                                      label: 'Average Score'    },
-              { icon: Zap,        color: 'amber',   value: stats.currentStreak,                                     label: 'Current Streak'   },
-              { icon: Clock,      color: 'purple',  value: stats.hoursSpent > 0 ? `${stats.hoursSpent}h` : '0h',   label: 'Hours Spent'      },
-            ].map((card, i) => (
-              <div key={i} className="glass-card">
-                <div className="p-4 sm:p-6">
-                  <div className="flex items-center justify-between mb-2 sm:mb-3">
-                    <div className={`w-8 h-8 sm:w-10 sm:h-10 bg-${card.color}-500/10 rounded-lg flex items-center justify-center`}>
-                      <card.icon className={`w-4 h-4 sm:w-5 sm:h-5 text-${card.color}-400`} />
+            {/* View mode */}
+            {!isEditing && (
+              <div className="space-y-4">
+                {userProfile.bio && (
+                  <p className="text-sm text-slate-300 leading-relaxed">{userProfile.bio}</p>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-4 border-t border-white/[0.05]">
+                  {userProfile.phone && (
+                    <div className="flex items-center gap-2 text-xs">
+                      <Phone className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
+                      <span className="text-slate-400">{userProfile.phone}</span>
                     </div>
-                    <span className="text-xl sm:text-2xl font-semibold text-white">{card.value}</span>
-                  </div>
-                  <p className="text-xs sm:text-sm text-slate-400">{card.label}</p>
+                  )}
+                  {(userProfile.streetAddress || userProfile.city || userProfile.state) && (
+                    <div className="flex items-start gap-2 text-xs">
+                      <MapPin className="w-3.5 h-3.5 text-slate-600 flex-shrink-0 mt-0.5" />
+                      <div className="text-slate-400">
+                        {userProfile.streetAddress && <div>{userProfile.streetAddress}</div>}
+                        {(userProfile.city || userProfile.state) && <div>{userProfile.city}{userProfile.city && userProfile.state ? ', ' : ''}{userProfile.state}</div>}
+                      </div>
+                    </div>
+                  )}
+                  {userProfile.linkedIn && (
+                    <div className="flex items-center gap-2 text-xs">
+                      <svg className="w-3.5 h-3.5 flex-shrink-0 text-slate-600" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+                      <a href={userProfile.linkedIn} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 transition-colors">LinkedIn</a>
+                    </div>
+                  )}
+                  {userProfile.github && (
+                    <div className="flex items-center gap-2 text-xs">
+                      <svg className="w-3.5 h-3.5 flex-shrink-0 text-slate-600" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                      <a href={userProfile.github} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 transition-colors">GitHub</a>
+                    </div>
+                  )}
+                  {userProfile.website && (
+                    <div className="flex items-center gap-2 text-xs">
+                      <Globe className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
+                      <a href={userProfile.website} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 transition-colors truncate">Website</a>
+                    </div>
+                  )}
+                  {userProfile.resume && (
+                    <div className="flex items-center gap-2 text-xs">
+                      <FileBadge className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
+                      <button onClick={() => handleOpenFile(userProfile.resume!)} className="text-blue-400 hover:text-blue-300 transition-colors truncate text-left">
+                        {userProfile.resumeFileName || 'Resume.pdf'}
+                      </button>
+                    </div>
+                  )}
+                  {userProfile.transcript && (
+                    <div className="flex items-center gap-2 text-xs">
+                      <FileText className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
+                      <button onClick={() => handleOpenFile(userProfile.transcript!)} className="text-blue-400 hover:text-blue-300 transition-colors truncate text-left">
+                        {userProfile.transcriptFileName || 'Transcript.pdf'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
-            ))}
+            )}
+
+            {/* Edit mode */}
+            {isEditing && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1.5">Bio</label>
+                  <textarea
+                    value={editedProfile.bio || ''}
+                    onChange={e => setEditedProfile(p => ({ ...p, bio: e.target.value }))}
+                    placeholder="Tell us about yourself…"
+                    rows={3}
+                    className={`${inp} resize-none`}
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-1.5">Phone</label>
+                    <input type="tel" value={editedProfile.phone || ''} onChange={e => setEditedProfile(p => ({ ...p, phone: e.target.value }))} placeholder="Your phone number" className={inp} />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1.5">Street Address</label>
+                  <input type="text" value={editedProfile.streetAddress || ''} onChange={e => setEditedProfile(p => ({ ...p, streetAddress: e.target.value }))} placeholder="123 Main Street" className={inp} />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-1.5">City</label>
+                    <input type="text" value={editedProfile.city || ''} onChange={e => setEditedProfile(p => ({ ...p, city: e.target.value }))} placeholder="Boston" className={inp} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-1.5">State</label>
+                    <input type="text" value={editedProfile.state || ''} onChange={e => setEditedProfile(p => ({ ...p, state: e.target.value }))} placeholder="Massachusetts" className={inp} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {[
+                    { key: 'linkedIn', label: 'LinkedIn', placeholder: 'LinkedIn URL' },
+                    { key: 'github',   label: 'GitHub',   placeholder: 'GitHub URL'   },
+                    { key: 'website',  label: 'Website',  placeholder: 'Website URL'  },
+                  ].map(f => (
+                    <div key={f.key}>
+                      <label className="block text-xs font-medium text-slate-400 mb-1.5">{f.label}</label>
+                      <input type="url" value={(editedProfile as Record<string,unknown>)[f.key] as string || ''} onChange={e => setEditedProfile(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} className={inp} />
+                    </div>
+                  ))}
+                </div>
+
+                <FileRow
+                  label="Resume" hint="Stored securely"
+                  fileName={editedProfile.resumeFileName || (editedProfile.resume ? 'Resume.pdf' : undefined)}
+                  isUploading={isUploadingResume} uploadingLabel="Uploading resume…"
+                  accentClass="text-purple-400"
+                  iconEl={<FileBadge className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />}
+                  inputId="resume-upload" inputRef={resumeFileInputRef}
+                  onDelete={() => handleDeleteFile('resume')}
+                  onFileChange={e => handleFileUpload(e, 'resume', setIsUploadingResume, resumeFileInputRef)}
+                />
+
+                <FileRow
+                  label="Official Transcript" hint="Stored securely"
+                  fileName={editedProfile.transcriptFileName || (editedProfile.transcript ? 'Transcript.pdf' : undefined)}
+                  isUploading={isUploadingTranscript} uploadingLabel="Uploading transcript…"
+                  accentClass="text-blue-400"
+                  iconEl={<FileText className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />}
+                  inputId="transcript-upload" inputRef={transcriptFileInputRef}
+                  onDelete={() => handleDeleteFile('transcript')}
+                  onFileChange={e => handleFileUpload(e, 'transcript', setIsUploadingTranscript, transcriptFileInputRef)}
+                />
+              </div>
+            )}
           </div>
 
-          <div className="glass-card">
-            <div className="p-4 sm:p-6">
-              <h3 className="text-base sm:text-lg font-semibold text-white mb-4">Performance Metrics</h3>
-              <div className="grid grid-cols-3 gap-3 sm:gap-4">
-                <div className="text-center">
-                  <div className="text-xl sm:text-2xl font-semibold text-emerald-400 mb-1">{stats.successRate}%</div>
-                  <p className="text-xs text-slate-400">Success Rate</p>
+          {/* Stats row */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 animate-fade-in-up" style={{ animationDelay: '60ms' }}>
+            <StatCard icon={FileText}   value={stats.totalInterviews}                                label="Interviews"   accentClass="text-blue-400"    />
+            <StatCard icon={TrendingUp} value={stats.averageScore}                                   label="Avg Score"    accentClass="text-emerald-400" />
+            <StatCard icon={Zap}        value={stats.currentStreak}                                  label="Streak"       accentClass="text-amber-400"   />
+            <StatCard icon={Clock}      value={stats.hoursSpent > 0 ? `${stats.hoursSpent}h` : '0h'} label="Hours Spent" accentClass="text-violet-400"  />
+          </div>
+
+          {/* Performance metrics */}
+          <div className="glass-card p-5 animate-fade-in-up" style={{ animationDelay: '120ms' }}>
+            <h3 className="text-sm font-bold text-white mb-4">Performance Metrics</h3>
+            <div className="grid grid-cols-3 gap-4">
+              {[
+                { value: `${stats.successRate}%`,    label: 'Success Rate',    accentClass: 'text-emerald-400' },
+                { value: `${stats.completionRate}%`, label: 'Completion Rate', accentClass: 'text-blue-400'    },
+                { value: stats.longestStreak,        label: 'Longest Streak',  accentClass: 'text-violet-400'  },
+              ].map(m => (
+                <div key={m.label} className="text-center">
+                  <p className={`text-2xl font-bold tabular-nums ${m.accentClass}`}>{m.value}</p>
+                  <p className="text-[11px] text-slate-500 mt-1 uppercase tracking-wide font-semibold">{m.label}</p>
                 </div>
-                <div className="text-center">
-                  <div className="text-xl sm:text-2xl font-semibold text-blue-400 mb-1">{stats.completionRate}%</div>
-                  <p className="text-xs text-slate-400">Completion Rate</p>
-                </div>
-                <div className="text-center">
-                  <div className="text-xl sm:text-2xl font-semibold text-purple-400 mb-1">{stats.longestStreak}</div>
-                  <p className="text-xs text-slate-400">Longest Streak</p>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         </>
       )}
 
       {/* ── Saved tab ── */}
-      {activeTab === "saved" && (
-        <ProfileSaved savedTemplates={savedTemplates} bookmarkedBlogs={bookmarkedBlogs} userCreatedContent={userCreatedContent} />
+      {activeTab === 'saved' && (
+        <ProfileSaved
+          savedTemplates={savedTemplates}
+          bookmarkedBlogs={bookmarkedBlogs}
+          userCreatedContent={userCreatedContent}
+        />
       )}
 
       {/* ── Auto-Apply tab ── */}
-      {activeTab === "auto-apply" && (
-        <JobApplicationProfile />
-      )}
-
+      {activeTab === 'auto-apply' && <JobApplicationProfile />}
     </div>
   );
 };

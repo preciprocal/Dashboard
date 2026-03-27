@@ -1,484 +1,415 @@
-// components/resume/CustomEditorPanel.tsx
+// components/resume/EditableResumePanel.tsx
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { 
-  Save, 
-  Download, 
-  Check, 
-  Loader2, 
-  FileText,
-  Bold,
-  Italic,
-  Underline,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  List,
-  ListOrdered,
-  Undo,
-  Redo,
-  FileDown,
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  Eye, Download, FileText, ChevronLeft, ChevronRight,
+  PenTool, Save, Check, Loader2, RefreshCw, FileEdit,
 } from 'lucide-react';
-import { toast } from 'sonner';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/firebase/client';
+import { toast } from 'sonner';
 
-interface CustomEditorPanelProps {
-  initialContent: string;
-  resumeId: string;
-  userId: string;
-  resumePath?: string;
-  // Either a DOM element ID ("line-3") OR the original bullet text to match against
-  highlightedLineId: string | null;
-  onContentChange: (content: string) => void;
+// ─── PDF.js types ──────────────────────────────────────────────────────────────
+
+interface PDFDocumentProxy {
+  numPages: number;
+  getPage: (n: number) => Promise<PDFPageProxy>;
+}
+interface PDFPageProxy {
+  getViewport: (p: { scale: number }) => { width: number; height: number };
+  render: (p: { canvasContext: CanvasRenderingContext2D; viewport: ReturnType<PDFPageProxy['getViewport']> }) => { promise: Promise<void> };
+}
+interface PDFJSStatic {
+  GlobalWorkerOptions: { workerSrc: string };
+  getDocument: (src: { data: ArrayBuffer } | string) => { promise: Promise<PDFDocumentProxy> };
+  version: string;
 }
 
-export default function CustomEditorPanel({
-  initialContent,
-  resumeId,
-  userId,
-  highlightedLineId,
-  onContentChange
-}: CustomEditorPanelProps) {
-  const [content, setContent] = useState(initialContent);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const editorRef = useRef<HTMLDivElement>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [characterCount, setCharacterCount] = useState(0);
-  const [isEditorReady, setIsEditorReady] = useState(false);
-  const [showDownloadMenu, setShowDownloadMenu] = useState(false);
+let _pdfjsLib: PDFJSStatic | null = null;
+async function getPdfjs(): Promise<PDFJSStatic> {
+  if (_pdfjsLib) return _pdfjsLib;
+  const lib = (await import('pdfjs-dist')) as unknown as PDFJSStatic;
+  lib.GlobalWorkerOptions.workerSrc =
+    `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${lib.version}/pdf.worker.min.mjs`;
+  _pdfjsLib = lib;
+  return lib;
+}
+async function fetchPdfBytes(resumePath: string): Promise<ArrayBuffer> {
+  if (!resumePath.startsWith('http')) {
+    const base64 = resumePath.includes('base64,') ? resumePath.split('base64,')[1] : resumePath;
+    const binary = atob(base64);
+    const buf = new ArrayBuffer(binary.length);
+    const view = new Uint8Array(buf);
+    for (let i = 0; i < binary.length; i++) view[i] = binary.charCodeAt(i);
+    return buf;
+  }
+  const res = await fetch('/api/resume/proxy-pdf', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url: resumePath }),
+  });
+  if (!res.ok) throw new Error(`Failed to load PDF (${res.status})`);
+  return res.arrayBuffer();
+}
+
+// ─── Props ─────────────────────────────────────────────────────────────────────
+
+interface EditableResumePanelProps {
+  resumeId:        string;
+  userId:          string;
+  resumePath:      string;
+  resumeHtml?:     string;
+  resumeText?:     string;
+  imagePath?:      string;
+  onViewPdf:       () => void;
+  onDownloadPdf:   () => void;
+  onContentChange: (html: string) => void;
+}
+
+// ─── PDF Viewer sub-component ──────────────────────────────────────────────────
+
+function PdfViewer({ resumePath }: { resumePath: string }) {
+  const canvasRef    = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const renderRef    = useRef<{ cancel: () => void } | null>(null);
+
+  const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
+  const [page,   setPage]   = useState(1);
+  const [total,  setTotal]  = useState(0);
+  const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [errMsg, setErrMsg] = useState('');
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (showDownloadMenu) {
-        const target = event.target as HTMLElement;
-        if (!target.closest('.download-dropdown-menu') && !target.closest('.download-button')) {
-          setShowDownloadMenu(false);
-        }
+    if (!resumePath) return;
+    let cancelled = false;
+    (async () => {
+      setStatus('loading');
+      try {
+        const [lib, bytes] = await Promise.all([getPdfjs(), fetchPdfBytes(resumePath)]);
+        if (cancelled) return;
+        const doc = await lib.getDocument({ data: bytes }).promise;
+        if (cancelled) return;
+        setPdfDoc(doc); setTotal(doc.numPages); setPage(1); setStatus('ready');
+      } catch (err) {
+        if (!cancelled) { setErrMsg(err instanceof Error ? err.message : 'Failed to load PDF'); setStatus('error'); }
       }
-    };
-    if (showDownloadMenu) document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showDownloadMenu]);
+    })();
+    return () => { cancelled = true; };
+  }, [resumePath]);
 
-  const handleSave = useCallback(async (manual = false) => {
-    if (!resumeId || !userId || !editorRef.current) return;
-    setIsSaving(true);
-    setSaveStatus('saving');
+  const renderPage = useCallback(async (doc: PDFDocumentProxy, pageNum: number) => {
+    const canvas    = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+    if (renderRef.current) { renderRef.current.cancel(); renderRef.current = null; }
     try {
-      const htmlContent = editorRef.current.innerHTML;
-      const plainText   = editorRef.current.innerText;
-      const resumeRef   = doc(db, 'resumes', resumeId);
-      await updateDoc(resumeRef, {
-        resumeText: plainText,
-        resumeHtml: htmlContent,
-        updatedAt: new Date().toISOString()
-      });
-      setSaveStatus('saved');
-      setHasUnsavedChanges(false);
-      // Only toast on manual save
-      if (manual) toast.success('Resume saved', { duration: 2000 });
-      setTimeout(() => setSaveStatus('idle'), 2000);
-    } catch (error) {
-      console.error('Save error:', error);
-      toast.error('Failed to save');
-      setSaveStatus('idle');
-    } finally {
-      setIsSaving(false);
-    }
-  }, [resumeId, userId]);
+      const pdfPage    = await doc.getPage(pageNum);
+      const containerW = container.clientWidth || 520;
+      const viewport0  = pdfPage.getViewport({ scale: 1 });
+      const scale      = containerW / viewport0.width;
+      const viewport   = pdfPage.getViewport({ scale });
+      const dpr        = window.devicePixelRatio ?? 1;
+      canvas.width     = viewport.width  * dpr;
+      canvas.height    = viewport.height * dpr;
+      canvas.style.width  = `${viewport.width}px`;
+      canvas.style.height = `${viewport.height}px`;
+      const ctx = canvas.getContext('2d')!;
+      ctx.scale(dpr, dpr);
+      const task = pdfPage.render({ canvasContext: ctx, viewport });
+      renderRef.current = { cancel: () => {} };
+      await task.promise;
+    } catch {}
+  }, []);
 
-  useEffect(() => {
-    if (editorRef.current && !isEditorReady) {
-      editorRef.current.innerHTML = initialContent;
-      setIsEditorReady(true);
-    }
-  }, [initialContent, isEditorReady]);
+  useEffect(() => { if (pdfDoc) renderPage(pdfDoc, page); }, [pdfDoc, page, renderPage]);
 
-  useEffect(() => {
-    if (editorRef.current && initialContent !== content) {
-      editorRef.current.innerHTML = initialContent;
-      setContent(initialContent);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialContent]);
-
-  const prevHighlightedEl = useRef<HTMLElement | null>(null);
-
-  // ── Highlight by text match ───────────────────────────────────────────────
-  useEffect(() => {
-    if (!editorRef.current) return;
-
-    // Clear previous highlight
-    if (prevHighlightedEl.current) {
-      prevHighlightedEl.current.classList.remove('highlighted-line');
-    }
-
-    if (!highlightedLineId) {
-      prevHighlightedEl.current = null;
-      return;
-    }
-
-    const allElements = Array.from(
-      editorRef.current.querySelectorAll<HTMLElement>('p, li')
-    );
-
-    let matched: HTMLElement | null = null;
-
-    // Strategy 1: exact DOM id match
-    const byId = editorRef.current.querySelector<HTMLElement>(`#${CSS.escape(highlightedLineId)}`);
-    if (byId) {
-      matched = byId;
-    } else {
-      const needle = highlightedLineId.trim().toLowerCase();
-
-      // Strategy 2: exact substring match
-      matched = allElements.find(el =>
-        el.innerText.trim().toLowerCase().includes(needle)
-      ) ?? null;
-
-      // Strategy 3: fuzzy word match
-      if (!matched && needle.length > 10) {
-        const needleWords = new Set(needle.split(/\s+/).filter(w => w.length > 3));
-        let bestScore = 0;
-        for (const el of allElements) {
-          const elWords = el.innerText.trim().toLowerCase().split(/\s+/);
-          const score = elWords.filter(w => needleWords.has(w)).length;
-          if (score > bestScore) { bestScore = score; matched = el; }
-        }
-        if (bestScore < 2) matched = null;
-      }
-    }
-
-    if (matched) {
-      matched.classList.add('highlighted-line');
-      // Only scroll if this is a different element than before
-      if (matched !== prevHighlightedEl.current && scrollContainerRef.current) {
-        const container = scrollContainerRef.current;
-        const elTop     = matched.getBoundingClientRect().top;
-        const conTop    = container.getBoundingClientRect().top;
-        const conHeight = container.clientHeight;
-        // Target: center the element within the scroll container
-        const targetScrollTop = container.scrollTop + (elTop - conTop) - conHeight / 2 + matched.offsetHeight / 2;
-        container.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
-      }
-      prevHighlightedEl.current = matched;
-    } else {
-      prevHighlightedEl.current = null;
-    }
-  }, [highlightedLineId]);
-
-  useEffect(() => {
-    const autoSave = setTimeout(() => {
-      if (content && content.length > 50 && !content.includes('Paste your resume')) {
-        handleSave(false);
-      }
-    }, 3000);
-    return () => clearTimeout(autoSave);
-  }, [content, handleSave]);
-
-  useEffect(() => {
-    if (editorRef.current) setCharacterCount(editorRef.current.innerText.length);
-  }, [content]);
-
-  const execCommand = (command: string, value: string | undefined = undefined) => {
-    document.execCommand(command, false, value);
-    if (editorRef.current) {
-      const newContent = editorRef.current.innerHTML;
-      setContent(newContent);
-      onContentChange(newContent);
-    }
-  };
-
-  const handleDownloadPDF = async () => {
-    if (!editorRef.current) return;
-    try {
-      toast.loading('Generating PDF...', { id: 'pdf' });
-      const response = await fetch('/api/resume/download', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ htmlContent: editorRef.current.innerHTML, resumeId, format: 'pdf' })
-      });
-      if (!response.ok) throw new Error('PDF generation failed');
-      const blob = await response.blob();
-      const url  = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url; link.download = `resume_${Date.now()}.pdf`;
-      document.body.appendChild(link); link.click();
-      document.body.removeChild(link); URL.revokeObjectURL(url);
-      toast.success('PDF downloaded', { id: 'pdf' });
-      setShowDownloadMenu(false);
-    } catch (error) {
-      console.error('PDF generation error:', error);
-      toast.error('Failed to generate PDF', { id: 'pdf' });
-    }
-  };
-
-  const handleDownloadWord = async () => {
-    if (!editorRef.current) return;
-    try {
-      toast.loading('Generating Word document...', { id: 'word' });
-      const response = await fetch('/api/resume/download', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ htmlContent: editorRef.current.innerHTML, resumeId, format: 'docx' })
-      });
-      if (!response.ok) throw new Error('Word document generation failed');
-      const blob = await response.blob();
-      const url  = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url; link.download = `resume_${Date.now()}.docx`;
-      document.body.appendChild(link); link.click();
-      document.body.removeChild(link); URL.revokeObjectURL(url);
-      toast.success('Word document downloaded', { id: 'word' });
-      setShowDownloadMenu(false);
-    } catch (error) {
-      console.error('Word generation error:', error);
-      toast.error('Failed to generate Word document', { id: 'word' });
-    }
-  };
-
-  const setHeading = (level: string) => execCommand('formatBlock', level);
+  if (status === 'loading') return (
+    <div className="flex-1 flex flex-col items-center justify-center gap-3">
+      <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
+      <p className="text-slate-400 text-sm">Loading PDF…</p>
+    </div>
+  );
+  if (status === 'error') return (
+    <div className="flex-1 flex flex-col items-center justify-center gap-3 p-6 text-center">
+      <FileText className="w-10 h-10 text-slate-600" />
+      <p className="text-slate-400 text-sm">{errMsg || 'Could not load PDF'}</p>
+    </div>
+  );
 
   return (
-    <div className="w-1/2 bg-slate-900 flex flex-col h-full overflow-hidden border-r border-slate-800/50">
-      {/* Header */}
-      <div className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700/50 px-4 py-2.5 flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <FileText className="w-4 h-4 text-slate-400" />
-          <span className="text-sm font-medium text-slate-300">Resume Editor</span>
+    <div className="flex flex-col flex-1 overflow-hidden">
+      {/* Page nav */}
+      {total > 1 && (
+        <div className="flex items-center justify-center gap-3 py-2 flex-shrink-0 border-b border-white/[0.06]">
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
+            className="p-1.5 rounded-lg hover:bg-white/[0.06] text-slate-400 hover:text-white disabled:opacity-40 transition-colors cursor-pointer">
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <span className="text-xs text-slate-400 tabular-nums">{page} / {total}</span>
+          <button onClick={() => setPage(p => Math.min(total, p + 1))} disabled={page >= total}
+            className="p-1.5 rounded-lg hover:bg-white/[0.06] text-slate-400 hover:text-white disabled:opacity-40 transition-colors cursor-pointer">
+            <ChevronRight className="w-4 h-4" />
+          </button>
         </div>
+      )}
+      {/* Canvas */}
+      <div ref={containerRef} className="flex-1 overflow-y-auto overflow-x-hidden"
+        style={{ background: '#1e2130', scrollbarWidth: 'thin', scrollbarColor: 'rgba(100,116,139,0.3) transparent' }}>
+        <div className="flex justify-center py-4 px-3">
+          <canvas ref={canvasRef} className="rounded shadow-2xl max-w-full" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
+// ─── Word Editor sub-component ─────────────────────────────────────────────────
+
+function WordEditor({
+  resumeId, initialHtml, onContentChange,
+}: {
+  resumeId: string; initialHtml: string; onContentChange: (html: string) => void;
+}) {
+  const editorRef                = useRef<HTMLDivElement>(null);
+  const saveTimer                = useRef<NodeJS.Timeout | null>(null);
+  const [isSaving,  setIsSaving]   = useState(false);
+  const [saveStatus,setSaveStatus] = useState<'idle' | 'saved'>('idle');
+  const [hasChanges,setHasChanges] = useState(false);
+
+  useEffect(() => {
+    if (editorRef.current && !editorRef.current.innerHTML) {
+      editorRef.current.innerHTML = initialHtml;
+    }
+  }, [initialHtml]);
+
+  const handleInput = useCallback(() => {
+    if (!editorRef.current) return;
+    const html = editorRef.current.innerHTML;
+    onContentChange(html);
+    setHasChanges(true);
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(async () => {
+      setIsSaving(true);
+      try {
+        await updateDoc(doc(db, 'resumes', resumeId), {
+          resumeHtml: html,
+          resumeText: editorRef.current?.innerText ?? '',
+          updatedAt:  new Date().toISOString(),
+        });
+        setSaveStatus('saved');
+        setHasChanges(false);
+        setTimeout(() => setSaveStatus('idle'), 2000);
+      } catch { toast.error('Auto-save failed'); }
+      finally { setIsSaving(false); }
+    }, 3000);
+  }, [resumeId, onContentChange]);
+
+  const handleSaveNow = async () => {
+    if (!editorRef.current) return;
+    setIsSaving(true);
+    try {
+      const html = editorRef.current.innerHTML;
+      await updateDoc(doc(db, 'resumes', resumeId), {
+        resumeHtml: html, resumeText: editorRef.current.innerText,
+        updatedAt: new Date().toISOString(),
+      });
+      setSaveStatus('saved');
+      setHasChanges(false);
+      toast.success('Saved', { duration: 1500 });
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    } catch { toast.error('Save failed'); }
+    finally { setIsSaving(false); }
+  };
+
+  return (
+    <div className="flex flex-col flex-1 overflow-hidden">
+      {/* Save bar */}
+      <div className="flex items-center justify-between px-4 py-2 border-b border-white/[0.06] flex-shrink-0">
         <div className="flex items-center gap-2">
-          {/* Dynamic save button — shows current save state */}
+          <FileEdit className="w-3.5 h-3.5 text-indigo-400" />
+          <span className="text-xs font-medium text-slate-300">Word Mode — Editable</span>
+        </div>
+        <button onClick={handleSaveNow} disabled={isSaving || !hasChanges}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            saveStatus === 'saved'
+              ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+              : hasChanges
+              ? 'bg-indigo-600/70 hover:bg-indigo-600 text-white cursor-pointer'
+              : 'bg-slate-700/40 text-slate-600 cursor-not-allowed'
+          }`}>
+          {isSaving
+            ? <><Loader2 className="w-3 h-3 animate-spin" /> Saving…</>
+            : saveStatus === 'saved'
+            ? <><Check className="w-3 h-3" /> Saved</>
+            : <><Save className="w-3 h-3" /> Save</>}
+        </button>
+      </div>
+      {/* Editable page */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden py-5 px-4"
+        style={{ background: '#1e2130', scrollbarWidth: 'thin', scrollbarColor: 'rgba(100,116,139,0.3) transparent' }}>
+        <div
+          ref={editorRef}
+          contentEditable
+          suppressContentEditableWarning
+          onInput={handleInput}
+          onPaste={e => {
+            e.preventDefault();
+            const html = e.clipboardData.getData('text/html');
+            document.execCommand(html ? 'insertHTML' : 'insertText', false,
+              html || e.clipboardData.getData('text/plain'));
+          }}
+          className="w-full rounded-lg shadow-2xl outline-none mx-auto"
+          style={{
+            fontFamily:      'Calibri, Arial, sans-serif',
+            fontSize:        '10pt',
+            lineHeight:      '1.4',
+            color:           '#000',
+            backgroundColor: '#fff',
+            padding:         '0.75in 0.75in',
+            minHeight:       '11in',
+            maxWidth:        '8.5in',
+            boxSizing:       'border-box',
+            wordBreak:       'break-word',
+            overflowWrap:    'break-word',
+          }}
+        />
+      </div>
+      {/* Status */}
+      <div className="px-4 py-1.5 border-t border-white/[0.05] bg-slate-900/60 flex-shrink-0">
+        <p className="text-[10px] text-slate-600">Auto-saves 3s after typing stops · Changes sync to AI panel</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main component ────────────────────────────────────────────────────────────
+
+type ViewMode = 'pdf' | 'word';
+
+export default function EditableResumePanel({
+  resumeId, userId, resumePath, resumeHtml, resumeText, imagePath,
+  onViewPdf, onDownloadPdf, onContentChange,
+}: EditableResumePanelProps) {
+  const [mode,          setMode]          = useState<ViewMode>('pdf');
+  const [isConverting,  setIsConverting]  = useState(false);
+  const [wordHtml,      setWordHtml]      = useState(resumeHtml || '');
+  const [wordReady,     setWordReady]     = useState(!!(resumeHtml && resumeHtml.length > 100));
+
+  const convertToWord = useCallback(async () => {
+    // Already have html cached
+    if (wordReady && wordHtml.length > 100) { setMode('word'); return; }
+
+    setIsConverting(true);
+    try {
+      // 1. Try AI vision from image
+      if (imagePath?.startsWith('data:image/')) {
+        const res = await fetch('/api/resume/format-from-image', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ resumeId, imageBase64: imagePath }),
+        });
+        if (res.ok) {
+          const result = await res.json() as { html?: string; text?: string };
+          if (result.html && result.html.length > 100) {
+            setWordHtml(result.html);
+            setWordReady(true);
+            await updateDoc(doc(db, 'resumes', resumeId), {
+              resumeHtml: result.html, resumeText: result.text ?? '',
+              updatedAt: new Date().toISOString(),
+            });
+            onContentChange(result.html);
+            setMode('word');
+            toast.success('Converted to editable Word format!');
+            return;
+          }
+        }
+      }
+      // 2. Plain text fallback
+      if (resumeText && resumeText.length > 100) {
+        const html = `<div style="font-family:Calibri,Arial,sans-serif;font-size:10pt;color:#000;white-space:pre-wrap;line-height:1.4;">${resumeText}</div>`;
+        setWordHtml(html);
+        setWordReady(true);
+        onContentChange(html);
+        setMode('word');
+        toast.success('Converted using text content');
+        return;
+      }
+      // 3. Give up gracefully
+      const placeholder = '<p style="color:#6b7280;font-style:italic;">Paste your resume content here…</p>';
+      setWordHtml(placeholder);
+      setWordReady(true);
+      onContentChange(placeholder);
+      setMode('word');
+      toast.info('No source content found — you can paste your resume manually');
+    } catch {
+      toast.error('Conversion failed — try again');
+    } finally {
+      setIsConverting(false);
+    }
+  }, [resumeId, imagePath, resumeText, wordHtml, wordReady, onContentChange]);
+
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+
+      {/* ── Top toolbar ──────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06] flex-shrink-0"
+        style={{ background: 'rgba(15,18,30,0.8)' }}>
+
+        {/* Mode toggle pills */}
+        <div className="flex items-center gap-1 p-1 bg-slate-800/60 rounded-lg">
+          <button onClick={() => setMode('pdf')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer ${
+              mode === 'pdf'
+                ? 'bg-white/[0.10] text-white'
+                : 'text-slate-500 hover:text-slate-300'
+            }`}>
+            <FileText className="w-3.5 h-3.5" /> PDF
+          </button>
           <button
-            onClick={() => handleSave(true)}
-            disabled={isSaving}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 ${
-              isSaving
-                ? 'bg-slate-700/50 text-slate-400 cursor-not-allowed'
-                : saveStatus === 'saved' && !hasUnsavedChanges
-                ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 cursor-default'
-                : hasUnsavedChanges
-                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30'
-                : 'bg-purple-600/90 hover:bg-purple-600 text-white'
-            }`}
-          >
-            {isSaving ? (
-              <><Loader2 className="w-3 h-3 animate-spin" /> Saving...</>
-            ) : saveStatus === 'saved' && !hasUnsavedChanges ? (
-              <><Check className="w-3 h-3" /> Saved</>
-            ) : hasUnsavedChanges ? (
-              <><Save className="w-3 h-3" /> Unsaved</>
-            ) : (
-              <><Save className="w-3 h-3" /> Save</>
-            )}
+            onClick={convertToWord}
+            disabled={isConverting}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer ${
+              mode === 'word'
+                ? 'bg-white/[0.10] text-white'
+                : 'text-slate-500 hover:text-slate-300 disabled:opacity-50'
+            }`}>
+            {isConverting
+              ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Converting…</>
+              : <><PenTool className="w-3.5 h-3.5" /> Word</>
+            }
           </button>
+        </div>
 
-          <div className="relative">
-            <button
-              onClick={(e) => { e.stopPropagation(); setShowDownloadMenu(!showDownloadMenu); }}
-              className="px-3 py-1.5 bg-slate-700/50 hover:bg-slate-700 text-slate-300 hover:text-white rounded-md text-xs font-medium transition-all flex items-center gap-1.5 download-button"
-            >
-              <Download className="w-3 h-3" /> Export
+        {/* Action buttons */}
+        <div className="flex items-center gap-1.5">
+          {mode === 'word' && (
+            <button onClick={() => { setWordReady(false); setWordHtml(''); convertToWord(); }}
+              title="Re-convert from PDF"
+              className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer">
+              <RefreshCw className="w-3.5 h-3.5" />
             </button>
-
-            {showDownloadMenu && (
-              <div className="absolute right-0 top-full mt-1 w-44 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl z-[101] overflow-hidden download-dropdown-menu">
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleDownloadPDF(); }}
-                  className="w-full px-4 py-2.5 text-left text-sm text-white hover:bg-slate-700 flex items-center gap-3 transition-colors"
-                >
-                  <FileDown className="w-4 h-4 text-red-400" /> PDF Format
-                </button>
-                <div className="h-px bg-slate-700" />
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleDownloadWord(); }}
-                  className="w-full px-4 py-2.5 text-left text-sm text-white hover:bg-slate-700 flex items-center gap-3 transition-colors"
-                >
-                  <FileDown className="w-4 h-4 text-blue-400" /> Word Format
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Toolbar */}
-      <div className="bg-slate-800/30 border-b border-slate-700/50 px-3 py-2 flex items-center gap-1 overflow-x-auto flex-shrink-0">
-        <div className="flex items-center gap-0.5 pr-2 border-r border-slate-700/50">
-          <button onClick={() => execCommand('undo')} className="p-1.5 hover:bg-slate-700/50 rounded text-slate-400 hover:text-white transition-colors" title="Undo">
-            <Undo className="w-3.5 h-3.5" />
+          )}
+          <button onClick={onViewPdf} disabled={!resumePath}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] disabled:opacity-40 transition-colors cursor-pointer">
+            <Eye className="w-3.5 h-3.5" /> View
           </button>
-          <button onClick={() => execCommand('redo')} className="p-1.5 hover:bg-slate-700/50 rounded text-slate-400 hover:text-white transition-colors" title="Redo">
-            <Redo className="w-3.5 h-3.5" />
+          <button onClick={onDownloadPdf} disabled={!resumePath}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] disabled:opacity-40 transition-colors cursor-pointer">
+            <Download className="w-3.5 h-3.5" /> Download
           </button>
         </div>
-
-        <select onChange={(e) => execCommand('fontSize', e.target.value)} defaultValue="3"
-          className="px-2 py-1 bg-slate-700/50 text-slate-200 rounded text-xs border border-slate-600/50 focus:ring-1 focus:ring-purple-500 focus:border-transparent outline-none">
-          <option value="2">10pt</option>
-          <option value="3">11pt</option>
-          <option value="4">12pt</option>
-          <option value="5">14pt</option>
-        </select>
-
-        <select onChange={(e) => setHeading(e.target.value)} defaultValue="p"
-          className="px-2 py-1 bg-slate-700/50 text-slate-200 rounded text-xs border border-slate-600/50 focus:ring-1 focus:ring-purple-500 focus:border-transparent outline-none ml-1">
-          <option value="p">Normal</option>
-          <option value="h1">Title</option>
-          <option value="h2">Heading</option>
-          <option value="h3">Subheading</option>
-        </select>
-
-        <div className="h-4 w-px bg-slate-700/50 mx-1" />
-        <button onClick={() => execCommand('bold')}      className="p-1.5 hover:bg-slate-700/50 rounded text-slate-400 hover:text-white transition-colors" title="Bold"><Bold className="w-3.5 h-3.5" /></button>
-        <button onClick={() => execCommand('italic')}    className="p-1.5 hover:bg-slate-700/50 rounded text-slate-400 hover:text-white transition-colors" title="Italic"><Italic className="w-3.5 h-3.5" /></button>
-        <button onClick={() => execCommand('underline')} className="p-1.5 hover:bg-slate-700/50 rounded text-slate-400 hover:text-white transition-colors" title="Underline"><Underline className="w-3.5 h-3.5" /></button>
-
-        <div className="h-4 w-px bg-slate-700/50 mx-1" />
-        <button onClick={() => execCommand('justifyLeft')}   className="p-1.5 hover:bg-slate-700/50 rounded text-slate-400 hover:text-white transition-colors" title="Align Left"><AlignLeft className="w-3.5 h-3.5" /></button>
-        <button onClick={() => execCommand('justifyCenter')} className="p-1.5 hover:bg-slate-700/50 rounded text-slate-400 hover:text-white transition-colors" title="Center"><AlignCenter className="w-3.5 h-3.5" /></button>
-        <button onClick={() => execCommand('justifyRight')}  className="p-1.5 hover:bg-slate-700/50 rounded text-slate-400 hover:text-white transition-colors" title="Align Right"><AlignRight className="w-3.5 h-3.5" /></button>
-
-        <div className="h-4 w-px bg-slate-700/50 mx-1" />
-        <button onClick={() => execCommand('insertUnorderedList')} className="p-1.5 hover:bg-slate-700/50 rounded text-slate-400 hover:text-white transition-colors" title="Bullet List"><List className="w-3.5 h-3.5" /></button>
-        <button onClick={() => execCommand('insertOrderedList')}   className="p-1.5 hover:bg-slate-700/50 rounded text-slate-400 hover:text-white transition-colors" title="Numbered List"><ListOrdered className="w-3.5 h-3.5" /></button>
-
-        <div className="h-4 w-px bg-slate-700/50 mx-1" />
-        <input type="color" onChange={(e) => execCommand('foreColor', e.target.value)} defaultValue="#000000"
-          className="w-6 h-6 rounded cursor-pointer border border-slate-600/50" title="Text Color" />
       </div>
 
-      {/* Editor */}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden bg-slate-900 py-6 px-4">
-        <div className="w-full mx-auto pb-8" style={{ maxWidth: 'calc(100% - 8px)' }}>
-          <div
-            ref={editorRef}
-            contentEditable
-            suppressContentEditableWarning
-            onInput={(e) => {
-              const newContent = e.currentTarget.innerHTML;
-              setContent(newContent);
-              onContentChange(newContent);
-              setHasUnsavedChanges(true);
-            }}
-            onPaste={(e) => {
-              e.preventDefault();
-              const html = e.clipboardData.getData('text/html');
-              if (html) {
-                document.execCommand('insertHTML', false, html);
-              } else {
-                document.execCommand('insertText', false, e.clipboardData.getData('text/plain'));
-              }
-            }}
-            className="w-full rounded-lg shadow-2xl outline-none"
-            style={{
-              fontFamily: 'Calibri, Arial, sans-serif',
-              fontSize: '10pt',
-              lineHeight: '1.3',
-              color: '#000000',
-              backgroundColor: '#ffffff',
-              padding: '0.5in 0.5in',
-              minHeight: '800px',
-              boxSizing: 'border-box',
-              wordBreak: 'break-word',
-              overflowWrap: 'break-word',
-              overflowX: 'hidden',
-            }}
-          />
-        </div>
-      </div>
+      {/* ── Content ──────────────────────────────────────────────────────── */}
+      {mode === 'pdf' ? (
+        <PdfViewer resumePath={resumePath} />
+      ) : (
+        <WordEditor
+          resumeId={resumeId}
+          initialHtml={wordHtml}
+          onContentChange={html => { setWordHtml(html); onContentChange(html); }}
+        />
+      )}
 
-      {/* Status Bar */}
-      <div className="bg-slate-800/50 border-t border-slate-700/50 px-4 py-2 text-xs text-slate-500 flex items-center justify-between flex-shrink-0">
-        <span>Auto-saves after 3s of inactivity</span>
-        <span>{characterCount.toLocaleString()} characters</span>
-      </div>
-
-      <style jsx global>{`
-        [contenteditable] {
-          background: #ffffff !important;
-          overflow-x: hidden !important;
-        }
-
-        [contenteditable] * {
-          color: #000000 !important;
-          transition: background-color 0.3s ease;
-          max-width: 100% !important;
-          word-break: break-word !important;
-          overflow-wrap: break-word !important;
-        }
-
-        [contenteditable] .highlighted-line {
-          background-color: #fef3c7 !important;
-          border-left: 3px solid #f59e0b !important;
-          padding-left: 6pt !important;
-          animation: pulse-highlight 2s ease-in-out infinite;
-        }
-
-        @keyframes pulse-highlight {
-          0%, 100% { background-color: #fef3c7; }
-          50%       { background-color: #fde68a; }
-        }
-
-        [contenteditable] h1 {
-          font-size: 18pt !important;
-          font-weight: 700 !important;
-          margin-bottom: 4pt !important;
-          line-height: 1.2 !important;
-        }
-
-        [contenteditable] h2 {
-          font-size: 11pt !important;
-          font-weight: 700 !important;
-          text-transform: uppercase !important;
-          margin-top: 8pt !important;
-          margin-bottom: 4pt !important;
-          padding-bottom: 2pt !important;
-          border-bottom: 1.5pt solid #000000 !important;
-          line-height: 1.2 !important;
-        }
-
-        [contenteditable] h3 {
-          font-size: 10pt !important;
-          font-weight: 600 !important;
-          margin-top: 4pt !important;
-          margin-bottom: 2pt !important;
-          line-height: 1.2 !important;
-        }
-
-        [contenteditable] p {
-          margin: 2pt 0 !important;
-          line-height: 1.3 !important;
-        }
-
-        [contenteditable] ul,
-        [contenteditable] ol {
-          margin: 2pt 0 !important;
-          padding-left: 18pt !important;
-          line-height: 1.3 !important;
-        }
-
-        [contenteditable] li {
-          margin: 1pt 0 !important;
-          padding-left: 2pt !important;
-          line-height: 1.3 !important;
-        }
-
-        [contenteditable] strong,
-        [contenteditable] b { font-weight: 700 !important; }
-
-        [contenteditable] em,
-        [contenteditable] i { font-style: italic !important; }
-
-        [contenteditable] u { text-decoration: underline !important; }
-
-        [contenteditable]:focus { outline: none; }
-      `}</style>
     </div>
   );
 }

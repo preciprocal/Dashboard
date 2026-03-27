@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Shield, ArrowRight, Calendar, Sparkles } from "lucide-react";
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
 interface Subscription {
   plan: string;
   status: string;
@@ -38,238 +40,194 @@ interface UserWithUsage {
 
 interface PlanDisplayInfo {
   name: string;
-  color: string;
+  accentClass: string;
+  bgClass: string;
+  borderClass: string;
   isUnlimited: boolean;
 }
 
-function getPlanDisplayInfo(subscription: Subscription | undefined): PlanDisplayInfo {
-  if (!subscription) {
-    return {
-      name: "Free",
-      color: "slate",
-      isUnlimited: false,
-    };
-  }
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-  switch (subscription.plan) {
-    case "starter":
+function getPlanDisplayInfo(subscription: Subscription | undefined): PlanDisplayInfo {
+  switch (subscription?.plan) {
+    case 'pro':
       return {
-        name: "Free",
-        color: "slate",
-        isUnlimited: false,
-      };
-    case "pro":
-      return {
-        name: subscription.status === "trial" ? "Pro Trial" : "Pro",
-        color: "blue",
+        name: subscription.status === 'trial' ? 'Pro Trial' : 'Pro',
+        accentClass: 'text-blue-400',
+        bgClass: 'bg-blue-500/[0.07]',
+        borderClass: 'border-blue-500/20',
         isUnlimited: true,
       };
-    case "premium":
+    case 'premium':
       return {
-        name: "Premium",
-        color: "purple",
+        name: 'Premium',
+        accentClass: 'text-violet-400',
+        bgClass: 'bg-violet-500/[0.07]',
+        borderClass: 'border-violet-500/20',
         isUnlimited: true,
       };
     default:
       return {
-        name: "Free",
-        color: "slate",
+        name: 'Free',
+        accentClass: 'text-slate-400',
+        bgClass: 'bg-slate-500/[0.07]',
+        borderClass: 'border-slate-500/20',
         isUnlimited: false,
       };
   }
 }
 
 function calculateNextResetDate(subscription: Subscription | undefined): Date {
-  if (!subscription?.currentPeriodEnd) {
-    const createdAt = subscription?.createdAt
-      ? new Date(subscription.createdAt)
-      : new Date();
-    const now = new Date();
-    const nextMonth = new Date(createdAt);
-
-    while (nextMonth <= now) {
-      nextMonth.setMonth(nextMonth.getMonth() + 1);
-    }
-
-    return nextMonth;
-  }
-
-  return new Date(subscription.currentPeriodEnd);
+  if (subscription?.currentPeriodEnd) return new Date(subscription.currentPeriodEnd);
+  const base = subscription?.createdAt ? new Date(subscription.createdAt) : new Date();
+  const next = new Date(base);
+  while (next <= new Date()) next.setMonth(next.getMonth() + 1);
+  return next;
 }
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function CreateInterviewPage() {
   const user = await getCurrentUser();
+  if (!user?.id) redirect('/sign-in');
 
-  if (!user?.id) {
-    redirect("/sign-in");
-  }
-
-  const subscription = user.subscription;
-  const userData = user as unknown as UserWithUsage;
-  const usage = userData.usage;
-  const planInfo = getPlanDisplayInfo(subscription);
-
-  // Get interviews used from usage object
-  const interviewsUsed = usage?.interviewsUsed || 0;
-  
-  // Free tier limit is 2 interviews
+  const subscription  = user.subscription;
+  const usage         = (user as unknown as UserWithUsage).usage;
+  const planInfo      = getPlanDisplayInfo(subscription);
+  const interviewsUsed  = usage?.interviewsUsed || 0;
   const interviewsLimit = planInfo.isUnlimited ? -1 : 2;
-
-  const remainingSessionsCount = planInfo.isUnlimited
-    ? -1
-    : Math.max(0, interviewsLimit - interviewsUsed);
-
-  const hasSessionsRemaining =
-    planInfo.isUnlimited || remainingSessionsCount > 0;
-
-  const nextResetDate = !planInfo.isUnlimited
-    ? calculateNextResetDate(subscription)
-    : null;
+  const remaining       = planInfo.isUnlimited ? -1 : Math.max(0, interviewsLimit - interviewsUsed);
+  const hasSessions     = planInfo.isUnlimited || remaining > 0;
+  const nextResetDate   = !planInfo.isUnlimited ? calculateNextResetDate(subscription) : null;
+  const daysUntilReset  = nextResetDate
+    ? Math.max(0, Math.ceil((nextResetDate.getTime() - Date.now()) / 86_400_000))
+    : 0;
 
   return (
-    <div className="h-[calc(100vh-121px)] flex flex-col overflow-hidden px-4 sm:px-0">
-      {hasSessionsRemaining ? (
+    <div className="space-y-4 pt-4">
+
+      {hasSessions ? (
         <>
-          {/* Header Section - Fixed Height, Responsive */}
-          <div className="flex-shrink-0 pb-4 sm:pb-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
-              <div className="w-full sm:w-auto">
-                <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-full px-3 sm:px-4 py-1.5 sm:py-2 mb-2 sm:mb-3">
-                  <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400" />
-                  <span className="text-blue-400 text-xs sm:text-sm font-medium">AI-Powered</span>
+          {/* Header */}
+          <div className="flex-shrink-0 pb-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="inline-flex items-center gap-1.5 bg-blue-500/[0.08] border border-blue-500/20
+                                rounded-full px-3 py-1 mb-2">
+                  <Sparkles className="w-3 h-3 text-blue-400" />
+                  <span className="text-[11px] font-semibold text-blue-400">AI-Powered</span>
                 </div>
-                <h1 className="text-2xl sm:text-3xl font-semibold text-white mb-1 sm:mb-2">
+                <h1 className="text-xl font-bold text-white leading-tight">
                   Create Interview Session
                 </h1>
-                <div className="flex items-center gap-3">
-                  <p className="text-slate-400 text-xs sm:text-sm">
-                    Generate AI-powered questions tailored to your career goals
-                  </p>
-                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  AI-powered questions tailored to your career goals
+                </p>
               </div>
-              <div className={`px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 rounded-lg border ${
-                planInfo.color === 'blue' 
-                  ? 'bg-blue-500/5 border-blue-500/20 text-blue-400'
-                  : planInfo.color === 'purple'
-                  ? 'bg-purple-500/5 border-purple-500/20 text-purple-400'
-                  : 'bg-slate-500/5 border-slate-500/20 text-slate-400'
-              } flex-shrink-0`}>
-                <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium">
-                  <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  <span>{planInfo.name}</span>
-                  {!planInfo.isUnlimited && (
-                    <span className="opacity-70">
-                      • {remainingSessionsCount} left
-                    </span>
-                  )}
-                  {planInfo.isUnlimited && (
-                    <span className="opacity-70">
-                      • Unlimited
-                    </span>
-                  )}
-                </div>
+
+              {/* Plan badge */}
+              <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border flex-shrink-0
+                              ${planInfo.bgClass} ${planInfo.borderClass}`}>
+                <Shield className={`w-3.5 h-3.5 ${planInfo.accentClass}`} />
+                <span className={`text-xs font-semibold ${planInfo.accentClass}`}>
+                  {planInfo.name}
+                </span>
+                <span className={`text-[11px] ${planInfo.accentClass} opacity-60`}>
+                  · {planInfo.isUnlimited ? 'Unlimited' : `${remaining} left`}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Form Container - Takes remaining height, Responsive */}
-          <div className="flex-1 min-h-0 overflow-y-auto">
-            <div className="bg-slate-800/30 backdrop-blur-xl border border-slate-700/50 rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 h-full">
+          {/* Form */}
+          <div className="overflow-y-auto glass-scrollbar pb-4">
+            <div className="glass-card p-5 sm:p-6">
               <InterviewGeneratorForm userId={user.id} />
             </div>
           </div>
         </>
       ) : (
+        /* ── Limit reached ── */
         <div className="flex-1 flex items-center justify-center py-8">
-          <div className="max-w-lg w-full px-4">
+          <div className="max-w-md w-full space-y-4">
+
             {/* Icon */}
-            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-800/50 border border-slate-700/50 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-6 sm:mb-8">
-              <Shield className="w-8 h-8 sm:w-10 sm:h-10 text-slate-500" />
-            </div>
-            
-            {/* Content */}
-            <div className="text-center mb-6 sm:mb-8">
-              <h2 className="text-xl sm:text-2xl font-semibold text-white mb-2 sm:mb-3">
-                Interview Limit Reached
-              </h2>
-              <p className="text-slate-400 leading-relaxed text-sm sm:text-base">
-                You&apos;ve used all {interviewsLimit} of your free interview sessions this month. Upgrade your plan for unlimited access or wait for your next reset.
+            <div className="text-center mb-6">
+              <div className="w-14 h-14 bg-white/[0.03] border border-white/[0.07] rounded-2xl
+                             flex items-center justify-center mx-auto mb-4">
+                <Shield className="w-6 h-6 text-slate-600" />
+              </div>
+              <h2 className="text-xl font-bold text-white mb-2">Interview Limit Reached</h2>
+              <p className="text-sm text-slate-500 leading-relaxed max-w-sm mx-auto">
+                You&apos;ve used all {interviewsLimit} of your free interview sessions this month.
+                Upgrade for unlimited access or wait for your next reset.
               </p>
             </div>
 
-            {/* Actions */}
-            <div className="space-y-2.5 sm:space-y-3 mb-6 sm:mb-8">
-              <Link
-                href="/subscription"
-                className="w-full flex items-center justify-center gap-2 px-5 sm:px-6 py-3 sm:py-3.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-medium transition-all shadow-lg hover:shadow-xl text-sm sm:text-base"
-              >
-                Upgrade to Pro
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-              
-              <Link
-                href="/profile"
-                className="w-full flex items-center justify-center gap-2 px-5 sm:px-6 py-3 sm:py-3.5 bg-slate-800/50 hover:bg-slate-800/70 text-slate-300 border border-slate-700/50 rounded-xl font-medium transition-all text-sm sm:text-base"
-              >
-                View Progress
-              </Link>
-            </div>
+            {/* CTAs */}
+            <Link
+              href="/subscription"
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
+                         bg-gradient-to-r from-indigo-600 to-purple-600
+                         hover:from-indigo-500 hover:to-purple-500
+                         text-white text-sm font-semibold
+                         shadow-[0_4px_14px_rgba(102,126,234,0.3)]
+                         transition-all duration-200"
+            >
+              Upgrade to Pro <ArrowRight className="w-4 h-4" />
+            </Link>
 
-            {/* Next Reset Info */}
+            <Link
+              href="/interview"
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
+                         bg-white/[0.05] border border-white/[0.08]
+                         text-sm font-semibold text-slate-400
+                         hover:text-white hover:bg-white/[0.08] transition-all"
+            >
+              View My Interviews
+            </Link>
+
+            {/* Next reset */}
             {nextResetDate && (
-              <div className="bg-slate-800/30 backdrop-blur-xl border border-slate-700/50 rounded-xl p-4 sm:p-6">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
-                    <div className="w-9 h-9 sm:w-10 sm:h-10 bg-slate-700/50 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-xs sm:text-sm text-slate-400 mb-0.5 sm:mb-1">
-                        Next Reset
-                      </div>
-                      <div className="text-white font-semibold text-sm sm:text-base truncate">
-                        {nextResetDate.toLocaleDateString('en-US', { 
-                          month: 'short', 
-                          day: 'numeric',
-                          year: 'numeric'
-                        })}
-                      </div>
-                    </div>
+              <div className="glass-card p-4 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-white/[0.04] border border-white/[0.07] rounded-xl
+                                 flex items-center justify-center flex-shrink-0">
+                    <Calendar className="w-4 h-4 text-slate-500" />
                   </div>
-                  <div className="text-right flex-shrink-0">
-                    <div className="text-xl sm:text-2xl font-bold text-white">
-                      {Math.max(0, Math.ceil((nextResetDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))}
-                    </div>
-                    <div className="text-xs text-slate-400">
-                      days left
-                    </div>
+                  <div>
+                    <p className="text-[10px] text-slate-600 uppercase tracking-wide font-semibold">
+                      Next reset
+                    </p>
+                    <p className="text-sm font-semibold text-white">
+                      {nextResetDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </p>
                   </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-white tabular-nums">{daysUntilReset}</p>
+                  <p className="text-[10px] text-slate-600">days left</p>
                 </div>
               </div>
             )}
 
-            {/* Benefits Preview */}
-            <div className="mt-6 bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-xl p-4">
-              <h3 className="text-sm font-semibold text-white mb-3">
-                ✨ Pro Plan Benefits
-              </h3>
+            {/* Pro benefits */}
+            <div className="glass-card p-4">
+              <p className="text-xs font-bold text-white mb-3 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-400" /> Pro Plan Benefits
+              </p>
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-xs text-slate-300">
-                  <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-                  <span>Unlimited interview sessions</span>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-slate-300">
-                  <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-                  <span>Unlimited resume analyses</span>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-slate-300">
-                  <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-                  <span>Unlimited cover letters & study plans</span>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-slate-300">
-                  <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-                  <span>Priority support</span>
-                </div>
+                {[
+                  'Unlimited interview sessions',
+                  'Unlimited resume analyses',
+                  'Unlimited cover letters & study plans',
+                  'Priority support',
+                ].map(benefit => (
+                  <div key={benefit} className="flex items-center gap-2 text-xs text-slate-400">
+                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-400/60 flex-shrink-0" />
+                    {benefit}
+                  </div>
+                ))}
               </div>
             </div>
           </div>

@@ -1,22 +1,21 @@
 // components/LayoutClient.tsx
-"use client"
+"use client";
+
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import NextImage from 'next/image';
 import logo from "@/public/logo.png";
-import { 
-  Search, 
+import {
+  Search,
   Menu,
   X,
-  ChevronDown,
   Home,
   Video,
   BookOpen,
   Settings,
   HelpCircle,
   LogOut,
-  Plus,
   Crown,
   FileText,
   Shield,
@@ -37,6 +36,8 @@ import NotificationCenter from '@/components/Notifications';
 import type { LucideIcon } from 'lucide-react';
 import { Toaster } from 'sonner';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
+
+// ─── Interfaces ───────────────────────────────────────────────────────────────
 
 interface LayoutClientProps {
   children: React.ReactNode;
@@ -83,9 +84,7 @@ interface ResumeData {
   companyName?: string;
   jobTitle?: string;
   createdAt: string | Date;
-  feedback?: {
-    overallScore?: number;
-  };
+  feedback?: { overallScore?: number };
 }
 
 interface PlanInfo {
@@ -97,7 +96,8 @@ interface PlanInfo {
   showUpgrade: boolean;
 }
 
-// ── Avatar helper ─────────────────────────────────────────────────────────────
+// ─── Avatar ───────────────────────────────────────────────────────────────────
+
 function UserAvatar({
   photoURL,
   initials,
@@ -109,66 +109,63 @@ function UserAvatar({
   size?: 'sm' | 'md' | 'lg';
   className?: string;
 }) {
-  const sizeMap = {
-    sm: 'w-8 h-8 text-sm',
-    md: 'w-10 h-10 text-sm',
-    lg: 'w-10 h-10 text-base',
-  };
+  const sizeMap = { sm: 'w-8 h-8 text-sm', md: 'w-10 h-10 text-sm', lg: 'w-10 h-10 text-base' };
   const base = `${sizeMap[size]} rounded-full flex-shrink-0 ${className}`;
 
   if (photoURL) {
     return (
       <img
         src={photoURL}
-        alt="Profile"
+        alt="Profile photo"
         referrerPolicy="no-referrer"
         className={`${base} object-cover`}
       />
     );
   }
   return (
-    <div className={`${base} gradient-primary flex items-center justify-center text-white font-semibold`}>
+    <div className={`${base} gradient-primary flex items-center justify-center text-white font-semibold`}
+         aria-label={`User avatar: ${initials}`}>
       {initials}
     </div>
   );
 }
 
-// Public routes that don't require authentication
+// ─── Constants ────────────────────────────────────────────────────────────────
+
 const PUBLIC_ROUTES = [
-  '/sign-in',
-  '/sign-up',
-  '/forgot-password',
-  '/reset-password',
-  '/verify-email',
-  '/onboarding',
-  '/auth/action',
-  '/auth',
-  '/help',
-  '/terms',
-  '/privacy',
-  '/subscription',
+  '/sign-in', '/sign-up', '/forgot-password', '/reset-password',
+  '/verify-email', '/onboarding', '/auth/action', '/auth',
+  '/help', '/terms', '/privacy', '/subscription',
 ];
+
+const FREE_PLAN_INFO: PlanInfo = {
+  text: 'Free',
+  displayName: 'Free Plan',
+  icon: Shield,
+  style: 'text-green-400',
+  badgeClass: 'bg-green-500/10 border-green-500/20 text-green-400',
+  showUpgrade: true,
+};
+
+// ─── Resume count hook ────────────────────────────────────────────────────────
 
 const useResumeCount = () => {
   const [user] = useAuthState(auth);
-  const [resumeCount, setResumeCount] = useState(0);
-  const [latestResume, setLatestResume] = useState<ResumeData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [resumeCount,   setResumeCount]   = useState(0);
+  const [latestResume,  setLatestResume]  = useState<ResumeData | null>(null);
+  const [loading,       setLoading]       = useState(true);
 
   useEffect(() => {
     const fetchResumeData = async () => {
-      if (!user) {
-        setLoading(false);
-        return;
-      }
+      if (!user) { setLoading(false); return; }
       try {
         const resumes = await FirebaseService.getUserResumes(user.uid);
         setResumeCount(resumes.length);
         if (resumes.length > 0) {
-          const sorted = resumes.sort((a, b) => {
-            const dateA = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt);
-            const dateB = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt);
-            return dateB.getTime() - dateA.getTime();
+          const sorted = [...resumes].sort((a, b) => {
+            const da = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt);
+            const db = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt);
+            return db.getTime() - da.getTime();
           });
           setLatestResume(sorted[0]);
         }
@@ -184,19 +181,12 @@ const useResumeCount = () => {
   return { resumeCount, latestResume, loading };
 };
 
-const FREE_PLAN_INFO: PlanInfo = {
-  text: "Free",
-  displayName: "Free Plan",
-  icon: Shield,
-  style: "text-green-400",
-  badgeClass: "bg-green-500/10 border-green-500/20 text-green-400",
-  showUpgrade: true,
-};
+// ─── Search dropdown ──────────────────────────────────────────────────────────
 
 const SearchDropdown = () => {
-  const [isOpen,       setIsOpen]       = useState(false);
-  const [searchQuery,  setSearchQuery]  = useState('');
-  const [activeIndex,  setActiveIndex]  = useState(-1);
+  const [isOpen,      setIsOpen]      = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeIndex, setActiveIndex] = useState(-1);
   const router = useRouter();
 
   const highlight = (text: string, query: string) => {
@@ -213,16 +203,16 @@ const SearchDropdown = () => {
   };
 
   const allItems: NavItem[] = [
-    { id: 'dashboard',    label: 'Dashboard',            href: '/',                 icon: Home,        category: 'Navigation' },
-    { id: 'resume',       label: 'Resume Analysis',      href: '/resume',           icon: FileText,    category: 'Navigation' },
-    { id: 'cover-letter', label: 'Cover Letter',         href: '/cover-letter',     icon: Pen,         category: 'Navigation' },
-    { id: 'interviews',   label: 'Interviews',           href: '/interview',        icon: Video,       category: 'Navigation' },
-    { id: 'planner',      label: 'Planner',              href: '/planner',          icon: Calendar,    category: 'Navigation' },
-    { id: 'debrief',      label: 'Interview Journal',    href: '/debrief',          icon: NotebookPen, category: 'Navigation' },
-    { id: 'career-tools', label: 'Career Tools',         href: '/career-tools',     icon: Sparkles,    category: 'Navigation' },
-    { id: 'job-tracker',  label: 'Job Tracker',          href: '/job-tracker',      icon: Briefcase,   category: 'Navigation' },
-    { id: 'new-interview',label: 'Start New Interview',  href: '/interview/create', icon: Plus,        category: 'Actions'    },
-    { id: 'upload-resume',label: 'Upload Resume',        href: '/resume/upload',    icon: FileText,    category: 'Actions'    },
+    { id: 'dashboard',     label: 'Dashboard',           href: '/',                 icon: Home,        category: 'Navigation' },
+    { id: 'resume',        label: 'Resume Analysis',     href: '/resume',           icon: FileText,    category: 'Navigation' },
+    { id: 'cover-letter',  label: 'Cover Letter',        href: '/cover-letter',     icon: Pen,         category: 'Navigation' },
+    { id: 'interviews',    label: 'Interviews',          href: '/interview',        icon: Video,       category: 'Navigation' },
+    { id: 'planner',       label: 'Planner',             href: '/planner',          icon: Calendar,    category: 'Navigation' },
+    { id: 'debrief',       label: 'Interview Journal',   href: '/debrief',          icon: NotebookPen, category: 'Navigation' },
+    { id: 'career-tools',  label: 'Career Tools',        href: '/career-tools',     icon: Sparkles,    category: 'Navigation' },
+    { id: 'job-tracker',   label: 'Job Tracker',         href: '/job-tracker',      icon: Briefcase,   category: 'Navigation' },
+    { id: 'new-interview', label: 'Start New Interview', href: '/interview/create', icon: Video,       category: 'Actions'    },
+    { id: 'upload-resume', label: 'Upload Resume',       href: '/resume/upload',    icon: FileText,    category: 'Actions'    },
   ];
 
   const faqItems: FAQItem[] = [
@@ -282,20 +272,20 @@ const SearchDropdown = () => {
     ? (() => {
         const q = searchQuery.toLowerCase().trim();
         if (!q) return [];
-        const scored = faqItems.map(item => {
-          const label = item.label.toLowerCase();
-          let score = 0;
-          if (label.startsWith(q))                                        score += 100;
-          if (label.includes(q))                                          score += 50;
-          if (item.keywords.some(k => k.toLowerCase().startsWith(q)))    score += 30;
-          if (item.keywords.some(k => k.toLowerCase().includes(q)))      score += 10;
-          q.split(' ').forEach(word => { if (word.length > 1 && label.includes(word)) score += 5; });
-          return { item, score };
-        })
-        .filter(s => s.score > 0)
-        .sort((a, b) => b.score - a.score)
-        .map(s => s.item);
-        return scored;
+        return faqItems
+          .map(item => {
+            const label = item.label.toLowerCase();
+            let score   = 0;
+            if (label.startsWith(q))                                     score += 100;
+            if (label.includes(q))                                       score += 50;
+            if (item.keywords.some(k => k.toLowerCase().startsWith(q))) score += 30;
+            if (item.keywords.some(k => k.toLowerCase().includes(q)))   score += 10;
+            q.split(' ').forEach(word => { if (word.length > 1 && label.includes(word)) score += 5; });
+            return { item, score };
+          })
+          .filter(s => s.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .map(s => s.item);
       })()
     : [];
 
@@ -303,33 +293,37 @@ const SearchDropdown = () => {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      const searchContainer = document.getElementById('search-container');
-      if (searchContainer && !searchContainer.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
+      const el = document.getElementById('search-container');
+      if (el && !el.contains(event.target as Node)) setIsOpen(false);
     };
     if (isOpen) document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
   const handleFAQClick = (item: FAQItem) => {
-    const categoryParam = item.category !== 'general' ? `&category=${item.category}` : '';
-    router.push(`/help?q=${encodeURIComponent(item.label)}${categoryParam}`);
+    const catParam = item.category !== 'general' ? `&category=${item.category}` : '';
+    router.push(`/help?q=${encodeURIComponent(item.label)}${catParam}`);
     setIsOpen(false);
     setSearchQuery('');
   };
 
+  const closeAndNavigate = () => { setIsOpen(false); setSearchQuery(''); };
+
   return (
-    <div id="search-container" className="relative">
+    <div id="search-container" className="relative" role="search">
       <div className="relative">
-        <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" aria-hidden="true" />
         <input
-          type="text"
-          placeholder="Search pages, FAQs..."
+          type="search"
+          placeholder="Search pages, FAQs…"
           value={searchQuery}
-          onChange={(e) => { setSearchQuery(e.target.value); setActiveIndex(-1); }}
+          onChange={e => { setSearchQuery(e.target.value); setActiveIndex(-1); }}
           onFocus={() => setIsOpen(true)}
-          onKeyDown={(e) => {
+          aria-label="Search pages and FAQs"
+          aria-expanded={isOpen}
+          aria-haspopup="listbox"
+          aria-autocomplete="list"
+          onKeyDown={e => {
             const total = filteredFAQs.slice(0, 6).length + filteredNavigation.length;
             if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIndex(i => Math.min(i + 1, total - 1)); }
             if (e.key === 'ArrowUp')   { e.preventDefault(); setActiveIndex(i => Math.max(i - 1, -1)); }
@@ -339,53 +333,63 @@ const SearchDropdown = () => {
               const navCount = filteredNavigation.length;
               if (activeIndex < navCount) router.push(filteredNavigation[activeIndex].href);
               else handleFAQClick(filteredFAQs[activeIndex - navCount]);
-              setIsOpen(false); setSearchQuery(''); setActiveIndex(-1);
+              closeAndNavigate(); setActiveIndex(-1);
             }
           }}
-          className="w-full pl-12 pr-4 py-2.5 text-sm glass-input rounded-xl 
-                     bg-slate-800/50 border border-white/10 text-white 
-                     placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+          className="w-full pl-11 pr-4 py-2.5 text-sm glass-input rounded-xl
+                     bg-slate-800/50 border border-white/10 text-white
+                     placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50
+                     transition-colors"
         />
       </div>
 
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 
-                       bg-slate-900 border border-slate-700 rounded-xl shadow-2xl
-                       max-h-96 overflow-y-auto scrollbar-hide z-[9999] animate-fade-in-up">
+        <div
+          role="listbox"
+          aria-label="Search results"
+          className="absolute top-full left-0 right-0 mt-2
+                     bg-slate-900 border border-slate-700/80 rounded-xl shadow-2xl
+                     max-h-96 overflow-y-auto scrollbar-hide z-[9999] animate-fade-in-up"
+        >
           {!searchQuery ? (
             <div className="py-2">
-              <div className="px-4 py-2.5 bg-slate-800">
+              <div className="px-4 py-2.5 bg-slate-800/60">
                 <div className="flex items-center gap-2">
-                  <HelpCircle className="w-3.5 h-3.5 text-purple-400" />
-                  <p className="text-xs font-bold text-slate-300 uppercase tracking-wider">Common Questions</p>
+                  <HelpCircle className="w-3.5 h-3.5 text-purple-400" aria-hidden="true" />
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Common Questions</p>
                 </div>
               </div>
               <div className="py-1">
-                {faqItems.filter(f => ['faq-g1', 'faq-i1', 'faq-r1', 'faq-c1', 'faq-p1', 'faq-g5', 'faq-g9'].includes(f.id)).map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => handleFAQClick(item)}
-                    className="w-full flex items-center gap-3 px-4 py-3 transition-all duration-150 text-left border-b border-slate-800 last:border-0 hover:bg-slate-800 cursor-pointer"
-                  >
-                    <div className="w-7 h-7 rounded-lg bg-purple-500/15 flex items-center justify-center flex-shrink-0">
-                      <HelpCircle className="w-3.5 h-3.5 text-purple-400" />
-                    </div>
-                    <span className="text-sm text-slate-300">{item.label}</span>
-                    <ChevronRight className="w-3.5 h-3.5 text-slate-600 ml-auto flex-shrink-0" />
-                  </button>
-                ))}
+                {faqItems
+                  .filter(f => ['faq-g1','faq-i1','faq-r1','faq-c1','faq-p1','faq-g5','faq-g9'].includes(f.id))
+                  .map(item => (
+                    <button
+                      key={item.id}
+                      onClick={() => handleFAQClick(item)}
+                      role="option"
+                      className="w-full flex items-center gap-3 px-4 py-3 transition-colors text-left
+                                 border-b border-slate-800 last:border-0 hover:bg-slate-800/80"
+                    >
+                      <div className="w-7 h-7 rounded-lg bg-purple-500/15 flex items-center justify-center flex-shrink-0">
+                        <HelpCircle className="w-3.5 h-3.5 text-purple-400" aria-hidden="true" />
+                      </div>
+                      <span className="text-sm text-slate-300">{item.label}</span>
+                      <ChevronRight className="w-3.5 h-3.5 text-slate-600 ml-auto flex-shrink-0" aria-hidden="true" />
+                    </button>
+                  ))}
               </div>
             </div>
           ) : !hasResults ? (
-            <div className="p-6 text-center">
-              <p className="text-slate-400 text-sm font-medium">No results found for &quot;{searchQuery}&quot;</p>
+            <div className="p-8 text-center">
+              <Search className="w-8 h-8 text-slate-700 mx-auto mb-3" aria-hidden="true" />
+              <p className="text-slate-400 text-sm">No results for &ldquo;{searchQuery}&rdquo;</p>
             </div>
           ) : (
             <>
               {filteredNavigation.length > 0 && (
                 <div className="py-2">
-                  <div className="px-4 py-2.5 bg-slate-800">
-                    <p className="text-xs font-bold text-slate-300 uppercase tracking-wider">Pages</p>
+                  <div className="px-4 py-2.5 bg-slate-800/60">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Pages</p>
                   </div>
                   <div className="py-1">
                     {filteredNavigation.map((item, index) => {
@@ -394,11 +398,13 @@ const SearchDropdown = () => {
                         <Link
                           key={`nav-${index}`}
                           href={item.href}
-                          onClick={() => { setIsOpen(false); setSearchQuery(''); }}
-                          className={`flex items-center space-x-3 px-4 py-3 transition-all duration-150 text-white border-b border-slate-800 last:border-0 cursor-pointer ${activeIndex === index ? 'bg-slate-700' : 'hover:bg-slate-800'}`}
+                          role="option"
+                          onClick={closeAndNavigate}
+                          className={`flex items-center gap-3 px-4 py-3 transition-colors border-b border-slate-800 last:border-0
+                                      ${activeIndex === index ? 'bg-slate-700' : 'hover:bg-slate-800/80'}`}
                         >
-                          <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center">
-                            <Icon className="w-4 h-4 text-purple-400" />
+                          <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0">
+                            <Icon className="w-4 h-4 text-purple-400" aria-hidden="true" />
                           </div>
                           <span className="text-sm font-medium text-slate-200">{highlight(item.label, searchQuery)}</span>
                         </Link>
@@ -409,10 +415,10 @@ const SearchDropdown = () => {
               )}
               {filteredFAQs.length > 0 && (
                 <div className={`py-2 ${filteredNavigation.length > 0 ? 'border-t border-slate-700' : ''}`}>
-                  <div className="px-4 py-2.5 bg-slate-800">
+                  <div className="px-4 py-2.5 bg-slate-800/60">
                     <div className="flex items-center gap-2">
-                      <HelpCircle className="w-3.5 h-3.5 text-purple-400" />
-                      <p className="text-xs font-bold text-slate-300 uppercase tracking-wider">FAQ Articles</p>
+                      <HelpCircle className="w-3.5 h-3.5 text-purple-400" aria-hidden="true" />
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">FAQ Articles</p>
                     </div>
                   </div>
                   <div className="py-1">
@@ -420,14 +426,18 @@ const SearchDropdown = () => {
                       <button
                         key={item.id}
                         onClick={() => handleFAQClick(item)}
-                        className={`w-full flex items-start space-x-3 px-4 py-3 transition-all duration-150 text-white text-left border-b border-slate-800 last:border-0 cursor-pointer ${activeIndex === filteredNavigation.length + faqIdx ? 'bg-slate-700' : 'hover:bg-slate-800'}`}
+                        role="option"
+                        className={`w-full flex items-start gap-3 px-4 py-3 transition-colors text-left border-b border-slate-800 last:border-0
+                                    ${activeIndex === filteredNavigation.length + faqIdx ? 'bg-slate-700' : 'hover:bg-slate-800/80'}`}
                       >
-                        <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center flex-shrink-0">
-                          <HelpCircle className="w-4 h-4 text-purple-400" />
+                        <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <HelpCircle className="w-4 h-4 text-purple-400" aria-hidden="true" />
                         </div>
-                        <div className="flex-1 min-w-0 pt-0.5">
-                          <p className="text-sm font-medium line-clamp-2 mb-1 text-slate-300">{highlight(item.label, searchQuery)}</p>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-800 text-slate-300 capitalize">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium line-clamp-2 mb-1 text-slate-300">
+                            {highlight(item.label, searchQuery)}
+                          </p>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-800 text-slate-400 capitalize">
                             {item.category.replace('-', ' ')}
                           </span>
                         </div>
@@ -436,14 +446,14 @@ const SearchDropdown = () => {
                     {filteredFAQs.length > 6 && (
                       <Link
                         href={`/help?q=${encodeURIComponent(searchQuery)}`}
-                        onClick={() => { setIsOpen(false); setSearchQuery(''); }}
+                        onClick={closeAndNavigate}
                         className="flex items-center justify-center gap-2 px-4 py-3.5
-                                 bg-slate-800 text-purple-400 hover:text-purple-300
-                                 text-sm font-semibold hover:bg-slate-750
-                                 transition-all duration-150 border-t border-slate-700 cursor-pointer"
+                                   bg-slate-800/60 text-purple-400 hover:text-purple-300
+                                   text-sm font-semibold transition-colors
+                                   border-t border-slate-700"
                       >
                         View all {filteredFAQs.length} FAQ results
-                        <ChevronRight className="w-4 h-4" />
+                        <ChevronRight className="w-4 h-4" aria-hidden="true" />
                       </Link>
                     )}
                   </div>
@@ -457,20 +467,21 @@ const SearchDropdown = () => {
   );
 };
 
+// ─── Main layout ──────────────────────────────────────────────────────────────
+
 function LayoutContent({ children, user }: LayoutClientProps) {
-  const [sidebarOpen,     setSidebarOpen]     = useState(false);
-  const [isLoggingOut,    setIsLoggingOut]    = useState(false);
-  const [scrolled,        setScrolled]        = useState(false);
-  const [showAccountMenu, setShowAccountMenu] = useState(false);
-  const [savedAccounts,   setSavedAccounts]   = useState<Array<{email: string, name: string}>>([]);
-  const pathname  = usePathname();
+  const [sidebarOpen,    setSidebarOpen]    = useState(false);
+  const [isLoggingOut,   setIsLoggingOut]   = useState(false);
+  const [scrolled,       setScrolled]       = useState(false);
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false);
+  const pathname = usePathname();
   const [recentPages, setRecentPages] = React.useState<NavItem[]>([]);
-  const router    = useRouter();
+  const router = useRouter();
   const [currentUser, loading] = useAuthState(auth);
   const [authResolved, setAuthResolved] = useState(false);
 
   const { latestResume } = useResumeCount();
-  
+
   const {
     notifications,
     unreadCount,
@@ -482,19 +493,11 @@ function LayoutContent({ children, user }: LayoutClientProps) {
 
   const photoURL = currentUser?.photoURL ?? null;
 
-  // Wait for Firebase to resolve before making routing decisions
   useEffect(() => {
     if (!loading) setAuthResolved(true);
   }, [loading]);
 
-  useEffect(() => {
-    const accounts = localStorage.getItem('saved_accounts');
-    if (accounts) {
-      try { setSavedAccounts(JSON.parse(accounts)); }
-      catch (e) { console.error('Failed to parse saved accounts:', e); }
-    }
-  }, []);
-
+  // Auth redirect — only fires once auth state is confirmed
   useEffect(() => {
     const isPublicRoute = PUBLIC_ROUTES.some(route => pathname.startsWith(route));
     if (!authResolved) return;
@@ -503,32 +506,41 @@ function LayoutContent({ children, user }: LayoutClientProps) {
     }
   }, [user, currentUser, authResolved, pathname, router]);
 
+  // Scroll shadow on header
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10);
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Close header menu on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      const accountMenu = document.getElementById('account-menu-container');
-      if (accountMenu && !accountMenu.contains(event.target as Node)) {
-        setShowAccountMenu(false);
-      }
+      const menu = document.getElementById('header-account-menu');
+      if (menu && !menu.contains(event.target as Node)) setShowHeaderMenu(false);
     };
-    if (showAccountMenu) document.addEventListener('mousedown', handleClickOutside);
+    if (showHeaderMenu) document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showAccountMenu]);
+  }, [showHeaderMenu]);
+
+  // Close sidebar on Escape
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setSidebarOpen(false); setShowHeaderMenu(false); }
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, []);
 
   const mainNavItems: NavItem[] = [
-    { id: 'overview',     label: 'Overview',          icon: Home,        href: '/'             },
-    { id: 'resume',       label: 'Resume',             icon: FileText,    href: '/resume'       },
-    { id: 'cover-letter', label: 'Cover Letter',       icon: Pen,         href: '/cover-letter' },
-    { id: 'interviews',   label: 'Interviews',         icon: Video,       href: '/interview'    },
-    { id: 'planner',      label: 'Planner',            icon: Calendar,    href: '/planner'      },
-    { id: 'debrief',      label: 'Interview Journal',  icon: NotebookPen, href: '/debrief'      },
-    { id: 'career-tools', label: 'Career Tools',       icon: Sparkles,    href: '/career-tools' },
-    { id: 'job-tracker',  label: 'Job Tracker',        icon: Briefcase,   href: '/job-tracker'  },
+    { id: 'overview',     label: 'Overview',         icon: Home,        href: '/'             },
+    { id: 'resume',       label: 'Resume',            icon: FileText,    href: '/resume'       },
+    { id: 'cover-letter', label: 'Cover Letter',      icon: Pen,         href: '/cover-letter' },
+    { id: 'interviews',   label: 'Interviews',        icon: Video,       href: '/interview'    },
+    { id: 'planner',      label: 'Planner',           icon: Calendar,    href: '/planner'      },
+    { id: 'debrief',      label: 'Interview Journal', icon: NotebookPen, href: '/debrief'      },
+    { id: 'career-tools', label: 'Career Tools',      icon: Sparkles,    href: '/career-tools' },
+    { id: 'job-tracker',  label: 'Job Tracker',       icon: Briefcase,   href: '/job-tracker'  },
   ];
 
   const teamSpaces: NavItem[] = [
@@ -543,21 +555,23 @@ function LayoutContent({ children, user }: LayoutClientProps) {
   const authPages   = ['/sign-in', '/sign-up', '/forgot-password', '/reset-password', '/verify-email', '/onboarding', '/auth/action', '/auth'];
   const publicPages = ['/help', '/terms', '/privacy', '/subscription'];
 
-  const isAuthPage    = authPages.some(page   => pathname.startsWith(page));
-  const isPublicPage  = publicPages.some(page => pathname.startsWith(page));
+  const isAuthPage   = authPages.some(page   => pathname.startsWith(page));
+  const isPublicPage = publicPages.some(page => pathname.startsWith(page));
   const isPublicRoute = PUBLIC_ROUTES.some(route => pathname.startsWith(route));
 
+  const TRACKED: NavItem[] = [
+    { id: 'resume',       label: 'Resume',            icon: FileText,    href: '/resume'       },
+    { id: 'cover-letter', label: 'Cover Letter',      icon: Pen,         href: '/cover-letter' },
+    { id: 'interviews',   label: 'Interviews',        icon: Video,       href: '/interview'    },
+    { id: 'planner',      label: 'Planner',           icon: Calendar,    href: '/planner'      },
+    { id: 'debrief',      label: 'Interview Journal', icon: NotebookPen, href: '/debrief'      },
+    { id: 'career-tools', label: 'Career Tools',      icon: Sparkles,    href: '/career-tools' },
+    { id: 'job-tracker',  label: 'Job Tracker',       icon: Briefcase,   href: '/job-tracker'  },
+    { id: 'templates',    label: 'Templates',         icon: BookOpen,    href: '/templates'    },
+  ];
+
+  // Track recently visited pages in localStorage
   React.useEffect(() => {
-    const TRACKED = [
-      { id: 'resume',       label: 'Resume',            icon: FileText,    href: '/resume'       },
-      { id: 'cover-letter', label: 'Cover Letter',      icon: Pen,         href: '/cover-letter' },
-      { id: 'interviews',   label: 'Interviews',        icon: Video,       href: '/interview'    },
-      { id: 'planner',      label: 'Planner',           icon: Calendar,    href: '/planner'      },
-      { id: 'debrief',      label: 'Interview Journal', icon: NotebookPen, href: '/debrief'      },
-      { id: 'career-tools', label: 'Career Tools',      icon: Sparkles,    href: '/career-tools' },
-      { id: 'job-tracker',  label: 'Job Tracker',       icon: Briefcase,   href: '/job-tracker'  },
-      { id: 'templates',    label: 'Templates',         icon: BookOpen,    href: '/templates'    },
-    ];
     const match = TRACKED.find(p => pathname === p.href || pathname.startsWith(p.href + '/'));
     if (!match) return;
     try {
@@ -565,46 +579,38 @@ function LayoutContent({ children, user }: LayoutClientProps) {
       const updated = [match.id, ...stored.filter(id => id !== match.id)].slice(0, 3);
       localStorage.setItem('prc_recent', JSON.stringify(updated));
       setRecentPages(updated.map(id => TRACKED.find(p => p.id === id)!).filter(Boolean));
-    } catch { /* localStorage unavailable */ }
+    } catch {}
   }, [pathname]);
 
   React.useEffect(() => {
-    const TRACKED = [
-      { id: 'resume',       label: 'Resume',            icon: FileText,    href: '/resume'       },
-      { id: 'cover-letter', label: 'Cover Letter',      icon: Pen,         href: '/cover-letter' },
-      { id: 'interviews',   label: 'Interviews',        icon: Video,       href: '/interview'    },
-      { id: 'planner',      label: 'Planner',           icon: Calendar,    href: '/planner'      },
-      { id: 'debrief',      label: 'Interview Journal', icon: NotebookPen, href: '/debrief'      },
-      { id: 'career-tools', label: 'Career Tools',      icon: Sparkles,    href: '/career-tools' },
-      { id: 'job-tracker',  label: 'Job Tracker',       icon: Briefcase,   href: '/job-tracker'  },
-      { id: 'templates',    label: 'Templates',         icon: BookOpen,    href: '/templates'    },
-    ];
     try {
       const stored: string[] = JSON.parse(localStorage.getItem('prc_recent') || '[]');
       setRecentPages(stored.map(id => TRACKED.find(p => p.id === id)!).filter(Boolean));
-    } catch { /* localStorage unavailable */ }
+    } catch {}
   }, []);
 
-  // Auth/public pages — no shell
+  // Bypass rendering for auth/public pages
   if (isAuthPage || isPublicPage) return <div className="min-h-screen">{children}</div>;
 
-  // Firebase still resolving — show loader, never black screen
+  // Show loader while auth resolves — no navigation shown during this state
   if (!authResolved) {
-    return <AnimatedLoader isVisible={true} loadingText="Loading..." showNavigation={false} />;
+    return <AnimatedLoader isVisible={true} loadingText="Loading" showNavigation={false} tone="focused" />;
   }
 
-  // Not authenticated on a protected route — loader while redirect fires
+  // Unauthenticated on a protected route — redirect is pending, show loader
   if (!user && !currentUser && !isPublicRoute) {
-    return <AnimatedLoader isVisible={true} loadingText="Loading..." showNavigation={false} />;
+    return <AnimatedLoader isVisible={true} loadingText="Redirecting" showNavigation={false} tone="focused" />;
   }
 
-  const safeUser = user || {};
-  const planInfo = FREE_PLAN_INFO;
+  const safeUser  = user || {};
+  const planInfo  = FREE_PLAN_INFO;
+  const PlanIcon  = planInfo.icon;
 
   const getInitials = (name?: string | null) => {
-    if (!name || typeof name !== 'string' || name.trim() === '') return "U";
-    try { return name.trim().split(" ").map(w => w.charAt(0)).join("").toUpperCase().substring(0, 2); }
-    catch { return "U"; }
+    if (!name || typeof name !== 'string' || !name.trim()) return 'U';
+    try {
+      return name.trim().split(' ').map(w => w.charAt(0)).join('').toUpperCase().substring(0, 2);
+    } catch { return 'U'; }
   };
 
   const userInitials = getInitials(safeUser.name);
@@ -615,7 +621,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
       await signOut();
       router.push('/sign-in');
     } catch (error) {
-      console.error("Logout failed:", error);
+      console.error('Logout failed:', error);
       setIsLoggingOut(false);
     }
   };
@@ -625,203 +631,104 @@ function LayoutContent({ children, user }: LayoutClientProps) {
   };
 
   const isActive = (href: string) => pathname === href;
-  const PlanIcon = planInfo.icon;
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      <div className="fixed inset-0 bg-gradient-to-br from-slate-900/95 via-purple-900/90 to-slate-900/95 -z-10" />
-      
+      {/* Page background */}
+      <div className="fixed inset-0 bg-gradient-to-br from-slate-900/95 via-purple-900/90 to-slate-900/95 -z-10" aria-hidden="true" />
+
+      {/* Mobile sidebar overlay */}
       {sidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
+          aria-label="Close sidebar"
+          role="button"
+          tabIndex={-1}
         />
       )}
 
-      {/* ── Sidebar ── */}
-      <aside className={`fixed left-0 top-0 h-full w-64 
-                        bg-slate-900/95 backdrop-blur-xl
-                        border-r border-white/10 shadow-xl
-                        z-50 transition-transform duration-300 overflow-y-auto scrollbar-hide ${
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-      }`}>
-
+      {/* ── Sidebar ────────────────────────────────── */}
+      <aside
+        className={`fixed left-0 top-0 h-full w-64
+                    bg-slate-900/95 backdrop-blur-xl
+                    border-r border-white/10 shadow-xl
+                    z-50 transition-transform duration-300 overflow-y-auto scrollbar-hide
+                    ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
+        aria-label="Main navigation"
+      >
+        {/* Logo + user card */}
         <div className="p-4 border-b border-white/10">
           <div className="flex items-center justify-between h-[57px]">
             <Link href="/" className="flex items-center space-x-3 group" onClick={handleLinkClick}>
-              <NextImage src={logo} alt="Preciprocal" width={36} height={36} className="rounded-lg" priority />
-              <span className="text-xl font-bold text-white" style={{ fontFamily: "'Inter', sans-serif", letterSpacing: '-0.02em', fontWeight: 700 }}>Preciprocal</span>
+              <NextImage src={logo} alt="Preciprocal logo" width={36} height={36} className="rounded-lg" priority />
+              <span className="text-xl font-bold text-white" style={{ fontFamily: "'Inter', sans-serif", letterSpacing: '-0.02em' }}>
+                Preciprocal
+              </span>
             </Link>
-            <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-slate-400 hover:text-white">
-              <X className="w-5 h-5" />
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="lg:hidden text-slate-400 hover:text-white p-1 rounded-lg transition-colors"
+              aria-label="Close navigation"
+            >
+              <X className="w-5 h-5" aria-hidden="true" />
             </button>
           </div>
 
-          {/* Account switcher */}
-          <div 
-            id="account-menu-container"
-            onClick={() => setShowAccountMenu(!showAccountMenu)}
+          {/* User card — links to profile */}
+          <Link
+            href="/profile"
+            onClick={handleLinkClick}
             className="w-full flex items-center space-x-3 mt-4
                        bg-slate-800/50 border border-white/10
-                       p-3 rounded-xl relative cursor-pointer
-                       hover:bg-slate-800/70 transition-colors"
+                       p-3 rounded-xl hover:bg-slate-800/70 transition-colors"
           >
             <div className="relative flex-shrink-0">
               <UserAvatar photoURL={photoURL} initials={userInitials} size="md" />
-              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-slate-900" />
+              {/* Online indicator */}
+              <div
+                className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-slate-900"
+                aria-label="Online"
+              />
             </div>
-
             <div className="flex-1 min-w-0">
-              <p className="text-white font-medium text-sm truncate text-left">{safeUser?.name || 'User'}</p>
-              <div className="flex items-center space-x-1 text-slate-400 text-xs">
-                <span className="truncate text-left">{safeUser?.email || 'user@example.com'}</span>
-                <ChevronDown className={`w-3 h-3 flex-shrink-0 transition-transform ${showAccountMenu ? 'rotate-180' : ''}`} />
-              </div>
+              <p className="text-white font-semibold text-sm truncate">{safeUser?.name || 'User'}</p>
+              <p className="text-slate-400 text-xs break-all leading-snug mt-0.5">
+                {safeUser?.email || ''}
+              </p>
             </div>
-
-            {showAccountMenu && (
-              <div 
-                className="absolute top-full left-0 right-0 mt-2 bg-slate-800/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-xl z-50 overflow-hidden"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="p-2">
-                  <div className="px-3 py-2 border-b border-white/10">
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Current Account</p>
-                    <div className="flex items-center gap-3 p-2 bg-slate-800/50 rounded-lg">
-                      <UserAvatar photoURL={photoURL} initials={userInitials} size="sm" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-white truncate">{safeUser?.name || 'User'}</p>
-                        <p className="text-xs text-slate-400 truncate">{safeUser?.email || 'user@example.com'}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {savedAccounts.length > 0 && (
-                    <div className="px-3 py-2 border-b border-white/10">
-                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Switch Account</p>
-                      {savedAccounts.map((account, index) => {
-                        const accountInitials = getInitials(account.name);
-                        return (
-                          <button
-                            key={index}
-                            onClick={() => { setShowAccountMenu(false); }}
-                            className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors mb-1 cursor-pointer"
-                          >
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
-                              {accountInitials}
-                            </div>
-                            <div className="flex-1 min-w-0 text-left">
-                              <p className="text-sm font-medium text-white truncate">{account.name}</p>
-                              <p className="text-xs text-slate-400 truncate">{account.email}</p>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  <div className="p-2 border-b border-white/10">
-                    <Link
-                      href="/sign-in"
-                      onClick={() => { setShowAccountMenu(false); handleLinkClick(); }}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors text-slate-300 cursor-pointer"
-                    >
-                      <ArrowLeftRight className="w-4 h-4" />
-                      <span className="text-sm">Switch Account</span>
-                    </Link>
-                  </div>
-
-                  <div className="p-2">
-                    <Link
-                      href="/profile"
-                      onClick={() => { setShowAccountMenu(false); handleLinkClick(); }}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors text-slate-300 cursor-pointer"
-                    >
-                      <Settings className="w-4 h-4" />
-                      <span className="text-sm">Account Settings</span>
-                    </Link>
-                    
-                    <Link
-                      href="/pricing"
-                      onClick={() => { setShowAccountMenu(false); handleLinkClick(); }}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors text-slate-300 cursor-pointer"
-                    >
-                      <Crown className="w-4 h-4" />
-                      <span className="text-sm">Manage Subscription</span>
-                    </Link>
-
-                    <div className="h-px bg-white/10 my-2" />
-
-                    <button
-                      onClick={() => { setShowAccountMenu(false); handleLogout(); }}
-                      disabled={isLoggingOut}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-red-500/10 transition-colors text-red-400 text-sm disabled:opacity-50 cursor-pointer"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      <span>{isLoggingOut ? 'Logging out...' : 'Sign Out'}</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Quick actions */}
-        <div className="p-3 space-y-2">
-          <Link 
-            href="/interview/create"
-            onClick={handleLinkClick}
-            className="glass-button-primary w-full px-4 py-3 rounded-xl hover-lift flex items-center justify-center group
-                       bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700
-                       shadow-lg hover:shadow-xl cursor-pointer"
-          >
-            <Plus className="w-4 h-4 mr-2 group-hover:rotate-90 transition-transform duration-200" />
-            <span className="font-medium text-white">Start Interview</span>
-          </Link>
-          
-          <Link 
-            href="/resume/upload"
-            onClick={handleLinkClick}
-            className="w-full px-4 py-3 rounded-xl hover-lift flex items-center justify-center group
-                       bg-slate-800/50 border border-white/10 hover:bg-slate-800
-                       text-white shadow-sm hover:shadow-md cursor-pointer"
-          >
-            <FileText className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform duration-200" />
-            <span className="font-medium">Analyze Resume</span>
           </Link>
         </div>
 
-        {/* Main nav */}
-        <nav className="p-3 space-y-1">
+        {/* Navigation */}
+        <nav className="p-3 space-y-1" aria-label="App sections">
           <div className="px-3 py-2">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Menu</p>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Menu</p>
           </div>
-          
-          {mainNavItems.map((item) => {
-            const Icon   = item.icon;
-            const active = isActive(item.href);
-            const isDebrief     = item.id === 'debrief';
-            const isCareerTools = item.id === 'career-tools';
-            const isJobTracker  = item.id === 'job-tracker';
+
+          {mainNavItems.map(item => {
+            const Icon      = item.icon;
+            const active    = isActive(item.href);
+            const isNew     = ['debrief', 'career-tools', 'job-tracker'].includes(item.id);
 
             return (
               <Link
                 key={item.id}
                 href={item.href}
                 onClick={handleLinkClick}
-                className={`group flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 cursor-pointer ${
-                  active 
-                    ? 'bg-white/10 text-white shadow-sm' 
-                    : 'text-slate-300 hover:bg-white/5 hover:text-white'
-                }`}
+                aria-current={active ? 'page' : undefined}
+                className={`group flex items-center justify-between px-3 py-2.5 rounded-lg
+                             transition-all duration-150
+                             ${active
+                               ? 'bg-white/10 text-white'
+                               : 'text-slate-300 hover:bg-white/5 hover:text-white'}`}
               >
                 <div className="flex items-center space-x-3">
-                  <Icon className={`w-5 h-5 ${active ? 'text-purple-400' : 'text-slate-400'}`} />
+                  <Icon className={`w-5 h-5 ${active ? 'text-purple-400' : 'text-slate-400'}`} aria-hidden="true" />
                   <span className="font-medium text-sm">{item.label}</span>
                 </div>
-                {(isDebrief || isCareerTools || isJobTracker) && !active && (
-                  <span className="text-xs px-1.5 py-0.5 rounded-full bg-violet-500/20 text-violet-400 border border-violet-500/30 font-medium leading-none">
+                {isNew && !active && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/20 text-violet-400 border border-violet-500/30 font-semibold leading-none">
                     New
                   </span>
                 )}
@@ -831,21 +738,20 @@ function LayoutContent({ children, user }: LayoutClientProps) {
 
           {/* Resources */}
           <div className="pt-6">
-            <div className="flex items-center justify-between px-3 py-2">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Resources</p>
+            <div className="px-3 py-2">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Resources</p>
             </div>
-            {teamSpaces.map((item) => {
+            {teamSpaces.map(item => {
               const Icon = item.icon;
               return (
                 <Link
                   key={item.id}
                   href={item.href}
                   onClick={handleLinkClick}
-                  className="group flex items-center space-x-3 px-3 py-2.5 rounded-lg 
-                           text-slate-300 hover:bg-white/5 hover:text-white 
-                           transition-all duration-200 cursor-pointer"
+                  className="flex items-center space-x-3 px-3 py-2.5 rounded-lg
+                             text-slate-300 hover:bg-white/5 hover:text-white transition-colors"
                 >
-                  <Icon className="w-5 h-5 text-slate-400" />
+                  <Icon className="w-5 h-5 text-slate-400" aria-hidden="true" />
                   <span className="font-medium text-sm">{item.label}</span>
                 </Link>
               );
@@ -854,23 +760,23 @@ function LayoutContent({ children, user }: LayoutClientProps) {
 
           {/* Recent */}
           {recentPages.length > 0 && (() => {
-            const item   = recentPages[0];
-            const Icon   = item.icon;
+            const item     = recentPages[0];
+            const Icon     = item.icon;
             const isResume = item.id === 'resume';
             return (
               <div className="pt-4">
                 <div className="px-3 py-2">
-                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Recent</p>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Recent</p>
                 </div>
                 <Link
                   href={isResume && latestResume ? `/resume/${latestResume.id}` : item.href}
                   onClick={handleLinkClick}
                   className="bg-slate-800/50 border border-white/10 mx-2 p-3 rounded-xl
-                             hover:bg-slate-800 hover:shadow-md transition-all duration-200 cursor-pointer"
+                             hover:bg-slate-800 transition-colors block"
                 >
                   <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 gradient-accent rounded-lg flex items-center justify-center">
-                      <Icon className="w-4 h-4 text-white" />
+                    <div className="w-8 h-8 gradient-accent rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Icon className="w-4 h-4 text-white" aria-hidden="true" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-white truncate">
@@ -878,9 +784,9 @@ function LayoutContent({ children, user }: LayoutClientProps) {
                           ? (latestResume.companyName || latestResume.jobTitle || 'Resume')
                           : item.label}
                       </p>
-                      <p className="text-xs text-slate-400">
+                      <p className="text-xs text-slate-500 mt-0.5">
                         {isResume && latestResume
-                          ? `Score: ${latestResume.feedback?.overallScore || '...'}%`
+                          ? `Score: ${latestResume.feedback?.overallScore ?? '…'}%`
                           : 'Recently visited'}
                       </p>
                     </div>
@@ -893,20 +799,19 @@ function LayoutContent({ children, user }: LayoutClientProps) {
           {/* Other */}
           <div className="pt-6">
             <div className="px-3 py-2">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Other</p>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Other</p>
             </div>
-            {otherItems.map((item) => {
+            {otherItems.map(item => {
               const Icon = item.icon;
               return (
                 <Link
                   key={item.id}
                   href={item.href}
                   onClick={handleLinkClick}
-                  className="group flex items-center space-x-3 px-3 py-2.5 rounded-lg 
-                           text-slate-300 hover:bg-white/5 hover:text-white 
-                           transition-all duration-200 cursor-pointer"
+                  className="flex items-center space-x-3 px-3 py-2.5 rounded-lg
+                             text-slate-300 hover:bg-white/5 hover:text-white transition-colors"
                 >
-                  <Icon className="w-5 h-5 text-slate-400" />
+                  <Icon className="w-5 h-5 text-slate-400" aria-hidden="true" />
                   <span className="font-medium text-sm">{item.label}</span>
                 </Link>
               );
@@ -914,26 +819,27 @@ function LayoutContent({ children, user }: LayoutClientProps) {
           </div>
         </nav>
 
-        {/* Plan */}
+        {/* Plan upgrade */}
         <div className="p-4 mt-4 border-t border-white/10">
           <div className="bg-slate-800/50 border border-white/10 rounded-xl p-4 space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-white">Plan</span>
-              <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${planInfo.badgeClass} text-xs font-medium`}>
-                <PlanIcon className="w-3.5 h-3.5" />
+              <span className="text-sm font-semibold text-white">Plan</span>
+              <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${planInfo.badgeClass} text-xs font-semibold`}>
+                <PlanIcon className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>{planInfo.text}</span>
               </div>
             </div>
-
             {planInfo.showUpgrade && (
-              <Link 
+              <Link
                 href="/pricing"
                 onClick={handleLinkClick}
-                className="glass-button-primary w-full px-4 py-2.5 rounded-lg hover-lift flex items-center justify-center text-white text-sm font-medium
-                           bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700
-                           shadow-md hover:shadow-lg cursor-pointer"
+                className="w-full px-4 py-2.5 rounded-lg flex items-center justify-center
+                           text-white text-sm font-semibold
+                           bg-gradient-to-r from-purple-600 to-blue-600
+                           hover:from-purple-700 hover:to-blue-700
+                           shadow-md hover:shadow-lg transition-all hover-lift"
               >
-                <Crown className="w-4 h-4 mr-2" />
+                <Crown className="w-4 h-4 mr-2" aria-hidden="true" />
                 Upgrade Plan
               </Link>
             )}
@@ -945,39 +851,49 @@ function LayoutContent({ children, user }: LayoutClientProps) {
           <button
             onClick={handleLogout}
             disabled={isLoggingOut}
-            className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg 
-                     text-red-400 hover:bg-red-500/10 hover:text-red-300 
-                     transition-all duration-200 text-sm disabled:opacity-50 cursor-pointer"
+            className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg
+                       text-red-400 hover:bg-red-500/10 hover:text-red-300
+                       transition-colors text-sm disabled:opacity-50"
+            aria-label="Log out of your account"
           >
-            <LogOut className="w-5 h-5" />
-            <span className="font-medium">{isLoggingOut ? 'Logging out...' : 'Logout'}</span>
+            <LogOut className="w-5 h-5" aria-hidden="true" />
+            <span className="font-medium">{isLoggingOut ? 'Logging out…' : 'Logout'}</span>
           </button>
         </div>
       </aside>
 
-      {/* ── Main content ── */}
+      {/* ── Main content ────────────────────────────── */}
       <div className="lg:pl-64 min-h-screen flex flex-col">
-        <header className={`fixed top-0 right-0 left-0 lg:left-64 z-40 
-                          border-b border-white/10 backdrop-blur-xl transition-all duration-300 ${
-          scrolled 
-            ? 'bg-slate-900/95 shadow-lg' 
-            : 'bg-slate-900/80 shadow-sm'
-        }`}>
-          <div className="flex items-center justify-between px-6 py-4">
-            <div className="flex items-center space-x-4 flex-1">
+
+        {/* Header */}
+        <header
+          className={`fixed top-0 right-0 left-0 lg:left-64 z-40
+                      border-b border-white/10 backdrop-blur-xl transition-all duration-200
+                      ${scrolled ? 'bg-slate-900/95 shadow-lg' : 'bg-slate-900/80'}`}
+          role="banner"
+        >
+          <div className="flex items-center justify-between px-4 sm:px-6 py-3.5">
+
+            {/* Left: hamburger + search */}
+            <div className="flex items-center gap-4 flex-1 min-w-0">
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="lg:hidden bg-slate-800/50 border border-white/10 p-2 rounded-lg hover-lift cursor-pointer"
+                className="lg:hidden bg-slate-800/50 border border-white/10 p-2 rounded-lg
+                           hover:bg-slate-800 transition-colors"
+                aria-label={sidebarOpen ? 'Close menu' : 'Open menu'}
+                aria-expanded={sidebarOpen}
               >
-                <Menu className="w-6 h-6 text-white" />
+                <Menu className="w-5 h-5 text-white" aria-hidden="true" />
               </button>
-              
-              <div className="hidden lg:block flex-1 max-w-2xl">
+
+              <div className="hidden lg:block flex-1 max-w-xl">
                 <SearchDropdown />
               </div>
             </div>
 
-            <div className="flex items-center space-x-3">
+            {/* Right: notifications + avatar */}
+            <div className="flex items-center gap-2 sm:gap-3">
+
               <NotificationCenter
                 notifications={notifications}
                 unreadCount={unreadCount}
@@ -987,28 +903,106 @@ function LayoutContent({ children, user }: LayoutClientProps) {
                 onDelete={deleteNotification}
               />
 
-              <Link
-                href="/profile"
-                className="bg-slate-800/50 border border-white/10 p-1 rounded-lg hover-lift hover:bg-slate-800 cursor-pointer"
-              >
-                <UserAvatar
-                  photoURL={photoURL}
-                  initials={userInitials}
-                  size="sm"
-                  className="rounded-lg"
-                />
-              </Link>
+              {/* Avatar → account dropdown */}
+              <div id="header-account-menu" className="relative">
+                <button
+                  onClick={() => setShowHeaderMenu(prev => !prev)}
+                  className="bg-slate-800/50 border border-white/10 p-1 rounded-lg
+                             hover:bg-slate-800 transition-colors"
+                  aria-label="Open account menu"
+                  aria-expanded={showHeaderMenu}
+                  aria-haspopup="menu"
+                >
+                  <UserAvatar photoURL={photoURL} initials={userInitials} size="sm" className="rounded-lg" />
+                </button>
+
+                {showHeaderMenu && (
+                  <div
+                    role="menu"
+                    aria-label="Account options"
+                    className="absolute top-full right-0 mt-2 w-64
+                               bg-[#0f172a] border border-white/10
+                               rounded-xl shadow-2xl z-50 overflow-hidden animate-fade-in-up"
+                  >
+                    {/* Current account */}
+                    <div className="px-4 pt-4 pb-3 border-b border-white/10">
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Current Account</p>
+                      <div className="flex items-center gap-3">
+                        <UserAvatar photoURL={photoURL} initials={userInitials} size="md" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-white truncate">{safeUser?.name || 'User'}</p>
+                          <p className="text-xs text-slate-400 break-all leading-snug mt-0.5">
+                            {safeUser?.email || ''}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Menu actions */}
+                    <div className="p-2" role="group">
+                      <Link
+                        href="/sign-in"
+                        role="menuitem"
+                        onClick={() => { setShowHeaderMenu(false); handleLinkClick(); }}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors text-slate-300"
+                      >
+                        <ArrowLeftRight className="w-4 h-4 text-slate-400" aria-hidden="true" />
+                        <span className="text-sm">Switch Account</span>
+                      </Link>
+
+                      <div className="h-px bg-white/10 my-1" />
+
+                      <Link
+                        href="/profile"
+                        role="menuitem"
+                        onClick={() => { setShowHeaderMenu(false); handleLinkClick(); }}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors text-slate-300"
+                      >
+                        <Settings className="w-4 h-4 text-slate-400" aria-hidden="true" />
+                        <span className="text-sm">Account Settings</span>
+                      </Link>
+
+                      <Link
+                        href="/pricing"
+                        role="menuitem"
+                        onClick={() => { setShowHeaderMenu(false); handleLinkClick(); }}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors text-slate-300"
+                      >
+                        <Crown className="w-4 h-4 text-slate-400" aria-hidden="true" />
+                        <span className="text-sm">Manage Subscription</span>
+                      </Link>
+
+                      <div className="h-px bg-white/10 my-1" />
+
+                      <button
+                        role="menuitem"
+                        onClick={() => { setShowHeaderMenu(false); handleLogout(); }}
+                        disabled={isLoggingOut}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg
+                                   hover:bg-red-500/10 transition-colors text-red-400 text-sm
+                                   disabled:opacity-50"
+                      >
+                        <LogOut className="w-4 h-4" aria-hidden="true" />
+                        <span>{isLoggingOut ? 'Logging out…' : 'Sign Out'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </header>
 
-        <main className="p-6 mt-[73px] flex-1">
+        {/* Page content */}
+        <main className="p-4 sm:p-6 mt-[65px] flex-1" id="main-content">
           {children}
         </main>
       </div>
     </div>
   );
 }
+
+// ─── Root export ──────────────────────────────────────────────────────────────
 
 export default function LayoutClient({ children, user, userStats }: LayoutClientProps) {
   return (

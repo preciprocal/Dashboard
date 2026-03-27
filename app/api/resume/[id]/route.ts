@@ -4,8 +4,10 @@ import { auth, db } from '@/firebase/admin';
 import { revalidatePath } from 'next/cache';
 import { redis } from '@/lib/redis/redis-client';
 
-// Cache TTL for resume data (30 days - resumes don't change often after creation)
+// Cache TTL for resume data (30 days — resumes don't change often after creation)
 const RESUME_CACHE_TTL = 30 * 24 * 60 * 60;
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface Resume {
   id: string;
@@ -14,169 +16,132 @@ export interface Resume {
   jobTitle: string;
   jobDescription: string;
   fileName: string;
+  originalFileName?: string;
   fileSize: number;
-  fileUrl?: string;
-  createdAt: string;
-  updatedAt: string;
-  status: 'analyzing' | 'complete' | 'failed';
-  score?: number;
-  feedback?: {
-    overallScore: number;
-    strengths: string[];
-    improvements: string[];
-    suggestions: string[];
-  };
+
+  // Storage — new records store a Firebase Storage HTTPS URL here.
+  // Legacy records may have a base64 data-URL; both are supported.
+  resumePath?: string;
+  imagePath?:  string;   // no longer written for new records, kept for legacy reads
+  filePath?:   string;   // Storage path (not the download URL)
+  fileUrl?:    string;   // alias used by some older records
+
+  createdAt:   string;
+  updatedAt:   string;
   analyzedAt?: string;
-  error?: string;
+  status:      'pending' | 'analyzing' | 'complete' | 'failed';
+  score?:      number;
+  feedback?:   Record<string, unknown>;
+  error?:      string;
 }
 
 interface CachedResume {
-  resume: Resume;
+  resume:   Resume;
   cachedAt: string;
 }
 
-/**
- * Get cached resume
- */
+// ─── Cache helpers ────────────────────────────────────────────────────────────
+
 async function getCachedResume(resumeId: string, userId: string): Promise<Resume | null> {
   if (!redis) return null;
-
   try {
-    const key = `resume:${userId}:${resumeId}`;
-    const cached = await redis.get(key);
-
+    const cached = await redis.get(`resume:${userId}:${resumeId}`);
     if (cached) {
-      console.log(`✅ Cache HIT - Resume ${resumeId} found`);
+      console.log(`⚡ Cache HIT — resume ${resumeId}`);
       const data = typeof cached === 'string' ? JSON.parse(cached) : cached;
       return (data as CachedResume).resume;
     }
-
-    console.log(`❌ Cache MISS - Resume ${resumeId} not found`);
+    console.log(`❌ Cache MISS — resume ${resumeId}`);
     return null;
-  } catch (error) {
-    console.error('Redis get error:', error);
+  } catch (err) {
+    console.error('Redis get error:', err);
     return null;
   }
 }
 
-/**
- * Cache resume
- */
 async function cacheResume(resumeId: string, userId: string, resume: Resume): Promise<void> {
   if (!redis) return;
-
   try {
-    const key = `resume:${userId}:${resumeId}`;
-    const data: CachedResume = {
-      resume,
-      cachedAt: new Date().toISOString()
-    };
-
-    await redis.setex(key, RESUME_CACHE_TTL, JSON.stringify(data));
+    const data: CachedResume = { resume, cachedAt: new Date().toISOString() };
+    await redis.setex(`resume:${userId}:${resumeId}`, RESUME_CACHE_TTL, JSON.stringify(data));
     console.log(`✅ Cached resume ${resumeId} for ${RESUME_CACHE_TTL / 86400} days`);
-  } catch (error) {
-    console.error('Redis set error:', error);
+  } catch (err) {
+    console.error('Redis set error:', err);
   }
 }
 
-/**
- * Invalidate resume cache
- */
 async function invalidateResumeCache(resumeId: string, userId: string): Promise<void> {
   if (!redis) return;
-
   try {
-    const key = `resume:${userId}:${resumeId}`;
-    await redis.del(key);
-    console.log(`✅ Invalidated cache for resume ${resumeId}`);
-  } catch (error) {
-    console.error('Redis delete error:', error);
+    await redis.del(`resume:${userId}:${resumeId}`);
+    console.log(`🗑️  Cache invalidated — resume ${resumeId}`);
+  } catch (err) {
+    console.error('Redis delete error:', err);
   }
 }
 
-// Verify Firebase Auth token
+// ─── Auth helper ──────────────────────────────────────────────────────────────
+
 async function verifyToken(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return null;
-    }
-
+    if (!authHeader?.startsWith('Bearer ')) return null;
     const token = authHeader.split('Bearer ')[1];
-    const decodedToken = await auth.verifyIdToken(token);
-    return decodedToken;
-  } catch (error) {
-    console.error('Token verification failed:', error);
+    return await auth.verifyIdToken(token);
+  } catch {
     return null;
   }
 }
 
-// GET /api/resume/[id] - Get single resume
+// ─── GET /api/resume/[id] ────────────────────────────────────────────────────
+
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const startTime = Date.now();
 
   try {
     const { id } = await params;
-    
-    console.log(`📄 Fetching resume ${id}`);
-    console.log('   Redis available:', !!redis);
+    console.log(`📄 GET resume ${id} | Redis: ${!!redis}`);
 
     const user = await verifyToken(request);
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check cache first
-    const cachedResume = await getCachedResume(id, user.uid);
-    
-    if (cachedResume) {
-      const responseTime = Date.now() - startTime;
-      console.log(`⚡ Returning cached resume in ${responseTime}ms`);
-      
-      return NextResponse.json({ 
-        success: true, 
-        data: cachedResume,
-        metadata: {
-          cached: true,
-          responseTime
-        }
+    // ── Cache check ──────────────────────────────────────────────────────────
+    const cached = await getCachedResume(id, user.uid);
+    if (cached) {
+      return NextResponse.json({
+        success: true,
+        data: cached,
+        metadata: { cached: true, responseTime: Date.now() - startTime },
       });
     }
 
-    // Fetch from database
-    console.log('🔍 Fetching resume from database...');
+    // ── Firestore fetch ──────────────────────────────────────────────────────
     const doc = await db.collection('resumes').doc(id).get();
-    
+
     if (!doc.exists) {
       return NextResponse.json({ error: 'Resume not found' }, { status: 404 });
     }
 
-    const resume: Resume = {
-      id: doc.id,
-      ...(doc.data() as Omit<Resume, 'id'>)
-    };
-    
-    // Verify user owns this resume
+    const resume: Resume = { id: doc.id, ...(doc.data() as Omit<Resume, 'id'>) };
+
     if (resume.userId !== user.uid) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    // Cache the resume
     await cacheResume(id, user.uid, resume);
 
     const responseTime = Date.now() - startTime;
-    console.log(`✅ Resume fetched from database in ${responseTime}ms`);
+    console.log(`✅ Resume fetched from Firestore in ${responseTime}ms`);
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       data: resume,
-      metadata: {
-        cached: false,
-        responseTime
-      }
+      metadata: { cached: false, responseTime },
     });
   } catch (error) {
     console.error('Error fetching resume:', error);
@@ -184,27 +149,33 @@ export async function GET(
   }
 }
 
-// PUT /api/resume/[id] - Update resume (for analysis results)
+// ─── PUT /api/resume/[id] ────────────────────────────────────────────────────
+
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
-    
-    console.log(`📝 Updating resume ${id}`);
+    console.log(`📝 PUT resume ${id}`);
 
     const user = await verifyToken(request);
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { status, score, feedback, error: analysisError } = body;
+    const body = await request.json() as {
+      status:      string;
+      score?:      number;
+      feedback?:   Record<string, unknown>;
+      error?:      string;
+      resumePath?: string;
+    };
+    const { status, score, feedback, error: analysisError, resumePath } = body;
 
     const docRef = db.collection('resumes').doc(id);
-    const doc = await docRef.get();
-    
+    const doc    = await docRef.get();
+
     if (!doc.exists) {
       return NextResponse.json({ error: 'Resume not found' }, { status: 404 });
     }
@@ -215,27 +186,26 @@ export async function PUT(
     }
 
     const updateData: Partial<Resume> = {
-      status,
+      status:    status as Resume['status'],
       updatedAt: new Date().toISOString(),
     };
 
     if (status === 'complete') {
-      updateData.score = score;
-      updateData.feedback = feedback;
+      updateData.score      = score;
+      updateData.feedback   = feedback;
       updateData.analyzedAt = new Date().toISOString();
+      // Persist Storage URL if provided (set after upload)
+      if (resumePath) updateData.resumePath = resumePath;
     } else if (status === 'failed') {
       updateData.error = analysisError;
     }
 
     await docRef.update(updateData);
-    
-    // Invalidate cache since resume was updated
     await invalidateResumeCache(id, user.uid);
-    console.log('🔄 Cache invalidated after update');
 
     revalidatePath('/resume');
     revalidatePath(`/resume/${id}`);
-    
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error updating resume:', error);
@@ -243,15 +213,15 @@ export async function PUT(
   }
 }
 
-// DELETE /api/resume/[id] - Delete resume
+// ─── DELETE /api/resume/[id] ─────────────────────────────────────────────────
+
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
-    
-    console.log(`🗑️ Deleting resume ${id}`);
+    console.log(`🗑️  DELETE resume ${id}`);
 
     const user = await verifyToken(request);
     if (!user) {
@@ -259,8 +229,8 @@ export async function DELETE(
     }
 
     const docRef = db.collection('resumes').doc(id);
-    const doc = await docRef.get();
-    
+    const doc    = await docRef.get();
+
     if (!doc.exists) {
       return NextResponse.json({ error: 'Resume not found' }, { status: 404 });
     }
@@ -270,15 +240,11 @@ export async function DELETE(
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    // Delete document
     await docRef.delete();
-    
-    // Invalidate cache
     await invalidateResumeCache(id, user.uid);
-    console.log('🔄 Cache invalidated after deletion');
 
     revalidatePath('/resume');
-    
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting resume:', error);

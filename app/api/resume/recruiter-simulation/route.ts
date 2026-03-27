@@ -1,15 +1,15 @@
 // app/api/resume/recruiter-simulation/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import { db } from '@/firebase/admin';
 
-const apiKey = process.env.CLAUDE_API_KEY;
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
-if (!apiKey) {
-  console.error('❌ CLAUDE_API_KEY is not set');
+if (!openai) {
+  console.error('❌ OPENAI_API_KEY is not set');
 }
-
-const anthropic = apiKey ? new Anthropic({ apiKey }) : null;
 
 interface RecruiterSimulationRequest {
   resumeId: string;
@@ -62,10 +62,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!anthropic || !apiKey) {
-      console.error('❌ Claude API not configured');
+    if (!openai) {
+      console.error('❌ OpenAI API not configured');
       return NextResponse.json(
-        { error: 'AI service not configured. Please add CLAUDE_API_KEY to environment variables.' },
+        { error: 'AI service not configured. Please add OPENAI_API_KEY to environment variables.' },
         { status: 500 }
       );
     }
@@ -103,92 +103,111 @@ export async function POST(request: NextRequest) {
       month: 'long'
     });
 
-    const prompt = `IMPORTANT CONTEXT: Today's date is ${currentDate}. You are reviewing this resume in ${currentMonth}. Any dates in the resume that appear to be in 2024 or 2025 should be treated as current or recent experience, NOT future dates. Trust the dates in the resume as accurate and current.
+    // ── Prompt — forces specificity, no generic responses allowed ──
+    const resumeContent = resumeData.feedback?.resumeText
+      ? resumeData.feedback.resumeText.substring(0, 3000)
+      : 'Resume text not available — base simulation on the scores provided.';
 
-You are a senior recruiter reviewing resumes. Simulate how you would review this resume in the first 6-10 seconds.
+    const prompt = `TODAY'S DATE: ${currentDate}
+REVIEW MONTH: ${currentMonth}
 
-Resume Context:
-- Job Title: ${resumeData.jobTitle || 'Not specified'}
-- Company: ${resumeData.companyName || 'Not specified'}
-- Overall Score: ${resumeData.feedback?.overallScore || 'N/A'}
+DATE RULE: Every date from 2018–${now.getFullYear()} is past or current experience. "Present" = ${currentMonth}. Never flag any date as suspicious unless there is a gap of 12+ consecutive months with no explanation.
 
-${resumeData.feedback?.resumeText ? `Resume Content:\n${resumeData.feedback.resumeText.substring(0, 2000)}...` : 'Resume analysis available'}
+═══════════════════════════════════════════════════════
+RESUME UNDER REVIEW
+═══════════════════════════════════════════════════════
+Target Role:    ${resumeData.jobTitle || 'Not specified'}
+Target Company: ${resumeData.companyName || 'Not specified'}
+AI Score:       ${resumeData.feedback?.overallScore || 'N/A'}/100
 
-Provide a recruiter eye-tracking simulation in JSON format:
+${resumeContent}
+═══════════════════════════════════════════════════════
+
+You are a brutal, no-nonsense senior recruiter at a top tech company. You are looking at resume #187 of your day. You have 8 seconds. You do not care about feelings.
+
+══ WHAT YOU ACTUALLY DO IN 8 SECONDS ══
+1. Glance at the most recent job title and company name. Is it relevant? Is the company recognizable?
+2. Skim the last 2 job tenures. Are they at least 18 months each? Any suspicious gaps?
+3. Scan 3-4 bullet points from the most recent role. Do they have NUMBERS? Or are they vague duty lists?
+4. Flash-scan the skills section. Does it match what this role needs or is it a generic dump?
+5. Education — 0.5 seconds unless it's MIT, Stanford, or directly required.
+6. You do NOT read the summary. Ever.
+
+══ SPECIFICITY MANDATE — THIS IS CRITICAL ══
+Your response MUST reference ACTUAL TEXT from the resume above.
+- Quote specific job titles, company names, or bullet points
+- If a bullet says "Managed team projects" — call that out by name as vague
+- If a bullet says "Increased revenue by 43%" — reference that specific number
+- Do NOT write anything that could apply to ANY resume — every sentence must be about THIS resume
+- If you write something generic like "lacks quantifiable achievements" without citing a specific bullet, your response is wrong
+
+══ SCORING REALITY CHECK ══
+- Most resumes score 40-65. Only genuinely strong ones hit 70+.
+- A resume full of duty-based bullets with no metrics scores 35-50 on firstImpression
+- Generic skills sections with no depth score attentionScore 40-55
+- passScreening = true ONLY if you would literally forward this to the hiring manager right now
+
+Return ONLY valid JSON, no markdown, no explanation:
 {
   "firstImpression": {
-    "score": 85,
+    "score": <number 0-100, be realistic>,
     "standoutElements": [
-      "Clear job titles with well-known company names",
-      "Quantified achievements (e.g., 'Increased revenue by 40%')",
-      "Relevant technical skills prominently displayed"
+      "<MUST quote or directly reference something specific from the resume — e.g. 'The role at [Company X] as [Title] with [specific achievement] is immediately credible'>",
+      "<another specific reference — if nothing stands out, say exactly why nothing does>"
     ],
     "concerningElements": [
-      "No clear career progression visible",
-      "Lacks specific technical skills for this role"
+      "<cite the EXACT problem with evidence — e.g. 'Bullet point reads: [exact text] — this describes a duty, not an achievement. Zero business impact shown.'>",
+      "<another specific concern with direct evidence from the resume>"
     ],
-    "timeSpentInSeconds": 7
+    "timeSpentInSeconds": <6-9>
   },
-  "timeToReview": 8,
+  "timeToReview": <6-9>,
   "eyeTrackingHeatmap": [
     {
-      "section": "Professional Summary",
-      "attentionScore": 90,
-      "timeSpent": 3,
-      "notes": "Strong opening statement with clear value proposition"
-    },
-    {
       "section": "Work Experience",
-      "attentionScore": 85,
-      "timeSpent": 4,
-      "notes": "Good use of metrics and action verbs"
+      "attentionScore": <0-100>,
+      "timeSpent": <3-5>,
+      "notes": "<reference the ACTUAL most recent job title and company. Comment on tenure length. Quote a bullet point and say whether it has impact or is a duty dump. Be specific.>"
     },
     {
-      "section": "Technical Skills",
-      "attentionScore": 75,
-      "timeSpent": 1,
-      "notes": "Relevant technologies listed"
+      "section": "Skills",
+      "attentionScore": <0-100>,
+      "timeSpent": <1-2>,
+      "notes": "<name 2-3 actual skills listed and say whether they're relevant to ${resumeData.jobTitle || 'the target role'} or just padding>"
     },
     {
       "section": "Education",
-      "attentionScore": 70,
-      "timeSpent": 1,
-      "notes": "Solid educational background"
+      "attentionScore": <0-100>,
+      "timeSpent": <0.5-1>,
+      "notes": "<state the actual degree and institution from the resume. One sentence on whether it matters for this role.>"
+    },
+    {
+      "section": "Achievements & Metrics",
+      "attentionScore": <0-100>,
+      "timeSpent": <1-2>,
+      "notes": "<count how many bullets actually have numbers/percentages/dollar amounts. State the count. If zero, say zero. If some, quote the strongest one.>"
     }
   ],
-  "passScreening": true,
+  "passScreening": <true|false>,
   "screenerNotes": [
-    "Strong candidate for second round interview",
-    "Experience aligns well with role requirements"
+    "<your honest internal verdict on this candidate — read like a Slack message to the hiring manager. Reference their actual most recent role and company. Would you put your reputation on the line recommending this person?>",
+    "<the single most important thing wrong with this resume — be direct and specific, reference actual content>",
+    "<one actionable thing they should fix immediately — specific to THIS resume, not generic advice>"
   ]
-}
+}`;
 
-CRITICAL RULES:
-- DO NOT mention anything about "future dates" or dates being "in the future"
-- Treat all dates in the resume as valid and current relative to ${currentMonth}
-- If you see dates in 2024-2025, these are CURRENT or RECENT experiences
-- Never flag recent dates as a red flag or concerning element
+    console.log('   Calling OpenAI for simulation...');
 
-Base your simulation on typical recruiter behavior:
-1. Recruiters scan resumes top-to-bottom in 6-10 seconds initially
-2. They spend most time on recent experience and key achievements
-3. They look for red flags (gaps, frequent job changes, lack of progression)
-4. They scan for standout accomplishments and relevant keywords
-5. AttentionScore represents focus level (0-100): 90+ = high focus, 70-89 = moderate, below 70 = quick glance
-6. Total timeToReview should be realistic (typically 6-10 seconds for initial scan)
-
-Respond ONLY with valid JSON.`;
-
-    console.log('   Calling Claude AI for simulation...');
-
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5',
+    // ── Replaces: anthropic.messages.create() ──
+    const response = await openai.chat.completions.create({
+      model:      'gpt-4o-mini',
       max_tokens: 2048,
-      messages: [{ role: 'user', content: prompt }],
+      messages:   [{ role: 'user', content: prompt }],
     });
 
-    const responseText = response.content[0].type === 'text' ? response.content[0].text : '';
+    const responseText = response.choices[0].message.content ?? '';
 
+    // ── Parse JSON (ORIGINAL — unchanged) ──
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       throw new Error('Failed to parse AI response');
@@ -200,7 +219,7 @@ Respond ONLY with valid JSON.`;
       throw new Error('Invalid simulation data structure');
     }
 
-    // Post-process to filter out any future date mentions
+    // ── Post-process (ORIGINAL — unchanged) ──
     const filterFutureDateMentions = (text: string): string => {
       return text
         .replace(/future date[s]?/gi, 'recent date')
@@ -229,7 +248,7 @@ Respond ONLY with valid JSON.`;
     console.log('   Pass Screening:', simulation.passScreening);
     console.log('   First Impression Score:', simulation.firstImpression.score);
 
-    // ── Save to Firestore cache ──
+    // ── Save to Firestore cache (ORIGINAL — unchanged) ──
     try {
       await db.collection('resumes').doc(resumeId).update({
         recruiterSimulation: simulation,

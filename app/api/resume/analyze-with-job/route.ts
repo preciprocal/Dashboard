@@ -1,39 +1,24 @@
 // app/api/resume/analyze-with-job/route.ts
-// Enhanced with deep_analysis mode for the new IntelligentAIPanel
-
 import { NextRequest, NextResponse } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import { db } from '@/firebase/admin';
 
-const apiKey = process.env.CLAUDE_API_KEY;
-const anthropic = apiKey ? new Anthropic({ apiKey }) : null;
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    const { resumeId, resumeHtml, jobDescription, customPrompt, mode, analysisVersion, force = false } = body;
 
-    const {
-      resumeId,
-      resumeHtml,
-      jobDescription,
-      customPrompt,
-      mode,
-      analysisVersion,
-      force = false,
-    } = body;
-
-    if (!resumeHtml || resumeHtml.length < 100) {
+    if (!resumeHtml || resumeHtml.length < 100)
       return NextResponse.json({ error: 'Resume content is required' }, { status: 400 });
-    }
 
     const resumeText = stripHtml(resumeHtml);
 
-    if (mode === 'deep_analysis' && analysisVersion === 'v2') {
+    if (mode === 'deep_analysis' && analysisVersion === 'v2')
       return await handleDeepAnalysis(resumeText, jobDescription, resumeId, force);
-    }
 
     return await handleLegacyAnalysis(resumeText, jobDescription, customPrompt);
-
   } catch (error) {
     console.error('❌ analyze-with-job error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -48,175 +33,158 @@ async function handleDeepAnalysis(
   resumeId?: string,
   force = false,
 ) {
-  if (!anthropic) {
-    return NextResponse.json(
-      { error: 'AI service not configured — add CLAUDE_API_KEY' },
-      { status: 500 }
-    );
-  }
+  if (!process.env.OPENAI_API_KEY)
+    return NextResponse.json({ error: 'OPENAI_API_KEY not configured' }, { status: 500 });
 
-  // ── Return cached result unless force=true ──
+  // Return cached unless force=true
   if (!force && resumeId) {
     try {
-      const resumeDoc = await db.collection('resumes').doc(resumeId).get();
-      if (resumeDoc.exists) {
-        const data = resumeDoc.data() as Record<string, unknown>;
-        const cached    = data.deepAnalysis as Record<string, unknown> | undefined;
-        const cachedAt  = data.deepAnalysisGeneratedAt as number | undefined;
-        const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
-        if (cached && cachedAt && Date.now() - cachedAt < CACHE_TTL) {
-          console.log('✅ Returning cached deep analysis for:', resumeId);
+      const snap = await db.collection('resumes').doc(resumeId).get();
+      if (snap.exists) {
+        const d = snap.data() as Record<string, unknown>;
+        const cached   = d.deepAnalysis as Record<string, unknown> | undefined;
+        const cachedAt = d.deepAnalysisGeneratedAt as number | undefined;
+        if (cached && cachedAt && Date.now() - cachedAt < 7 * 24 * 60 * 60 * 1000)
           return NextResponse.json({ deepAnalysis: cached, cached: true });
-        }
       }
-    } catch (e) {
-      console.warn('⚠️ Cache read failed (non-fatal):', e);
-    }
+    } catch (e) { console.warn('Cache read failed:', e); }
   }
 
-  const prompt = `You are a senior resume analyst at a top recruiting firm. Perform a comprehensive, honest analysis of this resume.
+  const prompt = `You are a brutally honest senior technical recruiter at a FAANG company with 15+ years of experience. You have reviewed 50,000+ resumes. You DO NOT sugarcoat feedback.
 
-RESUME:
+RESUME TO ANALYZE:
 """
 ${resumeText}
 """
+${jobDescription ? `\nTARGET JOB DESCRIPTION:\n"""\n${jobDescription}\n"""` : ''}
 
-${jobDescription ? `TARGET JOB DESCRIPTION:\n"""\n${jobDescription}\n"""` : ''}
+YOUR TASK: Perform a deep, line-by-line analysis. Return a JSON object with EXACTLY this structure.
 
-Analyze and return a JSON object with this EXACT structure. Be brutally honest — do not inflate scores.
+━━━ ABSOLUTE RULES — VIOLATING ANY OF THESE WILL BREAK THE APP ━━━
+1. NEVER include contact info in bullets (email, phone, LinkedIn, GitHub, URLs, addresses).
+2. NEVER include section headings (EXPERIENCE, EDUCATION, SKILLS, PROJECTS) as bullets.
+3. NEVER include job titles, company names, or date ranges as bullets.
+4. NEVER include school names, degree names, GPA, graduation dates as bullets.
+5. ONLY include actual accomplishment/responsibility sentences as bullets — lines that describe what the person DID, BUILT, ACHIEVED, or DELIVERED.
+6. "originalText" MUST be the EXACT verbatim text of that bullet as it appears in the resume — copy it character-for-character.
+7. Every "rewrite" MUST start with a DIFFERENT strong action verb than the original. NEVER prepend a verb to an existing verb.
+8. Each section's bullets must ONLY contain bullets actually found in THAT section — do not repeat bullets across sections.
 
+━━━ JSON STRUCTURE ━━━
 {
-  "overallScore": <0-100 integer>,
-  "atsScore": <0-100 integer, based on keywords, formatting, standard sections>,
-  "impactScore": <0-100 integer, based on metrics, quantified achievements, strong verbs>,
-  "clarityScore": <0-100 integer, based on readability, conciseness, structure>,
+  "overallScore": <integer 0-100, be brutal — most resumes score 55-75>,
+  "atsScore": <integer 0-100>,
+  "impactScore": <integer 0-100>,
+  "clarityScore": <integer 0-100>,
   "wordCount": <integer>,
-  "bulletCount": <integer, count of bullet points / accomplishment statements>,
-  "weakVerbCount": <integer, count of bullets starting with weak verbs like 'responsible for', 'helped', etc.>,
-  "metricCount": <integer, count of bullets with numbers/percentages/dollar values>,
-  "matchedKeywords": ${jobDescription ? '<array of strings — keywords from job description present in resume>' : '[]'},
-  "missingKeywords": ${jobDescription ? '<array of strings — critical keywords from job description NOT in resume>' : '[]'},
+  "bulletCount": <integer — count of real accomplishment bullets only>,
+  "weakVerbCount": <integer — bullets starting with: responsible for, helped, assisted, worked on, participated in, involved in, contributed to, supported>,
+  "metricCount": <integer — bullets with %, $, numbers showing scale>,
+  "matchedKeywords": ${jobDescription ? '<string[] — keywords from JD present in resume>' : '[]'},
+  "missingKeywords": ${jobDescription ? '<string[] — critical keywords from JD missing in resume>' : '[]'},
+
   "sections": [
     {
-      "name": "Summary",
-      "score": <0-100>,
-      "status": <"excellent"|"good"|"needs_work"|"missing">,
-      "sectionIssues": ["<issue description>"],
-      "quickFix": "<one-line suggestion>",
+      "name": <exact section name from resume e.g. "Professional Experience", "Technical Skills">,
+      "score": <integer 0-100>,
+      "status": <"excellent" | "good" | "needs_work" | "missing">,
+      "sectionIssues": [<specific problems with this section, e.g. "3 of 5 bullets start with weak verbs", "No quantified metrics in any bullet">],
+      "quickFix": <one concrete sentence fix, e.g. 'Replace "Responsible for building..." with "Engineered..."'>,
       "bullets": [
         {
-          "originalText": "<exact text from resume>",
-          "strength": <"strong"|"average"|"weak">,
-          "score": <0-100>,
-          "issues": ["<issue 1>", "<issue 2>"],
-          "rewrite": "<improved version — only if weak or average, otherwise omit>"
+          "originalText": <EXACT verbatim bullet text from this section — must match resume character-for-character>,
+          "strength": <"strong" | "average" | "weak">,
+          "score": <integer 0-100>,
+          "issues": [<specific issue e.g. "Starts with weak phrase 'Worked on'", "No metric — add % or $ value", "Vague outcome — what was the business impact?">],
+          "rewrite": <ONLY if strength is "weak" or "average" — a complete rewritten bullet starting with strong verb + metric + impact. OMIT this field entirely if strength is "strong">
         }
       ]
-    },
-    {
-      "name": "Experience",
-      "score": <0-100>,
-      "status": <"excellent"|"good"|"needs_work"|"missing">,
-      "sectionIssues": ["<issue>"],
-      "quickFix": "<suggestion>",
-      "bullets": [
-        <same structure as above for ALL experience bullet points>
-      ]
-    },
-    {
-      "name": "Skills",
-      "score": <0-100>,
-      "status": <"excellent"|"good"|"needs_work"|"missing">,
-      "sectionIssues": [],
-      "bullets": []
-    },
-    {
-      "name": "Education",
-      "score": <0-100>,
-      "status": <"excellent"|"good"|"needs_work"|"missing">,
-      "sectionIssues": [],
-      "bullets": []
     }
   ],
+
   "quickWins": [
     {
-      "id": "qw-1",
-      "priority": <"critical"|"high"|"medium">,
-      "title": "<short title of the issue, e.g., 'Replace weak verb'>",
-      "description": "<1 sentence explanation>",
-      "originalText": "<exact text from resume that needs improvement>",
-      "rewrite": "<complete improved version>",
-      "impact": "<why this matters, e.g., 'Weak verbs reduce ATS match rate by 30%'>"
+      "id": <"qw-1", "qw-2", etc.>,
+      "priority": <"critical" | "high" | "medium">,
+      "title": <short label e.g. "Weak verb: 'worked on'">,
+      "description": <one sentence — WHY this is a problem, e.g. "Recruiters skip bullets that start with passive phrases">,
+      "originalText": <EXACT verbatim text of the bullet — must match resume exactly>,
+      "rewrite": <complete improved bullet — starts with strong verb, includes metric, shows impact>,
+      "impact": <quantified consequence e.g. "Passive verbs reduce ATS match rate by ~30% and recruiter read-time by 50%">
     }
   ]
 }
 
-CRITICAL RULES — MUST FOLLOW:
-1. NEVER include contact info (email addresses, phone numbers, URLs, LinkedIn, GitHub) as bullets to score or rewrite. These are not accomplishments.
-2. NEVER include university names, degree names, GPA, graduation dates, or any education metadata as bullets. These are facts, not accomplishments to rewrite with action verbs.
-3. NEVER include section headings (EXPERIENCE, EDUCATION, SKILLS, etc.) as bullets.
-4. NEVER include job titles, company names, or date ranges as bullets.
-5. ONLY score and rewrite actual accomplishment statements and responsibility bullets — sentences that describe what the person DID, BUILT, ACHIEVED, or DELIVERED.
-6. If a line is a name, email, phone, address, degree, school name, date, or section header — completely exclude it from the "bullets" array.
+━━━ SCORING CALIBRATION ━━━
+STRONG bullet (75-100): Power verb + specific metric + clear business outcome, 10-22 words
+  Example: "Reduced ML inference latency by 43% by migrating from batch to streaming pipeline, saving $120K/yr"
 
-SCORING GUIDELINES FOR ACCOMPLISHMENT BULLETS ONLY:
-- Bullet is STRONG (75-100): Strong action verb, has a metric/number, shows clear business impact, 10-25 words
-- Bullet is AVERAGE (50-74): Missing ONE of the above — either no metric, or weak verb, or vague outcome
-- Bullet is WEAK (0-49): Starts with "responsible for / helped / assisted / worked on / participated in", no metric, vague
-- Quick wins: Top 5 highest-impact changes. Focus on bullets with weak verbs AND no metrics.
-- ATS Score: Penalize for missing section headers, no industry keywords, non-standard formatting
-- For rewrites: Start with a strong action verb (Led, Built, Drove, Achieved, Reduced, Grew, Launched, Delivered, Engineered), add a specific metric if possible, show business impact. Keep it to 1-2 lines. IMPORTANT: If the original bullet already starts with a verb (e.g. "Developed..."), DO NOT repeat it — replace it with a better or equivalent verb, never prepend on top of the existing one.
+AVERAGE bullet (50-74): Missing ONE element — either no metric, or weak verb, or vague outcome
+  Example: "Built a dashboard that improved team visibility" (good verb, no metric, vague impact)
 
-Return ONLY valid JSON, no markdown, no explanation.`;
+WEAK bullet (0-49): Passive phrase, no metric, no outcome — screams junior
+  Example: "Responsible for maintaining the backend API" or "Helped with data analysis tasks"
+
+QUICK WINS — pick the 5 highest-leverage changes:
+- Prioritize bullets with BOTH weak verb AND no metric (double penalty)
+- Rewrites must be specific to THIS person's actual work — not generic
+- Add plausible metrics based on context (e.g. if they built a pipeline, estimate scale)
+- Start rewrite with: Led, Built, Engineered, Drove, Reduced, Increased, Launched, Delivered, Architected, Automated, Optimized, Scaled, Shipped
+
+ATS SCORE factors: standard section headers, keyword density, no tables/columns, consistent date format, contact section present
+IMPACT SCORE factors: % of bullets with metrics, average bullet score, absence of weak verbs
+CLARITY SCORE factors: sentence length, active voice, no jargon overload, logical flow
+
+Return ONLY valid JSON. No markdown. No explanation. No preamble.`;
 
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5',
-      max_tokens: 4096,
-      messages: [{ role: 'user', content: prompt }],
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      max_tokens: 6000,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a brutally honest senior technical recruiter at a FAANG company with 15+ years of experience. You have reviewed 50,000+ resumes. You DO NOT sugarcoat feedback. Return ONLY valid JSON.',
+        },
+        { role: 'user', content: prompt },
+      ],
     });
 
-    const text = response.content[0].type === 'text' ? response.content[0].text : '';
-
-    let cleaned = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+    const raw = response.choices[0]?.message?.content ?? '';
+    let cleaned = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
     if (!cleaned.startsWith('{')) {
-      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-      if (jsonMatch) cleaned = jsonMatch[0];
+      const m = cleaned.match(/\{[\s\S]*\}/);
+      if (m) cleaned = m[0];
     }
     if (!cleaned) throw new Error('No JSON in response');
 
     const deepAnalysis = JSON.parse(cleaned);
 
-    // Use originalText as lineId so the editor can match by text content
-    for (const section of deepAnalysis.sections || []) {
-      for (const bullet of section.bullets || []) {
-        bullet.lineId = bullet.originalText || bullet.lineId || '';
+    // Ensure lineId = originalText for highlight matching
+    for (const section of deepAnalysis.sections ?? []) {
+      for (const bullet of section.bullets ?? []) {
+        bullet.lineId = bullet.originalText ?? bullet.lineId ?? '';
       }
     }
-    for (const win of deepAnalysis.quickWins || []) {
-      win.lineId = win.originalText || win.lineId || '';
+    for (const win of deepAnalysis.quickWins ?? []) {
+      win.lineId = win.originalText ?? win.lineId ?? '';
     }
 
-    // ── Save to Firestore cache ──
     if (resumeId) {
       try {
         await db.collection('resumes').doc(resumeId).update({
           deepAnalysis,
           deepAnalysisGeneratedAt: Date.now(),
         });
-      } catch (e) {
-        console.warn('⚠️ Failed to cache deep analysis (non-fatal):', e);
-      }
+      } catch (e) { console.warn('Cache write failed:', e); }
     }
 
     return NextResponse.json({ deepAnalysis, cached: false });
 
-  } catch (parseError) {
-    console.error('❌ Deep analysis parse error:', parseError);
-    return NextResponse.json(
-      { error: 'Failed to parse analysis response' },
-      { status: 500 }
-    );
+  } catch (e) {
+    console.error('❌ Deep analysis parse error:', e);
+    return NextResponse.json({ error: 'Failed to parse analysis response' }, { status: 500 });
   }
 }
 
@@ -227,81 +195,80 @@ async function handleLegacyAnalysis(
   jobDescription: string | null,
   customPrompt: string | null,
 ) {
-  if (!anthropic) {
-    return NextResponse.json(
-      { error: 'AI service not configured' },
-      { status: 500 }
-    );
-  }
+  if (!process.env.OPENAI_API_KEY)
+    return NextResponse.json({ error: 'OPENAI_API_KEY not configured' }, { status: 500 });
 
-  const prompt = `You are an expert resume writer and career coach.
+  const prompt = `You are a brutally honest senior recruiter. Analyze this resume and return JSON.
 
 RESUME:
 ${resumeText}
+${jobDescription ? `\nJOB DESCRIPTION:\n${jobDescription}` : ''}
+${customPrompt ? `\nFOCUS: ${customPrompt}` : ''}
 
-${jobDescription ? `JOB DESCRIPTION:\n${jobDescription}` : ''}
-
-${customPrompt ? `SPECIFIC FOCUS: ${customPrompt}` : ''}
-
-Analyze the resume and return a JSON object:
+Return ONLY this JSON structure:
 {
   "recommendations": [
     {
       "id": "rec-1",
-      "type": "weak_verb",
-      "severity": "high",
-      "targetLine": "<exact text from resume>",
-      "lineId": "line-0",
-      "issue": "<issue description>",
-      "suggestion": "<improved version>",
+      "type": "weak_verb" | "missing_metric" | "vague_impact" | "keyword_gap",
+      "severity": "high" | "medium" | "low",
+      "targetLine": "<exact verbatim text from resume>",
+      "lineId": "<same as targetLine>",
+      "issue": "<specific problem>",
+      "suggestion": "<complete improved version>",
       "improvements": ["<reason 1>", "<reason 2>"],
-      "score": 45
+      "score": <0-100 score of the original>
     }
   ]
 }
 
-Provide 5-8 specific, actionable recommendations. Focus on the weakest bullet points.
-Return ONLY valid JSON.`;
+Rules:
+- Only target actual accomplishment bullets — not headers, contact info, or dates
+- targetLine must be EXACT verbatim text from the resume
+- Provide exactly 6-8 recommendations, prioritized by impact
+- suggestion must start with a strong action verb and include a metric`;
 
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5',
-      max_tokens: 2048,
-      messages: [{ role: 'user', content: prompt }],
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      max_tokens: 3000,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: 'You are a brutally honest senior recruiter. Return ONLY valid JSON.' },
+        { role: 'user', content: prompt },
+      ],
     });
 
-    const text = response.content[0].type === 'text' ? response.content[0].text : '';
-
-    let cleaned = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+    const raw = response.choices[0]?.message?.content ?? '';
+    let cleaned = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
     if (!cleaned.startsWith('{')) {
-      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-      if (jsonMatch) cleaned = jsonMatch[0];
+      const m = cleaned.match(/\{[\s\S]*\}/);
+      if (m) cleaned = m[0];
     }
-    if (!cleaned) throw new Error('No JSON');
 
     const data = JSON.parse(cleaned);
     return NextResponse.json(data);
-  } catch {
-    return NextResponse.json({ recommendations: [] });
+  } catch (e) {
+    console.error('❌ Legacy analysis error:', e);
+    return NextResponse.json({ error: 'Analysis failed' }, { status: 500 });
   }
 }
 
-// ─── Utils ────────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function stripHtml(html: string): string {
   return html
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/p>/gi, '\n')
     .replace(/<\/li>/gi, '\n')
+    .replace(/<\/div>/gi, '\n')
     .replace(/<\/h[1-6]>/gi, '\n')
     .replace(/<[^>]*>/g, '')
-    .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/\n{3,}/g, '\n\n')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n\s*\n\s*\n/g, '\n\n')
     .trim();
 }
