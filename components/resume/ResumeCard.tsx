@@ -68,7 +68,7 @@ function PdfThumbnail({ resumePath, small = false }: { resumePath: string; small
 
         if (cancelled) return;
 
-        const pdfjsLib = (await import('pdfjs-dist')) as any;
+        const pdfjsLib = (await import('pdfjs-dist')) as { GlobalWorkerOptions: { workerSrc: string }; version: string; getDocument: (opts: unknown) => { promise: Promise<{ getPage: (n: number) => Promise<{ getViewport: (opts: { scale: number }) => { width: number; height: number }; render: (opts: unknown) => { promise: Promise<void> } }> }> } };
         pdfjsLib.GlobalWorkerOptions.workerSrc =
           `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
@@ -155,10 +155,11 @@ export default function ResumeCard({
 
   const countTips = (tipType: 'improve' | 'good'): number => {
     if (!resume.feedback) return 0;
+    const feedback = resume.feedback;
     let n = 0;
     const keys = ['ATS', 'ats', 'content', 'structure', 'skills', 'toneAndStyle', 'impact', 'grammar'];
     keys.forEach(k => {
-      const cat = resume.feedback[k as keyof typeof resume.feedback] as FeedbackCategory | undefined;
+      const cat = feedback[k as keyof typeof feedback] as FeedbackCategory | undefined;
       if (cat && typeof cat === 'object') n += getTips(cat, tipType).length;
     });
     return n;
@@ -166,7 +167,8 @@ export default function ResumeCard({
 
   const getCategoryScore = (key: string): number => {
     if (!resume.feedback) return 0;
-    const cat = resume.feedback[key as keyof typeof resume.feedback] as FeedbackCategory | undefined;
+    const feedback = resume.feedback;
+    const cat = feedback[key as keyof typeof feedback] as FeedbackCategory | undefined;
     return (cat && typeof cat === 'object' && 'score' in cat) ? (cat.score ?? 0) : 0;
   };
 
