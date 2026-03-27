@@ -30,6 +30,11 @@ import {
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
+interface ResumeFeedbackSection {
+  score: number;
+  tips: Array<{ type: 'good' | 'improve'; message: string }>;
+}
+
 interface Resume {
   id: string;
   userId: string;
@@ -41,11 +46,12 @@ interface Resume {
   createdAt: Date;
   feedback: {
     overallScore: number;
-    ATS:          { score: number; tips: Array<{ type: 'good' | 'improve'; message: string }> };
-    content:      { score: number; tips: Array<{ type: 'good' | 'improve'; message: string }> };
-    structure:    { score: number; tips: Array<{ type: 'good' | 'improve'; message: string }> };
-    skills:       { score: number; tips: Array<{ type: 'good' | 'improve'; message: string }> };
-    toneAndStyle: { score: number; tips: Array<{ type: 'good' | 'improve'; message: string }> };
+    ATS:          ResumeFeedbackSection;
+    content:      ResumeFeedbackSection;
+    structure:    ResumeFeedbackSection;
+    skills:       ResumeFeedbackSection;
+    toneAndStyle: ResumeFeedbackSection;
+    [key: string]: number | ResumeFeedbackSection; // index signature for Object.values
   };
 }
 
@@ -144,7 +150,16 @@ interface UserStats {
   communicationScore?: number;
   careerMomentum?: number;
   plannerStats?: PlannerStats;
+  [key: string]: unknown;
 }
+
+// ─── Type alias for the generateDailyFocus prop ───────────────────────────────
+
+type DailyFocusFn = (
+  interviews: unknown[],
+  resumes: unknown[],
+  stats: Record<string, unknown>,
+) => { id: number | string; text: string; description: string; completed: boolean; type: string; icon: string }[];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -297,7 +312,7 @@ export default function Dashboard() {
   const [stats,        setStats]        = useState<UserStats | null>(null);
   const [isLoading,    setIsLoading]    = useState(true);
 
-  // Clock — update every minute, not every second (no ticking text on screen)
+  // Clock — update every minute
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60_000);
     return () => clearInterval(timer);
@@ -311,12 +326,17 @@ export default function Dashboard() {
       const statsData = await PlannerService.getUserPlanStats(userId);
 
       const activePlansList = plans
-        .filter((p: any) => p.status === 'active' && p.progress.percentage < 100)
-        .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        .filter((p: { status: string; progress: { percentage: number } }) =>
+          p.status === 'active' && p.progress.percentage < 100)
+        .sort((a: { createdAt: string }, b: { createdAt: string }) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-      let currentPlan;
+      let currentPlan: PlannerStats['currentPlan'];
       if (activePlansList.length > 0) {
-        const p = activePlansList[0];
+        const p = activePlansList[0] as {
+          id: string; role: string; company?: string;
+          progress: { percentage: number }; interviewDate: string;
+        };
         const daysRemaining = Math.max(0, Math.ceil(
           (new Date(p.interviewDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
         ));
@@ -329,14 +349,17 @@ export default function Dashboard() {
 
       return {
         totalPlans: plans.length,
-        activePlans: plans.filter((p: any) => p.status === 'active').length,
-        completedPlans: plans.filter((p: any) => p.status === 'completed' || p.progress.percentage === 100).length,
+        activePlans: plans.filter((p: { status: string }) => p.status === 'active').length,
+        completedPlans: plans.filter((p: { status: string; progress: { percentage: number } }) =>
+          p.status === 'completed' || p.progress.percentage === 100).length,
         averageProgress: plans.length > 0
-          ? Math.round(plans.reduce((s: number, p: any) => s + p.progress.percentage, 0) / plans.length)
+          ? Math.round(plans.reduce((s: number, p: { progress: { percentage: number } }) =>
+              s + p.progress.percentage, 0) / plans.length)
           : 0,
         currentPlan,
-        totalTasksCompleted: plans.reduce((s: number, p: any) => s + p.progress.completedTasks, 0),
-        currentStreak: statsData?.currentStreak || 0,
+        totalTasksCompleted: plans.reduce((s: number, p: { progress: { completedTasks: number } }) =>
+          s + p.progress.completedTasks, 0),
+        currentStreak: (statsData as { currentStreak?: number })?.currentStreak || 0,
       };
     } catch {
       return {
@@ -351,14 +374,14 @@ export default function Dashboard() {
     const fetchUserData = async () => {
       try {
         setIsLoading(true);
-        const { auth } = await import('@/firebase/client');
-        const { onAuthStateChanged } = await import('firebase/auth');
-        const { FirebaseService } = await import('@/lib/services/firebase-service');
+        const { auth }                                          = await import('@/firebase/client');
+        const { onAuthStateChanged }                            = await import('firebase/auth');
+        const { FirebaseService }                               = await import('@/lib/services/firebase-service');
         const { getInterviewsByUserId, getFeedbackByInterviewId } = await import('@/lib/actions/general.action');
 
-        const currentUser = await new Promise<any>(resolve => {
-          const unsub = onAuthStateChanged(auth, user => { unsub(); resolve(user); });
-        });
+        const currentUser = await new Promise<{ uid: string; displayName: string | null; email: string | null; photoURL: string | null } | null>(
+          resolve => { const u = onAuthStateChanged(auth, user => { u(); resolve(user as never); }); }
+        );
 
         if (!currentUser) {
           toast.error('Please sign in to view your dashboard');
@@ -382,40 +405,48 @@ export default function Dashboard() {
 
         let userResumes: Resume[] = [];
         try {
-          userResumes = await FirebaseService.getUserResumes(currentUser.uid);
+          userResumes = await FirebaseService.getUserResumes(currentUser.uid) as unknown as Resume[];
           setResumes(userResumes);
-        } catch {}
+        } catch { /* non-fatal */ }
 
         let plannerStats: PlannerStats | undefined;
         try {
           plannerStats = await fetchPlannerStats(currentUser.uid);
-        } catch {}
+        } catch { /* non-fatal */ }
 
-        const userInterviews = await getInterviewsByUserId(currentUser.uid);
+        const userInterviews = await getInterviewsByUserId(currentUser.uid) as unknown[];
         if (!userInterviews?.length) {
           setStats(calculateStats([], userResumes, plannerStats));
           setIsLoading(false);
           return;
         }
 
-        const withDates = userInterviews.map((i: any) => ({
+        type RawInterview = {
+          id: string;
+          createdAt: { toDate?: () => Date } | string | Date;
+          updatedAt?: { toDate?: () => Date } | string | Date;
+          [key: string]: unknown;
+        };
+
+        const withDates = (userInterviews as RawInterview[]).map(i => ({
           ...i,
-          createdAt: i.createdAt?.toDate ? i.createdAt.toDate() : new Date(i.createdAt),
-          updatedAt: i.updatedAt?.toDate ? i.updatedAt.toDate() : new Date(i.updatedAt || i.createdAt),
+          createdAt: (i.createdAt as { toDate?: () => Date })?.toDate?.() ?? new Date(i.createdAt as string),
+          updatedAt: (i.updatedAt as { toDate?: () => Date } | undefined)?.toDate?.() ?? new Date((i.updatedAt ?? i.createdAt) as string),
         }));
 
         const withFeedback = await Promise.all(
-          withDates.map(async (i: any) => {
+          withDates.map(async i => {
             try {
               const fb = await getFeedbackByInterviewId({ interviewId: i.id, userId: currentUser.uid });
-              return fb ? { ...i, feedback: fb, score: fb.totalScore || 0 } : i;
+              return fb ? { ...i, feedback: fb, score: (fb as { totalScore?: number }).totalScore || 0 } : i;
             } catch { return i; }
           })
         );
 
-        setInterviews(withFeedback);
-        setStats(calculateStats(withFeedback, userResumes, plannerStats));
-        analyzeInterviewPerformance(withFeedback);
+        const typedInterviews = withFeedback as unknown as Interview[];
+        setInterviews(typedInterviews);
+        setStats(calculateStats(typedInterviews, userResumes, plannerStats));
+        analyzeInterviewPerformance(typedInterviews);
         analyzeResumeData(userResumes);
       } catch (err) {
         console.error('Dashboard fetch error:', err);
@@ -449,8 +480,10 @@ export default function Dashboard() {
           / (resumes[0].feedback?.overallScore || 1) * 100
         ) : 0;
     const resumeIssuesResolved = resumes.reduce((t, r) =>
-      t + Object.values(r.feedback || {}).reduce((s: number, sec: any) =>
-        s + (Array.isArray(sec?.tips) ? sec.tips.filter((tip: any) => tip.type === 'good').length : 0), 0), 0);
+      t + Object.values(r.feedback || {}).reduce((s: number, sec: unknown) =>
+        s + (Array.isArray((sec as { tips?: unknown[] })?.tips)
+          ? (sec as { tips: { type: string }[] }).tips.filter(tip => tip.type === 'good').length
+          : 0), 0), 0);
 
     const interviewReadinessScore = Math.round(
       (averageScore * 0.4) + (averageResumeScore * 0.3) + Math.min(totalInterviews * 5, 30)
@@ -464,8 +497,8 @@ export default function Dashboard() {
     }).length;
     const weeklyTarget = Math.max(3, Math.min(7, Math.round(totalInterviews / 4)));
 
-    const techInterviews  = completed.filter(i => ['technical', 'coding', 'system-design'].includes(i.type));
-    const technicalDepth  = techInterviews.length
+    const techInterviews = completed.filter(i => ['technical', 'coding', 'system-design'].includes(i.type));
+    const technicalDepth = techInterviews.length
       ? Math.round(techInterviews.reduce((s, i) => {
           let pts = (i.score || 0) / 20;
           if (i.type === 'system-design') pts *= 1.2;
@@ -495,8 +528,8 @@ export default function Dashboard() {
 
     const monthMap = new Map<string, { totalScore: number; count: number }>();
     completed.forEach(i => {
-      const d = new Date(i.createdAt);
-      const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const d  = new Date(i.createdAt);
+      const k  = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       const ex = monthMap.get(k) || { totalScore: 0, count: 0 };
       monthMap.set(k, { totalScore: ex.totalScore + (i.score || 0), count: ex.count + 1 });
     });
@@ -534,11 +567,16 @@ export default function Dashboard() {
   };
 
   // ── Daily focus ────────────────────────────────────────────────────────────
-  const generateEnhancedDailyFocus = (
-    interviews: Interview[],
-    resumes: Resume[],
-    stats: UserStats,
+  const generateEnhancedDailyFocus: DailyFocusFn = (
+    _interviews,
+    _resumes,
+    _stats,
   ) => {
+    // Cast back to concrete types — safe because the caller always passes the right shapes
+    const interviews = _interviews as Interview[];
+    const resumes    = _resumes    as Resume[];
+    const stats      = _stats      as unknown as UserStats;
+
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     const todayDone = interviews.filter(i => {
@@ -546,7 +584,7 @@ export default function Dashboard() {
       return d >= todayStart && ((i.score ?? 0) > 0 || !!i.feedback);
     });
 
-    const focuses = [
+    const focuses: { id: number; text: string; description: string; completed: boolean; type: string; icon: string }[] = [
       {
         id: 1,
         text: 'Complete 1 Interview',
@@ -630,7 +668,6 @@ export default function Dashboard() {
   const hasResume     = (stats.totalResumes ?? 0) > 0;
   const hasInterviews = stats.totalInterviews > 0;
 
-  // Contextual nudge — only shown when there's something actionable
   const nudge = !hasResume
     ? {
         icon: Upload,
@@ -671,18 +708,16 @@ export default function Dashboard() {
       <div className="glass-card p-5 sm:p-6 animate-fade-in-up">
         <div className="flex flex-col lg:flex-row items-start lg:items-center gap-6">
 
-          {/* Left: greeting + nudge + stats */}
           <div className="flex-1 min-w-0">
-
-            {/* Greeting row */}
             <div className="flex items-center gap-3 mb-4">
               <div className="relative flex-shrink-0">
-                <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center
-                                text-white font-bold text-base shadow-[0_4px_16px_rgba(102,126,234,0.35)]"
-                     aria-hidden="true">
+                <div
+                  className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center
+                             text-white font-bold text-base shadow-[0_4px_16px_rgba(102,126,234,0.35)]"
+                  aria-hidden="true"
+                >
                   {userProfile.name.charAt(0).toUpperCase()}
                 </div>
-                {/* Online indicator */}
                 <span
                   className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-[1.5px] border-[#090d1a]"
                   aria-hidden="true"
@@ -700,48 +735,31 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Contextual nudge — only shown when relevant */}
             {nudge && (
-              <div className={`flex items-center gap-2.5 text-xs ${nudge.color}
-                               ${nudge.bg} border ${nudge.borderColor}
-                               rounded-lg px-3 py-2.5 mb-4`}
-                   role="status">
+              <div
+                className={`flex items-center gap-2.5 text-xs ${nudge.color} ${nudge.bg} border ${nudge.borderColor} rounded-lg px-3 py-2.5 mb-4`}
+                role="status"
+              >
                 <nudge.icon className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
                 <span className="flex-1 leading-snug">{nudge.text}</span>
                 <Link
                   href={nudge.href}
-                  className="ml-2 text-xs font-semibold whitespace-nowrap opacity-80 hover:opacity-100
-                             underline underline-offset-2 transition-opacity"
+                  className="ml-2 text-xs font-semibold whitespace-nowrap opacity-80 hover:opacity-100 underline underline-offset-2 transition-opacity"
                 >
                   {nudge.cta} →
                 </Link>
               </div>
             )}
 
-            {/* Core stats */}
             <div className="grid grid-cols-3 gap-4 pt-4 border-t border-white/[0.05]">
-              <StatPill
-                label="Avg score"
-                value={`${stats.averageScore}%`}
-                trend={stats.improvementRate}
-              />
-              <StatPill
-                label="Sessions"
-                value={stats.totalInterviews}
-                sub={`${stats.hoursSpent}h`}
-              />
-              <StatPill
-                label="This week"
-                value={stats.weeklyVelocity ?? 0}
-                sub={`/ ${stats.weeklyTarget ?? 3} goal`}
-              />
+              <StatPill label="Avg score"  value={`${stats.averageScore}%`} trend={stats.improvementRate} />
+              <StatPill label="Sessions"   value={stats.totalInterviews}    sub={`${stats.hoursSpent}h`} />
+              <StatPill label="This week"  value={stats.weeklyVelocity ?? 0} sub={`/ ${stats.weeklyTarget ?? 3} goal`} />
             </div>
           </div>
 
-          {/* Vertical divider — desktop only */}
           <div className="hidden lg:block w-px self-stretch bg-white/[0.05]" aria-hidden="true" />
 
-          {/* Right: readiness ring */}
           <div className="flex-shrink-0 self-center lg:self-auto">
             <ReadinessRing score={readiness} />
           </div>
@@ -749,23 +767,9 @@ export default function Dashboard() {
       </div>
 
       {/* ── Quick actions ─────────────────────────────── */}
-      <div
-        className="grid grid-cols-1 sm:grid-cols-3 gap-3 animate-fade-in-up"
-        style={{ animationDelay: '60ms' }}
-      >
-        <ActionCard
-          icon={Plus}
-          label="Start Interview"
-          description="AI mock session, any role"
-          href="/interview"
-          primary
-        />
-        <ActionCard
-          icon={Upload}
-          label="Analyze Resume"
-          description="ATS score + AI feedback"
-          href="/resume"
-        />
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 animate-fade-in-up" style={{ animationDelay: '60ms' }}>
+        <ActionCard icon={Plus}     label="Start Interview"   description="AI mock session, any role"  href="/interview" primary />
+        <ActionCard icon={Upload}   label="Analyze Resume"    description="ATS score + AI feedback"    href="/resume" />
         <ActionCard
           icon={BookOpen}
           label={stats.plannerStats?.currentPlan ? 'Continue Plan' : 'Create Study Plan'}
@@ -774,49 +778,26 @@ export default function Dashboard() {
               ? `${stats.plannerStats.currentPlan.progress}% complete · ${stats.plannerStats.currentPlan.daysRemaining}d left`
               : 'Day-by-day prep schedule'
           }
-          href={
-            stats.plannerStats?.currentPlan
-              ? `/planner/${stats.plannerStats.currentPlan.id}`
-              : '/planner/create'
-          }
+          href={stats.plannerStats?.currentPlan ? `/planner/${stats.plannerStats.currentPlan.id}` : '/planner/create'}
         />
       </div>
 
       {/* ── Metric row ────────────────────────────────── */}
-      <div
-        className="grid grid-cols-2 lg:grid-cols-4 gap-3 animate-fade-in-up"
-        style={{ animationDelay: '120ms' }}
-      >
-        {/* Resume quality */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 animate-fade-in-up" style={{ animationDelay: '120ms' }}>
+
         <MetricCard
-          icon={FileText}
-          label="Resume quality"
+          icon={FileText} label="Resume quality"
           value={hasResume ? `${stats.averageResumeScore ?? 0}%` : '—'}
-          sub={
-            hasResume
-              ? `${stats.totalResumes} file${stats.totalResumes !== 1 ? 's' : ''}`
-              : 'No resume yet'
-          }
-          accentClass={
-            !hasResume
-              ? 'text-slate-600'
-              : (stats.averageResumeScore ?? 0) >= 70
-              ? 'text-emerald-400'
-              : 'text-amber-400'
-          }
+          sub={hasResume ? `${stats.totalResumes} file${stats.totalResumes !== 1 ? 's' : ''}` : 'No resume yet'}
+          accentClass={!hasResume ? 'text-slate-600' : (stats.averageResumeScore ?? 0) >= 70 ? 'text-emerald-400' : 'text-amber-400'}
         >
           {hasResume && (
-            <ProgressBar
-              value={stats.averageResumeScore ?? 0}
-              color={(stats.averageResumeScore ?? 0) >= 70 ? 'bg-emerald-500' : 'bg-amber-500'}
-            />
+            <ProgressBar value={stats.averageResumeScore ?? 0} color={(stats.averageResumeScore ?? 0) >= 70 ? 'bg-emerald-500' : 'bg-amber-500'} />
           )}
         </MetricCard>
 
-        {/* Technical depth */}
         <MetricCard
-          icon={Brain}
-          label="Technical depth"
+          icon={Brain} label="Technical depth"
           value={stats.technicalDepth ? `${stats.technicalDepth}/5` : '—'}
           sub={stats.technicalDepth ? 'rating' : 'No tech sessions'}
           accentClass={!stats.technicalDepth ? 'text-slate-600' : 'text-violet-400'}
@@ -826,11 +807,7 @@ export default function Dashboard() {
               {[1, 2, 3, 4, 5].map(n => (
                 <Star
                   key={n}
-                  className={`w-3 h-3 ${
-                    n <= Math.round(stats.technicalDepth ?? 0)
-                      ? 'text-violet-400 fill-violet-400'
-                      : 'text-slate-700'
-                  }`}
+                  className={`w-3 h-3 ${n <= Math.round(stats.technicalDepth ?? 0) ? 'text-violet-400 fill-violet-400' : 'text-slate-700'}`}
                   aria-hidden="true"
                 />
               ))}
@@ -838,78 +815,50 @@ export default function Dashboard() {
           )}
         </MetricCard>
 
-        {/* Communication */}
         <MetricCard
-          icon={Users}
-          label="Communication"
+          icon={Users} label="Communication"
           value={stats.communicationScore ? `${stats.communicationScore}` : '—'}
           sub={stats.communicationScore ? '/100' : 'No data yet'}
-          accentClass={
-            !stats.communicationScore
-              ? 'text-slate-600'
-              : stats.communicationScore >= 70
-              ? 'text-sky-400'
-              : 'text-amber-400'
-          }
+          accentClass={!stats.communicationScore ? 'text-slate-600' : stats.communicationScore >= 70 ? 'text-sky-400' : 'text-amber-400'}
         >
           {!!stats.communicationScore && (
-            <ProgressBar
-              value={stats.communicationScore}
-              color={stats.communicationScore >= 70 ? 'bg-sky-500' : 'bg-amber-500'}
-            />
+            <ProgressBar value={stats.communicationScore} color={stats.communicationScore >= 70 ? 'bg-sky-500' : 'bg-amber-500'} />
           )}
         </MetricCard>
 
-        {/* Active plan or weekly goal */}
         {stats.plannerStats?.currentPlan ? (
           <Link href={`/planner/${stats.plannerStats.currentPlan.id}`} className="block">
             <MetricCard
-              icon={Calendar}
-              label="Active plan"
+              icon={Calendar} label="Active plan"
               value={`${stats.plannerStats.currentPlan.progress}%`}
               sub={`${stats.plannerStats.currentPlan.daysRemaining}d left`}
               accentClass="text-emerald-400"
             >
-              <ProgressBar
-                value={stats.plannerStats.currentPlan.progress}
-                color="bg-emerald-500"
-              />
+              <ProgressBar value={stats.plannerStats.currentPlan.progress} color="bg-emerald-500" />
             </MetricCard>
           </Link>
         ) : (
           <MetricCard
-            icon={Zap}
-            label="Weekly goal"
+            icon={Zap} label="Weekly goal"
             value={`${stats.weeklyVelocity ?? 0}`}
             sub={`/ ${stats.weeklyTarget ?? 3} sessions`}
-            accentClass={
-              (stats.weeklyVelocity ?? 0) >= (stats.weeklyTarget ?? 3)
-                ? 'text-emerald-400'
-                : 'text-blue-400'
-            }
+            accentClass={(stats.weeklyVelocity ?? 0) >= (stats.weeklyTarget ?? 3) ? 'text-emerald-400' : 'text-blue-400'}
           >
             <ProgressBar
               value={stats.weeklyVelocity ?? 0}
               max={stats.weeklyTarget ?? 3}
-              color={
-                (stats.weeklyVelocity ?? 0) >= (stats.weeklyTarget ?? 3)
-                  ? 'bg-emerald-500'
-                  : 'bg-blue-500'
-              }
+              color={(stats.weeklyVelocity ?? 0) >= (stats.weeklyTarget ?? 3) ? 'bg-emerald-500' : 'bg-blue-500'}
             />
           </MetricCard>
         )}
       </div>
 
       {/* ── Profile overview ──────────────────────────── */}
-      <div
-        className="glass-card p-5 sm:p-6 animate-fade-in-up"
-        style={{ animationDelay: '180ms' }}
-      >
+      <div className="glass-card p-5 sm:p-6 animate-fade-in-up" style={{ animationDelay: '180ms' }}>
         <ProfileOverview
           userProfile={userProfile}
           stats={stats}
-          interviews={interviews}
+          interviews={interviews.map(i => ({ ...i, score: i.score ?? 0 }))}
           resumes={resumes}
           generateDailyFocus={generateEnhancedDailyFocus}
           loading={false}
