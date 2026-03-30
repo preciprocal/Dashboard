@@ -15,6 +15,7 @@ import {
 import PlanCard from '@/components/planner/PlanCard';
 import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
 import ErrorPage from '@/components/Error';
+import { SeeExampleButton } from '@/components/ServiceModal';
 
 interface CriticalError {
   code: string;
@@ -198,10 +199,16 @@ export default function PlannerPage() {
             <h1 className="text-xl font-bold text-white leading-tight">Preparation Planner</h1>
             <p className="text-xs text-slate-500 mt-0.5">Manage your study & preparation plans</p>
           </div>
-          <Link href="/planner/create"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl flex-shrink-0 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-400 hover:to-purple-400 text-white text-sm font-semibold shadow-[0_4px_14px_rgba(139,92,246,0.35)] hover:shadow-[0_6px_18px_rgba(139,92,246,0.45)] transition-all duration-200">
-            <Plus className="w-4 h-4" /> New Plan
-          </Link>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <SeeExampleButton
+              serviceId="planner"
+              className="!px-4 !py-2.5 !text-sm !font-semibold"
+            />
+            <Link href="/planner/create"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-400 hover:to-purple-400 text-white text-sm font-semibold shadow-[0_4px_14px_rgba(139,92,246,0.35)] hover:shadow-[0_6px_18px_rgba(139,92,246,0.45)] transition-all duration-200">
+              <Plus className="w-4 h-4" /> New Plan
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -321,10 +328,16 @@ export default function PlannerPage() {
             {searchQuery ? 'Try adjusting your search criteria' : filter === 'all' ? 'Create your first preparation plan to get started' : `You have no ${filter} plans at the moment`}
           </p>
           {filter === 'all' && !searchQuery && (
-            <Link href="/planner/create"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-400 hover:to-purple-400 text-white text-sm font-semibold transition-all duration-150">
-              <Plus className="w-4 h-4" /> Create Plan
-            </Link>
+            <div className="flex items-center justify-center gap-3">
+              <Link href="/planner/create"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-400 hover:to-purple-400 text-white text-sm font-semibold transition-all duration-150">
+                <Plus className="w-4 h-4" /> Create Plan
+              </Link>
+              <SeeExampleButton
+                serviceId="planner"
+                className="!px-5 !py-2.5 !text-sm !font-semibold"
+              />
+            </div>
           )}
         </div>
       ) : (

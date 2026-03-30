@@ -22,6 +22,8 @@ import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import { NotificationService } from '@/lib/services/notification-services';
 import UsersFeedback from '@/components/UserFeedback';
 import { useUsageTracking } from '@/lib/hooks/useUsageTracking';
+import { SeeExampleButton } from '@/components/ServiceModal';
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -733,7 +735,6 @@ export default function InterviewDebriefPage() {
         await addDoc(collection(db, 'interviewDebrief'), payload);
         toast.success('Debrief saved to your journal');
 
-        // Increment usage after successful NEW entry
         await incrementUsage('interviewDebriefs');
 
         const msgs: Record<InterviewOutcome, string> = {
@@ -846,6 +847,8 @@ export default function InterviewDebriefPage() {
             <p className="text-[12px] text-slate-500 ml-12">Log real interviews, let AI find your patterns, turn losses into learning.</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
+            {/* See Example */}
+            <SeeExampleButton serviceId="debrief" />
             {/* Usage badge */}
             <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-500/[0.07] border border-violet-500/20">
               <Shield className="w-4 h-4 text-violet-400" />

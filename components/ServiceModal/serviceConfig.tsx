@@ -1,13 +1,16 @@
 // components/ServiceExampleModal/serviceConfig.tsx
 'use client';
 
-import { FileText, Pen, Video } from 'lucide-react';
+import { FileText, Pen, Video, Calendar, Sparkles, BookOpen } from 'lucide-react';
 import type { ServiceExample, ResumeInitialTab } from './types';
 import { ResumeExamplePreview } from './examples/resume/ResumePreview';
 import { CoverLetterExamplePreview } from './examples/cover-letter/CoverLetterPreview';
 import { InterviewExamplePreview } from './examples/interview/InterviewPreview';
+import { PlannerExamplePreview } from './examples/planner/PlannerPreview';
+import { CareerToolsExamplePreview } from './examples/career-tools/CareerToolsPreview';
+import { DebriefExamplePreview } from './examples/debrief/DebriefPreview';
 
-// Resume + cover-letter + interview for now — add other services as their preview components are built
+// Resume + cover-letter + interview + planner + career-tools + debrief
 export const SERVICE_EXAMPLES: ServiceExample[] = [
   {
     id: 'resume',
@@ -58,5 +61,55 @@ export const SERVICE_EXAMPLES: ServiceExample[] = [
       { label: 'Feedback ready!', duration: 5000 },
     ],
     renderPreview: (step) => <InterviewExamplePreview step={step} />,
+  },
+  {
+    id: 'planner',
+    title: 'Study Planner',
+    subtitle: 'AI builds a day-by-day interview prep schedule',
+    icon: Calendar,
+    gradient: 'from-emerald-600 to-teal-600',
+    steps: [
+      { label: 'Filling in details…', duration: 2500 },
+      { label: 'Selecting focus areas…', duration: 2000 },
+      { label: 'Plan generated — Schedule view…', duration: 4500 },
+      { label: 'Browsing tasks & resources…', duration: 5000 },
+      { label: 'Viewing analytics…', duration: 5000 },
+      { label: 'Chatting with AI Coach…', duration: 7000 },
+      { label: 'Taking the quiz…', duration: 8000 },
+      { label: 'Plan complete!', duration: 3000 },
+    ],
+    renderPreview: (step) => <PlannerExamplePreview step={step} />,
+  },
+  {
+    id: 'career-tools',
+    title: 'Career Tools',
+    subtitle: 'LinkedIn optimizer & cold outreach generator',
+    icon: Sparkles,
+    gradient: 'from-violet-600 to-purple-600',
+    steps: [
+      { label: 'Filling LinkedIn details…', duration: 2500 },
+      { label: 'Optimising profile…', duration: 2000 },
+      { label: 'LinkedIn results ready!', duration: 5000 },
+      { label: 'Setting up cold outreach…', duration: 4000 },
+      { label: 'Generating messages…', duration: 2000 },
+      { label: 'Outreach ready!', duration: 5000 },
+    ],
+    renderPreview: (step) => <CareerToolsExamplePreview step={step} />,
+  },
+  {
+    id: 'debrief',
+    title: 'Interview Debrief Journal',
+    subtitle: 'Log real interviews, track patterns, get AI coaching',
+    icon: BookOpen,
+    gradient: 'from-violet-600 to-indigo-600',
+    steps: [
+      { label: 'Logging interview details…', duration: 6000 },
+      { label: 'Saving to journal…',         duration: 2500 },
+      { label: 'Journal entries loaded!',     duration: 5000 },
+      { label: 'Calculating stats…',          duration: 5000 },
+      { label: 'Running AI analysis…',        duration: 2500 },
+      { label: 'AI insights ready!',          duration: 6000 },
+    ],
+    renderPreview: (step) => <DebriefExamplePreview step={step} />,
   },
 ];

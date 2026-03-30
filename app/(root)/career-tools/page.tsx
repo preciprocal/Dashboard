@@ -15,6 +15,7 @@ import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import { NotificationService } from '@/lib/services/notification-services';
 import UsersFeedback from '@/components/UserFeedback';
 import { useUsageTracking } from '@/lib/hooks/useUsageTracking';
+import { SeeExampleButton } from '@/components/ServiceModal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -593,7 +594,6 @@ export default function CareerToolsPage() {
   const [user, loading] = useAuthState(auth);
   const router = useRouter();
 
-  // ── Usage tracking ────────────────────────────────────────────────────────
   const {
     canUseFeature, getRemainingCount, getUsedCount,
     getLimit, incrementUsage, usageData,
@@ -694,7 +694,6 @@ export default function CareerToolsPage() {
     return <AnimatedLoader isVisible={true} mode="steps" steps={[{ name: 'Authenticating…', weight: 1 }, { name: 'Loading your profile…', weight: 2 }, { name: 'Preparing AI tools…', weight: 2 }, { name: 'Ready!', weight: 1 }]} currentStep={0} loadingText="Loading Career Tools…" showNavigation={true} />;
   }
 
-  // ── Render helpers for results panels ──────────────────────────────────────
   const renderLIResults = () => {
     if (!canUseFeature('linkedinOptimisations') && !liResult)
       return <UpgradeGate feature="linkedin" used={liUsed} limit={liLimit} />;
@@ -719,9 +718,18 @@ export default function CareerToolsPage() {
       <div className="lg:hidden py-4 space-y-5">
         <div>
           <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors mb-4"><ArrowLeft className="w-3.5 h-3.5" /> Dashboard</Link>
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-[0_4px_16px_rgba(59,130,246,0.3)]"><Sparkles className="w-4 h-4 text-white" /></div>
-            <div><h1 className="text-xl font-bold text-white">Career Tools</h1><p className="text-[11px] text-slate-600">AI-powered LinkedIn & outreach optimizer</p></div>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-[0_4px_16px_rgba(59,130,246,0.3)]"><Sparkles className="w-4 h-4 text-white" /></div>
+              <div>
+                <h1 className="text-xl font-bold text-white">Career Tools</h1>
+                <p className="text-[11px] text-slate-600">AI-powered LinkedIn & outreach optimizer</p>
+              </div>
+            </div>
+            <SeeExampleButton
+              serviceId="career-tools"
+              className="!px-3 !py-2 !text-xs !font-semibold flex-shrink-0"
+            />
           </div>
         </div>
         <ToolTabs active={activeTool} setActive={setActiveTool} />
@@ -729,21 +737,29 @@ export default function CareerToolsPage() {
         {isLI ? renderLIResults() : renderORResults()}
       </div>
 
-      {/* DESKTOP — 50/50 split */}
+      {/* DESKTOP */}
       <div className="hidden lg:flex" style={{ height: 'calc(100vh - 62px)' }}>
-        <div className="w-[50%] flex-shrink-0 flex flex-col border-r border-white/[0.05] overflow-hidden">
+        <div className="w-[30%] flex-shrink-0 flex flex-col border-r border-white/[0.05] overflow-hidden">
           <div className="flex-shrink-0 px-5 py-4 border-b border-white/[0.05]">
             <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-[11px] text-slate-600 hover:text-slate-400 transition-colors mb-3"><ArrowLeft className="w-3 h-3" /> Dashboard</Link>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-[0_4px_12px_rgba(59,130,246,0.25)] flex-shrink-0"><Sparkles className="w-3.5 h-3.5 text-white" /></div>
-              <div><h1 className="text-base font-bold text-white leading-tight">Career Tools</h1><p className="text-[11px] text-slate-600">AI-powered profile & outreach</p></div>
+              <div>
+                <h1 className="text-base font-bold text-white leading-tight">Career Tools</h1>
+                <p className="text-[11px] text-slate-600">AI-powered profile & outreach</p>
+              </div>
             </div>
-            {/* Usage badge */}
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-500/[0.07] border border-blue-500/20 mb-4">
-              <Shield className="w-3.5 h-3.5 text-blue-400" />
-              <span className="text-[12px] font-semibold text-blue-400">
-                {isUnlimitedPlan ? 'Unlimited' : isLI ? `${liLeft} optimisations left` : `${orLeft} messages left`}
-              </span>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-500/[0.07] border border-blue-500/20">
+                <Shield className="w-3.5 h-3.5 text-blue-400" />
+                <span className="text-[12px] font-semibold text-blue-400">
+                  {isUnlimitedPlan ? 'Unlimited' : isLI ? `${liLeft} optimisations left` : `${orLeft} messages left`}
+                </span>
+              </div>
+              <SeeExampleButton
+                serviceId="career-tools"
+                className="!px-3 !py-2 !text-[12px] !font-semibold flex-shrink-0"
+              />
             </div>
             <ToolTabs active={activeTool} setActive={setActiveTool} />
           </div>
@@ -751,7 +767,7 @@ export default function CareerToolsPage() {
             {isLI ? <LinkedInForm {...liFormProps} /> : <OutreachForm {...orFormProps} />}
           </div>
         </div>
-        <div className="w-[50%] flex-shrink-0 overflow-y-auto glass-scrollbar">
+        <div className="w-[70%] flex-shrink-0 overflow-y-auto glass-scrollbar">
           <div className="p-6 space-y-3">
             {isLI ? (
               renderLIResults() || <EmptyState icon={Linkedin} title="Results appear here" sub="Paste your current headline or about section on the left and click Optimise." />
