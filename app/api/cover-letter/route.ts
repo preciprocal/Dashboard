@@ -1,42 +1,22 @@
 // app/api/cover-letter/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { auth, db } from '@/firebase/admin';
+import { auth } from '@/firebase/admin';
 import OpenAI from 'openai';
 import { hashResumeContent } from '@/lib/redis/resume-cache';
 import { redis, RedisKeys } from '@/lib/redis/redis-client';
+import { getUserAIContext } from '@/lib/ai/user-context';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-const COVER_LETTER_TTL    = 7 * 24 * 60 * 60;   // 7 days
-const COMPANY_RESEARCH_TTL = 30 * 24 * 60 * 60; // 30 days
+const COVER_LETTER_TTL     = 7 * 24 * 60 * 60;
+const COMPANY_RESEARCH_TTL = 30 * 24 * 60 * 60;
 
 interface CoverLetterRequest {
   jobRole: string;
   jobDescription?: string;
   companyName?: string;
   tone?: string;
-}
-
-interface UserProfile {
-  name: string;
-  email: string;
-  phone?: string;
-  streetAddress?: string;
-  city?: string;
-  state?: string;
-  linkedIn?: string;
-  github?: string;
-  website?: string;
-  transcript?: string;
-  transcriptFileName?: string;
-  resume?: string;
-  resumeFileName?: string;
-  bio?: string;
-  targetRole?: string;
-  experienceLevel?: string;
-  preferredTech?: string[];
-  careerGoals?: string;
 }
 
 interface CoverLetterCache {
@@ -50,20 +30,14 @@ interface CoverLetterCache {
 
 async function researchCompany(companyName: string, jobRole: string): Promise<string> {
   if (!companyName) return '';
-
   const cached = await getCachedCompanyResearch(companyName);
   if (cached) return cached;
-
   try {
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       max_tokens: 300,
-      messages: [{
-        role: 'user',
-        content: `Research ${companyName} for a ${jobRole} cover letter. Provide 2-3 sentences covering: company mission, recent news (2024-2025), culture/values. If no info available, say "Company information not available".`,
-      }],
+      messages: [{ role: 'user', content: `Research ${companyName} for a ${jobRole} cover letter. Provide 2-3 sentences covering: company mission, recent news (2024-2025), culture/values. If no info available, say "Company information not available".` }],
     });
-
     const research = completion.choices[0]?.message?.content ?? '';
     await cacheCompanyResearch(companyName, research);
     return research;
@@ -78,10 +52,7 @@ async function getCachedCompanyResearch(companyName: string): Promise<string | n
   try {
     const key = RedisKeys.company(companyName.toLowerCase().trim());
     const cached = await redis.get(key);
-    if (cached) {
-      const data = typeof cached === 'string' ? JSON.parse(cached) : cached;
-      return data.research as string;
-    }
+    if (cached) { const data = typeof cached === 'string' ? JSON.parse(cached) : cached; return data.research as string; }
     return null;
   } catch { return null; }
 }
@@ -105,52 +76,30 @@ async function getCachedCoverLetter(cacheKey: string): Promise<CoverLetterCache 
 
 async function cacheCoverLetter(cacheKey: string, data: CoverLetterCache): Promise<void> {
   if (!redis) return;
-  try {
-    await redis.setex(`cover-letter:${cacheKey}`, COVER_LETTER_TTL, JSON.stringify(data));
-  } catch (err) { console.error('Redis error:', err); }
+  try { await redis.setex(`cover-letter:${cacheKey}`, COVER_LETTER_TTL, JSON.stringify(data)); }
+  catch (err) { console.error('Redis error:', err); }
 }
 
-// ─── Transcript analysis using vision ────────────────────────────────────────
+// ─── Transcript course extraction ─────────────────────────────────────────────
 
-async function analyzeTranscriptImage(
-  base64PDF: string,
-  jobRole: string,
-  jobDescription?: string,
-): Promise<{ courses: string; success: boolean }> {
+async function extractRelevantCourses(transcriptText: string, jobRole: string, jobDescription?: string): Promise<string> {
+  if (!transcriptText || transcriptText.length < 50) return '';
   try {
-    console.log('🎓 Analyzing transcript with gpt-4o vision');
-
-    const base64Content = base64PDF.includes('base64,') ? base64PDF.split('base64,')[1] : base64PDF;
-
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      max_tokens: 800,
-      messages: [{
-        role: 'user',
-        content: [
-          {
-            type: 'image_url',
-            image_url: { url: `data:application/pdf;base64,${base64Content}` },
-          },
-          {
-            type: 'text',
-            text: `You are analyzing an ACADEMIC TRANSCRIPT for a ${jobRole} position.
+      model: 'gpt-4o-mini',
+      max_tokens: 600,
+      messages: [{ role: 'user', content: `From this academic transcript text, identify 4-6 courses most relevant to a ${jobRole} position.
 ${jobDescription ? `JOB REQUIREMENTS:\n${jobDescription.substring(0, 1500)}\n` : ''}
-Extract ALL courses visible and identify 4-6 most relevant to ${jobRole}.
-Format each as: "Course X: [CODE]: [NAME] - [RELEVANCE]"
-Then list them under "RELEVANT COURSES:".`,
-          },
-        ],
-      }],
-    });
+TRANSCRIPT TEXT:\n${transcriptText.substring(0, 3000)}
 
-    const analysisText = completion.choices[0]?.message?.content ?? '';
-    const hasCourseInfo = analysisText.includes('Course') || analysisText.includes('RELEVANT COURSES');
-    if (!hasCourseInfo || analysisText.length < 200) return { courses: '', success: false };
-    return { courses: analysisText, success: true };
+Format each as: "Course X: [CODE]: [NAME] - [RELEVANCE]"
+List them under "RELEVANT COURSES:".` }],
+    });
+    const result = completion.choices[0]?.message?.content ?? '';
+    return (result.includes('Course') || result.includes('RELEVANT')) ? result : '';
   } catch (err) {
-    console.error('❌ Transcript analysis error:', err);
-    return { courses: '', success: false };
+    console.error('❌ Course extraction error:', err);
+    return '';
   }
 }
 
@@ -169,47 +118,42 @@ export async function POST(request: NextRequest) {
     const session = cookieStore.get('session');
     if (!session) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
-    let decodedClaims;
+    let userId: string;
     try {
-      decodedClaims = await auth.verifySessionCookie(session.value, true);
+      const decodedClaims = await auth.verifySessionCookie(session.value, true);
+      userId = decodedClaims.uid;
     } catch {
       return NextResponse.json({ success: false, error: 'Invalid session' }, { status: 401 });
     }
 
-    const userId = decodedClaims.uid;
-
     // ── Parse body ────────────────────────────────────────────────
     const body = await request.json() as CoverLetterRequest;
     const { jobRole, jobDescription, companyName, tone = 'professional' } = body;
+    if (!jobRole) return NextResponse.json({ success: false, error: 'jobRole is required' }, { status: 400 });
 
-    if (!jobRole) {
-      return NextResponse.json({ success: false, error: 'jobRole is required' }, { status: 400 });
-    }
+    // ── Fetch user context (resume + transcript from Storage, profile from Firestore) ──
+    console.log('📄 Fetching user AI context...');
+    const ctx = await getUserAIContext(userId);
+    const hasResume = !!ctx.resumeText;
+    const hasTranscript = !!ctx.transcriptText;
 
-    // ── Fetch user profile ────────────────────────────────────────
-    const userDoc = await db.collection('users').doc(userId).get();
-    if (!userDoc.exists) return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
-    const userProfile = userDoc.data() as UserProfile;
-
-    const resumeText: string = userProfile.resume ?? '';
-    const hasTranscript = !!(userProfile.transcript && userProfile.transcriptFileName);
-
-    // ── Transcript analysis ───────────────────────────────────────
+    // ── Extract relevant courses from transcript ──────────────────
     let transcriptCourses = '';
-    if (hasTranscript && userProfile.transcript) {
-      const { courses, success } = await analyzeTranscriptImage(userProfile.transcript, jobRole, jobDescription);
-      if (success) transcriptCourses = courses;
+    if (hasTranscript) {
+      transcriptCourses = await extractRelevantCourses(ctx.transcriptText!, jobRole, jobDescription);
     }
 
     // ── Cache check ───────────────────────────────────────────────
-    const cacheKey = hashResumeContent(`${userId}${jobRole}${companyName ?? ''}${jobDescription ?? ''}${tone}${resumeText.substring(0, 500)}${transcriptCourses.substring(0, 200)}`);
+    const cacheKey = hashResumeContent(
+      `${userId}${jobRole}${companyName ?? ''}${jobDescription ?? ''}${tone}${(ctx.resumeText ?? '').substring(0, 500)}${transcriptCourses.substring(0, 200)}`
+    );
     const cached = await getCachedCoverLetter(cacheKey);
     if (cached) {
       console.log('⚡ Returning cached cover letter');
       return NextResponse.json({
         success: true,
         coverLetter: { content: cached.content, jobRole, companyName: companyName ?? null, tone, wordCount: cached.wordCount, createdAt: cached.createdAt },
-        metadata: { tokensUsed: cached.tokensUsed, responseTime: Date.now() - startTime, cached: true, usedTranscript: hasTranscript },
+        metadata: { tokensUsed: cached.tokensUsed, responseTime: Date.now() - startTime, cached: true, usedResume: hasResume, usedTranscript: hasTranscript },
       });
     }
 
@@ -220,14 +164,14 @@ export async function POST(request: NextRequest) {
     // ── Build prompt ──────────────────────────────────────────────
     const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-    const contactLines = [userProfile.name];
-    if (userProfile.streetAddress) contactLines.push(userProfile.streetAddress);
-    const loc = [userProfile.city, userProfile.state].filter(Boolean).join(', ');
+    const contactLines = [ctx.profile.name];
+    const userDoc = (await (await import('@/firebase/admin')).db.collection('users').doc(userId).get()).data() || {};
+    if (userDoc.streetAddress) contactLines.push(userDoc.streetAddress as string);
+    const loc = [userDoc.city, userDoc.state].filter(Boolean).join(', ');
     if (loc) contactLines.push(loc);
-    contactLines.push(userProfile.email);
-    if (userProfile.phone) contactLines.push(userProfile.phone);
-
-    const socialLinks = [userProfile.linkedIn, userProfile.github, userProfile.website].filter(Boolean);
+    contactLines.push(ctx.profile.email);
+    if (userDoc.phone) contactLines.push(userDoc.phone as string);
+    const socialLinks = [userDoc.linkedIn, userDoc.github, userDoc.website].filter(Boolean) as string[];
     if (socialLinks.length) contactLines.push(socialLinks.join(' | '));
 
     const toneMap: Record<string, string> = {
@@ -249,13 +193,14 @@ ${companyResearch ? `\nCOMPANY RESEARCH:\n${companyResearch}` : ''}
 
 CANDIDATE:
 ${contactLines.join('\n')}
-Experience Level: ${userProfile.experienceLevel ?? 'mid'}
-Skills: ${userProfile.preferredTech?.join(', ') ?? 'N/A'}
-${userProfile.bio ? `Bio: ${userProfile.bio}` : ''}
-${resumeText ? `\nWORK EXPERIENCE:\n${resumeText.substring(0, 3000)}` : ''}
+Experience Level: ${ctx.profile.experienceLevel || 'mid'}
+Skills: ${ctx.profile.preferredTech.join(', ') || 'N/A'}
+${ctx.profile.bio ? `Bio: ${ctx.profile.bio}` : ''}
+${ctx.profile.careerGoals ? `Career Goals: ${ctx.profile.careerGoals}` : ''}
+${hasResume ? `\nWORK EXPERIENCE (from resume):\n${ctx.resumeText!.substring(0, 3000)}` : ''}
 
-${hasTranscript ? `
-ACADEMIC COURSEWORK FROM TRANSCRIPT (${userProfile.transcriptFileName}):
+${hasTranscript && transcriptCourses ? `
+ACADEMIC COURSEWORK FROM TRANSCRIPT:
 ${transcriptCourses}
 
 MANDATORY: Body paragraph 2 MUST mention 3-4 specific courses by code and name from above, describing what was built/learned and how it connects to the ${jobRole} role.
@@ -273,12 +218,12 @@ Dear Hiring Team,
 
 [Opening: 2-3 sentences — enthusiasm for ${jobRole} role]
 [Body 1: 3-4 sentences on work experience with metrics]
-[Body 2: ${hasTranscript ? '4-5 sentences on specific coursework with codes' : '3-4 sentences on technical skills'}]
+[Body 2: ${hasTranscript && transcriptCourses ? '4-5 sentences on specific coursework with codes' : '3-4 sentences on technical skills'}]
 [Body 3: 2-3 sentences on company interest using research above]
 [Closing: 2 sentences with call to action]
 
 Best regards,
-${userProfile.name}
+${ctx.profile.name}
 
 Generate the complete cover letter now.`;
 
@@ -302,12 +247,12 @@ Generate the complete cover letter now.`;
     const cacheData: CoverLetterCache = { content: coverLetterText, wordCount, tokensUsed, createdAt: new Date().toISOString() };
     await cacheCoverLetter(cacheKey, cacheData);
 
-    console.log(`✅ Cover letter generated | ${wordCount} words | ${tokensUsed} tokens | ${Date.now() - startTime}ms`);
+    console.log(`✅ Cover letter generated | ${wordCount} words | resume: ${hasResume} | transcript: ${hasTranscript} | ${Date.now() - startTime}ms`);
 
     return NextResponse.json({
       success: true,
       coverLetter: { content: coverLetterText, jobRole, companyName: companyName ?? null, tone, wordCount, createdAt: cacheData.createdAt },
-      metadata: { tokensUsed, responseTime: Date.now() - startTime, cached: false, usedTranscript: hasTranscript },
+      metadata: { tokensUsed, responseTime: Date.now() - startTime, cached: false, usedResume: hasResume, usedTranscript: hasTranscript },
     });
 
   } catch (err) {

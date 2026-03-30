@@ -383,17 +383,35 @@ const ProfilePage = () => {
     finally { setIsSaving(false); }
   };
 
-  const handleOpenFile = (base64Data: string) => {
-    try {
-      const byteStr = atob(base64Data.split(',')[1]);
-      const mime    = base64Data.split(',')[0].split(':')[1].split(';')[0];
-      const ab = new ArrayBuffer(byteStr.length); const ia = new Uint8Array(ab);
+  const handleOpenFile = async (fileData: string, fileType: 'resume' | 'transcript') => {
+  try {
+    // Legacy base64 data — open directly (backwards compat for old uploads)
+    if (fileData.startsWith('data:')) {
+      const byteStr = atob(fileData.split(',')[1]);
+      const mime = fileData.split(',')[0].split(':')[1].split(';')[0];
+      const ab = new ArrayBuffer(byteStr.length);
+      const ia = new Uint8Array(ab);
       for (let i = 0; i < byteStr.length; i++) ia[i] = byteStr.charCodeAt(i);
       const url = URL.createObjectURL(new Blob([ab], { type: mime }));
       window.open(url, '_blank');
       setTimeout(() => URL.revokeObjectURL(url), 100);
-    } catch { toast.error('Failed to open file'); }
-  };
+      return;
+    }
+
+    // New Storage-based files — fetch a signed URL
+    const toastId = toast.loading('Opening file…');
+    const res = await fetch(`/api/profile/file?type=${fileType}`);
+    if (!res.ok) {
+      toast.error('Failed to open file', { id: toastId });
+      return;
+    }
+    const { url } = await res.json();
+    toast.dismiss(toastId);
+    window.open(url, '_blank');
+  } catch {
+    toast.error('Failed to open file');
+  }
+};
 
   const handleEditToggle = () => {
     if (isEditing) setEditedProfile(userProfile || {});
@@ -599,7 +617,7 @@ const ProfilePage = () => {
                   {userProfile.resume && (
                     <div className="flex items-center gap-2 text-xs">
                       <FileBadge className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
-                      <button onClick={() => handleOpenFile(userProfile.resume!)} className="text-blue-400 hover:text-blue-300 transition-colors truncate text-left">
+                      <button onClick={() => handleOpenFile(userProfile.resume!, 'resume')} className="text-blue-400 hover:text-blue-300 transition-colors truncate text-left">
                         {userProfile.resumeFileName || 'Resume.pdf'}
                       </button>
                     </div>
@@ -607,7 +625,7 @@ const ProfilePage = () => {
                   {userProfile.transcript && (
                     <div className="flex items-center gap-2 text-xs">
                       <FileText className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
-                      <button onClick={() => handleOpenFile(userProfile.transcript!)} className="text-blue-400 hover:text-blue-300 transition-colors truncate text-left">
+                       <button onClick={() => handleOpenFile(userProfile.transcript!, 'transcript')} className="text-blue-400 hover:text-blue-300 transition-colors truncate text-left">
                         {userProfile.transcriptFileName || 'Transcript.pdf'}
                       </button>
                     </div>

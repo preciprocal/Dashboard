@@ -17,6 +17,7 @@ import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import { NotificationService } from '@/lib/services/notification-services';
 import UsersFeedback from '@/components/UserFeedback';
 import { useUsageTracking } from '@/lib/hooks/useUsageTracking';
+import { SeeExampleButton } from '@/components/ServiceModal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -347,9 +348,7 @@ function SendEmailButtons({ recipientEmail, emailBody, jobTitle, company }: { re
       </button>
     </div>
   );
-}// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// PART 2 — Paste this DIRECTLY after Part 1 in the same file.
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+}
 
 // ─── Contacts modal ───────────────────────────────────────────────────────────
 
@@ -541,7 +540,6 @@ export default function JobTrackerPage() {
   const [user, loading] = useAuthState(auth);
   const router = useRouter();
 
-  // ── Usage tracking ────────────────────────────────────────────────────────
   const { canUseFeature, getLimit, incrementUsage, usageData } = useUsageTracking();
   const isUnlimitedPlan = usageData?.plan === 'pro' || usageData?.plan === 'premium';
 
@@ -561,7 +559,6 @@ export default function JobTrackerPage() {
   const [contactsModal, setContactsModal] = useState<Application | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
 
-  // ── Derived usage ─────────────────────────────────────────────────────────
   const jobsLimit = getLimit('jobTracker');
   const canAddJob = isUnlimitedPlan || apps.length < jobsLimit;
   const jobsLeft  = isUnlimitedPlan ? -1 : Math.max(0, jobsLimit - apps.length);
@@ -689,6 +686,10 @@ export default function JobTrackerPage() {
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
+              <SeeExampleButton
+                serviceId="job-tracker"
+                className="!px-4 !py-2.5 !text-sm !font-semibold"
+              />
               <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-500/[0.07] border border-purple-500/20">
                 <Shield className="w-4 h-4 text-purple-400" />
                 <span className="text-[13px] font-semibold text-purple-400">{isUnlimitedPlan ? 'Unlimited' : `${jobsLeft} jobs left`}</span>
@@ -730,7 +731,13 @@ export default function JobTrackerPage() {
                 <h3 className="text-sm font-bold text-slate-400 mb-2">{apps.length === 0 ? 'No applications yet' : 'No results match your filters'}</h3>
                 <p className="text-xs text-slate-600 mb-6 max-w-xs mx-auto leading-relaxed">{apps.length === 0 ? 'Start tracking your job search. Add your first application to see it here.' : 'Try adjusting your search or filters.'}</p>
                 {apps.length === 0 && canAddJob && (
-                  <button onClick={() => { setForm({ ...EMPTY_FORM }); setShowForm(true); }} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-semibold transition-all duration-150"><Plus className="w-4 h-4" /> Add First Application</button>
+                  <div className="flex items-center justify-center gap-3">
+                    <button onClick={() => { setForm({ ...EMPTY_FORM }); setShowForm(true); }} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-semibold transition-all duration-150"><Plus className="w-4 h-4" /> Add First Application</button>
+                    <SeeExampleButton
+                      serviceId="job-tracker"
+                      className="!px-5 !py-2.5 !text-sm !font-semibold"
+                    />
+                  </div>
                 )}
               </div>
             ) : (

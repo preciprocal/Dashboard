@@ -1,7 +1,7 @@
 // components/ServiceExampleModal/serviceConfig.tsx
 'use client';
 
-import { FileText, Pen, Video, Calendar, Sparkles, BookOpen } from 'lucide-react';
+import { FileText, Pen, Video, Calendar, Sparkles, BookOpen, Briefcase } from 'lucide-react';
 import type { ServiceExample, ResumeInitialTab } from './types';
 import { ResumeExamplePreview } from './examples/resume/ResumePreview';
 import { CoverLetterExamplePreview } from './examples/cover-letter/CoverLetterPreview';
@@ -9,8 +9,9 @@ import { InterviewExamplePreview } from './examples/interview/InterviewPreview';
 import { PlannerExamplePreview } from './examples/planner/PlannerPreview';
 import { CareerToolsExamplePreview } from './examples/career-tools/CareerToolsPreview';
 import { DebriefExamplePreview } from './examples/debrief/DebriefPreview';
+import { JobTrackerExamplePreview } from './examples/job-tracker/JobTrackerPreview';
 
-// Resume + cover-letter + interview + planner + career-tools + debrief
+// Resume + cover-letter + interview + planner + career-tools + debrief + job-tracker
 export const SERVICE_EXAMPLES: ServiceExample[] = [
   {
     id: 'resume',
@@ -111,5 +112,23 @@ export const SERVICE_EXAMPLES: ServiceExample[] = [
       { label: 'AI insights ready!',          duration: 6000 },
     ],
     renderPreview: (step) => <DebriefExamplePreview step={step} />,
+  },
+  {
+    id: 'job-tracker',
+    title: 'Job Tracker',
+    subtitle: 'Track applications, find contacts, send warm outreach',
+    icon: Briefcase,
+    gradient: 'from-purple-600 to-indigo-600',
+    steps: [
+      { label: 'Adding application…',           duration: 3000 },
+      { label: 'Application saved!',             duration: 1500 },
+      { label: 'Loading dashboard…',             duration: 2500 },
+      { label: 'Showing your applications…',     duration: 3000 },
+      { label: 'Finding contacts at Meta…',      duration: 3000 },
+      { label: 'Contacts found!',                duration: 3000 },
+      { label: 'Generating AI outreach email…',  duration: 6000 },
+      { label: 'Ready to send! Click any card.', duration: 4000 },
+    ],
+    renderPreview: (step) => <JobTrackerExamplePreview step={step} />,
   },
 ];

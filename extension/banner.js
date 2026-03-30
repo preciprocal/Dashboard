@@ -405,24 +405,64 @@ class PreciprocalBanner {
   }
 
   async prefetchApplyProfile() {
-    if (!this.authToken) return;
-    try {
-      const resp = await chrome.runtime.sendMessage({
-        type:    'API_FETCH_AUTO_APPLY',
-        token:   this.authToken,
-        userId:  this.authUserId || '',
-        email:   this.authEmail  || '',
-        baseUrl: PRECIPROCAL_URL,
-      });
-      if (resp?.success && resp.data) {
-        this.applyProfile = resp.data.applyProfile || null;
-        this.applyFiles   = resp.data.files        || null;
-        console.log('✅ Apply profile prefetched:', this.applyProfile?.firstName);
+  if (!this.authToken) return;
+  try {
+    const resp = await chrome.runtime.sendMessage({
+      type:    'API_FETCH_AUTO_APPLY',
+      token:   this.authToken,
+      userId:  this.authUserId || '',
+      email:   this.authEmail  || '',
+      baseUrl: PRECIPROCAL_URL,
+    });
+    if (resp?.success && resp.data) {
+      this.applyProfile = resp.data.applyProfile || null;
+
+      // ── Handle files: support both legacy base64 and new Storage signed URLs ──
+      const rawFiles = resp.data.files || null;
+      this.applyFiles = {
+        resume:     { available: false, url: null, fileName: null },
+        transcript: { available: false, url: null, fileName: null },
+      };
+
+      if (rawFiles) {
+        // Resume
+        if (rawFiles.resume?.available && rawFiles.resume.url) {
+          if (rawFiles.resume.url.startsWith('data:')) {
+            // Legacy base64 — use directly
+            this.applyFiles.resume = rawFiles.resume;
+          } else if (rawFiles.resume.url === 'storage') {
+            // New Storage-based — fetch signed URL
+            const signedUrl = await this._getFileSignedUrl('resume');
+            if (signedUrl) {
+              this.applyFiles.resume = { available: true, url: signedUrl, fileName: rawFiles.resume.fileName };
+            }
+          } else {
+            // Already a URL (signed or otherwise)
+            this.applyFiles.resume = rawFiles.resume;
+          }
+        }
+
+        // Transcript
+        if (rawFiles.transcript?.available && rawFiles.transcript.url) {
+          if (rawFiles.transcript.url.startsWith('data:')) {
+            this.applyFiles.transcript = rawFiles.transcript;
+          } else if (rawFiles.transcript.url === 'storage') {
+            const signedUrl = await this._getFileSignedUrl('transcript');
+            if (signedUrl) {
+              this.applyFiles.transcript = { available: true, url: signedUrl, fileName: rawFiles.transcript.fileName };
+            }
+          } else {
+            this.applyFiles.transcript = rawFiles.transcript;
+          }
+        }
       }
-    } catch (e) {
-      console.warn('⚠️ Prefetch failed:', e?.message);
+
+      console.log('✅ Apply profile prefetched:', this.applyProfile?.firstName, '| resume:', this.applyFiles.resume.available, '| transcript:', this.applyFiles.transcript.available);
     }
+  } catch (e) {
+    console.warn('⚠️ Prefetch failed:', e?.message);
   }
+}
 
   // ─────────────────────────────────────────────────────────────
   // AUTH CHECK — never throws, never blocks banner from showing.

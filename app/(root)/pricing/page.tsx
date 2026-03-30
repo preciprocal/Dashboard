@@ -833,7 +833,7 @@ export default function PricingPage() {
             We only win when <span style={{ background: "linear-gradient(135deg,#6366f1,#a855f7)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>you do.</span>
           </h1>
           <p className="text-slate-400 text-base sm:text-lg max-w-3xl mx-auto leading-relaxed">
-            Most tools charge you and disappear. We offer a <span className="text-white font-semibold">30-day money-back guarantee</span> because we&apos;ve seen what Preciprocal does for real people — and we stand behind it completely.
+            Most tools charge you and disappear. We offer a <span className="text-white font-semibold">30 day money back guarantee</span> because we&apos;ve seen what Preciprocal does for real people - and we stand behind it completely.
           </p>
         </div>
 
@@ -848,7 +848,7 @@ export default function PricingPage() {
               </div>
               <div>
                 <p className="text-sm font-semibold text-white">University student? Get Pro free for 1 month 🎓</p>
-                <p className="text-xs text-slate-400">Verify your .edu email — no credit card needed for the trial.</p>
+                <p className="text-xs text-slate-400">Verify your .edu email - no credit card needed for the trial.</p>
               </div>
             </div>
             <button onClick={() => user ? setShowStudent(true) : (window.location.href = "/sign-in?redirect=/pricing")}
