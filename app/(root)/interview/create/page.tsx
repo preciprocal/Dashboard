@@ -3,7 +3,7 @@ import InterviewGeneratorForm from "@/components/InterviewGeneratorForm";
 import { getCurrentUser } from "@/lib/actions/auth.action";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Shield, ArrowRight, Calendar, Sparkles } from "lucide-react";
+import { Shield, ArrowRight, Calendar, Sparkles, History } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -38,44 +38,7 @@ interface UserWithUsage {
   [key: string]: unknown;
 }
 
-interface PlanDisplayInfo {
-  name: string;
-  accentClass: string;
-  bgClass: string;
-  borderClass: string;
-  isUnlimited: boolean;
-}
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function getPlanDisplayInfo(subscription: Subscription | undefined): PlanDisplayInfo {
-  switch (subscription?.plan) {
-    case 'pro':
-      return {
-        name: subscription.status === 'trial' ? 'Pro Trial' : 'Pro',
-        accentClass: 'text-blue-400',
-        bgClass: 'bg-blue-500/[0.07]',
-        borderClass: 'border-blue-500/20',
-        isUnlimited: true,
-      };
-    case 'premium':
-      return {
-        name: 'Premium',
-        accentClass: 'text-violet-400',
-        bgClass: 'bg-violet-500/[0.07]',
-        borderClass: 'border-violet-500/20',
-        isUnlimited: true,
-      };
-    default:
-      return {
-        name: 'Free',
-        accentClass: 'text-slate-400',
-        bgClass: 'bg-slate-500/[0.07]',
-        borderClass: 'border-slate-500/20',
-        isUnlimited: false,
-      };
-  }
-}
 
 function calculateNextResetDate(subscription: Subscription | undefined): Date {
   if (subscription?.currentPeriodEnd) return new Date(subscription.currentPeriodEnd);
@@ -91,14 +54,14 @@ export default async function CreateInterviewPage() {
   const user = await getCurrentUser();
   if (!user?.id) redirect('/sign-in');
 
-  const subscription  = user.subscription;
-  const usage         = (user as unknown as UserWithUsage).usage;
-  const planInfo      = getPlanDisplayInfo(subscription);
+  const subscription    = user.subscription;
+  const usage           = (user as unknown as UserWithUsage).usage;
+  const isUnlimitedPlan = subscription?.plan === 'pro' || subscription?.plan === 'premium';
   const interviewsUsed  = usage?.interviewsUsed || 0;
-  const interviewsLimit = planInfo.isUnlimited ? -1 : 2;
-  const remaining       = planInfo.isUnlimited ? -1 : Math.max(0, interviewsLimit - interviewsUsed);
-  const hasSessions     = planInfo.isUnlimited || remaining > 0;
-  const nextResetDate   = !planInfo.isUnlimited ? calculateNextResetDate(subscription) : null;
+  const interviewsLimit = isUnlimitedPlan ? -1 : 2;
+  const remaining       = isUnlimitedPlan ? -1 : Math.max(0, interviewsLimit - interviewsUsed);
+  const hasSessions     = isUnlimitedPlan || remaining > 0;
+  const nextResetDate   = !isUnlimitedPlan ? calculateNextResetDate(subscription) : null;
   const daysUntilReset  = nextResetDate
     ? Math.max(0, Math.ceil((nextResetDate.getTime() - Date.now()) / 86_400_000))
     : 0;
@@ -110,7 +73,7 @@ export default async function CreateInterviewPage() {
         <>
           {/* Header */}
           <div className="flex-shrink-0 pb-4">
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center justify-between gap-4">
               <div>
                 <div className="inline-flex items-center gap-1.5 bg-blue-500/[0.08] border border-blue-500/20
                                 rounded-full px-3 py-1 mb-2">
@@ -125,16 +88,24 @@ export default async function CreateInterviewPage() {
                 </p>
               </div>
 
-              {/* Plan badge */}
-              <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border flex-shrink-0
-                              ${planInfo.bgClass} ${planInfo.borderClass}`}>
-                <Shield className={`w-3.5 h-3.5 ${planInfo.accentClass}`} />
-                <span className={`text-xs font-semibold ${planInfo.accentClass}`}>
-                  {planInfo.name}
-                </span>
-                <span className={`text-[11px] ${planInfo.accentClass} opacity-60`}>
-                  · {planInfo.isUnlimited ? 'Unlimited' : `${remaining} left`}
-                </span>
+              <div className="flex items-center gap-3 flex-shrink-0">
+                {/* Plan badge */}
+                <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-500/[0.07] border border-indigo-500/20">
+                  <Shield className="w-4 h-4 text-indigo-400" />
+                  <span className="text-[13px] font-semibold text-indigo-400">
+                    {isUnlimitedPlan ? 'Unlimited' : `${remaining} left`}
+                  </span>
+                </div>
+                {/* History button */}
+                <Link
+                  href="/interview"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl
+                             bg-white/[0.05] border border-white/[0.08]
+                             text-sm font-semibold text-slate-300
+                             hover:text-white hover:bg-white/[0.08] transition-all"
+                >
+                  <History className="w-3.5 h-3.5" /> History
+                </Link>
               </div>
             </div>
           </div>

@@ -1,369 +1,47 @@
-// app/api/planner/chat/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { auth } from '@/firebase/admin';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import type { HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
+// lib/ai/openai-config.ts
+// Replaces lib/ai/gemini-config.ts
 
-const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+export const OPENAI_CONFIG = {
+  // Model selection
+  models: {
+    primary: 'gpt-4o',          // Full analysis, complex tasks
+    fast: 'gpt-4o-mini',        // Quick scans, chat, feedback
+  },
 
-if (!apiKey) {
-  console.error('❌ GOOGLE_GENERATIVE_AI_API_KEY is not set');
+  // Generation parameters
+  generationConfig: {
+    temperature: 0.7,
+    maxTokens: 8192,
+  },
+
+  // Rate limiting
+  rateLimit: {
+    requestsPerMinute: 60,
+    tokensPerMinute: 90000,
+  },
+
+  // Retry configuration
+  retry: {
+    maxAttempts: 3,
+    initialDelay: 1000,
+    maxDelay: 10000,
+    backoffMultiplier: 2,
+  },
+};
+
+export const API_CONFIG = {
+  apiKey: process.env.OPENAI_API_KEY || '',
+};
+
+// Validate API key on import
+if (!API_CONFIG.apiKey) {
+  console.error('⚠️ Warning: OPENAI_API_KEY is not set in environment variables');
 }
 
-const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
-
-// Define interfaces
-interface ConversationMessage {
-  role: string;
-  content: string;
-}
-
-interface ChatRequest {
-  message: string;
-  planId?: string;
-  conversationHistory?: ConversationMessage[];
-}
-
-interface UsageMetadata {
-  totalTokenCount?: number;
-  promptTokenCount?: number;
-  candidatesTokenCount?: number;
-}
-
-const COACH_SYSTEM_PROMPT = `You are an expert interview preparation coach and technical mentor. Your role is to:
-
-1. **Answer technical questions** clearly and concisely with examples
-2. **Generate practice questions** for behavioral, technical, or system design interviews
-3. **Evaluate mock answers** using frameworks like STAR, providing constructive feedback
-4. **Explain concepts** in simple, understandable terms
-5. **Provide encouragement** and motivation while maintaining professionalism
-6. **Suggest resources** when appropriate (courses, articles, practice problems)
-
-Guidelines:
-- Be supportive but honest in your feedback
-- Use structured frameworks (STAR, CAR, PAR) when discussing behavioral questions
-- Provide specific examples and actionable advice
-- Keep technical explanations clear and progressive (simple to complex)
-- If asked to evaluate an answer, provide: strengths, areas for improvement, and a revised version
-- Format code examples with proper syntax highlighting when relevant
-- Be concise but thorough - aim for clarity over length
-- When explaining algorithms or data structures, break them down step-by-step
-- For behavioral questions, always remind candidates to use the STAR method
-- Maintain a professional yet friendly tone
-
-Remember: You're here to help candidates succeed in their interviews!`;
-
-/**
- * POST handler for AI coach chat
- * Endpoint: /api/planner/chat
- */
-export async function POST(request: NextRequest) {
-  const requestStartTime = Date.now();
-
-  try {
-    console.log('🚀 Chat API request received');
-    console.log('   API Key Available:', !!apiKey);
-
-    if (!genAI || !apiKey) {
-      console.error('❌ Gemini API not configured');
-      return NextResponse.json(
-        { 
-          success: false,
-          error: 'AI service not configured. Please add GOOGLE_GENERATIVE_AI_API_KEY to environment variables.',
-          code: 'API_NOT_CONFIGURED'
-        },
-        { status: 503 }
-      );
-    }
-
-    const cookieStore = await cookies();
-    const session = cookieStore.get('session');
-
-    if (!session) {
-      console.error('❌ No session cookie found');
-      return NextResponse.json(
-        { 
-          success: false,
-          error: 'Unauthorized - No session found',
-          code: 'NO_SESSION'
-        },
-        { status: 401 }
-      );
-    }
-
-    let decodedClaims;
-    try {
-      decodedClaims = await auth.verifySessionCookie(session.value, true);
-      console.log('✅ Session verified for user:', decodedClaims.uid);
-    } catch (verifyError) {
-      console.error('❌ Session verification failed:', verifyError);
-      return NextResponse.json(
-        { 
-          success: false,
-          error: 'Unauthorized - Invalid session',
-          code: 'INVALID_SESSION'
-        },
-        { status: 401 }
-      );
-    }
-
-    const userId = decodedClaims.uid;
-
-    let body: ChatRequest;
-    try {
-      body = await request.json() as ChatRequest;
-    } catch (parseError) {
-      console.error('❌ Invalid JSON body:', parseError);
-      return NextResponse.json(
-        { 
-          success: false,
-          error: 'Invalid request body',
-          code: 'INVALID_JSON'
-        },
-        { status: 400 }
-      );
-    }
-
-    const { message, planId, conversationHistory } = body;
-
-    if (!message || typeof message !== 'string') {
-      return NextResponse.json(
-        { 
-          success: false,
-          error: 'Message is required and must be a string',
-          code: 'INVALID_MESSAGE'
-        },
-        { status: 400 }
-      );
-    }
-
-    const trimmedMessage = message.trim();
-    
-    if (trimmedMessage.length === 0) {
-      return NextResponse.json(
-        { 
-          success: false,
-          error: 'Message cannot be empty',
-          code: 'EMPTY_MESSAGE'
-        },
-        { status: 400 }
-      );
-    }
-
-    if (trimmedMessage.length > 5000) {
-      return NextResponse.json(
-        { 
-          success: false,
-          error: 'Message is too long (max 5000 characters)',
-          code: 'MESSAGE_TOO_LONG'
-        },
-        { status: 400 }
-      );
-    }
-
-    console.log('📝 Message validated - Length:', trimmedMessage.length);
-    console.log('📚 Conversation history:', conversationHistory?.length || 0, 'messages');
-
-    const messages = conversationHistory || [];
-    const recentMessages = messages.slice(-10);
-    
-    const formattedPrompt = [
-      `SYSTEM: ${COACH_SYSTEM_PROMPT}`,
-      ...recentMessages.map((msg: ConversationMessage) => 
-        `${msg.role.toUpperCase()}: ${msg.content}`
-      ),
-      `USER: ${trimmedMessage}`
-    ].join('\n\n');
-
-    console.log('🤖 Preparing to call Gemini 2.0 Flash API...');
-    console.log('📊 Total prompt length:', formattedPrompt.length, 'characters');
-
-    const aiStartTime = Date.now();
-
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.5-flash',
-      generationConfig: {
-        temperature: 0.7,
-        topP: 0.9,
-        topK: 40,
-        maxOutputTokens: 2048,
-      },
-      safetySettings: [
-        {
-          category: 'HARM_CATEGORY_HARASSMENT' as HarmCategory,
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE' as HarmBlockThreshold,
-        },
-        {
-          category: 'HARM_CATEGORY_HATE_SPEECH' as HarmCategory,
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE' as HarmBlockThreshold,
-        },
-        {
-          category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT' as HarmCategory,
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE' as HarmBlockThreshold,
-        },
-        {
-          category: 'HARM_CATEGORY_DANGEROUS_CONTENT' as HarmCategory,
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE' as HarmBlockThreshold,
-        },
-      ],
-    });
-    
-    let assistantResponse: string = '';
-    let tokensUsed = 0;
-    
-    try {
-      const result = await model.generateContent(formattedPrompt);
-      const response = result.response;
-      assistantResponse = response.text();
-      
-      const metadata = response.usageMetadata as UsageMetadata | undefined;
-      if (metadata) {
-        tokensUsed = metadata.totalTokenCount || 0;
-      }
-      
-      if (!assistantResponse || assistantResponse.trim().length === 0) {
-        throw new Error('Empty response from Gemini');
-      }
-      
-      const aiResponseTime = Date.now() - aiStartTime;
-      console.log('✅ Gemini response received');
-      console.log('📏 Response length:', assistantResponse.length, 'characters');
-      console.log('⏱️  AI response time:', aiResponseTime, 'ms');
-      console.log('🎯 Tokens used:', tokensUsed);
-      
-    } catch (geminiError) {
-      console.error('❌ Gemini API error:', geminiError);
-      const error = geminiError as Error;
-      console.error('Error details:', {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
-      });
-      
-      if (error.message?.includes('quota')) {
-        return NextResponse.json(
-          { 
-            success: false,
-            error: 'API quota exceeded. Please try again later.',
-            code: 'QUOTA_EXCEEDED'
-          },
-          { status: 429 }
-        );
-      }
-      
-      if (error.message?.includes('API key')) {
-        return NextResponse.json(
-          { 
-            success: false,
-            error: 'API configuration error. Please contact support.',
-            code: 'API_CONFIG_ERROR'
-          },
-          { status: 503 }
-        );
-      }
-      
-      if (error.message?.includes('safety') || error.message?.includes('blocked')) {
-        assistantResponse = "I apologize, but I cannot respond to that message due to content safety guidelines. Please rephrase your question in a professional manner, and I'll be happy to help with your interview preparation.";
-        console.log('⚠️  Safety filter triggered, using default response');
-      } else {
-        throw geminiError;
-      }
-    }
-
-    const totalResponseTime = Date.now() - requestStartTime;
-    const aiResponseTime = Date.now() - aiStartTime;
-    
-    const responseData = {
-      success: true,
-      response: assistantResponse,
-      metadata: {
-        model: 'gemini-2.5-flash',
-        responseTime: totalResponseTime,
-        aiResponseTime: aiResponseTime,
-        tokensUsed,
-        userId,
-        planId: planId || null,
-        messageLength: trimmedMessage.length,
-        responseLength: assistantResponse.length,
-        timestamp: new Date().toISOString()
-      }
-    };
-
-    console.log('✅ Chat request completed successfully');
-    console.log('⏱️  Total response time:', totalResponseTime, 'ms');
-    
-    return NextResponse.json(responseData);
-
-  } catch (error) {
-    const totalResponseTime = Date.now() - requestStartTime;
-    const err = error as Error;
-    
-    console.error('❌ Unexpected error in chat API:', err);
-    console.error('Error details:', {
-      message: err.message,
-      name: err.name,
-      stack: err.stack
-    });
-    
-    return NextResponse.json(
-      { 
-        success: false,
-        error: 'Failed to process chat message',
-        code: 'INTERNAL_ERROR',
-        details: process.env.NODE_ENV === 'development' ? err.message : undefined,
-        responseTime: totalResponseTime
-      },
-      { status: 500 }
-    );
-  }
-}
-
-/**
- * GET handler for health check
- * Endpoint: GET /api/planner/chat
- */
-export async function GET() {
-  try {
-    if (!apiKey) {
-      return NextResponse.json(
-        { 
-          status: 'error',
-          message: 'Gemini API key not configured',
-          timestamp: new Date().toISOString()
-        },
-        { status: 503 }
-      );
-    }
-
-    return NextResponse.json({
-      status: 'ok',
-      service: 'planner-ai-coach-chat',
-      model: 'gemini-2.5-flash',
-      version: '1.0.0',
-      features: [
-        'technical-questions',
-        'behavioral-coaching',
-        'mock-answer-evaluation',
-        'concept-explanation',
-        'resource-suggestions'
-      ],
-      limits: {
-        maxMessageLength: 5000,
-        maxOutputTokens: 2048,
-        conversationHistoryLimit: 10
-      },
-      timestamp: new Date().toISOString()
-    });
-    
-  } catch {
-    return NextResponse.json(
-      { 
-        status: 'error',
-        message: 'Service unavailable',
-        timestamp: new Date().toISOString()
-      },
-      { status: 503 }
-    );
-  }
+// Log configuration in development
+if (process.env.NODE_ENV === 'development') {
+  console.log('🤖 OpenAI Configuration:');
+  console.log(`   Primary Model: ${OPENAI_CONFIG.models.primary}`);
+  console.log(`   Fast Model: ${OPENAI_CONFIG.models.fast}`);
+  console.log(`   API Key: ${API_CONFIG.apiKey ? '✅ Set' : '❌ Missing'}`);
 }

@@ -3,9 +3,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   FileText, Sparkles, Download, Copy, Check, AlertCircle,
-  Briefcase, Wand2, Loader2,
+  Briefcase, Wand2, Loader2, Lock, ArrowRight,
   Settings, CheckCircle2, XCircle, RefreshCw, ChevronDown,
-  Save, History, FileDown, ArrowRight, ExternalLink,
+  Save, History, FileDown, ExternalLink, Shield,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -15,6 +15,9 @@ import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import { toast } from 'sonner';
 import { NotificationService } from '@/lib/services/notification-services';
 import UsersFeedback from '@/components/UserFeedback';
+import { useUsageTracking } from '@/lib/hooks/useUsageTracking';
+import { SeeExampleButton } from '@/components/ServiceModal';
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -69,10 +72,115 @@ const COVER_LETTER_FACTS = [
   "✨ Show don't tell: 'Built an app used by 10K users' >> 'I'm a skilled developer'",
 ];
 
+// ─── Upgrade Gate (minimal, catchy, data-backed) ──────────────────────────────
+
+function UpgradeGate({ used, limit }: { used: number; limit: number }) {
+  const [activeStat, setActiveStat] = useState(0);
+
+  const STATS = [
+    { num: '83%',  line: 'of hiring managers read cover letters — even when optional' },
+    { num: '1.9×', line: 'more interviews when you send a tailored letter' },
+    { num: '94%',  line: 'say cover letters influence who gets the interview' },
+    { num: '81%',  line: 'of recruiters have rejected someone based on their letter alone' },
+  ];
+
+  useEffect(() => {
+    const t = setInterval(() => setActiveStat(i => (i + 1) % STATS.length), 4000);
+    return () => clearInterval(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="space-y-3 animate-fade-in-up">
+
+      {/* ── Main card ── */}
+      <div className="relative overflow-hidden rounded-2xl border border-white/[0.08]
+                      bg-gradient-to-br from-[#0d1526] via-[#111c35] to-[#0d1526]">
+        <div className="absolute -top-24 -right-24 w-56 h-56 rounded-full
+                        bg-indigo-500/[0.06] blur-3xl pointer-events-none" />
+
+        <div className="relative p-6">
+
+          {/* Badge + headline */}
+          <div className="inline-flex items-center gap-1.5 bg-amber-500/[0.08] border border-amber-500/20
+                          rounded-full px-3 py-1 mb-4">
+            <Sparkles className="w-3 h-3 text-amber-400" />
+            <span className="text-xs font-semibold text-amber-400">
+              {used}/{limit} letters used
+            </span>
+          </div>
+
+          <h2 className="text-2xl sm:text-3xl font-bold text-white leading-snug mb-2">
+            Your next interview is one letter away.
+          </h2>
+          <p className="text-sm text-slate-500 mb-6 max-w-md">
+            You&apos;ve built momentum — don&apos;t let a limit decide where your job search stops.
+          </p>
+
+          {/* Rotating stat — single line, punchy */}
+          <div className="flex items-center gap-4 bg-white/[0.03] border border-white/[0.06]
+                          rounded-xl px-5 py-4 mb-6 min-h-[64px]">
+            <span className="text-3xl font-black text-indigo-400 flex-shrink-0 w-16 text-center">
+              {STATS[activeStat].num}
+            </span>
+            <span className="text-sm text-slate-400 leading-snug">
+              {STATS[activeStat].line}
+            </span>
+          </div>
+
+          {/* CTA */}
+          <div className="flex items-center gap-3">
+            <Link
+              href="/pricing"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
+                         text-sm font-bold text-white
+                         bg-gradient-to-r from-indigo-600 to-purple-600
+                         hover:from-indigo-500 hover:to-purple-500
+                         shadow-[0_4px_20px_rgba(102,126,234,0.3)]
+                         hover:shadow-[0_6px_28px_rgba(102,126,234,0.4)]
+                         transition-all group"
+            >
+              Go Unlimited
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+            </Link>
+            <span className="text-[10px] text-slate-600">
+              Cancel anytime · Instant access
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Stat strip — compact proof row ── */}
+      <div className="grid grid-cols-3 gap-2.5">
+        {[
+          { num: '83%',   label: 'read your letter'     },
+          { num: '1.9×',  label: 'more callbacks'        },
+          { num: '35.8%', label: 'offer rate with letters'},
+        ].map(s => (
+          <div key={s.num} className="glass-card py-4 text-center">
+            <p className="text-xl font-black text-indigo-400">{s.num}</p>
+            <p className="text-xs text-slate-500 mt-1">{s.label}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function CoverLetterGeneratorPage() {
   const [user, loading] = useAuthState(auth);
+
+  // ── Subscription / usage ──────────────────────────────────────────────────
+  const {
+    canUseFeature, getRemainingCount, getUsedCount,
+    getLimit, incrementUsage, usageData,
+  } = useUsageTracking();
+  const isUnlimitedPlan = usageData?.plan === 'pro' || usageData?.plan === 'premium';
+  const clUsed  = getUsedCount('coverLetters');
+  const clLimit = getLimit('coverLetters');
+  const clLeft  = getRemainingCount('coverLetters');
 
   const [jobRole,        setJobRole]        = useState('');
   const [jobDescription, setJobDescription] = useState('');
@@ -165,7 +273,7 @@ export default function CoverLetterGeneratorPage() {
       try {
         const rRes = await fetch('/api/resumes');
         if (rRes.ok) { const rData = await rRes.json(); resumeCount = rData.resumes?.length || 0; }
-      } catch {}
+      } catch { /* ignore */ }
 
       const missing: string[] = [];
       const p = data.user;
@@ -192,9 +300,15 @@ export default function CoverLetterGeneratorPage() {
   // ── Generate ──────────────────────────────────────────────────────────────
   const handleGenerate = async () => {
     if (!jobRole.trim()) { setError('Please enter a job role'); return; }
+
+    if (!canUseFeature('coverLetters')) {
+      setError(`You've used all ${clLimit} free cover letters this month. Upgrade to Pro for unlimited access.`);
+      return;
+    }
+
     setIsGenerating(true); setError(''); setGeneratedLetter(''); setMetadata(null); setIsSaved(false);
     try {
-      const res  = await fetch('/api/cover-letter', {
+      const res = await fetch('/api/cover-letter', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ jobRole: jobRole.trim(), jobDescription: jobDescription.trim(), companyName: companyName.trim(), tone }),
       });
@@ -204,6 +318,7 @@ export default function CoverLetterGeneratorPage() {
         setGeneratedLetter(data.coverLetter.content);
         setMetadata(data.metadata || null);
         toast.success('Cover letter generated!');
+        await incrementUsage('coverLetters');
         setShowFeedback(true);
         if (user?.uid) {
           const target = companyName.trim() ? `${jobRole.trim()} at ${companyName.trim()}` : jobRole.trim();
@@ -286,18 +401,16 @@ export default function CoverLetterGeneratorPage() {
       .replace(/(?<!href="|>)(https?:\/\/(?:www\.)?(?:linkedin\.com|github\.com|[a-zA-Z0-9-]+\.[a-zA-Z]{2,})[^\s<]*)/g,
         '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 underline">$1</a>');
 
-  // ── Guards ────────────────────────────────────────────────────────────────
   if (loading) {
     return <AnimatedLoader isVisible={true} loadingText="Loading cover letter generator…" showNavigation={true} />;
   }
   if (!user) return null;
 
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4 pt-4">
 
       {/* Header */}
-      <div className="glass-card p-5 animate-fade-in-up">
+      <div className="p-5 animate-fade-in-up">
         <div className="flex items-center justify-between gap-4">
           <div>
             <div className="inline-flex items-center gap-1.5 bg-blue-500/[0.08] border border-blue-500/20
@@ -308,419 +421,440 @@ export default function CoverLetterGeneratorPage() {
             <h1 className="text-xl font-bold text-white leading-tight">Cover Letter Generator</h1>
             <p className="text-xs text-slate-500 mt-0.5">Generate personalised, professional cover letters</p>
           </div>
-          <Link
-            href="/cover-letter"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl flex-shrink-0
-                       bg-white/[0.05] border border-white/[0.08]
-                       text-sm font-semibold text-slate-300
-                       hover:text-white hover:bg-white/[0.08] transition-all"
-          >
-            <History className="w-3.5 h-3.5" /> History
-          </Link>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-500/[0.07] border border-indigo-500/20">
+              <Shield className="w-4 h-4 text-indigo-400" />
+              <span className="text-[13px] font-semibold text-indigo-400">
+                {isUnlimitedPlan ? 'Unlimited' : `${clLeft} left`}
+              </span>
+            </div>
+            <SeeExampleButton
+              serviceId="cover-letter"
+              className="!px-4 !py-2.5 !text-sm !font-semibold"
+            />
+            <Link
+              href="/cover-letter"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl
+                         bg-white/[0.05] border border-white/[0.08]
+                         text-sm font-semibold text-slate-300
+                         hover:text-white hover:bg-white/[0.08] transition-all"
+            >
+              <History className="w-3.5 h-3.5" /> History
+            </Link>
+          </div>
         </div>
       </div>
 
-      {/* LinkedIn job banner */}
-      {linkedInJobData && (
-        <div className="glass-card p-4 border-l-2 border-blue-500/60 animate-fade-in-up">
-          <div className="flex items-start gap-3">
-            <div className="w-8 h-8 bg-blue-500/[0.08] rounded-lg flex items-center justify-center flex-shrink-0">
-              <ExternalLink className="w-3.5 h-3.5 text-blue-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-blue-400 mb-1">Job imported from LinkedIn</p>
-              <p className="text-sm text-white font-medium">{linkedInJobData.title}</p>
-              <p className="text-xs text-slate-500">{linkedInJobData.company} · {linkedInJobData.location}</p>
-              {linkedInJobData.url && (
-                <a href={linkedInJobData.url} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 mt-1.5 text-[11px] text-blue-400 hover:text-blue-300 transition-colors">
-                  View on LinkedIn <ExternalLink className="w-3 h-3" />
-                </a>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Profile alerts */}
-      {(!profileStatus.hasProfile || !profileStatus.hasResume) && (
-        <div className="glass-card p-4 animate-fade-in-up">
-          <div className="flex items-start gap-3">
-            <div className="w-8 h-8 bg-amber-500/[0.08] rounded-lg flex items-center justify-center flex-shrink-0">
-              <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-amber-400 mb-2">Profile setup needed</p>
-              <div className="space-y-1 mb-3">
-                {!profileStatus.hasProfile && (
-                  <div className="flex items-center gap-2 text-xs text-slate-400">
-                    <XCircle className="w-3 h-3 text-red-400 flex-shrink-0" />
-                    Complete your profile in Settings
-                  </div>
-                )}
-                {!profileStatus.hasResume && (
-                  <div className="flex items-center gap-2 text-xs text-slate-400">
-                    <XCircle className="w-3 h-3 text-red-400 flex-shrink-0" />
-                    Upload your resume for better results
-                  </div>
-                )}
-              </div>
-              <Link href="/profile"
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg
-                           bg-white/[0.05] border border-white/[0.08]
-                           text-xs font-semibold text-slate-300 hover:text-white transition-all">
-                <Settings className="w-3 h-3" /> Go to Profile
-              </Link>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {profileStatus.hasProfile && profileStatus.missingFields.length > 0 && (
-        <div className="glass-card p-4 border-l-2 border-blue-500/40 animate-fade-in-up">
-          <div className="flex items-start gap-3">
-            <div className="w-8 h-8 bg-blue-500/[0.08] rounded-lg flex items-center justify-center flex-shrink-0">
-              <AlertCircle className="w-3.5 h-3.5 text-blue-400" />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-blue-400 mb-1">Enhance your cover letters</p>
-              <p className="text-xs text-slate-500 mb-2.5 leading-relaxed">
-                Adding these fields to your profile generates more personalised letters:
-              </p>
-              <div className="space-y-1 mb-3">
-                {profileStatus.missingFields.map((f, i) => (
-                  <div key={i} className="flex items-center gap-2 text-xs text-slate-500">
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-400/40 flex-shrink-0" />
-                    {f}
-                  </div>
-                ))}
-              </div>
-              <Link href="/profile"
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg
-                           bg-gradient-to-r from-indigo-600 to-purple-600
-                           hover:from-indigo-500 hover:to-purple-500
-                           text-xs font-semibold text-white transition-all">
-                <Settings className="w-3 h-3" /> Complete Profile <ArrowRight className="w-3 h-3" />
-              </Link>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {profileStatus.hasProfile && profileStatus.hasResume && (
-        <div className="glass-card p-4 animate-fade-in-up">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-emerald-500/[0.08] rounded-lg flex items-center justify-center flex-shrink-0">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-emerald-400">Profile ready</p>
-              <p className="text-xs text-slate-500">
-                Using {profileStatus.userName}&apos;s profile
-                {profileStatus.resumeCount > 0 && ` and ${profileStatus.resumeCount} resume${profileStatus.resumeCount > 1 ? 's' : ''}`}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Main split */}
-      <div className="grid lg:grid-cols-2 gap-4">
-
-        {/* ── Left: input ── */}
-        <div className="space-y-4">
-          <div className="glass-card p-5">
-            <div className="flex items-center gap-2.5 mb-5">
-              <div className="w-7 h-7 bg-blue-500/[0.08] rounded-lg flex items-center justify-center flex-shrink-0">
-                <Briefcase className="w-3.5 h-3.5 text-blue-400" />
-              </div>
-              <h2 className="text-sm font-bold text-white">Job Details</h2>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                  Job Role <span className="text-red-400">*</span>
-                </label>
-                <input type="text" value={jobRole} onChange={e => setJobRole(e.target.value)}
-                  placeholder="e.g. Senior Software Engineer" className={inp} />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                  Company Name <span className="text-slate-700 font-normal">optional</span>
-                </label>
-                <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)}
-                  placeholder="e.g. Google" className={inp} />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                  Job Description <span className="text-slate-700 font-normal">optional</span>
-                </label>
-                <textarea value={jobDescription} onChange={e => setJobDescription(e.target.value)}
-                  placeholder="Paste the job description here…" rows={6}
-                  className={`${inp} resize-none`} />
-                <div className="flex items-center justify-between mt-1.5">
-                  <span className="text-[11px] text-slate-600">{jobDescription.length} chars</span>
-                  {jobDescription.length > 0 && (
-                    <button onClick={() => setJobDescription('')}
-                      className="text-[11px] text-slate-600 hover:text-slate-400 transition-colors">
-                      Clear
-                    </button>
-                  )}
+      {/* Limit reached — minimal upgrade gate */}
+      {!canUseFeature('coverLetters') ? (
+        <UpgradeGate used={clUsed} limit={clLimit} />
+      ) : (
+        <>
+          {/* LinkedIn job banner */}
+          {linkedInJobData && (
+            <div className="glass-card p-4 border-l-2 border-blue-500/60 animate-fade-in-up">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 bg-blue-500/[0.08] rounded-lg flex items-center justify-center flex-shrink-0">
+                  <ExternalLink className="w-3.5 h-3.5 text-blue-400" />
                 </div>
-              </div>
-
-              {/* Tone selector */}
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1.5">Tone</label>
-                <div className="relative tone-dropdown">
-                  <button type="button" onClick={() => setShowToneMenu(v => !v)}
-                    className={`${inp} flex items-center justify-between cursor-pointer`}>
-                    <span className="capitalize">{tone}</span>
-                    <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-150 ${showToneMenu ? 'rotate-180' : ''}`} />
-                  </button>
-                  {showToneMenu && (
-                    <div className="absolute left-0 right-0 top-full mt-2
-                                   bg-[#0d1526]/98 border border-white/[0.08]
-                                   rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.5)]
-                                   z-20 overflow-hidden">
-                      {['professional', 'enthusiastic', 'formal', 'friendly', 'confident'].map(t => (
-                        <button key={t} type="button"
-                          onClick={() => { setTone(t); setShowToneMenu(false); }}
-                          className={`w-full px-4 py-2.5 text-left text-xs font-medium transition-colors capitalize
-                                      ${tone === t ? 'bg-indigo-500/15 text-indigo-300' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'}`}>
-                          {t}
-                        </button>
-                      ))}
-                    </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-blue-400 mb-1">Job imported from LinkedIn</p>
+                  <p className="text-sm text-white font-medium">{linkedInJobData.title}</p>
+                  <p className="text-xs text-slate-500">{linkedInJobData.company} · {linkedInJobData.location}</p>
+                  {linkedInJobData.url && (
+                    <a href={linkedInJobData.url} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 mt-1.5 text-[11px] text-blue-400 hover:text-blue-300 transition-colors">
+                      View on LinkedIn <ExternalLink className="w-3 h-3" />
+                    </a>
                   )}
                 </div>
               </div>
             </div>
+          )}
 
-            {/* Error */}
-            {error && (
-              <div className="mt-4 glass-card p-3 border border-red-500/20">
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                  <p className="text-xs text-red-400">{error}</p>
+          {/* Profile alerts */}
+          {(!profileStatus.hasProfile || !profileStatus.hasResume) && (
+            <div className="glass-card p-4 animate-fade-in-up">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 bg-amber-500/[0.08] rounded-lg flex items-center justify-center flex-shrink-0">
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
                 </div>
-              </div>
-            )}
-
-            {/* Actions */}
-            <div className="flex gap-2.5 mt-5">
-              <button onClick={handleGenerate} disabled={isGenerating || !jobRole.trim()}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 px-5 rounded-xl
-                           bg-gradient-to-r from-indigo-600 to-purple-600
-                           hover:from-indigo-500 hover:to-purple-500
-                           text-white text-sm font-semibold
-                           shadow-[0_4px_14px_rgba(102,126,234,0.28)]
-                           transition-all disabled:opacity-40 disabled:cursor-not-allowed">
-                {isGenerating
-                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating…</>
-                  : <><Wand2 className="w-4 h-4" /> Generate</>}
-              </button>
-              {generatedLetter && (
-                <button onClick={handleReset}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl
-                             bg-white/[0.05] border border-white/[0.08]
-                             text-sm font-semibold text-slate-400
-                             hover:text-white hover:bg-white/[0.08] transition-all">
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Reset</span>
-                </button>
-              )}
-            </div>
-
-            {/* Tips grid — shown before generation */}
-            {!generatedLetter && !isGenerating && (
-              <div className="mt-5 pt-5 border-t border-white/[0.05]">
-                <p className="text-xs font-bold text-white mb-3 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-                  What makes a great cover letter
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { icon: FileText,    color: 'text-blue-400',    bg: 'bg-blue-500/[0.08]',    title: 'Concise & Clear',   desc: '250–400 words'         },
-                    { icon: CheckCircle2,color: 'text-emerald-400', bg: 'bg-emerald-500/[0.08]', title: 'Highly Relevant',   desc: 'Match job requirements'},
-                    { icon: Sparkles,    color: 'text-amber-400',   bg: 'bg-amber-500/[0.08]',   title: 'Authentic Voice',   desc: 'Show genuine interest' },
-                    { icon: Briefcase,   color: 'text-violet-400',  bg: 'bg-violet-500/[0.08]',  title: 'Results-Driven',    desc: 'Concrete examples'     },
-                  ].map(({ icon: Icon, color, bg, title, desc }) => (
-                    <div key={title} className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-3">
-                      <div className={`w-7 h-7 ${bg} rounded-lg flex items-center justify-center mb-2`}>
-                        <Icon className={`w-3.5 h-3.5 ${color}`} />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-amber-400 mb-2">Profile setup needed</p>
+                  <div className="space-y-1 mb-3">
+                    {!profileStatus.hasProfile && (
+                      <div className="flex items-center gap-2 text-xs text-slate-400">
+                        <XCircle className="w-3 h-3 text-red-400 flex-shrink-0" />
+                        Complete your profile in Settings
                       </div>
-                      <p className="text-xs font-semibold text-white mb-0.5">{title}</p>
-                      <p className="text-[11px] text-slate-600 leading-relaxed">{desc}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ── Right: output ── */}
-        <div>
-          <div className="glass-card p-5 h-full flex flex-col">
-            {/* Output header */}
-            <div className="flex items-center justify-between mb-5 gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 bg-purple-500/[0.08] rounded-lg flex items-center justify-center flex-shrink-0">
-                  <FileText className="w-3.5 h-3.5 text-purple-400" />
-                </div>
-                <h2 className="text-sm font-bold text-white">Generated Letter</h2>
-              </div>
-
-              {generatedLetter && (
-                <div className="flex items-center gap-2">
-                  {!isSaved ? (
-                    <button onClick={handleSave} disabled={isSaving}
-                      className="flex items-center gap-2 px-3 py-2 rounded-xl
-                                 bg-gradient-to-r from-indigo-600 to-purple-600
-                                 hover:from-indigo-500 hover:to-purple-500
-                                 text-white text-xs font-semibold transition-all
-                                 disabled:opacity-50">
-                      {isSaving
-                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving…</>
-                        : <><Save className="w-3.5 h-3.5" /> Save</>}
-                    </button>
-                  ) : (
-                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl
-                                    bg-emerald-500/[0.08] border border-emerald-500/20
-                                    text-xs font-semibold text-emerald-400">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Saved
-                    </div>
-                  )}
-                  <button onClick={handleCopy}
-                    className="p-2 rounded-xl bg-white/[0.04] border border-white/[0.07]
-                               text-slate-500 hover:text-white hover:bg-white/[0.08] transition-all"
-                    title="Copy">
-                    {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                  </button>
-                  <div className="relative download-dropdown">
-                    <button onClick={() => setShowDownloadMenu(v => !v)}
-                      className="flex items-center gap-1 p-2 rounded-xl
-                                 bg-white/[0.04] border border-white/[0.07]
-                                 text-slate-500 hover:text-white hover:bg-white/[0.08] transition-all"
-                      title="Download">
-                      <Download className="w-4 h-4" />
-                      <ChevronDown className="w-3 h-3" />
-                    </button>
-                    {showDownloadMenu && (
-                      <div className="absolute right-0 top-full mt-2 w-48
-                                     bg-[#0d1526]/98 border border-white/[0.08]
-                                     rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.5)]
-                                     z-20 overflow-hidden">
-                        <button onClick={() => handleDownload('pdf')}
-                          className="w-full flex items-center gap-2.5 px-4 py-3
-                                     text-xs text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]
-                                     transition-colors">
-                          <FileDown className="w-3.5 h-3.5 text-red-400" /> Download as PDF
-                        </button>
-                        <div className="h-px bg-white/[0.06]" />
-                        <button onClick={() => handleDownload('docx')}
-                          className="w-full flex items-center gap-2.5 px-4 py-3
-                                     text-xs text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]
-                                     transition-colors">
-                          <FileDown className="w-3.5 h-3.5 text-blue-400" /> Download as Word
-                        </button>
+                    )}
+                    {!profileStatus.hasResume && (
+                      <div className="flex items-center gap-2 text-xs text-slate-400">
+                        <XCircle className="w-3 h-3 text-red-400 flex-shrink-0" />
+                        Upload your resume for better results
                       </div>
                     )}
                   </div>
+                  <Link href="/profile"
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg
+                               bg-white/[0.05] border border-white/[0.08]
+                               text-xs font-semibold text-slate-300 hover:text-white transition-all">
+                    <Settings className="w-3 h-3" /> Go to Profile
+                  </Link>
                 </div>
-              )}
+              </div>
             </div>
+          )}
 
-            {/* Generating state */}
-            {isGenerating && (
-              <div className="flex-1 flex flex-col items-center justify-center py-8 text-center">
-                <div className="w-12 h-12 bg-purple-500/[0.08] border border-purple-500/20 rounded-2xl
-                               flex items-center justify-center mb-4">
-                  <Loader2 className="w-6 h-6 text-purple-400 animate-spin" />
+          {profileStatus.hasProfile && profileStatus.missingFields.length > 0 && (
+            <div className="glass-card p-4 border-l-2 border-blue-500/40 animate-fade-in-up">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 bg-blue-500/[0.08] rounded-lg flex items-center justify-center flex-shrink-0">
+                  <AlertCircle className="w-3.5 h-3.5 text-blue-400" />
                 </div>
-                <p className="text-sm font-semibold text-white mb-3">Crafting your cover letter…</p>
-                <div className="max-w-sm min-h-[48px] flex items-center justify-center px-4">
-                  <p className="text-xs text-slate-500 leading-relaxed animate-fade-in-up">
-                    {COVER_LETTER_FACTS[factIdx]}
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-blue-400 mb-1">Enhance your cover letters</p>
+                  <p className="text-xs text-slate-500 mb-2.5 leading-relaxed">
+                    Adding these fields to your profile generates more personalised letters:
                   </p>
-                </div>
-              </div>
-            )}
-
-            {/* Empty state */}
-            {!isGenerating && !generatedLetter && !error && (
-              <div className="flex-1 flex flex-col items-center justify-center py-8 text-center">
-                <div className="w-12 h-12 bg-white/[0.03] border border-white/[0.07] rounded-2xl
-                               flex items-center justify-center mb-4">
-                  <FileText className="w-5 h-5 text-slate-600" />
-                </div>
-                <p className="text-sm font-bold text-slate-400 mb-1">Your letter will appear here</p>
-                <p className="text-xs text-slate-600">Fill in the details on the left and click Generate</p>
-              </div>
-            )}
-
-            {/* Generated letter */}
-            {generatedLetter && (
-              <div className="flex-1 flex flex-col gap-3 min-h-0">
-                <div className="flex-1 overflow-y-auto glass-scrollbar
-                               bg-white/[0.02] border border-white/[0.06] rounded-xl p-4
-                               max-h-[500px]">
-                  <div className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap"
-                    dangerouslySetInnerHTML={{ __html: convertLinks(generatedLetter) }} />
-                </div>
-                {metadata && (
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { label: 'Words',  value: generatedLetter.split(/\s+/).length },
-                      { label: 'Resume', value: metadata.usedResume ? '✓' : '✗'    },
-                      { label: 'Time',   value: `${(metadata.responseTime / 1000).toFixed(1)}s` },
-                    ].map(m => (
-                      <div key={m.label} className="glass-card p-2.5 text-center">
-                        <p className="text-[10px] text-slate-600 uppercase tracking-wide font-semibold mb-1">{m.label}</p>
-                        <p className="text-sm font-bold text-white">{m.value}</p>
+                  <div className="space-y-1 mb-3">
+                    {profileStatus.missingFields.map((f, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs text-slate-500">
+                        <div className="w-1.5 h-1.5 rounded-full bg-blue-400/40 flex-shrink-0" />
+                        {f}
                       </div>
                     ))}
                   </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Tips section */}
-      <div className="glass-card p-5 animate-fade-in-up">
-        <div className="flex items-center gap-2.5 mb-4">
-          <div className="w-7 h-7 bg-emerald-500/[0.08] rounded-lg flex items-center justify-center">
-            <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-          </div>
-          <h3 className="text-sm font-bold text-white">Tips for best results</h3>
-        </div>
-        <div className="grid sm:grid-cols-2 gap-3">
-          {[
-            { title: 'Provide job description',  desc: 'Paste the full job posting for targeted results'    },
-            { title: 'Complete your profile',    desc: 'Add experience and skills for personalisation'     },
-            { title: 'Upload your resume',       desc: 'Resume data creates more authentic letters'         },
-            { title: 'Save your letters',        desc: 'Click Save to access them later from History'      },
-          ].map(tip => (
-            <div key={tip.title} className="flex items-start gap-2.5">
-              <div className="w-5 h-5 bg-emerald-500/[0.08] rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-white mb-0.5">{tip.title}</p>
-                <p className="text-[11px] text-slate-600 leading-relaxed">{tip.desc}</p>
+                  <Link href="/profile"
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg
+                               bg-gradient-to-r from-indigo-600 to-purple-600
+                               hover:from-indigo-500 hover:to-purple-500
+                               text-xs font-semibold text-white transition-all">
+                    <Settings className="w-3 h-3" /> Complete Profile <ArrowRight className="w-3 h-3" />
+                  </Link>
+                </div>
               </div>
             </div>
-          ))}
-        </div>
-      </div>
+          )}
 
-      {showFeedback && (
-        <UsersFeedback page="cover-letter" forceOpen onClose={() => setShowFeedback(false)} />
+          {profileStatus.hasProfile && profileStatus.hasResume && (
+            <div className="glass-card p-4 animate-fade-in-up">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-emerald-500/[0.08] rounded-lg flex items-center justify-center flex-shrink-0">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-emerald-400">Profile ready</p>
+                  <p className="text-xs text-slate-500">
+                    Using {profileStatus.userName}&apos;s profile
+                    {profileStatus.resumeCount > 0 && ` and ${profileStatus.resumeCount} resume${profileStatus.resumeCount > 1 ? 's' : ''}`}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Main split */}
+          <div className="grid lg:grid-cols-2 gap-4">
+
+            {/* ── Left: input ── */}
+            <div className="space-y-4">
+              <div className="glass-card p-5">
+                <div className="flex items-center gap-2.5 mb-5">
+                  <div className="w-7 h-7 bg-blue-500/[0.08] rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Briefcase className="w-3.5 h-3.5 text-blue-400" />
+                  </div>
+                  <h2 className="text-sm font-bold text-white">Job Details</h2>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                      Job Role <span className="text-red-400">*</span>
+                    </label>
+                    <input type="text" value={jobRole} onChange={e => setJobRole(e.target.value)}
+                      placeholder="e.g. Senior Software Engineer" className={inp} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                      Company Name <span className="text-slate-700 font-normal">optional</span>
+                    </label>
+                    <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)}
+                      placeholder="e.g. Google" className={inp} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                      Job Description <span className="text-slate-700 font-normal">optional</span>
+                    </label>
+                    <textarea value={jobDescription} onChange={e => setJobDescription(e.target.value)}
+                      placeholder="Paste the job description here…" rows={6}
+                      className={`${inp} resize-none`} />
+                    <div className="flex items-center justify-between mt-1.5">
+                      <span className="text-[11px] text-slate-600">{jobDescription.length} chars</span>
+                      {jobDescription.length > 0 && (
+                        <button onClick={() => setJobDescription('')}
+                          className="text-[11px] text-slate-600 hover:text-slate-400 transition-colors">
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Tone selector */}
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-1.5">Tone</label>
+                    <div className="relative tone-dropdown">
+                      <button type="button" onClick={() => setShowToneMenu(v => !v)}
+                        className={`${inp} flex items-center justify-between cursor-pointer`}>
+                        <span className="capitalize">{tone}</span>
+                        <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-150 ${showToneMenu ? 'rotate-180' : ''}`} />
+                      </button>
+                      {showToneMenu && (
+                        <div className="absolute left-0 right-0 top-full mt-2
+                                       bg-[#0d1526]/98 border border-white/[0.08]
+                                       rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.5)]
+                                       z-20 overflow-hidden">
+                          {['professional', 'enthusiastic', 'formal', 'friendly', 'confident'].map(t => (
+                            <button key={t} type="button"
+                              onClick={() => { setTone(t); setShowToneMenu(false); }}
+                              className={`w-full px-4 py-2.5 text-left text-xs font-medium transition-colors capitalize
+                                          ${tone === t ? 'bg-indigo-500/15 text-indigo-300' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'}`}>
+                              {t}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Error */}
+                {error && (
+                  <div className="mt-4 glass-card p-3 border border-red-500/20">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                      <p className="text-xs text-red-400">{error}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex gap-2.5 mt-5">
+                  <button
+                    onClick={handleGenerate}
+                    disabled={isGenerating || !jobRole.trim()}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 px-5 rounded-xl
+                               bg-gradient-to-r from-indigo-600 to-purple-600
+                               hover:from-indigo-500 hover:to-purple-500
+                               text-white text-sm font-semibold
+                               shadow-[0_4px_14px_rgba(102,126,234,0.28)]
+                               transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {isGenerating
+                      ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating…</>
+                      : <><Wand2 className="w-4 h-4" /> Generate</>}
+                  </button>
+                  {generatedLetter && (
+                    <button onClick={handleReset}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl
+                                 bg-white/[0.05] border border-white/[0.08]
+                                 text-sm font-semibold text-slate-400
+                                 hover:text-white hover:bg-white/[0.08] transition-all">
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Reset</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Tips grid */}
+                {!generatedLetter && !isGenerating && (
+                  <div className="mt-5 pt-5 border-t border-white/[0.05]">
+                    <p className="text-xs font-bold text-white mb-3 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                      What makes a great cover letter
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { icon: FileText,    color: 'text-blue-400',    bg: 'bg-blue-500/[0.08]',    title: 'Concise & Clear',   desc: '250–400 words'          },
+                        { icon: CheckCircle2,color: 'text-emerald-400', bg: 'bg-emerald-500/[0.08]', title: 'Highly Relevant',   desc: 'Match job requirements' },
+                        { icon: Sparkles,    color: 'text-amber-400',   bg: 'bg-amber-500/[0.08]',   title: 'Authentic Voice',   desc: 'Show genuine interest'  },
+                        { icon: Briefcase,   color: 'text-violet-400',  bg: 'bg-violet-500/[0.08]',  title: 'Results-Driven',    desc: 'Concrete examples'      },
+                      ].map(({ icon: Icon, color, bg, title, desc }) => (
+                        <div key={title} className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-3">
+                          <div className={`w-7 h-7 ${bg} rounded-lg flex items-center justify-center mb-2`}>
+                            <Icon className={`w-3.5 h-3.5 ${color}`} />
+                          </div>
+                          <p className="text-xs font-semibold text-white mb-0.5">{title}</p>
+                          <p className="text-[11px] text-slate-600 leading-relaxed">{desc}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ── Right: output ── */}
+            <div>
+              <div className="glass-card p-5 h-full flex flex-col">
+                {/* Output header */}
+                <div className="flex items-center justify-between mb-5 gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 bg-purple-500/[0.08] rounded-lg flex items-center justify-center flex-shrink-0">
+                      <FileText className="w-3.5 h-3.5 text-purple-400" />
+                    </div>
+                    <h2 className="text-sm font-bold text-white">Generated Letter</h2>
+                  </div>
+
+                  {generatedLetter && (
+                    <div className="flex items-center gap-2">
+                      {!isSaved ? (
+                        <button onClick={handleSave} disabled={isSaving}
+                          className="flex items-center gap-2 px-3 py-2 rounded-xl
+                                     bg-gradient-to-r from-indigo-600 to-purple-600
+                                     hover:from-indigo-500 hover:to-purple-500
+                                     text-white text-xs font-semibold transition-all disabled:opacity-50">
+                          {isSaving
+                            ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving…</>
+                            : <><Save className="w-3.5 h-3.5" /> Save</>}
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-xl
+                                        bg-emerald-500/[0.08] border border-emerald-500/20
+                                        text-xs font-semibold text-emerald-400">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Saved
+                        </div>
+                      )}
+                      <button onClick={handleCopy}
+                        className="p-2 rounded-xl bg-white/[0.04] border border-white/[0.07]
+                                   text-slate-500 hover:text-white hover:bg-white/[0.08] transition-all"
+                        title="Copy">
+                        {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                      </button>
+                      <div className="relative download-dropdown">
+                        <button onClick={() => setShowDownloadMenu(v => !v)}
+                          className="flex items-center gap-1 p-2 rounded-xl
+                                     bg-white/[0.04] border border-white/[0.07]
+                                     text-slate-500 hover:text-white hover:bg-white/[0.08] transition-all"
+                          title="Download">
+                          <Download className="w-4 h-4" />
+                          <ChevronDown className="w-3 h-3" />
+                        </button>
+                        {showDownloadMenu && (
+                          <div className="absolute right-0 top-full mt-2 w-48
+                                         bg-[#0d1526]/98 border border-white/[0.08]
+                                         rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.5)]
+                                         z-20 overflow-hidden">
+                            <button onClick={() => handleDownload('pdf')}
+                              className="w-full flex items-center gap-2.5 px-4 py-3
+                                         text-xs text-slate-400 hover:text-slate-200 hover:bg-white/[0.04] transition-colors">
+                              <FileDown className="w-3.5 h-3.5 text-red-400" /> Download as PDF
+                            </button>
+                            <div className="h-px bg-white/[0.06]" />
+                            <button onClick={() => handleDownload('docx')}
+                              className="w-full flex items-center gap-2.5 px-4 py-3
+                                         text-xs text-slate-400 hover:text-slate-200 hover:bg-white/[0.04] transition-colors">
+                              <FileDown className="w-3.5 h-3.5 text-blue-400" /> Download as Word
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Generating state */}
+                {isGenerating && (
+                  <div className="flex-1 flex flex-col items-center justify-center py-8 text-center">
+                    <div className="w-12 h-12 bg-purple-500/[0.08] border border-purple-500/20 rounded-2xl
+                                   flex items-center justify-center mb-4">
+                      <Loader2 className="w-6 h-6 text-purple-400 animate-spin" />
+                    </div>
+                    <p className="text-sm font-semibold text-white mb-3">Crafting your cover letter…</p>
+                    <div className="max-w-sm min-h-[48px] flex items-center justify-center px-4">
+                      <p className="text-xs text-slate-500 leading-relaxed animate-fade-in-up">
+                        {COVER_LETTER_FACTS[factIdx]}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Empty state */}
+                {!isGenerating && !generatedLetter && !error && (
+                  <div className="flex-1 flex flex-col items-center justify-center py-8 text-center">
+                    <div className="w-12 h-12 bg-white/[0.03] border border-white/[0.07] rounded-2xl
+                                   flex items-center justify-center mb-4">
+                      <FileText className="w-5 h-5 text-slate-600" />
+                    </div>
+                    <p className="text-sm font-bold text-slate-400 mb-1">Your letter will appear here</p>
+                    <p className="text-xs text-slate-600">Fill in the details on the left and click Generate</p>
+                  </div>
+                )}
+
+                {/* Generated letter */}
+                {generatedLetter && (
+                  <div className="flex-1 flex flex-col gap-3 min-h-0">
+                    <div className="flex-1 overflow-y-auto glass-scrollbar
+                                   bg-white/[0.02] border border-white/[0.06] rounded-xl p-4
+                                   max-h-[500px]">
+                      <div className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap"
+                        dangerouslySetInnerHTML={{ __html: convertLinks(generatedLetter) }} />
+                    </div>
+                    {metadata && (
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { label: 'Words',  value: generatedLetter.split(/\s+/).length },
+                          { label: 'Resume', value: metadata.usedResume ? '✓' : '✗'    },
+                          { label: 'Time',   value: `${(metadata.responseTime / 1000).toFixed(1)}s` },
+                        ].map(m => (
+                          <div key={m.label} className="glass-card p-2.5 text-center">
+                            <p className="text-[10px] text-slate-600 uppercase tracking-wide font-semibold mb-1">{m.label}</p>
+                            <p className="text-sm font-bold text-white">{m.value}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Tips section */}
+          <div className="glass-card p-5 animate-fade-in-up">
+            <div className="flex items-center gap-2.5 mb-4">
+              <div className="w-7 h-7 bg-emerald-500/[0.08] rounded-lg flex items-center justify-center">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+              </div>
+              <h3 className="text-sm font-bold text-white">Tips for best results</h3>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {[
+                { title: 'Provide job description',  desc: 'Paste the full job posting for targeted results'    },
+                { title: 'Complete your profile',    desc: 'Add experience and skills for personalisation'     },
+                { title: 'Upload your resume',       desc: 'Resume data creates more authentic letters'         },
+                { title: 'Save your letters',        desc: 'Click Save to access them later from History'      },
+              ].map(tip => (
+                <div key={tip.title} className="flex items-start gap-2.5">
+                  <div className="w-5 h-5 bg-emerald-500/[0.08] rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-white mb-0.5">{tip.title}</p>
+                    <p className="text-[11px] text-slate-600 leading-relaxed">{tip.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
       )}
+
+      <UsersFeedback
+        page="cover-letter"
+        forceOpen={showFeedback}
+        onClose={() => setShowFeedback(false)}
+      />
     </div>
   );
 }

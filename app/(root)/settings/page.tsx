@@ -276,7 +276,8 @@ export default function SettingsPage() {
       const userData   = userRes.ok       ? await userRes.json()       : null;
       const sub        = userData?.subscription;
       const planKey    = sub?.plan ?? 'free';
-      const tierMap: Record<string, PlanInfo['tier']> = { pro: 'pro', premium: 'enterprise', starter: 'free' };
+      // FIXED: added "free" as primary key, kept "starter" as legacy fallback
+      const tierMap: Record<string, PlanInfo['tier']> = { free: 'free', pro: 'pro', premium: 'enterprise', starter: 'free' };
       const tier       = tierMap[planKey] ?? 'free';
       const tierNames: Record<PlanInfo['tier'], string> = { free: 'Free Plan', pro: 'Pro Plan', enterprise: 'Premium Plan' };
       setPlan({
@@ -485,7 +486,6 @@ export default function SettingsPage() {
             <SectionHeader icon={User} iconColor="text-blue-400" iconBg="bg-blue-500/10 border-blue-500/20"
               title="Account Overview" subtitle="Your profile and account details" />
             <div className="p-5 space-y-5">
-              {/* Avatar + name */}
               <div className="flex items-center gap-4 pb-5 border-b border-white/[0.06]">
                 {avatarUrl ? (
                   <Image src={avatarUrl} alt="Avatar" width={56} height={56} className="rounded-xl flex-shrink-0" />
@@ -515,7 +515,6 @@ export default function SettingsPage() {
                 </Link>
               </div>
 
-              {/* Metadata grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {[
                   { label: 'Account ID',    value: user.uid.slice(0, 20) + '…', mono: true },
@@ -613,7 +612,6 @@ export default function SettingsPage() {
               </SectionCard>
             ) : (
               <>
-                {/* Update email */}
                 <SectionCard>
                   <SectionHeader icon={Mail} iconColor="text-blue-400" iconBg="bg-blue-500/10 border-blue-500/20"
                     title="Email Address" subtitle="Update your sign-in email" />
@@ -644,7 +642,6 @@ export default function SettingsPage() {
                   </div>
                 </SectionCard>
 
-                {/* Update password */}
                 <SectionCard>
                   <SectionHeader icon={Lock} iconColor="text-orange-400" iconBg="bg-orange-500/10 border-orange-500/20"
                     title="Password" subtitle="Use a strong, unique password" />
@@ -704,7 +701,6 @@ export default function SettingsPage() {
               <SectionHeader icon={CreditCard} iconColor="text-purple-400" iconBg="bg-purple-500/10 border-purple-500/20"
                 title="Current Plan" subtitle="Your subscription and usage" />
               <div className="p-5 space-y-5">
-                {/* Plan row */}
                 <div className="flex items-center justify-between p-4 rounded-xl bg-slate-800/40 border border-white/[0.06]">
                   <div className="flex-1 min-w-0">
                     {statsLoading ? (
@@ -741,7 +737,6 @@ export default function SettingsPage() {
                   </span>
                 </div>
 
-                {/* Usage bars */}
                 <div className="space-y-3">
                   <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Monthly Usage</p>
                   {statsLoading ? (
@@ -781,7 +776,6 @@ export default function SettingsPage() {
               </div>
             </SectionCard>
 
-            {/* Premium coming soon */}
             <SectionCard>
               <div className="p-5 text-center border-b border-white/[0.06]">
                 <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-purple-900/30">

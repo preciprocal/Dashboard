@@ -46,7 +46,6 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
   const [isHovered, setIsHovered] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -64,38 +63,30 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
     };
   }, []);
 
-  // Toggle dropdown
   const toggleDropdown = () => {
     setIsOpen(!isOpen);
-    // When clicking, we want to override hover state
-    if (!isOpen) {
-      setIsHovered(false); // Ensure hover doesn't interfere when opening via click
-    }
-  };
-
-  // Close dropdown when clicking on links
-  const closeDropdown = () => {
-    setIsOpen(false);
-    setIsHovered(false);
-  };
-
-  // Handle mouse enter
-  const handleMouseEnter = () => {
-    // Only set hover if not already opened by click
-    if (!isOpen) {
-      setIsHovered(true);
-    }
-  };
-
-  // Handle mouse leave
-  const handleMouseLeave = () => {
-    // Only close on mouse leave if it was opened by hover (not click)
     if (!isOpen) {
       setIsHovered(false);
     }
   };
 
-  // Determine if dropdown should be visible (either clicked or hovered)
+  const closeDropdown = () => {
+    setIsOpen(false);
+    setIsHovered(false);
+  };
+
+  const handleMouseEnter = () => {
+    if (!isOpen) {
+      setIsHovered(true);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (!isOpen) {
+      setIsHovered(false);
+    }
+  };
+
   const isVisible = isOpen || isHovered;
 
   return (
@@ -246,8 +237,8 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
             <div>
               <div className="text-white font-medium">
                 Subscription
-                {userSubscription?.plan &&
-                  userSubscription?.plan !== "starter" && (
+                {/* FIXED: Only show badge for pro/premium, not free/starter */}
+                {(userSubscription?.plan === "pro" || userSubscription?.plan === "premium") && (
                     <span className="ml-2 px-2 py-0.5 bg-gradient-to-r from-blue-500 to-purple-500 text-white text-xs rounded-full">
                       {userSubscription?.plan === "pro" ? "Pro" : "Premium"}
                     </span>

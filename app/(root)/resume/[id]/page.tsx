@@ -21,6 +21,8 @@ import ResumePreview           from '@/components/resume/ResumePreview';
 import IntelligentAIPanel      from '@/components/resume/IntelligentAIPanel';
 import type { OverallAnalysis } from '@/components/resume/IntelligentAIPanel';
 import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
+import { SeeExampleButton } from '@/components/ServiceModal';
+import type { ResumeInitialTab } from '@/components/ServiceModal/types';
 import { toast } from 'sonner';
 import Image from 'next/image';
 
@@ -254,7 +256,6 @@ function InlineResumeEditor({
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
   const downloadBtnRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (downloadBtnRef.current && !downloadBtnRef.current.contains(e.target as Node))
@@ -264,15 +265,11 @@ function InlineResumeEditor({
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // Ref to track whether the last HTML change came from the parent (apply suggestion)
-  // vs. from the user typing (handleInput). We use a ref so it doesn't cause re-renders.
   const externalChangeRef = useRef(false);
 
-  // Highlight matching text directly in own DOM — no parent ref needed
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor) return;
-    // Clear previous
     if (prevHighlightedEl.current) {
       prevHighlightedEl.current.style.background   = '';
       prevHighlightedEl.current.style.borderRadius = '';
@@ -297,7 +294,6 @@ function InlineResumeEditor({
     requestAnimationFrame(() => target.scrollIntoView({ behavior: 'smooth', block: 'center' }));
   }, [highlightText]);
 
-  // Sync editor HTML when it changes externally (applied suggestions)
   useEffect(() => {
     if (!editorRef.current || !initialHtml) return;
     if (editorRef.current.innerHTML !== initialHtml) {
@@ -306,7 +302,6 @@ function InlineResumeEditor({
     }
   }, [initialHtml]);
 
-  // Auto-save whenever an external change (apply suggestion) lands
   useEffect(() => {
     if (!externalChangeRef.current) return;
     externalChangeRef.current = false;
@@ -330,10 +325,9 @@ function InlineResumeEditor({
         setTimeout(() => setSaveStatus('idle'), 2000);
       } catch { toast.error('Auto-save failed'); }
       finally { setIsSaving(false); }
-    }, 1500); // shorter delay for applied suggestions
-  }, [initialHtml, resumeId, onContentChange]); // re-runs whenever parent pushes new HTML
+    }, 1500);
+  }, [initialHtml, resumeId, onContentChange]);
 
-  // Scale to fit container
   useEffect(() => {
     const update = () => {
       if (!containerRef.current) return;
@@ -345,7 +339,6 @@ function InlineResumeEditor({
     return () => ro.disconnect();
   }, []);
 
-  // Auto-save on input
   const handleInput = useCallback(() => {
     if (!editorRef.current) return;
     const html = editorRef.current.innerHTML;
@@ -449,7 +442,6 @@ function InlineResumeEditor({
             <span className="text-xs font-medium text-slate-300">Editable Resume</span>
           </div>
           <div className="flex items-center gap-2">
-            {/* Save */}
             <button
               onClick={handleSaveNow}
               disabled={isSaving || !hasChanges}
@@ -466,7 +458,6 @@ function InlineResumeEditor({
                 : <><Save className="w-3 h-3" /> Save</>}
             </button>
 
-            {/* Download dropdown */}
             <div ref={downloadBtnRef} className="relative">
               <button
                 onClick={() => setShowDownloadMenu(v => !v)}
@@ -510,47 +501,37 @@ function InlineResumeEditor({
 
         {/* Row 2: formatting controls */}
         <div className="flex items-center gap-1 px-2 py-1.5 flex-wrap">
-          <select
-            onChange={e => { editorRef.current?.focus(); document.execCommand('fontName', false, e.target.value); }}
-            className="bg-slate-800 text-slate-300 text-[11px] rounded px-1.5 py-1 border border-white/[0.08] cursor-pointer outline-none"
-            defaultValue="Calibri"
-          >
-            {['Calibri','Arial','Times New Roman','Georgia','Verdana','Helvetica','Garamond'].map(f => (
-              <option key={f} value={f}>{f}</option>
-            ))}
+          <select onChange={e => { editorRef.current?.focus(); document.execCommand('fontName', false, e.target.value); }}
+            className="bg-slate-800 text-slate-300 text-[11px] rounded px-1.5 py-1 border border-white/[0.08] cursor-pointer outline-none" defaultValue="Calibri">
+            {['Calibri','Arial','Times New Roman','Georgia','Verdana','Helvetica','Garamond'].map(f => (<option key={f} value={f}>{f}</option>))}
           </select>
-          <select
-            onChange={e => { editorRef.current?.focus(); document.execCommand('fontSize', false, e.target.value); }}
-            className="bg-slate-800 text-slate-300 text-[11px] rounded px-1.5 py-1 border border-white/[0.08] w-14 cursor-pointer outline-none"
-            defaultValue="3"
-          >
-            {[['1','8pt'],['2','10pt'],['3','11pt'],['4','12pt'],['5','14pt'],['6','18pt'],['7','24pt']].map(([v, label]) => (
-              <option key={v} value={v}>{label}</option>
-            ))}
+          <select onChange={e => { editorRef.current?.focus(); document.execCommand('fontSize', false, e.target.value); }}
+            className="bg-slate-800 text-slate-300 text-[11px] rounded px-1.5 py-1 border border-white/[0.08] w-14 cursor-pointer outline-none" defaultValue="3">
+            {[['1','8pt'],['2','10pt'],['3','11pt'],['4','12pt'],['5','14pt'],['6','18pt'],['7','24pt']].map(([v, label]) => (<option key={v} value={v}>{label}</option>))}
           </select>
           <div className="w-px h-4 bg-white/10 mx-0.5" />
-          <ToolBtn title="Bold"        onClick={() => document.execCommand('bold')}><span className="font-bold text-[11px]">B</span></ToolBtn>
-          <ToolBtn title="Italic"      onClick={() => document.execCommand('italic')}><span className="italic text-[11px]">I</span></ToolBtn>
-          <ToolBtn title="Underline"   onClick={() => document.execCommand('underline')}><span className="underline text-[11px]">U</span></ToolBtn>
+          <ToolBtn title="Bold" onClick={() => document.execCommand('bold')}><span className="font-bold text-[11px]">B</span></ToolBtn>
+          <ToolBtn title="Italic" onClick={() => document.execCommand('italic')}><span className="italic text-[11px]">I</span></ToolBtn>
+          <ToolBtn title="Underline" onClick={() => document.execCommand('underline')}><span className="underline text-[11px]">U</span></ToolBtn>
           <ToolBtn title="Strikethrough" onClick={() => document.execCommand('strikeThrough')}><span className="line-through text-[11px]">S</span></ToolBtn>
           <div className="w-px h-4 bg-white/10 mx-0.5" />
-          <ToolBtn title="Align Left"   onClick={() => document.execCommand('justifyLeft')}>
+          <ToolBtn title="Align Left" onClick={() => document.execCommand('justifyLeft')}>
             <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path d="M2 3.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zm0 4a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm0 4a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/></svg>
           </ToolBtn>
           <ToolBtn title="Align Center" onClick={() => document.execCommand('justifyCenter')}>
             <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path d="M4 3.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-2 4a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zm2 4a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5z"/></svg>
           </ToolBtn>
-          <ToolBtn title="Align Right"  onClick={() => document.execCommand('justifyRight')}>
+          <ToolBtn title="Align Right" onClick={() => document.execCommand('justifyRight')}>
             <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path d="M2 3.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zm4 4a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-4 4a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/></svg>
           </ToolBtn>
           <div className="w-px h-4 bg-white/10 mx-0.5" />
-          <ToolBtn title="Bullet List"   onClick={() => document.execCommand('insertUnorderedList')}>
+          <ToolBtn title="Bullet List" onClick={() => document.execCommand('insertUnorderedList')}>
             <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path fillRule="evenodd" d="M5 11.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zm-3 1a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm0 4a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm0 4a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></svg>
           </ToolBtn>
           <ToolBtn title="Numbered List" onClick={() => document.execCommand('insertOrderedList')}>
             <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path fillRule="evenodd" d="M5 11.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zM1 2.5a.5.5 0 0 1 .5-.5H2a.5.5 0 0 1 0 1h-.5V4H2a.5.5 0 0 1 0 1H1a.5.5 0 0 1 0-1V2.5zm1 4a.5.5 0 0 0-1 0v1.5H.5a.5.5 0 0 0 0 1H2v.5a.5.5 0 0 0 1 0v-3zm-1 5.5H2v-1a.5.5 0 0 0-1 0v1.5H.5a.5.5 0 0 0 0 1H2v.5a.5.5 0 0 0 1 0v-3z"/></svg>
           </ToolBtn>
-          <ToolBtn title="Indent"  onClick={() => document.execCommand('indent')}>
+          <ToolBtn title="Indent" onClick={() => document.execCommand('indent')}>
             <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path d="M2 3.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zm3.5 4a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-3.5 4a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zM2 8l2-2v4z"/></svg>
           </ToolBtn>
           <ToolBtn title="Outdent" onClick={() => document.execCommand('outdent')}>
@@ -559,14 +540,12 @@ function InlineResumeEditor({
           <div className="w-px h-4 bg-white/10 mx-0.5" />
           <label title="Text Color" className="relative flex items-center justify-center w-6 h-6 rounded hover:bg-white/10 cursor-pointer transition-colors">
             <span className="text-[11px] font-bold text-slate-300" style={{ textDecoration: 'underline 2px solid #6366f1' }}>A</span>
-            <input type="color" defaultValue="#000000"
-              onChange={e => { editorRef.current?.focus(); document.execCommand('foreColor', false, e.target.value); }}
+            <input type="color" defaultValue="#000000" onChange={e => { editorRef.current?.focus(); document.execCommand('foreColor', false, e.target.value); }}
               className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
           </label>
           <label title="Highlight Color" className="relative flex items-center justify-center w-6 h-6 rounded hover:bg-white/10 cursor-pointer transition-colors">
             <span className="text-[11px] font-bold" style={{ background: '#fde68a', padding: '0 2px', borderRadius: 2 }}>H</span>
-            <input type="color" defaultValue="#fde68a"
-              onChange={e => { editorRef.current?.focus(); document.execCommand('hiliteColor', false, e.target.value); }}
+            <input type="color" defaultValue="#fde68a" onChange={e => { editorRef.current?.focus(); document.execCommand('hiliteColor', false, e.target.value); }}
               className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
           </label>
           <div className="w-px h-4 bg-white/10 mx-0.5" />
@@ -588,37 +567,14 @@ function InlineResumeEditor({
 
       {/* ── Scrollable Word document area ── */}
       <div ref={containerRef} className="flex-1 min-h-0 relative overflow-hidden bg-slate-900/60">
-        <div
-          className="absolute inset-0 overflow-y-auto overflow-x-hidden glass-scrollbar"
-          style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(100,116,139,0.3) transparent' }}
-        >
+        <div className="absolute inset-0 overflow-y-auto overflow-x-hidden glass-scrollbar"
+          style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(100,116,139,0.3) transparent' }}>
           <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 16px', width: '100%' }}>
-            <div
-              style={{
-                width: '816px',
-                transformOrigin: 'top center',
-                transform: `scale(${scale})`,
-                marginBottom: `calc((${scale} - 1) * 100%)`,
-              }}
-            >
-              <div
-                ref={editorRef}
-                contentEditable
-                suppressContentEditableWarning
-                onInput={handleInput}
-                onPaste={e => {
-                  e.preventDefault();
-                  const html = e.clipboardData.getData('text/html');
-                  document.execCommand(html ? 'insertHTML' : 'insertText', false, html || e.clipboardData.getData('text/plain'));
-                }}
+            <div style={{ width: '816px', transformOrigin: 'top center', transform: `scale(${scale})`, marginBottom: `calc((${scale} - 1) * 100%)` }}>
+              <div ref={editorRef} contentEditable suppressContentEditableWarning onInput={handleInput}
+                onPaste={e => { e.preventDefault(); const html = e.clipboardData.getData('text/html'); document.execCommand(html ? 'insertHTML' : 'insertText', false, html || e.clipboardData.getData('text/plain')); }}
                 className="outline-none rounded shadow-2xl border border-white/10"
-                style={{
-                  fontFamily: 'Calibri, Arial, sans-serif', fontSize: '10pt', lineHeight: '1.4',
-                  color: '#000', backgroundColor: '#fff', width: '816px',
-                  minHeight: '200px',
-                  padding: '72px 72px', boxSizing: 'border-box' as const,
-                  wordBreak: 'break-word', overflowWrap: 'break-word',
-                }}
+                style={{ fontFamily: 'Calibri, Arial, sans-serif', fontSize: '10pt', lineHeight: '1.4', color: '#000', backgroundColor: '#fff', width: '816px', minHeight: '200px', padding: '72px 72px', boxSizing: 'border-box' as const, wordBreak: 'break-word', overflowWrap: 'break-word' }}
               />
             </div>
           </div>
@@ -663,11 +619,9 @@ export default function ResumeDetailsPage() {
   const [editorHtml,      setEditorHtml]      = useState('');
   const [isLoadingEditor, setIsLoadingEditor] = useState(false);
   const [, setEditorReady]                    = useState(false);
-  // Persisted AI panel state — survives writer tab unmount/remount
   const [persistedAnalysis,    setPersistedAnalysis]    = useState<OverallAnalysis | null>(null);
   const [persistedAppliedKeys, setPersistedAppliedKeys] = useState<Set<string>>(new Set());
 
-  // highlightText is just a string — InlineResumeEditor handles its own DOM
   const [highlightText, setHighlightText] = useState<string | null>(null);
   const handleHighlightLine = useCallback((text: string | null) => {
     setHighlightText(text);
@@ -675,7 +629,7 @@ export default function ResumeDetailsPage() {
 
   const editorLoadedForId = useRef<string | null>(null);
 
-  // ── Load resume ──────────────────────────────────────────────────────────────
+  // ── Load resume ──
   useEffect(() => {
     const load = async () => {
       if (!params.id || typeof params.id !== 'string') { setError('Invalid resume ID'); setLoadingResume(false); return; }
@@ -696,7 +650,7 @@ export default function ResumeDetailsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id, user, loading]);
 
-  // ── Load editable HTML when writer tab is first activated ────────────────────
+  // ── Load editable HTML when writer tab is first activated ──
   useEffect(() => {
     if (activeTab !== 'writer' || !resume) return;
     if (editorLoadedForId.current === resume.id) return;
@@ -820,8 +774,8 @@ export default function ResumeDetailsPage() {
 
   const MetaBadge = () => (
     <div className="flex items-center gap-2 flex-wrap">
-      {resume.jobTitle    && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/[0.05] border border-white/[0.08] text-xs text-slate-300"><Briefcase  className="w-3 h-3 text-slate-500" />{resume.jobTitle}</span>}
-      {resume.companyName && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/[0.05] border border-white/[0.08] text-xs text-slate-300"><Building2  className="w-3 h-3 text-slate-500" />{resume.companyName}</span>}
+      {resume.jobTitle    && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/[0.05] border border-white/[0.08] text-xs text-slate-300"><Briefcase className="w-3 h-3 text-slate-500" />{resume.jobTitle}</span>}
+      {resume.companyName && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/[0.05] border border-white/[0.08] text-xs text-slate-300"><Building2 className="w-3 h-3 text-slate-500" />{resume.companyName}</span>}
       {resume.score != null && <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-semibold ${getScoreBg(resume.score)}`}><Star className="w-3 h-3" />{resume.score}/100</span>}
     </div>
   );
@@ -862,8 +816,6 @@ export default function ResumeDetailsPage() {
     </div>
   );
 
-
-
   // ══════════════════════════════════════════════════════════════
   return (
     <>
@@ -878,6 +830,11 @@ export default function ResumeDetailsPage() {
               <h1 className="text-xl font-bold text-white mb-0.5">Resume Analysis</h1>
               <p className="text-slate-400 text-xs">AI-powered evaluation</p>
             </div>
+            <SeeExampleButton
+              serviceId="resume"
+              className="!px-3 !py-2 !rounded-lg !text-xs flex-shrink-0"
+              initialTab={activeTab as ResumeInitialTab}
+            />
           </div>
           <MetaBadge />
         </div>
@@ -901,7 +858,7 @@ export default function ResumeDetailsPage() {
           <div className="space-y-4">
             <div className="glass-card overflow-hidden" style={{ minHeight: 600 }}>
               {isLoadingEditor
-                ? <div className="flex flex-col items-center justify-center gap-3 py-16 text-slate-500"><Loader2 className="w-6 h-6 animate-spin text-indigo-400" /><p className="text-xs">Converting to editable format…</p></div>
+                ? <div className="h-full flex flex-col items-center justify-center gap-3 py-16 text-slate-500"><Loader2 className="w-6 h-6 animate-spin text-indigo-400" /><p className="text-xs">Converting to editable format…</p></div>
                 : <InlineResumeEditor resumeId={resume.id} initialHtml={editorHtml} onContentChange={setEditorHtml} highlightText={highlightText} />
               }
             </div>
@@ -991,9 +948,16 @@ export default function ResumeDetailsPage() {
               <Link href="/resume" className="inline-flex items-center text-xs text-slate-400 hover:text-white transition-colors mb-4">
                 <ArrowLeft className="w-3.5 h-3.5 mr-1.5" /> All Resumes
               </Link>
-              <div className="mb-3">
-                <h1 className="text-xl font-bold text-white mb-0.5">{resume.fileName || 'Resume Analysis'}</h1>
-                <p className="text-slate-400 text-xs">AI-powered evaluation</p>
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div>
+                  <h1 className="text-xl font-bold text-white mb-0.5">{resume.fileName || 'Resume Analysis'}</h1>
+                  <p className="text-slate-400 text-xs">AI-powered evaluation</p>
+                </div>
+                <SeeExampleButton
+                  serviceId="resume"
+                  className="!px-4 !py-2.5 !rounded-lg !text-sm flex-shrink-0"
+                  initialTab={activeTab as ResumeInitialTab}
+                />
               </div>
               <MetaBadge />
             </div>

@@ -3,12 +3,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { auth, db } from '@/firebase/admin';
 import Anthropic from '@anthropic-ai/sdk';
+import { redis } from '@/lib/redis/redis-client';
 
 const apiKey = process.env.CLAUDE_API_KEY;
 const anthropic = apiKey ? new Anthropic({ apiKey }) : null;
 
+// Cache TTL: 24 hours — quiz stays the same for a given plan version
+const QUIZ_CACHE_TTL = 24 * 60 * 60;
+
 interface QuizRequest {
   planId: string;
+  forceRegenerate?: boolean;
 }
 
 interface QuizQuestion {
@@ -25,6 +30,18 @@ interface QuizQuestion {
 
 interface QuizData {
   questions: QuizQuestion[];
+}
+
+interface CachedQuiz {
+  questions: QuizQuestion[];
+  metadata: {
+    role: string;
+    company?: string;
+    totalDays: number;
+    totalTasks: number;
+  };
+  cachedAt: string;
+  planProgressHash: string;
 }
 
 interface Resource {
@@ -62,8 +79,68 @@ interface PlanData {
   dailyPlans?: DailyPlan[];
   progress?: {
     totalTasks?: number;
+    completedTasks?: number;
+    percentage?: number;
   };
 }
+
+// ── Cache helpers ──────────────────────────────────────────────
+
+function getQuizCacheKey(planId: string): string {
+  return `quiz:${planId}`;
+}
+
+/**
+ * Build a hash from plan progress so we can invalidate
+ * when the user completes more tasks (quiz should reflect full plan)
+ */
+function buildProgressHash(plan: PlanData): string {
+  const completed = plan.progress?.completedTasks ?? 0;
+  const total = plan.progress?.totalTasks ?? 0;
+  return `${total}-${completed}`;
+}
+
+async function getCachedQuiz(planId: string): Promise<CachedQuiz | null> {
+  if (!redis) return null;
+  try {
+    const key = getQuizCacheKey(planId);
+    const cached = await redis.get(key);
+    if (cached) {
+      console.log(`✅ Cache HIT - Quiz for plan ${planId}`);
+      const data = typeof cached === 'string' ? JSON.parse(cached) : cached;
+      return data as CachedQuiz;
+    }
+    console.log(`❌ Cache MISS - Quiz for plan ${planId}`);
+    return null;
+  } catch (error) {
+    console.error('Redis get error:', error);
+    return null;
+  }
+}
+
+async function cacheQuiz(planId: string, quiz: CachedQuiz): Promise<void> {
+  if (!redis) return;
+  try {
+    const key = getQuizCacheKey(planId);
+    await redis.setex(key, QUIZ_CACHE_TTL, JSON.stringify(quiz));
+    console.log(`✅ Cached quiz for plan ${planId} (TTL: ${QUIZ_CACHE_TTL}s)`);
+  } catch (error) {
+    console.error('Redis set error:', error);
+  }
+}
+
+async function invalidateQuizCache(planId: string): Promise<void> {
+  if (!redis) return;
+  try {
+    const key = getQuizCacheKey(planId);
+    await redis.del(key);
+    console.log(`✅ Invalidated quiz cache for plan ${planId}`);
+  } catch (error) {
+    console.error('Redis delete error:', error);
+  }
+}
+
+// ── System prompt ──────────────────────────────────────────────
 
 const QUIZ_SYSTEM_PROMPT = `You are an expert interview coach. Generate a quiz based on the user's interview preparation plan.
 
@@ -94,174 +171,152 @@ Rules:
 2. Each question has exactly 4 options
 3. correctAnswer is index 0-3
 4. Mix difficulty levels
-5. Reference specific days/topics`;
+5. Reference specific days and topics from the plan
+6. Make explanations educational and detailed`;
+
+// ── Route handler ──────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('🎯 Quiz API called');
-
-    if (!anthropic || !apiKey) {
-      return NextResponse.json({ error: 'AI service not configured' }, { status: 500 });
-    }
-
-    if (!db) {
-      return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
-    }
-
+    // Auth check
     const cookieStore = await cookies();
-    const session = cookieStore.get('session');
-
-    if (!session) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    const sessionCookie = cookieStore.get('session')?.value;
+    if (!sessionCookie) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const decodedClaims = await auth.verifySessionCookie(session.value, true);
-    const userId = decodedClaims.uid;
-    console.log('✅ User:', userId);
+    let userId: string;
+    try {
+      const decoded = await auth.verifySessionCookie(sessionCookie, true);
+      userId = decoded.uid;
+    } catch {
+      return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+    }
 
-    const body = await request.json() as QuizRequest;
-    const { planId } = body;
+    const body = (await request.json()) as QuizRequest;
+    const { planId, forceRegenerate } = body;
 
     if (!planId) {
-      return NextResponse.json({ error: 'planId required' }, { status: 400 });
+      return NextResponse.json({ error: 'planId is required' }, { status: 400 });
     }
 
-    console.log('📝 Plan ID:', planId);
-
+    // Fetch plan from Firestore
     const planDoc = await db.collection('interviewPlans').doc(planId).get();
-
     if (!planDoc.exists) {
-      console.error('❌ Plan not found:', planId);
       return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
     }
 
     const planData = planDoc.data() as PlanData;
-    console.log('✅ Plan loaded:', planData?.role);
-
-    if (planData?.userId !== userId) {
-      return NextResponse.json({ error: 'Not your plan' }, { status: 403 });
+    if (planData.userId !== userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    if (!planData.dailyPlans || planData.dailyPlans.length === 0) {
-      return NextResponse.json({ error: 'Plan has no content' }, { status: 400 });
+    // ── Check Redis cache (unless force regenerate) ──
+    if (!forceRegenerate) {
+      const cached = await getCachedQuiz(planId);
+      if (cached) {
+        // Verify the plan hasn't changed significantly
+        const currentHash = buildProgressHash(planData);
+        if (cached.planProgressHash === currentHash) {
+          console.log(`⚡ Returning cached quiz for plan ${planId}`);
+          return NextResponse.json({
+            questions: cached.questions,
+            metadata: cached.metadata,
+            _cached: true,
+          });
+        } else {
+          // Plan progress changed, invalidate and regenerate
+          console.log(`🔄 Plan progress changed, regenerating quiz for ${planId}`);
+          await invalidateQuizCache(planId);
+        }
+      }
+    } else {
+      await invalidateQuizCache(planId);
     }
 
-    const context = buildContext(planData);
-    console.log('📋 Context built:', context.length, 'chars');
+    // ── Generate quiz via AI ──
+    if (!anthropic) {
+      return NextResponse.json({ error: 'AI service not configured' }, { status: 500 });
+    }
 
-    console.log('🤖 Calling Claude...');
+    // Build plan summary for prompt
+    const dailyPlans = planData.dailyPlans || [];
+    const planSummary = dailyPlans
+      .map((day: DailyPlan) => {
+        const topics = day.topics?.join(', ') || 'No topics';
+        const resources = day.resources?.map((r: Resource) => `${r.title} (${r.type})`).join(', ') || 'None';
+        const behavioral = day.behavioral ? `Behavioral: ${day.behavioral.topic} - ${day.behavioral.question}` : '';
+        const tasks = day.tasks?.map((t: Task) => t.title).join(', ') || 'No tasks';
+        const tips = day.aiTips?.join('; ') || '';
+        return `Day ${day.day}: ${day.focus}\n  Topics: ${topics}\n  Resources: ${resources}\n  Tasks: ${tasks}\n  ${behavioral}\n  Tips: ${tips}`;
+      })
+      .join('\n\n');
+
+    const userPrompt = `Generate a quiz for this preparation plan:
+
+Role: ${planData.role}
+${planData.company ? `Company: ${planData.company}` : ''}
+Skill Level: ${planData.skillLevel}
+Total Days: ${dailyPlans.length}
+
+Plan Details:
+${planSummary}`;
 
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5',
-      max_tokens: 4096,
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 4000,
       system: QUIZ_SYSTEM_PROMPT,
-      messages: [
-        {
-          role: 'user',
-          content: `PLAN DATA:\n${context}\n\nGenerate quiz now.`,
-        },
-      ],
+      messages: [{ role: 'user', content: userPrompt }],
     });
 
-    const responseText = response.content[0].type === 'text' ? response.content[0].text : '';
-    console.log('✅ AI response received');
-
-    let cleaned = responseText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
-    if (!cleaned.startsWith('{')) {
-      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-      if (jsonMatch) cleaned = jsonMatch[0];
+    const textBlock = response.content.find((b) => b.type === 'text');
+    if (!textBlock || textBlock.type !== 'text') {
+      return NextResponse.json({ error: 'No response from AI' }, { status: 500 });
     }
 
-    if (!cleaned) {
-      throw new Error('No JSON in response');
+    // Parse JSON response
+    let quizData: QuizData;
+    try {
+      const cleaned = textBlock.text
+        .replace(/```json\s*/g, '')
+        .replace(/```\s*/g, '')
+        .trim();
+      quizData = JSON.parse(cleaned);
+    } catch {
+      console.error('Failed to parse quiz JSON:', textBlock.text.substring(0, 200));
+      return NextResponse.json({ error: 'Failed to parse quiz data' }, { status: 500 });
     }
-
-    const quizData = JSON.parse(cleaned) as QuizData;
 
     if (!quizData.questions || !Array.isArray(quizData.questions)) {
-      throw new Error('Invalid quiz structure');
+      return NextResponse.json({ error: 'Invalid quiz format' }, { status: 500 });
     }
 
-    console.log('✅ Quiz generated:', quizData.questions.length, 'questions');
+    const metadata = {
+      role: planData.role,
+      company: planData.company,
+      totalDays: dailyPlans.length,
+      totalTasks: planData.progress?.totalTasks || 0,
+    };
 
-    const quizId = db.collection('quizzes').doc().id;
-    await db.collection('quizzes').doc(quizId).set({
-      id: quizId,
-      planId,
-      userId,
+    // ── Cache the generated quiz ──
+    const cachedQuiz: CachedQuiz = {
       questions: quizData.questions,
-      createdAt: new Date().toISOString()
-    });
+      metadata,
+      cachedAt: new Date().toISOString(),
+      planProgressHash: buildProgressHash(planData),
+    };
+    await cacheQuiz(planId, cachedQuiz);
 
     return NextResponse.json({
-      success: true,
-      quizId,
       questions: quizData.questions,
-      metadata: {
-        role: planData.role,
-        company: planData.company,
-        totalDays: planData.dailyPlans?.length || 0,
-        totalTasks: planData.progress?.totalTasks || 0
-      }
+      metadata,
+      _cached: false,
     });
-
   } catch (error) {
-    console.error('❌ Error:', error);
-    const err = error as Error;
+    console.error('❌ Quiz generation error:', error);
     return NextResponse.json(
-      { error: err.message || 'Failed to generate quiz' },
+      { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }
     );
   }
-}
-
-function buildContext(planData: PlanData): string {
-  const lines: string[] = [];
-
-  lines.push(`ROLE: ${planData.role}`);
-  if (planData.company) lines.push(`COMPANY: ${planData.company}`);
-  lines.push(`SKILL: ${planData.skillLevel}`);
-  lines.push('');
-
-  planData.dailyPlans?.forEach((day: DailyPlan) => {
-    lines.push(`DAY ${day.day}: ${day.focus}`);
-
-    if (day.topics?.length) {
-      lines.push(`Topics: ${day.topics.join(', ')}`);
-    }
-
-    if (day.resources?.length) {
-      lines.push('Resources:');
-      day.resources.forEach((r: Resource) => {
-        lines.push(`  - ${r.title} (${r.type}${r.difficulty ? ', ' + r.difficulty : ''})`);
-      });
-    }
-
-    if (day.behavioral) {
-      lines.push('Behavioral:');
-      lines.push(`  Topic: ${day.behavioral.topic}`);
-      lines.push(`  Question: ${day.behavioral.question}`);
-      if (day.behavioral.tips?.length) {
-        lines.push(`  Tips: ${day.behavioral.tips.join('; ')}`);
-      }
-    }
-
-    if (day.tasks?.length) {
-      lines.push('Tasks:');
-      day.tasks.forEach((t: Task) => {
-        lines.push(`  - ${t.title}: ${t.description}`);
-      });
-    }
-
-    if (day.aiTips?.length) {
-      lines.push('AI Tips:');
-      day.aiTips.forEach((tip: string) => {
-        lines.push(`  - ${tip}`);
-      });
-    }
-
-    lines.push('');
-  });
-
-  return lines.join('\n');
 }

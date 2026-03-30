@@ -242,7 +242,7 @@ const ProfileOverview: React.FC<ProfileOverviewProps> = ({
               <div className="w-8 h-8 bg-indigo-500/10 rounded-lg flex items-center justify-center border border-indigo-500/20">
                 <Target className="w-4 h-4 text-indigo-400" />
               </div>
-              <h3 className="text-sm font-semibold text-white">Today`&apos;`s Focus</h3>
+              <h3 className="text-sm font-semibold text-white">Today&apos;s Focus</h3>
             </div>
             <span className="text-xs text-slate-500">
               {dailyFocus.filter(f => f.completed).length}/{dailyFocus.length} done

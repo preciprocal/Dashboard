@@ -1,13 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // ✅ FIXED: Moved from experimental.serverComponentsExternalPackages
   serverExternalPackages: [
     "firebase-admin",
     "@google/generative-ai",
+    "@sparticuz/chromium-min",
+    "puppeteer-core",
   ],
 
-  // Allow images from any domain
   images: {
     remotePatterns: [
       {

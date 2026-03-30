@@ -9,6 +9,7 @@ import { collection, query, where, getDocs, deleteDoc, doc } from 'firebase/fire
 import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
 import ErrorPage from '@/components/Error';
 import { toast } from 'sonner';
+
 import {
   FileText,
   Sparkles,
@@ -31,6 +32,7 @@ import {
   FileDown,
   ChevronDown,
 } from 'lucide-react';
+import { SeeExampleButton } from '@/components/ServiceModal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -434,18 +436,24 @@ function EmptyDashboard() {
         ))}
       </div>
 
-      <Link
-        href="/cover-letter/create"
-        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
-                   bg-gradient-to-r from-indigo-600 to-purple-600
-                   hover:from-indigo-500 hover:to-purple-500
-                   text-white text-sm font-semibold
-                   shadow-[0_4px_16px_rgba(102,126,234,0.3)]
-                   hover:shadow-[0_6px_20px_rgba(102,126,234,0.4)]
-                   transition-all duration-200"
-      >
-        <Plus className="w-4 h-4" /> Generate First Letter
-      </Link>
+      <div className="flex items-center justify-center gap-3">
+        <Link
+          href="/cover-letter/create"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
+                     bg-gradient-to-r from-indigo-600 to-purple-600
+                     hover:from-indigo-500 hover:to-purple-500
+                     text-white text-sm font-semibold
+                     shadow-[0_4px_16px_rgba(102,126,234,0.3)]
+                     hover:shadow-[0_6px_20px_rgba(102,126,234,0.4)]
+                     transition-all duration-200"
+        >
+          <Plus className="w-4 h-4" /> Generate First Letter
+        </Link>
+        <SeeExampleButton
+          serviceId="cover-letter"
+          className="!px-5 !py-2.5 !text-sm !font-semibold"
+        />
+      </div>
       <p className="text-[11px] text-slate-700 mt-4">Upload your resume for personalised letters</p>
     </div>
   );
@@ -751,18 +759,24 @@ export default function CoverLetterDashboard() {
             <h1 className="text-xl font-bold text-white leading-tight">Cover Letters</h1>
             <p className="text-xs text-slate-500 mt-0.5">AI-powered professional cover letters</p>
           </div>
-          <Link
-            href="/cover-letter/create"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl flex-shrink-0
-                       bg-gradient-to-r from-indigo-600 to-purple-600
-                       hover:from-indigo-500 hover:to-purple-500
-                       text-white text-sm font-semibold
-                       shadow-[0_4px_14px_rgba(102,126,234,0.28)]
-                       hover:shadow-[0_6px_18px_rgba(102,126,234,0.38)]
-                       transition-all duration-200"
-          >
-            <Plus className="w-4 h-4" /> Generate New
-          </Link>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <SeeExampleButton
+              serviceId="cover-letter"
+              className="!px-4 !py-2.5 !text-sm !font-semibold"
+            />
+            <Link
+              href="/cover-letter/create"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl
+                         bg-gradient-to-r from-indigo-600 to-purple-600
+                         hover:from-indigo-500 hover:to-purple-500
+                         text-white text-sm font-semibold
+                         shadow-[0_4px_14px_rgba(102,126,234,0.28)]
+                         hover:shadow-[0_6px_18px_rgba(102,126,234,0.38)]
+                         transition-all duration-200"
+            >
+              <Plus className="w-4 h-4" /> Generate New
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -912,8 +926,6 @@ export default function CoverLetterDashboard() {
           onDownloadWord={e => { e.stopPropagation(); handleDownload(selectedLetter, 'docx'); }}
         />
       )}
-
-
     </div>
   );
 }

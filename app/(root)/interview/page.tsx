@@ -8,6 +8,7 @@ import { auth } from '@/firebase/client';
 import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
 import ErrorPage from '@/components/Error';
 import ProfileInterviewCard from '@/components/ProfileInterviewCard';
+import { SeeExampleButton } from '@/components/ServiceModal';
 import {
   Target, TrendingUp, Zap, LayoutGrid, List, Filter,
   CheckCircle, AlertCircle, RefreshCw, Award, Clock,
@@ -158,18 +159,24 @@ function EmptyDashboard() {
         ))}
       </div>
 
-      <Link
-        href="/interview/create"
-        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
-                   bg-gradient-to-r from-indigo-600 to-purple-600
-                   hover:from-indigo-500 hover:to-purple-500
-                   text-white text-[13px] font-semibold
-                   shadow-[0_4px_16px_rgba(102,126,234,0.3)]
-                   hover:shadow-[0_6px_20px_rgba(102,126,234,0.4)]
-                   transition-all duration-200"
-      >
-        <Plus className="w-4 h-4" /> Start First Interview
-      </Link>
+      <div className="flex items-center justify-center gap-3">
+        <Link
+          href="/interview/create"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
+                     bg-gradient-to-r from-indigo-600 to-purple-600
+                     hover:from-indigo-500 hover:to-purple-500
+                     text-white text-[13px] font-semibold
+                     shadow-[0_4px_16px_rgba(102,126,234,0.3)]
+                     hover:shadow-[0_6px_20px_rgba(102,126,234,0.4)]
+                     transition-all duration-200"
+        >
+          <Plus className="w-4 h-4" /> Start First Interview
+        </Link>
+        <SeeExampleButton
+          serviceId="interview"
+          className="!px-5 !py-2.5 !text-[13px] !font-semibold"
+        />
+      </div>
       <p className="text-[11px] text-slate-700 mt-4">
         Choose from Technical, Behavioral, or System Design interviews
       </p>
@@ -225,7 +232,6 @@ export default function InterviewsDashboard() {
       setLoadingInterviews(true); setInterviewsError(''); setLoadingStep(0);
       setLoadingStep(1);
 
-      // Step 1: fetch interviews via the profile API route (server-side auth context)
       const profileRes = await fetch('/api/profile');
       if (!profileRes.ok) {
         if (profileRes.status === 401) throw new Error('invalid token');
@@ -249,7 +255,6 @@ export default function InterviewsDashboard() {
         updatedAt: toDate(i.updatedAt, toDate(i.createdAt)),
       }));
 
-      // Step 2: fetch all feedback in one batch API call
       setLoadingStep(3);
       const batchRes = await fetch('/api/feedback/batch', {
         method: 'POST',
@@ -381,18 +386,24 @@ export default function InterviewsDashboard() {
             <h1 className="text-[18px] font-bold text-white leading-tight">Interview Practice</h1>
             <p className="text-[12px] text-slate-500 mt-0.5">AI-powered interview preparation</p>
           </div>
-          <Link
-            href="/interview/create"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl flex-shrink-0
-                       bg-gradient-to-r from-indigo-600 to-purple-600
-                       hover:from-indigo-500 hover:to-purple-500
-                       text-white text-[13px] font-semibold
-                       shadow-[0_4px_14px_rgba(102,126,234,0.28)]
-                       hover:shadow-[0_6px_18px_rgba(102,126,234,0.38)]
-                       transition-all duration-200"
-          >
-            <Plus className="w-4 h-4" /> New Interview
-          </Link>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <SeeExampleButton
+              serviceId="interview"
+              className="!px-4 !py-2.5 !text-[13px] !font-semibold"
+            />
+            <Link
+              href="/interview/create"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl
+                         bg-gradient-to-r from-indigo-600 to-purple-600
+                         hover:from-indigo-500 hover:to-purple-500
+                         text-white text-[13px] font-semibold
+                         shadow-[0_4px_14px_rgba(102,126,234,0.28)]
+                         hover:shadow-[0_6px_18px_rgba(102,126,234,0.38)]
+                         transition-all duration-200"
+            >
+              <Plus className="w-4 h-4" /> New Interview
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -521,8 +532,6 @@ export default function InterviewsDashboard() {
       ) : !interviewsError ? (
         <EmptyDashboard />
       ) : null}
-
-
     </div>
   );
 }

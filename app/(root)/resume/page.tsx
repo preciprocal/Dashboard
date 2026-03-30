@@ -12,10 +12,12 @@ import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader'
 import ErrorPage from '@/components/Error';
 import { Resume } from '@/types/resume';
 import { toast } from 'sonner';
+
 import {
   FileText, Upload, Zap, LayoutGrid, List, Filter, CheckCircle,
   AlertCircle, RefreshCw, ChevronDown,
 } from 'lucide-react';
+import { SeeExampleButton } from '@/components/ServiceModal';
 
 type SortOption = 'all' | 'high-scores' | 'needs-improvement' | 'recent';
 type ViewMode = 'grid' | 'list';
@@ -60,7 +62,6 @@ export default function ResumeDashboard() {
     { name: 'Finalizing dashboard...',   weight: 1 },
   ];
 
-  // Close filter dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
@@ -72,10 +73,6 @@ export default function ResumeDashboard() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showFilterMenu]);
 
-  // ── Stat recalculation ────────────────────────────────────────────────────
-  // Handles both the new Gemini schema (ATS uppercase, toneAndStyle) and
-  // any legacy records that used lowercase field names.
-
   const recalcStats = (list: Resume[]) => {
     const withFeedback = list.filter(r => r.feedback);
     if (withFeedback.length > 0) {
@@ -84,7 +81,6 @@ export default function ResumeDashboard() {
 
       const totalTips = withFeedback.reduce((s, r) => {
         if (!r.feedback) return s;
-        // Cast to a loose map so we can handle both ATS/ats field name variants
         const fd = r.feedback as unknown as Record<string, { tips?: Array<{ type: string }> }>;
         const tips = [
           ...(fd['ATS']?.tips         ?? fd['ats']?.tips         ?? []),
@@ -101,8 +97,6 @@ export default function ResumeDashboard() {
       setStats({ averageScore: 0, totalResumes: list.length, improvementTips: 0 });
     }
   };
-
-  // ── Load resumes ──────────────────────────────────────────────────────────
 
   const loadResumes = useCallback(async (): Promise<void> => {
     if (!user) return;
@@ -157,8 +151,6 @@ export default function ResumeDashboard() {
     if (user) loadResumes();
   };
 
-  // ── Delete — animate card out, then remove from state ────────────────────
-
   const handleDelete = useCallback(async (resumeId: string): Promise<void> => {
     setDeletingId(resumeId);
     try {
@@ -178,8 +170,6 @@ export default function ResumeDashboard() {
       toast.success('Resume deleted');
     }, 300);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Filtering ─────────────────────────────────────────────────────────────
 
   const filteredResumes = useMemo(() => {
     let filtered = [...resumes];
@@ -218,8 +208,6 @@ export default function ResumeDashboard() {
       default:                  return 'All';
     }
   };
-
-  // ── Guards ────────────────────────────────────────────────────────────────
 
   if (criticalError) {
     return (
@@ -269,8 +257,6 @@ export default function ResumeDashboard() {
     );
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────
-
   return (
     <div className="space-y-4 sm:space-y-6 px-4 sm:px-0">
 
@@ -282,13 +268,19 @@ export default function ResumeDashboard() {
               <h1 className="text-xl sm:text-2xl font-semibold text-white mb-1">Resume Analysis</h1>
               <p className="text-slate-400 text-xs sm:text-sm">AI-powered resume optimization</p>
             </div>
-            <Link
-              href="/resume/upload"
-              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm w-full sm:w-auto justify-center"
-            >
-              <Upload className="w-4 h-4" />
-              <span>Upload Resume</span>
-            </Link>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <SeeExampleButton
+                serviceId="resume"
+                className="!px-4 !py-2.5 !rounded-lg !text-sm"
+              />
+              <Link
+                href="/resume/upload"
+                className="glass-button-primary hover-lift inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm justify-center"
+              >
+                <Upload className="w-4 h-4" />
+                <span>Upload Resume</span>
+              </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -496,25 +488,31 @@ export default function ResumeDashboard() {
               ))}
             </div>
 
-            <Link
-              href="/resume/upload"
-              className="glass-button-primary hover-lift inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base"
-            >
-              <Upload className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span>Upload Resume</span>
-            </Link>
+            <div className="flex items-center justify-center gap-3">
+              <Link
+                href="/resume/upload"
+                className="glass-button-primary hover-lift inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base"
+              >
+                <Upload className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span>Upload Resume</span>
+              </Link>
+              <SeeExampleButton
+                serviceId="resume"
+                className="!px-5 sm:!px-6 !py-2.5 sm:!py-3 !rounded-lg !text-sm sm:!text-base"
+              />
+            </div>
             <p className="text-xs text-slate-500 mt-4 sm:mt-6">Supports PDF, DOC, and DOCX formats</p>
           </div>
         </div>
       ) : null}
 
-      <style jsx>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(10px); }
           to   { opacity: 1; transform: translateY(0); }
         }
         .animate-fadeIn { animation: fadeIn 0.4s ease-out forwards; }
-      `}</style>
+      ` }} />
     </div>
   );
 }

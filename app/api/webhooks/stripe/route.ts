@@ -2,6 +2,7 @@
 import Stripe from "stripe";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/firebase/admin";
+import { invalidateUserCache } from "@/lib/actions/auth.action";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-07-30.basil",
@@ -29,7 +30,6 @@ function safeTimestampToISO(
   }
   try {
     const date = new Date(timestamp * 1000);
-    // Check if the date is valid
     if (isNaN(date.getTime())) {
       console.warn(`⚠️ Invalid timestamp: ${timestamp}`);
       return null;
@@ -39,6 +39,33 @@ function safeTimestampToISO(
     console.warn(`⚠️ Error converting timestamp ${timestamp} to ISO:`, error);
     return null;
   }
+}
+
+// ─── FIXED: Map ALL current Stripe Price IDs → plan names ─────────────────────
+// "starter" plan is removed — use "free", "pro", "premium" only
+function getPlanFromPriceId(priceId: string): "free" | "pro" | "premium" {
+  const priceIdMap: Record<string, "free" | "pro" | "premium"> = {
+    // Free
+    "price_1TFjvAQSkS83MGF9XlLXgu5H": "free",
+
+    // Pro
+    "price_1TFjwCQSkS83MGF9xH1bdc1o": "pro",    // Pro monthly $9.99
+    "price_1TFjykQSkS83MGF9oczwiyNo": "pro",    // Pro annual $95.88
+
+    // Premium
+    "price_1TFjzWQSkS83MGF9YCP7CBk3": "premium", // Premium monthly $24.99
+    "price_1TFk0EQSkS83MGF9pPfRehCO": "premium", // Premium annual $239.88
+  };
+
+  const plan = priceIdMap[priceId];
+  if (!plan) {
+    console.warn(`⚠️ Unknown price ID: ${priceId}, defaulting to free`);
+    console.log("Available price IDs:", Object.keys(priceIdMap));
+    return "free";
+  }
+
+  console.log(`✅ Mapped price ID ${priceId} to plan: ${plan}`);
+  return plan;
 }
 
 export async function POST(request: NextRequest) {
@@ -78,11 +105,15 @@ export async function POST(request: NextRequest) {
         break;
 
       case "invoice.payment_succeeded":
-        await handlePaymentSucceeded(event.data.object as InvoiceWithSubscription);
+        await handlePaymentSucceeded(
+          event.data.object as InvoiceWithSubscription
+        );
         break;
 
       case "invoice.payment_failed":
-        await handlePaymentFailed(event.data.object as InvoiceWithSubscription);
+        await handlePaymentFailed(
+          event.data.object as InvoiceWithSubscription
+        );
         break;
 
       default:
@@ -99,14 +130,21 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function handleSubscriptionCreated(subscription: SubscriptionWithPeriods) {
+// ─── FIXED: Use dot-notation updates + invalidate cache ───────────────────────
+
+async function handleSubscriptionCreated(
+  subscription: SubscriptionWithPeriods
+) {
   console.log("🆕 Subscription created:", subscription.id);
   console.log("🔍 Subscription metadata:", subscription.metadata);
 
   const userId = subscription.metadata.userId;
   if (!userId) {
     console.error("❌ No userId in subscription metadata");
-    console.log("Available metadata keys:", Object.keys(subscription.metadata));
+    console.log(
+      "Available metadata keys:",
+      Object.keys(subscription.metadata)
+    );
     return;
   }
 
@@ -114,17 +152,12 @@ async function handleSubscriptionCreated(subscription: SubscriptionWithPeriods) 
   console.log("📋 Determined plan:", plan);
 
   try {
-    // Get current user data first
     const userDoc = await db.collection("users").doc(userId).get();
     if (!userDoc.exists) {
       console.error("❌ User document does not exist:", userId);
       return;
     }
 
-    const currentData = userDoc.data();
-    console.log("📄 Current user data:", currentData?.subscription);
-
-    // Use snake_case property names
     const currentPeriodStart = safeTimestampToISO(
       subscription.current_period_start
     );
@@ -132,31 +165,33 @@ async function handleSubscriptionCreated(subscription: SubscriptionWithPeriods) 
       subscription.current_period_end
     );
 
-    // Prepare the updated subscription data
-    const updatedSubscription = {
-      ...currentData?.subscription,
-      stripeSubscriptionId: subscription.id,
-      status: subscription.status,
-      plan: plan,
-      currentPeriodStart,
-      currentPeriodEnd,
-      subscriptionEndsAt: currentPeriodEnd,
-      updatedAt: new Date().toISOString(),
-    };
+    // FIXED: Use dot-notation to avoid stale nested object merging
+    await db
+      .collection("users")
+      .doc(userId)
+      .update({
+        "subscription.stripeSubscriptionId": subscription.id,
+        "subscription.status": subscription.status,
+        "subscription.plan": plan,
+        "subscription.currentPeriodStart": currentPeriodStart,
+        "subscription.currentPeriodEnd": currentPeriodEnd,
+        "subscription.subscriptionEndsAt": currentPeriodEnd,
+        "subscription.updatedAt": new Date().toISOString(),
+      });
 
-    // Update the entire subscription object
-    await db.collection("users").doc(userId).update({
-      subscription: updatedSubscription,
-    });
+    // FIXED: Invalidate Redis cache so getCurrentUser() returns fresh data
+    await invalidateUserCache(userId);
 
     console.log("✅ User subscription updated successfully");
-    console.log("🔄 Updated subscription:", updatedSubscription);
+    console.log("🔄 Plan set to:", plan);
   } catch (error) {
     console.error("❌ Failed to update user subscription:", error);
   }
 }
 
-async function handleSubscriptionUpdated(subscription: SubscriptionWithPeriods) {
+async function handleSubscriptionUpdated(
+  subscription: SubscriptionWithPeriods
+) {
   console.log("🔄 Subscription updated:", subscription.id);
 
   const userId = subscription.metadata.userId;
@@ -168,34 +203,30 @@ async function handleSubscriptionUpdated(subscription: SubscriptionWithPeriods) 
   const plan = getPlanFromPriceId(subscription.items.data[0].price.id);
 
   try {
-    // Get current user data first
     const userDoc = await db.collection("users").doc(userId).get();
     if (!userDoc.exists) {
       console.error("❌ User document does not exist:", userId);
       return;
     }
 
-    const currentData = userDoc.data();
-
-    // Use snake_case property names
     const currentPeriodEnd = safeTimestampToISO(
       subscription.current_period_end
     );
 
-    // Prepare the updated subscription data
-    const updatedSubscription = {
-      ...currentData?.subscription,
-      status: subscription.status,
-      plan: plan,
-      currentPeriodEnd,
-      subscriptionEndsAt: currentPeriodEnd,
-      updatedAt: new Date().toISOString(),
-    };
+    // FIXED: Dot-notation updates
+    await db
+      .collection("users")
+      .doc(userId)
+      .update({
+        "subscription.status": subscription.status,
+        "subscription.plan": plan,
+        "subscription.currentPeriodEnd": currentPeriodEnd,
+        "subscription.subscriptionEndsAt": currentPeriodEnd,
+        "subscription.updatedAt": new Date().toISOString(),
+      });
 
-    // Update the entire subscription object
-    await db.collection("users").doc(userId).update({
-      subscription: updatedSubscription,
-    });
+    // FIXED: Invalidate cache
+    await invalidateUserCache(userId);
 
     console.log("✅ Subscription updated successfully");
   } catch (error) {
@@ -203,7 +234,9 @@ async function handleSubscriptionUpdated(subscription: SubscriptionWithPeriods) 
   }
 }
 
-async function handleSubscriptionDeleted(subscription: SubscriptionWithPeriods) {
+async function handleSubscriptionDeleted(
+  subscription: SubscriptionWithPeriods
+) {
   console.log("🗑️ Subscription deleted:", subscription.id);
 
   const userId = subscription.metadata.userId;
@@ -213,29 +246,26 @@ async function handleSubscriptionDeleted(subscription: SubscriptionWithPeriods) 
   }
 
   try {
-    // Get current user data first
     const userDoc = await db.collection("users").doc(userId).get();
     if (!userDoc.exists) {
       console.error("❌ User document does not exist:", userId);
       return;
     }
 
-    const currentData = userDoc.data();
+    // FIXED: Dot-notation + "free" not "starter"
+    await db
+      .collection("users")
+      .doc(userId)
+      .update({
+        "subscription.status": "canceled",
+        "subscription.plan": "free",
+        "subscription.stripeSubscriptionId": null,
+        "subscription.subscriptionEndsAt": null,
+        "subscription.updatedAt": new Date().toISOString(),
+      });
 
-    // Prepare the updated subscription data
-    const updatedSubscription = {
-      ...currentData?.subscription,
-      status: "canceled",
-      plan: "starter",
-      stripeSubscriptionId: null,
-      subscriptionEndsAt: null,
-      updatedAt: new Date().toISOString(),
-    };
-
-    // Update the entire subscription object
-    await db.collection("users").doc(userId).update({
-      subscription: updatedSubscription,
-    });
+    // FIXED: Invalidate cache
+    await invalidateUserCache(userId);
 
     console.log("✅ Subscription canceled successfully");
   } catch (error) {
@@ -247,47 +277,43 @@ async function handlePaymentSucceeded(invoice: InvoiceWithSubscription) {
   console.log("💰 Payment succeeded for invoice:", invoice.id);
 
   if (invoice.subscription) {
-    // FIXED: Use unknown intermediate cast for type conversion
-    const subscription = await stripe.subscriptions.retrieve(
+    const subscription = (await stripe.subscriptions.retrieve(
       invoice.subscription as string
-    ) as unknown as SubscriptionWithPeriods;
+    )) as unknown as SubscriptionWithPeriods;
     const userId = subscription.metadata.userId;
 
     if (userId) {
       const plan = getPlanFromPriceId(subscription.items.data[0].price.id);
 
       try {
-        // Get current user data first
         const userDoc = await db.collection("users").doc(userId).get();
         if (!userDoc.exists) {
           console.error("❌ User document does not exist:", userId);
           return;
         }
 
-        const currentData = userDoc.data();
-
-        // Use snake_case property names
         const currentPeriodEnd = safeTimestampToISO(
           subscription.current_period_end
         );
 
-        // Prepare the updated subscription data
-        const updatedSubscription = {
-          ...currentData?.subscription,
-          status: "active",
-          plan: plan,
-          currentPeriodEnd,
-          subscriptionEndsAt: currentPeriodEnd,
-          lastPaymentAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
+        // FIXED: Dot-notation updates
+        await db
+          .collection("users")
+          .doc(userId)
+          .update({
+            "subscription.status": "active",
+            "subscription.plan": plan,
+            "subscription.currentPeriodEnd": currentPeriodEnd,
+            "subscription.subscriptionEndsAt": currentPeriodEnd,
+            "subscription.lastPaymentAt": new Date().toISOString(),
+            "subscription.updatedAt": new Date().toISOString(),
+          });
 
-        // Update the entire subscription object
-        await db.collection("users").doc(userId).update({
-          subscription: updatedSubscription,
-        });
+        // FIXED: Invalidate cache
+        await invalidateUserCache(userId);
 
         console.log("✅ User subscription updated after successful payment");
+        console.log("🔄 Plan set to:", plan);
       } catch (error) {
         console.error(
           "❌ Failed to update user subscription after payment:",
@@ -302,34 +328,30 @@ async function handlePaymentFailed(invoice: InvoiceWithSubscription) {
   console.log("❌ Payment failed for invoice:", invoice.id);
 
   if (invoice.subscription) {
-    // FIXED: Use unknown intermediate cast for type conversion
-    const subscription = await stripe.subscriptions.retrieve(
+    const subscription = (await stripe.subscriptions.retrieve(
       invoice.subscription as string
-    ) as unknown as SubscriptionWithPeriods;
+    )) as unknown as SubscriptionWithPeriods;
     const userId = subscription.metadata.userId;
 
     if (userId) {
       try {
-        // Get current user data first
         const userDoc = await db.collection("users").doc(userId).get();
         if (!userDoc.exists) {
           console.error("❌ User document does not exist:", userId);
           return;
         }
 
-        const currentData = userDoc.data();
+        // FIXED: Dot-notation updates
+        await db
+          .collection("users")
+          .doc(userId)
+          .update({
+            "subscription.status": "past_due",
+            "subscription.updatedAt": new Date().toISOString(),
+          });
 
-        // Prepare the updated subscription data
-        const updatedSubscription = {
-          ...currentData?.subscription,
-          status: "past_due",
-          updatedAt: new Date().toISOString(),
-        };
-
-        // Update the entire subscription object
-        await db.collection("users").doc(userId).update({
-          subscription: updatedSubscription,
-        });
+        // FIXED: Invalidate cache
+        await invalidateUserCache(userId);
 
         console.log("✅ Subscription marked as past due");
       } catch (error) {
@@ -337,24 +359,4 @@ async function handlePaymentFailed(invoice: InvoiceWithSubscription) {
       }
     }
   }
-}
-
-function getPlanFromPriceId(priceId: string): "starter" | "pro" | "premium" {
-  // Map your Stripe Price IDs to plan names - using your actual price IDs!
-  const priceIdMap: Record<string, "starter" | "pro" | "premium"> = {
-    price_1RfPo9QSkS83MGF9RMqz523j: "starter", // Your starter price ID
-    price_1RfPoqQSkS83MGF9ONnCVRl7: "pro", // Your pro price ID
-    price_1RfPpSQSkS83MGF9Gdp0CEBt: "premium", // Your premium price ID
-    // Add more price IDs as needed for yearly plans, etc.
-  };
-
-  const plan = priceIdMap[priceId];
-  if (!plan) {
-    console.warn(`⚠️ Unknown price ID: ${priceId}, defaulting to starter`);
-    console.log("Available price IDs:", Object.keys(priceIdMap));
-    return "starter";
-  }
-
-  console.log(`✅ Mapped price ID ${priceId} to plan: ${plan}`);
-  return plan;
 }

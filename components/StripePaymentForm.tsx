@@ -1,27 +1,28 @@
-// components/StripePaymentForm.tsx
 "use client";
 
 import { useState, useEffect } from "react";
-import dynamic from "next/dynamic";
 import { loadStripe } from "@stripe/stripe-js";
-import {
-  Elements,
-  CardElement,
-  useStripe,
-  useElements,
-} from "@stripe/react-stripe-js";
+import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 
-// Define interfaces
+// ─── Price IDs ────────────────────────────────────────────────────────────────
+export const PRICE_IDS = {
+  free:    "price_1TFjvAQSkS83MGF9XlLXgu5H",  // Free $0
+  pro: {
+    monthly: "price_1TFjwCQSkS83MGF9xH1bdc1o", // Pro $9.99/mo
+    annual:  "price_1TFjykQSkS83MGF9oczwiyNo",  // Pro $95.88/yr
+  },
+  premium: {
+    monthly: "price_1TFjzWQSkS83MGF9YCP7CBk3", // Premium $24.99/mo
+    annual:  "price_1TFk0EQSkS83MGF9pPfRehCO",  // Premium $239.88/yr
+  },
+} as const;
+
 interface StripeFormProps {
-  planId: string;
+  planId:       string;
   billingCycle: "monthly" | "yearly";
-  user: {
-    name: string;
-    email: string;
-    id?: string;
-  };
+  user: { name: string; email: string; id?: string };
   onSuccess: () => void;
-  onError: (error: string) => void;
+  onError:   (error: string) => void;
 }
 
 interface SubscriptionResponse {
@@ -29,241 +30,124 @@ interface SubscriptionResponse {
   error?: string;
 }
 
-// Initialize Stripe outside component to avoid re-initialization
-const stripePromise = loadStripe(
-  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
-);
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
-// The actual Stripe form component
-function StripeFormInner({
-  billingCycle,
-  user,
-  onSuccess,
-  onError,
-}: StripeFormProps) {
-  const stripe = useStripe();
+function StripeFormInner({ planId, billingCycle, user, onSuccess, onError }: StripeFormProps) {
+  const stripe   = useStripe();
   const elements = useElements();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading]     = useState(false);
   const [cardError, setCardError] = useState<string | null>(null);
-  const [mounted, setMounted] = useState(false);
+  const [mounted, setMounted]     = useState(false);
 
-  // Only render after component mounts (client-side only)
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  useEffect(() => { setMounted(true); }, []);
+
+  // Resolve the correct priceId from planId + billingCycle
+  const resolvePriceId = (): string => {
+    const cycle = billingCycle === "yearly" ? "annual" : "monthly";
+    if (planId === "pro")     return PRICE_IDS.pro[cycle];
+    if (planId === "premium") return PRICE_IDS.premium[cycle];
+    return PRICE_IDS.free;
+  };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-
-    if (!stripe || !elements) {
-      setCardError("Payment system not ready. Please try again.");
-      return;
-    }
+    if (!stripe || !elements) { setCardError("Payment system not ready. Please try again."); return; }
 
     const cardElement = elements.getElement(CardElement);
-    if (!cardElement) {
-      setCardError("Card element not found. Please refresh the page.");
-      return;
-    }
+    if (!cardElement) { setCardError("Card element not found. Please refresh the page."); return; }
 
     setLoading(true);
     setCardError(null);
 
     try {
-      console.log("🚀 Starting payment process...");
-
-      // Your existing payment logic here
+      const priceId  = resolvePriceId();
       const response = await fetch("/api/subscription/create-subscription", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          priceId: "price_1QfMOtEBKJQ1EWKjN7XaI7AV", // Replace with your actual Pro price ID
-          billingCycle,
-        }),
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ priceId, billingCycle }),
       });
 
-      console.log("📡 API Response status:", response.status);
-
       const responseData = await response.json() as SubscriptionResponse;
-      console.log("📦 API Response data:", responseData);
 
       if (!response.ok) {
-        throw new Error(
-          responseData.error ||
-            `HTTP ${response.status}: ${response.statusText}`
-        );
+        throw new Error(responseData.error || `HTTP ${response.status}: ${response.statusText}`);
       }
 
       const { clientSecret, error } = responseData;
+      if (error)         throw new Error(error);
+      if (!clientSecret) throw new Error("No client secret received from server");
 
-      if (error) {
-        throw new Error(error);
-      }
+      const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: {
+          card:             cardElement,
+          billing_details:  { name: user.name, email: user.email },
+        },
+      });
 
-      if (!clientSecret) {
-        throw new Error("No client secret received from server");
-      }
-
-      console.log("🔐 Client secret received, confirming payment...");
-
-      const { error: stripeError, paymentIntent } =
-        await stripe.confirmCardPayment(clientSecret, {
-          payment_method: {
-            card: cardElement,
-            billing_details: {
-              name: user.name,
-              email: user.email,
-            },
-          },
-        });
-
-      if (stripeError) {
-        console.error("💳 Stripe error:", stripeError);
-        throw new Error(stripeError.message || "Payment failed");
-      }
+      if (stripeError) throw new Error(stripeError.message || "Payment failed");
 
       if (paymentIntent?.status === "succeeded") {
-        console.log("✅ Payment succeeded!");
         onSuccess();
       } else {
-        console.log("⚠️ Payment status:", paymentIntent?.status);
         throw new Error(`Payment status: ${paymentIntent?.status}`);
       }
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Payment failed";
-      setCardError(errorMessage);
-      onError(errorMessage);
+      const msg = error instanceof Error ? error.message : "Payment failed. Please try again.";
+      setCardError(msg);
+      onError(msg);
     } finally {
       setLoading(false);
     }
   };
 
-  // Don't render anything until mounted (prevents SSR issues)
-  if (!mounted) {
-    return (
-      <div className="space-y-4">
-        <div className="p-4 bg-gray-800 rounded-lg border border-gray-600 animate-pulse">
-          <div className="h-10 bg-gray-700 rounded"></div>
-        </div>
-        <div className="h-12 bg-gray-700 rounded animate-pulse"></div>
-      </div>
-    );
-  }
-
-  // Show loading state if Stripe hasn't loaded
-  if (!stripe || !elements) {
-    return (
-      <div className="space-y-4">
-        <div className="p-4 bg-gray-800 rounded-lg border border-gray-600">
-          <div className="text-center text-gray-400">
-            <div className="animate-spin w-6 h-6 border-2 border-gray-400 border-t-transparent rounded-full mx-auto mb-2"></div>
-            Loading payment form...
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (!mounted) return null;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="p-4 bg-gray-800 rounded-lg border border-gray-600">
+      <div className="px-3.5 py-3 bg-slate-800/50 border border-white/[0.08] rounded-xl transition-all focus-within:ring-1 focus-within:ring-indigo-500/40">
         <CardElement
           options={{
             style: {
               base: {
-                fontSize: "16px",
-                color: "#ffffff",
-                fontFamily: '"Helvetica Neue", Helvetica, sans-serif',
-                fontSmoothing: "antialiased",
-                "::placeholder": {
-                  color: "#9ca3af",
-                },
+                fontSize:      "14px",
+                color:         "#e2e8f0",
+                fontFamily:    "inherit",
+                "::placeholder": { color: "#475569" },
               },
-              invalid: {
-                color: "#ef4444",
-                iconColor: "#ef4444",
-              },
+              invalid: { color: "#f87171" },
             },
             hidePostalCode: false,
-          }}
-          onChange={(event) => {
-            if (event.error) {
-              setCardError(event.error.message);
-            } else {
-              setCardError(null);
-            }
           }}
         />
       </div>
 
       {cardError && (
-        <div className="text-red-400 text-sm p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-          {cardError}
+        <div className="p-3 bg-red-900/20 border border-red-800/50 rounded-xl">
+          <p className="text-xs text-red-400">{cardError}</p>
         </div>
       )}
 
       <button
         type="submit"
-        disabled={!stripe || loading || !!cardError}
-        className="w-full py-4 text-white font-bold rounded-2xl transition-all duration-300 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        disabled={loading || !stripe}
+        className="w-full py-3 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+        style={{ background: "linear-gradient(135deg,#6366f1,#a855f7)" }}
       >
-        {loading ? (
-          <div className="flex items-center justify-center space-x-2">
-            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-            <span>Processing...</span>
-          </div>
-        ) : (
-          `Subscribe for $19/month`
-        )}
+        {loading
+          ? <span className="flex items-center justify-center gap-2">
+              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>
+              Processing…
+            </span>
+          : "Subscribe"}
       </button>
-
-      {/* Test card info */}
-      <div className="text-xs text-gray-400 text-center">
-        <p>Test card: 4242 4242 4242 4242</p>
-        <p>Use any future date and CVC</p>
-      </div>
     </form>
   );
 }
 
-// Wrapper component with Elements provider
-function StripePaymentForm(props: StripeFormProps) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    return (
-      <div className="space-y-4">
-        <div className="p-4 bg-gray-800 rounded-lg border border-gray-600 animate-pulse">
-          <div className="h-10 bg-gray-700 rounded"></div>
-        </div>
-        <div className="h-12 bg-gray-700 rounded animate-pulse"></div>
-      </div>
-    );
-  }
-
+export default function StripePaymentForm(props: StripeFormProps) {
   return (
     <Elements stripe={stripePromise}>
       <StripeFormInner {...props} />
     </Elements>
   );
 }
-
-// Export with no SSR
-export default dynamic(() => Promise.resolve(StripePaymentForm), {
-  ssr: false,
-  loading: () => (
-    <div className="space-y-4">
-      <div className="p-4 bg-gray-800 rounded-lg border border-gray-600 animate-pulse">
-        <div className="h-10 bg-gray-700 rounded"></div>
-      </div>
-      <div className="h-12 bg-gray-700 rounded animate-pulse"></div>
-    </div>
-  ),
-});

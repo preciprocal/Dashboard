@@ -21,14 +21,14 @@ export const maxDuration = 60;
 // Constants
 // ─────────────────────────────────────────────────────────────────
 
-const MAX_FILE_SIZE      = 5  * 1024 * 1024;  // 5 MB
-const MAX_RESUME_CHARS   = 15_000;             // ~4k tokens, enough for any resume
+const MAX_FILE_SIZE      = 10 * 1024 * 1024;  // 10 MB (raised to match upload page)
+const MAX_RESUME_CHARS   = 15_000;
 const MAX_JOB_DESC_CHARS = 3_000;
-const RATE_LIMIT_WINDOW  = 60;                 // seconds
-const RATE_LIMIT_MAX     = 10;                 // requests per window per user
+const RATE_LIMIT_WINDOW  = 60;
+const RATE_LIMIT_MAX     = 10;
 
 // ─────────────────────────────────────────────────────────────────
-// OpenAI client (lazy — only initialised if key is present)
+// OpenAI client
 // ─────────────────────────────────────────────────────────────────
 
 const openai = process.env.OPENAI_API_KEY
@@ -36,7 +36,7 @@ const openai = process.env.OPENAI_API_KEY
   : null;
 
 // ─────────────────────────────────────────────────────────────────
-// Auth helper — matches pattern used across your other routes
+// Auth helper
 // ─────────────────────────────────────────────────────────────────
 
 async function verifyToken(request: NextRequest): Promise<string | null> {
@@ -51,11 +51,11 @@ async function verifyToken(request: NextRequest): Promise<string | null> {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Rate limiter — uses your existing Upstash Redis instance
+// Rate limiter
 // ─────────────────────────────────────────────────────────────────
 
 async function checkRateLimit(userId: string): Promise<boolean> {
-  if (!redis) return true; // If Redis is down, allow (fail open) but log it
+  if (!redis) return true;
   try {
     const key   = `ratelimit:analyze-resume:${userId}`;
     const count = await redis.incr(key);
@@ -68,26 +68,61 @@ async function checkRateLimit(userId: string): Promise<boolean> {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Secure content hash — full SHA-256, not a prefix slice
+// Secure content hash
 // ─────────────────────────────────────────────────────────────────
 
 function secureHash(...parts: string[]): string {
-  return crypto
-    .createHash('sha256')
-    .update(parts.join('|'))
-    .digest('hex');
+  return crypto.createHash('sha256').update(parts.join('|')).digest('hex');
 }
 
 // ─────────────────────────────────────────────────────────────────
-// PDF → plain text via pdf-parse
-// Install: npm install pdf-parse @types/pdf-parse
+// Text extractors
 // ─────────────────────────────────────────────────────────────────
 
 async function extractTextFromPdf(buffer: Buffer): Promise<string> {
-  // Dynamically import to avoid bundler issues with native modules
   const pdfParse = (await import('pdf-parse')).default;
   const data = await pdfParse(buffer);
   return data.text ?? '';
+}
+
+async function extractTextFromWord(buffer: Buffer): Promise<string> {
+  const mammoth = await import('mammoth');
+  const { value } = await mammoth.extractRawText({ buffer });
+  return value ?? '';
+}
+
+// ─────────────────────────────────────────────────────────────────
+// File type detection
+// ─────────────────────────────────────────────────────────────────
+
+type FileKind = 'pdf' | 'word' | 'image' | 'unknown';
+
+function detectFileKind(buffer: Buffer, fileName: string): FileKind {
+  const name = fileName.toLowerCase();
+
+  // Magic bytes take priority over extension / MIME
+  const hex4 = buffer.slice(0, 4).toString('hex');
+  const asc4 = buffer.slice(0, 4).toString('ascii');
+
+  if (asc4.startsWith('%PDF')) return 'pdf';
+
+  // DOCX / DOC both start with PK (zip) — 50 4B 03 04
+  // Older .doc starts with D0 CF 11 E0 (OLE2)
+  if (hex4 === '504b0304' || hex4.startsWith('d0cf11e0')) return 'word';
+
+  // Fallback to extension when magic bytes are inconclusive
+  if (name.endsWith('.pdf'))                        return 'pdf';
+  if (name.endsWith('.docx') || name.endsWith('.doc')) return 'word';
+
+  // Images
+  const bin4 = buffer.slice(0, 4).toString('binary');
+  if (
+    bin4.startsWith('\xFF\xD8\xFF') || // JPEG
+    bin4.startsWith('\x89PNG')       || // PNG
+    bin4.startsWith('GIF8')             // GIF
+  ) return 'image';
+
+  return 'unknown';
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -101,7 +136,6 @@ const tipSchema = z.object({
   solution:    z.string().optional(),
 });
 
-// Enforced tip count: 4–6 per section
 const sectionSchema = z.object({
   score: z.number().min(0).max(100),
   tips:  z.array(tipSchema).min(4).max(6),
@@ -130,10 +164,6 @@ const resumeFixSchema = z.object({
   })),
 });
 
-// ─────────────────────────────────────────────────────────────────
-// Request body schemas — validated at the boundary, never trust client
-// ─────────────────────────────────────────────────────────────────
-
 const generateFixesBodySchema = z.object({
   action:        z.literal('generateFixes'),
   resumeContent: z.string().min(100).max(MAX_RESUME_CHARS),
@@ -142,8 +172,8 @@ const generateFixesBodySchema = z.object({
 });
 
 const regenerateFixBodySchema = z.object({
-  action:      z.literal('regenerateFix'),
-  fixId:       z.string().min(1).max(64), // We look this up server-side
+  action:        z.literal('regenerateFix'),
+  fixId:         z.string().min(1).max(64),
   resumeContent: z.string().min(100).max(MAX_RESUME_CHARS),
 });
 
@@ -168,17 +198,9 @@ const requestBodySchema = z.discriminatedUnion('action', [
 ]);
 
 // ─────────────────────────────────────────────────────────────────
-// Weights for score calculation (documented, not magic)
+// Score weights
 // ─────────────────────────────────────────────────────────────────
 
-/**
- * Weighted scoring model:
- *  - Content (30%)     Substance is what gets you interviews
- *  - ATS (25%)         Most resumes are screened before human eyes
- *  - Skills (20%)      Keyword match is a gating criterion
- *  - Structure (15%)   Affects both ATS parsing and human readability
- *  - Tone (10%)        Important but least differentiating factor
- */
 const SCORE_WEIGHTS = {
   content:      0.30,
   ATS:          0.25,
@@ -188,7 +210,7 @@ const SCORE_WEIGHTS = {
 } as const;
 
 // ─────────────────────────────────────────────────────────────────
-// GET — health check (no config leakage in production)
+// GET — health check
 // ─────────────────────────────────────────────────────────────────
 
 export async function GET() {
@@ -196,11 +218,11 @@ export async function GET() {
   return NextResponse.json({
     message: 'AI Resume Analysis API',
     status:  'ok',
-    // Only expose internal config details in dev
     ...(isDev && {
-      model:   'gpt-4o',
-      ai:      openai  ? 'configured' : 'missing OPENAI_API_KEY',
-      caching: redis   ? 'enabled'    : 'disabled — missing Upstash credentials',
+      model:    'gpt-4o',
+      formats:  ['pdf', 'docx', 'doc'],
+      ai:       openai ? 'configured' : 'missing OPENAI_API_KEY',
+      caching:  redis  ? 'enabled'    : 'disabled',
     }),
   });
 }
@@ -212,13 +234,11 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   console.log('🚀 AI resume processing started');
 
-  // ── 1. Auth — all endpoints require a valid Firebase token ──
   const userId = await verifyToken(request);
   if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // ── 2. Rate limit ──
   const allowed = await checkRateLimit(userId);
   if (!allowed) {
     return NextResponse.json(
@@ -234,7 +254,6 @@ export async function POST(request: NextRequest) {
       return await handleResumeAnalysis(request, userId);
     }
 
-    // ── 3. Validate JSON body with Zod — never a plain `as` cast ──
     const rawBody = await request.json().catch(() => null);
     if (!rawBody) {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
@@ -249,9 +268,9 @@ export async function POST(request: NextRequest) {
     }
 
     const data = parsed.data;
-    if (data.action === 'generateFixes')  return await handleGenerateResumeFixes(data, userId);
-    if (data.action === 'regenerateFix')  return await handleRegenerateSpecificFix(data, userId);
-    if (data.action === 'analyzeForJob')  return await handleExtensionJobAnalysis(data);
+    if (data.action === 'generateFixes') return await handleGenerateResumeFixes(data, userId);
+    if (data.action === 'regenerateFix') return await handleRegenerateSpecificFix(data, userId);
+    if (data.action === 'analyzeForJob') return await handleExtensionJobAnalysis(data);
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
 
@@ -265,7 +284,7 @@ export async function POST(request: NextRequest) {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Resume analysis
+// Resume analysis — PDF, Word, or image
 // ─────────────────────────────────────────────────────────────────
 
 async function handleResumeAnalysis(request: NextRequest, userId: string) {
@@ -278,7 +297,6 @@ async function handleResumeAnalysis(request: NextRequest, userId: string) {
     return NextResponse.json({ error: 'No file provided' }, { status: 400 });
   }
 
-  // ── File size guard — before reading into memory ──
   if (file.size > MAX_FILE_SIZE) {
     return NextResponse.json(
       { error: `File too large. Maximum allowed size is ${MAX_FILE_SIZE / 1024 / 1024}MB.` },
@@ -286,63 +304,89 @@ async function handleResumeAnalysis(request: NextRequest, userId: string) {
     );
   }
 
-  // ── Magic bytes validation — don't trust client-supplied MIME ──
   const arrayBuffer = await file.arrayBuffer();
   const buffer      = Buffer.from(arrayBuffer);
-  const magic       = buffer.slice(0, 4).toString('ascii');
-  const isPdf       = magic.startsWith('%PDF');
-  const isImage     = ['\xFF\xD8\xFF', '\x89PNG', 'GIF8'].some(sig =>
-    buffer.slice(0, 4).toString('binary').startsWith(sig),
-  );
+  const kind        = detectFileKind(buffer, file.name);
 
-  if (!isPdf && !isImage) {
-    return NextResponse.json({ error: 'Invalid file. Please upload a PDF or image.' }, { status: 400 });
+  console.log('📋 Analysis request:', {
+    fileName: file.name,
+    fileSize: `${(file.size / 1024).toFixed(1)} KB`,
+    kind,
+    jobTitle: jobTitle || 'not specified',
+  });
+
+  if (kind === 'unknown') {
+    return NextResponse.json(
+      { error: 'Unsupported file type. Please upload a PDF or Word document (.docx, .doc).' },
+      { status: 400 },
+    );
   }
 
   if (!openai) {
     return NextResponse.json({ error: 'AI service not configured — add OPENAI_API_KEY' }, { status: 503 });
   }
 
-  // ── Extract text from PDF; fall back to base64 vision for images ──
+  // ── Extract text ──────────────────────────────────────────────
   let resumeText = '';
-  if (isPdf) {
+
+  if (kind === 'pdf') {
     try {
       resumeText = await extractTextFromPdf(buffer);
+      console.log(`📄 PDF text extracted: ${resumeText.length} chars`);
     } catch (err) {
-      console.warn('⚠️ pdf-parse failed, will fall back to vision:', err);
+      console.warn('⚠️ pdf-parse failed, falling back to vision:', err);
+    }
+  } else if (kind === 'word') {
+    try {
+      resumeText = await extractTextFromWord(buffer);
+      console.log(`📝 Word text extracted: ${resumeText.length} chars`);
+    } catch (err) {
+      console.error('❌ mammoth failed to extract Word text:', err);
+      return NextResponse.json(
+        { error: 'Could not read your Word document. Try saving it as a PDF and re-uploading.' },
+        { status: 422 },
+      );
+    }
+    if (!resumeText.trim()) {
+      return NextResponse.json(
+        { error: 'Your Word document appears to be empty or image-only. Try saving as PDF.' },
+        { status: 422 },
+      );
     }
   }
+  // images: resumeText stays '' → vision path below
 
-  // ── Cache key uses SHA-256 of full content + context ──
+  // ── Cache key ─────────────────────────────────────────────────
   const cacheKey = secureHash(
-    isPdf ? resumeText || buffer.toString('base64') : buffer.toString('base64'),
+    resumeText || buffer.toString('base64'),
     jobTitle.trim(),
     jobDesc.slice(0, MAX_JOB_DESC_CHARS).trim(),
-    userId, // per-user cache: prevents cross-user cache collisions
+    userId,
   );
 
   const cached = await getCachedResumeAnalysis(cacheKey);
   if (cached) {
-    console.log('⚡ Cache HIT — returning cached analysis');
+    console.log('⚡ Cache HIT');
     return NextResponse.json({
       feedback:      cached,
       extractedText: (cached as ResumeFeedback & { resumeText?: string }).resumeText ?? '',
-      meta:          { cached: true, model: 'gpt-4o' },
+      meta:          { cached: true, model: 'gpt-4o', kind },
     });
   }
 
-  // ── Build the message for GPT-4o ──
-  // If we extracted text from the PDF, send it as text (cheaper, more reliable).
-  // Only fall back to vision if text extraction failed or it's an image.
+  // ── Build GPT-4o message ──────────────────────────────────────
+  // Text path: PDF (extracted), Word (always extracted), or plain text
+  // Vision path: image, or PDF where text extraction failed
   const userMessage: OpenAI.Chat.ChatCompletionMessageParam = {
     role: 'user',
     content: resumeText
       ? [{ type: 'text', text: buildAnalysisPrompt(resumeText, jobTitle, jobDesc) }]
-      : [
-          // Vision path: image only — PDFs must not use image_url
-          { type: 'image_url', image_url: { url: `data:${file.type};base64,${buffer.toString('base64')}`, detail: 'high' } },
-          { type: 'text',      text: buildAnalysisPrompt('', jobTitle, jobDesc) },
-        ],
+      : kind === 'image'
+        ? [
+            { type: 'image_url', image_url: { url: `data:${file.type};base64,${buffer.toString('base64')}`, detail: 'high' } },
+            { type: 'text',      text: buildAnalysisPrompt('', jobTitle, jobDesc) },
+          ]
+        : [{ type: 'text', text: buildAnalysisPrompt('(No text could be extracted — analyse based on context)', jobTitle, jobDesc) }],
   };
 
   try {
@@ -355,61 +399,52 @@ async function handleResumeAnalysis(request: NextRequest, userId: string) {
     const raw     = response.choices[0].message.content ?? '';
     const cleaned = raw.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
 
-    // Granular error handling on parse/validation
-    let parsed: z.infer<typeof resumeFeedbackSchema>;
+    let parsedFeedback: z.infer<typeof resumeFeedbackSchema>;
     try {
-      parsed = resumeFeedbackSchema.parse(JSON.parse(cleaned));
-    } catch (zodOrJsonErr) {
-      console.error('❌ AI returned unparseable/invalid schema:', cleaned.slice(0, 500));
-      console.error('Parse error:', zodOrJsonErr);
-      // Return real error — do NOT silently return mock data
+      parsedFeedback = resumeFeedbackSchema.parse(JSON.parse(cleaned));
+    } catch (err) {
+      console.error('❌ AI returned invalid schema:', cleaned.slice(0, 500), err);
       return NextResponse.json(
         { error: 'AI returned an unexpected response format. Please try again.', isMock: false },
         { status: 422 },
       );
     }
 
-    const processed = applyWeightedScore(parsed);
-
+    const processed = applyWeightedScore(parsedFeedback);
     await cacheResumeAnalysis(cacheKey, processed);
-    console.log(`✅ Analysis complete for user ${userId}. Score: ${processed.overallScore}`);
+    console.log(`✅ Analysis complete for user ${userId}. Score: ${processed.overallScore} (${kind})`);
 
     return NextResponse.json({
       feedback:      processed,
       extractedText: resumeText,
       meta: {
-        model:          'gpt-4o',
-        cached:         false,
-        isMock:         false,
-        hasJobContext:  !!(jobTitle || jobDesc),
-        textExtracted:  !!resumeText,
-        truncatedJobDescription: jobDesc.length > MAX_JOB_DESC_CHARS,
+        model:         'gpt-4o',
+        cached:        false,
+        isMock:        false,
+        kind,
+        hasJobContext: !!(jobTitle || jobDesc),
+        textExtracted: !!resumeText,
       },
     });
 
   } catch (err) {
-    // Differentiated error handling — not a catch-all swallow
     if (err instanceof OpenAI.APIError) {
       if (err.status === 429) {
-        console.warn('⚠️ OpenAI rate limit hit');
         return NextResponse.json(
           { error: 'AI service is temporarily busy. Please try again in a few seconds.' },
           { status: 429 },
         );
       }
       console.error(`❌ OpenAI API error ${err.status}:`, err.message);
-      return NextResponse.json(
-        { error: 'AI service error. Please try again.' },
-        { status: 502 },
-      );
+      return NextResponse.json({ error: 'AI service error. Please try again.' }, { status: 502 });
     }
-    console.error('❌ Analysis failed with unexpected error:', err);
+    console.error('❌ Analysis failed:', err);
     return NextResponse.json({ error: 'Analysis failed. Please try again.' }, { status: 500 });
   }
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Brutally honest analysis prompt
+// Analysis prompt
 // ─────────────────────────────────────────────────────────────────
 
 function buildAnalysisPrompt(resumeText: string, jobTitle: string, jobDesc: string): string {
@@ -462,7 +497,7 @@ Each section must have exactly 4–6 tips. Aim for a mix of good and improve. At
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Weighted score calculation (transparent, not hidden)
+// Weighted score calculation
 // ─────────────────────────────────────────────────────────────────
 
 function applyWeightedScore(obj: z.infer<typeof resumeFeedbackSchema>): ResumeFeedback {
@@ -483,7 +518,6 @@ function applyWeightedScore(obj: z.infer<typeof resumeFeedbackSchema>): ResumeFe
     skills:       processSection(obj.skills),
   };
 
-  // Recalculate with documented weights (see SCORE_WEIGHTS above for rationale)
   processed.overallScore = Math.round(
     processed.content.score      * SCORE_WEIGHTS.content      +
     processed.ATS.score          * SCORE_WEIGHTS.ATS          +
@@ -513,10 +547,7 @@ async function handleGenerateResumeFixes(
   }
 
   if (!openai) {
-    return NextResponse.json(
-      { error: 'AI service not configured — add OPENAI_API_KEY' },
-      { status: 503 },
-    );
+    return NextResponse.json({ error: 'AI service not configured — add OPENAI_API_KEY' }, { status: 503 });
   }
 
   const fixPrompt = `You are an expert resume editor. Your job is to give the candidate specific, copy-pasteable improvements — not encouragement.
@@ -595,8 +626,7 @@ Provide 10–15 fixes. Prioritise high-impact content and ATS fixes first.`;
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Fix regeneration — looks up the original fix from Redis
-// Never trusts client-supplied fix content
+// Fix regeneration
 // ─────────────────────────────────────────────────────────────────
 
 async function handleRegenerateSpecificFix(
@@ -609,7 +639,6 @@ async function handleRegenerateSpecificFix(
     return NextResponse.json({ error: 'AI service not configured' }, { status: 503 });
   }
 
-  // Look up the original fix from server-side cache — never trust client data
   let originalFix: ResumeFix | null = null;
   if (redis) {
     try {
@@ -680,10 +709,7 @@ async function handleExtensionJobAnalysis(data: z.infer<typeof extensionJobBodyS
   const { jobData } = data;
 
   if (!openai) {
-    return NextResponse.json(
-      { error: 'AI service not configured — add OPENAI_API_KEY' },
-      { status: 503 },
-    );
+    return NextResponse.json({ error: 'AI service not configured — add OPENAI_API_KEY' }, { status: 503 });
   }
 
   const prompt = `You are a career coach. Analyse this job posting and identify what a candidate must emphasise to be competitive.
@@ -699,7 +725,7 @@ Be specific. Do not give generic advice.
 
 Return ONLY valid JSON:
 {
-  "atsScore":           <0-100, realistic — how well would an average resume score against this JD's ATS>,
+  "atsScore":           <0-100>,
   "keywordMatch":       <0-100>,
   "suggestions":        ["<specific, actionable suggestion 1>", "...", "...", "...", "..."],
   "missingSkills":      ["<skill explicitly mentioned in JD>", ...],

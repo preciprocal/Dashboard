@@ -13,13 +13,16 @@ interface RouteParams {
 export default async function InterviewDetailsPage({ params }: RouteParams) {
   const { id } = await params;
   const user = await getCurrentUser();
+
+  if (!user?.id) redirect("/sign-in");
+
   const interview = await getInterviewById(id);
 
   if (!interview) redirect("/");
 
   const feedback = await getFeedbackByInterviewId({
     interviewId: id,
-    userId: user?.id ?? "",
+    userId: user.id,
   });
 
   const { default: InterviewDetailsClient } = await import('./InterviewPageClient');
@@ -28,7 +31,7 @@ export default async function InterviewDetailsPage({ params }: RouteParams) {
     <div className="min-h-screen">
       <InterviewDetailsClient
         userName={user?.name ?? "User"}
-        userId={user?.id ?? ""}
+        userId={user.id}
         interviewId={id}
         interview={{
           role: interview.role,

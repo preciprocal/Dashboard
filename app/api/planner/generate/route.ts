@@ -1,281 +1,167 @@
-// app/api/planner/generate/route.ts
+// app/api/planner/quiz/generate/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { auth, db } from '@/firebase/admin';
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
+import { redis } from '@/lib/redis/redis-client';
 
-const apiKey = process.env.CLAUDE_API_KEY;
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-if (!apiKey) {
-  console.error('❌ CLAUDE_API_KEY is not set');
+const QUIZ_CACHE_TTL = 24 * 60 * 60;
+
+interface QuizRequest { planId: string; forceRegenerate?: boolean; }
+interface QuizQuestion { id: number; question: string; options: string[]; correctAnswer: number; explanation: string; category: string; relatedDay: number; difficulty: string; source: string; }
+interface QuizData { questions: QuizQuestion[]; }
+
+interface CachedQuiz {
+  questions: QuizQuestion[];
+  metadata: { role: string; company?: string; totalDays: number; totalTasks: number };
+  cachedAt: string;
+  planProgressHash: string;
 }
 
-const anthropic = apiKey ? new Anthropic({ apiKey }) : null;
+interface Resource { type: string; title: string; difficulty?: string; }
+interface BehavioralPrep { topic: string; question: string; tips?: string[]; }
+interface Task { title: string; description: string; }
+interface DailyPlan { day: number; focus: string; topics?: string[]; resources?: Resource[]; behavioral?: BehavioralPrep; tasks?: Task[]; aiTips?: string[]; }
+interface PlanData { userId: string; role: string; company?: string; skillLevel: string; dailyPlans?: DailyPlan[]; progress?: { totalTasks?: number; completedTasks?: number; percentage?: number }; }
 
-interface GeneratePlanRequest {
-  role: string;
-  company?: string;
-  interviewDate: string;
-  daysUntilInterview: number;
-  skillLevel: string;
-  focusAreas?: string[];
-  existingSkills?: string[];
-  weakAreas?: string[];
+function buildProgressHash(plan: PlanData): string {
+  return `${plan.progress?.totalTasks ?? 0}-${plan.progress?.completedTasks ?? 0}`;
 }
 
-interface Resource {
-  type: string;
-  title: string;
-  url: string;
-  duration?: string;
-  difficulty?: string;
+async function getCachedQuiz(planId: string): Promise<CachedQuiz | null> {
+  if (!redis) return null;
+  try {
+    const cached = await redis.get(`quiz:${planId}`);
+    if (cached) { console.log(`✅ Quiz cache HIT ${planId}`); return typeof cached === 'string' ? JSON.parse(cached) : cached as CachedQuiz; }
+    return null;
+  } catch { return null; }
 }
 
-interface BehavioralPrep {
-  topic: string;
-  question: string;
-  tips: string[];
-  framework: string;
+async function cacheQuiz(planId: string, quiz: CachedQuiz): Promise<void> {
+  if (!redis) return;
+  try { await redis.setex(`quiz:${planId}`, QUIZ_CACHE_TTL, JSON.stringify(quiz)); } catch { /* ignore */ }
 }
 
-interface Task {
-  id?: string;
-  type: string;
-  title: string;
-  description: string;
-  status: string;
-  priority: string;
-  estimatedMinutes: number;
-  dueDate?: string;
+async function invalidateQuizCache(planId: string): Promise<void> {
+  if (!redis) return;
+  try { await redis.del(`quiz:${planId}`); } catch { /* ignore */ }
 }
 
-interface DailyPlan {
-  day?: number;
-  date?: string;
-  focus: string;
-  topics: string[];
-  resources: Resource[];
-  behavioral: BehavioralPrep;
-  communicationTip: string;
-  tasks: Task[];
-  estimatedHours: number;
-  aiTips: string[];
-  completed: boolean;
-}
+const QUIZ_SYSTEM_PROMPT = `You are an expert interview coach. Generate a quiz based on the user's preparation plan.
 
-interface GeneratedPlan {
-  dailyPlans: DailyPlan[];
-}
+Generate exactly 12 questions:
+- 6 Technical questions (from topics, coding problems, tasks)
+- 3 Behavioral questions (from behavioral prep)
+- 3 Conceptual questions (from AI tips and concepts)
 
-const SYSTEM_PROMPT = `You are an expert interview preparation coach. Create personalized, day-by-day interview preparation plans that are realistic, comprehensive, and resource-rich.
-
-Return your response as valid JSON with this exact structure:
+Return ONLY valid JSON, no markdown:
 {
-  "dailyPlans": [
+  "questions": [
     {
-      "focus": "Topic name",
-      "topics": ["Subtopic 1", "Subtopic 2"],
-      "resources": [
-        {
-          "type": "youtube",
-          "title": "Resource title",
-          "url": "https://youtube.com/...",
-          "duration": "30 min"
-        },
-        {
-          "type": "leetcode",
-          "title": "Problem name",
-          "url": "https://leetcode.com/problems/...",
-          "difficulty": "medium"
-        }
-      ],
-      "behavioral": {
-        "topic": "Communication",
-        "question": "Tell me about...",
-        "tips": ["tip1", "tip2"],
-        "framework": "STAR"
-      },
-      "communicationTip": "Practice tip",
-      "tasks": [
-        {
-          "type": "technical",
-          "title": "Task name",
-          "description": "Task description",
-          "status": "todo",
-          "priority": "high",
-          "estimatedMinutes": 45
-        }
-      ],
-      "estimatedHours": 3,
-      "aiTips": ["tip1", "tip2"],
-      "completed": false
+      "id": 1,
+      "question": "Question text based on plan content",
+      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "correctAnswer": 0,
+      "explanation": "Explanation referencing plan content",
+      "category": "Technical",
+      "relatedDay": 1,
+      "difficulty": "medium",
+      "source": "Topic from Day 1"
     }
   ]
 }
 
-Return ONLY valid JSON, no markdown, no extra text.`;
+Rules:
+1. Use ACTUAL content from the plan — not generic questions
+2. Each question has exactly 4 options
+3. correctAnswer is index 0-3
+4. Mix difficulty levels (easy, medium, hard)
+5. Reference specific days and topics
+6. Make explanations educational and detailed`;
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('🚀 Plan generation started');
-    console.log('   API Key Available:', !!apiKey);
-
-    if (!anthropic || !apiKey) {
-      console.error('❌ Claude API not configured');
-      return NextResponse.json(
-        { error: 'AI service not configured. Please add CLAUDE_API_KEY to environment variables.' },
-        { status: 500 }
-      );
-    }
-
     const cookieStore = await cookies();
     const session = cookieStore.get('session');
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const decodedClaims = await auth.verifySessionCookie(session.value, true);
-    const userId = decodedClaims.uid;
-
-    const body = await request.json() as GeneratePlanRequest;
-    const {
-      role,
-      company,
-      interviewDate,
-      daysUntilInterview,
-      skillLevel,
-      focusAreas,
-      existingSkills,
-      weakAreas
-    } = body;
-
-    if (!role || !interviewDate || !daysUntilInterview) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
-
-    console.log('   User ID:', userId);
-    console.log('   Role:', role);
-    console.log('   Days until interview:', daysUntilInterview);
-
-    const userPrompt = `Create a ${daysUntilInterview}-day interview preparation plan for:
-
-Role: ${role}
-${company ? `Company: ${company}` : ''}
-Skill Level: ${skillLevel}
-Interview Date: ${interviewDate}
-${focusAreas?.length ? `Focus Areas: ${focusAreas.join(', ')}` : ''}
-${existingSkills?.length ? `Existing Skills: ${existingSkills.join(', ')}` : ''}
-${weakAreas?.length ? `Areas Needing Improvement: ${weakAreas.join(', ')}` : ''}
-
-Create a detailed, day-by-day plan with specific resources, practice problems, and behavioral questions.`;
-
-    console.log('   Calling Claude AI...');
-
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5',
-      max_tokens: 8192,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: userPrompt }],
-    });
-
-    const responseText = response.content[0].type === 'text' ? response.content[0].text : '';
-
-    console.log('   ✅ AI response received');
-    console.log('   Response length:', responseText.length);
-
-    let cleaned = responseText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
-    if (!cleaned.startsWith('{')) {
-      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-      if (jsonMatch) cleaned = jsonMatch[0];
-    }
-
-    if (!cleaned) {
-      console.error('❌ No JSON found in response');
-      throw new Error('Failed to parse AI response - no JSON found');
-    }
-
-    let generatedPlan: GeneratedPlan;
+    let userId: string;
     try {
-      generatedPlan = JSON.parse(cleaned) as GeneratedPlan;
-    } catch (parseError) {
-      console.error('❌ JSON parsing error:', parseError);
-      throw new Error('Failed to parse AI response - invalid JSON');
+      const decoded = await auth.verifySessionCookie(session.value, true);
+      userId = decoded.uid;
+    } catch { return NextResponse.json({ error: 'Invalid session' }, { status: 401 }); }
+
+    const body = await request.json() as QuizRequest;
+    const { planId, forceRegenerate } = body;
+    if (!planId) return NextResponse.json({ error: 'planId required' }, { status: 400 });
+
+    // Fetch plan
+    const planDoc = await db.collection('interviewPlans').doc(planId).get();
+    if (!planDoc.exists) return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
+    const planData = planDoc.data() as PlanData;
+    if (planData.userId !== userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+
+    // ── Check cache ──
+    if (!forceRegenerate) {
+      const cached = await getCachedQuiz(planId);
+      if (cached && cached.planProgressHash === buildProgressHash(planData)) {
+        console.log(`⚡ Returning cached quiz for ${planId}`);
+        return NextResponse.json({ questions: cached.questions, metadata: cached.metadata, _cached: true });
+      }
+      if (cached) await invalidateQuizCache(planId);
+    } else {
+      await invalidateQuizCache(planId);
     }
 
-    if (!generatedPlan.dailyPlans || !Array.isArray(generatedPlan.dailyPlans)) {
-      console.error('❌ Invalid plan structure');
-      throw new Error('Invalid plan structure from AI');
-    }
+    // ── Build context ──
+    const dailyPlans = planData.dailyPlans || [];
+    const planSummary = dailyPlans.map((day: DailyPlan) => {
+      const topics = day.topics?.join(', ') || 'No topics';
+      const resources = day.resources?.map((r: Resource) => `${r.title} (${r.type})`).join(', ') || 'None';
+      const behavioral = day.behavioral ? `Behavioral: ${day.behavioral.topic} - ${day.behavioral.question}` : '';
+      const tasks = day.tasks?.map((t: Task) => t.title).join(', ') || 'No tasks';
+      const tips = day.aiTips?.join('; ') || '';
+      return `Day ${day.day}: ${day.focus}\n  Topics: ${topics}\n  Resources: ${resources}\n  Tasks: ${tasks}\n  ${behavioral}\n  Tips: ${tips}`;
+    }).join('\n\n');
 
-    console.log('   ✅ Plan structure validated');
-    console.log('   Daily plans:', generatedPlan.dailyPlans.length);
+    const userPrompt = `Generate a quiz for this preparation plan:\n\nRole: ${planData.role}\n${planData.company ? `Company: ${planData.company}` : ''}\nSkill Level: ${planData.skillLevel}\nTotal Days: ${dailyPlans.length}\n\nPlan Details:\n${planSummary}`;
 
-    const planId = db.collection('interviewPlans').doc().id;
-    const currentDate = new Date();
-
-    generatedPlan.dailyPlans = generatedPlan.dailyPlans.map((dailyPlan: DailyPlan, dayIndex: number) => {
-      const planDate = new Date(currentDate);
-      planDate.setDate(planDate.getDate() + dayIndex);
-
-      return {
-        ...dailyPlan,
-        day: dayIndex + 1,
-        date: planDate.toISOString().split('T')[0],
-        tasks: (dailyPlan.tasks || []).map((task: Task, taskIndex: number) => ({
-          ...task,
-          id: `${planId}_day${dayIndex + 1}_task${taskIndex + 1}`,
-          dueDate: planDate.toISOString().split('T')[0],
-          status: 'todo'
-        }))
-      };
+    // ── Call OpenAI ──
+    console.log('🤖 Generating quiz via OpenAI...');
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      max_tokens: 4000,
+      temperature: 0.7,
+      messages: [
+        { role: 'system', content: QUIZ_SYSTEM_PROMPT },
+        { role: 'user', content: userPrompt },
+      ],
     });
 
-    const totalTasks = generatedPlan.dailyPlans.reduce(
-      (sum: number, day: DailyPlan) => sum + (day.tasks?.length || 0),
-      0
-    );
+    const responseText = completion.choices[0]?.message?.content ?? '';
+    let quizData: QuizData;
+    try {
+      const cleaned = responseText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      quizData = JSON.parse(cleaned);
+    } catch {
+      console.error('Failed to parse quiz JSON:', responseText.substring(0, 200));
+      return NextResponse.json({ error: 'Failed to parse quiz data' }, { status: 500 });
+    }
 
-    const completePlan = {
-      id: planId,
-      userId,
-      role,
-      company: company || null,
-      interviewDate,
-      daysUntilInterview,
-      skillLevel,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      status: 'active',
-      dailyPlans: generatedPlan.dailyPlans,
-      customTasks: [],
-      progress: {
-        totalTasks,
-        completedTasks: 0,
-        percentage: 0,
-        currentStreak: 0,
-        totalStudyHours: 0
-      },
-      generatedBy: 'claude',
-      generationPrompt: userPrompt,
-      lastAIUpdate: new Date().toISOString()
-    };
+    if (!quizData.questions || !Array.isArray(quizData.questions)) {
+      return NextResponse.json({ error: 'Invalid quiz format' }, { status: 500 });
+    }
 
-    console.log('   Saving plan to Firestore...');
-    await db.collection('interviewPlans').doc(planId).set(completePlan);
+    const metadata = { role: planData.role, company: planData.company, totalDays: dailyPlans.length, totalTasks: planData.progress?.totalTasks || 0 };
 
-    console.log('✅ Plan generated and saved successfully');
-    console.log('   Plan ID:', planId);
-    console.log('   Total tasks:', totalTasks);
+    // ── Cache ──
+    await cacheQuiz(planId, { questions: quizData.questions, metadata, cachedAt: new Date().toISOString(), planProgressHash: buildProgressHash(planData) });
 
-    return NextResponse.json({ success: true, planId, plan: completePlan });
-
+    return NextResponse.json({ questions: quizData.questions, metadata, _cached: false });
   } catch (error) {
-    console.error('❌ Error generating interview plan:', error);
-    const err = error as Error;
-    return NextResponse.json(
-      { error: 'Failed to generate plan', details: err.message, type: err.name },
-      { status: 500 }
-    );
+    console.error('❌ Quiz generation error:', error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Internal server error' }, { status: 500 });
   }
 }

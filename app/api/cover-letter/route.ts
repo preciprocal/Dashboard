@@ -6,7 +6,7 @@ import OpenAI from 'openai';
 import { hashResumeContent } from '@/lib/redis/resume-cache';
 import { redis, RedisKeys } from '@/lib/redis/redis-client';
 
-const openai = new OpenAI({ apiKey: process.env.OPEN_AI_KEY });
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const COVER_LETTER_TTL    = 7 * 24 * 60 * 60;   // 7 days
 const COMPANY_RESEARCH_TTL = 30 * 24 * 60 * 60; // 30 days
@@ -160,7 +160,7 @@ export async function POST(request: NextRequest) {
   const startTime = Date.now();
 
   try {
-    if (!process.env.OPEN_AI_KEY) {
+    if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json({ success: false, error: 'AI service not configured' }, { status: 503 });
     }
 

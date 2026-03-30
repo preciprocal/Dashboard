@@ -2,7 +2,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { auth } from '@/firebase/admin';
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-core';
+import chromium from '@sparticuz/chromium-min';
 import * as htmlDocx from 'html-docx-js';
 
 interface EditorPadding {
@@ -10,10 +11,75 @@ interface EditorPadding {
 }
 
 interface DownloadRequest {
-  resumeId?:     string;
-  htmlContent:   string;
-  format:        'pdf' | 'docx';
+  resumeId?:      string;
+  htmlContent:    string;
+  format:         'pdf' | 'docx';
   editorPadding?: EditorPadding;
+  userName?:      string;
+  jobTitle?:      string;
+  companyName?:   string;
+}
+
+export const maxDuration = 60;
+export const runtime     = 'nodejs';
+
+/** Builds a clean filename: "John Doe - Software Engineer - Google Resume" */
+function buildFilename(
+  userName?: string,
+  jobTitle?: string,
+  companyName?: string,
+): string {
+  const sanitize = (s: string) =>
+    s.trim().replace(/[^a-zA-Z0-9 \-]/g, '').replace(/\s+/g, ' ').trim();
+
+  const parts: string[] = [];
+  if (userName)    parts.push(sanitize(userName));
+  if (jobTitle)    parts.push(sanitize(jobTitle));
+  if (companyName) parts.push(sanitize(companyName));
+  parts.push('Resume');
+
+  return parts.join(' - ') || 'Resume';
+}
+
+async function launchBrowser() {
+  const isDev = process.env.NODE_ENV === 'development';
+
+  if (isDev) {
+    // Local: use system Chrome — no download needed
+    const fs = await import('fs');
+    const localPaths = [
+      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      '/usr/bin/google-chrome',
+      '/usr/bin/chromium-browser',
+      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    ];
+    const executablePath = localPaths.find(p => fs.existsSync(p));
+    if (!executablePath) throw new Error('No local Chrome found. Install Google Chrome.');
+
+    return puppeteer.launch({
+      executablePath,
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
+    });
+  }
+
+  // Production (Vercel): download serverless Chromium at runtime
+  const executablePath = await chromium.executablePath(
+    'https://github.com/Sparticuz/chromium/releases/download/v131.0.1/chromium-v131.0.1-pack.tar'
+  );
+
+  return puppeteer.launch({
+    executablePath,
+    headless: true,
+    args: [
+      ...chromium.args,
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--disable-gpu',
+    ],
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -23,59 +89,43 @@ export async function POST(request: NextRequest) {
     // ── Auth ─────────────────────────────────────────────────────────────────
     const cookieStore = await cookies();
     const session = cookieStore.get('session');
-    if (!session) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    if (!session)
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     try { await auth.verifySessionCookie(session.value, true); }
     catch { return NextResponse.json({ success: false, error: 'Invalid session' }, { status: 401 }); }
 
     // ── Parse body ───────────────────────────────────────────────────────────
     const body = await request.json() as DownloadRequest;
-    const { htmlContent, resumeId, format, editorPadding } = body;
+    const { htmlContent, format, editorPadding, userName, jobTitle, companyName } = body;
     if (!htmlContent || !format)
       return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 });
 
     console.log(`📄 Generating ${format.toUpperCase()}`);
-    const timestamp = Date.now();
-    const filename  = resumeId ? `resume_${resumeId}_${timestamp}` : `resume_${timestamp}`;
-
-    // Use whatever padding the editor actually had; fall back to its default (72px all round)
-    const pad = editorPadding ?? { top: '72px', right: '72px', bottom: '72px', left: '72px' };
+    const filename = buildFilename(userName, jobTitle, companyName);
+    const pad      = editorPadding ?? { top: '72px', right: '72px', bottom: '72px', left: '72px' };
 
     // ── PDF ──────────────────────────────────────────────────────────────────
     if (format === 'pdf') {
+      let browser;
       try {
-        const browser = await puppeteer.launch({
-          headless: true,
-          args: ['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage',
-                 '--disable-accelerated-2d-canvas','--disable-gpu'],
-        });
-
+        browser = await launchBrowser();
         const pg = await browser.newPage();
         await pg.setViewport({ width: 816, height: 1056, deviceScaleFactor: 2 });
 
-        // Wrap the raw innerHTML exactly as the editor displayed it:
-        // - same padding the editor had (read from computed styles on the client)
-        // - NO font / size / color / margin overrides — everything comes from
-        //   the inline styles already baked into the HTML
         const fullHtml = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
   <style>
     @page { size: 8.5in auto; margin: 0; }
-
     html { margin: 0; padding: 0; background: #fff; }
-
     body {
       margin: 0;
-      /* Mirror the exact padding the contentEditable div had in the editor */
       padding: ${pad.top} ${pad.right} ${pad.bottom} ${pad.left};
       background: #ffffff;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
-      /* No font / size / color: honour whatever is inside htmlContent */
     }
-
-    /* Strip editor-only chrome */
     .highlighted-line, [data-ai-highlight] {
       background: transparent !important;
       border-left: none !important;
@@ -90,21 +140,20 @@ export async function POST(request: NextRequest) {
         await pg.setContent(fullHtml, { waitUntil: 'networkidle0', timeout: 30000 });
         await pg.evaluateHandle('document.fonts.ready');
 
-        // Measure real content height so we never add a blank second page
-        const contentH: number = await pg.evaluate(() => document.documentElement.scrollHeight);
-        const minH    = 1056; // one Letter page @ 96dpi
-        const pageH   = `${(Math.max(contentH, minH) / 96).toFixed(4)}in`;
+        const contentH: number = await pg.evaluate(
+          () => document.documentElement.scrollHeight
+        );
+        const pageH = `${(Math.max(contentH, 1056) / 96).toFixed(4)}in`;
 
         const pdfBuffer = await pg.pdf({
           width:  '8.5in',
-          height: pageH,          // content-driven — not fixed Letter
+          height: pageH,
           printBackground: true,
-          margin: { top: '0', right: '0', bottom: '0', left: '0' }, // padding already in body
+          margin: { top: '0', right: '0', bottom: '0', left: '0' },
           displayHeaderFooter: false,
         });
 
-        await browser.close();
-        console.log(`✅ PDF: contentH=${contentH}px → pageH=${pageH}`);
+        console.log(`✅ PDF: contentH=${contentH}px → pageH=${pageH} → "${filename}.pdf"`);
 
         return new NextResponse(Buffer.from(pdfBuffer), {
           headers: {
@@ -115,13 +164,14 @@ export async function POST(request: NextRequest) {
       } catch (e) {
         console.error('❌ PDF error:', e);
         return NextResponse.json({ success: false, error: 'Failed to generate PDF' }, { status: 500 });
+      } finally {
+        if (browser) await browser.close().catch(() => {});
       }
     }
 
     // ── DOCX ─────────────────────────────────────────────────────────────────
     if (format === 'docx') {
       try {
-        // Convert the editor padding (px) to inches for Word's @page rule
         const pxToIn = (px: string) => `${(parseFloat(px) / 96).toFixed(4)}in`;
         const mTop   = pxToIn(pad.top);
         const mRight = pxToIn(pad.right);
@@ -146,7 +196,6 @@ export async function POST(request: NextRequest) {
       mso-header-margin: 0; mso-footer-margin: 0; mso-paper-source: 0;
     }
     div.Section1 { page: Section1; }
-    /* No body overrides — preserve every inline style from the editor */
     .highlighted-line, [data-ai-highlight] {
       background: transparent; border-left: none; outline: none;
     }
@@ -157,7 +206,7 @@ export async function POST(request: NextRequest) {
 
         const blob   = htmlDocx.asBlob(fullHtml);
         const buffer = await blob.arrayBuffer();
-        console.log('✅ DOCX generated');
+        console.log(`✅ DOCX generated → "${filename}.docx"`);
 
         return new NextResponse(Buffer.from(buffer), {
           headers: {

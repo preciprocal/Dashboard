@@ -1,8 +1,7 @@
 // app/api/user/update-subscription/route.ts
 import { NextRequest, NextResponse } from "next/server";
-// Adjust path to your auth file
 import { db } from "@/firebase/admin";
-import { getCurrentUser } from "@/lib/actions/auth.action";
+import { getCurrentUser, invalidateUserCache } from "@/lib/actions/auth.action";
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,16 +20,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update user's subscription data in Firestore
-    await db
-      .collection("users")
-      .doc(user.id)
-      .update({
-        subscription: {
-          ...subscriptionData,
-          updatedAt: new Date().toISOString(),
-        },
-      });
+    // FIXED: Use dot-notation to avoid stale nested object merging
+    const dotUpdates: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(subscriptionData)) {
+      dotUpdates[`subscription.${key}`] = value;
+    }
+    dotUpdates["subscription.updatedAt"] = new Date().toISOString();
+
+    await db.collection("users").doc(user.id).update(dotUpdates);
+
+    // FIXED: Invalidate cache so next read gets fresh data
+    await invalidateUserCache(user.id);
 
     return NextResponse.json({
       success: true,

@@ -33,6 +33,9 @@ export const RedisKeys = {
   
   // User preferences
   userPrefs: (userId: string) => `prefs:${userId}`,
+
+  // Quiz cache (per plan — quiz is regenerated only when plan progress changes)
+  quiz: (planId: string) => `quiz:${planId}`,
 };
 
 // TTL constants (in seconds)
@@ -44,4 +47,5 @@ export const TTL = {
   COVER_LETTER: 7 * 24 * 60 * 60,          // 7 days
   JOB_SEARCH: 6 * 60 * 60,                 // 6 hours (jobs change frequently)
   USAGE_COUNTER: 32 * 24 * 60 * 60,        // 32 days (slightly longer than a month)
+  QUIZ: 24 * 60 * 60,                      // 24 hours (quiz per plan)
 };

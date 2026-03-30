@@ -1,6 +1,6 @@
 // lib/services/analysis-services.tsx
 
-import { GeminiService } from '../ai/gemini';
+import { AIService } from '../ai/ai-service';
 import type { ResumeFeedback } from '@/types/resume';
 import { extractTextFromPDFServer } from '../resume/pdf-parser-server';
 
@@ -33,30 +33,29 @@ export class AnalysisService {
 
       console.log(`✅ Extracted ${resumeText.length} characters`);
 
-      // 2. Analyze with Gemini
-      console.log('🤖 Analyzing with Gemini AI...');
-      const feedback = await GeminiService.analyzeResume(resumeText, options);
+      // 2. Analyze with AI
+      console.log('🤖 Analyzing with AI...');
+      const feedback = await AIService.analyzeResume(resumeText, options);
 
       console.log('✅ Analysis complete');
       return feedback;
     } catch (error) {
       console.error('❌ Analysis failed:', error);
-      
-      // Provide helpful error messages
+
       if (error instanceof Error) {
         if (error.message.includes('text-based')) {
           throw new Error(
             'This PDF appears to be a scanned image. Please use a text-based PDF or convert your document to text format.'
           );
         }
-        
+
         if (error.message.includes('corrupted')) {
           throw new Error(
             'The PDF file appears to be corrupted. Please try re-saving or re-creating the PDF.'
           );
         }
       }
-      
+
       throw error;
     }
   }
@@ -66,7 +65,7 @@ export class AnalysisService {
    */
   static async quickScan(file: File, jobDescription?: string) {
     const text = await extractTextFromPDFServer(file);
-    return GeminiService.quickATSScan(text, jobDescription);
+    return AIService.quickATSScan(text, jobDescription);
   }
 
   /**
@@ -79,7 +78,7 @@ export class AnalysisService {
       tone?: 'professional' | 'creative' | 'technical' | 'executive';
     }
   ) {
-    return GeminiService.rewriteSection(text, options);
+    return AIService.rewriteSection(text, options);
   }
 
   /**
@@ -87,6 +86,6 @@ export class AnalysisService {
    */
   static async matchJob(file: File, jobDescription: string) {
     const text = await extractTextFromPDFServer(file);
-    return GeminiService.matchJobDescription(text, jobDescription);
+    return AIService.matchJobDescription(text, jobDescription);
   }
 }

@@ -6,30 +6,60 @@ import { useDropzone, FileRejection, DropzoneOptions } from 'react-dropzone';
 
 interface FileUploaderProps {
   onFileSelect?: (file: File | null) => void;
+  accept?: string; // comma-separated MIME types / extensions (optional — defaults to PDF + Word)
 }
 
 const formatSize = (bytes: number): string => {
   if (bytes === 0) return '0 Bytes';
-
   const k = 1024;
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-export default function FileUploader({ onFileSelect }: FileUploaderProps) {
+// Convert the comma-separated accept string from the parent into the
+// react-dropzone { mimeType: [ext, ...] } object format.
+function parseAccept(accept: string): Record<string, string[]> {
+  const map: Record<string, string[]> = {};
+  accept.split(',').map(s => s.trim()).forEach(token => {
+    if (token.startsWith('.')) {
+      // extension — attach to a wildcard bucket so dropzone keeps it
+      map['application/octet-stream'] = [...(map['application/octet-stream'] ?? []), token];
+    } else {
+      // MIME type
+      map[token] = map[token] ?? [];
+    }
+  });
+  return map;
+}
+
+const DEFAULT_ACCEPT =
+  'application/pdf,.pdf,' +
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,' +
+  'application/msword,.doc';
+
+export default function FileUploader({ onFileSelect, accept = DEFAULT_ACCEPT }: FileUploaderProps) {
   const [dragError, setDragError] = useState<string>('');
+
+  const isWordFile = (f: File) => {
+    const n = f.name.toLowerCase();
+    return (
+      n.endsWith('.docx') ||
+      n.endsWith('.doc')  ||
+      f.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+      f.type === 'application/msword'
+    );
+  };
 
   const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: FileRejection[]) => {
     setDragError('');
-    
+
     if (rejectedFiles.length > 0) {
       const error = rejectedFiles[0].errors[0];
       if (error.code === 'file-too-large') {
-        setDragError('File is too large. Maximum size is 20MB.');
+        setDragError('File is too large. Maximum size is 10 MB.');
       } else if (error.code === 'file-invalid-type') {
-        setDragError('Only PDF files are allowed.');
+        setDragError('Only PDF or Word documents (.pdf, .docx, .doc) are allowed.');
       } else {
         setDragError('File upload error. Please try again.');
       }
@@ -40,25 +70,26 @@ export default function FileUploader({ onFileSelect }: FileUploaderProps) {
     onFileSelect?.(file);
   }, [onFileSelect]);
 
-  const maxFileSize = 20 * 1024 * 1024; // 20MB in bytes
+  const maxFileSize = 10 * 1024 * 1024; // 10 MB
 
   const dropzoneOptions: DropzoneOptions = {
     onDrop,
     multiple: false,
-    accept: { 'application/pdf': ['.pdf'] },
+    accept: parseAccept(accept),
     maxSize: maxFileSize,
   };
 
   const { getRootProps, getInputProps, isDragActive, acceptedFiles, isDragReject } = useDropzone(dropzoneOptions);
 
   const file = acceptedFiles[0] || null;
+  const fileLabel = file ? (isWordFile(file) ? 'Word' : 'PDF') : '';
 
   return (
     <div className="w-full">
-      <div 
+      <div
         className={`border-2 border-dashed rounded-lg p-6 transition-all duration-200 ${
           isDragActive && !isDragReject
-            ? 'border-blue-400 bg-blue-50' 
+            ? 'border-blue-400 bg-blue-50'
             : isDragReject || dragError
             ? 'border-red-400 bg-red-50'
             : 'border-gray-300 hover:border-gray-400'
@@ -69,8 +100,8 @@ export default function FileUploader({ onFileSelect }: FileUploaderProps) {
 
           <div className="space-y-4 cursor-pointer">
             {file ? (
-              <div 
-                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors" 
+              <div
+                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-center space-x-3">
@@ -80,12 +111,8 @@ export default function FileUploader({ onFileSelect }: FileUploaderProps) {
                     </svg>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-700 truncate">
-                      {file.name}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      {formatSize(file.size)}
-                    </p>
+                    <p className="text-sm font-medium text-gray-700 truncate">{file.name}</p>
+                    <p className="text-sm text-gray-500">{formatSize(file.size)} · {fileLabel}</p>
                   </div>
                 </div>
                 <button
@@ -115,20 +142,17 @@ export default function FileUploader({ onFileSelect }: FileUploaderProps) {
                     </svg>
                   )}
                 </div>
-                
+
                 {isDragActive ? (
-                  <p className="text-lg text-blue-600 font-medium">
-                    Drop your PDF here
-                  </p>
+                  <p className="text-lg text-blue-600 font-medium">Drop your file here</p>
                 ) : (
                   <>
                     <p className="text-lg text-gray-600 mb-1">
-                      <span className="font-semibold text-blue-600 hover:text-blue-700">
-                        Click to upload
-                      </span> or drag and drop
+                      <span className="font-semibold text-blue-600 hover:text-blue-700">Click to upload</span>{' '}
+                      or drag and drop
                     </p>
                     <p className="text-sm text-gray-500">
-                      PDF files only (max {formatSize(maxFileSize)})
+                      PDF or Word (.docx, .doc) · max {formatSize(maxFileSize)}
                     </p>
                   </>
                 )}
@@ -137,7 +161,7 @@ export default function FileUploader({ onFileSelect }: FileUploaderProps) {
           </div>
         </div>
       </div>
-      
+
       {dragError && (
         <p className="mt-2 text-sm text-red-600 flex items-center">
           <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
