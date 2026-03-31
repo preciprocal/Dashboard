@@ -68,6 +68,11 @@ export interface User {
     resumesUsed: number;
     studyPlansUsed: number;
     interviewsUsed: number;
+    interviewDebriefsUsed: number;
+    linkedinOptimisationsUsed: number;
+    coldOutreachUsed: number;
+    findContactsUsed: number;
+    jobTrackerUsed: number;
     lastReset: string;
     lastUpdated?: string;
   };
@@ -104,14 +109,20 @@ function buildSubscription(plan: "free" | "pro" | "premium" = "free") {
 
 /**
  * Builds a fresh usage object. All counters start at 0.
+ * Matches every feature in usage-limits.ts.
  */
 function buildUsage() {
   return {
-    coverLettersUsed: 0,
-    resumesUsed:      0,
-    studyPlansUsed:   0,
-    interviewsUsed:   0,
-    lastReset:        new Date().toISOString(),
+    coverLettersUsed:          0,
+    resumesUsed:               0,
+    studyPlansUsed:            0,
+    interviewsUsed:            0,
+    interviewDebriefsUsed:     0,
+    linkedinOptimisationsUsed: 0,
+    coldOutreachUsed:          0,
+    findContactsUsed:          0,
+    jobTrackerUsed:            0,
+    lastReset:                 new Date().toISOString(),
   };
 }
 
@@ -221,6 +232,16 @@ async function validateAndFixUserDocument(firebaseUser: {
       return true;
     }
 
+    // ── Auto-migrate legacy "starter" → "free" ─────────────────────────────
+    if (userData?.subscription?.plan === "starter") {
+      console.log("🔧 Migrating legacy plan: starter → free");
+      await db.collection("users").doc(firebaseUser.uid).update({
+        "subscription.plan":      "free",
+        "subscription.updatedAt": new Date().toISOString(),
+      });
+      await invalidateUserCache(firebaseUser.uid);
+    }
+
     // ── Ensure subscription limits match current pricing config ──────────────
     if (userData?.subscription) {
       const planKey  = normalisePlan(userData.subscription.plan || "free");
@@ -233,6 +254,22 @@ async function validateAndFixUserDocument(firebaseUser: {
           "subscription.interviewsLimit": expected,
           "subscription.updatedAt":       new Date().toISOString(),
         });
+        await invalidateUserCache(firebaseUser.uid);
+      }
+    }
+
+    // ── Backfill missing usage fields for existing users ─────────────────────
+    if (userData?.usage) {
+      const newFields: Record<string, number> = {};
+      if (userData.usage.interviewDebriefsUsed === undefined)     newFields["usage.interviewDebriefsUsed"]     = 0;
+      if (userData.usage.linkedinOptimisationsUsed === undefined) newFields["usage.linkedinOptimisationsUsed"] = 0;
+      if (userData.usage.coldOutreachUsed === undefined)          newFields["usage.coldOutreachUsed"]          = 0;
+      if (userData.usage.findContactsUsed === undefined)          newFields["usage.findContactsUsed"]          = 0;
+      if (userData.usage.jobTrackerUsed === undefined)            newFields["usage.jobTrackerUsed"]            = 0;
+
+      if (Object.keys(newFields).length > 0) {
+        console.log("🔧 Backfilling missing usage fields:", Object.keys(newFields));
+        await db.collection("users").doc(firebaseUser.uid).update(newFields);
         await invalidateUserCache(firebaseUser.uid);
       }
     }
@@ -375,11 +412,11 @@ export async function signIn(params: SignInParams) {
         return { success: false, message: "User does not exist. Create an account." };
       }
     } else {
-      // Validate existing document (also corrects stale limits)
+      // Validate existing document (also corrects stale limits + backfills usage)
       console.log("✅ User exists, validating document...");
       await validateAndFixUserDocument(firebaseUser);
 
-      // Initialise usage if missing
+      // Initialise usage if completely missing
       const existingData = userRecord.data();
       if (!existingData?.usage) {
         console.log("⚠️ Initializing usage tracking");
@@ -504,7 +541,7 @@ export async function getCurrentUser(): Promise<User | null> {
       lastLogin: userData.lastLogin ? convertTimestampToISO(userData.lastLogin) : undefined,
       subscription: userData.subscription
         ? {
-            plan:   planKey,   // normalised — always "free" | "pro" | "premium"
+            plan:   planKey,
             status: userData.subscription.status || "active",
             interviewsUsed:       userData.subscription.interviewsUsed  || 0,
             interviewsLimit:      ivLimit,
@@ -523,22 +560,19 @@ export async function getCurrentUser(): Promise<User | null> {
             studentVerifiedAt:    userData.subscription.studentVerifiedAt || null,
           }
         : undefined,
-      usage: userData.usage
-        ? {
-            coverLettersUsed: userData.usage.coverLettersUsed || 0,
-            resumesUsed:      userData.usage.resumesUsed      || 0,
-            studyPlansUsed:   userData.usage.studyPlansUsed   || 0,
-            interviewsUsed:   userData.usage.interviewsUsed   || 0,
-            lastReset:        convertTimestampToISO(userData.usage.lastReset),
-            lastUpdated:      userData.usage.lastUpdated ? convertTimestampToISO(userData.usage.lastUpdated) : undefined,
-          }
-        : {
-            coverLettersUsed: 0,
-            resumesUsed:      0,
-            studyPlansUsed:   0,
-            interviewsUsed:   0,
-            lastReset:        new Date().toISOString(),
-          },
+      usage: {
+        coverLettersUsed:          userData.usage?.coverLettersUsed          || 0,
+        resumesUsed:               userData.usage?.resumesUsed               || 0,
+        studyPlansUsed:            userData.usage?.studyPlansUsed            || 0,
+        interviewsUsed:            userData.usage?.interviewsUsed            || 0,
+        interviewDebriefsUsed:     userData.usage?.interviewDebriefsUsed     || 0,
+        linkedinOptimisationsUsed: userData.usage?.linkedinOptimisationsUsed || 0,
+        coldOutreachUsed:          userData.usage?.coldOutreachUsed          || 0,
+        findContactsUsed:          userData.usage?.findContactsUsed          || 0,
+        jobTrackerUsed:            userData.usage?.jobTrackerUsed            || 0,
+        lastReset:                 userData.usage?.lastReset ? convertTimestampToISO(userData.usage.lastReset) : new Date().toISOString(),
+        lastUpdated:               userData.usage?.lastUpdated ? convertTimestampToISO(userData.usage.lastUpdated) : undefined,
+      },
     };
 
     await cacheUser(serializedUser);
