@@ -1,13 +1,15 @@
 // app/api/resume/interview-intel/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 import { auth, db } from '@/firebase/admin';
 
 export const runtime     = 'nodejs';
 export const maxDuration = 60;
 
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+const CLAUDE_MODEL = 'claude-sonnet-4-6';
+
+const anthropic = process.env.CLAUDE_API_KEY
+  ? new Anthropic({ apiKey: process.env.CLAUDE_API_KEY })
   : null;
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
@@ -65,11 +67,8 @@ export async function POST(request: NextRequest) {
     const userId = await verifyToken(request);
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    if (!openai) {
-      return NextResponse.json(
-        { error: 'AI service not configured — add OPENAI_API_KEY' },
-        { status: 500 },
-      );
+    if (!anthropic) {
+      return NextResponse.json({ error: 'AI service not configured — add CLAUDE_API_KEY' }, { status: 500 });
     }
 
     const body = await request.json() as {
@@ -172,22 +171,25 @@ Respond with ONLY a JSON object. No markdown, no backticks. Raw JSON starting wi
   "dataNote": "short note about data availability"
 }`;
 
-    // ── Call OpenAI ───────────────────────────────────────────────
-    console.log('🤖 OpenAI interview intel:', resumeId, '|', company, role);
+    // ── Call Claude ───────────────────────────────────────────────
+    console.log('🤖 Claude interview intel:', resumeId, '|', company, role);
 
-    const completion = await openai.chat.completions.create({
-      model:       'gpt-4o',
-      temperature: 0.3,
-      max_tokens:  4096,
-      messages: [{ role: 'user', content: prompt }],
+    const response = await anthropic.messages.create({
+      model:      CLAUDE_MODEL,
+      max_tokens: 4096,
+      messages:   [{ role: 'user', content: prompt }],
     });
 
-    const responseText = completion.choices[0]?.message?.content ?? '';
+    const responseText = response.content
+      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+      .map(b => b.text)
+      .join('');
+
     console.log('   Response length:', responseText.length);
 
     const intel = extractJSON(responseText);
 
-    // ── Post-process: sanitize empty arrays ───────────────────────
+    // ── Post-process ──────────────────────────────────────────────
     if (!intel.companyOverview) {
       intel.companyOverview = {
         name: company || 'Unknown', hiringStatus: null, interviewDifficulty: null,

@@ -1,11 +1,12 @@
 // app/api/resume/rewrite/route.ts
-// gpt-4o handles both PDF reading and rewriting in one call.
-// No more Gemini extract → Claude rewrite two-step.
+// Claude Sonnet 4.6 handles both PDF reading and rewriting.
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+const CLAUDE_MODEL = 'claude-sonnet-4-6';
+
+const anthropic = process.env.CLAUDE_API_KEY
+  ? new Anthropic({ apiKey: process.env.CLAUDE_API_KEY })
   : null;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
 }
 
 // ─── File-based rewrite ───────────────────────────────────────────────────────
-// gpt-4o reads the PDF directly — no separate extraction step needed
+// Claude reads the PDF/image directly via its native document/image support
 
 async function handleFileRewrite(request: NextRequest) {
   const formData = await request.formData();
@@ -69,8 +70,8 @@ async function handleFileRewrite(request: NextRequest) {
 
   console.log('✏️  File-based rewrite:', { section, tone, hasFile: !!file, hasJobDesc: !!jobDesc });
 
-  if (!file)   return NextResponse.json({ error: 'No resume file provided' },                             { status: 400 });
-  if (!openai) return NextResponse.json({ error: 'AI service not configured — add OPENAI_API_KEY' },      { status: 503 });
+  if (!file)      return NextResponse.json({ error: 'No resume file provided' },                          { status: 400 });
+  if (!anthropic) return NextResponse.json({ error: 'AI service not configured — add CLAUDE_API_KEY' },   { status: 503 });
 
   const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
   const isImg = file.type.startsWith('image/');
@@ -78,8 +79,6 @@ async function handleFileRewrite(request: NextRequest) {
 
   const arrayBuffer = await file.arrayBuffer();
   const base64Data  = Buffer.from(arrayBuffer).toString('base64');
-  const mimeType    = isPdf ? 'application/pdf' : file.type;
-  const dataUrl     = `data:${mimeType};base64,${base64Data}`;
 
   const rewriteContext: RewriteContext = {
     jobTitle:        jobTitle  || undefined,
@@ -89,12 +88,31 @@ async function handleFileRewrite(request: NextRequest) {
     missingSkills:   skills    ? skills.split(',').map(s => s.trim()).filter(Boolean)   : undefined,
   };
 
+  // Build Claude content blocks for the file
+  const fileBlock: Anthropic.ImageBlockParam | Anthropic.DocumentBlockParam = isPdf
+    ? {
+        type: 'document' as const,
+        source: {
+          type: 'base64' as const,
+          media_type: 'application/pdf' as const,
+          data: base64Data,
+        },
+      }
+    : {
+        type: 'image' as const,
+        source: {
+          type: 'base64' as const,
+          media_type: (file.type || 'image/png') as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
+          data: base64Data,
+        },
+      };
+
   return await generateSuggestions({
     section,
     originalText: '(See attached resume — full content to be rewritten)',
     tone:         tone as 'professional' | 'creative' | 'technical' | 'executive',
     context:      context || rewriteContext,
-    fileDataUrl:  dataUrl,
+    fileBlock,
   });
 }
 
@@ -116,8 +134,8 @@ async function handleTextRewrite(request: NextRequest) {
   if (!originalText || !section) {
     return NextResponse.json({ error: 'Missing required fields: originalText and section' }, { status: 400 });
   }
-  if (!openai) {
-    return NextResponse.json({ error: 'AI service not configured — add OPENAI_API_KEY' }, { status: 503 });
+  if (!anthropic) {
+    return NextResponse.json({ error: 'AI service not configured — add CLAUDE_API_KEY' }, { status: 503 });
   }
 
   return await generateSuggestions({ section, originalText, tone, context });
@@ -130,18 +148,17 @@ async function generateSuggestions({
   originalText,
   tone,
   context,
-  fileDataUrl,
+  fileBlock,
 }: {
   section:       string;
   originalText:  string;
   tone:          'professional' | 'creative' | 'technical' | 'executive';
   context?:      string | RewriteContext;
-  fileDataUrl?:  string;
+  fileBlock?:    Anthropic.ImageBlockParam | Anthropic.DocumentBlockParam;
 }): Promise<NextResponse> {
   const isCustomPrompt = typeof context === 'string' && context.trim().length > 0;
   const jobContext     = !isCustomPrompt && typeof context === 'object' ? context as RewriteContext : null;
 
-  // ── Determine optimisation mode ───────────────────────────────
   let optimizationMode = 'general';
   let contextInstructions = '';
 
@@ -192,33 +209,36 @@ Return ONLY valid JSON:
 }`;
 
   try {
-    const messages: OpenAI.Chat.ChatCompletionMessageParam[] = fileDataUrl
-      ? [{
-          role: 'user',
-          content: [
-            { type: 'image_url', image_url: { url: fileDataUrl, detail: 'high' } },
-            { type: 'text',      text: prompt },
-          ],
-        }]
-      : [{ role: 'user', content: prompt }];
+    // Build message content — with or without file
+    const contentBlocks: Anthropic.MessageCreateParams['messages'][0]['content'] = fileBlock
+      ? [fileBlock, { type: 'text' as const, text: prompt }]
+      : prompt;
 
-    const response = await openai!.chat.completions.create({
-      model:      'gpt-4o',
-      max_tokens: 2000,
-      messages,
+    const response = await anthropic!.messages.create({
+      model:      CLAUDE_MODEL,
+      max_tokens: 4000,
+      messages:   [{ role: 'user', content: contentBlocks }],
     });
 
-    const raw     = response.choices[0].message.content ?? '';
-    const cleaned = raw.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
-    const match   = cleaned.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error('No JSON in response');
+    const raw = response.content
+      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+      .map(b => b.text)
+      .join('');
 
-    const data = JSON.parse(match[0]) as RewriteResponse;
+    const cleaned = raw.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
+    let jsonStr = cleaned;
+    if (!jsonStr.startsWith('{')) {
+      const match = jsonStr.match(/\{[\s\S]*\}/);
+      if (!match) throw new Error('No JSON in response');
+      jsonStr = match[0];
+    }
+
+    const data = JSON.parse(jsonStr) as RewriteResponse;
 
     return NextResponse.json({
       ...data,
       optimizationMode,
-      meta: { model: 'gpt-4o', mode: optimizationMode },
+      meta: { model: CLAUDE_MODEL, mode: optimizationMode },
     });
   } catch (err) {
     console.error('❌ Rewrite failed:', err);

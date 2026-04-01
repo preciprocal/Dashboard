@@ -1,9 +1,20 @@
 // app/api/resume/analyze-with-job/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 import { db } from '@/firebase/admin';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const CLAUDE_MODEL = 'claude-sonnet-4-6';
+
+const anthropic = process.env.CLAUDE_API_KEY
+  ? new Anthropic({ apiKey: process.env.CLAUDE_API_KEY })
+  : null;
+
+function extractText(response: Anthropic.Message): string {
+  return response.content
+    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+    .map(b => b.text)
+    .join('');
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,8 +44,8 @@ async function handleDeepAnalysis(
   resumeId?: string,
   force = false,
 ) {
-  if (!process.env.OPENAI_API_KEY)
-    return NextResponse.json({ error: 'OPENAI_API_KEY not configured' }, { status: 500 });
+  if (!anthropic)
+    return NextResponse.json({ error: 'AI service not configured' }, { status: 500 });
 
   // Return cached unless force=true
   if (!force && resumeId) {
@@ -50,9 +61,9 @@ async function handleDeepAnalysis(
     } catch (e) { console.warn('Cache read failed:', e); }
   }
 
-  const prompt = `You are a brutally honest senior technical recruiter at a FAANG company with 15+ years of experience. You have reviewed 50,000+ resumes. You DO NOT sugarcoat feedback.
+  const systemPrompt = 'You are a brutally honest senior technical recruiter at a FAANG company with 15+ years of experience. You have reviewed 50,000+ resumes. You DO NOT sugarcoat feedback. Return ONLY valid JSON — no markdown, no preamble, no trailing text.';
 
-RESUME TO ANALYZE:
+  const prompt = `RESUME TO ANALYZE:
 """
 ${resumeText}
 """
@@ -88,15 +99,15 @@ YOUR TASK: Perform a deep, line-by-line analysis. Return a JSON object with EXAC
       "name": <exact section name from resume e.g. "Professional Experience", "Technical Skills">,
       "score": <integer 0-100>,
       "status": <"excellent" | "good" | "needs_work" | "missing">,
-      "sectionIssues": [<specific problems with this section, e.g. "3 of 5 bullets start with weak verbs", "No quantified metrics in any bullet">],
-      "quickFix": <one concrete sentence fix, e.g. 'Replace "Responsible for building..." with "Engineered..."'>,
+      "sectionIssues": [<specific problems with this section>],
+      "quickFix": <one concrete sentence fix>,
       "bullets": [
         {
-          "originalText": <EXACT verbatim bullet text from this section — must match resume character-for-character>,
+          "originalText": <EXACT verbatim bullet text from this section>,
           "strength": <"strong" | "average" | "weak">,
           "score": <integer 0-100>,
-          "issues": [<specific issue e.g. "Starts with weak phrase 'Worked on'", "No metric — add % or $ value", "Vague outcome — what was the business impact?">],
-          "rewrite": <ONLY if strength is "weak" or "average" — a complete rewritten bullet starting with strong verb + metric + impact. OMIT this field entirely if strength is "strong">
+          "issues": [<specific issues>],
+          "rewrite": <ONLY if strength is "weak" or "average" — complete rewritten bullet. OMIT this field entirely if strength is "strong">
         }
       ]
     }
@@ -106,52 +117,36 @@ YOUR TASK: Perform a deep, line-by-line analysis. Return a JSON object with EXAC
     {
       "id": <"qw-1", "qw-2", etc.>,
       "priority": <"critical" | "high" | "medium">,
-      "title": <short label e.g. "Weak verb: 'worked on'">,
-      "description": <one sentence — WHY this is a problem, e.g. "Recruiters skip bullets that start with passive phrases">,
-      "originalText": <EXACT verbatim text of the bullet — must match resume exactly>,
-      "rewrite": <complete improved bullet — starts with strong verb, includes metric, shows impact>,
-      "impact": <quantified consequence e.g. "Passive verbs reduce ATS match rate by ~30% and recruiter read-time by 50%">
+      "title": <short label>,
+      "description": <one sentence — WHY this is a problem>,
+      "originalText": <EXACT verbatim text of the bullet>,
+      "rewrite": <complete improved bullet>,
+      "impact": <quantified consequence>
     }
   ]
 }
 
 ━━━ SCORING CALIBRATION ━━━
 STRONG bullet (75-100): Power verb + specific metric + clear business outcome, 10-22 words
-  Example: "Reduced ML inference latency by 43% by migrating from batch to streaming pipeline, saving $120K/yr"
-
 AVERAGE bullet (50-74): Missing ONE element — either no metric, or weak verb, or vague outcome
-  Example: "Built a dashboard that improved team visibility" (good verb, no metric, vague impact)
-
-WEAK bullet (0-49): Passive phrase, no metric, no outcome — screams junior
-  Example: "Responsible for maintaining the backend API" or "Helped with data analysis tasks"
+WEAK bullet (0-49): Passive phrase, no metric, no outcome
 
 QUICK WINS — pick the 5 highest-leverage changes:
 - Prioritize bullets with BOTH weak verb AND no metric (double penalty)
-- Rewrites must be specific to THIS person's actual work — not generic
-- Add plausible metrics based on context (e.g. if they built a pipeline, estimate scale)
+- Rewrites must be specific to THIS person's actual work
 - Start rewrite with: Led, Built, Engineered, Drove, Reduced, Increased, Launched, Delivered, Architected, Automated, Optimized, Scaled, Shipped
-
-ATS SCORE factors: standard section headers, keyword density, no tables/columns, consistent date format, contact section present
-IMPACT SCORE factors: % of bullets with metrics, average bullet score, absence of weak verbs
-CLARITY SCORE factors: sentence length, active voice, no jargon overload, logical flow
 
 Return ONLY valid JSON. No markdown. No explanation. No preamble.`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
+    const response = await anthropic.messages.create({
+      model: CLAUDE_MODEL,
       max_tokens: 6000,
-      response_format: { type: 'json_object' },
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a brutally honest senior technical recruiter at a FAANG company with 15+ years of experience. You have reviewed 50,000+ resumes. You DO NOT sugarcoat feedback. Return ONLY valid JSON.',
-        },
-        { role: 'user', content: prompt },
-      ],
+      system: systemPrompt,
+      messages: [{ role: 'user', content: prompt }],
     });
 
-    const raw = response.choices[0]?.message?.content ?? '';
+    const raw = extractText(response);
     let cleaned = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
     if (!cleaned.startsWith('{')) {
       const m = cleaned.match(/\{[\s\S]*\}/);
@@ -195,10 +190,12 @@ async function handleLegacyAnalysis(
   jobDescription: string | null,
   customPrompt: string | null,
 ) {
-  if (!process.env.OPENAI_API_KEY)
-    return NextResponse.json({ error: 'OPENAI_API_KEY not configured' }, { status: 500 });
+  if (!anthropic)
+    return NextResponse.json({ error: 'AI service not configured' }, { status: 500 });
 
-  const prompt = `You are a brutally honest senior recruiter. Analyze this resume and return JSON.
+  const systemPrompt = 'You are a brutally honest senior recruiter. Return ONLY valid JSON — no markdown, no preamble.';
+
+  const prompt = `Analyze this resume and return JSON.
 
 RESUME:
 ${resumeText}
@@ -229,17 +226,14 @@ Rules:
 - suggestion must start with a strong action verb and include a metric`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
+    const response = await anthropic.messages.create({
+      model: CLAUDE_MODEL,
       max_tokens: 3000,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: 'You are a brutally honest senior recruiter. Return ONLY valid JSON.' },
-        { role: 'user', content: prompt },
-      ],
+      system: systemPrompt,
+      messages: [{ role: 'user', content: prompt }],
     });
 
-    const raw = response.choices[0]?.message?.content ?? '';
+    const raw = extractText(response);
     let cleaned = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
     if (!cleaned.startsWith('{')) {
       const m = cleaned.match(/\{[\s\S]*\}/);

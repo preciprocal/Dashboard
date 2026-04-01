@@ -2,12 +2,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { auth } from '@/firebase/admin';
-import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 import { hashResumeContent } from '@/lib/redis/resume-cache';
 import { redis, RedisKeys } from '@/lib/redis/redis-client';
 import { getUserAIContext } from '@/lib/ai/user-context';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const CLAUDE_MODEL = 'claude-sonnet-4-6';
+
+const anthropic = process.env.CLAUDE_API_KEY
+  ? new Anthropic({ apiKey: process.env.CLAUDE_API_KEY })
+  : null;
 
 const COVER_LETTER_TTL     = 7 * 24 * 60 * 60;
 const COMPANY_RESEARCH_TTL = 30 * 24 * 60 * 60;
@@ -26,19 +30,32 @@ interface CoverLetterCache {
   createdAt: string;
 }
 
+// ─── Helper: extract text from Claude response ────────────────────────────────
+
+function extractText(response: Anthropic.Message): string {
+  return response.content
+    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+    .map(b => b.text)
+    .join('');
+}
+
+function countTokensUsed(response: Anthropic.Message): number {
+  return (response.usage?.input_tokens ?? 0) + (response.usage?.output_tokens ?? 0);
+}
+
 // ─── Company research ─────────────────────────────────────────────────────────
 
 async function researchCompany(companyName: string, jobRole: string): Promise<string> {
-  if (!companyName) return '';
+  if (!companyName || !anthropic) return '';
   const cached = await getCachedCompanyResearch(companyName);
   if (cached) return cached;
   try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+    const response = await anthropic.messages.create({
+      model: CLAUDE_MODEL,
       max_tokens: 300,
       messages: [{ role: 'user', content: `Research ${companyName} for a ${jobRole} cover letter. Provide 2-3 sentences covering: company mission, recent news (2024-2025), culture/values. If no info available, say "Company information not available".` }],
     });
-    const research = completion.choices[0]?.message?.content ?? '';
+    const research = extractText(response);
     await cacheCompanyResearch(companyName, research);
     return research;
   } catch (err) {
@@ -83,10 +100,10 @@ async function cacheCoverLetter(cacheKey: string, data: CoverLetterCache): Promi
 // ─── Transcript course extraction ─────────────────────────────────────────────
 
 async function extractRelevantCourses(transcriptText: string, jobRole: string, jobDescription?: string): Promise<string> {
-  if (!transcriptText || transcriptText.length < 50) return '';
+  if (!transcriptText || transcriptText.length < 50 || !anthropic) return '';
   try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+    const response = await anthropic.messages.create({
+      model: CLAUDE_MODEL,
       max_tokens: 600,
       messages: [{ role: 'user', content: `From this academic transcript text, identify 4-6 courses most relevant to a ${jobRole} position.
 ${jobDescription ? `JOB REQUIREMENTS:\n${jobDescription.substring(0, 1500)}\n` : ''}
@@ -95,7 +112,7 @@ TRANSCRIPT TEXT:\n${transcriptText.substring(0, 3000)}
 Format each as: "Course X: [CODE]: [NAME] - [RELEVANCE]"
 List them under "RELEVANT COURSES:".` }],
     });
-    const result = completion.choices[0]?.message?.content ?? '';
+    const result = extractText(response);
     return (result.includes('Course') || result.includes('RELEVANT')) ? result : '';
   } catch (err) {
     console.error('❌ Course extraction error:', err);
@@ -109,7 +126,7 @@ export async function POST(request: NextRequest) {
   const startTime = Date.now();
 
   try {
-    if (!process.env.OPENAI_API_KEY) {
+    if (!anthropic) {
       return NextResponse.json({ success: false, error: 'AI service not configured' }, { status: 503 });
     }
 
@@ -131,7 +148,7 @@ export async function POST(request: NextRequest) {
     const { jobRole, jobDescription, companyName, tone = 'professional' } = body;
     if (!jobRole) return NextResponse.json({ success: false, error: 'jobRole is required' }, { status: 400 });
 
-    // ── Fetch user context (resume + transcript from Storage, profile from Firestore) ──
+    // ── Fetch user context ────────────────────────────────────────
     console.log('📄 Fetching user AI context...');
     const ctx = await getUserAIContext(userId);
     const hasResume = !!ctx.resumeText;
@@ -227,16 +244,15 @@ ${ctx.profile.name}
 
 Generate the complete cover letter now.`;
 
-    // ── Call OpenAI ───────────────────────────────────────────────
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      max_tokens: 1200,
-      temperature: 0.7,
+    // ── Call Claude ───────────────────────────────────────────────
+    const response = await anthropic.messages.create({
+      model: CLAUDE_MODEL,
+      max_tokens: 2000,
       messages: [{ role: 'user', content: prompt }],
     });
 
-    const coverLetterText = completion.choices[0]?.message?.content ?? '';
-    const tokensUsed = completion.usage?.total_tokens ?? 0;
+    const coverLetterText = extractText(response);
+    const tokensUsed = countTokensUsed(response);
     const wordCount = coverLetterText.split(/\s+/).length;
 
     if (!coverLetterText || wordCount < 50) {
@@ -258,7 +274,8 @@ Generate the complete cover letter now.`;
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
     console.error('❌ Cover letter error:', msg);
-    if (msg.includes('rate_limit') || msg.includes('429')) {
+    const error = err as Error & { status?: number };
+    if (error.status === 429 || msg.includes('rate_limit')) {
       return NextResponse.json({ success: false, error: 'AI quota exceeded, try again later' }, { status: 429 });
     }
     return NextResponse.json({ success: false, error: 'Failed to generate cover letter' }, { status: 500 });

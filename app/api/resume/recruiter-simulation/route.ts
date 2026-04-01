@@ -1,14 +1,16 @@
 // app/api/resume/recruiter-simulation/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 import { db } from '@/firebase/admin';
 
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+const CLAUDE_MODEL = 'claude-sonnet-4-6';
+
+const anthropic = process.env.CLAUDE_API_KEY
+  ? new Anthropic({ apiKey: process.env.CLAUDE_API_KEY })
   : null;
 
-if (!openai) {
-  console.error('❌ OPENAI_API_KEY is not set');
+if (!anthropic) {
+  console.error('❌ CLAUDE_API_KEY is not set');
 }
 
 interface RecruiterSimulationRequest {
@@ -56,28 +58,17 @@ export async function POST(request: NextRequest) {
     console.log('   Force regenerate:', force);
 
     if (!resumeId) {
-      return NextResponse.json(
-        { error: 'Resume ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Resume ID is required' }, { status: 400 });
     }
 
-    if (!openai) {
-      console.error('❌ OpenAI API not configured');
-      return NextResponse.json(
-        { error: 'AI service not configured. Please add OPENAI_API_KEY to environment variables.' },
-        { status: 500 }
-      );
+    if (!anthropic) {
+      return NextResponse.json({ error: 'AI service not configured. Please add CLAUDE_API_KEY.' }, { status: 500 });
     }
 
-    // Get resume data from Firestore
     const resumeDoc = await db.collection('resumes').doc(resumeId).get();
 
     if (!resumeDoc.exists) {
-      return NextResponse.json(
-        { error: 'Resume not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Resume not found' }, { status: 404 });
     }
 
     const resumeData = resumeDoc.data() as ResumeData & Record<string, unknown>;
@@ -85,7 +76,7 @@ export async function POST(request: NextRequest) {
     // ── Return cached result unless force=true ──
     const cached = resumeData.recruiterSimulation as RecruiterSimulation | undefined;
     const cachedAt = resumeData.recruiterSimulationGeneratedAt as number | undefined;
-    const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
+    const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
 
     if (!force && cached && cachedAt && Date.now() - cachedAt < CACHE_TTL) {
       console.log('✅ Returning cached simulation for:', resumeId);
@@ -93,17 +84,9 @@ export async function POST(request: NextRequest) {
     }
 
     const now = new Date();
-    const currentDate = now.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-    const currentMonth = now.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long'
-    });
+    const currentDate = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const currentMonth = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
 
-    // ── Prompt — forces specificity, no generic responses allowed ──
     const resumeContent = resumeData.feedback?.resumeText
       ? resumeData.feedback.resumeText.substring(0, 3000)
       : 'Resume text not available — base simulation on the scores provided.';
@@ -133,31 +116,28 @@ You are a brutal, no-nonsense senior recruiter at a top tech company. You are lo
 5. Education — 0.5 seconds unless it's MIT, Stanford, or directly required.
 6. You do NOT read the summary. Ever.
 
-══ SPECIFICITY MANDATE — THIS IS CRITICAL ══
+══ SPECIFICITY MANDATE ══
 Your response MUST reference ACTUAL TEXT from the resume above.
 - Quote specific job titles, company names, or bullet points
 - If a bullet says "Managed team projects" — call that out by name as vague
 - If a bullet says "Increased revenue by 43%" — reference that specific number
-- Do NOT write anything that could apply to ANY resume — every sentence must be about THIS resume
-- If you write something generic like "lacks quantifiable achievements" without citing a specific bullet, your response is wrong
+- Do NOT write anything that could apply to ANY resume
 
 ══ SCORING REALITY CHECK ══
 - Most resumes score 40-65. Only genuinely strong ones hit 70+.
-- A resume full of duty-based bullets with no metrics scores 35-50 on firstImpression
-- Generic skills sections with no depth score attentionScore 40-55
 - passScreening = true ONLY if you would literally forward this to the hiring manager right now
 
-Return ONLY valid JSON, no markdown, no explanation:
+CRITICAL: Return ONLY valid JSON — no markdown fences, no preamble, no explanation. Start your response with { and end with }.
 {
   "firstImpression": {
     "score": <number 0-100, be realistic>,
     "standoutElements": [
-      "<MUST quote or directly reference something specific from the resume — e.g. 'The role at [Company X] as [Title] with [specific achievement] is immediately credible'>",
-      "<another specific reference — if nothing stands out, say exactly why nothing does>"
+      "<MUST quote or directly reference something specific from the resume>",
+      "<another specific reference>"
     ],
     "concerningElements": [
-      "<cite the EXACT problem with evidence — e.g. 'Bullet point reads: [exact text] — this describes a duty, not an achievement. Zero business impact shown.'>",
-      "<another specific concern with direct evidence from the resume>"
+      "<cite the EXACT problem with evidence>",
+      "<another specific concern>"
     ],
     "timeSpentInSeconds": <6-9>
   },
@@ -167,47 +147,48 @@ Return ONLY valid JSON, no markdown, no explanation:
       "section": "Work Experience",
       "attentionScore": <0-100>,
       "timeSpent": <3-5>,
-      "notes": "<reference the ACTUAL most recent job title and company. Comment on tenure length. Quote a bullet point and say whether it has impact or is a duty dump. Be specific.>"
+      "notes": "<reference the ACTUAL most recent job title and company. Comment on tenure. Quote a bullet.>"
     },
     {
       "section": "Skills",
       "attentionScore": <0-100>,
       "timeSpent": <1-2>,
-      "notes": "<name 2-3 actual skills listed and say whether they're relevant to ${resumeData.jobTitle || 'the target role'} or just padding>"
+      "notes": "<name 2-3 actual skills listed and say whether they're relevant>"
     },
     {
       "section": "Education",
       "attentionScore": <0-100>,
       "timeSpent": <0.5-1>,
-      "notes": "<state the actual degree and institution from the resume. One sentence on whether it matters for this role.>"
+      "notes": "<state the actual degree and institution>"
     },
     {
       "section": "Achievements & Metrics",
       "attentionScore": <0-100>,
       "timeSpent": <1-2>,
-      "notes": "<count how many bullets actually have numbers/percentages/dollar amounts. State the count. If zero, say zero. If some, quote the strongest one.>"
+      "notes": "<count how many bullets have numbers. State the count. Quote the strongest one if any.>"
     }
   ],
   "passScreening": <true|false>,
   "screenerNotes": [
-    "<your honest internal verdict on this candidate — read like a Slack message to the hiring manager. Reference their actual most recent role and company. Would you put your reputation on the line recommending this person?>",
-    "<the single most important thing wrong with this resume — be direct and specific, reference actual content>",
-    "<one actionable thing they should fix immediately — specific to THIS resume, not generic advice>"
+    "<honest internal verdict — reference their actual most recent role and company>",
+    "<the single most important thing wrong — be direct and specific>",
+    "<one actionable thing they should fix immediately — specific to THIS resume>"
   ]
 }`;
 
-    console.log('   Calling OpenAI for simulation...');
+    console.log('   Calling Claude for simulation...');
 
-    // ── Replaces: anthropic.messages.create() ──
-    const response = await openai.chat.completions.create({
-      model:      'gpt-4o-mini',
+    const response = await anthropic.messages.create({
+      model:      CLAUDE_MODEL,
       max_tokens: 2048,
       messages:   [{ role: 'user', content: prompt }],
     });
 
-    const responseText = response.choices[0].message.content ?? '';
+    const responseText = response.content
+      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+      .map(b => b.text)
+      .join('');
 
-    // ── Parse JSON (ORIGINAL — unchanged) ──
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       throw new Error('Failed to parse AI response');
@@ -219,7 +200,7 @@ Return ONLY valid JSON, no markdown, no explanation:
       throw new Error('Invalid simulation data structure');
     }
 
-    // ── Post-process (ORIGINAL — unchanged) ──
+    // ── Post-process ──
     const filterFutureDateMentions = (text: string): string => {
       return text
         .replace(/future date[s]?/gi, 'recent date')
@@ -248,7 +229,6 @@ Return ONLY valid JSON, no markdown, no explanation:
     console.log('   Pass Screening:', simulation.passScreening);
     console.log('   First Impression Score:', simulation.firstImpression.score);
 
-    // ── Save to Firestore cache (ORIGINAL — unchanged) ──
     try {
       await db.collection('resumes').doc(resumeId).update({
         recruiterSimulation: simulation,
@@ -258,22 +238,14 @@ Return ONLY valid JSON, no markdown, no explanation:
       console.warn('⚠️ Failed to cache simulation (non-fatal):', cacheErr);
     }
 
-    return NextResponse.json({
-      success: true,
-      simulation,
-      cached: false,
-    });
+    return NextResponse.json({ success: true, simulation, cached: false });
 
   } catch (error) {
     console.error('❌ Recruiter simulation error:', error);
     const err = error as Error & { status?: number; statusText?: string };
-
     return NextResponse.json(
-      {
-        error: err.message || 'Failed to run recruiter simulation',
-        details: process.env.NODE_ENV === 'development' ? err.toString() : undefined
-      },
-      { status: 500 }
+      { error: err.message || 'Failed to run recruiter simulation', details: process.env.NODE_ENV === 'development' ? err.toString() : undefined },
+      { status: 500 },
     );
   }
 }

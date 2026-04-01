@@ -1,6 +1,6 @@
 // app/api/analyze-resume/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import crypto from 'crypto';
 import { auth } from '@/firebase/admin';
@@ -21,19 +21,41 @@ export const maxDuration = 60;
 // Constants
 // ─────────────────────────────────────────────────────────────────
 
-const MAX_FILE_SIZE      = 10 * 1024 * 1024;  // 10 MB (raised to match upload page)
+const MAX_FILE_SIZE      = 10 * 1024 * 1024;
 const MAX_RESUME_CHARS   = 15_000;
 const MAX_JOB_DESC_CHARS = 3_000;
 const RATE_LIMIT_WINDOW  = 60;
 const RATE_LIMIT_MAX     = 10;
+const CLAUDE_MODEL       = 'claude-sonnet-4-6';
 
 // ─────────────────────────────────────────────────────────────────
-// OpenAI client
+// Anthropic client
 // ─────────────────────────────────────────────────────────────────
 
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+const anthropic = process.env.CLAUDE_API_KEY
+  ? new Anthropic({ apiKey: process.env.CLAUDE_API_KEY })
   : null;
+
+// ─────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────
+
+function extractTextFromResponse(response: Anthropic.Message): string {
+  return response.content
+    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+    .map(b => b.text)
+    .join('');
+}
+
+/** Robust JSON extraction — handles preamble, trailing text, markdown fences */
+function extractJsonString(raw: string): string {
+  let cleaned = raw.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
+  if (!cleaned.startsWith('{') && !cleaned.startsWith('[')) {
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (jsonMatch) cleaned = jsonMatch[0];
+  }
+  return cleaned;
+}
 
 // ─────────────────────────────────────────────────────────────────
 // Auth helper
@@ -99,30 +121,30 @@ type FileKind = 'pdf' | 'word' | 'image' | 'unknown';
 
 function detectFileKind(buffer: Buffer, fileName: string): FileKind {
   const name = fileName.toLowerCase();
-
-  // Magic bytes take priority over extension / MIME
   const hex4 = buffer.slice(0, 4).toString('hex');
   const asc4 = buffer.slice(0, 4).toString('ascii');
 
   if (asc4.startsWith('%PDF')) return 'pdf';
-
-  // DOCX / DOC both start with PK (zip) — 50 4B 03 04
-  // Older .doc starts with D0 CF 11 E0 (OLE2)
   if (hex4 === '504b0304' || hex4.startsWith('d0cf11e0')) return 'word';
-
-  // Fallback to extension when magic bytes are inconclusive
   if (name.endsWith('.pdf'))                        return 'pdf';
   if (name.endsWith('.docx') || name.endsWith('.doc')) return 'word';
 
-  // Images
   const bin4 = buffer.slice(0, 4).toString('binary');
   if (
-    bin4.startsWith('\xFF\xD8\xFF') || // JPEG
-    bin4.startsWith('\x89PNG')       || // PNG
-    bin4.startsWith('GIF8')             // GIF
+    bin4.startsWith('\xFF\xD8\xFF') ||
+    bin4.startsWith('\x89PNG')       ||
+    bin4.startsWith('GIF8')
   ) return 'image';
 
   return 'unknown';
+}
+
+function detectImageMime(buffer: Buffer): 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' {
+  const bin4 = buffer.slice(0, 4).toString('binary');
+  if (bin4.startsWith('\xFF\xD8\xFF')) return 'image/jpeg';
+  if (bin4.startsWith('\x89PNG'))      return 'image/png';
+  if (bin4.startsWith('GIF8'))         return 'image/gif';
+  return 'image/webp';
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -219,10 +241,10 @@ export async function GET() {
     message: 'AI Resume Analysis API',
     status:  'ok',
     ...(isDev && {
-      model:    'gpt-4o',
+      model:    CLAUDE_MODEL,
       formats:  ['pdf', 'docx', 'doc'],
-      ai:       openai ? 'configured' : 'missing OPENAI_API_KEY',
-      caching:  redis  ? 'enabled'    : 'disabled',
+      ai:       anthropic ? 'configured' : 'missing CLAUDE_API_KEY',
+      caching:  redis     ? 'enabled'    : 'disabled',
     }),
   });
 }
@@ -284,7 +306,7 @@ export async function POST(request: NextRequest) {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Resume analysis — PDF, Word, or image
+// Resume analysis
 // ─────────────────────────────────────────────────────────────────
 
 async function handleResumeAnalysis(request: NextRequest, userId: string) {
@@ -293,37 +315,22 @@ async function handleResumeAnalysis(request: NextRequest, userId: string) {
   const jobTitle = (formData.get('jobTitle')       as string | null) ?? '';
   const jobDesc  = (formData.get('jobDescription') as string | null) ?? '';
 
-  if (!file) {
-    return NextResponse.json({ error: 'No file provided' }, { status: 400 });
-  }
-
+  if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 });
   if (file.size > MAX_FILE_SIZE) {
-    return NextResponse.json(
-      { error: `File too large. Maximum allowed size is ${MAX_FILE_SIZE / 1024 / 1024}MB.` },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: `File too large. Maximum allowed size is ${MAX_FILE_SIZE / 1024 / 1024}MB.` }, { status: 400 });
   }
 
   const arrayBuffer = await file.arrayBuffer();
   const buffer      = Buffer.from(arrayBuffer);
   const kind        = detectFileKind(buffer, file.name);
 
-  console.log('📋 Analysis request:', {
-    fileName: file.name,
-    fileSize: `${(file.size / 1024).toFixed(1)} KB`,
-    kind,
-    jobTitle: jobTitle || 'not specified',
-  });
+  console.log('📋 Analysis request:', { fileName: file.name, fileSize: `${(file.size / 1024).toFixed(1)} KB`, kind, jobTitle: jobTitle || 'not specified' });
 
   if (kind === 'unknown') {
-    return NextResponse.json(
-      { error: 'Unsupported file type. Please upload a PDF or Word document (.docx, .doc).' },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: 'Unsupported file type. Please upload a PDF or Word document (.docx, .doc).' }, { status: 400 });
   }
-
-  if (!openai) {
-    return NextResponse.json({ error: 'AI service not configured — add OPENAI_API_KEY' }, { status: 503 });
+  if (!anthropic) {
+    return NextResponse.json({ error: 'AI service not configured — add CLAUDE_API_KEY' }, { status: 503 });
   }
 
   // ── Extract text ──────────────────────────────────────────────
@@ -342,27 +349,15 @@ async function handleResumeAnalysis(request: NextRequest, userId: string) {
       console.log(`📝 Word text extracted: ${resumeText.length} chars`);
     } catch (err) {
       console.error('❌ mammoth failed to extract Word text:', err);
-      return NextResponse.json(
-        { error: 'Could not read your Word document. Try saving it as a PDF and re-uploading.' },
-        { status: 422 },
-      );
+      return NextResponse.json({ error: 'Could not read your Word document. Try saving it as a PDF and re-uploading.' }, { status: 422 });
     }
     if (!resumeText.trim()) {
-      return NextResponse.json(
-        { error: 'Your Word document appears to be empty or image-only. Try saving as PDF.' },
-        { status: 422 },
-      );
+      return NextResponse.json({ error: 'Your Word document appears to be empty or image-only. Try saving as PDF.' }, { status: 422 });
     }
   }
-  // images: resumeText stays '' → vision path below
 
   // ── Cache key ─────────────────────────────────────────────────
-  const cacheKey = secureHash(
-    resumeText || buffer.toString('base64'),
-    jobTitle.trim(),
-    jobDesc.slice(0, MAX_JOB_DESC_CHARS).trim(),
-    userId,
-  );
+  const cacheKey = secureHash(resumeText || buffer.toString('base64'), jobTitle.trim(), jobDesc.slice(0, MAX_JOB_DESC_CHARS).trim(), userId);
 
   const cached = await getCachedResumeAnalysis(cacheKey);
   if (cached) {
@@ -370,44 +365,38 @@ async function handleResumeAnalysis(request: NextRequest, userId: string) {
     return NextResponse.json({
       feedback:      cached,
       extractedText: (cached as ResumeFeedback & { resumeText?: string }).resumeText ?? '',
-      meta:          { cached: true, model: 'gpt-4o', kind },
+      meta:          { cached: true, model: CLAUDE_MODEL, kind },
     });
   }
 
-  // ── Build GPT-4o message ──────────────────────────────────────
-  // Text path: PDF (extracted), Word (always extracted), or plain text
-  // Vision path: image, or PDF where text extraction failed
-  const userMessage: OpenAI.Chat.ChatCompletionMessageParam = {
-    role: 'user',
-    content: resumeText
-      ? [{ type: 'text', text: buildAnalysisPrompt(resumeText, jobTitle, jobDesc) }]
-      : kind === 'image'
-        ? [
-            { type: 'image_url', image_url: { url: `data:${file.type};base64,${buffer.toString('base64')}`, detail: 'high' } },
-            { type: 'text',      text: buildAnalysisPrompt('', jobTitle, jobDesc) },
-          ]
-        : [{ type: 'text', text: buildAnalysisPrompt('(No text could be extracted — analyse based on context)', jobTitle, jobDesc) }],
-  };
+  // ── Build Claude message content ──────────────────────────────
+  const promptText = buildAnalysisPrompt(resumeText, jobTitle, jobDesc);
+
+  const contentBlocks: Anthropic.MessageCreateParams['messages'][0]['content'] = resumeText
+    ? promptText
+    : kind === 'image'
+      ? [
+          { type: 'image' as const, source: { type: 'base64' as const, media_type: detectImageMime(buffer), data: buffer.toString('base64') } },
+          { type: 'text' as const, text: promptText },
+        ]
+      : promptText;
 
   try {
-    const response = await openai.chat.completions.create({
-      model:      'gpt-4o',
-      max_tokens: 2500,
-      messages:   [userMessage],
+    const response = await anthropic.messages.create({
+      model:      CLAUDE_MODEL,
+      max_tokens: 6000,
+      messages:   [{ role: 'user', content: contentBlocks }],
     });
 
-    const raw     = response.choices[0].message.content ?? '';
-    const cleaned = raw.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
+    const raw     = extractTextFromResponse(response);
+    const cleaned = extractJsonString(raw);
 
     let parsedFeedback: z.infer<typeof resumeFeedbackSchema>;
     try {
       parsedFeedback = resumeFeedbackSchema.parse(JSON.parse(cleaned));
     } catch (err) {
       console.error('❌ AI returned invalid schema:', cleaned.slice(0, 500), err);
-      return NextResponse.json(
-        { error: 'AI returned an unexpected response format. Please try again.', isMock: false },
-        { status: 422 },
-      );
+      return NextResponse.json({ error: 'AI returned an unexpected response format. Please try again.', isMock: false }, { status: 422 });
     }
 
     const processed = applyWeightedScore(parsedFeedback);
@@ -417,26 +406,13 @@ async function handleResumeAnalysis(request: NextRequest, userId: string) {
     return NextResponse.json({
       feedback:      processed,
       extractedText: resumeText,
-      meta: {
-        model:         'gpt-4o',
-        cached:        false,
-        isMock:        false,
-        kind,
-        hasJobContext: !!(jobTitle || jobDesc),
-        textExtracted: !!resumeText,
-      },
+      meta: { model: CLAUDE_MODEL, cached: false, isMock: false, kind, hasJobContext: !!(jobTitle || jobDesc), textExtracted: !!resumeText },
     });
 
   } catch (err) {
-    if (err instanceof OpenAI.APIError) {
-      if (err.status === 429) {
-        return NextResponse.json(
-          { error: 'AI service is temporarily busy. Please try again in a few seconds.' },
-          { status: 429 },
-        );
-      }
-      console.error(`❌ OpenAI API error ${err.status}:`, err.message);
-      return NextResponse.json({ error: 'AI service error. Please try again.' }, { status: 502 });
+    const error = err as Error & { status?: number };
+    if (error.status === 429) {
+      return NextResponse.json({ error: 'AI service is temporarily busy. Please try again in a few seconds.' }, { status: 429 });
     }
     console.error('❌ Analysis failed:', err);
     return NextResponse.json({ error: 'Analysis failed. Please try again.' }, { status: 500 });
@@ -472,7 +448,7 @@ RULES YOU MUST FOLLOW:
 
 ${jobContext ? jobContext + '\n\n' : ''}${resumeText ? `RESUME TEXT:\n<resume>\n${resumeText.slice(0, MAX_RESUME_CHARS)}\n</resume>` : ''}
 
-Return ONLY a valid JSON object — no markdown, no preamble, no extra text.
+CRITICAL: Return ONLY a valid JSON object. No markdown fences, no preamble text, no explanation before or after the JSON. Start your response with { and end with }.
 
 {
   "overallScore": <0-100>,
@@ -546,8 +522,8 @@ async function handleGenerateResumeFixes(
     return NextResponse.json({ fixes: cachedFixes, meta: { cached: true, count: cachedFixes.length } });
   }
 
-  if (!openai) {
-    return NextResponse.json({ error: 'AI service not configured — add OPENAI_API_KEY' }, { status: 503 });
+  if (!anthropic) {
+    return NextResponse.json({ error: 'AI service not configured — add CLAUDE_API_KEY' }, { status: 503 });
   }
 
   const fixPrompt = `You are an expert resume editor. Your job is to give the candidate specific, copy-pasteable improvements — not encouragement.
@@ -564,7 +540,7 @@ ${resumeContent.slice(0, MAX_RESUME_CHARS)}
 ${jobDescription ? `\n<job_description>\n${jobDescription.slice(0, MAX_JOB_DESC_CHARS)}\n</job_description>` : ''}
 ${feedback ? `\nCurrent scores — Overall: ${feedback.overallScore}/100, ATS: ${feedback.ATS?.score}/100, Content: ${feedback.content?.score}/100` : ''}
 
-Return ONLY valid JSON — no markdown, no commentary:
+CRITICAL: Return ONLY valid JSON — no markdown fences, no preamble, no commentary. Start your response with { and end with }.
 {
   "fixes": [
     {
@@ -584,14 +560,14 @@ Return ONLY valid JSON — no markdown, no commentary:
 Provide 10–15 fixes. Prioritise high-impact content and ATS fixes first.`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model:      'gpt-4o',
-      max_tokens: 2500,
+    const response = await anthropic.messages.create({
+      model:      CLAUDE_MODEL,
+      max_tokens: 4096,
       messages:   [{ role: 'user', content: fixPrompt }],
     });
 
-    const raw     = response.choices[0].message.content ?? '';
-    const cleaned = raw.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
+    const raw     = extractTextFromResponse(response);
+    const cleaned = extractJsonString(raw);
 
     let parsedFixes: ResumeFix[];
     try {
@@ -606,18 +582,16 @@ Provide 10–15 fixes. Prioritise high-impact content and ATS fixes first.`;
         }));
     } catch (parseErr) {
       console.error('❌ Fix schema validation failed:', parseErr);
-      return NextResponse.json(
-        { error: 'AI returned an unexpected format. Please try again.' },
-        { status: 422 },
-      );
+      return NextResponse.json({ error: 'AI returned an unexpected format. Please try again.' }, { status: 422 });
     }
 
     await cacheResumeFixes(cacheKey, parsedFixes);
     console.log(`✅ Generated ${parsedFixes.length} fixes for user ${userId}`);
-    return NextResponse.json({ fixes: parsedFixes, meta: { model: 'gpt-4o', count: parsedFixes.length, cached: false } });
+    return NextResponse.json({ fixes: parsedFixes, meta: { model: CLAUDE_MODEL, count: parsedFixes.length, cached: false } });
 
   } catch (err) {
-    if (err instanceof OpenAI.APIError && err.status === 429) {
+    const error = err as Error & { status?: number };
+    if (error.status === 429) {
       return NextResponse.json({ error: 'AI service busy. Please try again shortly.' }, { status: 429 });
     }
     console.error('❌ Fix generation failed:', err);
@@ -635,27 +609,18 @@ async function handleRegenerateSpecificFix(
 ) {
   const { fixId, resumeContent } = data;
 
-  if (!openai) {
-    return NextResponse.json({ error: 'AI service not configured' }, { status: 503 });
-  }
+  if (!anthropic) return NextResponse.json({ error: 'AI service not configured' }, { status: 503 });
 
   let originalFix: ResumeFix | null = null;
   if (redis) {
     try {
       const raw = await redis.get(`fix:${userId}:${fixId}`);
-      if (raw) {
-        originalFix = typeof raw === 'string' ? JSON.parse(raw) : (raw as ResumeFix);
-      }
-    } catch (e) {
-      console.error('Redis fix lookup error:', e);
-    }
+      if (raw) originalFix = typeof raw === 'string' ? JSON.parse(raw) : (raw as ResumeFix);
+    } catch (e) { console.error('Redis fix lookup error:', e); }
   }
 
   if (!originalFix) {
-    return NextResponse.json(
-      { error: 'Fix not found or expired. Please regenerate your fixes first.' },
-      { status: 404 },
-    );
+    return NextResponse.json({ error: 'Fix not found or expired. Please regenerate your fixes first.' }, { status: 404 });
   }
 
   const prompt = `You are a resume expert. The candidate wants an ALTERNATIVE improvement for this specific issue — different approach, equally effective.
@@ -671,28 +636,23 @@ ${resumeContent.slice(0, 800)}
 </resume>
 
 Provide a DIFFERENT, concrete rewrite. Do not explain what to do — actually rewrite it.
-Return ONLY valid JSON:
+CRITICAL: Return ONLY valid JSON — no preamble, no markdown. Start with { and end with }.
 { "improvedText": "<full rewrite>", "explanation": "<why this approach works>", "impact": "<what specifically improves>" }`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model:      'gpt-4o-mini',
+    const response = await anthropic.messages.create({
+      model:      CLAUDE_MODEL,
       max_tokens: 400,
       messages:   [{ role: 'user', content: prompt }],
     });
 
-    const raw   = response.choices[0].message.content ?? '';
-    const match = raw.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error('No JSON in response');
+    const raw     = extractTextFromResponse(response);
+    const cleaned = extractJsonString(raw);
+    const alt     = JSON.parse(cleaned) as { improvedText: string; explanation: string; impact?: string };
 
-    const alt = JSON.parse(match[0]) as { improvedText: string; explanation: string; impact?: string };
     return NextResponse.json({
-      alternative: {
-        improvedText: alt.improvedText,
-        explanation:  alt.explanation,
-        impact:       alt.impact ?? originalFix.impact,
-      },
-      meta: { model: 'gpt-4o-mini', type: 'fix-regeneration' },
+      alternative: { improvedText: alt.improvedText, explanation: alt.explanation, impact: alt.impact ?? originalFix.impact },
+      meta: { model: CLAUDE_MODEL, type: 'fix-regeneration' },
     });
 
   } catch (err) {
@@ -708,9 +668,7 @@ Return ONLY valid JSON:
 async function handleExtensionJobAnalysis(data: z.infer<typeof extensionJobBodySchema>) {
   const { jobData } = data;
 
-  if (!openai) {
-    return NextResponse.json({ error: 'AI service not configured — add OPENAI_API_KEY' }, { status: 503 });
-  }
+  if (!anthropic) return NextResponse.json({ error: 'AI service not configured — add CLAUDE_API_KEY' }, { status: 503 });
 
   const prompt = `You are a career coach. Analyse this job posting and identify what a candidate must emphasise to be competitive.
 
@@ -723,7 +681,7 @@ ${jobData.description.slice(0, MAX_JOB_DESC_CHARS)}
 
 Be specific. Do not give generic advice.
 
-Return ONLY valid JSON:
+CRITICAL: Return ONLY valid JSON — no markdown, no preamble. Start with { and end with }.
 {
   "atsScore":           <0-100>,
   "keywordMatch":       <0-100>,
@@ -734,17 +692,15 @@ Return ONLY valid JSON:
 }`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model:      'gpt-4o-mini',
+    const response = await anthropic.messages.create({
+      model:      CLAUDE_MODEL,
       max_tokens: 600,
       messages:   [{ role: 'user', content: prompt }],
     });
 
-    const raw   = response.choices[0].message.content ?? '';
-    const match = raw.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error('No JSON in response');
-
-    const result = JSON.parse(match[0]) as {
+    const raw     = extractTextFromResponse(response);
+    const cleaned = extractJsonString(raw);
+    const result  = JSON.parse(cleaned) as {
       atsScore?: number; keywordMatch?: number; suggestions?: string[];
       missingSkills?: string[]; topKeywords?: string[]; strengthenSections?: string[];
     };
@@ -756,13 +712,12 @@ Return ONLY valid JSON:
       missingSkills:      result.missingSkills      ?? [],
       topKeywords:        result.topKeywords        ?? [],
       strengthenSections: result.strengthenSections ?? [],
-      meta: { model: 'gpt-4o-mini', type: 'extension-job-analysis' },
+      meta: { model: CLAUDE_MODEL, type: 'extension-job-analysis' },
     });
 
   } catch (err) {
-    if (err instanceof OpenAI.APIError && err.status === 429) {
-      return NextResponse.json({ error: 'AI service busy. Try again shortly.' }, { status: 429 });
-    }
+    const error = err as Error & { status?: number };
+    if (error.status === 429) return NextResponse.json({ error: 'AI service busy. Try again shortly.' }, { status: 429 });
     console.error('❌ Extension job analysis failed:', err);
     return NextResponse.json({ error: 'Job analysis failed. Please try again.' }, { status: 500 });
   }
