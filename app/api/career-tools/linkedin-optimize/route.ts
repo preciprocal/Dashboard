@@ -1,105 +1,84 @@
 // app/api/career-tools/linkedin-optimize/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import Anthropic from '@anthropic-ai/sdk';
 import { auth, db } from '@/firebase/admin';
 import { getUserAIContext, buildUserContextPrompt } from '@/lib/ai/user-context';
+import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage } from '@/lib/ai/claude';
+import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
+import { applyRateLimit } from '@/lib/ai/rate-limit';
 
-const apiKey = process.env.CLAUDE_API_KEY;
-const anthropic = apiKey ? new Anthropic({ apiKey }) : null;
+// Output: scores + rewritten headline (220 chars) + rewritten about (3-4 paragraphs) + quickWins + sectionRecs
+// Typical output: ~1800-2400 tokens. The about rewrite is the big piece.
+const MAX_TOKENS = 2500;
 
-const SYSTEM_PROMPT = `You are a LinkedIn optimization expert who has helped over 10,000 professionals land jobs. You understand LinkedIn's search algorithm, how recruiters search, and what makes profiles get InMailed vs ignored. You are brutally honest and every suggestion must be immediately actionable. When the user's resume or academic background is provided, use it to enrich your recommendations with specific achievements and keywords. Return ONLY valid JSON, no markdown, no preamble.`;
+const LI_SYSTEM = `You are a LinkedIn optimization expert who has helped 10,000+ professionals land jobs. You understand LinkedIn's search algorithm and recruiter behavior. Brutally honest, every suggestion immediately actionable. Use resume/academic data when available.
+
+CRITICAL: Return ONLY valid JSON. No markdown. Start with { end with }.`;
 
 export async function POST(request: NextRequest) {
-  const routeStart = Date.now();
-
+  const start = Date.now();
   try {
-    if (!anthropic || !apiKey) return NextResponse.json({ error: 'AI service not configured', code: 'CLAUDE_NOT_CONFIGURED' }, { status: 503 });
+    if (!anthropic) return NextResponse.json({ error: 'AI not configured', code: 'CLAUDE_NOT_CONFIGURED' }, { status: 503 });
 
-    const cookieStore = await cookies();
-    const session = cookieStore.get('session');
+    const session = (await cookies()).get('session');
     if (!session) return NextResponse.json({ error: 'Unauthorized', code: 'NO_SESSION' }, { status: 401 });
-
     let userId: string;
-    try {
-      const claims = await auth.verifySessionCookie(session.value, true);
-      userId = claims.uid;
-    } catch {
-      return NextResponse.json({ error: 'Invalid session', code: 'INVALID_SESSION' }, { status: 401 });
+    try { userId = (await auth.verifySessionCookie(session.value, true)).uid; } catch { return NextResponse.json({ error: 'Invalid session' }, { status: 401 }); }
+
+    // ── Rate limit ────────────────────────────────────────────────
+    const rateLimited = await applyRateLimit(request, userId, 'medium');
+    if (rateLimited) return rateLimited;
+
+    // ── Usage gate ────────────────────────────────────────────────
+    const usageCheck = await checkUsage(userId, 'linkedinOptimisations');
+    if (!usageCheck.allowed) {
+      return NextResponse.json(
+        { error: usageCheck.message, code: 'USAGE_LIMIT', used: usageCheck.used, limit: usageCheck.limit },
+        { status: 403 },
+      );
     }
 
     let body: Record<string, unknown>;
-    try { body = await request.json(); }
-    catch { return NextResponse.json({ error: 'Invalid JSON body', code: 'INVALID_JSON' }, { status: 400 }); }
+    try { body = await request.json(); } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }); }
+    const { headline, about, experience, targetRole, targetIndustry } = body as { headline?: string; about?: string; experience?: string; targetRole?: string; targetIndustry?: string };
+    if (!headline?.trim() && !about?.trim()) return NextResponse.json({ error: 'Headline or about required' }, { status: 400 });
 
-    const { headline, about, experience, targetRole, targetIndustry } = body as {
-      headline?: string; about?: string; experience?: string; targetRole?: string; targetIndustry?: string;
-    };
+    let userCtx = '';
+    try { const ctx = await getUserAIContext(userId); userCtx = buildUserContextPrompt(ctx); } catch {}
 
-    if (!headline?.trim() && !about?.trim()) {
-      return NextResponse.json({ error: 'At least headline or about section is required', code: 'MISSING_INPUT' }, { status: 400 });
-    }
-
-    // ── Fetch user context ──
-    let userContextSection = '';
-    try {
-      const ctx = await getUserAIContext(userId);
-      userContextSection = buildUserContextPrompt(ctx);
-      console.log(`✅ User context loaded for LinkedIn optimize | resume: ${!!ctx.resumeText} | transcript: ${!!ctx.transcriptText}`);
-    } catch (err) {
-      console.warn('⚠️ Failed to load user context:', err);
-    }
-
-    const prompt = `${userContextSection}
-${userContextSection ? 'Use the candidate background above to enrich your keyword suggestions and rewrite their profile with specific, verifiable achievements from their resume and academic record.\n' : ''}
-Analyse and rewrite this LinkedIn profile. Be specific, direct, and brutally honest.
-
+    const prompt = `${userCtx}${userCtx ? '\nUse candidate background to enrich keywords and rewrites.\n' : ''}
 === CURRENT PROFILE ===
 Headline: ${headline || '[Not provided]'}
-About/Summary: ${about || '[Not provided]'}
-${experience ? `Experience (most recent): ${experience}` : ''}
-Target Role: ${targetRole || 'Not specified'}
-Target Industry: ${targetIndustry || 'Not specified'}
+About: ${about || '[Not provided]'}
+${experience ? `Experience: ${experience}` : ''}
+Target Role: ${targetRole || 'Not specified'} | Industry: ${targetIndustry || 'Not specified'}
 
-Return this exact JSON:
-
+Return JSON:
 {
-  "overallScore": <number 0-100>,
-  "overallVerdict": <1 sentence>,
-  "headline": { "currentScore": <0-100>, "problem": <string>, "rewritten": <string max 220 chars>, "alternatives": [<string>, <string>], "whyItWorks": <string> },
-  "about": { "currentScore": <0-100>, "problems": [<string>, <string>, <string>], "rewritten": <string 3-4 paragraphs>, "keywordsAdded": [<string x5>], "whyItWorks": <string> },
-  "seoScore": { "current": <0-100>, "potential": <0-100>, "missingKeywords": [<string x3>], "explanation": <string> },
-  "quickWins": [{ "action": <string>, "impact": <"high"|"medium">, "timeRequired": <string>, "reason": <string> }],
-  "sectionRecommendations": { "featuredSection": <string>, "skills": [<string x10>], "openToWork": <string>, "profilePhoto": <string> }
+  "overallScore": <0-100>, "overallVerdict": "<1 sentence>",
+  "headline": { "currentScore": <0-100>, "problem": "...", "rewritten": "<max 220 chars>", "alternatives": ["...", "..."], "whyItWorks": "..." },
+  "about": { "currentScore": <0-100>, "problems": ["...", "...", "..."], "rewritten": "<3-4 paragraphs>", "keywordsAdded": ["x5"], "whyItWorks": "..." },
+  "seoScore": { "current": <0-100>, "potential": <0-100>, "missingKeywords": ["x3"], "explanation": "..." },
+  "quickWins": [{ "action": "...", "impact": "high|medium", "timeRequired": "...", "reason": "..." }],
+  "sectionRecommendations": { "featuredSection": "...", "skills": ["x10"], "openToWork": "...", "profilePhoto": "..." }
 }`;
 
-    let rawText: string;
-    try {
-      const response = await anthropic.messages.create({ model: 'claude-sonnet-4-5', max_tokens: 4096, system: SYSTEM_PROMPT, messages: [{ role: 'user', content: prompt }] });
-      rawText = response.content[0].type === 'text' ? response.content[0].text : '';
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes('rate_limit') || msg.includes('overloaded')) return NextResponse.json({ error: 'AI quota exceeded', code: 'QUOTA_EXCEEDED' }, { status: 429 });
-      return NextResponse.json({ error: 'AI generation failed', code: 'CLAUDE_ERROR' }, { status: 500 });
-    }
+    const response = await anthropic.messages.create({ model: CLAUDE_MODEL, max_tokens: MAX_TOKENS, system: cachedSystem(LI_SYSTEM), messages: [{ role: 'user', content: prompt }] });
+    logUsage('linkedin-optimize', response);
 
-    let data: Record<string, unknown>;
-    try {
-      let cleaned = rawText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
-      if (!cleaned.startsWith('{')) { const m = cleaned.match(/\{[\s\S]*\}/); if (m) cleaned = m[0]; }
-      data = JSON.parse(cleaned);
-    } catch {
-      return NextResponse.json({ error: 'AI returned malformed response', code: 'PARSE_ERROR' }, { status: 500 });
-    }
+    const data = JSON.parse(extractJsonString(extractText(response)));
 
-    try {
-      await db.collection('linkedinOptimizations').add({ userId, input: { headline: headline?.slice(0, 220), aboutLength: about?.length ?? 0, targetRole, targetIndustry }, result: data, createdAt: new Date() });
-    } catch (err) { console.warn('⚠️ Failed to cache result:', err); }
+    // ── Increment usage ───────────────────────────────────────────
+    await checkAndIncrementUsage(userId, 'linkedinOptimisations');
 
-    console.log(`✅ LinkedIn optimize complete | ${Date.now() - routeStart}ms`);
+    try { await db.collection('linkedinOptimizations').add({ userId, input: { headline: headline?.slice(0, 220), aboutLength: about?.length ?? 0, targetRole, targetIndustry }, result: data, createdAt: new Date() }); } catch {}
+
+    console.log(`✅ LinkedIn optimize | ${Date.now() - start}ms`);
     return NextResponse.json({ success: true, data });
-  } catch (err: unknown) {
-    console.error('❌ LinkedIn optimize error:', err);
-    return NextResponse.json({ error: 'Internal server error', code: 'UNHANDLED_ERROR' }, { status: 500 });
+  } catch (err) {
+    const e = err as Error & { status?: number };
+    if (e.status === 429) return NextResponse.json({ error: 'AI quota exceeded' }, { status: 429 });
+    console.error('❌ LinkedIn error:', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

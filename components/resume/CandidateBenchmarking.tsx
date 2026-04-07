@@ -4,36 +4,32 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Users, TrendingUp, TrendingDown, Minus, Award, Target, Zap,
   BarChart3, Loader2, Info, Star, RefreshCw, XCircle, Flame,
-  MessageSquare, ArrowRight, Eye,
+  MessageSquare, ArrowRight, Eye, BookOpen,
 } from 'lucide-react';
 
 interface BenchmarkDimension {
-  name: string;
-  userScore: number;
-  peerMedian: number;
-  hiredMedian: number;
-  topTen: number;
-  userPercentile: number;
-  verdict: 'strong' | 'competitive' | 'weak' | 'critical';
-  honestTake: string;
+  name: string; userScore: number; peerMedian: number; hiredMedian: number;
+  topTen: number; userPercentile: number; verdict: 'strong' | 'competitive' | 'weak' | 'critical'; honestTake: string;
 }
-
-interface FixAction {
-  action: string;
-  whyItMatters: string;
-  estimatedScoreGain: string;
+interface FixAction { action: string; whyItMatters: string; estimatedScoreGain: string; }
+interface CalibrationInfo { confidence: 'data-backed' | 'baseline-anchored' | 'ai-estimate'; note: string; sampleSize: string; }
+interface HiredCandidateProfile {
+  typicalBackground: string; typicalTechStack: string[]; typicalYOE: string;
+  typicalEducation: string; feederCompanies: string[]; keyDifferentiators: string[]; sources: string;
 }
-
 interface BenchmarkResult {
   overallPercentile: number;
   hiringChance: 'very low' | 'low' | 'moderate' | 'high' | 'very high';
   hiringChanceReason: string;
-  killerFlaw: { title: string; detail: string; urgency: 'critical' | 'high' | 'medium'; };
+  killerFlaw: { title: string; detail: string; urgency: 'critical' | 'high' | 'medium' };
   dimensions: BenchmarkDimension[];
   whatHiredCandidatesHaveThatYouDont: string[];
   threeThingsToFixNow: FixAction[];
   recruitersFirstImpression: string;
   ifThisResumeAppliedToday: string;
+  hiredCandidateProfile?: HiredCandidateProfile;
+  _calibration?: CalibrationInfo;
+  _crossValidation?: { trustScore: number; issues: Array<{ field: string; severity: string; issue: string }> };
 }
 
 const VERDICT_STYLES: Record<BenchmarkDimension['verdict'], { bar: string; badge: string; label: string }> = {
@@ -42,13 +38,12 @@ const VERDICT_STYLES: Record<BenchmarkDimension['verdict'], { bar: string; badge
   weak:        { bar: 'from-orange-500 to-amber-600',  badge: 'bg-orange-500/10 border-orange-500/20 text-orange-400',     label: 'Weak'        },
   critical:    { bar: 'from-red-500 to-rose-600',      badge: 'bg-red-500/10 border-red-500/20 text-red-400',              label: 'Critical'    },
 };
-
 const HIRING_CHANCE_STYLES: Record<BenchmarkResult['hiringChance'], { color: string; icon: React.ElementType; bg: string }> = {
-  'very low':  { color: 'text-red-400',     icon: XCircle,      bg: 'bg-red-500/10 border-red-500/20'          },
-  'low':       { color: 'text-orange-400',  icon: TrendingDown, bg: 'bg-orange-500/10 border-orange-500/20'    },
-  'moderate':  { color: 'text-amber-400',   icon: Minus,        bg: 'bg-amber-500/10 border-amber-500/20'      },
-  'high':      { color: 'text-emerald-400', icon: TrendingUp,   bg: 'bg-emerald-500/10 border-emerald-500/20'  },
-  'very high': { color: 'text-teal-400',    icon: Award,        bg: 'bg-teal-500/10 border-teal-500/20'        },
+  'very low':  { color: 'text-red-400',     icon: XCircle,      bg: 'bg-red-500/10 border-red-500/20'         },
+  'low':       { color: 'text-orange-400',  icon: TrendingDown, bg: 'bg-orange-500/10 border-orange-500/20'   },
+  'moderate':  { color: 'text-amber-400',   icon: Minus,        bg: 'bg-amber-500/10 border-amber-500/20'     },
+  'high':      { color: 'text-emerald-400', icon: TrendingUp,   bg: 'bg-emerald-500/10 border-emerald-500/20' },
+  'very high': { color: 'text-teal-400',    icon: Award,        bg: 'bg-teal-500/10 border-teal-500/20'       },
 };
 
 const BENCHMARK_FACTS = [
@@ -66,7 +61,7 @@ const BENCHMARK_FACTS = [
 
 function BenchmarkLoadingState() {
   const [factIndex, setFactIndex] = useState(0);
-  const [visible,   setVisible]   = useState(true);
+  const [visible, setVisible] = useState(true);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => {
     timerRef.current = setInterval(() => {
@@ -77,14 +72,8 @@ function BenchmarkLoadingState() {
   }, []);
   return (
     <div className="glass-card p-10 flex flex-col items-center text-center gap-5">
-      <div className="relative">
-        <Loader2 className="w-10 h-10 text-purple-400 animate-spin" />
-        <div className="absolute inset-0 flex items-center justify-center"><Users className="w-4 h-4 text-purple-300" /></div>
-      </div>
-      <div>
-        <p className="text-white font-semibold mb-1">Analysing against hired candidates…</p>
-        <p className="text-slate-400 text-sm">Benchmarking your resume against real-world data</p>
-      </div>
+      <div className="relative"><Loader2 className="w-10 h-10 text-purple-400 animate-spin" /><div className="absolute inset-0 flex items-center justify-center"><Users className="w-4 h-4 text-purple-300" /></div></div>
+      <div><p className="text-white font-semibold mb-1">Analysing against hired candidates…</p><p className="text-slate-400 text-sm">Benchmarking your resume against real-world data</p></div>
       <div className="w-full max-w-sm bg-slate-800/50 border border-white/[0.06] rounded-xl p-4 min-h-[72px] flex flex-col items-center justify-center text-center">
         <p className="text-[10px] font-semibold text-purple-400 uppercase tracking-widest mb-2">Did you know?</p>
         <p className="text-sm text-slate-300 leading-relaxed" style={{ opacity: visible ? 1 : 0, transition: 'opacity 0.4s ease' }}>{BENCHMARK_FACTS[factIndex]}</p>
@@ -101,52 +90,33 @@ function PercentileGauge({ percentile }: { percentile: number }) {
       <div className="relative w-28 h-14 overflow-hidden">
         <svg viewBox="0 0 100 50" className="w-full h-full">
           <path d="M 5 50 A 45 45 0 0 1 95 50" fill="none" stroke="#1e293b" strokeWidth="8" strokeLinecap="round" />
-          <path d="M 5 50 A 45 45 0 0 1 95 50" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round"
-            strokeDasharray={`${(angle / 180) * 141.3} 141.3`} style={{ transition: 'stroke-dasharray 1s ease' }} />
-          <line x1="50" y1="50"
-            x2={50 + 35 * Math.cos(Math.PI - (angle * Math.PI / 180))}
-            y2={50 - 35 * Math.sin(Math.PI - (angle * Math.PI / 180))}
-            stroke="white" strokeWidth="2" strokeLinecap="round" />
+          <path d="M 5 50 A 45 45 0 0 1 95 50" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" strokeDasharray={`${(angle / 180) * 141.3} 141.3`} style={{ transition: 'stroke-dasharray 1s ease' }} />
+          <line x1="50" y1="50" x2={50 + 35 * Math.cos(Math.PI - (angle * Math.PI / 180))} y2={50 - 35 * Math.sin(Math.PI - (angle * Math.PI / 180))} stroke="white" strokeWidth="2" strokeLinecap="round" />
           <circle cx="50" cy="50" r="3" fill="white" />
         </svg>
       </div>
-      <div className="text-center -mt-1">
-        <span className="text-2xl font-bold" style={{ color }}>{percentile}th</span>
-        <span className="text-xs text-slate-500 block mt-0.5">percentile</span>
-      </div>
+      <div className="text-center -mt-1"><span className="text-2xl font-bold" style={{ color }}>{percentile}th</span><span className="text-xs text-slate-500 block mt-0.5">percentile</span></div>
     </div>
   );
 }
 
 function DimensionRow({ dim }: { dim: BenchmarkDimension }) {
   const [expanded, setExpanded] = useState(false);
-  const style      = VERDICT_STYLES[dim.verdict] || VERDICT_STYLES.weak;
+  const style = VERDICT_STYLES[dim.verdict] || VERDICT_STYLES.weak;
   const gapToHired = dim.hiredMedian - dim.userScore;
   return (
-    <div className="bg-slate-800/40 border border-white/[0.06] rounded-xl overflow-hidden cursor-pointer hover:border-white/10 hover:bg-slate-800/60 transition-all"
-      onClick={() => setExpanded(!expanded)}>
+    <div className="bg-slate-800/40 border border-white/[0.06] rounded-xl overflow-hidden cursor-pointer hover:border-white/10 hover:bg-slate-800/60 transition-all" onClick={() => setExpanded(!expanded)}>
       <div className="p-3.5">
         <div className="flex items-center justify-between mb-2.5">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm text-white font-medium">{dim.name}</span>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${style.badge}`}>{style.label}</span>
-          </div>
-          <div className="flex items-center gap-2 text-xs flex-shrink-0">
-            <span className="font-bold text-white">{dim.userScore}</span>
-            <span className="text-slate-500">/100</span>
-            <span className={`font-medium text-[11px] ${gapToHired > 8 ? 'text-red-400' : gapToHired > 3 ? 'text-amber-400' : 'text-emerald-400'}`}>
-              {gapToHired > 0 ? `▼${gapToHired} behind` : `▲${Math.abs(gapToHired)} above`}
-            </span>
-          </div>
+          <div className="flex items-center gap-2 flex-wrap"><span className="text-sm text-white font-medium">{dim.name}</span><span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${style.badge}`}>{style.label}</span></div>
+          <div className="flex items-center gap-2 text-xs flex-shrink-0"><span className="font-bold text-white">{dim.userScore}</span><span className="text-slate-500">/100</span><span className={`font-medium text-[11px] ${gapToHired > 8 ? 'text-red-400' : gapToHired > 3 ? 'text-amber-400' : 'text-emerald-400'}`}>{gapToHired > 0 ? `▼${gapToHired} behind` : `▲${Math.abs(gapToHired)} above`}</span></div>
         </div>
         <div className="relative h-4 bg-slate-900/60 rounded-lg overflow-hidden border border-white/[0.04] mb-2">
           <div className={`absolute top-0 left-0 bottom-0 bg-gradient-to-r ${style.bar} opacity-80 rounded-r transition-all duration-700`} style={{ width: `${Math.min(dim.userScore, 100)}%` }} />
           <div className="absolute top-0 bottom-0 w-px bg-slate-400/50 z-10" style={{ left: `${dim.peerMedian}%` }} />
-          <div className="absolute top-0 bottom-0 w-px bg-violet-400/70 z-10"  style={{ left: `${dim.hiredMedian}%` }} />
-          <div className="absolute top-0 bottom-0 w-px bg-teal-400/50 z-10"    style={{ left: `${dim.topTen}%` }} />
-          <div className="absolute inset-0 flex items-center px-2 z-20 pointer-events-none">
-            <span className="text-[10px] font-bold text-white drop-shadow">{dim.userScore}</span>
-          </div>
+          <div className="absolute top-0 bottom-0 w-px bg-violet-400/70 z-10" style={{ left: `${dim.hiredMedian}%` }} />
+          <div className="absolute top-0 bottom-0 w-px bg-teal-400/50 z-10" style={{ left: `${dim.topTen}%` }} />
+          <div className="absolute inset-0 flex items-center px-2 z-20 pointer-events-none"><span className="text-[10px] font-bold text-white drop-shadow">{dim.userScore}</span></div>
         </div>
         <div className="flex items-center gap-3 text-[10px] text-slate-500 flex-wrap">
           <span className="flex items-center gap-1"><span className="w-2 h-px bg-slate-400/60 inline-block" />All: {dim.peerMedian}</span>
@@ -156,159 +126,138 @@ function DimensionRow({ dim }: { dim: BenchmarkDimension }) {
         </div>
       </div>
       {expanded && (
-        <div className="px-3.5 pb-3.5 border-t border-white/[0.06] pt-3">
-          <div className="flex items-start gap-2">
-            <MessageSquare className="w-3.5 h-3.5 text-slate-500 flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-slate-300 leading-relaxed">{dim.honestTake}</p>
-          </div>
-        </div>
+        <div className="px-3.5 pb-3.5 border-t border-white/[0.06] pt-3"><div className="flex items-start gap-2"><MessageSquare className="w-3.5 h-3.5 text-slate-500 flex-shrink-0 mt-0.5" /><p className="text-xs text-slate-300 leading-relaxed">{dim.honestTake}</p></div></div>
       )}
     </div>
   );
 }
 
 interface CandidateBenchmarkingProps {
-  resumeId: string;
-  overallScore: number;
-  jobTitle?: string;
+  resumeId: string; overallScore?: number; jobTitle?: string;
+  preloadedData?: Record<string, unknown> | null;
 }
 
-export default function CandidateBenchmarking({ resumeId, jobTitle }: CandidateBenchmarkingProps) {
-  const [data,    setData]    = useState<BenchmarkResult | null>(null);
+export default function CandidateBenchmarking({ resumeId, jobTitle, preloadedData }: CandidateBenchmarkingProps) {
+  const [data, setData] = useState<BenchmarkResult | null>(preloadedData ? (preloadedData as unknown as BenchmarkResult) : null);
   const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState<string | null>(null);
-  const [cached,  setCached]  = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [cached, setCached] = useState(!!preloadedData);
 
-  // ── FIX: detect stale cached data (old shape had no `dimensions`) ─────────
   const fetchBenchmark = useCallback(async (force = false) => {
     if (loading) return;
-    setLoading(true);
-    setError(null);
-    if (force) setData(null); // clear stale data so loading state shows
+    setLoading(true); setError(null);
+    if (force) setData(null);
     try {
       const { auth } = await import('@/firebase/client');
       const token = await auth.currentUser?.getIdToken();
       if (!token) throw new Error('Not authenticated');
-
-      const res = await fetch('/api/resume/benchmark', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ resumeId, force }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Request failed' }));
-        throw new Error(err.error || `HTTP ${res.status}`);
-      }
+      const res = await fetch('/api/resume/benchmark', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ resumeId, force }) });
+      if (!res.ok) { const err = await res.json().catch(() => ({ error: 'Request failed' })); throw new Error(err.error || `HTTP ${res.status}`); }
       const json = await res.json();
       const result = json.data as BenchmarkResult;
-
-      // Stale Firestore cache: old route shape had no `dimensions` array.
-      // Auto-refetch with force=true so the user always gets valid data.
-      if (json.cached && (!result?.dimensions || result.dimensions.length === 0)) {
-        console.log('⚠️ Stale benchmark cache detected — forcing refresh');
-        setLoading(false);
-        return fetchBenchmark(true);
-      }
-
-      setData(result);
-      setCached(json.cached);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to load benchmark');
-    } finally {
-      setLoading(false);
-    }
+      if (json.cached && (!result?.dimensions || result.dimensions.length === 0)) { setLoading(false); return fetchBenchmark(true); }
+      setData(result); setCached(json.cached);
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to load benchmark'); }
+    finally { setLoading(false); }
   }, [resumeId, loading]);
 
   if (loading) return <BenchmarkLoadingState />;
 
-  if (error) {
-    return (
-      <div className="glass-card p-10 text-center">
-        <div className="w-12 h-12 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center justify-center mx-auto mb-4">
-          <XCircle className="w-6 h-6 text-red-400" />
-        </div>
-        <p className="text-white font-semibold mb-1">Benchmark failed</p>
-        <p className="text-slate-400 text-sm mb-5">{error}</p>
-        <button onClick={() => fetchBenchmark(true)}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium bg-slate-800/60 border border-white/10 text-white hover:bg-slate-700/60 transition-colors cursor-pointer">
-          <RefreshCw className="w-4 h-4" /> Try Again
-        </button>
-      </div>
-    );
-  }
+  if (error) return (
+    <div className="glass-card p-10 text-center">
+      <div className="w-12 h-12 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center justify-center mx-auto mb-4"><XCircle className="w-6 h-6 text-red-400" /></div>
+      <p className="text-white font-semibold mb-1">Benchmark failed</p><p className="text-slate-400 text-sm mb-5">{error}</p>
+      <button onClick={() => fetchBenchmark(true)} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium bg-slate-800/60 border border-white/10 text-white hover:bg-slate-700/60 transition-colors cursor-pointer"><RefreshCw className="w-4 h-4" /> Try Again</button>
+    </div>
+  );
 
-  if (!data) {
-    return (
-      <div className="glass-card p-10 text-center">
-        <div className="w-12 h-12 bg-purple-500/10 border border-purple-500/20 rounded-xl flex items-center justify-center mx-auto mb-4">
-          <Users className="w-6 h-6 text-purple-400" />
-        </div>
-        <p className="text-white font-semibold mb-2">Get your benchmark</p>
-        <p className="text-slate-400 text-sm mb-1 max-w-xs mx-auto">
-          See how your resume compares to candidates who actually got hired{jobTitle ? ` for ${jobTitle} roles` : ''}.
-        </p>
-        <p className="text-amber-400 text-xs mb-5">Honest feedback only — no sugarcoating.</p>
-        <button onClick={() => fetchBenchmark()}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white
-                     bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500
-                     transition-all shadow-lg shadow-purple-500/20 cursor-pointer">
-          <Zap className="w-4 h-4" /> Run Benchmark
-        </button>
-      </div>
-    );
-  }
+  if (!data) return (
+    <div className="glass-card p-10 text-center">
+      <div className="w-12 h-12 bg-purple-500/10 border border-purple-500/20 rounded-xl flex items-center justify-center mx-auto mb-4"><Users className="w-6 h-6 text-purple-400" /></div>
+      <p className="text-white font-semibold mb-2">Get your benchmark</p>
+      <p className="text-slate-400 text-sm mb-1 max-w-xs mx-auto">See how your resume compares to candidates who actually got hired{jobTitle ? ` for ${jobTitle} roles` : ''}.</p>
+      <p className="text-amber-400 text-xs mb-5">Honest feedback only — no sugarcoating.</p>
+      <button onClick={() => fetchBenchmark()} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 transition-all shadow-lg shadow-purple-500/20 cursor-pointer"><Zap className="w-4 h-4" /> Run Benchmark</button>
+    </div>
+  );
 
-  const chanceStyle   = HIRING_CHANCE_STYLES[data.hiringChance] || HIRING_CHANCE_STYLES['moderate'];
-  const HireIcon      = chanceStyle.icon;
-  const urgencyColors = {
-    critical: 'border-red-500/25 bg-red-500/[0.06]',
-    high:     'border-orange-500/25 bg-orange-500/[0.06]',
-    medium:   'border-amber-500/25 bg-amber-500/[0.06]',
-  };
+  const chanceStyle = HIRING_CHANCE_STYLES[data.hiringChance] || HIRING_CHANCE_STYLES['moderate'];
+  const HireIcon = chanceStyle.icon;
+  const urgencyColors = { critical: 'border-red-500/25 bg-red-500/[0.06]', high: 'border-orange-500/25 bg-orange-500/[0.06]', medium: 'border-amber-500/25 bg-amber-500/[0.06]' };
 
   return (
     <div className="space-y-4">
+
+      {/* ── Calibration banner ── */}
+      {data._calibration && (
+        <div className={`glass-card p-4 border ${data._calibration.confidence === 'data-backed' ? 'border-emerald-500/20 bg-emerald-500/[0.03]' : 'border-blue-500/20 bg-blue-500/[0.03]'}`}>
+          <div className="flex items-start gap-3">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${data._calibration.confidence === 'data-backed' ? 'bg-emerald-500/15' : 'bg-blue-500/15'}`}>
+              <BookOpen className={`w-4 h-4 ${data._calibration.confidence === 'data-backed' ? 'text-emerald-400' : 'text-blue-400'}`} />
+            </div>
+            <div>
+              <p className={`text-xs font-semibold mb-0.5 ${data._calibration.confidence === 'data-backed' ? 'text-emerald-400' : 'text-blue-400'}`}>
+                {data._calibration.confidence === 'data-backed' ? 'Data-Backed Benchmark' : 'Research-Calibrated Benchmark'}
+              </p>
+              <p className="text-xs text-slate-400 leading-relaxed">{data._calibration.note}</p>
+              <p className="text-[10px] text-slate-600 mt-1">{data._calibration.sampleSize}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Hired candidate profile ── */}
+      {data.hiredCandidateProfile && (
+        <div className="glass-card p-5 border border-purple-500/15 bg-purple-500/[0.02]">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-9 h-9 bg-purple-500/15 border border-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0"><Users className="w-4 h-4 text-purple-400" /></div>
+            <div><h3 className="text-sm font-semibold text-white">Hired Candidate Profile</h3><p className="text-slate-500 text-[11px] mt-0.5">What successful candidates for this role typically look like</p></div>
+          </div>
+          <p className="text-xs text-slate-300 leading-relaxed mb-3">{data.hiredCandidateProfile.typicalBackground}</p>
+          <div className="grid grid-cols-2 gap-2.5 mb-3">
+            <div className="bg-slate-800/40 border border-white/[0.06] rounded-xl p-3">
+              <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider mb-1.5">Typical Experience</p>
+              <p className="text-xs text-white font-medium">{data.hiredCandidateProfile.typicalYOE}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">{data.hiredCandidateProfile.typicalEducation}</p>
+            </div>
+            <div className="bg-slate-800/40 border border-white/[0.06] rounded-xl p-3">
+              <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider mb-1.5">Feeder Companies</p>
+              <div className="flex flex-wrap gap-1">{data.hiredCandidateProfile.feederCompanies.slice(0, 4).map((c, i) => <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-700/60 text-slate-300">{c}</span>)}</div>
+            </div>
+          </div>
+          <div className="mb-3">
+            <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider mb-1.5">Tech Stack They Typically Have</p>
+            <div className="flex flex-wrap gap-1.5">{data.hiredCandidateProfile.typicalTechStack.map((t, i) => <span key={i} className="text-[10px] px-2 py-0.5 rounded-lg bg-indigo-500/10 border border-indigo-500/15 text-indigo-300 font-medium">{t}</span>)}</div>
+          </div>
+          <div>
+            <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider mb-1.5">Key Differentiators</p>
+            <div className="space-y-1">{data.hiredCandidateProfile.keyDifferentiators.map((d2, i) => <div key={i} className="flex items-start gap-2"><div className="w-1.5 h-1.5 bg-purple-400 rounded-full mt-1.5 flex-shrink-0" /><p className="text-xs text-slate-400 leading-relaxed">{d2}</p></div>)}</div>
+          </div>
+          <p className="text-[10px] text-slate-600 mt-3 flex items-center gap-1"><Info className="w-3 h-3 flex-shrink-0" /> Sources: {data.hiredCandidateProfile.sources}</p>
+        </div>
+      )}
 
       {/* Percentile + hiring chance */}
       <div className="glass-card p-5">
         <div className="flex items-start justify-between mb-5">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center shadow-glass flex-shrink-0">
-              <Users className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-white">Candidate Benchmark</h3>
-              <p className="text-slate-500 text-xs mt-0.5">vs. real hired candidates{jobTitle ? ` for ${jobTitle}` : ''}</p>
-            </div>
+            <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center shadow-glass flex-shrink-0"><Users className="w-5 h-5 text-white" /></div>
+            <div><h3 className="text-sm font-semibold text-white">Candidate Benchmark</h3><p className="text-slate-500 text-xs mt-0.5">vs. real hired candidates{jobTitle ? ` for ${jobTitle}` : ''}</p></div>
           </div>
           <div className="flex items-center gap-2">
             {cached && <span className="text-[10px] text-slate-600 flex items-center gap-1"><Info className="w-3 h-3" /> cached</span>}
-            <button onClick={() => fetchBenchmark(true)} title="Refresh"
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-white bg-slate-800/50 border border-white/[0.06] hover:bg-slate-700/60 transition-colors cursor-pointer">
-              <RefreshCw className="w-3.5 h-3.5" />
-            </button>
+            <button onClick={() => fetchBenchmark(true)} title="Refresh" className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-white bg-slate-800/50 border border-white/[0.06] hover:bg-slate-700/60 transition-colors cursor-pointer"><RefreshCw className="w-3.5 h-3.5" /></button>
           </div>
         </div>
-
         <div className="flex flex-col sm:flex-row items-center gap-4 mb-5">
           <PercentileGauge percentile={data.overallPercentile} />
           <div className={`flex-1 w-full p-4 rounded-xl border ${chanceStyle.bg}`}>
-            <div className="flex items-center gap-2 mb-1.5">
-              <HireIcon className={`w-4 h-4 ${chanceStyle.color}`} />
-              <span className={`text-sm font-bold capitalize ${chanceStyle.color}`}>{data.hiringChance} chance of interview</span>
-            </div>
+            <div className="flex items-center gap-2 mb-1.5"><HireIcon className={`w-4 h-4 ${chanceStyle.color}`} /><span className={`text-sm font-bold capitalize ${chanceStyle.color}`}>{data.hiringChance} chance of interview</span></div>
             <p className="text-sm text-slate-300 leading-relaxed">{data.hiringChanceReason}</p>
           </div>
         </div>
-
         <div className="bg-slate-800/40 border border-white/[0.06] rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Eye className="w-3.5 h-3.5 text-slate-500" />
-            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Recruiter&apos;s first impression (6 seconds)</span>
-          </div>
+          <div className="flex items-center gap-2 mb-2"><Eye className="w-3.5 h-3.5 text-slate-500" /><span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Recruiter&apos;s first impression (6 seconds)</span></div>
           <p className="text-sm text-slate-200 leading-relaxed italic">&quot;{data.recruitersFirstImpression}&quot;</p>
         </div>
       </div>
@@ -317,98 +266,43 @@ export default function CandidateBenchmarking({ resumeId, jobTitle }: CandidateB
       {data.killerFlaw && (
         <div className={`glass-card p-5 border ${urgencyColors[data.killerFlaw.urgency] || urgencyColors.high}`}>
           <div className="flex items-start gap-3">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${data.killerFlaw.urgency === 'critical' ? 'bg-red-500/15' : 'bg-orange-500/15'}`}>
-              <Flame className={`w-5 h-5 ${data.killerFlaw.urgency === 'critical' ? 'text-red-400' : 'text-orange-400'}`} />
-            </div>
-            <div>
-              <p className={`text-[10px] uppercase tracking-wider font-bold mb-1 ${data.killerFlaw.urgency === 'critical' ? 'text-red-400' : 'text-orange-400'}`}>
-                {data.killerFlaw.urgency === 'critical' ? 'Critical issue' : 'Major issue'}
-              </p>
-              <h4 className="text-sm font-semibold text-white mb-1">{data.killerFlaw.title}</h4>
-              <p className="text-xs text-slate-400 leading-relaxed">{data.killerFlaw.detail}</p>
-            </div>
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${data.killerFlaw.urgency === 'critical' ? 'bg-red-500/15' : 'bg-orange-500/15'}`}><Flame className={`w-5 h-5 ${data.killerFlaw.urgency === 'critical' ? 'text-red-400' : 'text-orange-400'}`} /></div>
+            <div><p className={`text-[10px] uppercase tracking-wider font-bold mb-1 ${data.killerFlaw.urgency === 'critical' ? 'text-red-400' : 'text-orange-400'}`}>{data.killerFlaw.urgency === 'critical' ? 'Critical issue' : 'Major issue'}</p><h4 className="text-sm font-semibold text-white mb-1">{data.killerFlaw.title}</h4><p className="text-xs text-slate-400 leading-relaxed">{data.killerFlaw.detail}</p></div>
           </div>
         </div>
       )}
 
-      {/* Dimensions — FIX: ?? [] guard prevents crash on stale/partial data */}
+      {/* Dimensions */}
       <div className="glass-card p-5">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-9 h-9 gradient-accent rounded-lg flex items-center justify-center shadow-glass flex-shrink-0">
-            <BarChart3 className="w-4 h-4 text-white" />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-white">Dimension Breakdown</h3>
-            <p className="text-slate-500 text-[11px] mt-0.5">Click any row to see the honest take</p>
-          </div>
+          <div className="w-9 h-9 gradient-accent rounded-lg flex items-center justify-center shadow-glass flex-shrink-0"><BarChart3 className="w-4 h-4 text-white" /></div>
+          <div><h3 className="text-sm font-semibold text-white">Dimension Breakdown</h3><p className="text-slate-500 text-[11px] mt-0.5">Click any row to see the honest take</p></div>
         </div>
-        <div className="space-y-2.5">
-          {(data.dimensions ?? []).map(dim => <DimensionRow key={dim.name} dim={dim} />)}
-        </div>
+        <div className="space-y-2.5">{(data.dimensions ?? []).map(dim => <DimensionRow key={dim.name} dim={dim} />)}</div>
       </div>
 
       {/* What hired candidates have */}
       {(data.whatHiredCandidatesHaveThatYouDont ?? []).length > 0 && (
         <div className="glass-card p-5">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-9 h-9 bg-purple-500/15 border border-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Star className="w-4 h-4 text-purple-400" />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-white">What Hired Candidates Have That You Don&apos;t</h3>
-              <p className="text-slate-500 text-[11px] mt-0.5">Specific gaps vs. people who got the offer</p>
-            </div>
-          </div>
-          <div className="space-y-2">
-            {(data.whatHiredCandidatesHaveThatYouDont ?? []).map((item, i) => (
-              <div key={i} className="flex items-start gap-2.5 p-3 bg-purple-500/[0.05] border border-purple-500/15 rounded-xl">
-                <ArrowRight className="w-3.5 h-3.5 text-purple-400 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-slate-300">{item}</p>
-              </div>
-            ))}
-          </div>
+          <div className="flex items-center gap-3 mb-4"><div className="w-9 h-9 bg-purple-500/15 border border-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0"><Star className="w-4 h-4 text-purple-400" /></div><div><h3 className="text-sm font-semibold text-white">What Hired Candidates Have That You Don&apos;t</h3><p className="text-slate-500 text-[11px] mt-0.5">Specific gaps vs. people who got the offer</p></div></div>
+          <div className="space-y-2">{(data.whatHiredCandidatesHaveThatYouDont ?? []).map((item, i) => <div key={i} className="flex items-start gap-2.5 p-3 bg-purple-500/[0.05] border border-purple-500/15 rounded-xl"><ArrowRight className="w-3.5 h-3.5 text-purple-400 flex-shrink-0 mt-0.5" /><p className="text-sm text-slate-300">{item}</p></div>)}</div>
         </div>
       )}
 
       {/* 3 things to fix */}
       {(data.threeThingsToFixNow ?? []).length > 0 && (
         <div className="glass-card p-5">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-9 h-9 bg-amber-500/15 border border-amber-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Zap className="w-4 h-4 text-amber-400" />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-white">3 Things to Fix Right Now</h3>
-              <p className="text-slate-500 text-[11px] mt-0.5">Highest-leverage improvements, in order of priority</p>
-            </div>
-          </div>
-          <div className="space-y-3">
-            {(data.threeThingsToFixNow ?? []).map((fix, i) => (
-              <div key={i} className="bg-slate-800/40 border border-white/[0.06] rounded-xl p-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-6 h-6 bg-gradient-to-br from-amber-500 to-orange-500 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5">{i + 1}</div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-white mb-1">{fix.action}</p>
-                    <p className="text-xs text-slate-400 mb-2.5 leading-relaxed">{fix.whyItMatters}</p>
-                    <span className="text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">{fix.estimatedScoreGain}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <div className="flex items-center gap-3 mb-4"><div className="w-9 h-9 bg-amber-500/15 border border-amber-500/20 rounded-lg flex items-center justify-center flex-shrink-0"><Zap className="w-4 h-4 text-amber-400" /></div><div><h3 className="text-sm font-semibold text-white">3 Things to Fix Right Now</h3><p className="text-slate-500 text-[11px] mt-0.5">Highest-leverage improvements, in order of priority</p></div></div>
+          <div className="space-y-3">{(data.threeThingsToFixNow ?? []).map((fix, i) => (
+            <div key={i} className="bg-slate-800/40 border border-white/[0.06] rounded-xl p-4"><div className="flex items-start gap-3"><div className="w-6 h-6 bg-gradient-to-br from-amber-500 to-orange-500 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5">{i + 1}</div><div className="flex-1 min-w-0"><p className="text-sm font-semibold text-white mb-1">{fix.action}</p><p className="text-xs text-slate-400 mb-2.5 leading-relaxed">{fix.whyItMatters}</p><span className="text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">{fix.estimatedScoreGain}</span></div></div></div>
+          ))}</div>
         </div>
       )}
 
       {/* Bottom line */}
       {data.ifThisResumeAppliedToday && (
         <div className={`glass-card p-5 border ${chanceStyle.bg}`}>
-          <div className="flex items-start gap-3">
-            <Target className={`w-5 h-5 flex-shrink-0 mt-0.5 ${chanceStyle.color}`} />
-            <div>
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Bottom Line</p>
-              <p className="text-sm text-white font-medium leading-relaxed">{data.ifThisResumeAppliedToday}</p>
-            </div>
-          </div>
+          <div className="flex items-start gap-3"><Target className={`w-5 h-5 flex-shrink-0 mt-0.5 ${chanceStyle.color}`} /><div><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Bottom Line</p><p className="text-sm text-white font-medium leading-relaxed">{data.ifThisResumeAppliedToday}</p></div></div>
         </div>
       )}
     </div>

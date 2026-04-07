@@ -1,251 +1,142 @@
 // app/api/resume/interview-intel/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
 import { auth, db } from '@/firebase/admin';
+import { redis } from '@/lib/redis/redis-client';
+import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage } from '@/lib/ai/claude';
+import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
+import { applyRateLimit } from '@/lib/ai/rate-limit';
+import { calibrateSalary } from '@/lib/ai/outcome-tracking';
+import { crossValidateIntel } from '@/lib/ai/cross-validate';
 
-export const runtime     = 'nodejs';
+export const runtime = 'nodejs';
 export const maxDuration = 60;
 
-const CLAUDE_MODEL = 'claude-sonnet-4-6';
+const MAX_TOKENS = 3500;
 
-const anthropic = process.env.CLAUDE_API_KEY
-  ? new Anthropic({ apiKey: process.env.CLAUDE_API_KEY })
-  : null;
+const INTEL_SYSTEM = `You are a factual career intelligence analyst. Provide ONLY verified, real data about interview processes.
 
-// ─── Auth ─────────────────────────────────────────────────────────────────────
+RULES:
+1. Only include verifiable information (Glassdoor, Blind, Reddit, LeetCode, Levels.fyi).
+2. If you CANNOT verify, set to null. Do NOT fabricate.
+3. null is ALWAYS better than fake data.
+4. Keep string values SHORT (under 150 chars). No newlines inside strings.
+5. For Reddit reviews, construct a search URL: https://www.reddit.com/r/{subreddit}/search/?q={company}+{topic}&restrict_sr=1&sort=relevance
 
-async function verifyToken(request: NextRequest): Promise<string | null> {
-  try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) return null;
-    const decoded = await auth.verifyIdToken(authHeader.split('Bearer ')[1]);
-    return decoded.uid;
-  } catch {
-    return null;
-  }
+CRITICAL: Return ONLY JSON. No markdown. Start with { end with }.`;
+
+async function verifyToken(req: NextRequest): Promise<string | null> {
+  try { const h = req.headers.get('authorization'); if (!h?.startsWith('Bearer ')) return null; return (await auth.verifyIdToken(h.split('Bearer ')[1])).uid; } catch { return null; }
 }
-
-// ─── Robust JSON extractor ────────────────────────────────────────────────────
-
-function extractJSON(raw: string): Record<string, unknown> {
-  const text = raw.replace(/^```(?:json)?\s*\n?/gim, '').replace(/\n?\s*```\s*$/gim, '').trim();
-
-  const startIdx = text.indexOf('{');
-  if (startIdx === -1) throw new Error('No JSON object found in response');
-
-  let depth = 0, endIdx = -1, inString = false, escaped = false;
-  for (let i = startIdx; i < text.length; i++) {
-    const ch = text[i];
-    if (escaped)     { escaped = false; continue; }
-    if (ch === '\\') { escaped = true;  continue; }
-    if (ch === '"')  { inString = !inString; continue; }
-    if (inString)    continue;
-    if (ch === '{')  depth++;
-    if (ch === '}')  { depth--; if (depth === 0) { endIdx = i; break; } }
-  }
-
-  const jsonStr = endIdx === -1
-    ? (() => {
-        let s = text.substring(startIdx);
-        if (inString) s += '"';
-        while (depth-- > 0) s += '}';
-        return s;
-      })()
-    : text.substring(startIdx, endIdx + 1);
-
-  const cleaned = jsonStr
-    .replace(/,\s*([}\]])/g, '$1')
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
-
-  return JSON.parse(cleaned) as Record<string, unknown>;
-}
-
-// ─── POST ─────────────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
   try {
     const userId = await verifyToken(request);
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!anthropic) return NextResponse.json({ error: 'AI not configured' }, { status: 500 });
 
-    if (!anthropic) {
-      return NextResponse.json({ error: 'AI service not configured — add CLAUDE_API_KEY' }, { status: 500 });
-    }
+    const rateLimited = await applyRateLimit(request, userId, 'heavy');
+    if (rateLimited) return rateLimited;
 
-    const body = await request.json() as {
-      resumeId:        string;
-      companyName?:    string;
-      jobTitle?:       string;
-      jobDescription?: string;
-      force?:          boolean;
-    };
-
+    const body = await request.json() as { resumeId: string; companyName?: string; jobTitle?: string; jobDescription?: string; force?: boolean };
     const { resumeId, force = false } = body;
-    const bodyCompany = body.companyName;
-    const bodyTitle   = body.jobTitle;
-    const bodyJd      = body.jobDescription;
+    if (!resumeId) return NextResponse.json({ error: 'Resume ID required' }, { status: 400 });
 
-    if (!resumeId) return NextResponse.json({ error: 'Resume ID is required' }, { status: 400 });
+    const doc = await db.collection('resumes').doc(resumeId).get();
+    if (!doc.exists) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    const data = doc.data() as Record<string, unknown>;
+    if (data.userId !== userId) return NextResponse.json({ error: 'Access denied' }, { status: 403 });
 
-    const resumeDoc = await db.collection('resumes').doc(resumeId).get();
-    if (!resumeDoc.exists) return NextResponse.json({ error: 'Resume not found' }, { status: 404 });
+    const company = body.companyName || (data.companyName as string) || '';
+    const role = body.jobTitle || (data.jobTitle as string) || '';
+    const jd = body.jobDescription || (data.jobDescription as string) || '';
+    const feedback = data.feedback as Record<string, unknown> | undefined;
+    const resumeText = (data.resumeText as string) || (feedback?.resumeText as string) || (data.extractedText as string) || '';
 
-    const resumeData = resumeDoc.data() as Record<string, unknown>;
-    if (resumeData.userId !== userId) return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    if (!company && !role) return NextResponse.json({ error: 'Company or job title required' }, { status: 400 });
 
-    // ── Cache check ───────────────────────────────────────────────
-    const cached   = resumeData.interviewIntel            as Record<string, unknown> | undefined;
-    const cachedAt = resumeData.interviewIntelGeneratedAt as string | undefined;
-    if (!force && cached && cachedAt && Date.now() - new Date(cachedAt).getTime() < 7 * 24 * 60 * 60 * 1000) {
-      console.log('✅ Returning cached intel:', resumeId);
-      return NextResponse.json({ success: true, intel: cached, cached: true });
+    const usageCheck = await checkUsage(userId, 'resumes');
+    if (!usageCheck.allowed) {
+      return NextResponse.json({ error: usageCheck.message, code: 'USAGE_LIMIT', used: usageCheck.used, limit: usageCheck.limit }, { status: 403 });
     }
 
-    // ── Resolve context ───────────────────────────────────────────
-    const company    = bodyCompany || (resumeData.companyName    as string) || '';
-    const role       = bodyTitle   || (resumeData.jobTitle       as string) || '';
-    const jd         = bodyJd      || (resumeData.jobDescription as string) || '';
-    const feedback   = resumeData.feedback as Record<string, unknown> | undefined;
-    const resumeText = (resumeData.resumeText as string)
-      || (feedback?.resumeText as string)
-      || (resumeData.extractedText as string)
-      || '';
+    const cached = data.interviewIntel as Record<string, unknown> | undefined;
+    const cachedAt = data.interviewIntelGeneratedAt as string | undefined;
+    if (!force && cached && cachedAt && Date.now() - new Date(cachedAt).getTime() < 7 * 24 * 60 * 60 * 1000) return NextResponse.json({ success: true, intel: cached, cached: true });
 
-    if (!company && !role) {
-      return NextResponse.json({ error: 'Company name or job title is required' }, { status: 400 });
+    const intelCacheKey = `intel:${company.toLowerCase().trim()}:${role.toLowerCase().trim()}`;
+    if (!force && redis) {
+      try {
+        const sharedIntel = await redis.get(intelCacheKey);
+        if (sharedIntel) {
+          const parsed = typeof sharedIntel === 'string' ? JSON.parse(sharedIntel) : sharedIntel;
+          return NextResponse.json({ success: true, intel: parsed, cached: true });
+        }
+      } catch {}
     }
 
-    // ── Prompt ────────────────────────────────────────────────────
-    const prompt = `You are a factual career intelligence analyst. Provide ONLY verified, real data about interview processes at companies.
+    const prompt = `Company: ${company || 'Not specified'}\nRole: ${role || 'Software Engineer'}
+${jd ? `JD:\n${jd.substring(0, 1500)}` : ''}
+${resumeText ? `Resume:\n${resumeText.substring(0, 1000)}` : ''}
 
-CRITICAL RULES:
-1. Only include information verifiable from real sources (Glassdoor, Blind, Reddit, LeetCode Discuss, Levels.fyi, LinkedIn, company career pages).
-2. If you CANNOT verify a data point, set it to null. Do NOT guess or fabricate.
-3. null is ALWAYS better than fake data.
-4. Keep all string values SHORT (under 150 characters). No newlines inside strings.
-
-Company: ${company || 'Not specified'}
-Role: ${role || 'Software Engineer'}
-${jd         ? `Job Description:\n${jd.substring(0, 1500)}`         : ''}
-${resumeText ? `Candidate Resume:\n${resumeText.substring(0, 1000)}` : ''}
-
-Respond with ONLY a JSON object. No markdown, no backticks. Raw JSON starting with { and ending with }.
-
+Return JSON:
 {
-  "companyOverview": {
-    "name": "string",
-    "hiringStatus": "actively hiring | slow hiring | hiring freeze | null",
-    "interviewDifficulty": "easy | medium | hard | very hard | null",
-    "avgTimeToHire": "string like '2-3 weeks' or null",
-    "acceptanceRate": "string like '< 1%' or null",
-    "glassdoorRating": "number or null",
-    "interviewExperience": "positive | mixed | negative | null",
-    "culture": "short culture summary string or null",
-    "sources": ["source1", "source2"]
-  },
-  "interviewProcess": {
-    "rounds": [
-      { "round": "round name", "format": "format description", "duration": "duration string", "focus": "focus description" }
-    ],
-    "totalDuration": "string or null",
-    "onsite": true or false or null,
-    "remote": true or false or null,
-    "notes": "string or null"
-  },
-  "topQuestions": [
-    { "question": "string", "category": "behavioral | technical | system design | culture fit", "frequency": "very common | common | occasionally", "tips": "string or null" }
-  ],
-  "salaryIntel": {
-    "base": "range string or null",
-    "total": "range string or null",
-    "equity": "string or null",
-    "bonus": "string or null",
-    "source": "string or null"
-  },
-  "insiderTips": ["tip1", "tip2"],
-  "candidateFitAnalysis": ${resumeText ? '{ "fitScore": "number 0-100", "strengths": ["string"], "gaps": ["string"], "prepPriorities": [{ "area": "string", "reason": "string", "timeNeeded": "string", "resources": ["string"] }], "estimatedPrepTime": "string" }' : 'null'},
-  "redFlags": ["string or null if none"],
-  "competitorComparison": [
-    { "company": "string", "compDifference": "string or null", "interviewDifficulty": "string or null", "note": "string" }
-  ],
-  "dataConfidence": "high or medium or low",
-  "dataNote": "short note about data availability"
+  "companyOverview": { "name": "${company}", "hiringStatus": "...|null", "interviewDifficulty": "...|null", "avgTimeToHire": "...|null", "acceptanceRate": "...|null", "glassdoorRating": null, "interviewExperience": "...|null", "culture": "...|null", "sources": [] },
+  "jobOpenings": { "targetRoleAvailable": "bool|null", "lastSeenPosted": "...|null", "hiringTeams": []|null, "otherOpenRoles": [{ "title": "...", "department": "...|null", "level": "...|null", "relevance": "high|medium|low" }]|null, "hiringCycleTrend": "...|null", "source": "...|null" },
+  "redditReviews": [{ "summary": "under 120 chars", "sentiment": "positive|negative|mixed", "topic": "interviews|culture|compensation|work-life balance|management|growth", "subreddit": "r/cscareerquestions", "upvoteContext": "...|null", "threadUrl": "https://www.reddit.com/r/{subreddit}/search/?q={company}+{topic}&restrict_sr=1&sort=relevance" }],
+  "interviewProcess": { "totalRounds": "...|null", "rounds": [{ "name": "...", "type": "recruiter_screen|technical_phone|coding|system_design|behavioral|hiring_manager|team_match|bar_raiser|take_home", "duration": "...|null", "description": "...", "passRate": "...|null", "tips": ["..."] }], "overallPassRate": "...|null", "pipelineConversion": "...|null" },
+  "topQuestions": [{ "question": "...", "type": "...", "frequency": "Very Common|Common|Occasional|null", "difficulty": "Easy|Medium|Hard|null", "tip": "...|null", "source": "...|null" }],
+  "salaryIntel": { "baseSalary": { "min": 0, "median": 0, "max": 0 }|null, "totalComp": { "min": 0, "median": 0, "max": 0 }|null, "equity": "...|null", "signingBonus": "...|null", "negotiationRoom": "...|null", "source": "..." },
+  "insiderTips": [{ "tip": "...", "source": "...", "importance": "critical|high|medium" }],
+  "candidateFitAnalysis": ${resumeText ? '{ "fitScore": <0-100>, "strengths": ["..."], "gaps": ["..."], "prepPriorities": [{ "area": "...", "reason": "...", "timeNeeded": "...", "resources": ["..."] }], "estimatedPrepTime": "..." }' : 'null'},
+  "redFlags": [],
+  "competitorComparison": [{ "company": "...", "compDifference": "...|null", "interviewDifficulty": "...|null", "note": "..." }],
+  "dataConfidence": "high|medium|low",
+  "dataNote": "..."
 }`;
 
-    // ── Call Claude ───────────────────────────────────────────────
-    console.log('🤖 Claude interview intel:', resumeId, '|', company, role);
+    const response = await anthropic.messages.create({ model: CLAUDE_MODEL, max_tokens: MAX_TOKENS, system: cachedSystem(INTEL_SYSTEM), messages: [{ role: 'user', content: prompt }] });
+    logUsage('interview-intel', response);
 
-    const response = await anthropic.messages.create({
-      model:      CLAUDE_MODEL,
-      max_tokens: 4096,
-      messages:   [{ role: 'user', content: prompt }],
-    });
-
-    const responseText = response.content
-      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-      .map(b => b.text)
-      .join('');
-
-    console.log('   Response length:', responseText.length);
-
-    const intel = extractJSON(responseText);
+    const intel = JSON.parse(extractJsonString(extractText(response))) as Record<string, unknown>;
 
     // ── Post-process ──────────────────────────────────────────────
-    if (!intel.companyOverview) {
-      intel.companyOverview = {
-        name: company || 'Unknown', hiringStatus: null, interviewDifficulty: null,
-        avgTimeToHire: null, acceptanceRate: null, glassdoorRating: null,
-        interviewExperience: null, culture: null, sources: [],
-      };
-    }
-
-    const emptyToNull = (key: string) => {
-      if (Array.isArray(intel[key]) && (intel[key] as unknown[]).length === 0) intel[key] = null;
-    };
-    ['topQuestions', 'insiderTips', 'redFlags', 'competitorComparison', 'redditReviews'].forEach(emptyToNull);
-
+    if (!intel.companyOverview) intel.companyOverview = { name: company || 'Unknown', hiringStatus: null, interviewDifficulty: null, avgTimeToHire: null, acceptanceRate: null, glassdoorRating: null, interviewExperience: null, culture: null, sources: [] };
+    ['topQuestions', 'insiderTips', 'redFlags', 'competitorComparison'].forEach(k => { if (Array.isArray(intel[k]) && !(intel[k] as unknown[]).length) intel[k] = null; });
     const ip = intel.interviewProcess as Record<string, unknown> | undefined;
-    if (ip?.rounds && (ip.rounds as unknown[]).length === 0) ip.rounds = null;
+    if (ip?.rounds && !(ip.rounds as unknown[]).length) ip.rounds = null;
+    if (!resumeText) { const fit = intel.candidateFitAnalysis as Record<string, unknown> | null | undefined; if (fit) { fit.fitScore = null; fit.strengths = null; fit.gaps = null; } }
+    if (!intel.dataConfidence) intel.dataConfidence = (intel.topQuestions && intel.salaryIntel && ip?.rounds) ? 'medium' : 'low';
+    if (!intel.dataNote) intel.dataNote = intel.dataConfidence === 'low' ? 'Limited public data.' : 'Data from public sources.';
 
-    const jo = intel.jobOpenings as Record<string, unknown> | null | undefined;
-    if (jo) {
-      if (Array.isArray(jo.otherOpenRoles) && (jo.otherOpenRoles as unknown[]).length === 0) jo.otherOpenRoles = null;
-      if (Array.isArray(jo.hiringTeams)    && (jo.hiringTeams    as unknown[]).length === 0) jo.hiringTeams    = null;
-      if (!jo.targetRoleAvailable && !jo.otherOpenRoles && !jo.hiringCycleTrend) intel.jobOpenings = null;
+    // ── Reddit thread URL fallback ────────────────────────────────
+    const reviews = intel.redditReviews as Array<Record<string, unknown>> | null;
+    if (reviews && Array.isArray(reviews)) {
+      for (const review of reviews) {
+        if (!review.threadUrl || typeof review.threadUrl !== 'string') {
+          const sub = ((review.subreddit as string) || 'cscareerquestions').replace(/^r\//, '');
+          const q = encodeURIComponent(`${company} ${(review.topic as string) || 'interview'}`);
+          review.threadUrl = `https://www.reddit.com/r/${sub}/search/?q=${q}&restrict_sr=1&sort=relevance`;
+        }
+      }
     }
 
-    if (!resumeText) {
-      const fit = intel.candidateFitAnalysis as Record<string, unknown> | null | undefined;
-      if (fit) { fit.fitScore = null; fit.strengths = null; fit.gaps = null; }
+    // ── Calibrate salary ──────────────────────────────────────────
+    const si = intel.salaryIntel as Record<string, unknown> | null;
+    if (si?.baseSalary) {
+      const salaryCheck = calibrateSalary(si.baseSalary as { min: number; median: number; max: number }, role);
+      intel._salaryCalibration = { plausible: salaryCheck.plausible, note: salaryCheck.note, crossReference: salaryCheck.crossReference };
     }
 
-    if (!intel.dataConfidence) {
-      intel.dataConfidence = (intel.topQuestions && intel.salaryIntel && ip?.rounds) ? 'medium' : 'low';
-    }
-    if (!intel.dataNote) {
-      intel.dataNote = intel.dataConfidence === 'low'
-        ? 'Limited public data available for this company.'
-        : 'Data compiled from available public sources.';
-    }
+    // ── Cross-validate ────────────────────────────────────────────
+    const crossVal = await crossValidateIntel(intel, company, role);
+    if (crossVal) intel._crossValidation = crossVal;
 
-    console.log('✅ Interview intel complete:', resumeId, '| Confidence:', intel.dataConfidence);
+    // ── Increment usage ───────────────────────────────────────────
+    await checkAndIncrementUsage(userId, 'resumes');
 
-    // ── Cache ─────────────────────────────────────────────────────
-    try {
-      await db.collection('resumes').doc(resumeId).update({
-        interviewIntel:            intel,
-        interviewIntelGeneratedAt: new Date().toISOString(),
-        interviewIntelCompany:     company,
-        interviewIntelRole:        role,
-      });
-    } catch (e) { console.warn('⚠️ Cache write failed:', e); }
+    if (redis && company) try { await redis.setex(intelCacheKey, 7 * 24 * 60 * 60, JSON.stringify(intel)); } catch {}
+    try { await db.collection('resumes').doc(resumeId).update({ interviewIntel: intel, interviewIntelGeneratedAt: new Date().toISOString(), interviewIntelCompany: company, interviewIntelRole: role }); } catch {}
 
     return NextResponse.json({ success: true, intel });
-
-  } catch (error) {
-    console.error('❌ Interview intel error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to generate interview intelligence' },
-      { status: 500 },
-    );
-  }
+  } catch (error) { console.error('❌ Intel error:', error); return NextResponse.json({ error: error instanceof Error ? error.message : 'Failed' }, { status: 500 }); }
 }

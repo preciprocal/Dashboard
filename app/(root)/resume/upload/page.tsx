@@ -13,11 +13,9 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { NotificationService } from '@/lib/services/notification-services';
-import UsersFeedback from '@/components/UserFeedback';
 import { useUsageTracking } from '@/lib/hooks/useUsageTracking';
 import Link from 'next/link';
 import { SeeExampleButton } from '@/components/ServiceModal';
-
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -96,7 +94,7 @@ function fireNotification(...args: Parameters<typeof NotificationService.createN
   );
 }
 
-// ─── Upgrade Gate (minimal, resume-specific) ──────────────────────────────────
+// ─── Upgrade Gate ─────────────────────────────────────────────────────────────
 
 function UpgradeGate({ used, limit }: { used: number; limit: number }) {
   const [activeStat, setActiveStat] = useState(0);
@@ -116,16 +114,11 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
 
   return (
     <div className="space-y-3 animate-fade-in-up">
-
-      {/* ── Main card ── */}
       <div className="relative overflow-hidden rounded-2xl border border-white/[0.08]
                       bg-gradient-to-br from-[#0d1526] via-[#111c35] to-[#0d1526]">
         <div className="absolute -top-24 -right-24 w-56 h-56 rounded-full
                         bg-indigo-500/[0.06] blur-3xl pointer-events-none" />
-
         <div className="relative p-6">
-
-          {/* Badge */}
           <div className="inline-flex items-center gap-1.5 bg-amber-500/[0.08] border border-amber-500/20
                           rounded-full px-3 py-1 mb-4">
             <Sparkles className="w-3 h-3 text-amber-400" />
@@ -133,15 +126,12 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
               {used}/{limit} analyses used
             </span>
           </div>
-
           <h2 className="text-2xl sm:text-3xl font-bold text-white leading-snug mb-2">
             Don&apos;t apply blind. Know your score first.
           </h2>
           <p className="text-sm text-slate-500 mb-6 max-w-md">
             You&apos;ve already tested {used} resume{used !== 1 ? 's' : ''} — every fix you make before hitting &ldquo;Apply&rdquo; is one less reason to get filtered out.
           </p>
-
-          {/* Rotating stat */}
           <div className="flex items-center gap-4 bg-white/[0.03] border border-white/[0.06]
                           rounded-xl px-5 py-4 mb-6 min-h-[64px]">
             <span className="text-3xl font-black text-indigo-400 flex-shrink-0 w-16 text-center">
@@ -151,8 +141,6 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
               {STATS[activeStat].line}
             </span>
           </div>
-
-          {/* CTA */}
           <div className="flex items-center gap-3">
             <Link
               href="/pricing"
@@ -173,8 +161,6 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
           </div>
         </div>
       </div>
-
-      {/* ── Stat strip ── */}
       <div className="grid grid-cols-3 gap-2.5">
         {[
           { num: '180+', label: 'applicants per role'       },
@@ -197,7 +183,6 @@ export default function UploadResume() {
   const [user, loading] = useAuthState(auth);
   const router = useRouter();
 
-  // ── Subscription / usage ──────────────────────────────────────────────────
   const { canUseFeature, getRemainingCount, getUsedCount, getLimit, incrementUsage, usageData } = useUsageTracking();
   const isUnlimitedPlan = usageData?.plan === 'pro' || usageData?.plan === 'premium';
   const resumesUsed     = getUsedCount('resumes');
@@ -209,7 +194,6 @@ export default function UploadResume() {
   const [file,             setFile]             = useState<File | null>(null);
   const [error,            setError]            = useState('');
   const [currentFactIndex, setCurrentFactIndex] = useState(0);
-  const [showFeedback,     setShowFeedback]     = useState(false);
   const [formData,         setFormData]         = useState<FormData>({
     companyName: '', jobTitle: '', jobDescription: '',
   });
@@ -267,15 +251,18 @@ export default function UploadResume() {
 
       setCurrentStep(1);
       const kind = getFileKind(file);
-      let analysisFile = file;
-      let pdfFile      = file;
+      let pdfFile = file;
       if (kind === 'word') {
-        pdfFile      = await convertWordToPdf(file, token);
-        analysisFile = pdfFile;
+        pdfFile = await convertWordToPdf(file, token);
       }
 
+      // Always send the ORIGINAL file for analysis (not the converted PDF).
+      // For Word docs, Claude gets the converted PDF but the route also needs
+      // the original to extract text via mammoth. However, since the route
+      // now extracts text from PDF via Claude, sending the PDF is fine.
+      // The key is that the route WILL extract text either way.
       const apiForm = new window.FormData();
-      apiForm.append('file',           analysisFile);
+      apiForm.append('file',           pdfFile);
       apiForm.append('jobTitle',       formData.jobTitle);
       apiForm.append('jobDescription', formData.jobDescription);
       apiForm.append('companyName',    formData.companyName);
@@ -288,22 +275,25 @@ export default function UploadResume() {
         const e = await res.json().catch(() => ({ error: 'Unknown error' }));
         if (res.status === 401) { await auth.currentUser?.getIdToken(true).catch(() => null); throw new Error('Session expired. Please try again.'); }
         if (res.status === 429) throw new Error('Too many requests. Please wait a moment and try again.');
+        if (res.status === 403 && e.code === 'USAGE_LIMIT') throw new Error(e.error || 'Usage limit reached. Upgrade for more.');
         if (res.status === 503) throw new Error('AI service is temporarily unavailable. Please try again shortly.');
         if (res.status === 422) throw new Error(e.error || 'Could not process your document. Try saving as PDF and re-uploading.');
         throw new Error(e.error || `Analysis failed (${res.status})`);
       }
 
-      const { feedback } = await res.json();
+      const { feedback, extractedText, cacheHash } = await res.json();
       if (!feedback || typeof feedback.overallScore !== 'number') throw new Error('Invalid response from AI service');
 
       setCurrentStep(2);
 
-      const resumeToSave: Omit<Resume, 'imagePath' | 'resumePath'> = {
+      const resumeToSave: Omit<Resume, 'imagePath' | 'resumePath'> & { resumeText?: string; cacheHash?: string } = {
         id: resumeId, userId: user.uid, fileName: file.name, originalFileName: file.name,
         fileSize: pdfFile.size, companyName: formData.companyName.trim(),
         jobTitle: formData.jobTitle.trim(), jobDescription: formData.jobDescription.trim(),
         status: 'complete', score: feedback.overallScore, feedback: feedback as ResumeFeedback,
         createdAt: new Date(), updatedAt: new Date(), analyzedAt: new Date(),
+        ...(extractedText ? { resumeText: extractedText } : {}),
+        ...(cacheHash ? { cacheHash } : {}),
       };
 
       await FirebaseService.saveResumeWithFiles(resumeToSave, pdfFile);
@@ -322,9 +312,10 @@ export default function UploadResume() {
         { actionUrl: `/resume/${resumeId}`, actionLabel: 'View Analysis' },
       );
 
+      // ── Step 3: Done — redirect to results page ────────────────
+      // ServiceFeedback is handled on the /resume/[id] page,
+      // so we just redirect immediately.
       setCurrentStep(3);
-      setShowFeedback(true);
-
       await new Promise(r => setTimeout(r, 800));
       router.push(`/resume/${resumeId}`);
       setTimeout(() => {
@@ -538,12 +529,6 @@ export default function UploadResume() {
           </>
         )}
       </div>
-
-      <UsersFeedback
-        page="resume"
-        forceOpen={showFeedback}
-        onClose={() => setShowFeedback(false)}
-      />
     </>
   );
 }

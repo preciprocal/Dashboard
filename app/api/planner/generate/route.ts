@@ -2,13 +2,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { auth, db } from '@/firebase/admin';
-import Anthropic from '@anthropic-ai/sdk';
-
-const CLAUDE_MODEL = 'claude-sonnet-4-6';
-
-const anthropic = process.env.CLAUDE_API_KEY
-  ? new Anthropic({ apiKey: process.env.CLAUDE_API_KEY })
-  : null;
+import { anthropic, CLAUDE_MODEL, extractText, extractJsonString } from '@/lib/ai/claude';
+import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
+import { applyRateLimit } from '@/lib/ai/rate-limit';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -67,22 +63,11 @@ interface GeneratedPlan {
   dailyPlans: DailyPlan[];
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function extractText(response: Anthropic.Message): string {
-  return response.content
-    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-    .map(b => b.text)
-    .join('');
-}
-
-function extractJsonString(raw: string): string {
-  let cleaned = raw.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
-  if (!cleaned.startsWith('{') && !cleaned.startsWith('[')) {
-    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-    if (jsonMatch) cleaned = jsonMatch[0];
-  }
-  return cleaned;
+// ─── Dynamic max_tokens based on plan length ──────────────────────────────────
+// Each day = ~400-550 tokens (focus + topics + 3 resources + behavioral + 3-5 tasks + tips)
+// Formula: base 200 + (days × 500) capped at 8000
+function getMaxTokens(days: number): number {
+  return Math.min(8000, 200 + days * 500);
 }
 
 // ─── System prompt ────────────────────────────────────────────────────────────
@@ -185,6 +170,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
     }
 
+    // ── Rate limit ────────────────────────────────────────────────
+    const rateLimited = await applyRateLimit(request, userId, 'heavy');
+    if (rateLimited) return rateLimited;
+
+    // ── Usage gate ────────────────────────────────────────────────
+    const usageCheck = await checkUsage(userId, 'studyPlans');
+    if (!usageCheck.allowed) {
+      return NextResponse.json(
+        { error: usageCheck.message, code: 'USAGE_LIMIT', used: usageCheck.used, limit: usageCheck.limit },
+        { status: 403 },
+      );
+    }
+
     // ── Parse body ────────────────────────────────────────────────
     const body = await request.json() as GeneratePlanRequest;
     const { role, company, interviewDate, daysUntilInterview, skillLevel, focusAreas, existingSkills, weakAreas } = body;
@@ -210,13 +208,14 @@ ${weakAreas?.length ? `Areas Needing Improvement: ${weakAreas.join(', ')}` : ''}
 
 Create a detailed, day-by-day plan with specific resources, practice problems, and behavioral questions for each day.`;
 
-    // ── Call Claude ───────────────────────────────────────────────
-    console.log('   Calling Claude AI...');
+    // ── Call Claude with dynamic max_tokens ───────────────────────
+    const tokenBudget = getMaxTokens(daysUntilInterview);
+    console.log(`   Calling Claude AI... (max_tokens: ${tokenBudget} for ${daysUntilInterview} days)`);
 
     const response = await anthropic.messages.create({
       model:      CLAUDE_MODEL,
-      max_tokens: 8192,
-      system:     SYSTEM_PROMPT,
+      max_tokens: tokenBudget,
+      system:     [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
       messages:   [{ role: 'user', content: userPrompt }],
     });
 
@@ -305,6 +304,9 @@ Create a detailed, day-by-day plan with specific resources, practice problems, a
 
     console.log('   Saving plan to Firestore...');
     await db.collection('interviewPlans').doc(planId).set(completePlan);
+
+    // ── Increment usage ───────────────────────────────────────────
+    await checkAndIncrementUsage(userId, 'studyPlans');
 
     console.log('✅ Plan generated and saved successfully');
     console.log('   Plan ID:', planId);

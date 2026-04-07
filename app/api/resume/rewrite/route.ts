@@ -1,263 +1,116 @@
 // app/api/resume/rewrite/route.ts
-// Claude Sonnet 4.6 handles both PDF reading and rewriting.
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { auth } from '@/firebase/admin';
+import { cookies } from 'next/headers';
+import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage } from '@/lib/ai/claude';
+import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
+import { applyRateLimit } from '@/lib/ai/rate-limit';
 
-const CLAUDE_MODEL = 'claude-sonnet-4-6';
+// Output: 3 suggestions × (rewritten text + improvements + keywords + atsOptimizations)
+// Typical output: ~1800-2800 tokens depending on section length.
+// File-based rewrite (full resume) can be larger.
+const MAX_TOKENS_TEXT = 2500;
+const MAX_TOKENS_FILE = 3500;
 
-const anthropic = process.env.CLAUDE_API_KEY
-  ? new Anthropic({ apiKey: process.env.CLAUDE_API_KEY })
-  : null;
+const REWRITE_SYSTEM = `You are an elite resume writer with 15+ years crafting resumes for Fortune 500 candidates. Create multiple distinct rewrite suggestions, progressively more optimised. Return ONLY valid JSON. No markdown. Start with { end with }.`;
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface RewriteContext {
-  jobTitle?:        string;
-  companyName?:     string;
-  jobDescription?:  string;
-  missingKeywords?: string[];
-  missingSkills?:   string[];
-}
-
-interface Suggestion {
-  id:                string;
-  original?:         string;
-  rewritten:         string;
-  improvements:      string[];
-  tone:              string;
-  score:             number;
-  keywordsAdded?:    string[];
-  atsOptimizations?: string[];
-  confidenceScore:   number;
-  optimizationMode:  string;
-}
-
-interface RewriteResponse {
-  suggestions: Suggestion[];
-}
-
-// ─── Entry point ─────────────────────────────────────────────────────────────
+interface RewriteContext { jobTitle?: string; companyName?: string; jobDescription?: string; missingKeywords?: string[]; missingSkills?: string[]; }
+interface Suggestion { id: string; original?: string; rewritten: string; improvements: string[]; tone: string; score: number; keywordsAdded?: string[]; atsOptimizations?: string[]; confidenceScore: number; optimizationMode: string; }
+interface RewriteResponse { suggestions: Suggestion[]; }
 
 export async function POST(request: NextRequest) {
   try {
-    const contentType = request.headers.get('content-type') ?? '';
-    if (contentType.includes('multipart/form-data')) return await handleFileRewrite(request);
-    return await handleTextRewrite(request);
-  } catch (error) {
-    console.error('❌ Rewrite error:', error);
-    const err = error as Error;
-    return NextResponse.json(
-      { error: err.message || 'Failed to generate suggestions', errorType: err.constructor.name },
-      { status: 500 },
-    );
-  }
+    // ── Auth ──────────────────────────────────────────────────────
+    let userId: string | null = null;
+    const session = (await cookies()).get('session');
+    if (session) try { userId = (await auth.verifySessionCookie(session.value, true)).uid; } catch {}
+    if (!userId) {
+      const h = request.headers.get('authorization');
+      if (h?.startsWith('Bearer ')) try { userId = (await auth.verifyIdToken(h.slice(7))).uid; } catch {}
+    }
+
+    // ── Rate limit ────────────────────────────────────────────────
+    const rateLimited = await applyRateLimit(request, userId ?? null, 'medium');
+    if (rateLimited) return rateLimited;
+
+    // ── Usage gate ────────────────────────────────────────────────
+    if (userId) {
+      const usageCheck = await checkUsage(userId, 'resumes');
+      if (!usageCheck.allowed) {
+        return NextResponse.json(
+          { error: usageCheck.message, code: 'USAGE_LIMIT', used: usageCheck.used, limit: usageCheck.limit },
+          { status: 403 },
+        );
+      }
+    }
+
+    const ct = request.headers.get('content-type') ?? '';
+    if (ct.includes('multipart/form-data')) return await handleFileRewrite(request, userId);
+    return await handleTextRewrite(request, userId);
+  } catch (error) { console.error('❌ Rewrite error:', error); return NextResponse.json({ error: (error as Error).message || 'Failed' }, { status: 500 }); }
 }
 
-// ─── File-based rewrite ───────────────────────────────────────────────────────
-// Claude reads the PDF/image directly via its native document/image support
+async function handleFileRewrite(request: NextRequest, userId: string | null) {
+  const fd = await request.formData();
+  const file = fd.get('file') as File | null;
+  const section = (fd.get('section') as string) ?? 'full resume';
+  const tone = (fd.get('tone') as string) ?? 'professional';
+  const context = fd.get('context') as string | null;
+  const jobTitle = (fd.get('jobTitle') as string) ?? '';
+  const company = (fd.get('companyName') as string) ?? '';
+  const jobDesc = (fd.get('jobDescription') as string) ?? '';
+  const keywords = (fd.get('missingKeywords') as string) ?? '';
+  const skills = (fd.get('missingSkills') as string) ?? '';
 
-async function handleFileRewrite(request: NextRequest) {
-  const formData = await request.formData();
-  const file     = formData.get('file')             as File   | null;
-  const section  = (formData.get('section')         as string) ?? 'full resume';
-  const tone     = (formData.get('tone')            as string) ?? 'professional';
-  const context  = formData.get('context')          as string | null;
-  const jobTitle = (formData.get('jobTitle')        as string) ?? '';
-  const company  = (formData.get('companyName')     as string) ?? '';
-  const jobDesc  = (formData.get('jobDescription')  as string) ?? '';
-  const keywords = (formData.get('missingKeywords') as string) ?? '';
-  const skills   = (formData.get('missingSkills')   as string) ?? '';
-
-  console.log('✏️  File-based rewrite:', { section, tone, hasFile: !!file, hasJobDesc: !!jobDesc });
-
-  if (!file)      return NextResponse.json({ error: 'No resume file provided' },                          { status: 400 });
-  if (!anthropic) return NextResponse.json({ error: 'AI service not configured — add CLAUDE_API_KEY' },   { status: 503 });
+  if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+  if (!anthropic) return NextResponse.json({ error: 'AI not configured' }, { status: 503 });
 
   const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
   const isImg = file.type.startsWith('image/');
-  if (!isPdf && !isImg) return NextResponse.json({ error: 'File must be a PDF or image' }, { status: 400 });
+  if (!isPdf && !isImg) return NextResponse.json({ error: 'File must be PDF or image' }, { status: 400 });
 
-  const arrayBuffer = await file.arrayBuffer();
-  const base64Data  = Buffer.from(arrayBuffer).toString('base64');
-
-  const rewriteContext: RewriteContext = {
-    jobTitle:        jobTitle  || undefined,
-    companyName:     company   || undefined,
-    jobDescription:  jobDesc   || undefined,
-    missingKeywords: keywords  ? keywords.split(',').map(k => k.trim()).filter(Boolean) : undefined,
-    missingSkills:   skills    ? skills.split(',').map(s => s.trim()).filter(Boolean)   : undefined,
-  };
-
-  // Build Claude content blocks for the file
+  const base64 = Buffer.from(await file.arrayBuffer()).toString('base64');
   const fileBlock: Anthropic.ImageBlockParam | Anthropic.DocumentBlockParam = isPdf
-    ? {
-        type: 'document' as const,
-        source: {
-          type: 'base64' as const,
-          media_type: 'application/pdf' as const,
-          data: base64Data,
-        },
-      }
-    : {
-        type: 'image' as const,
-        source: {
-          type: 'base64' as const,
-          media_type: (file.type || 'image/png') as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
-          data: base64Data,
-        },
-      };
+    ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } }
+    : { type: 'image', source: { type: 'base64', media_type: (file.type || 'image/png') as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp', data: base64 } };
 
-  return await generateSuggestions({
-    section,
-    originalText: '(See attached resume — full content to be rewritten)',
-    tone:         tone as 'professional' | 'creative' | 'technical' | 'executive',
-    context:      context || rewriteContext,
-    fileBlock,
-  });
+  const rewriteCtx: RewriteContext = { jobTitle: jobTitle || undefined, companyName: company || undefined, jobDescription: jobDesc || undefined, missingKeywords: keywords ? keywords.split(',').map(k => k.trim()).filter(Boolean) : undefined, missingSkills: skills ? skills.split(',').map(s => s.trim()).filter(Boolean) : undefined };
+
+  return await generateSuggestions({ section, originalText: '(See attached resume)', tone: tone as 'professional' | 'creative' | 'technical' | 'executive', context: context || rewriteCtx, fileBlock, userId, maxTokens: MAX_TOKENS_FILE });
 }
 
-// ─── Legacy JSON-based rewrite ───────────────────────────────────────────────
-
-async function handleTextRewrite(request: NextRequest) {
-  const body = await request.json() as {
-    resumeId?:    string;
-    userId?:      string;
-    section:      string;
-    originalText: string;
-    tone:         'professional' | 'creative' | 'technical' | 'executive';
-    context?:     string | RewriteContext;
-  };
-
-  const { section, originalText, tone, context } = body;
-  console.log('✏️  Text-based rewrite:', { section, tone });
-
-  if (!originalText || !section) {
-    return NextResponse.json({ error: 'Missing required fields: originalText and section' }, { status: 400 });
-  }
-  if (!anthropic) {
-    return NextResponse.json({ error: 'AI service not configured — add CLAUDE_API_KEY' }, { status: 503 });
-  }
-
-  return await generateSuggestions({ section, originalText, tone, context });
+async function handleTextRewrite(request: NextRequest, userId: string | null) {
+  const { section, originalText, tone, context } = await request.json() as { section: string; originalText: string; tone: 'professional' | 'creative' | 'technical' | 'executive'; context?: string | RewriteContext };
+  if (!originalText || !section) return NextResponse.json({ error: 'Missing originalText and section' }, { status: 400 });
+  if (!anthropic) return NextResponse.json({ error: 'AI not configured' }, { status: 503 });
+  return await generateSuggestions({ section, originalText, tone, context, userId, maxTokens: MAX_TOKENS_TEXT });
 }
 
-// ─── Core rewrite logic ───────────────────────────────────────────────────────
-
-async function generateSuggestions({
-  section,
-  originalText,
-  tone,
-  context,
-  fileBlock,
-}: {
-  section:       string;
-  originalText:  string;
-  tone:          'professional' | 'creative' | 'technical' | 'executive';
-  context?:      string | RewriteContext;
-  fileBlock?:    Anthropic.ImageBlockParam | Anthropic.DocumentBlockParam;
+async function generateSuggestions({ section, originalText, tone, context, fileBlock, userId, maxTokens }: {
+  section: string; originalText: string; tone: string; context?: string | RewriteContext; fileBlock?: Anthropic.ImageBlockParam | Anthropic.DocumentBlockParam; userId: string | null; maxTokens: number;
 }): Promise<NextResponse> {
-  const isCustomPrompt = typeof context === 'string' && context.trim().length > 0;
-  const jobContext     = !isCustomPrompt && typeof context === 'object' ? context as RewriteContext : null;
+  const isCustom = typeof context === 'string' && context.trim().length > 0;
+  const jobCtx = !isCustom && typeof context === 'object' ? context as RewriteContext : null;
 
-  let optimizationMode = 'general';
-  let contextInstructions = '';
+  let mode = 'general', ctxInstr = '';
+  if (isCustom) { mode = 'custom-prompt'; ctxInstr = `USER INSTRUCTIONS:\n"${context}"\nFollow exactly.`; }
+  else if (jobCtx?.jobDescription) { mode = 'job-description'; ctxInstr = `TARGET: ${jobCtx.jobTitle || 'Not specified'}${jobCtx.companyName ? ` at ${jobCtx.companyName}` : ''}\nJD:\n${jobCtx.jobDescription}\n${jobCtx.missingKeywords?.length ? `MISSING KEYWORDS: ${jobCtx.missingKeywords.slice(0, 12).join(', ')}` : ''}\n${jobCtx.missingSkills?.length ? `MISSING SKILLS: ${jobCtx.missingSkills.slice(0, 8).join(', ')}` : ''}`; }
+  else if (jobCtx?.jobTitle) { mode = 'ai-knowledge'; ctxInstr = `TARGET: ${jobCtx.jobTitle}${jobCtx.companyName ? ` at ${jobCtx.companyName}` : ''}`; }
 
-  if (isCustomPrompt) {
-    optimizationMode    = 'custom-prompt';
-    contextInstructions = `USER'S CUSTOM INSTRUCTIONS:\n"${context}"\n\nFollow these instructions exactly.`;
-  } else if (jobContext?.jobDescription) {
-    optimizationMode    = 'job-description';
-    contextInstructions = `TARGET JOB:
-Position: ${jobContext.jobTitle || 'Not specified'}
-${jobContext.companyName ? `Company: ${jobContext.companyName}` : ''}
-
-FULL JOB DESCRIPTION:
-${jobContext.jobDescription}
-
-${jobContext.missingKeywords?.length ? `CRITICAL MISSING KEYWORDS (incorporate naturally):\n${jobContext.missingKeywords.slice(0, 12).join(', ')}` : ''}
-${jobContext.missingSkills?.length   ? `MISSING SKILLS (incorporate where authentic):\n${jobContext.missingSkills.slice(0, 8).join(', ')}` : ''}`;
-  } else if (jobContext?.jobTitle) {
-    optimizationMode    = 'ai-knowledge';
-    contextInstructions = `TARGET ROLE: ${jobContext.jobTitle}${jobContext.companyName ? ` at ${jobContext.companyName}` : ''}\nOptimise using best-practice knowledge for this role.`;
-  }
-
-  const prompt = `You are an elite resume writer. Rewrite the "${section}" section of this resume.
-Tone: ${tone} | Mode: ${optimizationMode}
-
-${contextInstructions}
-
-${originalText !== '(See attached resume — full content to be rewritten)' ? `ORIGINAL TEXT:\n${originalText}` : ''}
-
-Generate 3 distinct rewrite suggestions, each progressively more optimised.
-
-Return ONLY valid JSON:
-{
-  "suggestions": [
-    {
-      "id": "1",
-      "original": "original bullet or section text",
-      "rewritten": "improved version",
-      "improvements": ["improvement 1", "improvement 2", "improvement 3"],
-      "tone": "${tone}",
-      "score": <75-95>,
-      "keywordsAdded": ["keyword1", "keyword2"],
-      "atsOptimizations": ["optimization1"],
-      "confidenceScore": <0.7-0.99>,
-      "optimizationMode": "${optimizationMode}"
-    }
-  ]
-}`;
+  const prompt = `Rewrite "${section}". Tone: ${tone} | Mode: ${mode}\n${ctxInstr}\n${originalText !== '(See attached resume)' ? `ORIGINAL:\n${originalText}` : ''}\n\n3 suggestions, progressively optimised.\nJSON: { "suggestions": [{ "id": "1", "original": "...", "rewritten": "...", "improvements": ["..."], "tone": "${tone}", "score": <75-95>, "keywordsAdded": ["..."], "atsOptimizations": ["..."], "confidenceScore": <0.7-0.99>, "optimizationMode": "${mode}" }] }`;
 
   try {
-    // Build message content — with or without file
-    const contentBlocks: Anthropic.MessageCreateParams['messages'][0]['content'] = fileBlock
-      ? [fileBlock, { type: 'text' as const, text: prompt }]
-      : prompt;
+    const content: Anthropic.MessageCreateParams['messages'][0]['content'] = fileBlock ? [fileBlock, { type: 'text', text: prompt }] : prompt;
+    const response = await anthropic!.messages.create({ model: CLAUDE_MODEL, max_tokens: maxTokens, system: cachedSystem(REWRITE_SYSTEM), messages: [{ role: 'user', content: content }] });
+    logUsage('resume-rewrite', response);
+    const data = JSON.parse(extractJsonString(extractText(response))) as RewriteResponse;
 
-    const response = await anthropic!.messages.create({
-      model:      CLAUDE_MODEL,
-      max_tokens: 4000,
-      messages:   [{ role: 'user', content: contentBlocks }],
-    });
+    // ── Increment usage ───────────────────────────────────────────
+    if (userId) await checkAndIncrementUsage(userId, 'resumes');
 
-    const raw = response.content
-      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-      .map(b => b.text)
-      .join('');
-
-    const cleaned = raw.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
-    let jsonStr = cleaned;
-    if (!jsonStr.startsWith('{')) {
-      const match = jsonStr.match(/\{[\s\S]*\}/);
-      if (!match) throw new Error('No JSON in response');
-      jsonStr = match[0];
-    }
-
-    const data = JSON.parse(jsonStr) as RewriteResponse;
-
-    return NextResponse.json({
-      ...data,
-      optimizationMode,
-      meta: { model: CLAUDE_MODEL, mode: optimizationMode },
-    });
+    return NextResponse.json({ ...data, optimizationMode: mode, meta: { model: CLAUDE_MODEL, mode } });
   } catch (err) {
-    console.error('❌ Rewrite failed:', err);
-    // Fallback mock
-    return NextResponse.json({
-      suggestions: [{
-        id: '1',
-        original:         originalText.substring(0, 100),
-        rewritten:        `[AI rewrite unavailable — ${err instanceof Error ? err.message : 'unknown error'}]`,
-        improvements:     ['Service temporarily unavailable'],
-        tone,
-        score:            70,
-        keywordsAdded:    [],
-        atsOptimizations: [],
-        confidenceScore:  0.5,
-        optimizationMode,
-      }],
-      optimizationMode,
-      meta: { model: 'fallback' },
-    });
+    return NextResponse.json({ suggestions: [{ id: '1', original: originalText.substring(0, 100), rewritten: `[Unavailable — ${(err as Error).message}]`, improvements: ['Service temporarily unavailable'], tone, score: 70, keywordsAdded: [], atsOptimizations: [], confidenceScore: 0.5, optimizationMode: mode }], optimizationMode: mode, meta: { model: 'fallback' } });
   }
 }

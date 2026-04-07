@@ -7,6 +7,7 @@ import {
   TrendingUp, AlertTriangle, CheckCircle2, ChevronDown, Star, Target,
   Zap, Users, BarChart3, Lightbulb, RefreshCw, BookOpen, Trophy,
   Info, HelpCircle, ThumbsUp, ThumbsDown, Minus, CalendarDays, Layers,
+  ExternalLink,
 } from 'lucide-react';
 
 interface InterviewRound {
@@ -31,6 +32,7 @@ interface JobOpenings {
 interface RedditReview {
   summary: string; sentiment: 'positive' | 'negative' | 'mixed';
   topic: string; subreddit: string; upvoteContext: string | null;
+  threadUrl: string | null;
 }
 interface InterviewIntel {
   companyOverview: {
@@ -192,10 +194,7 @@ export default function InterviewIntelligence({
 
       const res = await fetch('/api/resume/interview-intel', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
           resumeId,
           companyName: overrideCompany || customCompany || companyName,
@@ -644,7 +643,7 @@ export default function InterviewIntelligence({
         </div>
       ) : <NotAvailable message="Salary data not available" />)}
 
-      {/* REVIEWS */}
+      {/* REVIEWS — updated with thread links */}
       {activeTab === 'reviews' && (rr && rr.length > 0 ? (
         <div className="space-y-4">
           <div className="glass-card p-5">
@@ -684,7 +683,21 @@ export default function InterviewIntelligence({
                           <span className="text-[10px] px-2 py-0.5 rounded-md bg-indigo-500/10 border border-indigo-500/15 text-indigo-400 font-medium">{getTopicLabel(review.topic)}</span>
                           <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-700/60 text-slate-500">{review.subreddit}</span>
                           {review.upvoteContext && <span className="text-[10px] text-slate-600 capitalize">{review.upvoteContext}</span>}
-                          <span className={`text-[10px] px-2 py-0.5 rounded-md font-medium capitalize ml-auto ${style.bg} ${style.text}`}>{review.sentiment}</span>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-md font-medium capitalize ${style.bg} ${style.text}`}>{review.sentiment}</span>
+                          {review.threadUrl && (
+                            <a
+                              href={review.threadUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="ml-auto flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md
+                                         bg-orange-500/10 border border-orange-500/20 text-orange-400
+                                         hover:bg-orange-500/20 transition-colors font-medium"
+                              onClick={e => e.stopPropagation()}
+                            >
+                              <ExternalLink className="w-2.5 h-2.5" />
+                              View thread
+                            </a>
+                          )}
                         </div>
                       </div>
                     </div>

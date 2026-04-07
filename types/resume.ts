@@ -118,6 +118,7 @@ export interface InterviewIntelRedditReview {
   topic: string;
   subreddit: string;
   upvoteContext: string | null;
+  threadUrl?: string | null;
 }
 
 /**

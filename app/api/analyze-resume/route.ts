@@ -6,116 +6,47 @@ import crypto from 'crypto';
 import { auth } from '@/firebase/admin';
 import { redis } from '@/lib/redis/redis-client';
 import {
-  getCachedResumeAnalysis,
-  cacheResumeAnalysis,
-  getCachedResumeFixes,
-  cacheResumeFixes,
-  type ResumeFeedback,
-  type ResumeFix,
+  getCachedResumeAnalysis, cacheResumeAnalysis,
+  getCachedResumeFixes, cacheResumeFixes,
+  type ResumeFeedback, type ResumeFix,
 } from '@/lib/redis/resume-cache';
+import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, cleanResumeText } from '@/lib/ai/claude';
+import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 
 export const runtime    = 'nodejs';
 export const maxDuration = 60;
 
-// ─────────────────────────────────────────────────────────────────
-// Constants
-// ─────────────────────────────────────────────────────────────────
-
 const MAX_FILE_SIZE      = 10 * 1024 * 1024;
-const MAX_RESUME_CHARS   = 15_000;
+const MAX_RESUME_CHARS   = 12_000;
 const MAX_JOB_DESC_CHARS = 3_000;
 const RATE_LIMIT_WINDOW  = 60;
 const RATE_LIMIT_MAX     = 10;
-const CLAUDE_MODEL       = 'claude-sonnet-4-6';
 
-// ─────────────────────────────────────────────────────────────────
-// Anthropic client
-// ─────────────────────────────────────────────────────────────────
+// ─── Auth ─────────────────────────────────────────────────────────────────────
 
-const anthropic = process.env.CLAUDE_API_KEY
-  ? new Anthropic({ apiKey: process.env.CLAUDE_API_KEY })
-  : null;
-
-// ─────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────
-
-function extractTextFromResponse(response: Anthropic.Message): string {
-  return response.content
-    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-    .map(b => b.text)
-    .join('');
-}
-
-/** Robust JSON extraction — handles preamble, trailing text, markdown fences */
-function extractJsonString(raw: string): string {
-  let cleaned = raw.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
-  if (!cleaned.startsWith('{') && !cleaned.startsWith('[')) {
-    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-    if (jsonMatch) cleaned = jsonMatch[0];
-  }
-  return cleaned;
-}
-
-// ─────────────────────────────────────────────────────────────────
-// Auth helper
-// ─────────────────────────────────────────────────────────────────
-
-async function verifyToken(request: NextRequest): Promise<string | null> {
+async function verifyToken(req: NextRequest): Promise<string | null> {
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) return null;
-    const decoded = await auth.verifyIdToken(authHeader.split('Bearer ')[1]);
-    return decoded.uid;
-  } catch {
-    return null;
-  }
+    const h = req.headers.get('authorization');
+    if (!h?.startsWith('Bearer ')) return null;
+    return (await auth.verifyIdToken(h.split('Bearer ')[1])).uid;
+  } catch { return null; }
 }
-
-// ─────────────────────────────────────────────────────────────────
-// Rate limiter
-// ─────────────────────────────────────────────────────────────────
 
 async function checkRateLimit(userId: string): Promise<boolean> {
   if (!redis) return true;
   try {
-    const key   = `ratelimit:analyze-resume:${userId}`;
+    const key = `ratelimit:analyze-resume:${userId}`;
     const count = await redis.incr(key);
     if (count === 1) await redis.expire(key, RATE_LIMIT_WINDOW);
     return count <= RATE_LIMIT_MAX;
-  } catch {
-    console.warn('⚠️ Rate limit check failed — allowing request');
-    return true;
-  }
+  } catch { return true; }
 }
-
-// ─────────────────────────────────────────────────────────────────
-// Secure content hash
-// ─────────────────────────────────────────────────────────────────
 
 function secureHash(...parts: string[]): string {
   return crypto.createHash('sha256').update(parts.join('|')).digest('hex');
 }
 
-// ─────────────────────────────────────────────────────────────────
-// Text extractors
-// ─────────────────────────────────────────────────────────────────
-
-async function extractTextFromPdf(buffer: Buffer): Promise<string> {
-  const pdfParse = (await import('pdf-parse')).default;
-  const data = await pdfParse(buffer);
-  return data.text ?? '';
-}
-
-async function extractTextFromWord(buffer: Buffer): Promise<string> {
-  const mammoth = await import('mammoth');
-  const { value } = await mammoth.extractRawText({ buffer });
-  return value ?? '';
-}
-
-// ─────────────────────────────────────────────────────────────────
-// File type detection
-// ─────────────────────────────────────────────────────────────────
+// ─── File detection ───────────────────────────────────────────────────────────
 
 type FileKind = 'pdf' | 'word' | 'image' | 'unknown';
 
@@ -123,602 +54,370 @@ function detectFileKind(buffer: Buffer, fileName: string): FileKind {
   const name = fileName.toLowerCase();
   const hex4 = buffer.slice(0, 4).toString('hex');
   const asc4 = buffer.slice(0, 4).toString('ascii');
-
   if (asc4.startsWith('%PDF')) return 'pdf';
   if (hex4 === '504b0304' || hex4.startsWith('d0cf11e0')) return 'word';
-  if (name.endsWith('.pdf'))                        return 'pdf';
+  if (name.endsWith('.pdf')) return 'pdf';
   if (name.endsWith('.docx') || name.endsWith('.doc')) return 'word';
-
   const bin4 = buffer.slice(0, 4).toString('binary');
-  if (
-    bin4.startsWith('\xFF\xD8\xFF') ||
-    bin4.startsWith('\x89PNG')       ||
-    bin4.startsWith('GIF8')
-  ) return 'image';
-
+  if (bin4.startsWith('\xFF\xD8\xFF') || bin4.startsWith('\x89PNG') || bin4.startsWith('GIF8')) return 'image';
   return 'unknown';
 }
 
 function detectImageMime(buffer: Buffer): 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' {
-  const bin4 = buffer.slice(0, 4).toString('binary');
-  if (bin4.startsWith('\xFF\xD8\xFF')) return 'image/jpeg';
-  if (bin4.startsWith('\x89PNG'))      return 'image/png';
-  if (bin4.startsWith('GIF8'))         return 'image/gif';
+  const b = buffer.slice(0, 4).toString('binary');
+  if (b.startsWith('\xFF\xD8\xFF')) return 'image/jpeg';
+  if (b.startsWith('\x89PNG')) return 'image/png';
+  if (b.startsWith('GIF8')) return 'image/gif';
   return 'image/webp';
 }
 
-// ─────────────────────────────────────────────────────────────────
-// Zod schemas
-// ─────────────────────────────────────────────────────────────────
+// ─── Word → text (only for .docx — Claude can't read Word natively) ──────────
 
-const tipSchema = z.object({
-  type:        z.enum(['good', 'improve']),
-  tip:         z.string(),
-  explanation: z.string().optional(),
-  solution:    z.string().optional(),
-});
+async function extractTextFromWord(buffer: Buffer): Promise<string> {
+  const mammoth = await import('mammoth');
+  return (await mammoth.extractRawText({ buffer })).value ?? '';
+}
 
-const sectionSchema = z.object({
-  score: z.number().min(0).max(100),
-  tips:  z.array(tipSchema).min(4).max(6),
-});
+// ─── Zod schemas ──────────────────────────────────────────────────────────────
 
+const tipSchema = z.object({ type: z.enum(['good', 'improve']), tip: z.string(), explanation: z.string().optional(), solution: z.string().optional() });
+const sectionSchema = z.object({ score: z.number().min(0).max(100), tips: z.array(tipSchema).min(4).max(6) });
 const resumeFeedbackSchema = z.object({
-  overallScore: z.number().min(0).max(100),
-  ATS:          sectionSchema,
-  toneAndStyle: sectionSchema,
-  content:      sectionSchema,
-  structure:    sectionSchema,
-  skills:       sectionSchema,
+  overallScore: z.number().min(0).max(100), ATS: sectionSchema, toneAndStyle: sectionSchema,
+  content: sectionSchema, structure: sectionSchema, skills: sectionSchema,
 });
-
 const resumeFixSchema = z.object({
   fixes: z.array(z.object({
-    id:           z.string(),
-    category:     z.string(),
-    issue:        z.string(),
-    originalText: z.string(),
-    improvedText: z.string(),
-    explanation:  z.string(),
-    priority:     z.enum(['high', 'medium', 'low']),
-    impact:       z.string(),
-    location:     z.string().optional(),
+    id: z.string(), category: z.string(), issue: z.string(), originalText: z.string(),
+    improvedText: z.string(), explanation: z.string(), priority: z.enum(['high', 'medium', 'low']),
+    impact: z.string(), location: z.string().optional(),
   })),
 });
-
 const generateFixesBodySchema = z.object({
-  action:        z.literal('generateFixes'),
-  resumeContent: z.string().min(100).max(MAX_RESUME_CHARS),
-  jobDescription: z.string().max(MAX_JOB_DESC_CHARS).optional(),
-  feedback:      resumeFeedbackSchema.optional(),
+  action: z.literal('generateFixes'), resumeContent: z.string().min(100).max(15_000),
+  jobDescription: z.string().max(MAX_JOB_DESC_CHARS).optional(), feedback: resumeFeedbackSchema.optional(),
 });
-
 const regenerateFixBodySchema = z.object({
-  action:        z.literal('regenerateFix'),
-  fixId:         z.string().min(1).max(64),
-  resumeContent: z.string().min(100).max(MAX_RESUME_CHARS),
+  action: z.literal('regenerateFix'), fixId: z.string().min(1).max(64), resumeContent: z.string().min(100).max(15_000),
 });
-
 const extensionJobBodySchema = z.object({
-  action:  z.literal('analyzeForJob'),
+  action: z.literal('analyzeForJob'),
   jobData: z.object({
-    title:       z.string().max(200),
-    company:     z.string().max(200),
-    description: z.string().max(MAX_JOB_DESC_CHARS),
-    location:    z.string().max(200).optional(),
-    salary:      z.string().max(100).optional(),
-    jobType:     z.string().max(100).optional(),
-    url:         z.string().url().optional(),
-    platform:    z.string().max(100).optional(),
+    title: z.string().max(200), company: z.string().max(200), description: z.string().max(MAX_JOB_DESC_CHARS),
+    location: z.string().max(200).optional(), salary: z.string().max(100).optional(),
+    jobType: z.string().max(100).optional(), url: z.string().url().optional(), platform: z.string().max(100).optional(),
   }),
 });
+const requestBodySchema = z.discriminatedUnion('action', [generateFixesBodySchema, regenerateFixBodySchema, extensionJobBodySchema]);
 
-const requestBodySchema = z.discriminatedUnion('action', [
-  generateFixesBodySchema,
-  regenerateFixBodySchema,
-  extensionJobBodySchema,
-]);
+// ─── Score weights ────────────────────────────────────────────────────────────
 
-// ─────────────────────────────────────────────────────────────────
-// Score weights
-// ─────────────────────────────────────────────────────────────────
+const SCORE_WEIGHTS = { content: 0.30, ATS: 0.25, skills: 0.20, structure: 0.15, toneAndStyle: 0.10 } as const;
 
-const SCORE_WEIGHTS = {
-  content:      0.30,
-  ATS:          0.25,
-  skills:       0.20,
-  structure:    0.15,
-  toneAndStyle: 0.10,
-} as const;
+// ─── System prompts ───────────────────────────────────────────────────────────
 
-// ─────────────────────────────────────────────────────────────────
-// GET — health check
-// ─────────────────────────────────────────────────────────────────
+const ANALYSIS_SYSTEM = `You are a brutally honest senior recruiter who has reviewed 50,000+ resumes at Google, Amazon, and top VC-backed startups. Your job is NOT to make the candidate feel good — it is to tell them exactly what is wrong so they can actually get hired.
+
+RULES:
+1. Do NOT sugarcoat. If something is bad, say it's bad and say exactly WHY.
+2. Reference SPECIFIC content from the resume in every tip. Never give generic advice.
+3. "Improve" tips must include a concrete "solution" — a copy-pasteable rewrite.
+4. Scores calibrated against real hired candidates: 90-100 top 5%, 70-89 above average, 50-69 mediocre (most resumes), 30-49 weak, 0-29 reject.
+5. Do NOT pad scores. An honest 55 is more valuable than a dishonest 80.
+6. Be specific about WHICH line, bullet, or section you are referencing.
+
+IMPORTANT: The resume has been provided as an attached file. Read the ENTIRE document thoroughly before scoring.
+
+CRITICAL: Return ONLY a valid JSON object. No markdown fences, no preamble. Start with { and end with }.
+
+{
+  "overallScore": <0-100>,
+  "ATS": { "score": <0-100>, "tips": [{ "type": "good"|"improve", "tip": "<specific>", "explanation": "<why>", "solution": "<for improve only>" }] },
+  "toneAndStyle": { "score": <0-100>, "tips": [...] },
+  "content": { "score": <0-100>, "tips": [...] },
+  "structure": { "score": <0-100>, "tips": [...] },
+  "skills": { "score": <0-100>, "tips": [...] }
+}
+
+Each section: 4–6 tips, mix of good/improve. At least 2 improve tips per section must have a "solution".`;
+
+const FIX_SYSTEM = `You are an expert resume editor. Give specific, copy-pasteable improvements — not encouragement.
+
+RULES:
+- Every fix must quote the EXACT original text from the resume.
+- "improvedText" must be a full rewrite, not a description of what to do.
+- Priority: "high" only if fixing it would meaningfully change hiring decisions.
+
+CRITICAL: Return ONLY valid JSON. No markdown, no preamble. Start with { end with }.
+{ "fixes": [{ "id": "fix-1", "category": "...", "issue": "...", "originalText": "...", "improvedText": "...", "explanation": "...", "priority": "high"|"medium"|"low", "impact": "...", "location": "..." }] }
+
+Provide 10–15 fixes. Prioritise high-impact content and ATS fixes first.`;
+
+const JOB_ANALYSIS_SYSTEM = `You are a career coach. Analyse job postings and identify what a candidate must emphasise to be competitive. Be specific, no generic advice.
+
+CRITICAL: Return ONLY valid JSON. No markdown, no preamble. Start with { end with }.
+{ "atsScore": <0-100>, "keywordMatch": <0-100>, "suggestions": ["..."], "missingSkills": ["..."], "topKeywords": ["..."], "strengthenSections": ["..."] }`;
+
+// ─── GET ──────────────────────────────────────────────────────────────────────
 
 export async function GET() {
   const isDev = process.env.NODE_ENV === 'development';
   return NextResponse.json({
-    message: 'AI Resume Analysis API',
-    status:  'ok',
-    ...(isDev && {
-      model:    CLAUDE_MODEL,
-      formats:  ['pdf', 'docx', 'doc'],
-      ai:       anthropic ? 'configured' : 'missing CLAUDE_API_KEY',
-      caching:  redis     ? 'enabled'    : 'disabled',
-    }),
+    message: 'AI Resume Analysis API', status: 'ok',
+    ...(isDev && { model: CLAUDE_MODEL, ai: anthropic ? 'configured' : 'missing CLAUDE_API_KEY', caching: redis ? 'enabled' : 'disabled' }),
   });
 }
 
-// ─────────────────────────────────────────────────────────────────
-// POST — entry point
-// ─────────────────────────────────────────────────────────────────
+// ─── POST ─────────────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
   console.log('🚀 AI resume processing started');
-
   const userId = await verifyToken(request);
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const allowed = await checkRateLimit(userId);
-  if (!allowed) {
-    return NextResponse.json(
-      { error: 'Too many requests. Please wait a moment before trying again.' },
-      { status: 429 },
-    );
-  }
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!(await checkRateLimit(userId))) return NextResponse.json({ error: 'Too many requests. Please wait.' }, { status: 429 });
 
   try {
-    const contentType = request.headers.get('content-type') ?? '';
-
-    if (contentType.includes('multipart/form-data')) {
-      return await handleResumeAnalysis(request, userId);
-    }
+    const ct = request.headers.get('content-type') ?? '';
+    if (ct.includes('multipart/form-data')) return await handleResumeAnalysis(request, userId);
 
     const rawBody = await request.json().catch(() => null);
-    if (!rawBody) {
-      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
-    }
+    if (!rawBody) return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
 
     const parsed = requestBodySchema.safeParse(rawBody);
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'Invalid request body', details: parsed.error.flatten() },
-        { status: 400 },
-      );
-    }
+    if (!parsed.success) return NextResponse.json({ error: 'Invalid request body', details: parsed.error.flatten() }, { status: 400 });
 
     const data = parsed.data;
     if (data.action === 'generateFixes') return await handleGenerateResumeFixes(data, userId);
     if (data.action === 'regenerateFix') return await handleRegenerateSpecificFix(data, userId);
     if (data.action === 'analyzeForJob') return await handleExtensionJobAnalysis(data);
-
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
-
   } catch (error) {
     console.error('❌ API error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error', message: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-// ─────────────────────────────────────────────────────────────────
-// Resume analysis
-// ─────────────────────────────────────────────────────────────────
+// ─── Resume analysis ──────────────────────────────────────────────────────────
 
 async function handleResumeAnalysis(request: NextRequest, userId: string) {
+  // ── Usage gate ────────────────────────────────────────────────
+  const usageCheck = await checkUsage(userId, 'resumes');
+  if (!usageCheck.allowed) {
+    return NextResponse.json(
+      { error: usageCheck.message, code: 'USAGE_LIMIT', used: usageCheck.used, limit: usageCheck.limit },
+      { status: 403 },
+    );
+  }
+
   const formData = await request.formData();
-  const file     = formData.get('file')            as File | null;
-  const jobTitle = (formData.get('jobTitle')       as string | null) ?? '';
-  const jobDesc  = (formData.get('jobDescription') as string | null) ?? '';
+  const file = formData.get('file') as File | null;
+  const jobTitle = (formData.get('jobTitle') as string | null) ?? '';
+  const jobDesc = (formData.get('jobDescription') as string | null) ?? '';
 
   if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 });
-  if (file.size > MAX_FILE_SIZE) {
-    return NextResponse.json({ error: `File too large. Maximum allowed size is ${MAX_FILE_SIZE / 1024 / 1024}MB.` }, { status: 400 });
-  }
+  if (file.size > MAX_FILE_SIZE) return NextResponse.json({ error: `File too large. Max ${MAX_FILE_SIZE / 1024 / 1024}MB.` }, { status: 400 });
 
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer      = Buffer.from(arrayBuffer);
-  const kind        = detectFileKind(buffer, file.name);
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const kind = detectFileKind(buffer, file.name);
+  console.log('📋 Analysis:', { fileName: file.name, fileSize: `${(file.size / 1024).toFixed(1)} KB`, kind });
 
-  console.log('📋 Analysis request:', { fileName: file.name, fileSize: `${(file.size / 1024).toFixed(1)} KB`, kind, jobTitle: jobTitle || 'not specified' });
+  if (kind === 'unknown') return NextResponse.json({ error: 'Unsupported file type.' }, { status: 400 });
+  if (!anthropic) return NextResponse.json({ error: 'AI service not configured' }, { status: 503 });
 
-  if (kind === 'unknown') {
-    return NextResponse.json({ error: 'Unsupported file type. Please upload a PDF or Word document (.docx, .doc).' }, { status: 400 });
-  }
-  if (!anthropic) {
-    return NextResponse.json({ error: 'AI service not configured — add CLAUDE_API_KEY' }, { status: 503 });
-  }
+  const base64 = buffer.toString('base64');
 
-  // ── Extract text ──────────────────────────────────────────────
+  // ── For Word docs, extract text first (Claude can't read .docx natively) ──
   let resumeText = '';
-
-  if (kind === 'pdf') {
-    try {
-      resumeText = await extractTextFromPdf(buffer);
-      console.log(`📄 PDF text extracted: ${resumeText.length} chars`);
-    } catch (err) {
-      console.warn('⚠️ pdf-parse failed, falling back to vision:', err);
-    }
-  } else if (kind === 'word') {
-    try {
-      resumeText = await extractTextFromWord(buffer);
-      console.log(`📝 Word text extracted: ${resumeText.length} chars`);
-    } catch (err) {
-      console.error('❌ mammoth failed to extract Word text:', err);
-      return NextResponse.json({ error: 'Could not read your Word document. Try saving it as a PDF and re-uploading.' }, { status: 422 });
-    }
-    if (!resumeText.trim()) {
-      return NextResponse.json({ error: 'Your Word document appears to be empty or image-only. Try saving as PDF.' }, { status: 422 });
-    }
+  if (kind === 'word') {
+    try { resumeText = await extractTextFromWord(buffer); } catch { return NextResponse.json({ error: 'Could not read Word document.' }, { status: 422 }); }
+    if (!resumeText.trim()) return NextResponse.json({ error: 'Word document appears empty.' }, { status: 422 });
+    resumeText = cleanResumeText(resumeText, MAX_RESUME_CHARS);
   }
 
-  // ── Cache key ─────────────────────────────────────────────────
-  const cacheKey = secureHash(resumeText || buffer.toString('base64'), jobTitle.trim(), jobDesc.slice(0, MAX_JOB_DESC_CHARS).trim(), userId);
-
+  // ── Cache check ─────────────────────────────────────────────────
+  const cacheKey = secureHash(base64.slice(0, 2000), jobTitle.trim(), jobDesc.slice(0, MAX_JOB_DESC_CHARS).trim(), userId);
   const cached = await getCachedResumeAnalysis(cacheKey);
   if (cached) {
     console.log('⚡ Cache HIT');
-    return NextResponse.json({
-      feedback:      cached,
-      extractedText: (cached as ResumeFeedback & { resumeText?: string }).resumeText ?? '',
-      meta:          { cached: true, model: CLAUDE_MODEL, kind },
-    });
+    return NextResponse.json({ feedback: cached, extractedText: (cached as ResumeFeedback & { resumeText?: string }).resumeText ?? '', meta: { cached: true, model: CLAUDE_MODEL, kind } });
   }
 
-  // ── Build Claude message content ──────────────────────────────
-  const promptText = buildAnalysisPrompt(resumeText, jobTitle, jobDesc);
+  // ── Build prompt ────────────────────────────────────────────────
+  const jobContext = [jobTitle ? `TARGET ROLE: ${jobTitle}` : '', jobDesc ? `JOB DESCRIPTION:\n${jobDesc.slice(0, MAX_JOB_DESC_CHARS)}` : ''].filter(Boolean).join('\n');
+  const textPrompt = `${jobContext ? jobContext + '\n\n' : ''}Read the attached resume file thoroughly and analyse it now.`;
 
-  const contentBlocks: Anthropic.MessageCreateParams['messages'][0]['content'] = resumeText
-    ? promptText
-    : kind === 'image'
-      ? [
-          { type: 'image' as const, source: { type: 'base64' as const, media_type: detectImageMime(buffer), data: buffer.toString('base64') } },
-          { type: 'text' as const, text: promptText },
-        ]
-      : promptText;
+  // ── Build message content — always send the raw file to Claude ──
+  let userContent: Anthropic.MessageCreateParams['messages'][0]['content'];
+
+  if (kind === 'pdf') {
+    // Send raw PDF directly — Claude reads PDFs natively
+    console.log('📎 Sending raw PDF to Claude');
+    userContent = [
+      { type: 'document', source: { type: 'base64', media_type: 'application/pdf' as const, data: base64 } },
+      { type: 'text', text: textPrompt },
+    ];
+  } else if (kind === 'image') {
+    // Send image directly
+    console.log('🖼️ Sending image to Claude');
+    userContent = [
+      { type: 'image', source: { type: 'base64', media_type: detectImageMime(buffer), data: base64 } },
+      { type: 'text', text: textPrompt },
+    ];
+  } else {
+    // Word doc — text already extracted above, send as plain text
+    console.log('📝 Sending extracted Word text to Claude');
+    userContent = `${jobContext ? jobContext + '\n\n' : ''}RESUME TEXT:\n<resume>\n${resumeText}\n</resume>\n\nAnalyse this resume now.`;
+  }
 
   try {
-    const response = await anthropic.messages.create({
-      model:      CLAUDE_MODEL,
-      max_tokens: 6000,
-      messages:   [{ role: 'user', content: contentBlocks }],
-    });
+    const response = await anthropic.messages.create({ model: CLAUDE_MODEL, max_tokens: 6000, system: cachedSystem(ANALYSIS_SYSTEM), messages: [{ role: 'user', content: userContent }] });
+    logUsage('analyze-resume', response);
 
-    const raw     = extractTextFromResponse(response);
-    const cleaned = extractJsonString(raw);
+    const rawResponse = extractText(response);
+    const cleaned = extractJsonString(rawResponse);
+    let parsed: z.infer<typeof resumeFeedbackSchema>;
+    try { parsed = resumeFeedbackSchema.parse(JSON.parse(cleaned)); }
+    catch (err) { console.error('❌ Invalid schema:', cleaned.slice(0, 500), err); return NextResponse.json({ error: 'AI returned unexpected format. Try again.', isMock: false }, { status: 422 }); }
 
-    let parsedFeedback: z.infer<typeof resumeFeedbackSchema>;
-    try {
-      parsedFeedback = resumeFeedbackSchema.parse(JSON.parse(cleaned));
-    } catch (err) {
-      console.error('❌ AI returned invalid schema:', cleaned.slice(0, 500), err);
-      return NextResponse.json({ error: 'AI returned an unexpected response format. Please try again.', isMock: false }, { status: 422 });
+    const processed = applyWeightedScore(parsed);
+
+    // ── Extract resume text for downstream routes ─────────────────
+    // Word docs already have text. For PDF/image, ask Claude to extract it.
+    let extractedText = resumeText;
+    if (!extractedText && (kind === 'pdf' || kind === 'image')) {
+      try {
+        console.log('📝 Extracting resume text from file via Claude…');
+        const extractContent: Anthropic.MessageCreateParams['messages'][0]['content'] = kind === 'pdf'
+          ? [
+              { type: 'document', source: { type: 'base64', media_type: 'application/pdf' as const, data: base64 } },
+              { type: 'text', text: 'Extract ALL text from this resume exactly as written. Return ONLY the raw text content, preserving line breaks between sections. No commentary, no markdown formatting, no backticks. Start directly with the resume content.' },
+            ]
+          : [
+              { type: 'image', source: { type: 'base64', media_type: detectImageMime(buffer), data: base64 } },
+              { type: 'text', text: 'Extract ALL text from this resume image exactly as written. Return ONLY the raw text content, preserving line breaks between sections. No commentary, no markdown formatting, no backticks. Start directly with the resume content.' },
+            ];
+
+        const extractResponse = await anthropic.messages.create({
+          model: CLAUDE_MODEL,
+          max_tokens: 4000,
+          messages: [{ role: 'user', content: extractContent }],
+        });
+        logUsage('extract-text', extractResponse);
+        extractedText = extractText(extractResponse).trim();
+        console.log(`📝 Text extraction result: ${extractedText.length} chars | First 100: "${extractedText.slice(0, 100)}"`);
+        if (extractedText.length < 50) {
+          console.warn('⚠️ Text extraction returned very short content, keeping as-is');
+        }
+      } catch (extractErr) {
+        console.error('❌ Text extraction failed:', extractErr);
+        extractedText = '';
+      }
     }
 
-    const processed = applyWeightedScore(parsedFeedback);
-    await cacheResumeAnalysis(cacheKey, processed);
-    console.log(`✅ Analysis complete for user ${userId}. Score: ${processed.overallScore} (${kind})`);
+    // ── Store extractedText inside feedback too (backup for downstream) ────
+    const feedbackWithText = { ...processed, resumeText: extractedText };
 
-    return NextResponse.json({
-      feedback:      processed,
-      extractedText: resumeText,
-      meta: { model: CLAUDE_MODEL, cached: false, isMock: false, kind, hasJobContext: !!(jobTitle || jobDesc), textExtracted: !!resumeText },
-    });
+    // ── Increment usage ───────────────────────────────────────────
+    await checkAndIncrementUsage(userId, 'resumes');
 
+    await cacheResumeAnalysis(cacheKey, feedbackWithText);
+    console.log(`✅ Analysis complete. Score: ${processed.overallScore} | Text: ${extractedText.length} chars | CacheKey: ${cacheKey}`);
+    return NextResponse.json({ feedback: feedbackWithText, extractedText, cacheHash: cacheKey, meta: { model: CLAUDE_MODEL, cached: false, isMock: false, kind, hasJobContext: !!(jobTitle || jobDesc), textLength: extractedText.length } });
   } catch (err) {
-    const error = err as Error & { status?: number };
-    if (error.status === 429) {
-      return NextResponse.json({ error: 'AI service is temporarily busy. Please try again in a few seconds.' }, { status: 429 });
-    }
+    const e = err as Error & { status?: number };
+    if (e.status === 429) return NextResponse.json({ error: 'AI busy. Try again shortly.' }, { status: 429 });
     console.error('❌ Analysis failed:', err);
-    return NextResponse.json({ error: 'Analysis failed. Please try again.' }, { status: 500 });
+    return NextResponse.json({ error: 'Analysis failed. Try again.' }, { status: 500 });
   }
 }
-
-// ─────────────────────────────────────────────────────────────────
-// Analysis prompt
-// ─────────────────────────────────────────────────────────────────
-
-function buildAnalysisPrompt(resumeText: string, jobTitle: string, jobDesc: string): string {
-  const jobContext = [
-    jobTitle ? `TARGET ROLE: ${jobTitle}` : '',
-    jobDesc  ? `JOB DESCRIPTION (first ${MAX_JOB_DESC_CHARS} chars):\n${jobDesc.slice(0, MAX_JOB_DESC_CHARS)}` : '',
-  ].filter(Boolean).join('\n');
-
-  return `You are a brutally honest senior recruiter who has reviewed 50,000+ resumes at Google, Amazon, and top VC-backed startups. Your job is NOT to make the candidate feel good — it is to tell them exactly what is wrong so they can actually get hired.
-
-RULES YOU MUST FOLLOW:
-1. Do NOT sugarcoat. If something is bad, say it's bad and say exactly WHY.
-2. Reference SPECIFIC content from the resume in every tip. Never give generic advice.
-3. "Improve" tips must include a concrete "solution" — a copy-pasteable rewrite, not a vague suggestion.
-4. Scores must be calibrated against real hired candidates, not theoretical perfection:
-   - 90–100: Top 5% of resumes. Genuinely exceptional. Very rare.
-   - 70–89: Above average. Competitive but has clear gaps.
-   - 50–69: Mediocre. Will pass some ATS but get cut by humans. Most resumes are here.
-   - 30–49: Weak. Significant structural or content problems.
-   - 0–29: Would be rejected by any competent recruiter without hesitation.
-5. Do NOT pad scores to be kind. An honest 55 is more valuable than a dishonest 80.
-6. Be specific about WHICH line, bullet, or section you are referencing.
-7. If the resume has no measurable achievements, say so directly and give a concrete rewrite.
-8. If a bullet just describes job duties with no impact, call it out.
-
-${jobContext ? jobContext + '\n\n' : ''}${resumeText ? `RESUME TEXT:\n<resume>\n${resumeText.slice(0, MAX_RESUME_CHARS)}\n</resume>` : ''}
-
-CRITICAL: Return ONLY a valid JSON object. No markdown fences, no preamble text, no explanation before or after the JSON. Start your response with { and end with }.
-
-{
-  "overallScore": <0-100>,
-  "ATS": {
-    "score": <0-100>,
-    "tips": [
-      {
-        "type": "good" | "improve",
-        "tip": "<specific, concrete tip referencing actual resume content>",
-        "explanation": "<WHY this matters, what a recruiter or ATS system actually does with this>",
-        "solution": "<for 'improve' only: exact copy-pasteable rewrite, e.g. 'Change: X  →  Replace with: Y'>"
-      }
-    ]
-  },
-  "toneAndStyle": { "score": <0-100>, "tips": [...] },
-  "content":      { "score": <0-100>, "tips": [...] },
-  "structure":    { "score": <0-100>, "tips": [...] },
-  "skills":       { "score": <0-100>, "tips": [...] }
-}
-
-Each section must have exactly 4–6 tips. Aim for a mix of good and improve. At least 2 of the improve tips per section must have a "solution".`;
-}
-
-// ─────────────────────────────────────────────────────────────────
-// Weighted score calculation
-// ─────────────────────────────────────────────────────────────────
 
 function applyWeightedScore(obj: z.infer<typeof resumeFeedbackSchema>): ResumeFeedback {
-  const processSection = (s: z.infer<typeof sectionSchema>) => ({
-    score: s.score,
-    tips:  s.tips.map(t => ({
-      ...t,
-      explanation: t.explanation ?? `${t.tip} — see detailed explanation.`,
-    })),
-  });
-
-  const processed: ResumeFeedback = {
-    overallScore: obj.overallScore,
-    ATS:          processSection(obj.ATS),
-    toneAndStyle: processSection(obj.toneAndStyle),
-    content:      processSection(obj.content),
-    structure:    processSection(obj.structure),
-    skills:       processSection(obj.skills),
-  };
-
-  processed.overallScore = Math.round(
-    processed.content.score      * SCORE_WEIGHTS.content      +
-    processed.ATS.score          * SCORE_WEIGHTS.ATS          +
-    processed.skills.score       * SCORE_WEIGHTS.skills       +
-    processed.structure.score    * SCORE_WEIGHTS.structure    +
-    processed.toneAndStyle.score * SCORE_WEIGHTS.toneAndStyle,
-  );
-
-  return processed;
+  const proc = (s: z.infer<typeof sectionSchema>) => ({ score: s.score, tips: s.tips.map(t => ({ ...t, explanation: t.explanation ?? `${t.tip} — see details.` })) });
+  const p: ResumeFeedback = { overallScore: obj.overallScore, ATS: proc(obj.ATS), toneAndStyle: proc(obj.toneAndStyle), content: proc(obj.content), structure: proc(obj.structure), skills: proc(obj.skills) };
+  p.overallScore = Math.round(p.content.score * SCORE_WEIGHTS.content + p.ATS.score * SCORE_WEIGHTS.ATS + p.skills.score * SCORE_WEIGHTS.skills + p.structure.score * SCORE_WEIGHTS.structure + p.toneAndStyle.score * SCORE_WEIGHTS.toneAndStyle);
+  return p;
 }
 
-// ─────────────────────────────────────────────────────────────────
-// Fix generation
-// ─────────────────────────────────────────────────────────────────
+// ─── Fix generation ───────────────────────────────────────────────────────────
 
-async function handleGenerateResumeFixes(
-  data: z.infer<typeof generateFixesBodySchema>,
-  userId: string,
-) {
+async function handleGenerateResumeFixes(data: z.infer<typeof generateFixesBodySchema>, userId: string) {
   const { resumeContent, jobDescription, feedback } = data;
-  console.log('🔧 Fix generation for user:', userId);
-
-  const cacheKey    = secureHash(resumeContent, jobDescription ?? '', userId);
+  const cacheKey = secureHash(resumeContent, jobDescription ?? '', userId);
   const cachedFixes = await getCachedResumeFixes(cacheKey);
-  if (cachedFixes) {
-    return NextResponse.json({ fixes: cachedFixes, meta: { cached: true, count: cachedFixes.length } });
-  }
+  if (cachedFixes) return NextResponse.json({ fixes: cachedFixes, meta: { cached: true, count: cachedFixes.length } });
+  if (!anthropic) return NextResponse.json({ error: 'AI not configured' }, { status: 503 });
 
-  if (!anthropic) {
-    return NextResponse.json({ error: 'AI service not configured — add CLAUDE_API_KEY' }, { status: 503 });
-  }
+  const cleaned = cleanResumeText(resumeContent, MAX_RESUME_CHARS);
+  const userPrompt = `<resume>\n${cleaned}\n</resume>
+${jobDescription ? `<job_description>\n${jobDescription.slice(0, MAX_JOB_DESC_CHARS)}\n</job_description>` : ''}
+${feedback ? `Current scores — Overall: ${feedback.overallScore}/100, ATS: ${feedback.ATS?.score}/100, Content: ${feedback.content?.score}/100` : ''}
 
-  const fixPrompt = `You are an expert resume editor. Your job is to give the candidate specific, copy-pasteable improvements — not encouragement.
-
-RULES:
-- Every fix must quote the EXACT original text from the resume.
-- "improvedText" must be a full rewrite, not a description of what to do.
-- Be direct. If a bullet is weak, show exactly how to strengthen it with numbers and impact.
-- Priority must be accurate: "high" only if fixing it would meaningfully change hiring decisions.
-
-<resume>
-${resumeContent.slice(0, MAX_RESUME_CHARS)}
-</resume>
-${jobDescription ? `\n<job_description>\n${jobDescription.slice(0, MAX_JOB_DESC_CHARS)}\n</job_description>` : ''}
-${feedback ? `\nCurrent scores — Overall: ${feedback.overallScore}/100, ATS: ${feedback.ATS?.score}/100, Content: ${feedback.content?.score}/100` : ''}
-
-CRITICAL: Return ONLY valid JSON — no markdown fences, no preamble, no commentary. Start your response with { and end with }.
-{
-  "fixes": [
-    {
-      "id": "fix-1",
-      "category": "Content Enhancement",
-      "issue": "<what is wrong, be specific>",
-      "originalText": "<exact text copied from the resume>",
-      "improvedText": "<full rewritten version, ready to paste>",
-      "explanation": "<why the original is weak and why the fix is better>",
-      "priority": "high" | "medium" | "low",
-      "impact": "<what specifically improves — ATS score, recruiter impression, etc.>",
-      "location": "<section name: e.g. Work Experience — Company Name>"
-    }
-  ]
-}
-
-Provide 10–15 fixes. Prioritise high-impact content and ATS fixes first.`;
+Generate fixes now.`;
 
   try {
-    const response = await anthropic.messages.create({
-      model:      CLAUDE_MODEL,
-      max_tokens: 4096,
-      messages:   [{ role: 'user', content: fixPrompt }],
-    });
-
-    const raw     = extractTextFromResponse(response);
-    const cleaned = extractJsonString(raw);
-
+    const response = await anthropic.messages.create({ model: CLAUDE_MODEL, max_tokens: 4096, system: cachedSystem(FIX_SYSTEM), messages: [{ role: 'user', content: userPrompt }] });
+    logUsage('generate-fixes', response);
+    const raw = extractJsonString(extractText(response));
     let parsedFixes: ResumeFix[];
     try {
-      const { fixes: rawFixes } = resumeFixSchema.parse(JSON.parse(cleaned));
-      parsedFixes = rawFixes
-        .filter(f => f.id && f.originalText && f.improvedText)
-        .map((f, i) => ({
-          ...f,
-          id:       f.id       || `fix-${i + 1}`,
-          priority: f.priority || 'medium',
-          impact:   f.impact   || 'Improves resume quality',
-        }));
-    } catch (parseErr) {
-      console.error('❌ Fix schema validation failed:', parseErr);
-      return NextResponse.json({ error: 'AI returned an unexpected format. Please try again.' }, { status: 422 });
-    }
-
+      const { fixes } = resumeFixSchema.parse(JSON.parse(raw));
+      parsedFixes = fixes.filter(f => f.id && f.originalText && f.improvedText).map((f, i) => ({ ...f, id: f.id || `fix-${i + 1}`, priority: f.priority || 'medium', impact: f.impact || 'Improves resume quality' }));
+    } catch { return NextResponse.json({ error: 'AI returned unexpected format. Try again.' }, { status: 422 }); }
     await cacheResumeFixes(cacheKey, parsedFixes);
-    console.log(`✅ Generated ${parsedFixes.length} fixes for user ${userId}`);
     return NextResponse.json({ fixes: parsedFixes, meta: { model: CLAUDE_MODEL, count: parsedFixes.length, cached: false } });
-
   } catch (err) {
-    const error = err as Error & { status?: number };
-    if (error.status === 429) {
-      return NextResponse.json({ error: 'AI service busy. Please try again shortly.' }, { status: 429 });
-    }
-    console.error('❌ Fix generation failed:', err);
-    return NextResponse.json({ error: 'Fix generation failed. Please try again.' }, { status: 500 });
+    const e = err as Error & { status?: number };
+    if (e.status === 429) return NextResponse.json({ error: 'AI busy.' }, { status: 429 });
+    return NextResponse.json({ error: 'Fix generation failed.' }, { status: 500 });
   }
 }
 
-// ─────────────────────────────────────────────────────────────────
-// Fix regeneration
-// ─────────────────────────────────────────────────────────────────
+// ─── Fix regeneration ─────────────────────────────────────────────────────────
 
-async function handleRegenerateSpecificFix(
-  data: z.infer<typeof regenerateFixBodySchema>,
-  userId: string,
-) {
+async function handleRegenerateSpecificFix(data: z.infer<typeof regenerateFixBodySchema>, userId: string) {
   const { fixId, resumeContent } = data;
-
-  if (!anthropic) return NextResponse.json({ error: 'AI service not configured' }, { status: 503 });
+  if (!anthropic) return NextResponse.json({ error: 'AI not configured' }, { status: 503 });
 
   let originalFix: ResumeFix | null = null;
-  if (redis) {
-    try {
-      const raw = await redis.get(`fix:${userId}:${fixId}`);
-      if (raw) originalFix = typeof raw === 'string' ? JSON.parse(raw) : (raw as ResumeFix);
-    } catch (e) { console.error('Redis fix lookup error:', e); }
-  }
+  if (redis) { try { const r = await redis.get(`fix:${userId}:${fixId}`); if (r) originalFix = typeof r === 'string' ? JSON.parse(r) : r as ResumeFix; } catch {} }
+  if (!originalFix) return NextResponse.json({ error: 'Fix not found. Regenerate fixes first.' }, { status: 404 });
 
-  if (!originalFix) {
-    return NextResponse.json({ error: 'Fix not found or expired. Please regenerate your fixes first.' }, { status: 404 });
-  }
+  const prompt = `Resume expert: provide an ALTERNATIVE improvement.
+Original: "${originalFix.originalText}"
+Current suggestion: "${originalFix.improvedText}"
+Category: ${originalFix.category} | Problem: ${originalFix.issue}
+Context: ${resumeContent.slice(0, 600)}
 
-  const prompt = `You are a resume expert. The candidate wants an ALTERNATIVE improvement for this specific issue — different approach, equally effective.
-
-Original text from resume: "${originalFix.originalText}"
-Current suggestion:        "${originalFix.improvedText}"
-Issue category:            ${originalFix.category}
-Specific problem:          ${originalFix.issue}
-
-Resume context:
-<resume>
-${resumeContent.slice(0, 800)}
-</resume>
-
-Provide a DIFFERENT, concrete rewrite. Do not explain what to do — actually rewrite it.
-CRITICAL: Return ONLY valid JSON — no preamble, no markdown. Start with { and end with }.
-{ "improvedText": "<full rewrite>", "explanation": "<why this approach works>", "impact": "<what specifically improves>" }`;
+Return ONLY JSON: { "improvedText": "...", "explanation": "...", "impact": "..." }`;
 
   try {
-    const response = await anthropic.messages.create({
-      model:      CLAUDE_MODEL,
-      max_tokens: 400,
-      messages:   [{ role: 'user', content: prompt }],
-    });
-
-    const raw     = extractTextFromResponse(response);
-    const cleaned = extractJsonString(raw);
-    const alt     = JSON.parse(cleaned) as { improvedText: string; explanation: string; impact?: string };
-
-    return NextResponse.json({
-      alternative: { improvedText: alt.improvedText, explanation: alt.explanation, impact: alt.impact ?? originalFix.impact },
-      meta: { model: CLAUDE_MODEL, type: 'fix-regeneration' },
-    });
-
-  } catch (err) {
-    console.error('❌ Fix regeneration failed:', err);
-    return NextResponse.json({ error: 'Failed to regenerate fix. Please try again.' }, { status: 500 });
-  }
+    const response = await anthropic.messages.create({ model: CLAUDE_MODEL, max_tokens: 400, system: cachedSystem('You are an expert resume editor. Provide alternative rewrites. Return ONLY valid JSON.'), messages: [{ role: 'user', content: prompt }] });
+    logUsage('regenerate-fix', response);
+    const alt = JSON.parse(extractJsonString(extractText(response))) as { improvedText: string; explanation: string; impact?: string };
+    return NextResponse.json({ alternative: { improvedText: alt.improvedText, explanation: alt.explanation, impact: alt.impact ?? originalFix.impact }, meta: { model: CLAUDE_MODEL } });
+  } catch { return NextResponse.json({ error: 'Failed to regenerate fix.' }, { status: 500 }); }
 }
 
-// ─────────────────────────────────────────────────────────────────
-// Extension job analysis
-// ─────────────────────────────────────────────────────────────────
+// ─── Extension job analysis ───────────────────────────────────────────────────
 
 async function handleExtensionJobAnalysis(data: z.infer<typeof extensionJobBodySchema>) {
   const { jobData } = data;
+  if (!anthropic) return NextResponse.json({ error: 'AI not configured' }, { status: 503 });
 
-  if (!anthropic) return NextResponse.json({ error: 'AI service not configured — add CLAUDE_API_KEY' }, { status: 503 });
-
-  const prompt = `You are a career coach. Analyse this job posting and identify what a candidate must emphasise to be competitive.
-
-Job Title:   ${jobData.title}
-Company:     ${jobData.company}
-Description:
-<job>
-${jobData.description.slice(0, MAX_JOB_DESC_CHARS)}
-</job>
-
-Be specific. Do not give generic advice.
-
-CRITICAL: Return ONLY valid JSON — no markdown, no preamble. Start with { and end with }.
-{
-  "atsScore":           <0-100>,
-  "keywordMatch":       <0-100>,
-  "suggestions":        ["<specific, actionable suggestion 1>", "...", "...", "...", "..."],
-  "missingSkills":      ["<skill explicitly mentioned in JD>", ...],
-  "topKeywords":        ["<must-have keyword from JD>", ...],
-  "strengthenSections": ["<specific section name>", ...]
-}`;
+  const prompt = `Job Title: ${jobData.title}\nCompany: ${jobData.company}\n<job>\n${jobData.description.slice(0, MAX_JOB_DESC_CHARS)}\n</job>\n\nAnalyse now.`;
 
   try {
-    const response = await anthropic.messages.create({
-      model:      CLAUDE_MODEL,
-      max_tokens: 600,
-      messages:   [{ role: 'user', content: prompt }],
-    });
-
-    const raw     = extractTextFromResponse(response);
-    const cleaned = extractJsonString(raw);
-    const result  = JSON.parse(cleaned) as {
-      atsScore?: number; keywordMatch?: number; suggestions?: string[];
-      missingSkills?: string[]; topKeywords?: string[]; strengthenSections?: string[];
-    };
-
+    const response = await anthropic.messages.create({ model: CLAUDE_MODEL, max_tokens: 600, system: cachedSystem(JOB_ANALYSIS_SYSTEM), messages: [{ role: 'user', content: prompt }] });
+    logUsage('extension-job-analysis', response);
+    const result = JSON.parse(extractJsonString(extractText(response))) as Record<string, unknown>;
     return NextResponse.json({
-      atsScore:           result.atsScore          ?? 70,
-      keywordMatch:       result.keywordMatch       ?? 65,
-      suggestions:        result.suggestions        ?? [],
-      missingSkills:      result.missingSkills      ?? [],
-      topKeywords:        result.topKeywords        ?? [],
-      strengthenSections: result.strengthenSections ?? [],
+      atsScore: result.atsScore ?? 70, keywordMatch: result.keywordMatch ?? 65, suggestions: result.suggestions ?? [],
+      missingSkills: result.missingSkills ?? [], topKeywords: result.topKeywords ?? [], strengthenSections: result.strengthenSections ?? [],
       meta: { model: CLAUDE_MODEL, type: 'extension-job-analysis' },
     });
-
   } catch (err) {
-    const error = err as Error & { status?: number };
-    if (error.status === 429) return NextResponse.json({ error: 'AI service busy. Try again shortly.' }, { status: 429 });
-    console.error('❌ Extension job analysis failed:', err);
-    return NextResponse.json({ error: 'Job analysis failed. Please try again.' }, { status: 500 });
+    const e = err as Error & { status?: number };
+    if (e.status === 429) return NextResponse.json({ error: 'AI busy.' }, { status: 429 });
+    return NextResponse.json({ error: 'Job analysis failed.' }, { status: 500 });
   }
 }

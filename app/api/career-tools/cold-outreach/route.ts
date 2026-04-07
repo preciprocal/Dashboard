@@ -1,139 +1,100 @@
 // app/api/career-tools/cold-outreach/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import Anthropic from '@anthropic-ai/sdk';
 import { auth, db } from '@/firebase/admin';
 import { getUserAIContext } from '@/lib/ai/user-context';
+import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage } from '@/lib/ai/claude';
+import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
+import { applyRateLimit } from '@/lib/ai/rate-limit';
 
-const apiKey = process.env.CLAUDE_API_KEY;
-const anthropic = apiKey ? new Anthropic({ apiKey }) : null;
+// Output: primaryMessage + 2 alternativeVersions + followUpTemplate + tips
+// Typical output: ~1200-1600 tokens. 1800 is safe ceiling.
+const MAX_TOKENS = 1800;
 
-const SYSTEM_PROMPT = `You are a master of professional outreach with deep expertise in sales psychology, personal branding, and career development. You have written thousands of cold emails and LinkedIn messages that actually get responses.
+const OUTREACH_SYSTEM = `You are a master of professional outreach — sales psychology, personal branding, career development. Thousands of cold emails/LinkedIn messages that get responses.
 
-Rules:
-- Lead with a specific, genuine hook about THEM (not you)
-- Be concise
-- Make the ask small and easy to say yes to
-- Never start with "My name is..." or "I hope this finds you well"
-- Sound like a real human
-- When the sender's resume or academic background is available, weave in specific accomplishments to build credibility
+Rules: Lead with a hook about THEM. Be concise. Small ask. Never "My name is..." or "I hope this finds you well". Sound human. Use sender's resume achievements when available.
 
-Return ONLY valid JSON, no markdown, no preamble.`;
+CRITICAL: Return ONLY valid JSON. No markdown. Start with { end with }.`;
 
 export async function POST(request: NextRequest) {
-
   try {
-    if (!anthropic || !apiKey) return NextResponse.json({ error: 'AI service not configured', code: 'CLAUDE_NOT_CONFIGURED' }, { status: 503 });
+    if (!anthropic) return NextResponse.json({ error: 'AI not configured', code: 'CLAUDE_NOT_CONFIGURED' }, { status: 503 });
 
-    const cookieStore = await cookies();
-    const session = cookieStore.get('session');
-    if (!session) return NextResponse.json({ error: 'Unauthorized', code: 'NO_SESSION' }, { status: 401 });
-
+    const session = (await cookies()).get('session');
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     let userId: string;
-    try {
-      const claims = await auth.verifySessionCookie(session.value, true);
-      userId = claims.uid;
-    } catch {
-      return NextResponse.json({ error: 'Invalid session', code: 'INVALID_SESSION' }, { status: 401 });
+    try { userId = (await auth.verifySessionCookie(session.value, true)).uid; } catch { return NextResponse.json({ error: 'Invalid session' }, { status: 401 }); }
+
+    // ── Rate limit ────────────────────────────────────────────────
+    const rateLimited = await applyRateLimit(request, userId, 'medium');
+    if (rateLimited) return rateLimited;
+
+    // ── Usage gate ────────────────────────────────────────────────
+    const usageCheck = await checkUsage(userId, 'coldOutreach');
+    if (!usageCheck.allowed) {
+      return NextResponse.json(
+        { error: usageCheck.message, code: 'USAGE_LIMIT', used: usageCheck.used, limit: usageCheck.limit },
+        { status: 403 },
+      );
     }
 
     let body: Record<string, unknown>;
-    try { body = await request.json(); }
-    catch { return NextResponse.json({ error: 'Invalid JSON body', code: 'INVALID_JSON' }, { status: 400 }); }
-
+    try { body = await request.json(); } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }); }
     const { outreachType, recipientName, recipientRole, recipientCompany, recipientContext, senderBackground, jobTitle, jobDescription, platform, tone } = body as {
       outreachType?: string; recipientName?: string; recipientRole?: string; recipientCompany?: string; recipientContext?: string;
       senderBackground?: string; jobTitle?: string; jobDescription?: string; platform?: string; tone?: string;
     };
+    if (!recipientCompany?.trim() && !recipientRole?.trim()) return NextResponse.json({ error: 'Company or role required' }, { status: 400 });
 
-    if (!recipientCompany?.trim() && !recipientRole?.trim()) {
-      return NextResponse.json({ error: 'Recipient company or role is required', code: 'MISSING_INPUT' }, { status: 400 });
-    }
-
-    // ── Build sender context from getUserAIContext (replaces manual Firestore fetch) ──
-    let senderContext = senderBackground || '';
+    let senderCtx = senderBackground || '';
     if (!senderBackground) {
       try {
         const ctx = await getUserAIContext(userId);
         const parts: string[] = [];
         if (ctx.profile.name) parts.push(`Name: ${ctx.profile.name}`);
         if (ctx.profile.targetRole) parts.push(`Role: ${ctx.profile.targetRole}`);
-        if (ctx.profile.experienceLevel) parts.push(`Experience: ${ctx.profile.experienceLevel}`);
+        if (ctx.profile.experienceLevel) parts.push(`Exp: ${ctx.profile.experienceLevel}`);
         if (ctx.profile.preferredTech.length) parts.push(`Skills: ${ctx.profile.preferredTech.slice(0, 5).join(', ')}`);
-        senderContext = parts.join(', ');
-
-        // Add resume highlights
-        if (ctx.resumeText) {
-          senderContext += `\nResume highlights: ${ctx.resumeText.slice(0, 800)}`;
-        }
-        // Add academic background
-        if (ctx.transcriptText) {
-          senderContext += `\nAcademic background: ${ctx.transcriptText.slice(0, 400)}`;
-        }
-        console.log(`✅ Sender context built from user profile + files`);
-      } catch (err) {
-        console.warn('⚠️ Failed to load user context:', err);
-      }
+        senderCtx = parts.join(', ');
+        if (ctx.resumeText) senderCtx += `\nResume: ${ctx.resumeText.slice(0, 800)}`;
+        if (ctx.transcriptText) senderCtx += `\nAcademic: ${ctx.transcriptText.slice(0, 400)}`;
+      } catch {}
     }
 
-    const resolvedPlatform = platform || 'email';
-    const prompt = `Generate multiple versions of a ${resolvedPlatform === 'linkedin' ? 'LinkedIn message' : 'cold email'} for this situation.
+    const plat = platform || 'email';
+    const prompt = `Generate ${plat === 'linkedin' ? 'LinkedIn message' : 'cold email'} versions.
 
-=== OUTREACH CONTEXT ===
-Type: ${outreachType || 'job-inquiry'}
-Platform: ${resolvedPlatform}
-Tone: ${tone || 'professional'}
+Type: ${outreachType || 'job-inquiry'} | Platform: ${plat} | Tone: ${tone || 'professional'}
+Recipient: ${recipientName || 'Hiring Manager'} | ${recipientRole || 'N/A'} at ${recipientCompany || 'N/A'}
+Context: ${recipientContext || 'None'}
+Sender: ${senderCtx}
+${jobTitle ? `Target: ${jobTitle}` : ''}${jobDescription ? `\nJD: ${jobDescription.slice(0, 600)}` : ''}
 
-Recipient:
-- Name: ${recipientName || 'Hiring Manager'}
-- Role: ${recipientRole || 'Not specified'}
-- Company: ${recipientCompany || 'Not specified'}
-- Context about them: ${recipientContext || 'None provided'}
-
-Sender:
-${senderContext}
-
-${jobTitle ? `Target Job: ${jobTitle}` : ''}
-${jobDescription ? `Job Description (excerpt): ${jobDescription.slice(0, 600)}` : ''}
-
-Return this exact JSON:
-
+Return JSON:
 {
-  "primaryMessage": { "subject": <string or null>, "body": <string>, "approach": <string>, "openingHook": <string> },
-  "alternativeVersions": [{ "subject": <string or null>, "body": <string>, "approach": <string>, "bestFor": <string> }, { "subject": <string or null>, "body": <string>, "approach": <string>, "bestFor": <string> }],
-  "followUpTemplate": { "timing": <string>, "subject": <string>, "body": <string> },
-  "personalizationTips": [<string>, <string>, <string>],
-  "doNotDo": [<string>],
-  "responseRateAdvice": <string>
+  "primaryMessage": { "subject": "<or null>", "body": "...", "approach": "...", "openingHook": "..." },
+  "alternativeVersions": [{ "subject": "<or null>", "body": "...", "approach": "...", "bestFor": "..." }, { "subject": "<or null>", "body": "...", "approach": "...", "bestFor": "..." }],
+  "followUpTemplate": { "timing": "...", "subject": "...", "body": "..." },
+  "personalizationTips": ["...", "...", "..."],
+  "doNotDo": ["..."],
+  "responseRateAdvice": "..."
 }`;
 
-    let rawText: string;
-    try {
-      const response = await anthropic.messages.create({ model: 'claude-sonnet-4-5', max_tokens: 4096, system: SYSTEM_PROMPT, messages: [{ role: 'user', content: prompt }] });
-      rawText = response.content[0].type === 'text' ? response.content[0].text : '';
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes('rate_limit') || msg.includes('overloaded')) return NextResponse.json({ error: 'AI quota exceeded', code: 'QUOTA_EXCEEDED' }, { status: 429 });
-      return NextResponse.json({ error: 'AI generation failed', code: 'CLAUDE_ERROR' }, { status: 500 });
-    }
+    const response = await anthropic.messages.create({ model: CLAUDE_MODEL, max_tokens: MAX_TOKENS, system: cachedSystem(OUTREACH_SYSTEM), messages: [{ role: 'user', content: prompt }] });
+    logUsage('cold-outreach', response);
 
-    let data: Record<string, unknown>;
-    try {
-      let cleaned = rawText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
-      if (!cleaned.startsWith('{')) { const m = cleaned.match(/\{[\s\S]*\}/); if (m) cleaned = m[0]; }
-      data = JSON.parse(cleaned);
-    } catch {
-      return NextResponse.json({ error: 'AI returned malformed response', code: 'PARSE_ERROR' }, { status: 500 });
-    }
+    const data = JSON.parse(extractJsonString(extractText(response)));
 
-    // Save to history
-    try {
-      await db.collection('outreachHistory').add({ userId, outreachType: outreachType || 'job-inquiry', recipientCompany, recipientRole, platform: resolvedPlatform, tone: tone || 'professional', result: data, createdAt: new Date() });
-    } catch (err) { console.warn('⚠️ Failed to save outreach history:', err); }
+    // ── Increment usage ───────────────────────────────────────────
+    await checkAndIncrementUsage(userId, 'coldOutreach');
 
+    try { await db.collection('outreachHistory').add({ userId, outreachType: outreachType || 'job-inquiry', recipientCompany, recipientRole, platform: plat, tone: tone || 'professional', result: data, createdAt: new Date() }); } catch {}
     return NextResponse.json({ success: true, data });
-  } catch (err: unknown) {
+  } catch (err) {
+    const e = err as Error & { status?: number };
+    if (e.status === 429) return NextResponse.json({ error: 'AI quota exceeded' }, { status: 429 });
     console.error('❌ Outreach error:', err);
-    return NextResponse.json({ error: 'Internal server error', code: 'UNHANDLED_ERROR' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
