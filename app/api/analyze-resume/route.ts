@@ -71,7 +71,7 @@ function detectImageMime(buffer: Buffer): 'image/jpeg' | 'image/png' | 'image/gi
   return 'image/webp';
 }
 
-// ─── Word → text (only for .docx — Claude can't read Word natively) ──────────
+// ─── Word → text ──────────────────────────────────────────────────────────────
 
 async function extractTextFromWord(buffer: Buffer): Promise<string> {
   const mammoth = await import('mammoth');
@@ -200,7 +200,6 @@ export async function POST(request: NextRequest) {
 // ─── Resume analysis ──────────────────────────────────────────────────────────
 
 async function handleResumeAnalysis(request: NextRequest, userId: string) {
-  // ── Usage gate ────────────────────────────────────────────────
   const usageCheck = await checkUsage(userId, 'resumes');
   if (!usageCheck.allowed) {
     return NextResponse.json(
@@ -226,15 +225,13 @@ async function handleResumeAnalysis(request: NextRequest, userId: string) {
 
   const base64 = buffer.toString('base64');
 
-  // ── For Word docs, extract text first (Claude can't read .docx natively) ──
   let resumeText = '';
   if (kind === 'word') {
     try { resumeText = await extractTextFromWord(buffer); } catch { return NextResponse.json({ error: 'Could not read Word document.' }, { status: 422 }); }
     if (!resumeText.trim()) return NextResponse.json({ error: 'Word document appears empty.' }, { status: 422 });
-    resumeText = cleanResumeText(resumeText, MAX_RESUME_CHARS);
+    resumeText = cleanResumeText(resumeText).slice(0, MAX_RESUME_CHARS);
   }
 
-  // ── Cache check ─────────────────────────────────────────────────
   const cacheKey = secureHash(base64.slice(0, 2000), jobTitle.trim(), jobDesc.slice(0, MAX_JOB_DESC_CHARS).trim(), userId);
   const cached = await getCachedResumeAnalysis(cacheKey);
   if (cached) {
@@ -242,29 +239,24 @@ async function handleResumeAnalysis(request: NextRequest, userId: string) {
     return NextResponse.json({ feedback: cached, extractedText: (cached as ResumeFeedback & { resumeText?: string }).resumeText ?? '', meta: { cached: true, model: CLAUDE_MODEL, kind } });
   }
 
-  // ── Build prompt ────────────────────────────────────────────────
   const jobContext = [jobTitle ? `TARGET ROLE: ${jobTitle}` : '', jobDesc ? `JOB DESCRIPTION:\n${jobDesc.slice(0, MAX_JOB_DESC_CHARS)}` : ''].filter(Boolean).join('\n');
   const textPrompt = `${jobContext ? jobContext + '\n\n' : ''}Read the attached resume file thoroughly and analyse it now.`;
 
-  // ── Build message content — always send the raw file to Claude ──
   let userContent: Anthropic.MessageCreateParams['messages'][0]['content'];
 
   if (kind === 'pdf') {
-    // Send raw PDF directly — Claude reads PDFs natively
     console.log('📎 Sending raw PDF to Claude');
     userContent = [
       { type: 'document', source: { type: 'base64', media_type: 'application/pdf' as const, data: base64 } },
       { type: 'text', text: textPrompt },
     ];
   } else if (kind === 'image') {
-    // Send image directly
     console.log('🖼️ Sending image to Claude');
     userContent = [
       { type: 'image', source: { type: 'base64', media_type: detectImageMime(buffer), data: base64 } },
       { type: 'text', text: textPrompt },
     ];
   } else {
-    // Word doc — text already extracted above, send as plain text
     console.log('📝 Sending extracted Word text to Claude');
     userContent = `${jobContext ? jobContext + '\n\n' : ''}RESUME TEXT:\n<resume>\n${resumeText}\n</resume>\n\nAnalyse this resume now.`;
   }
@@ -281,8 +273,6 @@ async function handleResumeAnalysis(request: NextRequest, userId: string) {
 
     const processed = applyWeightedScore(parsed);
 
-    // ── Extract resume text for downstream routes ─────────────────
-    // Word docs already have text. For PDF/image, ask Claude to extract it.
     let extractedText = resumeText;
     if (!extractedText && (kind === 'pdf' || kind === 'image')) {
       try {
@@ -297,31 +287,23 @@ async function handleResumeAnalysis(request: NextRequest, userId: string) {
               { type: 'text', text: 'Extract ALL text from this resume image exactly as written. Return ONLY the raw text content, preserving line breaks between sections. No commentary, no markdown formatting, no backticks. Start directly with the resume content.' },
             ];
 
-        const extractResponse = await anthropic.messages.create({
-          model: CLAUDE_MODEL,
-          max_tokens: 4000,
-          messages: [{ role: 'user', content: extractContent }],
-        });
+        const extractResponse = await anthropic.messages.create({ model: CLAUDE_MODEL, max_tokens: 4000, messages: [{ role: 'user', content: extractContent }] });
         logUsage('extract-text', extractResponse);
         extractedText = extractText(extractResponse).trim();
-        console.log(`📝 Text extraction result: ${extractedText.length} chars | First 100: "${extractedText.slice(0, 100)}"`);
-        if (extractedText.length < 50) {
-          console.warn('⚠️ Text extraction returned very short content, keeping as-is');
-        }
+        console.log(`📝 Text extraction result: ${extractedText.length} chars`);
+        if (extractedText.length < 50) console.warn('⚠️ Text extraction returned very short content');
       } catch (extractErr) {
         console.error('❌ Text extraction failed:', extractErr);
         extractedText = '';
       }
     }
 
-    // ── Store extractedText inside feedback too (backup for downstream) ────
     const feedbackWithText = { ...processed, resumeText: extractedText };
 
-    // ── Increment usage ───────────────────────────────────────────
     await checkAndIncrementUsage(userId, 'resumes');
 
     await cacheResumeAnalysis(cacheKey, feedbackWithText);
-    console.log(`✅ Analysis complete. Score: ${processed.overallScore} | Text: ${extractedText.length} chars | CacheKey: ${cacheKey}`);
+    console.log(`✅ Analysis complete. Score: ${processed.overallScore} | Text: ${extractedText.length} chars`);
     return NextResponse.json({ feedback: feedbackWithText, extractedText, cacheHash: cacheKey, meta: { model: CLAUDE_MODEL, cached: false, isMock: false, kind, hasJobContext: !!(jobTitle || jobDesc), textLength: extractedText.length } });
   } catch (err) {
     const e = err as Error & { status?: number };
@@ -347,7 +329,7 @@ async function handleGenerateResumeFixes(data: z.infer<typeof generateFixesBodyS
   if (cachedFixes) return NextResponse.json({ fixes: cachedFixes, meta: { cached: true, count: cachedFixes.length } });
   if (!anthropic) return NextResponse.json({ error: 'AI not configured' }, { status: 503 });
 
-  const cleaned = cleanResumeText(resumeContent, MAX_RESUME_CHARS);
+  const cleaned = cleanResumeText(resumeContent).slice(0, MAX_RESUME_CHARS);
   const userPrompt = `<resume>\n${cleaned}\n</resume>
 ${jobDescription ? `<job_description>\n${jobDescription.slice(0, MAX_JOB_DESC_CHARS)}\n</job_description>` : ''}
 ${feedback ? `Current scores — Overall: ${feedback.overallScore}/100, ATS: ${feedback.ATS?.score}/100, Content: ${feedback.content?.score}/100` : ''}
