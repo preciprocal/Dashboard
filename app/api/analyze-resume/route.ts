@@ -307,7 +307,7 @@ async function handleResumeAnalysis(request: NextRequest, userId: string) {
     return NextResponse.json({ feedback: feedbackWithText, extractedText, cacheHash: cacheKey, meta: { model: CLAUDE_MODEL, cached: false, isMock: false, kind, hasJobContext: !!(jobTitle || jobDesc), textLength: extractedText.length } });
   } catch (err) {
     const e = err as Error & { status?: number };
-    if (e.status === 429) return NextResponse.json({ error: 'AI busy. Try again shortly.' }, { status: 429 });
+    if (e.status === 429 || e.status === 529) return NextResponse.json({ error: 'AI is temporarily busy. Please try again in a few seconds.' }, { status: 429 });
     console.error('❌ Analysis failed:', err);
     return NextResponse.json({ error: 'Analysis failed. Try again.' }, { status: 500 });
   }
@@ -349,7 +349,7 @@ Generate fixes now.`;
     return NextResponse.json({ fixes: parsedFixes, meta: { model: CLAUDE_MODEL, count: parsedFixes.length, cached: false } });
   } catch (err) {
     const e = err as Error & { status?: number };
-    if (e.status === 429) return NextResponse.json({ error: 'AI busy.' }, { status: 429 });
+    if (e.status === 429 || e.status === 529) return NextResponse.json({ error: 'AI is temporarily busy. Please try again in a few seconds.' }, { status: 429 });
     return NextResponse.json({ error: 'Fix generation failed.' }, { status: 500 });
   }
 }
@@ -399,7 +399,7 @@ async function handleExtensionJobAnalysis(data: z.infer<typeof extensionJobBodyS
     });
   } catch (err) {
     const e = err as Error & { status?: number };
-    if (e.status === 429) return NextResponse.json({ error: 'AI busy.' }, { status: 429 });
+    if (e.status === 429 || e.status === 529) return NextResponse.json({ error: 'AI is temporarily busy. Please try again in a few seconds.' }, { status: 429 });
     return NextResponse.json({ error: 'Job analysis failed.' }, { status: 500 });
   }
 }
