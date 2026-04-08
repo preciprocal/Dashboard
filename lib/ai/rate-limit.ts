@@ -1,14 +1,14 @@
-// lib/api/rate-limit.ts
+// lib/ai/rate-limit.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { redis } from '@/lib/redis/redis-client';
 
 export type RateLimitTier = 'heavy' | 'medium' | 'light' | 'global';
 
 const TIER_CONFIG: Record<RateLimitTier, { maxRequests: number; windowSeconds: number }> = {
-  heavy:  { maxRequests: 3,  windowSeconds: 60 },
-  medium: { maxRequests: 5,  windowSeconds: 60 },
-  light:  { maxRequests: 10, windowSeconds: 60 },
-  global: { maxRequests: 30, windowSeconds: 60 },
+  heavy:  { maxRequests: 10, windowSeconds: 120 },   // was 3/60 — too tight for multi-call flows
+  medium: { maxRequests: 15, windowSeconds: 60 },     // was 5/60
+  light:  { maxRequests: 30, windowSeconds: 60 },     // was 10/60
+  global: { maxRequests: 60, windowSeconds: 60 },     // was 30/60 — unauthenticated fallback
 };
 
 interface RateLimitResult {
@@ -23,6 +23,7 @@ export async function rateLimit(identifier: string, tier: RateLimitTier): Promis
   if (!redis) return { allowed: true, limit: maxRequests, remaining: maxRequests, retryAfterSeconds: 0 };
 
   try {
+    // Use a sliding window key based on the current time bucket
     const windowKey = Math.floor(Date.now() / (windowSeconds * 1000));
     const key = `rl:${tier}:${identifier}:${windowKey}`;
     const current = await redis.incr(key);
@@ -42,10 +43,16 @@ export async function rateLimit(identifier: string, tier: RateLimitTier): Promis
 }
 
 function getIP(request: NextRequest): string {
-  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown';
+  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || request.headers.get('x-real-ip')
+    || 'unknown';
 }
 
-export async function applyRateLimit(request: NextRequest, userId: string | null, tier: RateLimitTier): Promise<NextResponse | null> {
+export async function applyRateLimit(
+  request: NextRequest,
+  userId: string | null,
+  tier: RateLimitTier,
+): Promise<NextResponse | null> {
   const identifier = userId || `ip:${getIP(request)}`;
   const effectiveTier = userId ? tier : 'global';
   const result = await rateLimit(identifier, effectiveTier);
