@@ -13,14 +13,15 @@ import {
 import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, cleanResumeText } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 
-export const runtime    = 'nodejs';
-export const maxDuration = 60;
+export const runtime = 'nodejs';
+export const maxDuration = 120;
 
-const MAX_FILE_SIZE      = 10 * 1024 * 1024;
-const MAX_RESUME_CHARS   = 12_000;
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_RESUME_CHARS = 12_000;
 const MAX_JOB_DESC_CHARS = 3_000;
-const RATE_LIMIT_WINDOW  = 60;
-const RATE_LIMIT_MAX     = 10;
+const RATE_LIMIT_WINDOW = 60;
+const RATE_LIMIT_MAX = 10;
+const FUNCTION_TIME_BUDGET_S = 55;
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
@@ -29,7 +30,9 @@ async function verifyToken(req: NextRequest): Promise<string | null> {
     const h = req.headers.get('authorization');
     if (!h?.startsWith('Bearer ')) return null;
     return (await auth.verifyIdToken(h.split('Bearer ')[1])).uid;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 async function checkRateLimit(userId: string): Promise<boolean> {
@@ -39,11 +42,35 @@ async function checkRateLimit(userId: string): Promise<boolean> {
     const count = await redis.incr(key);
     if (count === 1) await redis.expire(key, RATE_LIMIT_WINDOW);
     return count <= RATE_LIMIT_MAX;
-  } catch { return true; }
+  } catch {
+    return true;
+  }
 }
 
 function secureHash(...parts: string[]): string {
   return crypto.createHash('sha256').update(parts.join('|')).digest('hex');
+}
+
+// ─── Retry wrapper for transient Claude errors ────────────────────────────────
+
+async function callClaude<T>(fn: () => Promise<T>, maxRetries = 2, baseDelayMs = 2000): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      const status = (err as Error & { status?: number }).status;
+      if ((status === 529 || status === 429) && attempt < maxRetries) {
+        const delay = baseDelayMs * (attempt + 1);
+        console.warn(`⏳ Claude ${status} — retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastError;
 }
 
 // ─── File detection ───────────────────────────────────────────────────────────
@@ -80,39 +107,83 @@ async function extractTextFromWord(buffer: Buffer): Promise<string> {
 
 // ─── Zod schemas ──────────────────────────────────────────────────────────────
 
-const tipSchema = z.object({ type: z.enum(['good', 'improve']), tip: z.string(), explanation: z.string().optional(), solution: z.string().optional() });
-const sectionSchema = z.object({ score: z.number().min(0).max(100), tips: z.array(tipSchema).min(4).max(6) });
-const resumeFeedbackSchema = z.object({
-  overallScore: z.number().min(0).max(100), ATS: sectionSchema, toneAndStyle: sectionSchema,
-  content: sectionSchema, structure: sectionSchema, skills: sectionSchema,
+const tipSchema = z.object({
+  type: z.enum(['good', 'improve']),
+  tip: z.string(),
+  explanation: z.string().optional(),
+  solution: z.string().optional(),
 });
+
+const sectionSchema = z.object({
+  score: z.number().min(0).max(100),
+  tips: z.array(tipSchema).min(4).max(6),
+});
+
+const resumeFeedbackSchema = z.object({
+  overallScore: z.number().min(0).max(100),
+  ATS: sectionSchema,
+  toneAndStyle: sectionSchema,
+  content: sectionSchema,
+  structure: sectionSchema,
+  skills: sectionSchema,
+});
+
 const resumeFixSchema = z.object({
   fixes: z.array(z.object({
-    id: z.string(), category: z.string(), issue: z.string(), originalText: z.string(),
-    improvedText: z.string(), explanation: z.string(), priority: z.enum(['high', 'medium', 'low']),
-    impact: z.string(), location: z.string().optional(),
+    id: z.string(),
+    category: z.string(),
+    issue: z.string(),
+    originalText: z.string(),
+    improvedText: z.string(),
+    explanation: z.string(),
+    priority: z.enum(['high', 'medium', 'low']),
+    impact: z.string(),
+    location: z.string().optional(),
   })),
 });
+
 const generateFixesBodySchema = z.object({
-  action: z.literal('generateFixes'), resumeContent: z.string().min(100).max(15_000),
-  jobDescription: z.string().max(MAX_JOB_DESC_CHARS).optional(), feedback: resumeFeedbackSchema.optional(),
+  action: z.literal('generateFixes'),
+  resumeContent: z.string().min(100).max(15_000),
+  jobDescription: z.string().max(MAX_JOB_DESC_CHARS).optional(),
+  feedback: resumeFeedbackSchema.optional(),
 });
+
 const regenerateFixBodySchema = z.object({
-  action: z.literal('regenerateFix'), fixId: z.string().min(1).max(64), resumeContent: z.string().min(100).max(15_000),
+  action: z.literal('regenerateFix'),
+  fixId: z.string().min(1).max(64),
+  resumeContent: z.string().min(100).max(15_000),
 });
+
 const extensionJobBodySchema = z.object({
   action: z.literal('analyzeForJob'),
   jobData: z.object({
-    title: z.string().max(200), company: z.string().max(200), description: z.string().max(MAX_JOB_DESC_CHARS),
-    location: z.string().max(200).optional(), salary: z.string().max(100).optional(),
-    jobType: z.string().max(100).optional(), url: z.string().url().optional(), platform: z.string().max(100).optional(),
+    title: z.string().max(200),
+    company: z.string().max(200),
+    description: z.string().max(MAX_JOB_DESC_CHARS),
+    location: z.string().max(200).optional(),
+    salary: z.string().max(100).optional(),
+    jobType: z.string().max(100).optional(),
+    url: z.string().url().optional(),
+    platform: z.string().max(100).optional(),
   }),
 });
-const requestBodySchema = z.discriminatedUnion('action', [generateFixesBodySchema, regenerateFixBodySchema, extensionJobBodySchema]);
+
+const requestBodySchema = z.discriminatedUnion('action', [
+  generateFixesBodySchema,
+  regenerateFixBodySchema,
+  extensionJobBodySchema,
+]);
 
 // ─── Score weights ────────────────────────────────────────────────────────────
 
-const SCORE_WEIGHTS = { content: 0.30, ATS: 0.25, skills: 0.20, structure: 0.15, toneAndStyle: 0.10 } as const;
+const SCORE_WEIGHTS = {
+  content: 0.30,
+  ATS: 0.25,
+  skills: 0.20,
+  structure: 0.15,
+  toneAndStyle: 0.10,
+} as const;
 
 // ─── System prompts ───────────────────────────────────────────────────────────
 
@@ -163,8 +234,13 @@ CRITICAL: Return ONLY valid JSON. No markdown, no preamble. Start with { end wit
 export async function GET() {
   const isDev = process.env.NODE_ENV === 'development';
   return NextResponse.json({
-    message: 'AI Resume Analysis API', status: 'ok',
-    ...(isDev && { model: CLAUDE_MODEL, ai: anthropic ? 'configured' : 'missing CLAUDE_API_KEY', caching: redis ? 'enabled' : 'disabled' }),
+    message: 'AI Resume Analysis API',
+    status: 'ok',
+    ...(isDev && {
+      model: CLAUDE_MODEL,
+      ai: anthropic ? 'configured' : 'missing CLAUDE_API_KEY',
+      caching: redis ? 'enabled' : 'disabled',
+    }),
   });
 }
 
@@ -174,7 +250,8 @@ export async function POST(request: NextRequest) {
   console.log('🚀 AI resume processing started');
   const userId = await verifyToken(request);
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (!(await checkRateLimit(userId))) return NextResponse.json({ error: 'Too many requests. Please wait.' }, { status: 429 });
+  if (!(await checkRateLimit(userId)))
+    return NextResponse.json({ error: 'Too many requests. Please wait.' }, { status: 429 });
 
   try {
     const ct = request.headers.get('content-type') ?? '';
@@ -184,7 +261,8 @@ export async function POST(request: NextRequest) {
     if (!rawBody) return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
 
     const parsed = requestBodySchema.safeParse(rawBody);
-    if (!parsed.success) return NextResponse.json({ error: 'Invalid request body', details: parsed.error.flatten() }, { status: 400 });
+    if (!parsed.success)
+      return NextResponse.json({ error: 'Invalid request body', details: parsed.error.flatten() }, { status: 400 });
 
     const data = parsed.data;
     if (data.action === 'generateFixes') return await handleGenerateResumeFixes(data, userId);
@@ -200,6 +278,7 @@ export async function POST(request: NextRequest) {
 // ─── Resume analysis ──────────────────────────────────────────────────────────
 
 async function handleResumeAnalysis(request: NextRequest, userId: string) {
+  // ── Usage gate ──
   const usageCheck = await checkUsage(userId, 'resumes');
   if (!usageCheck.allowed) {
     return NextResponse.json(
@@ -214,34 +293,50 @@ async function handleResumeAnalysis(request: NextRequest, userId: string) {
   const jobDesc = (formData.get('jobDescription') as string | null) ?? '';
 
   if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 });
-  if (file.size > MAX_FILE_SIZE) return NextResponse.json({ error: `File too large. Max ${MAX_FILE_SIZE / 1024 / 1024}MB.` }, { status: 400 });
+  if (file.size > MAX_FILE_SIZE)
+    return NextResponse.json({ error: `File too large. Max ${MAX_FILE_SIZE / 1024 / 1024}MB.` }, { status: 400 });
+  if (!anthropic) return NextResponse.json({ error: 'AI service not configured' }, { status: 503 });
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const kind = detectFileKind(buffer, file.name);
   console.log('📋 Analysis:', { fileName: file.name, fileSize: `${(file.size / 1024).toFixed(1)} KB`, kind });
 
   if (kind === 'unknown') return NextResponse.json({ error: 'Unsupported file type.' }, { status: 400 });
-  if (!anthropic) return NextResponse.json({ error: 'AI service not configured' }, { status: 503 });
 
   const base64 = buffer.toString('base64');
 
+  // ── Word docs: extract text first (Claude can't read .docx natively) ──
   let resumeText = '';
   if (kind === 'word') {
-    try { resumeText = await extractTextFromWord(buffer); } catch { return NextResponse.json({ error: 'Could not read Word document.' }, { status: 422 }); }
+    try {
+      resumeText = await extractTextFromWord(buffer);
+    } catch {
+      return NextResponse.json({ error: 'Could not read Word document.' }, { status: 422 });
+    }
     if (!resumeText.trim()) return NextResponse.json({ error: 'Word document appears empty.' }, { status: 422 });
     resumeText = cleanResumeText(resumeText).slice(0, MAX_RESUME_CHARS);
   }
 
+  // ── Cache check ──
   const cacheKey = secureHash(base64.slice(0, 2000), jobTitle.trim(), jobDesc.slice(0, MAX_JOB_DESC_CHARS).trim(), userId);
   const cached = await getCachedResumeAnalysis(cacheKey);
   if (cached) {
     console.log('⚡ Cache HIT');
-    return NextResponse.json({ feedback: cached, extractedText: (cached as ResumeFeedback & { resumeText?: string }).resumeText ?? '', meta: { cached: true, model: CLAUDE_MODEL, kind } });
+    return NextResponse.json({
+      feedback: cached,
+      extractedText: (cached as ResumeFeedback & { resumeText?: string }).resumeText ?? '',
+      meta: { cached: true, model: CLAUDE_MODEL, kind },
+    });
   }
 
-  const jobContext = [jobTitle ? `TARGET ROLE: ${jobTitle}` : '', jobDesc ? `JOB DESCRIPTION:\n${jobDesc.slice(0, MAX_JOB_DESC_CHARS)}` : ''].filter(Boolean).join('\n');
+  // ── Build prompt ──
+  const jobContext = [
+    jobTitle ? `TARGET ROLE: ${jobTitle}` : '',
+    jobDesc ? `JOB DESCRIPTION:\n${jobDesc.slice(0, MAX_JOB_DESC_CHARS)}` : '',
+  ].filter(Boolean).join('\n');
   const textPrompt = `${jobContext ? jobContext + '\n\n' : ''}Read the attached resume file thoroughly and analyse it now.`;
 
+  // ── Build message content ──
   let userContent: Anthropic.MessageCreateParams['messages'][0]['content'];
 
   if (kind === 'pdf') {
@@ -261,62 +356,123 @@ async function handleResumeAnalysis(request: NextRequest, userId: string) {
     userContent = `${jobContext ? jobContext + '\n\n' : ''}RESUME TEXT:\n<resume>\n${resumeText}\n</resume>\n\nAnalyse this resume now.`;
   }
 
+  const analysisStartTime = Date.now();
+
   try {
-    const response = await anthropic.messages.create({ model: CLAUDE_MODEL, max_tokens: 6000, system: cachedSystem(ANALYSIS_SYSTEM), messages: [{ role: 'user', content: userContent }] });
+    // ── Analysis call ──
+    const response = await callClaude(() =>
+      anthropic!.messages.create({
+        model: CLAUDE_MODEL,
+        max_tokens: 6000,
+        system: cachedSystem(ANALYSIS_SYSTEM),
+        messages: [{ role: 'user', content: userContent }],
+      }),
+    );
     logUsage('analyze-resume', response);
 
     const rawResponse = extractText(response);
     const cleaned = extractJsonString(rawResponse);
     let parsed: z.infer<typeof resumeFeedbackSchema>;
-    try { parsed = resumeFeedbackSchema.parse(JSON.parse(cleaned)); }
-    catch (err) { console.error('❌ Invalid schema:', cleaned.slice(0, 500), err); return NextResponse.json({ error: 'AI returned unexpected format. Try again.', isMock: false }, { status: 422 }); }
+    try {
+      parsed = resumeFeedbackSchema.parse(JSON.parse(cleaned));
+    } catch (err) {
+      console.error('❌ Invalid schema:', cleaned.slice(0, 500), err);
+      return NextResponse.json({ error: 'AI returned unexpected format. Try again.', isMock: false }, { status: 422 });
+    }
 
     const processed = applyWeightedScore(parsed);
 
+    // ── Text extraction (time-budgeted) ──
     let extractedText = resumeText;
     if (!extractedText && (kind === 'pdf' || kind === 'image')) {
-      try {
-        console.log('📝 Extracting resume text from file via Claude…');
-        const extractContent: Anthropic.MessageCreateParams['messages'][0]['content'] = kind === 'pdf'
-          ? [
-              { type: 'document', source: { type: 'base64', media_type: 'application/pdf' as const, data: base64 } },
-              { type: 'text', text: 'Extract ALL text from this resume exactly as written. Return ONLY the raw text content, preserving line breaks between sections. No commentary, no markdown formatting, no backticks. Start directly with the resume content.' },
-            ]
-          : [
-              { type: 'image', source: { type: 'base64', media_type: detectImageMime(buffer), data: base64 } },
-              { type: 'text', text: 'Extract ALL text from this resume image exactly as written. Return ONLY the raw text content, preserving line breaks between sections. No commentary, no markdown formatting, no backticks. Start directly with the resume content.' },
-            ];
+      const elapsedMs = Date.now() - analysisStartTime;
+      const timeLeftMs = FUNCTION_TIME_BUDGET_S * 1000 - elapsedMs - 5000;
 
-        const extractResponse = await anthropic.messages.create({ model: CLAUDE_MODEL, max_tokens: 4000, messages: [{ role: 'user', content: extractContent }] });
-        logUsage('extract-text', extractResponse);
-        extractedText = extractText(extractResponse).trim();
-        console.log(`📝 Text extraction result: ${extractedText.length} chars`);
-        if (extractedText.length < 50) console.warn('⚠️ Text extraction returned very short content');
-      } catch (extractErr) {
-        console.error('❌ Text extraction failed:', extractErr);
-        extractedText = '';
+      if (timeLeftMs > 10000) {
+        try {
+          console.log(`📝 Extracting resume text (${Math.round(timeLeftMs / 1000)}s budget left)…`);
+          const extractContent: Anthropic.MessageCreateParams['messages'][0]['content'] = kind === 'pdf'
+            ? [
+                { type: 'document', source: { type: 'base64', media_type: 'application/pdf' as const, data: base64 } },
+                { type: 'text', text: 'Extract ALL text from this resume exactly as written. Return ONLY the raw text content, preserving line breaks between sections. No commentary, no markdown formatting, no backticks. Start directly with the resume content.' },
+              ]
+            : [
+                { type: 'image', source: { type: 'base64', media_type: detectImageMime(buffer), data: base64 } },
+                { type: 'text', text: 'Extract ALL text from this resume image exactly as written. Return ONLY the raw text content, preserving line breaks between sections. No commentary, no markdown formatting, no backticks. Start directly with the resume content.' },
+              ];
+
+          const extractResponse = await callClaude(() =>
+            anthropic!.messages.create({
+              model: CLAUDE_MODEL,
+              max_tokens: 4000,
+              messages: [{ role: 'user', content: extractContent }],
+            }),
+            1, // fewer retries for extraction — it's optional
+          );
+          logUsage('extract-text', extractResponse);
+          extractedText = extractText(extractResponse).trim();
+          console.log(`📝 Text extraction result: ${extractedText.length} chars`);
+          if (extractedText.length < 50) console.warn('⚠️ Text extraction returned very short content');
+        } catch (extractErr) {
+          console.error('❌ Text extraction failed:', extractErr);
+          extractedText = '';
+        }
+      } else {
+        console.warn(`⚠️ Skipping text extraction — only ${Math.round(timeLeftMs / 1000)}s left`);
       }
     }
 
     const feedbackWithText = { ...processed, resumeText: extractedText };
 
+    // ── Increment usage ──
     await checkAndIncrementUsage(userId, 'resumes');
 
+    // ── Cache result ──
     await cacheResumeAnalysis(cacheKey, feedbackWithText);
+
     console.log(`✅ Analysis complete. Score: ${processed.overallScore} | Text: ${extractedText.length} chars`);
-    return NextResponse.json({ feedback: feedbackWithText, extractedText, cacheHash: cacheKey, meta: { model: CLAUDE_MODEL, cached: false, isMock: false, kind, hasJobContext: !!(jobTitle || jobDesc), textLength: extractedText.length } });
+    return NextResponse.json({
+      feedback: feedbackWithText,
+      extractedText,
+      cacheHash: cacheKey,
+      meta: {
+        model: CLAUDE_MODEL,
+        cached: false,
+        isMock: false,
+        kind,
+        hasJobContext: !!(jobTitle || jobDesc),
+        textLength: extractedText.length,
+      },
+    });
   } catch (err) {
     const e = err as Error & { status?: number };
-    if (e.status === 429 || e.status === 529) return NextResponse.json({ error: 'AI is temporarily busy. Please try again in a few seconds.' }, { status: 429 });
+    if (e.status === 429 || e.status === 529)
+      return NextResponse.json({ error: 'AI is temporarily busy. Please try again in a few seconds.' }, { status: 429 });
     console.error('❌ Analysis failed:', err);
     return NextResponse.json({ error: 'Analysis failed. Try again.' }, { status: 500 });
   }
 }
 
 function applyWeightedScore(obj: z.infer<typeof resumeFeedbackSchema>): ResumeFeedback {
-  const proc = (s: z.infer<typeof sectionSchema>) => ({ score: s.score, tips: s.tips.map(t => ({ ...t, explanation: t.explanation ?? `${t.tip} — see details.` })) });
-  const p: ResumeFeedback = { overallScore: obj.overallScore, ATS: proc(obj.ATS), toneAndStyle: proc(obj.toneAndStyle), content: proc(obj.content), structure: proc(obj.structure), skills: proc(obj.skills) };
-  p.overallScore = Math.round(p.content.score * SCORE_WEIGHTS.content + p.ATS.score * SCORE_WEIGHTS.ATS + p.skills.score * SCORE_WEIGHTS.skills + p.structure.score * SCORE_WEIGHTS.structure + p.toneAndStyle.score * SCORE_WEIGHTS.toneAndStyle);
+  const proc = (s: z.infer<typeof sectionSchema>) => ({
+    score: s.score,
+    tips: s.tips.map(t => ({ ...t, explanation: t.explanation ?? `${t.tip} — see details.` })),
+  });
+  const p: ResumeFeedback = {
+    overallScore: obj.overallScore,
+    ATS: proc(obj.ATS),
+    toneAndStyle: proc(obj.toneAndStyle),
+    content: proc(obj.content),
+    structure: proc(obj.structure),
+    skills: proc(obj.skills),
+  };
+  p.overallScore = Math.round(
+    p.content.score * SCORE_WEIGHTS.content +
+    p.ATS.score * SCORE_WEIGHTS.ATS +
+    p.skills.score * SCORE_WEIGHTS.skills +
+    p.structure.score * SCORE_WEIGHTS.structure +
+    p.toneAndStyle.score * SCORE_WEIGHTS.toneAndStyle,
+  );
   return p;
 }
 
@@ -326,7 +482,8 @@ async function handleGenerateResumeFixes(data: z.infer<typeof generateFixesBodyS
   const { resumeContent, jobDescription, feedback } = data;
   const cacheKey = secureHash(resumeContent, jobDescription ?? '', userId);
   const cachedFixes = await getCachedResumeFixes(cacheKey);
-  if (cachedFixes) return NextResponse.json({ fixes: cachedFixes, meta: { cached: true, count: cachedFixes.length } });
+  if (cachedFixes)
+    return NextResponse.json({ fixes: cachedFixes, meta: { cached: true, count: cachedFixes.length } });
   if (!anthropic) return NextResponse.json({ error: 'AI not configured' }, { status: 503 });
 
   const cleaned = cleanResumeText(resumeContent).slice(0, MAX_RESUME_CHARS);
@@ -337,19 +494,41 @@ ${feedback ? `Current scores — Overall: ${feedback.overallScore}/100, ATS: ${f
 Generate fixes now.`;
 
   try {
-    const response = await anthropic.messages.create({ model: CLAUDE_MODEL, max_tokens: 4096, system: cachedSystem(FIX_SYSTEM), messages: [{ role: 'user', content: userPrompt }] });
+    const response = await callClaude(() =>
+      anthropic!.messages.create({
+        model: CLAUDE_MODEL,
+        max_tokens: 4096,
+        system: cachedSystem(FIX_SYSTEM),
+        messages: [{ role: 'user', content: userPrompt }],
+      }),
+    );
     logUsage('generate-fixes', response);
+
     const raw = extractJsonString(extractText(response));
     let parsedFixes: ResumeFix[];
     try {
       const { fixes } = resumeFixSchema.parse(JSON.parse(raw));
-      parsedFixes = fixes.filter(f => f.id && f.originalText && f.improvedText).map((f, i) => ({ ...f, id: f.id || `fix-${i + 1}`, priority: f.priority || 'medium', impact: f.impact || 'Improves resume quality' }));
-    } catch { return NextResponse.json({ error: 'AI returned unexpected format. Try again.' }, { status: 422 }); }
+      parsedFixes = fixes
+        .filter(f => f.id && f.originalText && f.improvedText)
+        .map((f, i) => ({
+          ...f,
+          id: f.id || `fix-${i + 1}`,
+          priority: f.priority || 'medium',
+          impact: f.impact || 'Improves resume quality',
+        }));
+    } catch {
+      return NextResponse.json({ error: 'AI returned unexpected format. Try again.' }, { status: 422 });
+    }
+
     await cacheResumeFixes(cacheKey, parsedFixes);
-    return NextResponse.json({ fixes: parsedFixes, meta: { model: CLAUDE_MODEL, count: parsedFixes.length, cached: false } });
+    return NextResponse.json({
+      fixes: parsedFixes,
+      meta: { model: CLAUDE_MODEL, count: parsedFixes.length, cached: false },
+    });
   } catch (err) {
     const e = err as Error & { status?: number };
-    if (e.status === 429 || e.status === 529) return NextResponse.json({ error: 'AI is temporarily busy. Please try again in a few seconds.' }, { status: 429 });
+    if (e.status === 429 || e.status === 529)
+      return NextResponse.json({ error: 'AI is temporarily busy. Please try again in a few seconds.' }, { status: 429 });
     return NextResponse.json({ error: 'Fix generation failed.' }, { status: 500 });
   }
 }
@@ -361,8 +540,14 @@ async function handleRegenerateSpecificFix(data: z.infer<typeof regenerateFixBod
   if (!anthropic) return NextResponse.json({ error: 'AI not configured' }, { status: 503 });
 
   let originalFix: ResumeFix | null = null;
-  if (redis) { try { const r = await redis.get(`fix:${userId}:${fixId}`); if (r) originalFix = typeof r === 'string' ? JSON.parse(r) : r as ResumeFix; } catch {} }
-  if (!originalFix) return NextResponse.json({ error: 'Fix not found. Regenerate fixes first.' }, { status: 404 });
+  if (redis) {
+    try {
+      const r = await redis.get(`fix:${userId}:${fixId}`);
+      if (r) originalFix = typeof r === 'string' ? JSON.parse(r) : (r as ResumeFix);
+    } catch {}
+  }
+  if (!originalFix)
+    return NextResponse.json({ error: 'Fix not found. Regenerate fixes first.' }, { status: 404 });
 
   const prompt = `Resume expert: provide an ALTERNATIVE improvement.
 Original: "${originalFix.originalText}"
@@ -373,11 +558,32 @@ Context: ${resumeContent.slice(0, 600)}
 Return ONLY JSON: { "improvedText": "...", "explanation": "...", "impact": "..." }`;
 
   try {
-    const response = await anthropic.messages.create({ model: CLAUDE_MODEL, max_tokens: 400, system: cachedSystem('You are an expert resume editor. Provide alternative rewrites. Return ONLY valid JSON.'), messages: [{ role: 'user', content: prompt }] });
+    const response = await callClaude(() =>
+      anthropic!.messages.create({
+        model: CLAUDE_MODEL,
+        max_tokens: 400,
+        system: cachedSystem('You are an expert resume editor. Provide alternative rewrites. Return ONLY valid JSON.'),
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    );
     logUsage('regenerate-fix', response);
-    const alt = JSON.parse(extractJsonString(extractText(response))) as { improvedText: string; explanation: string; impact?: string };
-    return NextResponse.json({ alternative: { improvedText: alt.improvedText, explanation: alt.explanation, impact: alt.impact ?? originalFix.impact }, meta: { model: CLAUDE_MODEL } });
-  } catch { return NextResponse.json({ error: 'Failed to regenerate fix.' }, { status: 500 }); }
+
+    const alt = JSON.parse(extractJsonString(extractText(response))) as {
+      improvedText: string;
+      explanation: string;
+      impact?: string;
+    };
+    return NextResponse.json({
+      alternative: {
+        improvedText: alt.improvedText,
+        explanation: alt.explanation,
+        impact: alt.impact ?? originalFix.impact,
+      },
+      meta: { model: CLAUDE_MODEL },
+    });
+  } catch {
+    return NextResponse.json({ error: 'Failed to regenerate fix.' }, { status: 500 });
+  }
 }
 
 // ─── Extension job analysis ───────────────────────────────────────────────────
@@ -389,17 +595,30 @@ async function handleExtensionJobAnalysis(data: z.infer<typeof extensionJobBodyS
   const prompt = `Job Title: ${jobData.title}\nCompany: ${jobData.company}\n<job>\n${jobData.description.slice(0, MAX_JOB_DESC_CHARS)}\n</job>\n\nAnalyse now.`;
 
   try {
-    const response = await anthropic.messages.create({ model: CLAUDE_MODEL, max_tokens: 600, system: cachedSystem(JOB_ANALYSIS_SYSTEM), messages: [{ role: 'user', content: prompt }] });
+    const response = await callClaude(() =>
+      anthropic!.messages.create({
+        model: CLAUDE_MODEL,
+        max_tokens: 600,
+        system: cachedSystem(JOB_ANALYSIS_SYSTEM),
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    );
     logUsage('extension-job-analysis', response);
+
     const result = JSON.parse(extractJsonString(extractText(response))) as Record<string, unknown>;
     return NextResponse.json({
-      atsScore: result.atsScore ?? 70, keywordMatch: result.keywordMatch ?? 65, suggestions: result.suggestions ?? [],
-      missingSkills: result.missingSkills ?? [], topKeywords: result.topKeywords ?? [], strengthenSections: result.strengthenSections ?? [],
+      atsScore: result.atsScore ?? 70,
+      keywordMatch: result.keywordMatch ?? 65,
+      suggestions: result.suggestions ?? [],
+      missingSkills: result.missingSkills ?? [],
+      topKeywords: result.topKeywords ?? [],
+      strengthenSections: result.strengthenSections ?? [],
       meta: { model: CLAUDE_MODEL, type: 'extension-job-analysis' },
     });
   } catch (err) {
     const e = err as Error & { status?: number };
-    if (e.status === 429 || e.status === 529) return NextResponse.json({ error: 'AI is temporarily busy. Please try again in a few seconds.' }, { status: 429 });
+    if (e.status === 429 || e.status === 529)
+      return NextResponse.json({ error: 'AI is temporarily busy. Please try again in a few seconds.' }, { status: 429 });
     return NextResponse.json({ error: 'Job analysis failed.' }, { status: 500 });
   }
 }
