@@ -3,11 +3,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   FileText, Sparkles, Download, Copy, Check, AlertCircle,
-  Briefcase, Wand2, Loader2, Lock, ArrowRight,
+  Briefcase, Wand2, Loader2, ArrowRight,
   Settings, CheckCircle2, XCircle, RefreshCw, ChevronDown,
   Save, History, FileDown, ExternalLink, Shield,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/firebase/client';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -72,7 +73,7 @@ const COVER_LETTER_FACTS = [
   "✨ Show don't tell: 'Built an app used by 10K users' >> 'I'm a skilled developer'",
 ];
 
-// ─── Upgrade Gate (minimal, catchy, data-backed) ──────────────────────────────
+// ─── Upgrade Gate ─────────────────────────────────────────────────────────────
 
 function UpgradeGate({ used, limit }: { used: number; limit: number }) {
   const [activeStat, setActiveStat] = useState(0);
@@ -92,16 +93,11 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
 
   return (
     <div className="space-y-3 animate-fade-in-up">
-
-      {/* ── Main card ── */}
       <div className="relative overflow-hidden rounded-2xl border border-white/[0.08]
                       bg-gradient-to-br from-[#0d1526] via-[#111c35] to-[#0d1526]">
         <div className="absolute -top-24 -right-24 w-56 h-56 rounded-full
                         bg-indigo-500/[0.06] blur-3xl pointer-events-none" />
-
         <div className="relative p-6">
-
-          {/* Badge + headline */}
           <div className="inline-flex items-center gap-1.5 bg-amber-500/[0.08] border border-amber-500/20
                           rounded-full px-3 py-1 mb-4">
             <Sparkles className="w-3 h-3 text-amber-400" />
@@ -109,15 +105,12 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
               {used}/{limit} letters used
             </span>
           </div>
-
           <h2 className="text-2xl sm:text-3xl font-bold text-white leading-snug mb-2">
             Your next interview is one letter away.
           </h2>
           <p className="text-sm text-slate-500 mb-6 max-w-md">
             You&apos;ve built momentum — don&apos;t let a limit decide where your job search stops.
           </p>
-
-          {/* Rotating stat — single line, punchy */}
           <div className="flex items-center gap-4 bg-white/[0.03] border border-white/[0.06]
                           rounded-xl px-5 py-4 mb-6 min-h-[64px]">
             <span className="text-3xl font-black text-indigo-400 flex-shrink-0 w-16 text-center">
@@ -127,8 +120,6 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
               {STATS[activeStat].line}
             </span>
           </div>
-
-          {/* CTA */}
           <div className="flex items-center gap-3">
             <Link
               href="/pricing"
@@ -149,13 +140,11 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
           </div>
         </div>
       </div>
-
-      {/* ── Stat strip — compact proof row ── */}
       <div className="grid grid-cols-3 gap-2.5">
         {[
-          { num: '83%',   label: 'read your letter'     },
-          { num: '1.9×',  label: 'more callbacks'        },
-          { num: '35.8%', label: 'offer rate with letters'},
+          { num: '83%',   label: 'read your letter'      },
+          { num: '1.9×',  label: 'more callbacks'         },
+          { num: '35.8%', label: 'offer rate with letters' },
         ].map(s => (
           <div key={s.num} className="glass-card py-4 text-center">
             <p className="text-xl font-black text-indigo-400">{s.num}</p>
@@ -171,6 +160,7 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
 
 export default function CoverLetterGeneratorPage() {
   const [user, loading] = useAuthState(auth);
+  const searchParams = useSearchParams();
 
   // ── Subscription / usage ──────────────────────────────────────────────────
   const {
@@ -215,7 +205,29 @@ export default function CoverLetterGeneratorPage() {
     return () => clearInterval(t);
   }, [isGenerating]);
 
-  // ── LinkedIn job data bridge ──────────────────────────────────────────────
+  // ── URL search params — primary path from Chrome extension on production ──
+  useEffect(() => {
+    const role        = searchParams.get('role');
+    const company     = searchParams.get('company');
+    const description = searchParams.get('jobDescription');
+    const source      = searchParams.get('source');
+
+    if (role || company || description) {
+      if (role)        setJobRole(decodeURIComponent(role));
+      if (company)     setCompanyName(decodeURIComponent(company));
+      if (description) setJobDescription(decodeURIComponent(description));
+
+      if (source === 'linkedin') {
+        toast.success('Job loaded from LinkedIn');
+      }
+
+      // Auto-generate if we have enough data
+      if (role && description) setAutoGenerated(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── LinkedIn job data bridge — postMessage fallback (localhost dev) ───────
   useEffect(() => {
     const handleMessage = (e: MessageEvent) => {
       if (e.origin !== window.location.origin) return;
@@ -236,6 +248,7 @@ export default function CoverLetterGeneratorPage() {
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
+  // ── Auto-generate once profile is loaded and fields are populated ─────────
   useEffect(() => {
     if (autoGenerated && !profileStatus.loading && jobRole && jobDescription && !generatedLetter && !isGenerating) {
       const t = setTimeout(() => handleGenerate(), 500);
@@ -445,7 +458,7 @@ export default function CoverLetterGeneratorPage() {
         </div>
       </div>
 
-      {/* Limit reached — minimal upgrade gate */}
+      {/* Limit reached */}
       {!canUseFeature('coverLetters') ? (
         <UpgradeGate used={clUsed} limit={clLimit} />
       ) : (
@@ -467,6 +480,22 @@ export default function CoverLetterGeneratorPage() {
                       View on LinkedIn <ExternalLink className="w-3 h-3" />
                     </a>
                   )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* LinkedIn banner for URL param source (no linkedInJobData object but fields populated) */}
+          {!linkedInJobData && searchParams.get('source') === 'linkedin' && jobRole && (
+            <div className="glass-card p-4 border-l-2 border-blue-500/60 animate-fade-in-up">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 bg-blue-500/[0.08] rounded-lg flex items-center justify-center flex-shrink-0">
+                  <ExternalLink className="w-3.5 h-3.5 text-blue-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-blue-400 mb-1">Job imported from LinkedIn</p>
+                  <p className="text-sm text-white font-medium">{jobRole}</p>
+                  {companyName && <p className="text-xs text-slate-500">{companyName}</p>}
                 </div>
               </div>
             </div>

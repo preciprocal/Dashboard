@@ -405,71 +405,60 @@ class PreciprocalBanner {
   }
 
   async prefetchApplyProfile() {
-  if (!this.authToken) return;
-  try {
-    const resp = await chrome.runtime.sendMessage({
-      type:    'API_FETCH_AUTO_APPLY',
-      token:   this.authToken,
-      userId:  this.authUserId || '',
-      email:   this.authEmail  || '',
-      baseUrl: PRECIPROCAL_URL,
-    });
-    if (resp?.success && resp.data) {
-      this.applyProfile = resp.data.applyProfile || null;
+    if (!this.authToken) return;
+    try {
+      const resp = await chrome.runtime.sendMessage({
+        type:    'API_FETCH_AUTO_APPLY',
+        token:   this.authToken,
+        userId:  this.authUserId || '',
+        email:   this.authEmail  || '',
+        baseUrl: PRECIPROCAL_URL,
+      });
+      if (resp?.success && resp.data) {
+        this.applyProfile = resp.data.applyProfile || null;
 
-      // ── Handle files: support both legacy base64 and new Storage signed URLs ──
-      const rawFiles = resp.data.files || null;
-      this.applyFiles = {
-        resume:     { available: false, url: null, fileName: null },
-        transcript: { available: false, url: null, fileName: null },
-      };
+        const rawFiles = resp.data.files || null;
+        this.applyFiles = {
+          resume:     { available: false, url: null, fileName: null },
+          transcript: { available: false, url: null, fileName: null },
+        };
 
-      if (rawFiles) {
-        // Resume
-        if (rawFiles.resume?.available && rawFiles.resume.url) {
-          if (rawFiles.resume.url.startsWith('data:')) {
-            // Legacy base64 — use directly
-            this.applyFiles.resume = rawFiles.resume;
-          } else if (rawFiles.resume.url === 'storage') {
-            // New Storage-based — fetch signed URL
-            const signedUrl = await this._getFileSignedUrl('resume');
-            if (signedUrl) {
-              this.applyFiles.resume = { available: true, url: signedUrl, fileName: rawFiles.resume.fileName };
+        if (rawFiles) {
+          if (rawFiles.resume?.available && rawFiles.resume.url) {
+            if (rawFiles.resume.url.startsWith('data:')) {
+              this.applyFiles.resume = rawFiles.resume;
+            } else if (rawFiles.resume.url === 'storage') {
+              const signedUrl = await this._getFileSignedUrl('resume');
+              if (signedUrl) {
+                this.applyFiles.resume = { available: true, url: signedUrl, fileName: rawFiles.resume.fileName };
+              }
+            } else {
+              this.applyFiles.resume = rawFiles.resume;
             }
-          } else {
-            // Already a URL (signed or otherwise)
-            this.applyFiles.resume = rawFiles.resume;
+          }
+
+          if (rawFiles.transcript?.available && rawFiles.transcript.url) {
+            if (rawFiles.transcript.url.startsWith('data:')) {
+              this.applyFiles.transcript = rawFiles.transcript;
+            } else if (rawFiles.transcript.url === 'storage') {
+              const signedUrl = await this._getFileSignedUrl('transcript');
+              if (signedUrl) {
+                this.applyFiles.transcript = { available: true, url: signedUrl, fileName: rawFiles.transcript.fileName };
+              }
+            } else {
+              this.applyFiles.transcript = rawFiles.transcript;
+            }
           }
         }
 
-        // Transcript
-        if (rawFiles.transcript?.available && rawFiles.transcript.url) {
-          if (rawFiles.transcript.url.startsWith('data:')) {
-            this.applyFiles.transcript = rawFiles.transcript;
-          } else if (rawFiles.transcript.url === 'storage') {
-            const signedUrl = await this._getFileSignedUrl('transcript');
-            if (signedUrl) {
-              this.applyFiles.transcript = { available: true, url: signedUrl, fileName: rawFiles.transcript.fileName };
-            }
-          } else {
-            this.applyFiles.transcript = rawFiles.transcript;
-          }
-        }
+        console.log('✅ Apply profile prefetched:', this.applyProfile?.firstName, '| resume:', this.applyFiles.resume.available, '| transcript:', this.applyFiles.transcript.available);
       }
-
-      console.log('✅ Apply profile prefetched:', this.applyProfile?.firstName, '| resume:', this.applyFiles.resume.available, '| transcript:', this.applyFiles.transcript.available);
+    } catch (e) {
+      console.warn('⚠️ Prefetch failed:', e?.message);
     }
-  } catch (e) {
-    console.warn('⚠️ Prefetch failed:', e?.message);
   }
-}
 
-  // ─────────────────────────────────────────────────────────────
-  // AUTH CHECK — never throws, never blocks banner from showing.
-  // Always resolves: authenticated or not, banner renders either way.
-  // ─────────────────────────────────────────────────────────────
   async checkAuth() {
-    // Step 1: read storage directly — fast, always works
     try {
       const result = await chrome.storage.local.get(['preciprocal_auth']);
       const auth   = result?.preciprocal_auth;
@@ -482,11 +471,10 @@ class PreciprocalBanner {
       console.warn('⚠️ Storage read failed:', e?.message);
     }
 
-    // Step 2: try background sync with a hard timeout so it never hangs
     try {
       const syncResult = await Promise.race([
         chrome.runtime.sendMessage({ type: 'SYNC_AUTH' }),
-        new Promise((resolve) => setTimeout(() => resolve(null), 2000)), // 2s max
+        new Promise((resolve) => setTimeout(() => resolve(null), 2000)),
       ]);
       if (syncResult?.success) {
         const result = await chrome.storage.local.get(['preciprocal_auth']);
@@ -498,11 +486,9 @@ class PreciprocalBanner {
         }
       }
     } catch (e) {
-      // Service worker dormant or unavailable — not a problem, just show banner unauthenticated
       console.warn('⚠️ Background sync skipped:', e?.message);
     }
 
-    // Not authenticated — banner still shows, buttons redirect to sign-in
     console.warn('❌ Banner: not authenticated');
     this.isAuthenticated = false;
   }
@@ -551,9 +537,7 @@ class PreciprocalBanner {
 
   _applyTheme() {
     if (!this.banner) return;
-    // Detect LinkedIn's theme by checking the page background color
     const bg = getComputedStyle(document.body).backgroundColor;
-    // Light mode: background is white/near-white (rgb > 200 for all channels)
     const match = bg.match(/\d+/g);
     const isLight = match && parseInt(match[0]) > 200 && parseInt(match[1]) > 200 && parseInt(match[2]) > 200;
     if (isLight) {
@@ -603,7 +587,6 @@ class PreciprocalBanner {
             <svg class="track-icon" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
           </button>
         </div>
-
       </div>
     `;
     return container;
@@ -645,7 +628,6 @@ class PreciprocalBanner {
           if (type === 'error')   this.showNotification(msg, 'error');
         });
         await engine.start();
-        // Inject resume into resume slot, transcript into transcript slot only
         try { await this._injectFilesIntoModal(); } catch {}
         this.applyState = 'done';
         if (btn) { btn.classList.remove('loading'); btn.classList.add('done'); }
@@ -675,6 +657,7 @@ class PreciprocalBanner {
     }
   }
 
+  // ── UPDATED: cover-letter uses URL params (production) + storage (localhost fallback) ──
   async handleAction(action) {
     if (!this.isAuthenticated) {
       this.showNotification('Please log in to Preciprocal first', 'error');
@@ -683,19 +666,37 @@ class PreciprocalBanner {
     }
     if (action === 'auto-apply') { await this.handleAutoApply(); return; }
     if (action === 'track-job')  { await this.handleTrackJob();  return; }
-    const actionMap = { 'cover-letter': '/cover-letter/create', 'resume-boost': '/resume/ai-writer', 'recruiter-view': '/recruiter-analysis' };
+
+    if (action === 'cover-letter') {
+      // Store in chrome.storage for localhost-bridge.js (local dev fallback)
+      await chrome.storage.local.set({
+        preciprocal_linkedin_job: this.jobData,
+        preciprocal_timestamp: Date.now(),
+      });
+
+      // Build URL params — primary mechanism, works on production without any bridge
+      const params = new URLSearchParams();
+      if (this.jobData?.title)       params.set('role',           this.jobData.title);
+      if (this.jobData?.company)     params.set('company',        this.jobData.company);
+      if (this.jobData?.description) params.set('jobDescription', this.jobData.description.substring(0, 2000));
+      params.set('source', 'linkedin');
+
+      window.open(`${PRECIPROCAL_URL}/cover-letter/new?${params.toString()}`, '_blank');
+      return;
+    }
+
+    // Other actions
+    const actionMap = { 'resume-boost': '/resume/ai-writer', 'recruiter-view': '/recruiter-analysis' };
     const path = actionMap[action];
     if (!path) return;
     await chrome.storage.local.set({ preciprocal_linkedin_job: this.jobData, preciprocal_timestamp: Date.now() });
     window.open(`${PRECIPROCAL_URL}${path}?linkedin_job=true`, '_blank');
   }
 
-  // ── Classify all file inputs in the modal into resume / transcript buckets ──
   _classifyModalFileInputs(modal) {
     const all        = Array.from(modal.querySelectorAll('input[type="file"]:not([disabled])'));
     const resume     = [], transcript = [], other = [];
     for (const inp of all) {
-      // Build a label string from aria-label, placeholder, nearby <label>, or parent text
       let lbl = inp.getAttribute('aria-label') || inp.placeholder || '';
       if (!lbl && inp.id) {
         const forLabel = document.querySelector(`label[for="${inp.id}"]`);
@@ -706,12 +707,11 @@ class PreciprocalBanner {
         if (container) lbl = container.textContent || '';
       }
       lbl = lbl.toLowerCase();
-      if (/resume|cv\b|curriculum vitae/i.test(lbl))                    resume.push(inp);
+      if (/resume|cv\b|curriculum vitae/i.test(lbl))                      resume.push(inp);
       else if (/transcript|academic record|grade|certificate/i.test(lbl)) transcript.push(inp);
-      else if (/cover.?letter/i.test(lbl))                               { /* skip — never inject into cover letter */ }
-      else                                                                 other.push(inp);
+      else if (/cover.?letter/i.test(lbl))                                 { /* skip */ }
+      else                                                                   other.push(inp);
     }
-    // If we couldn't label them, assume the first unknown is resume, second is transcript
     if (!resume.length     && other.length) resume.push(other.shift());
     if (!transcript.length && other.length) transcript.push(other.shift());
     return { resume, transcript };
@@ -742,14 +742,12 @@ class PreciprocalBanner {
     input.dispatchEvent(new Event('input',  { bubbles: true }));
   }
 
-  // Injects resume → resume inputs only, transcript → transcript inputs only
   async _injectFilesIntoModal() {
     const modal = document.querySelector('[data-test-modal-id="easy-apply-modal"], .jobs-easy-apply-modal, .artdeco-modal[role="dialog"]');
     if (!modal) return { resume: false, transcript: false };
     const { resume: resumeInputs, transcript: transcriptInputs } = this._classifyModalFileInputs(modal);
     const result = { resume: false, transcript: false };
 
-    // Inject resume
     if (this.applyFiles?.resume?.available && this.applyFiles.resume.url && resumeInputs.length) {
       try {
         const file = await this._buildFileObject(this.applyFiles.resume.url, this.applyFiles.resume.fileName);
@@ -759,7 +757,6 @@ class PreciprocalBanner {
       } catch (e) { console.warn('⚠️ Resume injection failed:', e.message); }
     }
 
-    // Inject transcript — only into transcript-labelled inputs, NEVER into resume or cover letter slots
     if (this.applyFiles?.transcript?.available && this.applyFiles.transcript.url && transcriptInputs.length) {
       try {
         const file = await this._buildFileObject(this.applyFiles.transcript.url, this.applyFiles.transcript.fileName);
@@ -940,7 +937,7 @@ class PreciprocalBanner {
       .prc-btn.prc-track { background:transparent; border-color:#6e7681; color:#b0b8c1; }
       .prc-btn.prc-track:hover { background:rgba(110,118,129,0.08); border-color:#b0b8c1; color:#f5f5f5; }
 
-      /* ── Light mode — applied via JS class on the container ── */
+      /* ── Light mode ── */
       .preciprocal-inline-container.prc-light .preciprocal-banner-compact { background:linear-gradient(135deg,#e0f2fe 0%,#ede9fe 100%); border:1px solid rgba(99,102,241,0.2); box-shadow:0 1px 4px rgba(0,0,0,0.07); }
       .preciprocal-inline-container.prc-light .preciprocal-banner-compact:hover { border-color:rgba(99,102,241,0.45); box-shadow:0 4px 16px rgba(99,102,241,0.12), 0 1px 4px rgba(0,0,0,0.08); }
       .preciprocal-inline-container.prc-light .prc-title { color:#111827; font-weight:700; }
