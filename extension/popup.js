@@ -1,7 +1,7 @@
 // popup.js
 
 const IS_DEV   = false;
-const BASE_URL = IS_DEV ? 'http://localhost:3000' : 'https://preciprocal.com';
+const BASE_URL = IS_DEV ? 'http://localhost:3000' : 'https://app.preciprocal.com';
 
 const ICON_URL = chrome.runtime.getURL('icons/icon48.png');
 

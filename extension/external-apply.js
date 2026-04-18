@@ -8,7 +8,7 @@
 console.log('🚀 Preciprocal external-apply.js on:', window.location.hostname);
 
 const IS_DEV = false; // Set to true for local development
-const PRECIPROCAL_URL = IS_DEV ? 'http://localhost:3000' : 'https://preciprocal.com';
+const PRECIPROCAL_URL = IS_DEV ? 'http://localhost:3000' : 'https://app.preciprocal.com';
 
 // ─────────────────────────────────────────────────────────────────
 // Platform detection

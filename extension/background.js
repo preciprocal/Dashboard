@@ -5,7 +5,7 @@ console.log('🚀 Preciprocal background.js loaded');
 const STORAGE_KEY  = 'preciprocal_auth';
 const JOB_QUEUE_KEY = 'preciprocal_job_queue';
 const IS_DEV_BG    = false;
-const BASE_URL     = IS_DEV_BG ? 'http://localhost:3000' : 'https://preciprocal.com';
+const BASE_URL     = IS_DEV_BG ? 'http://localhost:3000' : 'https://app.preciprocal.com';
 
 // ─────────────────────────────────────────────────────────────────
 // Read Firebase auth from a preciprocal.com tab via scripting API

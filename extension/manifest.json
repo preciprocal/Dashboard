@@ -14,8 +14,8 @@
   ],
   "externally_connectable": {
     "matches": [
-      "https://preciprocal.com/*",
-      "https://www.preciprocal.com/*",
+      "https://app.preciprocal.com/*",
+      "https://www.app.preciprocal.com/*",
       "http://localhost:3000/*"
     ]
   },

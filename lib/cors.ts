@@ -2,8 +2,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const ALLOWED_ORIGINS = [
-  'https://preciprocal.com',
-  'https://www.preciprocal.com',
+  'https://app.preciprocal.com',
+  'https://www.app.preciprocal.com',
   'http://localhost:3000',
   // Add chrome-extension://YOUR_ID here when published
 ];
