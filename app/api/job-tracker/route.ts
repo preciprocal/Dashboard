@@ -36,7 +36,7 @@ const VALID_WORK_TYPES: WorkType[] = ['remote','hybrid','onsite'];
 // ─── Auth — session cookie first, then Bearer token ───────────────────────────
 
 async function getUid(request: NextRequest): Promise<string | null> {
-  // 1. Session cookie (web app — no Authorization header sent)
+  // 1. Session cookie (web app)
   const session = request.cookies.get('session')?.value;
   if (session) {
     try {
@@ -76,30 +76,74 @@ function sanitize(body: Record<string, unknown>): Partial<AppFields> {
   const out: Partial<AppFields> = {};
   const str = (v: unknown) => (typeof v === 'string' ? v.trim() || null : null);
 
-  if (typeof body.company     === 'string' && body.company.trim())
-    out.company   = body.company.trim().slice(0, 200);
-  if (typeof body.jobTitle    === 'string' && body.jobTitle.trim())
-    out.jobTitle  = body.jobTitle.trim().slice(0, 200);
+  if (typeof body.company  === 'string' && body.company.trim())
+    out.company  = body.company.trim().slice(0, 200);
+  if (typeof body.jobTitle === 'string' && body.jobTitle.trim())
+    out.jobTitle = body.jobTitle.trim().slice(0, 200);
 
-  const jobUrl   = str(body.jobUrl);
-  if ('jobUrl'   in body) out.jobUrl   = jobUrl;
-  const location = str(body.location);
-  if ('location' in body) out.location = location;
-  const salary   = str(body.salary);
-  if ('salary'   in body) out.salary   = salary;
-  const source   = str(body.source);
-  if ('source'   in body) out.source   = source;
-  const notes    = str(body.notes);
-  if ('notes'    in body) out.notes    = notes;
+  if ('jobUrl'   in body) out.jobUrl   = str(body.jobUrl);
+  if ('location' in body) out.location = str(body.location);
+  if ('salary'   in body) out.salary   = str(body.salary);
+  if ('source'   in body) out.source   = str(body.source);
+  if ('notes'    in body) out.notes    = str(body.notes);
 
   if (typeof body.appliedDate === 'string' && body.appliedDate)
     out.appliedDate = body.appliedDate;
   if (typeof body.workType === 'string' && VALID_WORK_TYPES.includes(body.workType as WorkType))
     out.workType = body.workType as WorkType;
-  if (typeof body.status   === 'string' && VALID_STATUSES.includes(body.status as AppStatus))
-    out.status   = body.status as AppStatus;
+  if (typeof body.status === 'string' && VALID_STATUSES.includes(body.status as AppStatus))
+    out.status = body.status as AppStatus;
 
   return out;
+}
+
+// ─── Normalise a Firestore doc into an Application ───────────────────────────
+
+function normaliseDoc(doc: FirebaseFirestore.DocumentSnapshot, uid: string): Application {
+  const d = doc.data() ?? {};
+
+  // Normalise legacy status values sent by older extension versions
+  let status = d.status as string;
+  const legacyMap: Record<string, AppStatus> = {
+    'Applied':      'applied',
+    'Under Review': 'applied',
+    'Interview':    'phone-screen',
+    'Offer':        'offer',
+    'Rejected':     'rejected',
+    'Withdrawn':    'withdrew',
+  };
+  if (!VALID_STATUSES.includes(status as AppStatus) && legacyMap[status]) {
+    status = legacyMap[status];
+  }
+
+  // createdAt / updatedAt: Firestore Timestamp OR ISO string (from extension)
+  const toISO = (v: unknown): string => {
+    if (!v) return new Date().toISOString();
+    if (typeof v === 'object' && 'toDate' in (v as object))
+      return (v as FirebaseFirestore.Timestamp).toDate().toISOString();
+    if (typeof v === 'string') return v;
+    return new Date().toISOString();
+  };
+
+  return {
+    id:          doc.id,
+    userId:      uid,
+    company:     d.company  || '',
+    jobTitle:    d.jobTitle || '',
+    jobUrl:      d.jobUrl   ?? null,
+    location:    d.location ?? null,
+    salary:      d.salary   ?? null,
+    workType:    (VALID_WORK_TYPES.includes(d.workType) ? d.workType : 'onsite') as WorkType,
+    source:      d.source   ?? null,
+    notes:       d.notes    ?? null,
+    status:      (VALID_STATUSES.includes(status as AppStatus) ? status : 'applied') as AppStatus,
+    // appliedDate: prefer explicit field, fall back to appliedAt (extension sends this)
+    appliedDate: d.appliedDate
+      || (typeof d.appliedAt === 'string' ? d.appliedAt.split('T')[0] : null)
+      || new Date().toISOString().split('T')[0],
+    createdAt:   toISO(d.createdAt),
+    updatedAt:   toISO(d.updatedAt),
+  };
 }
 
 // ─── GET — list applications ──────────────────────────────────────────────────
@@ -109,48 +153,31 @@ export async function GET(request: NextRequest) {
     const uid = await getUid(request);
     if (!uid) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const snap = await db
-      .collection('jobApplications')
-      .where('userId', '==', uid)
-      .orderBy('createdAt', 'desc')
-      .get();
+    let snap: FirebaseFirestore.QuerySnapshot;
 
-    const data: Application[] = snap.docs.map(doc => {
-      const d = doc.data();
-      // Normalise legacy records that used old status values from the extension
-      let status = d.status as string;
-      const legacyMap: Record<string, AppStatus> = {
-        'Applied':      'applied',
-        'Under Review': 'applied',
-        'Interview':    'phone-screen',
-        'Offer':        'offer',
-        'Rejected':     'rejected',
-        'Withdrawn':    'withdrew',
-      };
-      if (!VALID_STATUSES.includes(status as AppStatus) && legacyMap[status]) {
-        status = legacyMap[status];
-      }
+    // Try ordered query first — requires a composite index (userId ASC, createdAt DESC).
+    // If the index doesn't exist yet Firestore throws a "requires an index" error;
+    // fall back to an unordered query and sort in JS so the app still works.
+    try {
+      snap = await db
+        .collection('jobApplications')
+        .where('userId', '==', uid)
+        .orderBy('createdAt', 'desc')
+        .get();
+    } catch (indexErr) {
+      console.warn('[job-tracker GET] orderBy failed (index missing?), falling back to unordered:', (indexErr as Error).message);
+      snap = await db
+        .collection('jobApplications')
+        .where('userId', '==', uid)
+        .get();
+    }
 
-      return {
-        id:          doc.id,
-        userId:      uid,
-        company:     d.company   || '',
-        jobTitle:    d.jobTitle  || '',
-        jobUrl:      d.jobUrl    ?? null,
-        location:    d.location  ?? null,
-        salary:      d.salary    ?? null,
-        workType:    (VALID_WORK_TYPES.includes(d.workType) ? d.workType : 'onsite') as WorkType,
-        source:      d.source    ?? null,
-        notes:       d.notes     ?? null,
-        status:      (VALID_STATUSES.includes(status as AppStatus) ? status : 'applied') as AppStatus,
-        // appliedDate: prefer explicit field, fall back to appliedAt (extension format)
-        appliedDate: d.appliedDate
-          || d.appliedAt?.split?.('T')?.[0]
-          || new Date().toISOString().split('T')[0],
-        createdAt:   d.createdAt?.toDate?.()?.toISOString?.() ?? d.createdAt ?? new Date().toISOString(),
-        updatedAt:   d.updatedAt?.toDate?.()?.toISOString?.() ?? d.updatedAt ?? new Date().toISOString(),
-      };
-    });
+    const data: Application[] = snap.docs
+      .map(doc => normaliseDoc(doc, uid))
+      // JS-side sort so results are newest-first even on the fallback path
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    console.log(`[job-tracker GET] uid=${uid} found=${data.length}`);
 
     return NextResponse.json({ success: true, data });
   } catch (error) {
@@ -177,8 +204,8 @@ export async function POST(request: NextRequest) {
       const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000);
       const dup = await db
         .collection('jobApplications')
-        .where('userId',  '==', uid)
-        .where('jobUrl',  '==', data.jobUrl)
+        .where('userId',    '==', uid)
+        .where('jobUrl',    '==', data.jobUrl)
         .where('createdAt', '>=', tenMinAgo)
         .limit(1)
         .get();
@@ -201,7 +228,7 @@ export async function POST(request: NextRequest) {
       notes:       data.notes       ?? null,
       status:      data.status      ?? 'applied',
       appliedDate: data.appliedDate ?? now.toISOString().split('T')[0],
-      createdAt:   now,
+      createdAt:   now,   // Firestore Timestamp — consistent with orderBy
       updatedAt:   now,
     });
 

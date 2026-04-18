@@ -681,7 +681,7 @@ class PreciprocalBanner {
       if (this.jobData?.description) params.set('jobDescription', this.jobData.description.substring(0, 2000));
       params.set('source', 'linkedin');
 
-      window.open(`${PRECIPROCAL_URL}/cover-letter/new?${params.toString()}`, '_blank');
+      window.open(`${PRECIPROCAL_URL}/cover-letter/create?${params.toString()}`, '_blank');
       return;
     }
 
