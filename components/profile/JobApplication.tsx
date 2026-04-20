@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/firebase/client';
@@ -8,7 +8,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import {
   User, Briefcase, GraduationCap, Shield, Users,
   Save, CheckCircle, AlertCircle, Plus, Trash2,
-  Building2, FileText, Star, Heart, ChevronDown,
+  Building2, FileText, Star, Heart, ChevronDown, Zap,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -58,6 +58,32 @@ const DEFAULT_PROFILE: JobAppProfile = {
   coverLetterIntro:'', coverLetterBody:'',
 };
 
+// ─── Completion meter ─────────────────────────────────────────────────────────
+
+function useCompletionScore(p: JobAppProfile) {
+  return useMemo(() => {
+    const checks = [
+      !!p.phone,
+      !!p.city,
+      !!p.state,
+      !!p.zipCode,
+      !!p.headline,
+      !!p.yearsOfExperience,
+      !!p.summary?.trim(),
+      !!p.skills?.trim(),
+      !!p.linkedInUrl,
+      !!p.desiredSalary,
+      p.workAuthorization === 'Yes' || p.workAuthorization === 'No',
+      p.education.some(e => e.school && e.degree),
+      p.experience.some(e => e.company && e.title),
+    ];
+    const filled  = checks.filter(Boolean).length;
+    const total   = checks.length;
+    const pct     = Math.round((filled / total) * 100);
+    return { filled, total, pct };
+  }, [p]);
+}
+
 // ─── Custom Dropdown ──────────────────────────────────────────────────────────
 
 interface DropdownOption { value: string; label: string; }
@@ -70,7 +96,7 @@ function CustomDropdown({
   options: DropdownOption[];
   placeholder?: string;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen]     = useState(false);
   const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef   = useRef<HTMLDivElement>(null);
@@ -78,34 +104,27 @@ function CustomDropdown({
 
   useEffect(() => { setMounted(true); }, []);
 
-  // Calculate position relative to viewport
   const reposition = useCallback(() => {
     if (!triggerRef.current) return;
-    const r = triggerRef.current.getBoundingClientRect();
-    const panelH = Math.min(224, options.length * 42 + 8); // estimate panel height
-    const spaceBelow = window.innerHeight - r.bottom;
-    const top = spaceBelow >= panelH
+    const r       = triggerRef.current.getBoundingClientRect();
+    const panelH  = Math.min(224, options.length * 42 + 8);
+    const below   = window.innerHeight - r.bottom;
+    const top     = below >= panelH
       ? r.bottom + window.scrollY + 6
       : r.top + window.scrollY - panelH - 6;
     setCoords({ top, left: r.left + window.scrollX, width: r.width });
   }, [options.length]);
 
-  const handleOpen = () => {
-    reposition();
-    setOpen(o => !o);
-  };
+  const handleOpen = () => { reposition(); setOpen(o => !o); };
 
-  // Close on outside click or scroll
   useEffect(() => {
     if (!open) return;
     const close = (e: MouseEvent) => {
-      if (
-        triggerRef.current?.contains(e.target as Node) ||
-        panelRef.current?.contains(e.target as Node)
-      ) return;
+      if (triggerRef.current?.contains(e.target as Node) ||
+          panelRef.current?.contains(e.target as Node)) return;
       setOpen(false);
     };
-    const onScroll = () => { reposition(); };
+    const onScroll = () => reposition();
     document.addEventListener('mousedown', close);
     window.addEventListener('scroll', onScroll, true);
     window.addEventListener('resize', reposition);
@@ -116,39 +135,32 @@ function CustomDropdown({
     };
   }, [open, reposition]);
 
-  const selected = options.find(o => o.value === value);
+  const selected     = options.find(o => o.value === value);
   const displayLabel = selected?.label ?? value ?? placeholder;
 
   const panel = mounted && open ? createPortal(
     <div
       ref={panelRef}
       style={{
-        position: 'absolute',
-        top: coords.top,
-        left: coords.left,
-        width: coords.width,
-        zIndex: 9999,
-        background: '#0f1729',
-        border: '1px solid rgba(255,255,255,0.08)',
-        borderRadius: '12px',
-        overflow: 'hidden',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+        position: 'absolute', top: coords.top, left: coords.left,
+        width: coords.width, zIndex: 9999, background: '#0d1526',
+        border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px',
+        overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
       }}
     >
-      <div style={{ maxHeight: '224px', overflowY: 'auto' }} className="py-1 custom-scrollbar">
+      <div style={{ maxHeight: '224px', overflowY: 'auto' }} className="py-1">
         {options.map(opt => {
-          const isActive = opt.value === value || (!value && opt.value === '');
+          const isActive = opt.value === value;
           return (
             <button
               key={opt.value}
               type="button"
-              onMouseDown={e => e.preventDefault()} // prevent blur before click
+              onMouseDown={e => e.preventDefault()}
               onClick={() => { onChange(opt.value); setOpen(false); }}
               className={`w-full text-left px-4 py-2.5 text-sm transition-colors
                 ${isActive
-                  ? 'bg-blue-600/30 text-white font-medium'
-                  : 'text-slate-300 hover:bg-white/[0.05] hover:text-white'
-                }`}
+                  ? 'bg-purple-600/30 text-white font-medium'
+                  : 'text-slate-300 hover:bg-white/[0.05] hover:text-white'}`}
             >
               {opt.label}
             </button>
@@ -166,25 +178,22 @@ function CustomDropdown({
         type="button"
         onClick={handleOpen}
         className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-sm transition-all
-          border bg-slate-900/60 backdrop-blur-sm
+          border bg-white/[0.04] backdrop-blur-sm
           ${open
             ? 'border-purple-500/50 text-white'
-            : 'border-white/[0.08] text-slate-300 hover:border-white/[0.15] hover:text-white'
-          }`}
+            : 'border-white/[0.08] text-slate-300 hover:border-white/[0.15] hover:text-white'}`}
       >
         <span className={`truncate ${!selected && !value ? 'text-slate-500' : ''}`}>
           {displayLabel}
         </span>
-        <ChevronDown
-          className={`w-3.5 h-3.5 flex-shrink-0 ml-2 text-slate-500 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
-        />
+        <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 ml-2 text-slate-500 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
       </button>
       {panel}
     </div>
   );
 }
 
-// ─── Helper: build options from string array ──────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function opts(arr: string[]): DropdownOption[] {
   return arr.map(v => ({ value: v, label: v }));
@@ -197,29 +206,35 @@ function optsKV(arr: [string, string][]): DropdownOption[] {
 
 const fieldCls = "w-full glass-input rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none transition-all";
 
-function F({ label, hint, span, children }: { label:string; hint?:string; span?:string; children:React.ReactNode }) {
+function F({ label, hint, span, children }: {
+  label: string; hint?: string; span?: string; children: React.ReactNode;
+}) {
   return (
-    <div className={span}>
+    <div className={span ?? ''}>
       <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-2">
-        {label}{hint && <span className="text-slate-600 normal-case tracking-normal font-normal ml-1.5">· {hint}</span>}
+        {label}
+        {hint && <span className="text-slate-600 normal-case tracking-normal font-normal ml-1.5">· {hint}</span>}
       </label>
       {children}
     </div>
   );
 }
 
-function FInput({ label, hint, span, value, onChange, placeholder, type='text', disabled }:
-  { label:string; hint?:string; span?:string; value:string; onChange:(v:string)=>void; placeholder?:string; type?:string; disabled?:boolean }) {
+function FInput({ label, hint, span, value, onChange, placeholder, type = 'text', disabled }: {
+  label: string; hint?: string; span?: string; value: string;
+  onChange: (v: string) => void; placeholder?: string; type?: string; disabled?: boolean;
+}) {
   return (
     <F label={label} hint={hint} span={span}>
-      <input type={type} value={value} onChange={e=>onChange(e.target.value)}
+      <input type={type} value={value} onChange={e => onChange(e.target.value)}
         placeholder={placeholder} disabled={disabled} className={fieldCls} />
     </F>
   );
 }
 
 function FSelect({ label, hint, span, value, onChange, options }: {
-  label:string; hint?:string; span?:string; value:string; onChange:(v:string)=>void; options: DropdownOption[];
+  label: string; hint?: string; span?: string; value: string;
+  onChange: (v: string) => void; options: DropdownOption[];
 }) {
   return (
     <F label={label} hint={hint} span={span}>
@@ -228,21 +243,28 @@ function FSelect({ label, hint, span, value, onChange, options }: {
   );
 }
 
-function FTextarea({ label, hint, span, value, onChange, placeholder, rows=3 }:
-  { label:string; hint?:string; span?:string; value:string; onChange:(v:string)=>void; placeholder?:string; rows?:number }) {
+function FTextarea({ label, hint, span, value, onChange, placeholder, rows = 3 }: {
+  label: string; hint?: string; span?: string; value: string;
+  onChange: (v: string) => void; placeholder?: string; rows?: number;
+}) {
   return (
     <F label={label} hint={hint} span={span}>
-      <textarea value={value} onChange={e=>onChange(e.target.value)}
+      <textarea value={value} onChange={e => onChange(e.target.value)}
         placeholder={placeholder} rows={rows} className={fieldCls + ' resize-none'} />
     </F>
   );
 }
 
-function FToggle({ value, onChange, label, desc }: { value:boolean; onChange:(v:boolean)=>void; label:string; desc?:string }) {
+function FToggle({ value, onChange, label, desc }: {
+  value: boolean; onChange: (v: boolean) => void; label: string; desc?: string;
+}) {
   return (
-    <button onClick={()=>onChange(!value)}
+    <button
+      type="button"
+      onClick={() => onChange(!value)}
       className={`flex items-center justify-between w-full px-4 py-3 rounded-xl border transition-all duration-200 text-left group
-        ${value ? 'bg-purple-500/10 border-purple-500/25' : 'bg-white/[0.02] border-white/[0.06] hover:border-white/10'}`}>
+        ${value ? 'bg-purple-500/10 border-purple-500/25' : 'bg-white/[0.02] border-white/[0.06] hover:border-white/10'}`}
+    >
       <div>
         <p className={`text-sm font-medium transition-colors ${value ? 'text-white' : 'text-slate-300 group-hover:text-white'}`}>{label}</p>
         {desc && <p className="text-xs text-slate-500 mt-0.5">{desc}</p>}
@@ -256,14 +278,19 @@ function FToggle({ value, onChange, label, desc }: { value:boolean; onChange:(v:
 
 // ─── Collapsible section ──────────────────────────────────────────────────────
 
-function Section({ label, icon:Icon, gradient, desc, children, defaultOpen=true }:
-  { id:string; label:string; icon:React.ElementType; gradient:string; desc:string; children:React.ReactNode; defaultOpen?:boolean }) {
+function Section({ label, icon: Icon, gradient, desc, children, defaultOpen = true }: {
+  label: string; icon: React.ElementType; gradient: string;
+  desc: string; children: React.ReactNode; defaultOpen?: boolean;
+}) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="glass-card overflow-hidden">
-      <button onClick={()=>setOpen(o=>!o)}
-        className="w-full flex items-center gap-4 px-6 py-4 hover:bg-white/[0.02] transition-colors group">
-        <div className={`w-9 h-9 ${gradient} rounded-xl flex items-center justify-center flex-shrink-0 shadow-glass group-hover:scale-105 transition-transform`}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-4 px-6 py-4 hover:bg-white/[0.02] transition-colors group"
+      >
+        <div className={`w-9 h-9 ${gradient} rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform`}>
           <Icon className="w-4 h-4 text-white" />
         </div>
         <div className="flex-1 text-left min-w-0">
@@ -281,22 +308,22 @@ function Section({ label, icon:Icon, gradient, desc, children, defaultOpen=true 
   );
 }
 
-// ─── Salary dropdown (special combined field) ─────────────────────────────────
+// ─── Salary field ─────────────────────────────────────────────────────────────
 
 function SalaryField({ salary, salaryType, onSalary, onType }: {
   salary: string; salaryType: string;
-  onSalary: (v:string)=>void; onType: (v:string)=>void;
+  onSalary: (v: string) => void; onType: (v: string) => void;
 }) {
   return (
     <F label="Desired Salary">
       <div className="flex gap-2">
-        <input value={salary} onChange={e=>onSalary(e.target.value)}
+        <input value={salary} onChange={e => onSalary(e.target.value)}
           placeholder="120000" className={fieldCls + ' flex-1'} />
         <div className="w-24 flex-shrink-0">
           <CustomDropdown
             value={salaryType}
             onChange={onType}
-            options={[{ value:'yearly', label:'/ yr' },{ value:'hourly', label:'/ hr' }]}
+            options={[{ value: 'yearly', label: '/ yr' }, { value: 'hourly', label: '/ hr' }]}
           />
         </div>
       </div>
@@ -306,127 +333,166 @@ function SalaryField({ salary, salaryType, onSalary, onType }: {
 
 // ─── Option lists ─────────────────────────────────────────────────────────────
 
-const COUNTRIES   = opts(['United States','Canada','United Kingdom','Australia','India','Germany','France','Other']);
-const YOE         = optsKV([['','Select…'],['0','Less than 1 year'],['1','1 year'],['2','2 years'],['3','3 years'],['4','4 years'],['5','5 years'],['6','6 years'],['7','7 years'],['8','8 years'],['9','9 years'],['10','10 years'],['12','12 years'],['15','15+ years'],['20','20+ years']]);
-const NOTICE      = opts(['Immediately','1 week','2 weeks','3 weeks','1 month','6 weeks','2 months','3 months']);
-const WORK_TYPE   = opts(['Remote','Hybrid','On-site','Flexible']);
-const EMP_TYPE    = opts(['Full-time','Part-time','Contract','Internship','Freelance','Temporary']);
-const TRAVEL      = opts(['No','Occasionally (up to 10%)','Sometimes (10–25%)','Frequently (25–50%)','Yes, as needed']);
-const REFERRAL    = opts(['LinkedIn','Indeed','Glassdoor','Company Website','Referral','Job Board','Google','Other']);
-const WORK_AUTH   = optsKV([['Yes','Yes — I am authorized'],['No','No — I need authorization']]);
-const VISA        = opts(['','US Citizen','Permanent Resident (Green Card)','H-1B Visa','H-4 EAD','L-1 Visa','OPT / STEM OPT','CPT','TN Visa (Canada/Mexico)','E-3 (Australian)','Other Work Visa','Not applicable']);
-const DEGREE      = opts(['','High School Diploma / GED',"Associate's Degree","Bachelor's Degree","Master's Degree",'MBA','Doctoral Degree (PhD)','JD (Law)','MD (Medicine)','Professional Certificate','Bootcamp Certificate','Other']);
-const GRAD_YEARS  = optsKV([['','Year…'], ...Array.from({length:30},(_,k)=>{ const y=String(2026-k); return [y,y] as [string,string]; }), ['In Progress','In Progress']]);
-const GENDER      = opts(['Prefer not to say','Male','Female','Non-binary','Transgender','Genderqueer / Gender non-conforming','Another gender identity']);
-const PRONOUNS    = opts(['Prefer not to say','He / Him','She / Her','They / Them','He / They','She / They','Ze / Zir']);
-const RACE        = opts(['Prefer not to say','American Indian or Alaska Native','Asian','Black or African American','Hispanic or Latino','Native Hawaiian or Other Pacific Islander','White','Two or more races','Other']);
-const VETERAN     = opts(['I am not a protected veteran','I am a protected veteran','I am a disabled veteran','I am a recently separated veteran','Prefer not to say']);
-const DISABILITY  = opts(['I do not have a disability','I have a disability','I have a history of disability','Prefer not to say']);
+const COUNTRIES  = opts(['United States','Canada','United Kingdom','Australia','India','Germany','France','Other']);
+const YOE        = optsKV([['','Select…'],['0','Less than 1 year'],['1','1 year'],['2','2 years'],['3','3 years'],['4','4 years'],['5','5 years'],['6','6 years'],['7','7 years'],['8','8 years'],['9','9 years'],['10','10 years'],['12','12 years'],['15','15+ years'],['20','20+ years']]);
+const NOTICE     = opts(['Immediately','1 week','2 weeks','3 weeks','1 month','6 weeks','2 months','3 months']);
+const WORK_TYPE  = opts(['Remote','Hybrid','On-site','Flexible']);
+const EMP_TYPE   = opts(['Full-time','Part-time','Contract','Internship','Freelance','Temporary']);
+const TRAVEL     = opts(['No','Occasionally (up to 10%)','Sometimes (10–25%)','Frequently (25–50%)','Yes, as needed']);
+const REFERRAL   = opts(['LinkedIn','Indeed','Glassdoor','Company Website','Referral','Job Board','Google','Other']);
+const WORK_AUTH  = optsKV([['Yes','Yes — I am authorized'],['No','No — I need authorization']]);
+const VISA       = opts(['','US Citizen','Permanent Resident (Green Card)','H-1B Visa','H-4 EAD','L-1 Visa','OPT / STEM OPT','CPT','TN Visa (Canada/Mexico)','E-3 (Australian)','Other Work Visa','Not applicable']);
+const DEGREE     = opts(['','High School Diploma / GED',"Associate's Degree","Bachelor's Degree","Master's Degree",'MBA','Doctoral Degree (PhD)','JD (Law)','MD (Medicine)','Professional Certificate','Bootcamp Certificate','Other']);
+const GRAD_YEARS = optsKV([['','Year…'], ...Array.from({ length: 30 }, (_, k) => { const y = String(2026 - k); return [y, y] as [string, string]; }), ['In Progress', 'In Progress']]);
+const GENDER     = opts(['Prefer not to say','Male','Female','Non-binary','Transgender','Genderqueer / Gender non-conforming','Another gender identity']);
+const PRONOUNS   = opts(['Prefer not to say','He / Him','She / Her','They / Them','He / They','She / They','Ze / Zir']);
+const RACE       = opts(['Prefer not to say','American Indian or Alaska Native','Asian','Black or African American','Hispanic or Latino','Native Hawaiian or Other Pacific Islander','White','Two or more races','Other']);
+const VETERAN    = opts(['I am not a protected veteran','I am a protected veteran','I am a disabled veteran','I am a recently separated veteran','Prefer not to say']);
+const DISABILITY = opts(['I do not have a disability','I have a disability','I have a history of disability','Prefer not to say']);
+
+// ─── Completion bar ───────────────────────────────────────────────────────────
+
+function CompletionBar({ pct, filled, total }: { pct: number; filled: number; total: number }) {
+  const color = pct >= 80 ? '#22c55e' : pct >= 50 ? '#a855f7' : '#f59e0b';
+  const label = pct >= 80 ? 'Great — the extension will fill most fields'
+              : pct >= 50 ? 'Good start — add more for better coverage'
+              : 'Fill in more fields for best autofill results';
+  return (
+    <div className="glass-card p-4">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <Zap className="w-4 h-4 text-purple-400" />
+          <span className="text-sm font-semibold text-white">Profile Completeness</span>
+        </div>
+        <span className="text-sm font-bold tabular-nums" style={{ color }}>{pct}%</span>
+      </div>
+      <div className="h-2 rounded-full bg-white/[0.06] overflow-hidden mb-2">
+        <div
+          className="h-full rounded-full transition-all duration-700"
+          style={{ width: `${pct}%`, background: color }}
+        />
+      </div>
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-slate-500">{label}</p>
+        <p className="text-xs text-slate-600">{filled}/{total} key fields</p>
+      </div>
+    </div>
+  );
+}
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function JobApplicationProfile() {
-  const [user]  = useAuthState(auth);
+  const [user]    = useAuthState(auth);
   const [p, setP] = useState<JobAppProfile>(DEFAULT_PROFILE);
-  const [saving, setSaving] = useState(false);
-  const [saved,  setSaved]  = useState(false);
-  const [error,  setError]  = useState('');
-  const [loading,setLoading]= useState(true);
+  const [saving,  setSaving]  = useState(false);
+  const [saved,   setSaved]   = useState(false);
+  const [error,   setError]   = useState('');
+  const [loading, setLoading] = useState(true);
 
-  useEffect(()=>{
-    if(!user) return;
-    (async()=>{
+  const { pct, filled, total } = useCompletionScore(p);
+
+  // Load from Firestore
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
       try {
-        const snap = await getDoc(doc(db,'users',user.uid));
-        if(snap.exists()){
+        const snap = await getDoc(doc(db, 'users', user.uid));
+        if (snap.exists()) {
           const d = snap.data();
-          setP(prev=>({
+          setP(prev => ({
             ...prev,
-            phone:             d.phone             || prev.phone,
-            streetAddress:     d.streetAddress     || prev.streetAddress,
-            city:              d.city              || prev.city,
-            state:             d.state             || prev.state,
-            zipCode:           d.zipCode           || prev.zipCode,
-            country:           d.country           || prev.country,
-            headline:          d.targetRole        || d.headline      || prev.headline,
-            yearsOfExperience: d.yearsOfExperience || prev.yearsOfExperience,
-            summary:           d.bio               || d.summary       || prev.summary,
-            skills:            Array.isArray(d.preferredTech) && d.preferredTech.length
-                               ? (d.preferredTech as string[]).join(', ')
-                               : Array.isArray(d.skills) && d.skills.length
-                               ? (d.skills as string[]).join(', ')
-                               : typeof d.skills==='string' ? d.skills : prev.skills,
-            linkedInUrl:       d.linkedIn          || d.linkedInUrl   || prev.linkedInUrl,
-            githubUrl:         d.github            || d.githubUrl     || prev.githubUrl,
-            portfolioUrl:      d.website           || d.portfolioUrl  || prev.portfolioUrl,
-            desiredSalary:     d.desiredSalary     || prev.desiredSalary,
-            salaryType:        d.salaryType        || prev.salaryType,
-            noticePeriod:      d.noticePeriod      || prev.noticePeriod,
-            workType:          d.workType          || prev.workType,
-            employmentType:    d.employmentType    || prev.employmentType,
-            willingToRelocate: d.willingToRelocate ?? prev.willingToRelocate,
-            openToTravel:      d.openToTravel      || prev.openToTravel,
-            workAuthorization: d.workAuthorization || prev.workAuthorization,
-            requireSponsorship:d.requireSponsorship?? prev.requireSponsorship,
-            visaType:          d.visaType          || prev.visaType,
-            education:         Array.isArray(d.education)  && d.education.length  ? d.education  as EducationEntry[]  : prev.education,
-            experience:        Array.isArray(d.experience) && d.experience.length ? d.experience as ExperienceEntry[] : prev.experience,
-            gender:            d.gender            || prev.gender,
-            pronouns:          d.pronouns          || prev.pronouns,
-            race:              d.race              || prev.race,
-            veteranStatus:     d.veteranStatus     || prev.veteranStatus,
-            disabilityStatus:  d.disabilityStatus  || prev.disabilityStatus,
-            howDidYouHear:     d.howDidYouHear     || prev.howDidYouHear,
-            driverLicense:     d.driverLicense     ?? prev.driverLicense,
-            backgroundCheck:   d.backgroundCheck   ?? prev.backgroundCheck,
-            drugTest:          d.drugTest          ?? prev.drugTest,
-            over18:            d.over18            ?? prev.over18,
-            currentlyEmployed: d.currentlyEmployed ?? prev.currentlyEmployed,
-            reasonForLeaving:  d.reasonForLeaving  || prev.reasonForLeaving,
-            criminalRecord:    d.criminalRecord    ?? prev.criminalRecord,
-            languages:         d.languages         || prev.languages,
-            certifications:    d.certifications    || prev.certifications,
-            coverLetterIntro:  d.coverLetterIntro  || prev.coverLetterIntro,
-            coverLetterBody:   d.coverLetterBody   || prev.coverLetterBody,
+            phone:              d.phone             || prev.phone,
+            streetAddress:      d.streetAddress     || prev.streetAddress,
+            city:               d.city              || ((d.location as string) || '').split(',')[0]?.trim() || prev.city,
+            state:              d.state             || ((d.location as string) || '').split(',')[1]?.trim() || prev.state,
+            zipCode:            d.zipCode           || prev.zipCode,
+            country:            d.country           || prev.country,
+            headline:           d.targetRole        || d.headline      || prev.headline,
+            yearsOfExperience:  d.yearsOfExperience || prev.yearsOfExperience,
+            summary:            d.bio               || d.summary       || prev.summary,
+            skills: Array.isArray(d.preferredTech) && d.preferredTech.length
+              ? (d.preferredTech as string[]).join(', ')
+              : Array.isArray(d.skills) && d.skills.length
+              ? (d.skills as string[]).join(', ')
+              : typeof d.skills === 'string' ? d.skills : prev.skills,
+            linkedInUrl:        d.linkedIn          || d.linkedInUrl   || prev.linkedInUrl,
+            githubUrl:          d.github            || d.githubUrl     || prev.githubUrl,
+            portfolioUrl:       d.website           || d.portfolioUrl  || prev.portfolioUrl,
+            desiredSalary:      d.desiredSalary     || prev.desiredSalary,
+            salaryType:         d.salaryType        || prev.salaryType,
+            noticePeriod:       d.noticePeriod      || prev.noticePeriod,
+            workType:           d.workType          || prev.workType,
+            employmentType:     d.employmentType    || prev.employmentType,
+            willingToRelocate:  d.willingToRelocate ?? prev.willingToRelocate,
+            openToTravel:       d.openToTravel      || prev.openToTravel,
+            workAuthorization:  d.workAuthorization || prev.workAuthorization,
+            requireSponsorship: d.requireSponsorship ?? prev.requireSponsorship,
+            visaType:           d.visaType          || prev.visaType,
+            education:  Array.isArray(d.education)  && d.education.length  ? d.education  as EducationEntry[]  : prev.education,
+            experience: Array.isArray(d.experience) && d.experience.length ? d.experience as ExperienceEntry[] : prev.experience,
+            gender:           d.gender           || prev.gender,
+            pronouns:         d.pronouns         || prev.pronouns,
+            race:             d.race             || prev.race,
+            veteranStatus:    d.veteranStatus    || prev.veteranStatus,
+            disabilityStatus: d.disabilityStatus || prev.disabilityStatus,
+            howDidYouHear:    d.howDidYouHear    || prev.howDidYouHear,
+            driverLicense:    d.driverLicense    ?? prev.driverLicense,
+            backgroundCheck:  d.backgroundCheck  ?? prev.backgroundCheck,
+            drugTest:         d.drugTest         ?? prev.drugTest,
+            over18:           d.over18           ?? prev.over18,
+            currentlyEmployed:d.currentlyEmployed ?? prev.currentlyEmployed,
+            reasonForLeaving: d.reasonForLeaving || prev.reasonForLeaving,
+            criminalRecord:   d.criminalRecord   ?? prev.criminalRecord,
+            languages:        d.languages        || prev.languages,
+            certifications:   d.certifications   || prev.certifications,
+            coverLetterIntro: d.coverLetterIntro || prev.coverLetterIntro,
+            coverLetterBody:  d.coverLetterBody  || prev.coverLetterBody,
           }));
         }
-      } catch(e){ console.error(e); }
+      } catch (e) { console.error(e); }
       finally { setLoading(false); }
     })();
-  },[user]);
+  }, [user]);
 
-  const set = <K extends keyof JobAppProfile>(key:K) => (val:JobAppProfile[K]) =>
-    setP(prev=>({...prev,[key]:val}));
+  const set = <K extends keyof JobAppProfile>(key: K) => (val: JobAppProfile[K]) =>
+    setP(prev => ({ ...prev, [key]: val }));
 
-  const addEdu    = ()=>setP(p=>({...p,education:[...p.education,{...DEFAULT_EDU}]}));
-  const removeEdu = (i:number)=>setP(p=>({...p,education:p.education.filter((_,idx)=>idx!==i)}));
-  const setEdu    = <K extends keyof EducationEntry>(i:number,key:K,val:EducationEntry[K])=>
-    setP(p=>({...p,education:p.education.map((e,idx)=>idx===i?{...e,[key]:val}:e)}));
+  const addEdu    = () => setP(p => ({ ...p, education: [...p.education, { ...DEFAULT_EDU }] }));
+  const removeEdu = (i: number) => setP(p => ({ ...p, education: p.education.filter((_, idx) => idx !== i) }));
+  const setEdu    = <K extends keyof EducationEntry>(i: number, key: K, val: EducationEntry[K]) =>
+    setP(p => ({ ...p, education: p.education.map((e, idx) => idx === i ? { ...e, [key]: val } : e) }));
 
-  const addExp    = ()=>setP(p=>({...p,experience:[...p.experience,{...DEFAULT_EXP}]}));
-  const removeExp = (i:number)=>setP(p=>({...p,experience:p.experience.filter((_,idx)=>idx!==i)}));
-  const setExp    = <K extends keyof ExperienceEntry>(i:number,key:K,val:ExperienceEntry[K])=>
-    setP(p=>({...p,experience:p.experience.map((e,idx)=>idx===i?{...e,[key]:val}:e)}));
+  const addExp    = () => setP(p => ({ ...p, experience: [...p.experience, { ...DEFAULT_EXP }] }));
+  const removeExp = (i: number) => setP(p => ({ ...p, experience: p.experience.filter((_, idx) => idx !== i) }));
+  const setExp    = <K extends keyof ExperienceEntry>(i: number, key: K, val: ExperienceEntry[K]) =>
+    setP(p => ({ ...p, experience: p.experience.map((e, idx) => idx === i ? { ...e, [key]: val } : e) }));
 
-  const save = async()=>{
-    if(!user) return;
+  const save = async () => {
+    if (!user) return;
     setSaving(true); setError('');
     try {
-      const skillsArray = p.skills.split(',').map(s=>s.trim()).filter(Boolean);
-      await setDoc(doc(db,'users',user.uid),{
-        ...p, preferredTech:skillsArray, skills:skillsArray,
-        targetRole:p.headline, bio:p.summary,
-        linkedIn:p.linkedInUrl, github:p.githubUrl, website:p.portfolioUrl,
-        updatedAt:new Date().toISOString(),
-      },{merge:true});
+      const skillsArray = p.skills.split(',').map(s => s.trim()).filter(Boolean);
+      await setDoc(doc(db, 'users', user.uid), {
+        ...p,
+        preferredTech: skillsArray,
+        skills: skillsArray,
+        // Mirror fields that other parts of the app expect
+        targetRole: p.headline,
+        bio: p.summary,
+        linkedIn: p.linkedInUrl,
+        github: p.githubUrl,
+        website: p.portfolioUrl,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
       setSaved(true);
-      setTimeout(()=>setSaved(false),3000);
-    } catch(e){
+      setTimeout(() => setSaved(false), 3000);
+    } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save');
     } finally { setSaving(false); }
   };
 
-  if(loading) return (
+  if (loading) return (
     <div className="flex items-center justify-center py-20">
       <div className="w-6 h-6 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
     </div>
@@ -436,26 +502,35 @@ export default function JobApplicationProfile() {
     <div className="space-y-3 animate-fade-in-up">
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-start justify-between mb-2">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <div className="w-1 h-4 gradient-primary rounded-full" />
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Auto-Apply</span>
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Chrome Extension</span>
           </div>
           <h2 className="text-2xl font-bold text-white tracking-tight">Job Application Profile</h2>
           <p className="text-slate-500 text-sm mt-1">Fill once · the extension answers every question automatically</p>
         </div>
-        <button onClick={save} disabled={saving}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-glass
-            ${saved ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-400'
-                    : 'glass-button-primary text-white hover:shadow-[0_4px_20px_rgba(102,126,234,0.35)]'}
-            disabled:opacity-50 disabled:cursor-not-allowed`}>
-          {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            : saved  ? <CheckCircle className="w-4 h-4" />
+        <button
+          type="button"
+          onClick={save}
+          disabled={saving}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all flex-shrink-0
+            ${saved
+              ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-400'
+              : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-[0_4px_16px_rgba(102,126,234,0.3)]'}
+            disabled:opacity-50 disabled:cursor-not-allowed`}
+        >
+          {saving
+            ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            : saved ? <CheckCircle className="w-4 h-4" />
             : <Save className="w-4 h-4" />}
-          {saving ? 'Saving…' : saved ? 'Saved!' : 'Save Profile'}
+          {saving ? 'Saving…' : saved ? 'Saved!' : 'Save'}
         </button>
       </div>
+
+      {/* ── Completion bar ── */}
+      <CompletionBar pct={pct} filled={filled} total={total} />
 
       {error && (
         <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
@@ -464,34 +539,38 @@ export default function JobApplicationProfile() {
       )}
 
       {/* ── 1. Personal ── */}
-      <Section id="personal" label="Personal Information" icon={User} gradient="gradient-primary" desc="Contact & address details">
+      <Section label="Personal Information" icon={User} gradient="gradient-primary" desc="Contact & address details">
         <div className="grid grid-cols-2 gap-4 mt-5">
           <FInput label="Phone" hint="with country code" value={p.phone} onChange={set('phone')} placeholder="+1 (555) 000-0000" />
           <FInput label="Street Address" value={p.streetAddress} onChange={set('streetAddress')} placeholder="123 Main St, Apt 4" />
           <FInput label="City" value={p.city} onChange={set('city')} placeholder="Boston" />
-          <FInput label="State" value={p.state} onChange={set('state')} placeholder="MA" />
-          <FInput label="ZIP Code" value={p.zipCode} onChange={set('zipCode')} placeholder="02101" />
+          <FInput label="State / Province" value={p.state} onChange={set('state')} placeholder="MA" />
+          <FInput label="ZIP / Postal Code" value={p.zipCode} onChange={set('zipCode')} placeholder="02101" />
           <FSelect label="Country" value={p.country} onChange={set('country')} options={COUNTRIES} />
         </div>
       </Section>
 
       {/* ── 2. Professional ── */}
-      <Section id="pro" label="Professional Profile" icon={Briefcase} gradient="gradient-accent" desc="Skills, links & summary">
+      <Section label="Professional Profile" icon={Briefcase} gradient="gradient-accent" desc="Skills, links & summary">
         <div className="space-y-4 mt-5">
           <div className="grid grid-cols-2 gap-4">
             <FInput label="Target Role / Headline" value={p.headline} onChange={set('headline')} placeholder="Senior Software Engineer" />
             <FSelect label="Years of Experience" value={p.yearsOfExperience} onChange={set('yearsOfExperience')} options={YOE} />
           </div>
-          <FTextarea label="Professional Summary" hint="used for 'About Me' questions"
+          <FTextarea
+            label="Professional Summary" hint="used for 'About Me' & 'Tell us about yourself' questions"
             value={p.summary} onChange={set('summary')} rows={4}
-            placeholder="Experienced software engineer with 5+ years building scalable web applications…" />
-          <FTextarea label="Skills" hint="comma-separated"
+            placeholder="Experienced software engineer with 5+ years building scalable web applications…"
+          />
+          <FTextarea
+            label="Skills" hint="comma-separated"
             value={p.skills} onChange={set('skills')} rows={2}
-            placeholder="React, TypeScript, Node.js, Python, AWS, PostgreSQL…" />
+            placeholder="React, TypeScript, Node.js, Python, AWS, PostgreSQL…"
+          />
           <div className="grid grid-cols-3 gap-4">
             <FInput label="LinkedIn" value={p.linkedInUrl} onChange={set('linkedInUrl')} placeholder="linkedin.com/in/username" />
             <FInput label="GitHub"   value={p.githubUrl}   onChange={set('githubUrl')}   placeholder="github.com/username" />
-            <FInput label="Portfolio" value={p.portfolioUrl} onChange={set('portfolioUrl')} placeholder="yoursite.com" />
+            <FInput label="Portfolio / Website" value={p.portfolioUrl} onChange={set('portfolioUrl')} placeholder="yoursite.com" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <FInput label="Certifications" hint="comma-separated" value={p.certifications} onChange={set('certifications')} placeholder="AWS Solutions Architect, PMP…" />
@@ -501,15 +580,15 @@ export default function JobApplicationProfile() {
       </Section>
 
       {/* ── 3. Preferences ── */}
-      <Section id="prefs" label="Job Preferences" icon={Star} gradient="gradient-warning" desc="Salary, work type & availability">
+      <Section label="Job Preferences" icon={Star} gradient="bg-gradient-to-br from-amber-500 to-orange-600" desc="Salary, work type & availability">
         <div className="space-y-4 mt-5">
           <div className="grid grid-cols-2 gap-4">
             <SalaryField salary={p.desiredSalary} salaryType={p.salaryType} onSalary={set('desiredSalary')} onType={set('salaryType')} />
-            <FSelect label="Notice Period"      value={p.noticePeriod}    onChange={set('noticePeriod')}    options={NOTICE} />
-            <FSelect label="Work Arrangement"   value={p.workType}        onChange={set('workType')}        options={WORK_TYPE} />
-            <FSelect label="Employment Type"    value={p.employmentType}  onChange={set('employmentType')}  options={EMP_TYPE} />
-            <FSelect label="Open to Travel"     value={p.openToTravel}    onChange={set('openToTravel')}    options={TRAVEL} />
-            <FSelect label="How did you hear about us?" hint="default" value={p.howDidYouHear} onChange={set('howDidYouHear')} options={REFERRAL} />
+            <FSelect label="Notice Period"    value={p.noticePeriod}   onChange={set('noticePeriod')}   options={NOTICE} />
+            <FSelect label="Work Arrangement" value={p.workType}       onChange={set('workType')}       options={WORK_TYPE} />
+            <FSelect label="Employment Type"  value={p.employmentType} onChange={set('employmentType')} options={EMP_TYPE} />
+            <FSelect label="Open to Travel"   value={p.openToTravel}   onChange={set('openToTravel')}   options={TRAVEL} />
+            <FSelect label="How did you hear?" hint="default answer" value={p.howDidYouHear} onChange={set('howDidYouHear')} options={REFERRAL} />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <FToggle value={p.willingToRelocate} onChange={set('willingToRelocate')} label="Willing to relocate" />
@@ -523,7 +602,7 @@ export default function JobApplicationProfile() {
       </Section>
 
       {/* ── 4. Work Auth ── */}
-      <Section id="auth" label="Work Authorization" icon={Shield} gradient="gradient-success" desc="Visa & authorization status">
+      <Section label="Work Authorization" icon={Shield} gradient="bg-gradient-to-br from-emerald-500 to-teal-600" desc="Visa & authorization status">
         <div className="space-y-4 mt-5">
           <div className="grid grid-cols-2 gap-4">
             <FSelect label="Authorized to work in the US?" value={p.workAuthorization} onChange={set('workAuthorization')} options={WORK_AUTH} />
@@ -535,33 +614,37 @@ export default function JobApplicationProfile() {
       </Section>
 
       {/* ── 5. Education ── */}
-      <Section id="education" label="Education" icon={GraduationCap} gradient="gradient-secondary" desc="Degrees & schools">
+      <Section label="Education" icon={GraduationCap} gradient="bg-gradient-to-br from-blue-500 to-indigo-600" desc="Degrees & schools">
         <div className="space-y-3 mt-5">
-          {p.education.map((edu,i)=>(
-            <div key={i} className="glass-morphism rounded-xl p-5 space-y-4">
+          {p.education.map((edu, i) => (
+            <div key={i} className="rounded-xl p-5 space-y-4 bg-white/[0.03] border border-white/[0.06]">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">
-                  {p.education.length > 1 ? `Education #${i+1}` : 'Education'}
+                  {p.education.length > 1 ? `Education #${i + 1}` : 'Education'}
                 </span>
                 {p.education.length > 1 && (
-                  <button onClick={()=>removeEdu(i)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-400/10 transition-all">
+                  <button
+                    type="button"
+                    onClick={() => removeEdu(i)}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-400/10 transition-all"
+                  >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <FInput label="School / University" value={edu.school} onChange={v=>setEdu(i,'school',v)} placeholder="Northeastern University" />
-                <FSelect label="Degree" value={edu.degree} onChange={v=>setEdu(i,'degree',v)} options={DEGREE} />
-                <FInput label="Field of Study / Major" value={edu.field} onChange={v=>setEdu(i,'field',v)} placeholder="Computer Science" />
-                <FInput label="GPA" hint="optional" value={edu.gpa} onChange={v=>setEdu(i,'gpa',v)} placeholder="3.8" />
-                <FSelect label="Graduation Year" value={edu.year} onChange={v=>setEdu(i,'year',v)} options={GRAD_YEARS} />
+                <FInput label="School / University" value={edu.school} onChange={v => setEdu(i, 'school', v)} placeholder="Northeastern University" />
+                <FSelect label="Degree" value={edu.degree} onChange={v => setEdu(i, 'degree', v)} options={DEGREE} />
+                <FInput label="Field of Study / Major" value={edu.field} onChange={v => setEdu(i, 'field', v)} placeholder="Computer Science" />
+                <FInput label="GPA" hint="optional" value={edu.gpa} onChange={v => setEdu(i, 'gpa', v)} placeholder="3.8" />
+                <FSelect label="Graduation Year" value={edu.year} onChange={v => setEdu(i, 'year', v)} options={GRAD_YEARS} />
                 <div className="flex items-end pb-0.5">
-                  <FToggle value={edu.current} onChange={v=>setEdu(i,'current',v)} label="Currently enrolled" />
+                  <FToggle value={edu.current} onChange={v => setEdu(i, 'current', v)} label="Currently enrolled" />
                 </div>
               </div>
             </div>
           ))}
-          <button onClick={addEdu} className="flex items-center gap-2 text-sm text-purple-400 hover:text-purple-300 transition-colors group">
+          <button type="button" onClick={addEdu} className="flex items-center gap-2 text-sm text-purple-400 hover:text-purple-300 transition-colors group">
             <div className="w-6 h-6 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center group-hover:bg-purple-500/20 transition-colors">
               <Plus className="w-3.5 h-3.5" />
             </div>
@@ -571,33 +654,39 @@ export default function JobApplicationProfile() {
       </Section>
 
       {/* ── 6. Experience ── */}
-      <Section id="experience" label="Work Experience" icon={Building2} gradient="gradient-accent" desc="Work history & roles">
+      <Section label="Work Experience" icon={Building2} gradient="gradient-accent" desc="Work history & roles">
         <div className="space-y-3 mt-5">
-          {p.experience.map((exp,i)=>(
-            <div key={i} className="glass-morphism rounded-xl p-5 space-y-4">
+          {p.experience.map((exp, i) => (
+            <div key={i} className="rounded-xl p-5 space-y-4 bg-white/[0.03] border border-white/[0.06]">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">
-                  {p.experience.length > 1 ? `Position #${i+1}` : 'Position'}
+                  {p.experience.length > 1 ? `Position #${i + 1}` : 'Position'}
                 </span>
                 {p.experience.length > 1 && (
-                  <button onClick={()=>removeExp(i)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-400/10 transition-all">
+                  <button
+                    type="button"
+                    onClick={() => removeExp(i)}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-400/10 transition-all"
+                  >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <FInput label="Company" value={exp.company} onChange={v=>setExp(i,'company',v)} placeholder="Google" />
-                <FInput label="Job Title" value={exp.title} onChange={v=>setExp(i,'title',v)} placeholder="Software Engineer" />
-                <FInput label="Start Date" value={exp.startDate} onChange={v=>setExp(i,'startDate',v)} placeholder="Jan 2022" />
-                <FInput label="End Date" value={exp.endDate} onChange={v=>setExp(i,'endDate',v)} placeholder="Present" disabled={exp.current} />
+                <FInput label="Company" value={exp.company} onChange={v => setExp(i, 'company', v)} placeholder="Google" />
+                <FInput label="Job Title" value={exp.title} onChange={v => setExp(i, 'title', v)} placeholder="Software Engineer" />
+                <FInput label="Start Date" value={exp.startDate} onChange={v => setExp(i, 'startDate', v)} placeholder="Jan 2022" />
+                <FInput label="End Date" value={exp.endDate} onChange={v => setExp(i, 'endDate', v)} placeholder="Present" disabled={exp.current} />
               </div>
-              <FToggle value={exp.current} onChange={v=>setExp(i,'current',v)} label="I currently work here" />
-              <FTextarea label="Key Responsibilities" hint="used for application questions"
-                value={exp.description} onChange={v=>setExp(i,'description',v)} rows={2}
-                placeholder="Built REST APIs serving 1M+ users, led team of 4 engineers…" />
+              <FToggle value={exp.current} onChange={v => setExp(i, 'current', v)} label="I currently work here" />
+              <FTextarea
+                label="Key Responsibilities" hint="used for application questions"
+                value={exp.description} onChange={v => setExp(i, 'description', v)} rows={2}
+                placeholder="Built REST APIs serving 1M+ users, led team of 4 engineers…"
+              />
             </div>
           ))}
-          <button onClick={addExp} className="flex items-center gap-2 text-sm text-purple-400 hover:text-purple-300 transition-colors group">
+          <button type="button" onClick={addExp} className="flex items-center gap-2 text-sm text-purple-400 hover:text-purple-300 transition-colors group">
             <div className="w-6 h-6 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center group-hover:bg-purple-500/20 transition-colors">
               <Plus className="w-3.5 h-3.5" />
             </div>
@@ -606,43 +695,54 @@ export default function JobApplicationProfile() {
         </div>
       </Section>
 
-      {/* ── 7. Quick Questions ── */}
-      <Section id="questions" label="Standard Questions" icon={FileText} gradient="gradient-primary" desc="Common yes/no questions on every portal" defaultOpen={false}>
+      {/* ── 7. Standard Questions ── */}
+      <Section label="Standard Questions" icon={FileText} gradient="gradient-primary" desc="Common yes/no questions on every portal" defaultOpen={false}>
         <div className="grid grid-cols-2 gap-2 mt-5">
           <FToggle value={p.over18}          onChange={set('over18')}          label="18 years or older" />
           <FToggle value={p.driverLicense}   onChange={set('driverLicense')}   label="Valid driver's license" />
           <FToggle value={p.backgroundCheck} onChange={set('backgroundCheck')} label="Consent to background check" />
-          <FToggle value={p.drugTest}         onChange={set('drugTest')}         label="Consent to drug test" />
-          <FToggle value={p.criminalRecord}   onChange={set('criminalRecord')}   label="Have a criminal record" />
+          <FToggle value={p.drugTest}        onChange={set('drugTest')}        label="Consent to drug test" />
+          <FToggle value={p.criminalRecord}  onChange={set('criminalRecord')}  label="Have a criminal record" />
         </div>
       </Section>
 
       {/* ── 8. EEO ── */}
-      <Section id="eeo" label="EEO & Diversity" icon={Users} gradient="gradient-primary" desc="Optional — voluntary diversity questions" defaultOpen={false}>
+      <Section label="EEO & Diversity" icon={Users} gradient="gradient-primary" desc="Optional — voluntary diversity questions" defaultOpen={false}>
         <div className="space-y-4 mt-5">
-          <div className="px-4 py-3 rounded-xl bg-blue-500/8 border border-blue-500/15">
+          <div className="px-4 py-3 rounded-xl bg-blue-500/[0.08] border border-blue-500/[0.15]">
             <p className="text-xs text-blue-400/80">Only used to auto-fill voluntary EEO sections. Never shared for any other purpose.</p>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <FSelect label="Gender"         value={p.gender}    onChange={set('gender')}    options={GENDER} />
-            <FSelect label="Pronouns"       value={p.pronouns}  onChange={set('pronouns')}  options={PRONOUNS} />
-            <FSelect label="Race / Ethnicity" value={p.race}    onChange={set('race')}      options={RACE} />
-            <FSelect label="Veteran Status" value={p.veteranStatus} onChange={set('veteranStatus')} options={VETERAN} />
-            <FSelect label="Disability Status" value={p.disabilityStatus} onChange={set('disabilityStatus')} options={DISABILITY} span="col-span-2" />
+            <FSelect label="Gender"   value={p.gender}   onChange={set('gender')}   options={GENDER} />
+            <FSelect label="Pronouns" value={p.pronouns} onChange={set('pronouns')} options={PRONOUNS} />
+            <FSelect label="Race / Ethnicity" value={p.race} onChange={set('race')} options={RACE} />
+            <FSelect label="Veteran Status"   value={p.veteranStatus} onChange={set('veteranStatus')} options={VETERAN} />
+            {/* Fix: span applied to F wrapper via the span prop */}
+            <FSelect
+              label="Disability Status"
+              value={p.disabilityStatus}
+              onChange={set('disabilityStatus')}
+              options={DISABILITY}
+              span="col-span-2"
+            />
           </div>
         </div>
       </Section>
 
       {/* ── 9. Cover Letter ── */}
-      <Section id="cover" label="Cover Letter" icon={Heart} gradient="gradient-secondary" desc="Template for cover letters & 'Why us?' questions" defaultOpen={false}>
+      <Section label="Cover Letter" icon={Heart} gradient="bg-gradient-to-br from-pink-500 to-rose-600" desc="Template for cover letters & 'Why us?' questions" defaultOpen={false}>
         <div className="space-y-4 mt-5">
-          <FTextarea label="Opening Paragraph" hint="personalize per company" rows={3}
+          <FTextarea
+            label="Opening Paragraph" hint="personalize per company" rows={3}
             value={p.coverLetterIntro} onChange={set('coverLetterIntro')}
-            placeholder="I am writing to express my strong interest in the [Role] position at [Company]. With [X] years of experience in [field], I am confident I can contribute meaningfully…" />
-          <FTextarea label="Body — Why you're a great fit" rows={4}
+            placeholder="I am writing to express my strong interest in the [Role] position at [Company]. With [X] years of experience in [field], I am confident I can contribute meaningfully…"
+          />
+          <FTextarea
+            label="Body — Why you're a great fit" rows={4}
             value={p.coverLetterBody} onChange={set('coverLetterBody')}
-            placeholder="In my previous role at [Company], I led the development of [achievement]. I am particularly drawn to [Company] because…" />
-          <div className="px-4 py-3 rounded-xl bg-purple-500/8 border border-purple-500/15">
+            placeholder="In my previous role at [Company], I led the development of [achievement]. I am particularly drawn to [Company] because…"
+          />
+          <div className="px-4 py-3 rounded-xl bg-purple-500/[0.08] border border-purple-500/[0.15]">
             <p className="text-xs text-purple-400/70">
               💡 Use <code className="bg-purple-500/20 px-1 rounded text-purple-300">[Company]</code> and <code className="bg-purple-500/20 px-1 rounded text-purple-300">[Role]</code> — the extension replaces them automatically.
             </p>
@@ -652,13 +752,19 @@ export default function JobApplicationProfile() {
 
       {/* ── Footer save ── */}
       <div className="flex justify-end pt-2 pb-8">
-        <button onClick={save} disabled={saving}
-          className={`flex items-center gap-2.5 px-6 py-3 rounded-xl text-sm font-semibold transition-all shadow-glass
-            ${saved ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-400'
-                    : 'glass-button-primary text-white hover:shadow-[0_4px_24px_rgba(102,126,234,0.4)]'}
-            disabled:opacity-50 disabled:cursor-not-allowed`}>
-          {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            : saved  ? <CheckCircle className="w-4 h-4" />
+        <button
+          type="button"
+          onClick={save}
+          disabled={saving}
+          className={`flex items-center gap-2.5 px-6 py-3 rounded-xl text-sm font-semibold transition-all
+            ${saved
+              ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-400'
+              : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-[0_4px_20px_rgba(102,126,234,0.3)]'}
+            disabled:opacity-50 disabled:cursor-not-allowed`}
+        >
+          {saving
+            ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            : saved ? <CheckCircle className="w-4 h-4" />
             : <Save className="w-4 h-4" />}
           {saving ? 'Saving…' : saved ? 'Profile Saved!' : 'Save Auto-Apply Profile'}
         </button>

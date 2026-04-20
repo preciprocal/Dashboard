@@ -4,6 +4,29 @@
 //            Ashby, iCIMS, Jobvite, SmartRecruiters, Taleo, BambooHR,
 //            Recruitee, Wellfound/AngelList + generic fallback
 // + Job Tracker: auto-logs every submitted application to Preciprocal
+//
+// ─────────────────────────────────────────────────────────────────
+// REQUIRED: Add this handler to background.js (service worker has no
+// CORS restrictions, so it can fetch Firebase Storage URLs freely):
+//
+//   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+//     if (msg.type === 'FETCH_FILE') {
+//       fetch(msg.url)
+//         .then(r => r.blob())
+//         .then(blob => {
+//           const reader = new FileReader();
+//           reader.onload = () => {
+//             const base64 = reader.result.split(',')[1];
+//             sendResponse({ base64, mimeType: blob.type });
+//           };
+//           reader.onerror = () => sendResponse(null);
+//           reader.readAsDataURL(blob);
+//         })
+//         .catch(() => sendResponse(null));
+//       return true; // keep port open for async response
+//     }
+//   });
+// ─────────────────────────────────────────────────────────────────
 
 console.log('🚀 Preciprocal external-apply.js on:', window.location.hostname);
 
@@ -81,9 +104,28 @@ function isSuccessPage(platform) {
   return signals.text.some(t => bodyText.includes(t));
 }
 
+// ─────────────────────────────────────────────────────────────────
+// RICH JOB DATA EXTRACTION — scrapes all available job details
+// ─────────────────────────────────────────────────────────────────
+
+function extractText(selectors, root) {
+  root = root || document;
+  for (const sel of selectors) {
+    try {
+      const el = root.querySelector(sel);
+      if (el) {
+        const t = (el.textContent || el.innerText || '').replace(/\s+/g, ' ').trim();
+        if (t && t.length > 0 && t.length < 500) return t;
+      }
+    } catch {}
+  }
+  return null;
+}
+
 function extractJobInfoFromPage() {
   const platform = detectPlatform();
 
+  // ── Title selectors by platform ──
   const titleSelectors = {
     greenhouse:      ['h1.app-title', '.job-title', 'h1'],
     lever:           ['h2.posting-name', '.posting-headline h2', 'h2', 'h1'],
@@ -100,6 +142,7 @@ function extractJobInfoFromPage() {
     generic:         ['h1', 'h2', '.job-title', '.position-title'],
   };
 
+  // ── Company selectors by platform ──
   const companySelectors = {
     greenhouse:      ['.company-name', '.employer'],
     lever:           ['.main-header-text h1', '.company-name'],
@@ -116,6 +159,122 @@ function extractJobInfoFromPage() {
     generic:         ['.company-name', '.employer'],
   };
 
+  // ── Location selectors by platform ──
+  const locationSelectors = {
+    greenhouse:      ['.location', '.job-location', '[class*="location"]'],
+    lever:           ['.location', '.sort-by-time', '[class*="location"]'],
+    workday:         ['[data-automation-id="locations"]', '[data-automation-id="location"]', '.location'],
+    indeed:          ['[data-testid="job-location"]', '[class*="location"]', '.jobsearch-JobInfoHeader-subtitle [class*="location"]'],
+    ashby:           ['.location', '[class*="location"]'],
+    icims:           ['.iCIMS_JobLocation', '[class*="location"]'],
+    jobvite:         ['.jv-job-detail-location', '[class*="location"]'],
+    smartrecruiters: ['[class*="location"]', '.job-location'],
+    taleo:           ['[class*="location"]'],
+    bamboohr:        ['[class*="location"]'],
+    recruitee:       ['[class*="location"]'],
+    wellfound:       ['[data-test="location"]', '[class*="location"]'],
+    generic:         ['[class*="location"]', '.location', '[data-location]'],
+  };
+
+  // ── Salary selectors by platform ──
+  const salarySelectors = {
+    greenhouse:      ['[class*="salary"]', '[class*="compensation"]'],
+    lever:           ['[class*="salary"]', '[class*="compensation"]'],
+    workday:         ['[data-automation-id="salary"]', '[data-automation-id="compensationSection"]', '[class*="salary"]'],
+    indeed:          ['[class*="salary-snippet"]', '[data-testid="job-salary"]', '.salaryText', '[class*="compensation"]'],
+    ashby:           ['[class*="salary"]', '[class*="compensation"]', '[class*="pay"]'],
+    icims:           ['[class*="salary"]', '[class*="compensation"]'],
+    jobvite:         ['[class*="salary"]', '[class*="compensation"]'],
+    smartrecruiters: ['[class*="salary"]', '[class*="compensation"]'],
+    taleo:           ['[class*="salary"]'],
+    bamboohr:        ['[class*="salary"]', '[class*="pay"]'],
+    recruitee:       ['[class*="salary"]'],
+    wellfound:       ['[data-test="salary"]', '[class*="salary"]', '[class*="compensation"]'],
+    generic:         ['[class*="salary"]', '[class*="compensation"]', '[class*="pay"]'],
+  };
+
+  // ── Job type selectors by platform ──
+  const jobTypeSelectors = {
+    greenhouse:      ['[class*="job-type"]', '[class*="employment"]'],
+    lever:           ['[class*="commitment"]', '[class*="employment"]', '.sort-by-team'],
+    workday:         ['[data-automation-id="time"]', '[data-automation-id="jobType"]'],
+    indeed:          ['[class*="job-type"]', '[data-testid="job-type-label"]'],
+    ashby:           ['[class*="employment"]', '[class*="type"]'],
+    icims:           ['[class*="jobType"]', '[class*="employment"]'],
+    jobvite:         ['[class*="type"]'],
+    smartrecruiters: ['[class*="job-type"]'],
+    taleo:           ['[class*="jobType"]'],
+    bamboohr:        ['[class*="employment"]'],
+    recruitee:       ['[class*="employment"]'],
+    wellfound:       ['[data-test="job-type"]', '[class*="type"]'],
+    generic:         ['[class*="job-type"]', '[class*="employment-type"]', '[class*="type"]'],
+  };
+
+  // ── Work arrangement (remote/hybrid/onsite) selectors ──
+  const remoteSelectors = {
+    greenhouse:      ['[class*="remote"]', '[class*="work-type"]'],
+    lever:           ['[class*="remote"]', '[class*="work-type"]'],
+    workday:         ['[data-automation-id="remote"]', '[class*="remote"]'],
+    indeed:          ['[class*="remote"]', '[data-testid="remote-badge"]'],
+    ashby:           ['[class*="remote"]', '[class*="location-type"]'],
+    icims:           ['[class*="remote"]'],
+    jobvite:         ['[class*="remote"]'],
+    smartrecruiters: ['[class*="remote"]'],
+    taleo:           ['[class*="remote"]'],
+    bamboohr:        ['[class*="remote"]'],
+    recruitee:       ['[class*="remote"]'],
+    wellfound:       ['[data-test="remote"]', '[class*="remote"]'],
+    generic:         ['[class*="remote"]', '[class*="work-from"]', '[class*="location-type"]'],
+  };
+
+  // ── Department / team ──
+  const departmentSelectors = {
+    greenhouse:      ['.department', '[class*="department"]'],
+    lever:           ['.team', '.sort-by-team', '[class*="department"]'],
+    workday:         ['[data-automation-id="department"]'],
+    ashby:           ['[class*="department"]', '[class*="team"]'],
+    smartrecruiters: ['[class*="department"]'],
+    wellfound:       ['[data-test="department"]'],
+    generic:         ['[class*="department"]', '[class*="team"]', '.team'],
+  };
+
+  // ── Description selectors ──
+  const descriptionSelectors = {
+    greenhouse:      ['#content .content', '.job-description', '#job-description'],
+    lever:           ['.posting-description', '.content'],
+    workday:         ['[data-automation-id="job-description"]', '[class*="description"]'],
+    indeed:          ['#jobDescriptionText', '[class*="description"]'],
+    ashby:           ['[class*="description"]', '.ashby-job-posting-brief-description'],
+    icims:           ['#iCIMS_MainColumn .iCIMS_JobDescription', '[class*="description"]'],
+    jobvite:         ['.jv-job-detail-description', '[class*="description"]'],
+    smartrecruiters: ['[class*="description"]', '.job-sections'],
+    taleo:           ['[class*="description"]'],
+    bamboohr:        ['[class*="description"]'],
+    recruitee:       ['[class*="description"]'],
+    wellfound:       ['[data-test="description"]', '[class*="description"]'],
+    generic:         ['[class*="description"]', '#job-description', '.job-desc', '[class*="about-role"]'],
+  };
+
+  // ── Posted date ──
+  const dateSelectors = {
+    greenhouse:      ['[class*="posted"]', 'time'],
+    lever:           ['[class*="posting-date"]', 'time'],
+    workday:         ['[data-automation-id="postedDate"]', 'time'],
+    indeed:          ['[data-testid="job-age"]', '[class*="posted"]', 'time'],
+    ashby:           ['time', '[class*="posted"]'],
+    icims:           ['[class*="date"]', 'time'],
+    jobvite:         ['[class*="date"]', 'time'],
+    smartrecruiters: ['time', '[class*="posted"]'],
+    generic:         ['time[datetime]', '[class*="posted"]', '[class*="date"]'],
+  };
+
+  // ── Helper to get text from platform-specific selectors ──
+  const getText = (selectorMap) => {
+    const sels = selectorMap[platform] || selectorMap.generic || [];
+    return extractText(sels);
+  };
+
+  // ── Extract all fields ──
   let jobTitle = null;
   for (const sel of (titleSelectors[platform] || titleSelectors.generic)) {
     try {
@@ -138,6 +297,7 @@ function extractJobInfoFromPage() {
     } catch {}
   }
 
+  // Infer company from subdomain if needed
   if (!company) {
     const host  = window.location.hostname;
     const parts = host.split('.');
@@ -152,6 +312,7 @@ function extractJobInfoFromPage() {
     }
   }
 
+  // Fallback title from page title
   if (!jobTitle) {
     const title = document.title || '';
     if (title.includes(' - '))      jobTitle = title.split(' - ')[0].trim();
@@ -163,26 +324,100 @@ function extractJobInfoFromPage() {
   if (jobTitle.length > 100) jobTitle = jobTitle.slice(0, 100);
   if (company.length  > 100) company  = company.slice(0, 100);
 
-  return { jobTitle, company };
+  // ── Rich fields ──
+  const location    = getText(locationSelectors);
+  const salary      = getText(salarySelectors);
+  const jobType     = getText(jobTypeSelectors);
+  const remote      = getText(remoteSelectors);
+  const department  = getText(departmentSelectors);
+  const postedDate  = getText(dateSelectors);
+
+  // Description: grab text but cap at 3000 chars to keep payload sane
+  let description = null;
+  const descSels = descriptionSelectors[platform] || descriptionSelectors.generic;
+  for (const sel of descSels) {
+    try {
+      const el = document.querySelector(sel);
+      if (el) {
+        const t = (el.textContent || el.innerText || '').replace(/\s+/g, ' ').trim();
+        if (t && t.length > 50) { description = t.slice(0, 3000); break; }
+      }
+    } catch {}
+  }
+
+  // ── Infer work arrangement from signals in visible text ──
+  let workArrangement = remote;
+  if (!workArrangement) {
+    const pageText = (document.body?.textContent || '').toLowerCase();
+    if (/\bfully remote\b|\b100%\s*remote\b/.test(pageText))          workArrangement = 'Remote';
+    else if (/\bhybrid\b/.test(pageText))                             workArrangement = 'Hybrid';
+    else if (/\bon.?site\b|\bin.?office\b|\bin person\b/.test(pageText)) workArrangement = 'On-site';
+  }
+
+  // ── Infer employment type from job title / visible text ──
+  let employmentType = jobType;
+  if (!employmentType) {
+    const pageText = (document.body?.textContent || '').toLowerCase();
+    if (/\bpart.?time\b/.test(pageText))       employmentType = 'Part-time';
+    else if (/\bcontract\b|\bfreelance\b/.test(pageText)) employmentType = 'Contract';
+    else if (/\binternship\b|\bintern\b/.test(pageText))  employmentType = 'Internship';
+    else if (/\bfull.?time\b/.test(pageText))  employmentType = 'Full-time';
+  }
+
+  // ── Infer seniority from job title ──
+  let seniority = null;
+  const titleLower = (jobTitle || '').toLowerCase();
+  if (/\bstaff\b|\bprincipal\b|\bdistinguished\b/.test(titleLower))  seniority = 'Staff';
+  else if (/\bsenior\b|\bsr\.?\s/.test(titleLower))                  seniority = 'Senior';
+  else if (/\bjunior\b|\bjr\.?\s|entry.?level|associate/.test(titleLower)) seniority = 'Junior';
+  else if (/\blead\b|\bstaff\b/.test(titleLower))                    seniority = 'Lead';
+  else if (/\bmanager\b|\bdirector\b|\bvp\b|\bhead of\b/.test(titleLower)) seniority = 'Manager+';
+  else if (/\bintern\b/.test(titleLower))                            seniority = 'Intern';
+  else                                                                seniority = 'Mid-level';
+
+  return {
+    jobTitle,
+    company,
+    location:        location   || null,
+    salary:          salary     || null,
+    jobType:         employmentType || null,
+    workArrangement: workArrangement || null,
+    department:      department || null,
+    postedDate:      postedDate || null,
+    description:     description || null,
+    seniority:       seniority  || null,
+    jobUrl:          window.location.href,
+  };
 }
 
 async function trackJobApplication(platform) {
   if (_applicationTracked) return;
   _applicationTracked = true;
 
-  const { jobTitle, company } = extractJobInfoFromPage();
+  const jobInfo = extractJobInfoFromPage();
   const jobData = {
-    jobTitle,
-    company,
-    jobBoard:    PLATFORM_NAMES[platform] || 'Other',
-    jobUrl:      window.location.href,
-    appliedAt:   new Date().toISOString(),
-    status:      'Applied',
-    source:      'chrome_extension',
-    autoTracked: true,
+    // Core
+    jobTitle:        jobInfo.jobTitle,
+    company:         jobInfo.company,
+    jobBoard:        PLATFORM_NAMES[platform] || 'Other',
+    jobUrl:          jobInfo.jobUrl,
+    appliedAt:       new Date().toISOString(),
+    status:          'Applied',
+    source:          'chrome_extension',
+    autoTracked:     true,
+    // Rich fields
+    location:        jobInfo.location,
+    salary:          jobInfo.salary,
+    jobType:         jobInfo.jobType,
+    workArrangement: jobInfo.workArrangement,
+    department:      jobInfo.department,
+    postedDate:      jobInfo.postedDate,
+    description:     jobInfo.description,
+    seniority:       jobInfo.seniority,
+    platform:        platform,
   };
 
-  console.log('📋 Preciprocal: tracking job application →', jobTitle, 'at', company);
+  console.log('📋 Preciprocal: tracking job application →', jobInfo.jobTitle, 'at', jobInfo.company);
 
   try {
     chrome.runtime.sendMessage(
@@ -195,15 +430,15 @@ async function trackJobApplication(platform) {
         if (response?.success) {
           if (!response.queued) {
             console.log('✅ Job application saved to tracker');
-            showTrackingToast(jobTitle, company);
+            showTrackingToast(jobInfo.jobTitle, jobInfo.company);
           } else {
             console.log('📥 Job queued locally (will sync when signed in)');
           }
         }
       }
     );
-  } catch {
-    console.warn('⚠️ Job tracker error:', e.message);
+  } catch (err) {
+    console.warn('⚠️ Job tracker error:', err.message);
   }
 }
 
@@ -501,18 +736,65 @@ function isApplicationPage() {
   return hasForms || hasApplyBtn || keywordInUrl;
 }
 
+// ─────────────────────────────────────────────────────────────────
+// PROFILE NORMALIZATION
+// ─────────────────────────────────────────────────────────────────
+
+function normalizeProfile(p) {
+  if (!p) return p;
+  // Parse name string into parts if arrays are missing
+  if (!p.firstName && p.fullName) {
+    const parts = (p.fullName || '').trim().split(/\s+/);
+    p.firstName = parts[0] || '';
+    p.lastName  = parts.slice(1).join(' ') || '';
+  }
+  // Parse location string into city/state if missing
+  if (!p.city && p.location) {
+    const parts = p.location.split(',');
+    p.city  = (parts[0] || '').trim();
+    p.state = (parts[1] || '').trim();
+  }
+  // Ensure skills is an array
+  if (typeof p.skills === 'string') {
+    p.skills = p.skills.split(',').map(s => s.trim()).filter(Boolean);
+  }
+  if (!Array.isArray(p.skills)) p.skills = [];
+  // Ensure education/experience are arrays
+  if (!Array.isArray(p.education))  p.education  = [];
+  if (!Array.isArray(p.experience)) p.experience = [];
+  return p;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// FORM FILLING UTILITIES
+// ─────────────────────────────────────────────────────────────────
+
 function setReactValue(el, value) {
   if (!el || el.disabled || el.readOnly) return false;
   try {
+    // Use native setter so React's synthetic event system sees the change
     const proto  = el.tagName === 'TEXTAREA'
       ? window.HTMLTextAreaElement.prototype
       : window.HTMLInputElement.prototype;
     const nativeSetter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
     if (nativeSetter) nativeSetter.call(el, value);
     else              el.value = value;
-    el.dispatchEvent(new Event('input',  { bubbles: true, cancelable: true }));
-    el.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
-    el.dispatchEvent(new Event('blur',   { bubbles: true, cancelable: true }));
+
+    // Manipulate React's internal _valueTracker so it sees the value as "changed"
+    // Without this, React ignores onChange because it thinks value didn't change
+    const tracker = el._valueTracker;
+    if (tracker) {
+      try { tracker.setValue(''); } catch {}
+    }
+
+    // Fire input & change — but NOT blur (blur triggers onBlur validation that
+    // clears/resets many portal fields like Greenhouse and Lever)
+    el.dispatchEvent(new Event('input',  { bubbles: true, cancelable: true, composed: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true, cancelable: true, composed: true }));
+    // Optionally fire a focus-then-blur sequence so validation still runs
+    // but only AFTER the value is committed
+    el.dispatchEvent(new FocusEvent('focus', { bubbles: true }));
+    el.dispatchEvent(new FocusEvent('blur',  { bubbles: true, relatedTarget: document.body }));
     return true;
   } catch { return false; }
 }
@@ -544,19 +826,117 @@ function normalizeState(value) {
   return variants;
 }
 
+// ── Fuzzy string similarity (Dice coefficient) ──
+function strSimilarity(a, b) {
+  a = a.toLowerCase().replace(/[^a-z0-9]/g, '');
+  b = b.toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (!a.length || !b.length) return 0;
+  if (a === b) return 1;
+  if (a.length < 2 || b.length < 2) return 0;
+  const bigrams = new Map();
+  for (let i = 0; i < a.length - 1; i++) {
+    const bg = a.slice(i, i + 2);
+    bigrams.set(bg, (bigrams.get(bg) || 0) + 1);
+  }
+  let intersectionSize = 0;
+  for (let i = 0; i < b.length - 1; i++) {
+    const bg = b.slice(i, i + 2);
+    if (bigrams.get(bg) > 0) {
+      bigrams.set(bg, bigrams.get(bg) - 1);
+      intersectionSize++;
+    }
+  }
+  return (2 * intersectionSize) / (a.length + b.length - 2);
+}
+
+// ── Fuzzy option picker: tries exact → contains → similarity ──
+function fuzzyPickOption(options, desiredValue) {
+  if (!options.length || !desiredValue) return null;
+  const desired = desiredValue.toLowerCase().trim();
+  const variants = normalizeState(desiredValue);
+
+  // 1. Exact match on any variant
+  for (const v of variants) {
+    const m = options.find(o => (o.text || o.textContent || '').trim().toLowerCase() === v ||
+                                (o.value || '').toLowerCase() === v);
+    if (m) return m;
+  }
+
+  // 2. Starts-with match
+  for (const v of variants) {
+    const m = options.find(o => (o.text || o.textContent || '').trim().toLowerCase().startsWith(v));
+    if (m) return m;
+  }
+
+  // 3. Contains match
+  for (const v of variants) {
+    const m = options.find(o => (o.text || o.textContent || '').trim().toLowerCase().includes(v) ||
+                                v.includes((o.text || o.textContent || '').trim().toLowerCase()));
+    if (m) return m;
+  }
+
+  // 4. Fuzzy similarity ≥ 0.6
+  let best = null, bestScore = 0;
+  for (const o of options) {
+    const optText = (o.text || o.textContent || '').trim().toLowerCase();
+    if (!optText || optText === 'select' || optText === 'please select' || optText === '--') continue;
+    for (const v of variants) {
+      const score = strSimilarity(v, optText);
+      if (score > bestScore) { bestScore = score; best = o; }
+    }
+  }
+  if (bestScore >= 0.5) return best;
+
+  // 5. Keyword overlap — count shared words
+  const desiredWords = desired.split(/\s+/).filter(w => w.length > 2);
+  if (desiredWords.length) {
+    let bestOverlap = 0;
+    for (const o of options) {
+      const optText = (o.text || o.textContent || '').trim().toLowerCase();
+      const overlap = desiredWords.filter(w => optText.includes(w)).length;
+      if (overlap > bestOverlap) { bestOverlap = overlap; best = o; }
+    }
+    if (bestOverlap > 0) return best;
+  }
+
+  return null;
+}
+
 function setSelectValue(el, value) {
   if (!el || !value) return;
-  const options  = Array.from(el.options);
-  const variants = normalizeState(value);
+  const options = Array.from(el.options);
 
+  // Try fuzzy match across all options
+  const match = fuzzyPickOption(
+    options.map(o => ({ text: o.text, value: o.value, _el: o })),
+    value
+  );
+
+  if (match) {
+    const opt = match._el || options.find(o => o.text === match.text);
+    if (opt && el.value !== opt.value) {
+      // Use native setter so React sees the change
+      const nativeSetter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+      if (nativeSetter) nativeSetter.call(el, opt.value);
+      else el.value = opt.value;
+      const tracker = el._valueTracker;
+      if (tracker) { try { tracker.setValue(''); } catch {} }
+      el.dispatchEvent(new Event('change', { bubbles: true, cancelable: true, composed: true }));
+      el.dispatchEvent(new Event('input',  { bubbles: true, cancelable: true, composed: true }));
+    }
+    return;
+  }
+
+  // Final fallback: try the old variant-based approach
+  const variants = normalizeState(value);
   for (const v of variants) {
-    const match =
+    const m =
       options.find(o => o.text.toLowerCase() === v) ||
       options.find(o => o.value.toLowerCase() === v) ||
-      options.find(o => o.text.toLowerCase().includes(v)) ||
-      options.find(o => v.includes(o.text.toLowerCase().replace(/\s+/g, ' ').trim().split(' ')[0]) && o.text.trim().length < 50);
-    if (match && el.value !== match.value) {
-      setReactValue(el, match.value);
+      options.find(o => o.text.toLowerCase().includes(v));
+    if (m && el.value !== m.value) {
+      el.value = m.value;
+      el.dispatchEvent(new Event('change', { bubbles: true }));
       return;
     }
   }
@@ -564,6 +944,13 @@ function setSelectValue(el, value) {
 
 async function fillCustomDropdown(trigger, desiredValue) {
   if (!trigger || !desiredValue) return false;
+
+  // Delegate React Select controls to dedicated handler
+  const cls = (trigger.className || '');
+  if (/select__control|SelectControl/i.test(cls) || trigger.getAttribute('role') === 'combobox') {
+    return fillReactSelect(trigger, desiredValue);
+  }
+
   const desired = desiredValue.toLowerCase().trim();
 
   const searchInput = trigger.querySelector('input[type="text"], input:not([type="hidden"])') ||
@@ -620,6 +1007,20 @@ async function fillCustomDropdown(trigger, desiredValue) {
   }
 
   const variantsToTry = normalizeState(desiredValue);
+  // Use fuzzy picker across all DOM option elements
+  const fuzzyMatch = fuzzyPickOption(
+    options.map(o => ({ text: o.textContent?.trim() || '', _el: o })),
+    desiredValue
+  );
+  if (fuzzyMatch) {
+    const el = fuzzyMatch._el;
+    el.click();
+    el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 200));
+    return true;
+  }
+
+  // Explicit variant loop as fallback (for state abbreviations etc.)
   for (const variant of variantsToTry) {
     const match =
       options.find(o => o.textContent?.trim().toLowerCase() === variant) ||
@@ -631,17 +1032,6 @@ async function fillCustomDropdown(trigger, desiredValue) {
       await new Promise(r => setTimeout(r, 200));
       return true;
     }
-  }
-
-  const match =
-    options.find(o => o.textContent?.trim().toLowerCase().includes(desired)) ||
-    options.find(o => desired.includes(o.textContent?.trim().toLowerCase().split(' ')[0]) && o.textContent?.trim().length < 50);
-
-  if (match) {
-    match.click();
-    match.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-    await new Promise(r => setTimeout(r, 200));
-    return true;
   }
 
   document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
@@ -807,44 +1197,117 @@ function matchSelectByLabel(label, p) {
 }
 
 class FileInjector {
+  // ── Fetch file bytes via background service worker (no CORS there) ──
+  static async _fetchViaBackground(url, fileName) {
+    return new Promise((resolve) => {
+      try {
+        chrome.runtime.sendMessage(
+          { type: 'FETCH_FILE', url, fileName },
+          (response) => {
+            if (chrome.runtime.lastError || !response?.base64) {
+              resolve(null);
+            } else {
+              resolve(response);
+            }
+          }
+        );
+        // Timeout after 15s
+        setTimeout(() => resolve(null), 15000);
+      } catch { resolve(null); }
+    });
+  }
+
+  // ── Build a File object from a base64 string ──
+  static _base64ToFile(base64, fileName, mimeType) {
+    try {
+      const binary = atob(base64);
+      const bytes  = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return new File([bytes], fileName, { type: mimeType });
+    } catch { return null; }
+  }
+
+  static _getMime(fileName) {
+    const ext = (fileName || '').split('.').pop()?.toLowerCase();
+    return {
+      pdf:  'application/pdf',
+      doc:  'application/msword',
+      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      txt:  'text/plain',
+    }[ext] || 'application/octet-stream';
+  }
+
   static async injectFromUrl(url, fileName, inputs) {
     if (!url || !inputs?.length) return 0;
-    let file;
-    try {
-      const ext  = fileName.split('.').pop()?.toLowerCase();
-      const mime = { pdf:'application/pdf', doc:'application/msword', docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document', txt:'text/plain' }[ext] || 'application/octet-stream';
+    const mime = FileInjector._getMime(fileName);
+    let file = null;
 
-      if (url.startsWith('data:')) {
-        const base64 = url.split(',')[1];
-        if (!base64) throw new Error('Invalid base64 data URL');
-        const binary = atob(base64);
-        const bytes  = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-        file = new File([bytes], fileName, { type: mime });
-      } else {
-        const res  = await fetch(url, { mode: 'cors' });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const blob = await res.blob();
-        file = new File([blob], fileName, { type: mime });
+    // Strategy 1: data URI (already base64, no fetch needed)
+    if (url.startsWith('data:')) {
+      const base64 = url.split(',')[1];
+      if (base64) file = FileInjector._base64ToFile(base64, fileName, mime);
+    }
+
+    // Strategy 2: Fetch via background script (bypasses CORS)
+    if (!file) {
+      console.log('📡 Fetching file via background script:', fileName);
+      const resp = await FileInjector._fetchViaBackground(url, fileName);
+      if (resp?.base64) {
+        file = FileInjector._base64ToFile(resp.base64, fileName, resp.mimeType || mime);
+        if (file) console.log(`✅ Background fetch success: ${fileName} (${Math.round(file.size/1024)}KB)`);
       }
-    } catch {
-      console.error('❌ FileInjector failed:', e.message);
+    }
+
+    // Strategy 3: Direct fetch (works if CORS is open, e.g. after user visits the URL)
+    if (!file) {
+      try {
+        console.log('📡 Attempting direct fetch:', fileName);
+        const res  = await fetch(url, { mode: 'cors', credentials: 'omit' });
+        if (res.ok) {
+          const blob = await res.blob();
+          file = new File([blob], fileName, { type: mime });
+          console.log(`✅ Direct fetch success: ${fileName} (${Math.round(file.size/1024)}KB)`);
+        }
+      } catch (err) {
+        console.warn('⚠️ Direct fetch failed:', err.message);
+      }
+    }
+
+    if (!file) {
+      console.error('❌ All fetch strategies failed for:', fileName);
       return 0;
     }
 
+    // ── Inject into each file input ──
     let count = 0;
     for (const input of inputs) {
       if (input.disabled) continue;
       try {
         const dt = new DataTransfer();
         dt.items.add(file);
-        input.files = dt.files;
+
+        // Some portals use a custom setter or Object.defineProperty on .files
+        // Try direct assignment first, then descriptor override
+        try {
+          input.files = dt.files;
+        } catch {
+          const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'files');
+          if (descriptor?.set) descriptor.set.call(input, dt.files);
+        }
+
         input.dispatchEvent(new Event('change', { bubbles: true }));
         input.dispatchEvent(new Event('input',  { bubbles: true }));
+
+        // Some React portals need a custom event with the file list
+        try {
+          const nativeInputValueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+          if (nativeInputValueSetter) nativeInputValueSetter.call(input, '');
+        } catch {}
+
         count++;
-        console.log(`✅ Injected "${fileName}" (${Math.round(file.size/1024)}KB) into`, input);
-      } catch {
-        console.warn('⚠️ Could not set file on input:', e.message);
+        console.log(`✅ File injected into input:`, input.name || input.id || '(unnamed)');
+      } catch (err) {
+        console.warn('⚠️ Could not inject file:', err.message);
       }
     }
     return count;
@@ -857,7 +1320,7 @@ class FileInjector {
       const lbl = getLabel(inp).toLowerCase();
       if (/resume|cv\b|curriculum vitae/i.test(lbl))                resume.push(inp);
       else if (/transcript|academic record|grade|certificate/i.test(lbl)) transcript.push(inp);
-      else if (/cover.?letter/i.test(lbl))                          {}
+      else if (/cover.?letter/i.test(lbl))                          {} // skip
       else                                                           other.push(inp);
     }
     if (!resume.length     && other.length) resume.push(other.shift());
@@ -865,6 +1328,10 @@ class FileInjector {
     return { resume, transcript };
   }
 }
+
+// ─────────────────────────────────────────────────────────────────
+// PLATFORM-SPECIFIC FILL FUNCTIONS
+// ─────────────────────────────────────────────────────────────────
 
 async function fillGreenhouse(p) {
   let filled = 0;
@@ -932,9 +1399,12 @@ function wdSetValue(el, value) {
     const proto  = el.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
     const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
     if (setter) setter.call(el, value); else el.value = value;
-    el.dispatchEvent(new Event('input',  { bubbles: true, cancelable: true }));
-    el.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
-    el.dispatchEvent(new Event('blur',   { bubbles: true, cancelable: true }));
+    const tracker = el._valueTracker;
+    if (tracker) { try { tracker.setValue(''); } catch {} }
+    el.dispatchEvent(new Event('input',  { bubbles: true, cancelable: true, composed: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true, cancelable: true, composed: true }));
+    el.dispatchEvent(new FocusEvent('focus', { bubbles: true }));
+    el.dispatchEvent(new FocusEvent('blur',  { bubbles: true, relatedTarget: document.body }));
     return true;
   } catch { return false; }
 }
@@ -1500,7 +1970,8 @@ async function fillJobvite(p) {
   return { filled };
 }
 
-function srQueryAll(selector, root = document) {
+function srQueryAll(selector, root) {
+  root = root || document;
   const results = [];
   try { results.push(...root.querySelectorAll(selector)); } catch {}
   const all = root.querySelectorAll ? root.querySelectorAll('*') : [];
@@ -1509,7 +1980,7 @@ function srQueryAll(selector, root = document) {
   }
   return results;
 }
-function srQuery(selector, root = document) { return srQueryAll(selector, root)[0] || null; }
+function srQuery(selector, root) { return srQueryAll(selector, root)[0] || null; }
 
 function srSetValue(el, value) {
   if (!el || el.disabled || el.readOnly) return false;
@@ -1517,9 +1988,12 @@ function srSetValue(el, value) {
     const proto  = el.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
     const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
     if (setter) setter.call(el, value); else el.value = value;
-    el.dispatchEvent(new Event('input',  { bubbles: true }));
-    el.dispatchEvent(new Event('change', { bubbles: true }));
-    el.dispatchEvent(new Event('blur',   { bubbles: true }));
+    const tracker = el._valueTracker;
+    if (tracker) { try { tracker.setValue(''); } catch {} }
+    el.dispatchEvent(new Event('input',  { bubbles: true, composed: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+    el.dispatchEvent(new FocusEvent('focus', { bubbles: true }));
+    el.dispatchEvent(new FocusEvent('blur',  { bubbles: true, relatedTarget: document.body }));
     return true;
   } catch { return false; }
 }
@@ -1585,7 +2059,8 @@ async function fillSmartRecruiters(p) {
   return { filled };
 }
 
-function waitForShadowElement(selector, timeout = 8000) {
+function waitForShadowElement(selector, timeout) {
+  timeout = timeout || 8000;
   return new Promise(resolve => {
     if (srQuery(selector)) { resolve(); return; }
     let elapsed = 0;
@@ -1671,6 +2146,178 @@ async function fillWellfound(p) {
   return { filled };
 }
 
+// ─────────────────────────────────────────────────────────────────
+// REACT SELECT HELPERS
+// Handles div[class*="select__control"] — the React Select library pattern
+// used extensively in Greenhouse EEOC, Lever, Ashby, and generic portals.
+// ─────────────────────────────────────────────────────────────────
+
+// Get label for a React Select control div.
+// Looks for: aria-labelledby, associated <label for="...">, label sibling,
+// label inside same container, data attributes, placeholder text.
+function getReactSelectLabel(controlEl) {
+  if (!controlEl) return '';
+
+  // 1. aria-labelledby on the control div itself or its inner input
+  const inp = controlEl.querySelector('input');
+  const ids = (controlEl.getAttribute('aria-labelledby') || inp?.getAttribute('aria-labelledby') || '').split(' ').filter(Boolean);
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (el) return (el.textContent || '').trim();
+  }
+
+  // 2. aria-label
+  const al = controlEl.getAttribute('aria-label') || inp?.getAttribute('aria-label') || '';
+  if (al) return al.trim();
+
+  // 3. input id → label[for]
+  if (inp?.id) {
+    const lbl = document.querySelector('label[for="' + CSS.escape(inp.id) + '"]');
+    if (lbl) return (lbl.textContent || '').trim();
+  }
+
+  // 4. Walk up to container, find label sibling or descendant
+  let node = controlEl.parentElement;
+  for (let i = 0; i < 8; i++) {
+    if (!node || node === document.body) break;
+
+    // Label inside same container (Greenhouse EEOC pattern)
+    const labelInContainer = node.querySelector('label');
+    if (labelInContainer && !labelInContainer.contains(controlEl)) {
+      const t = (labelInContainer.textContent || '').trim();
+      if (t && t.length > 1 && t.length < 120) return t;
+    }
+
+    // Previous sibling label
+    let sib = node.previousElementSibling;
+    while (sib) {
+      if (sib.tagName === 'LABEL' || /^h[1-6]$/.test(sib.tagName) || /label|heading|title|question/i.test(sib.className || '')) {
+        const t = (sib.textContent || '').trim();
+        if (t && t.length > 1 && t.length < 120) return t;
+      }
+      sib = sib.previousElementSibling;
+    }
+
+    node = node.parentElement;
+  }
+
+  // 5. data-* attributes
+  const attrs = ['data-label', 'data-name', 'data-field', 'data-question'];
+  for (const attr of attrs) {
+    const v = controlEl.getAttribute(attr) || controlEl.closest('[' + attr + ']')?.getAttribute(attr);
+    if (v) return v.trim();
+  }
+
+  // 6. Placeholder text as last resort
+  const placeholder = controlEl.querySelector('[class*="placeholder" i]');
+  if (placeholder) return (placeholder.textContent || '').trim();
+
+  return '';
+}
+
+// Drive a React Select (or compatible) dropdown to select a value.
+// Sequence: focus control → click to open → wait for menu → pick option via fuzzy match
+async function fillReactSelect(controlEl, desiredValue) {
+  if (!controlEl || !desiredValue) return false;
+
+  // Already has this value?
+  const currentSV = controlEl.querySelector('[class*="single-value"], [class*="singleValue"]');
+  if (currentSV) {
+    const cur = (currentSV.textContent || '').trim().toLowerCase();
+    if (cur && cur !== 'select' && strSimilarity(cur, desiredValue.toLowerCase()) > 0.8) return true;
+  }
+
+  // 1. Focus + click to open menu
+  controlEl.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+  controlEl.click();
+  await new Promise(r => setTimeout(r, 400));
+
+  // Some React Selects open via the inner dropdown-indicator
+  if (!isReactSelectOpen(controlEl)) {
+    const indicator = controlEl.querySelector('[class*="indicator" i]:not([class*="separator" i])');
+    if (indicator) { indicator.click(); await new Promise(r => setTimeout(r, 350)); }
+  }
+
+  // 2. Find the open menu — React Select renders it as a sibling or portal
+  const getMenu = () => {
+    // Sibling or descendant menu
+    const parent = controlEl.closest('[class*="select-shell"], [class*="select__container"], [class*="container"]') || controlEl.parentElement;
+    const menuInParent = parent?.querySelector('[class*="select__menu"], [class*="__menu-list"]');
+    if (menuInParent) return menuInParent;
+    // Portal: appended to body
+    const bodyMenus = Array.from(document.querySelectorAll('[class*="select__menu"]')).filter(m => m.offsetParent !== null);
+    return bodyMenus[bodyMenus.length - 1] || null;
+  };
+
+  let menu = getMenu();
+  if (!menu) {
+    await new Promise(r => setTimeout(r, 600));
+    menu = getMenu();
+  }
+  if (!menu) {
+    console.warn('⚠️ React Select menu did not open for:', desiredValue);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    return false;
+  }
+
+  // 3. Gather all option elements
+  const getOptionEls = (menuEl) => {
+    const sels = [
+      '[class*="select__option"]',
+      '[class*="__option"]',
+      '[role="option"]',
+      'div[id*="option"]',
+      'li',
+    ];
+    for (const s of sels) {
+      const found = Array.from(menuEl.querySelectorAll(s)).filter(o => o.offsetParent !== null && (o.textContent || '').trim());
+      if (found.length) return found;
+    }
+    return [];
+  };
+
+  let optionEls = getOptionEls(menu);
+  if (!optionEls.length) {
+    await new Promise(r => setTimeout(r, 400));
+    optionEls = getOptionEls(menu);
+  }
+
+  if (!optionEls.length) {
+    console.warn('⚠️ React Select: no options found in menu');
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    return false;
+  }
+
+  // 4. Fuzzy-pick the best option
+  const optList = optionEls.map(o => ({ text: (o.textContent || '').trim(), _el: o }));
+  const best = fuzzyPickOption(optList, desiredValue);
+
+  if (best) {
+    console.log(`  → Picking React Select option: "${best.text}" for desired "${desiredValue}"`);
+    best._el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    best._el.click();
+    await new Promise(r => setTimeout(r, 250));
+    return true;
+  }
+
+  // Nothing matched — close menu
+  console.warn(`⚠️ React Select: no fuzzy match for "${desiredValue}" among`, optList.map(o => o.text));
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  return false;
+}
+
+function isReactSelectOpen(controlEl) {
+  // aria-expanded on the control or its container
+  if (controlEl.getAttribute('aria-expanded') === 'true') return true;
+  const container = controlEl.closest('[class*="select__container"], [class*="container"]');
+  if (container?.getAttribute('aria-expanded') === 'true') return true;
+  // Menu DOM exists and visible
+  const parent = controlEl.closest('[class*="select-shell"], [class*="select__container"]') || controlEl.parentElement;
+  const menu = parent?.querySelector('[class*="select__menu"]') ||
+               Array.from(document.querySelectorAll('[class*="select__menu"]')).find(m => m.offsetParent !== null);
+  return !!menu;
+}
+
 async function smartScan(p) {
   const root = document;
   let filled = 0;
@@ -1710,44 +2357,79 @@ async function smartScan(p) {
     if (val) setSelectValue(sel, val);
   }
 
-  const customDropdownTriggers = root.querySelectorAll(
-    '[class*="control"]:not(input):not(select),' +
-    '[role="combobox"]:not(input):not(select),' +
-    '[class*="select" i]:not(select):not(option):not(input),' +
-    '[class*="Select" i]:not(select):not(option):not(input),' +
-    '[class*="dropdown" i]:not(select):not(input)'
-  );
+  // ── Pass 1: EEOC / React Select pattern (.select__container with label sibling) ──
+  // Handles the exact Greenhouse EEOC DOM:
+  //   .eeoc__question__wrapper > .select > .select__container
+  //     label#xxx-label (e.g. "Disability Status")
+  //     .select-shell > .select__control  ← trigger
+  const eeocContainers = Array.from(root.querySelectorAll(
+    '.select__container, [class*="eeoc"] .select, [class*="eeoc__question"] [class*="select"]'
+  ));
+  for (const container of eeocContainers) {
+    const labelEl = container.querySelector('label');
+    if (!labelEl) continue;
+    const labelText = (labelEl.textContent || '').trim();
+    if (!labelText) continue;
 
-  const sortedTriggers = Array.from(customDropdownTriggers).sort((a, b) => {
-    const lblA = getCustomDropdownLabel(a).toLowerCase();
-    const lblB = getCustomDropdownLabel(b).toLowerCase();
-    const rankA = /country/i.test(lblA) ? -2 : /\bstate\b|\bprovince\b/i.test(lblA) ? -1 : 0;
-    const rankB = /country/i.test(lblB) ? -2 : /\bstate\b|\bprovince\b/i.test(lblB) ? -1 : 0;
-    return rankA - rankB;
+    // Skip if already has a real value (not a placeholder)
+    const singleVal = container.querySelector('[class*="single-value"], [class*="singleValue"]');
+    if (singleVal && singleVal.textContent?.trim() && !/^select/i.test(singleVal.textContent)) continue;
+
+    const desiredVal = matchSelectByLabel(labelText, p);
+    if (!desiredVal) continue;
+
+    const trigger = container.querySelector('[class*="select__control"], [class*="__control"]');
+    if (!trigger) continue;
+
+    console.log(`🎯 EEOC React Select: "${labelText}" → "${desiredVal}"`);
+    const ok = await fillReactSelect(trigger, desiredVal);
+    if (ok) { filled++; console.log(`  ✅ EEOC filled: "${labelText}"`); }
+    await new Promise(r => setTimeout(r, 300));
+  }
+
+  // ── Pass 2: Generic React-Select / custom dropdowns ──
+  const allControls = Array.from(root.querySelectorAll(
+    'div[class*="select__control"], div[class*="SelectControl"],' +
+    '[role="combobox"]:not(input):not(select),' +
+    'div[class*="dropdown__control"], [class*="dropdown-toggle"]:not(input):not(select)'
+  ));
+
+  const processedControls = new Set();
+
+  // Sort: country first, then state, then rest
+  allControls.sort((a, b) => {
+    const lA = getReactSelectLabel(a).toLowerCase();
+    const lB = getReactSelectLabel(b).toLowerCase();
+    const rA = /country/i.test(lA) ? -2 : /\bstate\b|\bprovince\b/i.test(lA) ? -1 : 0;
+    const rB = /country/i.test(lB) ? -2 : /\bstate\b|\bprovince\b/i.test(lB) ? -1 : 0;
+    return rA - rB;
   });
 
-  for (const trigger of sortedTriggers) {
+  for (const trigger of allControls) {
+    if (processedControls.has(trigger)) continue;
     if (trigger.closest('select')) continue;
-    if (trigger.querySelector('select, input[type="hidden"]')?.value &&
-        trigger.querySelector('select, input[type="hidden"]').value !== '') continue;
 
-    const placeholderText = (
-      trigger.querySelector('[class*="placeholder" i], [class*="Placeholder" i]')?.textContent ||
-      trigger.textContent || ''
-    ).trim().toLowerCase();
-    const looksEmpty = placeholderText.startsWith('select') || placeholderText === '' || placeholderText === '—';
-    if (!looksEmpty) continue;
+    // Skip if already filled
+    const sv = trigger.querySelector('[class*="single-value"], [class*="singleValue"]');
+    if (sv && sv.textContent?.trim() && !/^select/i.test(sv.textContent)) continue;
 
-    const lbl = getCustomDropdownLabel(trigger);
+    // Only process empty/placeholder state
+    const ph = (trigger.querySelector('[class*="placeholder" i]')?.textContent || '').trim().toLowerCase();
+    const ct = (trigger.textContent || '').trim();
+    if (ph && !/^select/i.test(ph) && ph !== '' && ph !== '—') continue;
+    if (!ph && ct && !/^select/i.test(ct) && ct !== '—') continue;
+
+    const lbl = getReactSelectLabel(trigger);
     if (!lbl || lbl.length < 3) continue;
 
+    processedControls.add(trigger);
     const val = matchSelectByLabel(lbl, p);
     if (!val) continue;
 
-    const didFill = await fillCustomDropdown(trigger, val);
+    const didFill = await fillReactSelect(trigger, val);
     if (didFill) {
       filled++;
-      console.log(`  📦 Custom dropdown "${lbl.slice(0,50)}" → "${val}"`);
+      console.log(`  📦 React Select "${lbl.slice(0,50)}" → "${val}"`);
       if (/country/i.test(lbl)) await new Promise(r => setTimeout(r, 700));
     }
   }
@@ -1763,26 +2445,47 @@ async function smartScan(p) {
 
   const groups = root.querySelectorAll('[role="radiogroup"], fieldset');
   for (const g of groups) {
-    const legend = (g.querySelector('legend, [role="group"] label, p')?.textContent || '').toLowerCase();
-    let answer = null;
-    if (/sponsor/i.test(legend))                               answer = p.requireSponsorship ? 'yes' : 'no';
-    if (/relocat/i.test(legend))                               answer = p.willingToRelocate  ? 'yes' : 'no';
-    if (/authoriz|legally.*work|eligible.*work/i.test(legend)) answer = 'yes';
-    if (/currently employ/i.test(legend))                      answer = 'yes';
-    if (/18.*year|adult/i.test(legend))                        answer = 'yes';
-    if (/veteran/i.test(legend))                               answer = p.veteranStatus    || 'not a protected veteran';
-    if (/disabilit/i.test(legend))                             answer = p.disabilityStatus || 'no';
-    if (!answer) continue;
-    const isDecline = /veteran|disabilit/i.test(legend);
-    const radios = g.querySelectorAll('input[type="radio"]');
-    for (const r of radios) {
-      const lbl = (getLabel(r) + ' ' + (r.value || '')).toLowerCase();
-      if (isDecline) {
-        if (/not a.*veteran|not.*protected|i don|no.*disab|prefer not|decline|choose not|i do not have/i.test(lbl)) {
-          if (!r.checked) r.click(); break;
-        }
-      } else {
-        if (lbl.includes(answer)) { if (!r.checked) r.click(); break; }
+    const legend = (g.querySelector('legend, [role="group"] label, p, h2, h3, h4, [class*="label" i]')?.textContent || '').toLowerCase();
+    let desiredAnswer = null;
+
+    if (/sponsor/i.test(legend))                               desiredAnswer = p.requireSponsorship ? 'yes' : 'no';
+    if (/relocat/i.test(legend))                               desiredAnswer = p.willingToRelocate  ? 'yes' : 'no';
+    if (/authoriz|legally.*work|eligible.*work|work.*authoriz/i.test(legend)) desiredAnswer = 'yes';
+    if (/currently employ/i.test(legend))                      desiredAnswer = 'no';
+    if (/18.*year|adult|of age/i.test(legend))                 desiredAnswer = 'yes';
+    if (/veteran/i.test(legend))                               desiredAnswer = p.veteranStatus    || 'not a protected veteran';
+    if (/disabilit/i.test(legend))                             desiredAnswer = p.disabilityStatus || 'no disability';
+    if (/background.?check/i.test(legend))                     desiredAnswer = 'yes';
+    if (/drug.?test/i.test(legend))                            desiredAnswer = 'yes';
+    if (/gender|sex\b/i.test(legend))                          desiredAnswer = p.gender || 'prefer not to say';
+    if (/pronouns?/i.test(legend))                             desiredAnswer = p.pronouns || 'prefer not to say';
+    if (/race|ethnicit/i.test(legend))                         desiredAnswer = p.race || 'prefer not to say';
+    if (!desiredAnswer) continue;
+
+    const radios = Array.from(g.querySelectorAll('input[type="radio"]'));
+    const isDeclineCategory = /veteran|disabilit|gender|race|pronoun/i.test(legend);
+
+    // Build option list for fuzzy matching
+    const radioOptions = radios.map(r => ({
+      text: (getLabel(r) + ' ' + (r.value || '')).toLowerCase().trim(),
+      _el: r,
+    }));
+
+    if (isDeclineCategory && /prefer not|decline|not to say/i.test(desiredAnswer)) {
+      // For EEO "prefer not to say" style — pick the decline/prefer-not option
+      const DECLINE_PATTERNS = /prefer not|decline|choose not|not to say|not wish|not disclose|opt out|i don|i do not|not a protected|i am not/i;
+      const declineOption = radios.find(r => DECLINE_PATTERNS.test((getLabel(r) + ' ' + r.value).toLowerCase()));
+      if (declineOption && !declineOption.checked) { declineOption.click(); }
+      continue;
+    }
+
+    // Use fuzzy picker to find best radio match
+    const fuzzy = fuzzyPickOption(radioOptions, desiredAnswer);
+    if (fuzzy) {
+      const radio = fuzzy._el;
+      if (!radio.checked) {
+        radio.click();
+        radio.dispatchEvent(new Event('change', { bubbles: true }));
       }
     }
   }
@@ -1796,31 +2499,53 @@ async function smartScan(p) {
     const questionLabel = getCheckboxGroupLabel(cb).toLowerCase().trim();
     const fullText      = (questionLabel + ' ' + cbLbl).trim();
 
-    if (/pronoun/i.test(questionLabel) && p.pronouns && p.pronouns !== 'Prefer not to say') {
-      const target  = p.pronouns.toLowerCase().replace(/\s*\/\s*/g, '/').replace(/\s+/g, '');
-      const cbNorm  = cbLbl.replace(/\s*\/\s*/g, '/').replace(/\s+/g, '');
-      if (target.split('/')[0] && cbNorm.split('/')[0] && target.split('/')[0] === cbNorm.split('/')[0]) {
-        cb.click(); cb.dispatchEvent(new Event('change', { bubbles: true })); filled++;
+    // ── EEO: pronoun ──
+    if (/pronoun/i.test(questionLabel)) {
+      const target = (p.pronouns || 'Prefer not to say').toLowerCase();
+      if (/prefer not|decline|not to say/i.test(target)) {
+        if (/prefer not|decline|not to say|choose not|opt out/i.test(cbLbl)) {
+          cb.click(); cb.dispatchEvent(new Event('change', { bubbles: true })); filled++;
+        }
+      } else {
+        const sim = strSimilarity(target.replace(/\s*\/\s*/g, '/'), cbLbl.replace(/\s*\/\s*/g, '/'));
+        if (sim >= 0.5 || target.split('/')[0] === cbLbl.split('/')[0]) {
+          cb.click(); cb.dispatchEvent(new Event('change', { bubbles: true })); filled++;
+        }
       }
       continue;
     }
 
-    if (/gender|sex\b/i.test(questionLabel) && p.gender && p.gender !== 'Prefer not to say') {
-      const target = p.gender.toLowerCase();
-      if (cbLbl.includes(target.split(' ')[0]) || target.includes(cbLbl.split(' ')[0])) {
-        cb.click(); cb.dispatchEvent(new Event('change', { bubbles: true })); filled++;
+    // ── EEO: gender ──
+    if (/gender|sex\b/i.test(questionLabel)) {
+      const target = (p.gender || 'Prefer not to say').toLowerCase();
+      if (/prefer not|decline|not to say/i.test(target)) {
+        if (/prefer not|decline|not to say|choose not|opt out/i.test(cbLbl)) {
+          cb.click(); cb.dispatchEvent(new Event('change', { bubbles: true })); filled++;
+        }
+      } else {
+        if (strSimilarity(target, cbLbl) >= 0.5 || cbLbl.includes(target.split(' ')[0])) {
+          cb.click(); cb.dispatchEvent(new Event('change', { bubbles: true })); filled++;
+        }
       }
       continue;
     }
 
-    if (/race|ethnicit/i.test(questionLabel) && p.race && p.race !== 'Prefer not to say') {
-      const target = p.race.toLowerCase();
-      if (cbLbl.includes(target.split(' ')[0]) || target.includes(cbLbl.split(' ')[0])) {
-        cb.click(); cb.dispatchEvent(new Event('change', { bubbles: true })); filled++;
+    // ── EEO: race/ethnicity ──
+    if (/race|ethnicit/i.test(questionLabel)) {
+      const target = (p.race || 'Prefer not to say').toLowerCase();
+      if (/prefer not|decline|not to say/i.test(target)) {
+        if (/prefer not|decline|not to say|choose not|opt out/i.test(cbLbl)) {
+          cb.click(); cb.dispatchEvent(new Event('change', { bubbles: true })); filled++;
+        }
+      } else {
+        if (strSimilarity(target, cbLbl) >= 0.5 || cbLbl.includes(target.split(' ')[0])) {
+          cb.click(); cb.dispatchEvent(new Event('change', { bubbles: true })); filled++;
+        }
       }
       continue;
     }
 
+    // ── EEO: veteran ──
     if (/veteran|military/i.test(questionLabel)) {
       if (/not a.*veteran|not.*protected|prefer not|decline|choose not|i don|i am not/i.test(cbLbl)) {
         cb.click(); cb.dispatchEvent(new Event('change', { bubbles: true })); filled++;
@@ -1828,61 +2553,61 @@ async function smartScan(p) {
       continue;
     }
 
+    // ── EEO: disability ──
     if (/disabilit/i.test(questionLabel)) {
-      if (/no.*disab|i do not|prefer not|decline|choose not|not.*disab|i am not/i.test(cbLbl)) {
+      if (/no.*disab|i do not|prefer not|decline|choose not|not.*disab|i am not|do not have/i.test(cbLbl)) {
         cb.click(); cb.dispatchEvent(new Event('change', { bubbles: true })); filled++;
       }
       continue;
     }
 
+    // ── Skills checkboxes ──
     if (/skills?|technologies|tech.?stack|expertise/i.test(questionLabel) && p.skills?.length) {
-      const skillList = (Array.isArray(p.skills) ? p.skills : String(p.skills).split(',')).map(s => s.trim().toLowerCase());
-      if (skillList.some(s => s && cbLbl && (s === cbLbl || cbLbl.includes(s) || s.includes(cbLbl)))) {
+      const skillList = p.skills.map(s => s.trim().toLowerCase());
+      if (skillList.some(s => s && cbLbl && (s === cbLbl || cbLbl.includes(s) || s.includes(cbLbl) || strSimilarity(s, cbLbl) >= 0.7))) {
         cb.click(); cb.dispatchEvent(new Event('change', { bubbles: true })); filled++;
       }
       continue;
     }
 
+    // ── Work type ──
     if (/work.*type|employment.*type|job.*type|work.*arrangement/i.test(questionLabel)) {
       const target = (p.workType || p.employmentType || '').toLowerCase();
-      if (target && (cbLbl.includes(target.split(/[-\s]/)[0]) || target.includes(cbLbl))) {
+      if (target && (cbLbl.includes(target.split(/[-\s]/)[0]) || target.includes(cbLbl) || strSimilarity(target, cbLbl) >= 0.5)) {
         cb.click(); cb.dispatchEvent(new Event('change', { bubbles: true })); filled++;
       }
       continue;
     }
 
+    // ── Screener yes/no checkboxes ──
     if (questionLabel && questionLabel.length >= 3) {
       let screenerAnswer = null;
 
-      if (/authorized|legally.*work|eligible.*work|right.*work/i.test(fullText))   screenerAnswer = true;
-      if (/require.*sponsor|need.*sponsor/i.test(fullText))                         screenerAnswer = p.requireSponsorship ?? false;
-      if (/willing.*relocat|open.*relocat/i.test(fullText))                         screenerAnswer = p.willingToRelocate  ?? false;
-      if (/18.*year|over.*18|legal.*age|\bof age\b/i.test(fullText))               screenerAnswer = true;
-      if (/background.?check/i.test(fullText))                                      screenerAnswer = p.backgroundCheck ?? true;
-      if (/drug.?test|substance/i.test(fullText))                                   screenerAnswer = p.drugTest ?? true;
-      if (/driver.?licen/i.test(fullText))                                          screenerAnswer = p.driverLicense ?? true;
-      if (/full.?time/i.test(fullText))                                             screenerAnswer = true;
-      if (/currently.*employ/i.test(fullText))                                      screenerAnswer = p.currentlyEmployed ?? false;
-      if (/previously.*applied|applied.*before/i.test(fullText))                    screenerAnswer = false;
+      if (/authorized|legally.*work|eligible.*work|right.*work|work.*authoriz/i.test(fullText)) screenerAnswer = true;
+      if (/require.*sponsor|need.*sponsor/i.test(fullText))                 screenerAnswer = p.requireSponsorship ?? false;
+      if (/willing.*relocat|open.*relocat/i.test(fullText))                 screenerAnswer = p.willingToRelocate  ?? false;
+      if (/18.*year|over.*18|legal.*age|\bof age\b/i.test(fullText))        screenerAnswer = true;
+      if (/background.?check/i.test(fullText))                              screenerAnswer = p.backgroundCheck ?? true;
+      if (/drug.?test|substance/i.test(fullText))                           screenerAnswer = p.drugTest ?? true;
+      if (/driver.?licen/i.test(fullText))                                  screenerAnswer = p.driverLicense ?? true;
+      if (/full.?time/i.test(fullText))                                     screenerAnswer = true;
+      if (/currently.*employ/i.test(fullText))                              screenerAnswer = p.currentlyEmployed ?? false;
+      if (/previously.*applied|applied.*before/i.test(fullText))            screenerAnswer = false;
 
       if (screenerAnswer !== null) {
-        const isYesCheckbox = /^yes$|^yes[\s,\b]/i.test(cbLbl);
-        const isNoCheckbox  = /^no$|^no[\s,\b]/i.test(cbLbl);
+        const isYes = /^yes$|^yes[\s,]/i.test(cbLbl) || strSimilarity(cbLbl, 'yes') > 0.8;
+        const isNo  = /^no$|^no[\s,]/i.test(cbLbl)  || strSimilarity(cbLbl, 'no')  > 0.8;
 
-        if (screenerAnswer === true  && isYesCheckbox) {
-          cb.click(); cb.dispatchEvent(new Event('change', { bubbles: true })); filled++;
-        } else if (screenerAnswer === false && isNoCheckbox) {
-          cb.click(); cb.dispatchEvent(new Event('change', { bubbles: true })); filled++;
-        } else if (!isYesCheckbox && !isNoCheckbox && screenerAnswer === true) {
-          cb.click(); cb.dispatchEvent(new Event('change', { bubbles: true })); filled++;
-        }
+        if (screenerAnswer === true  && isYes) { cb.click(); cb.dispatchEvent(new Event('change', { bubbles: true })); filled++; }
+        else if (screenerAnswer === false && isNo)  { cb.click(); cb.dispatchEvent(new Event('change', { bubbles: true })); filled++; }
+        else if (!isYes && !isNo && screenerAnswer === true) { cb.click(); cb.dispatchEvent(new Event('change', { bubbles: true })); filled++; }
         continue;
       }
     }
 
+    // ── Consent / terms checkboxes ──
     let shouldCheck = null;
-
-    if (/i agree|i consent|i acknowledge|i certify|i confirm|i understand|i accept/i.test(fullText))  shouldCheck = true;
+    if (/i agree|i consent|i acknowledge|i certify|i confirm|i understand|i accept/i.test(fullText)) shouldCheck = true;
     else if (/terms.*service|terms.*use|privacy.?polic|data.*polic|eula|cookie.*polic/i.test(fullText)) shouldCheck = true;
     else if (/background.?check/i.test(fullText))            shouldCheck = p.backgroundCheck  ?? true;
     else if (/drug.?test|substance/i.test(fullText))         shouldCheck = p.drugTest         ?? true;
@@ -1965,7 +2690,8 @@ function getCbLabel(cb) {
 
 function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-function waitForSelector(selector, timeout = 6000) {
+function waitForSelector(selector, timeout) {
+  timeout = timeout || 6000;
   return new Promise(resolve => {
     if (document.querySelector(selector)) { resolve(); return; }
     const obs = new MutationObserver(() => {
@@ -1977,6 +2703,8 @@ function waitForSelector(selector, timeout = 6000) {
 }
 
 async function fillForm(profile, platform) {
+  // Normalize profile before filling (parse name parts, city/state split, etc.)
+  profile = normalizeProfile(profile);
   console.log(`🤖 Filling ${platform} form…`);
   let result;
   switch (platform) {
@@ -2036,8 +2764,8 @@ class PreciprocalSidebar {
       const tk        = await chrome.runtime.sendMessage({ type: 'GET_TOKEN' });
       this.authToken  = tk.token || tk.idToken || null;
       if (!this.authToken && this.authUserId) this.authToken = this.authUserId;
-    } catch {
-      console.warn('⚠️ Auth check failed:', e.message);
+    } catch (err) {
+      console.warn('⚠️ Auth check failed:', err.message);
     }
   }
 
@@ -2068,7 +2796,6 @@ class PreciprocalSidebar {
   }
 
   _getFieldStatuses() {
-    // Returns filled/total counts for key field categories
     const check = (selectors) => {
       for (const s of selectors) {
         try {
@@ -2095,16 +2822,23 @@ class PreciprocalSidebar {
     const platformName = this._platformLabel();
     const fields = this._getFieldStatuses();
     const filledCount = fields.filter(f => f.filled).length;
-    const totalFields = fields.length;
 
     const _iconUrl = (typeof chrome !== 'undefined' && chrome.runtime?.getURL)
       ? chrome.runtime.getURL('icons/icon48.png')
       : '';
 
-    // Extract job title & company from page for display
-    const { jobTitle, company } = extractJobInfoFromPage();
-    const displayTitle = jobTitle !== 'Unknown Position' ? jobTitle : platformName + ' Application';
-    const displayCompany = company !== 'Unknown Company' ? company : window.location.hostname.split('.')[0];
+    const jobInfo = extractJobInfoFromPage();
+    const displayTitle   = jobInfo.jobTitle !== 'Unknown Position' ? jobInfo.jobTitle : platformName + ' Application';
+    const displayCompany = jobInfo.company  !== 'Unknown Company'  ? jobInfo.company  : window.location.hostname.split('.')[0];
+
+    // Build rich job info pill row
+    const pills = [
+      jobInfo.workArrangement && `<span class="prc-pill">${jobInfo.workArrangement}</span>`,
+      jobInfo.jobType         && `<span class="prc-pill">${jobInfo.jobType}</span>`,
+      jobInfo.seniority       && `<span class="prc-pill prc-pill-subtle">${jobInfo.seniority}</span>`,
+      jobInfo.location        && `<span class="prc-pill prc-pill-subtle">📍 ${jobInfo.location.slice(0, 24)}</span>`,
+      jobInfo.salary          && `<span class="prc-pill prc-pill-green">💰 ${jobInfo.salary.slice(0, 28)}</span>`,
+    ].filter(Boolean).join('');
 
     sidebar.innerHTML = `
       <div id="prc-sidebar-inner">
@@ -2147,6 +2881,7 @@ class PreciprocalSidebar {
             </div>
           </div>
           <div class="prc-job-title">${displayTitle}</div>
+          ${pills ? `<div class="prc-pills-row">${pills}</div>` : ''}
         </div>
 
         ${!this.isAuth ? `
@@ -2155,11 +2890,7 @@ class PreciprocalSidebar {
           <div class="prc-body">
             <p class="prc-section-title">Sign in to auto-fill</p>
             <p class="prc-section-sub">Fill this ${platformName} form instantly with your saved profile.</p>
-
-            <button class="prc-cta" id="prc-signin-btn">
-              Sign In to Preciprocal
-            </button>
-
+            <button class="prc-cta" id="prc-signin-btn">Sign In to Preciprocal</button>
             <p class="prc-footer-note">Free to get started · No credit card required</p>
           </div>
 
@@ -2181,7 +2912,7 @@ class PreciprocalSidebar {
 
             <!-- Field checklist -->
             <div class="prc-fields-section">
-              <div class="prc-fields-label">Required (${filledCount}/${totalFields} filled)</div>
+              <div class="prc-fields-label">Required (${filledCount}/${fields.length} filled)</div>
               <div class="prc-fields-list" id="prc-fields-list">
                 ${fields.map(f => `
                   <div class="prc-field-row" data-field="${f.label.toLowerCase()}">
@@ -2271,7 +3002,6 @@ class PreciprocalSidebar {
       </div>
     `).join('');
 
-    // Update the fields label
     const label = document.querySelector('.prc-fields-label');
     if (label) label.textContent = `Required (${filledCount}/${fields.length} filled)`;
   }
@@ -2371,7 +3101,11 @@ class PreciprocalSidebar {
         if (!this.authToken) throw new Error('Not signed in — open the extension and sign in first');
         if (label) label.textContent = 'Fetching profile…';
         const res = await fetch(`${PRECIPROCAL_URL}/api/extension/auto-apply`, {
-          headers: { 'x-extension-token': this.authToken, 'x-user-email': this.authEmail || '', 'x-user-id': this.authUserId || '' },
+          headers: {
+            'x-extension-token': this.authToken,
+            'x-user-email': this.authEmail  || '',
+            'x-user-id':    this.authUserId || '',
+          },
         });
         if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || `HTTP ${res.status}`); }
         const data   = await res.json();
@@ -2413,7 +3147,6 @@ class PreciprocalSidebar {
       if (icon)  icon.innerHTML = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
       if (label) label.textContent = `${filled} fields filled`;
 
-      // Update completion UI
       const totalOnPage = this._countPageFields();
       const pct = totalOnPage > 0 ? Math.min(100, Math.round((filled / totalOnPage) * 100)) : 100;
       this._updateCompletion(pct);
@@ -2639,6 +3372,34 @@ class PreciprocalSidebar {
         text-decoration: underline;
         text-decoration-color: #0f0f13;
         text-underline-offset: 2px;
+        margin-bottom: 8px;
+      }
+
+      /* ─── Pill row ─── */
+      .prc-pills-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 2px;
+      }
+      .prc-pill {
+        display: inline-block;
+        padding: 2px 7px;
+        font-size: 10.5px;
+        font-weight: 700;
+        border-radius: 999px;
+        background: #ede9fe;
+        color: #6d28d9;
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+      }
+      .prc-pill-subtle {
+        background: #f1f5f9;
+        color: #475569;
+      }
+      .prc-pill-green {
+        background: #dcfce7;
+        color: #15803d;
       }
 
       /* ─── Body ─── */
@@ -2954,8 +3715,8 @@ async function onNavigation() {
         }
         _autoFilling = false;
       }
-    } catch {
-      console.warn('⚠️ Auto-fill on navigation failed:', e.message);
+    } catch (err) {
+      console.warn('⚠️ Auto-fill on navigation failed:', err.message);
       _autoFilling = false;
     }
   }
