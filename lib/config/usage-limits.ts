@@ -31,15 +31,15 @@ export const USAGE_LIMITS: PlanLimits = {
     jobTracker: 5,
   },
   pro: {
-    coverLetters: -1,
-    resumes: -1,
-    studyPlans: -1,
-    interviews: -1,
-    interviewDebriefs: -1,
+    coverLetters: 20,
+    resumes: 10,
+    studyPlans: 5,
+    interviews: -1,       // unlimited
+    interviewDebriefs: 5,
     linkedinOptimisations: 5,
-    coldOutreach: -1,
-    findContacts: 10,
-    jobTracker: -1,
+    coldOutreach: 5,
+    findContacts: 5,
+    jobTracker: 30,
   },
   premium: {
     coverLetters: -1,

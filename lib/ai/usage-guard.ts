@@ -4,11 +4,8 @@
 import { db } from '@/firebase/admin';
 import { FieldValue } from 'firebase-admin/firestore';
 
-// ─── Plan limits (single source of truth) ─────────────────────────────────────
-// These match your pricing page and usage-limits.ts on the frontend.
-
 export type GatedFeature =
-  | 'resumes'          // resume analysis, benchmark, recruiter sim, intel, rewrite, tailor, deep analysis
+  | 'resumes'
   | 'coverLetters'
   | 'studyPlans'
   | 'interviews'
@@ -50,17 +47,17 @@ const PLAN_LIMITS: Record<string, PlanLimits> = {
     findContacts: 1,
   },
   pro: {
-    resumes: 20,
-    coverLetters: -1,    // unlimited
+    resumes: 10,
+    coverLetters: 20,
     studyPlans: 5,
-    interviews: 30,
+    interviews: -1,       // unlimited
     interviewDebriefs: 5,
     linkedinOptimisations: 5,
-    coldOutreach: 10,
-    findContacts: 10,
+    coldOutreach: 5,
+    findContacts: 5,
   },
   premium: {
-    resumes: -1,         // unlimited
+    resumes: -1,
     coverLetters: -1,
     studyPlans: -1,
     interviews: -1,
@@ -71,7 +68,6 @@ const PLAN_LIMITS: Record<string, PlanLimits> = {
   },
 };
 
-// Map feature to the Firestore field name under `usage.`
 const FEATURE_FIELD: Record<GatedFeature, string> = {
   resumes:               'resumesUsed',
   coverLetters:          'coverLettersUsed',
@@ -83,7 +79,6 @@ const FEATURE_FIELD: Record<GatedFeature, string> = {
   findContacts:          'findContactsUsed',
 };
 
-// Human-readable names for error messages
 const FEATURE_NAMES: Record<GatedFeature, string> = {
   resumes:               'Resume Analyses',
   coverLetters:          'Cover Letters',
@@ -95,8 +90,6 @@ const FEATURE_NAMES: Record<GatedFeature, string> = {
   findContacts:          'Find Contacts',
 };
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 export interface UsageCheckResult {
   allowed: boolean;
   used: number;
@@ -104,7 +97,7 @@ export interface UsageCheckResult {
   remaining: number;    // -1 = unlimited
   plan: string;
   feature: GatedFeature;
-  message?: string;     // only set when blocked
+  message?: string;
 }
 
 // ─── Check usage (read-only, does NOT increment) ──────────────────────────────
@@ -123,7 +116,6 @@ export async function checkUsage(
     const field  = FEATURE_FIELD[feature];
     const used   = (data?.usage?.[field] as number) ?? 0;
 
-    // Unlimited
     if (limit === -1) {
       return { allowed: true, used, limit: -1, remaining: -1, plan, feature };
     }
@@ -132,12 +124,7 @@ export async function checkUsage(
     const allowed   = used < limit;
 
     return {
-      allowed,
-      used,
-      limit,
-      remaining,
-      plan,
-      feature,
+      allowed, used, limit, remaining, plan, feature,
       message: allowed
         ? undefined
         : `You've reached your monthly limit of ${limit} ${FEATURE_NAMES[feature]}. Upgrade to Pro for more.`,
@@ -145,15 +132,9 @@ export async function checkUsage(
   } catch (err) {
     console.error(`❌ Usage check failed for ${userId}/${feature}:`, err);
     // Fail CLOSED — block the user if we can't verify their quota.
-    // This prevents over-limit usage caused by transient Firestore errors.
     return {
-      allowed:   false,
-      used:      0,
-      limit:     0,
-      remaining: 0,
-      plan:      'unknown',
-      feature,
-      message:   'Unable to verify usage at this time. Please try again in a moment.',
+      allowed: false, used: 0, limit: 0, remaining: 0, plan: 'unknown', feature,
+      message: 'Unable to verify usage at this time. Please try again in a moment.',
     };
   }
 }
@@ -180,7 +161,7 @@ export async function checkAndIncrementUsage(
       const limit  = limits[feature];
       const used   = (data?.usage?.[field] as number) ?? 0;
 
-      // Unlimited plans — increment and allow immediately
+      // Unlimited — increment and allow immediately
       if (limit === -1) {
         txn.update(userRef, {
           [`usage.${field}`]:  FieldValue.increment(1),
@@ -192,13 +173,8 @@ export async function checkAndIncrementUsage(
       // Hard limit reached — abort without writing anything
       if (used >= limit) {
         return {
-          allowed:   false,
-          used,
-          limit,
-          remaining: 0,
-          plan,
-          feature,
-          message:   `You've reached your monthly limit of ${limit} ${FEATURE_NAMES[feature]}. Upgrade to Pro for more.`,
+          allowed: false, used, limit, remaining: 0, plan, feature,
+          message: `You've reached your monthly limit of ${limit} ${FEATURE_NAMES[feature]}. Upgrade to Pro for more.`,
         };
       }
 
@@ -210,26 +186,19 @@ export async function checkAndIncrementUsage(
 
       const newUsed   = used + 1;
       const remaining = Math.max(0, limit - newUsed);
-
       return { allowed: true, used: newUsed, limit, remaining, plan, feature };
     });
 
     console.log(
       `📊 Usage [${feature}] for ${userId}: ${result.used}/${result.limit} — ${result.allowed ? 'ALLOWED' : 'BLOCKED'}`,
     );
-
     return result;
   } catch (err) {
     console.error(`❌ Usage transaction failed for ${userId}/${feature}:`, err);
     // Fail CLOSED — if the transaction errors we cannot safely allow the request.
     return {
-      allowed:   false,
-      used:      0,
-      limit:     0,
-      remaining: 0,
-      plan:      'unknown',
-      feature,
-      message:   'Unable to verify usage at this time. Please try again in a moment.',
+      allowed: false, used: 0, limit: 0, remaining: 0, plan: 'unknown', feature,
+      message: 'Unable to verify usage at this time. Please try again in a moment.',
     };
   }
 }

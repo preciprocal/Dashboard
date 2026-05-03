@@ -41,13 +41,14 @@ const PLANS: Plan[] = [
     gradient: "from-slate-700/40 to-slate-800/40",
     border: "border-white/[0.08]",
     features: [
-      { text: "5 resume analyses / month" },
-      { text: "5 cover letters / month" },
-      { text: "2 LinkedIn optimisations / month" },
+      { text: "2 resume analyses / month" },
+      { text: "3 cover letters / month" },
+      { text: "1 mock interview / month" },
+      { text: "1 LinkedIn optimisation / month" },
       { text: "1 interview debrief / month" },
-      { text: "2 find contacts / month" },
-      { text: "3 mock interviews / month" },
-      { text: "Job tracker (10 jobs)" },
+      { text: "1 cold outreach message / month" },
+      { text: "1 find contacts / month" },
+      { text: "Job tracker (5 jobs)" },
       { text: "Chrome extension (limited)" },
       { text: "Basic analytics" },
     ],
@@ -61,19 +62,21 @@ const PLANS: Plan[] = [
     border: "border-indigo-500/40",
     popular: true,
     features: [
-      { text: "20 resume analyses / month",       highlight: true },
-      { text: "30 mock interviews / month",        highlight: true },
-      { text: "Unlimited cover letters",           highlight: true },
-      { text: "5 LinkedIn optimisations / month",  highlight: true },
-      { text: "5 interview debriefs / month",      highlight: true },
-      { text: "10 find contacts / month",          highlight: true },
-      { text: "5 active study plans",              highlight: true },
-      { text: "Unlimited job tracker" },
+      { text: "10 resume analyses / month",        highlight: true },
+      { text: "20 cover letters / month",           highlight: true },
+      { text: "Unlimited mock interviews",          highlight: true },
+      { text: "5 LinkedIn optimisations / month",   highlight: true },
+      { text: "5 interview debriefs / month",       highlight: true },
+      { text: "5 cold outreach messages / month",   highlight: true },
+      { text: "5 find contacts / month",            highlight: true },
+      { text: "5 active study plans",               highlight: true },
+      { text: "Job tracker (30 jobs)",              highlight: true },
       { text: "Chrome extension (full)" },
-      { text: "Resume editor + PDF & Word export", highlight: true },
-      { text: "Recruiter eye simulation",          highlight: true },
+      { text: "Resume editor + PDF & Word export",  highlight: true },
+      { text: "Recruiter eye simulation",           highlight: true },
       { text: "Full analytics dashboard" },
       { text: "Priority AI responses" },
+      { text: "Students: 1 month free — no card needed", highlight: true },
     ],
   },
   {
@@ -91,7 +94,6 @@ const PLANS: Plan[] = [
       { text: "All Pro features included" },
       { text: "Priority support (24hr SLA)",            highlight: true },
       { text: "Early access to new features" },
-      { text: "Student: 1 month free — no card needed", highlight: true },
     ],
   },
   {
@@ -170,7 +172,6 @@ function TestimonialCarousel() {
         style={{ background: `radial-gradient(ellipse at 20% 50%, ${accentColor}18 0%, transparent 70%)` }}/>
       <div className="relative transition-all duration-350"
         style={{ opacity: fading ? 0 : 1, transform: fading ? "translateY(6px)" : "translateY(0)" }}>
-        {/* Row 1: Name/role left, stars right */}
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
@@ -188,9 +189,7 @@ function TestimonialCarousel() {
             ))}
           </div>
         </div>
-        {/* Row 2: Quote */}
         <p className="text-xs text-slate-300 leading-relaxed italic mb-3">&ldquo;{t.quote}&rdquo;</p>
-        {/* Row 3: Pagination */}
         <div className="flex items-center justify-center gap-1.5">
           {TESTIMONIALS.map((_, i) => (
             <button key={i} type="button"
@@ -242,11 +241,9 @@ function CheckoutFormInner({ plan, cycle, user, couponId, billedAmount, displayP
       const token   = await user.getIdToken();
       const priceId = PRICE_IDS[plan.id as "pro" | "premium"][cycle];
 
-      // Step 1: validate the form
       const { error: submitErr } = await elements.submit();
       if (submitErr) throw new Error(submitErr.message || "Form validation failed");
 
-      // Step 2: create subscription on backend — returns subscriptionId only
       const res = await fetch("/api/subscription/create-subscription", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -255,7 +252,6 @@ function CheckoutFormInner({ plan, cycle, user, couponId, billedAmount, displayP
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Subscription creation failed");
 
-      // Step 3: confirm setup using the clientSecret from backend
       const { error: stripeErr, setupIntent } = await stripe.confirmSetup({
         elements,
         clientSecret: data.clientSecret,
@@ -273,7 +269,6 @@ function CheckoutFormInner({ plan, cycle, user, couponId, billedAmount, displayP
       });
       if (stripeErr) throw new Error(stripeErr.message || "Payment setup failed");
 
-      // Step 4: activate — attach payment method + pay first invoice
       const activateRes = await fetch("/api/subscription/activate", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -535,13 +530,13 @@ function CheckoutForm({ plan, cycle, user, couponId, onSuccess, onClose }: Check
 interface StudentModalProps { user: User; onVerified: (couponId: string) => void; onClose: () => void; }
 
 function StudentModal({ user, onVerified, onClose }: StudentModalProps) {
-  const [eduEmail, setEduEmail]           = useState("");
-  const [loading, setLoading]             = useState(false);
-  const [sent, setSent]                   = useState(false);
-  const [code, setCode]                   = useState("");
-  const [error, setError]                 = useState<string | null>(null);
-  const [verifying, setVerifying]         = useState(false);
-  const [resending, setResending]         = useState(false);
+  const [eduEmail, setEduEmail]             = useState("");
+  const [loading, setLoading]               = useState(false);
+  const [sent, setSent]                     = useState(false);
+  const [code, setCode]                     = useState("");
+  const [error, setError]                   = useState<string | null>(null);
+  const [verifying, setVerifying]           = useState(false);
+  const [resending, setResending]           = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
 
   useEffect(() => {
@@ -592,7 +587,6 @@ function StudentModal({ user, onVerified, onClose }: StudentModalProps) {
       <div className="relative w-full max-w-[360px] rounded-2xl shadow-2xl"
         style={{ background: "#0a0c12", border: "1px solid rgba(255,255,255,0.07)" }}>
 
-        {/* Close */}
         <button onClick={onClose}
           className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-300 transition-colors cursor-pointer"
           style={{ background: "rgba(255,255,255,0.04)" }}>
@@ -602,8 +596,6 @@ function StudentModal({ user, onVerified, onClose }: StudentModalProps) {
         </button>
 
         <div className="px-7 py-7 space-y-6">
-
-          {/* Title */}
           <div>
             <p className="text-[11px] font-semibold text-indigo-400 uppercase tracking-widest mb-2">Student offer</p>
             <h3 className="text-lg font-bold text-white leading-snug">Get Pro free for 30 days</h3>
@@ -627,9 +619,7 @@ function StudentModal({ user, onVerified, onClose }: StudentModalProps) {
                   onBlur={e => { if (!error) e.currentTarget.style.border = "1px solid rgba(255,255,255,0.07)"; }}
                 />
               </div>
-
               {error && <p className="text-xs text-red-400">{error}</p>}
-
               <button onClick={() => sendCode(false)} disabled={loading || !eduEmail}
                 className="w-full py-3 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                 style={{ background: "linear-gradient(135deg,#6366f1,#a855f7)" }}>
@@ -640,21 +630,16 @@ function StudentModal({ user, onVerified, onClose }: StudentModalProps) {
             </div>
           ) : (
             <div className="space-y-4">
-
-              {/* Sent notice */}
               <div className="px-4 py-3 rounded-xl" style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.15)" }}>
                 <p className="text-xs text-slate-400">Code sent to <span className="text-white font-medium">{eduEmail}</span></p>
                 <p className="text-[11px] text-slate-600 mt-0.5">Expires in 15 minutes · Check your inbox</p>
               </div>
-
-              {/* Code input */}
               <div>
                 <label className="block text-[11px] text-slate-500 uppercase tracking-widest mb-2">Verification code</label>
                 <input
                   type="text" value={code}
                   onChange={e => { setCode(e.target.value.replace(/\D/g, "").slice(0, 6)); setError(null); }}
-                  placeholder="000000"
-                  maxLength={6}
+                  placeholder="000000" maxLength={6}
                   className="w-full px-4 py-3.5 rounded-xl text-white placeholder-slate-700 focus:outline-none transition-all text-center font-mono tracking-[0.4em]"
                   style={{
                     background: "rgba(255,255,255,0.03)",
@@ -664,7 +649,6 @@ function StudentModal({ user, onVerified, onClose }: StudentModalProps) {
                   onFocus={e => { if (!error) e.currentTarget.style.border = "1px solid rgba(99,102,241,0.45)"; }}
                   onBlur={e => { if (!error) e.currentTarget.style.border = "1px solid rgba(255,255,255,0.07)"; }}
                 />
-                {/* Progress dots */}
                 <div className="flex justify-center gap-1.5 mt-2.5">
                   {[...Array(6)].map((_, i) => (
                     <div key={i} className="w-1 h-1 rounded-full transition-all duration-200"
@@ -672,9 +656,7 @@ function StudentModal({ user, onVerified, onClose }: StudentModalProps) {
                   ))}
                 </div>
               </div>
-
               {error && <p className="text-xs text-red-400">{error}</p>}
-
               <button onClick={verifyCode} disabled={verifying || code.length < 6}
                 className="w-full py-3 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                 style={{ background: "linear-gradient(135deg,#6366f1,#a855f7)" }}>
@@ -682,8 +664,6 @@ function StudentModal({ user, onVerified, onClose }: StudentModalProps) {
                   ? <span className="flex items-center justify-center gap-2"><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Verifying…</span>
                   : "Claim free month"}
               </button>
-
-              {/* Footer actions */}
               <div className="flex items-center gap-2 pt-1">
                 <button onClick={() => { setSent(false); setCode(""); setError(null); }}
                   className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer"
@@ -711,10 +691,7 @@ function StudentModal({ user, onVerified, onClose }: StudentModalProps) {
 // ─── Success overlay ──────────────────────────────────────────────────────────
 function SuccessOverlay({ plan, isStudent, onDone }: { plan: Plan; isStudent: boolean; onDone: () => void }) {
   useEffect(() => {
-    // Wait 3s for user to read, then hard reload so layout.tsx re-runs server-side
-    const t = setTimeout(() => {
-      window.location.replace("/");
-    }, 3000);
+    const t = setTimeout(() => { window.location.replace("/"); }, 3000);
     return () => clearTimeout(t);
   }, [onDone]);
   return (
@@ -764,8 +741,6 @@ export default function PricingPage() {
     return () => unsub();
   }, []);
 
-  // ── Live subscription listener directly from Firestore ────────────────────
-  // Bypasses Redis cache entirely — updates instantly after payment
   useEffect(() => {
     if (!user?.uid) return;
     let firestoreUnsub: (() => void) | undefined;
@@ -883,7 +858,7 @@ export default function PricingPage() {
           )}
         </div>
 
-        {/* Plan cards — full width */}
+        {/* Plan cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 w-full">
           {PLANS.map((plan) => {
             const isCurrent    = plan.id === currentPlan;
