@@ -118,35 +118,25 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         }
       });
       console.log('[BG] ✅ Auto-synced on tab load:', user.email);
-      // Flush any queued job applications now that we have fresh auth
       flushJobQueue(user.token, user.uid, user.email);
     }
   }, 2000);
 });
 
 // ─────────────────────────────────────────────────────────────────
-// KEY FIX: Sync auth whenever ANY tab becomes active.
-// This ensures storage is populated before banner.js reads it,
-// even when the user navigates to LinkedIn directly.
+// Sync auth whenever ANY tab becomes active
 // ─────────────────────────────────────────────────────────────────
 chrome.tabs.onActivated.addListener(async () => {
-  // Check if there's already valid auth in storage
   const result = await chrome.storage.local.get([STORAGE_KEY]);
   const stored = result[STORAGE_KEY];
-
-  // Skip sync if we have fresh auth (less than 50 minutes old — tokens last 1hr)
   if (stored?.uid && stored?.savedAt && (Date.now() - stored.savedAt) < 50 * 60 * 1000) {
     return;
   }
-
-  // No valid auth — try to sync from any open preciprocal tab
   await syncAuthFromPreciprocal();
 });
 
 // ─────────────────────────────────────────────────────────────────
 // Job application queue helpers
-// Applications are queued locally when auth is unavailable and
-// flushed automatically once a valid token is present.
 // ─────────────────────────────────────────────────────────────────
 async function enqueueJobApplication(jobData) {
   try {
@@ -258,9 +248,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
-  // ── API PROXY — all fetch calls go through background to avoid CORS ──────
-  // Requests from the service worker have origin chrome-extension://...
-  // so LinkedIn's origin never appears and CORS does not apply.
+  // ── API PROXY ────────────────────────────────────────────────────────────────
 
   if (message.type === 'API_FETCH_AUTO_APPLY') {
     const { token, userId, email, baseUrl } = message;
@@ -297,6 +285,25 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
+  // ── NEW: Fetch all tracked job IDs from DB ───────────────────────────────────
+  // Returns { success: true, jobIds: { "12345": "saved", "67890": "applied" } }
+  if (message.type === 'API_FETCH_TRACKED_JOBS') {
+    const { token, userId, email, baseUrl } = message;
+    fetch(`${baseUrl}/api/extension/track-job`, {
+      method: 'GET',
+      headers: {
+        'Content-Type':      'application/json',
+        'x-extension-token': token  || '',
+        'x-user-id':         userId || '',
+        'x-user-email':      email  || '',
+      },
+    })
+      .then(r => r.json())
+      .then(data => sendResponse({ success: true, data }))
+      .catch(err => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
   if (message.type === 'API_FETCH_ANALYZE_JOB') {
     const { token, userId, email, baseUrl, jobData } = message;
     fetch(`${baseUrl}/api/extension/analyze-job`, {
@@ -315,7 +322,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
-  // ── JOB APPLICATION SUBMITTED (fired by external-apply.js on confirmation page) ──
+  // ── JOB APPLICATION SUBMITTED ─────────────────────────────────────────────
   if (message.type === 'JOB_APPLICATION_SUBMITTED') {
     const jobData = message.data;
     if (!jobData?.jobTitle) {
@@ -327,7 +334,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       const auth = result[STORAGE_KEY];
 
       if (!auth?.uid || !auth?.token) {
-        // Not signed in — queue locally and retry when auth is available
         enqueueJobApplication(jobData).then(() =>
           sendResponse({ success: true, queued: true })
         );

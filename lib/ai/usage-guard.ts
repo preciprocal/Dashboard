@@ -30,24 +30,24 @@ interface PlanLimits {
 
 const PLAN_LIMITS: Record<string, PlanLimits> = {
   free: {
-    resumes: 5,
-    coverLetters: 5,
-    studyPlans: 2,
-    interviews: 3,
+    resumes: 2,
+    coverLetters: 3,
+    studyPlans: 1,
+    interviews: 1,
     interviewDebriefs: 1,
-    linkedinOptimisations: 2,
-    coldOutreach: 2,
-    findContacts: 2,
+    linkedinOptimisations: 1,
+    coldOutreach: 1,
+    findContacts: 1,
   },
   starter: {
-    resumes: 5,
-    coverLetters: 5,
-    studyPlans: 2,
-    interviews: 3,
+    resumes: 2,
+    coverLetters: 3,
+    studyPlans: 1,
+    interviews: 1,
     interviewDebriefs: 1,
-    linkedinOptimisations: 2,
-    coldOutreach: 2,
-    findContacts: 2,
+    linkedinOptimisations: 1,
+    coldOutreach: 1,
+    findContacts: 1,
   },
   pro: {
     resumes: 20,
@@ -73,14 +73,14 @@ const PLAN_LIMITS: Record<string, PlanLimits> = {
 
 // Map feature to the Firestore field name under `usage.`
 const FEATURE_FIELD: Record<GatedFeature, string> = {
-  resumes:              'resumesUsed',
-  coverLetters:         'coverLettersUsed',
-  studyPlans:           'studyPlansUsed',
-  interviews:           'interviewsUsed',
-  interviewDebriefs:    'interviewDebriefsUsed',
-  linkedinOptimisations:'linkedinOptimisationsUsed',
-  coldOutreach:         'coldOutreachUsed',
-  findContacts:         'findContactsUsed',
+  resumes:               'resumesUsed',
+  coverLetters:          'coverLettersUsed',
+  studyPlans:            'studyPlansUsed',
+  interviews:            'interviewsUsed',
+  interviewDebriefs:     'interviewDebriefsUsed',
+  linkedinOptimisations: 'linkedinOptimisationsUsed',
+  coldOutreach:          'coldOutreachUsed',
+  findContacts:          'findContactsUsed',
 };
 
 // Human-readable names for error messages
@@ -117,7 +117,7 @@ export async function checkUsage(
     const userDoc = await db.collection('users').doc(userId).get();
     const data = userDoc.exists ? userDoc.data() : null;
 
-    const plan  = normalisePlan(data?.subscription?.plan);
+    const plan   = normalisePlan(data?.subscription?.plan);
     const limits = PLAN_LIMITS[plan] ?? PLAN_LIMITS.free;
     const limit  = limits[feature];
     const field  = FEATURE_FIELD[feature];
@@ -138,42 +138,100 @@ export async function checkUsage(
       remaining,
       plan,
       feature,
-      message: allowed ? undefined : `You've reached your monthly limit of ${limit} ${FEATURE_NAMES[feature]}. Upgrade to Pro for more.`,
+      message: allowed
+        ? undefined
+        : `You've reached your monthly limit of ${limit} ${FEATURE_NAMES[feature]}. Upgrade to Pro for more.`,
     };
   } catch (err) {
     console.error(`❌ Usage check failed for ${userId}/${feature}:`, err);
-    // Fail open — don't block the user if Firestore is down
-    return { allowed: true, used: 0, limit: -1, remaining: -1, plan: 'unknown', feature };
+    // Fail CLOSED — block the user if we can't verify their quota.
+    // This prevents over-limit usage caused by transient Firestore errors.
+    return {
+      allowed:   false,
+      used:      0,
+      limit:     0,
+      remaining: 0,
+      plan:      'unknown',
+      feature,
+      message:   'Unable to verify usage at this time. Please try again in a moment.',
+    };
   }
 }
 
-// ─── Check AND increment (call AFTER a successful AI response) ────────────────
+// ─── Check AND increment atomically via Firestore transaction ─────────────────
+//
+// The read + conditional write run inside a single Firestore transaction,
+// so only one request can win at the limit boundary — no race conditions.
 
 export async function checkAndIncrementUsage(
   userId: string,
   feature: GatedFeature,
 ): Promise<UsageCheckResult> {
-  const result = await checkUsage(userId, feature);
+  const userRef = db.collection('users').doc(userId);
+  const field   = FEATURE_FIELD[feature];
 
-  if (!result.allowed) return result;
-
-  // Increment the counter
   try {
-    const field = FEATURE_FIELD[feature];
-    await db.collection('users').doc(userId).update({
-      [`usage.${field}`]: FieldValue.increment(1),
-      'usage.lastUpdated': FieldValue.serverTimestamp(),
-    });
-    result.used += 1;
-    if (result.limit !== -1) {
-      result.remaining = Math.max(0, result.limit - result.used);
-    }
-  } catch (err) {
-    console.warn(`⚠️ Failed to increment usage for ${userId}/${feature}:`, err);
-    // Don't fail the request — the AI call already succeeded
-  }
+    const result = await db.runTransaction<UsageCheckResult>(async (txn) => {
+      const userDoc = await txn.get(userRef);
+      const data    = userDoc.exists ? userDoc.data() : null;
 
-  return result;
+      const plan   = normalisePlan(data?.subscription?.plan);
+      const limits = PLAN_LIMITS[plan] ?? PLAN_LIMITS.free;
+      const limit  = limits[feature];
+      const used   = (data?.usage?.[field] as number) ?? 0;
+
+      // Unlimited plans — increment and allow immediately
+      if (limit === -1) {
+        txn.update(userRef, {
+          [`usage.${field}`]:  FieldValue.increment(1),
+          'usage.lastUpdated': FieldValue.serverTimestamp(),
+        });
+        return { allowed: true, used: used + 1, limit: -1, remaining: -1, plan, feature };
+      }
+
+      // Hard limit reached — abort without writing anything
+      if (used >= limit) {
+        return {
+          allowed:   false,
+          used,
+          limit,
+          remaining: 0,
+          plan,
+          feature,
+          message:   `You've reached your monthly limit of ${limit} ${FEATURE_NAMES[feature]}. Upgrade to Pro for more.`,
+        };
+      }
+
+      // Within limit — increment atomically inside the same transaction
+      txn.update(userRef, {
+        [`usage.${field}`]:  FieldValue.increment(1),
+        'usage.lastUpdated': FieldValue.serverTimestamp(),
+      });
+
+      const newUsed   = used + 1;
+      const remaining = Math.max(0, limit - newUsed);
+
+      return { allowed: true, used: newUsed, limit, remaining, plan, feature };
+    });
+
+    console.log(
+      `📊 Usage [${feature}] for ${userId}: ${result.used}/${result.limit} — ${result.allowed ? 'ALLOWED' : 'BLOCKED'}`,
+    );
+
+    return result;
+  } catch (err) {
+    console.error(`❌ Usage transaction failed for ${userId}/${feature}:`, err);
+    // Fail CLOSED — if the transaction errors we cannot safely allow the request.
+    return {
+      allowed:   false,
+      used:      0,
+      limit:     0,
+      remaining: 0,
+      plan:      'unknown',
+      feature,
+      message:   'Unable to verify usage at this time. Please try again in a moment.',
+    };
+  }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

@@ -20,15 +20,15 @@ export interface PlanLimits {
 
 export const USAGE_LIMITS: PlanLimits = {
   free: {
-    coverLetters: 5,
-    resumes: 5,
-    studyPlans: 2,
-    interviews: 2,
+    coverLetters: 3,
+    resumes: 2,
+    studyPlans: 1,
+    interviews: 1,
     interviewDebriefs: 1,
-    linkedinOptimisations: 2,
-    coldOutreach: 2,
-    findContacts: 2,
-    jobTracker: 10,
+    linkedinOptimisations: 1,
+    coldOutreach: 1,
+    findContacts: 1,
+    jobTracker: 5,
   },
   pro: {
     coverLetters: -1,
