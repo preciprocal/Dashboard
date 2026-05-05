@@ -16,6 +16,16 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+
+  async rewrites() {
+    return [
+      {
+        source: "/__/auth/:path*",
+        destination: "https://mocker-508e1.firebaseapp.com/__/auth/:path*",
+      },
+    ];
+  },
+
   reactStrictMode: true,
 };
 
