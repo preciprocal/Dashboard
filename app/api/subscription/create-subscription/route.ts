@@ -1,3 +1,4 @@
+// app/api/subscription/create-subscription/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { auth, db } from "@/firebase/admin";
@@ -50,13 +51,15 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Create incomplete subscription ─────────────────────────────────────
+    // FIXED: `coupon: couponId` is a removed Stripe param — throws "unknown parameter" error.
+    //        Correct format is `discounts: [{ coupon: couponId }]`
     const sub = await stripe.subscriptions.create({
       customer:         customerId,
       items:            [{ price: priceId }],
       payment_behavior: "default_incomplete",
       payment_settings: { save_default_payment_method: "on_subscription" },
       metadata:         { userId, billingCycle: billingCycle ?? "monthly" },
-      ...(couponId ? { coupon: couponId } : {}),
+      ...(couponId ? { discounts: [{ coupon: couponId }] } : {}),
     });
 
     // ── Create SetupIntent with automatic payment methods ──────────────────
