@@ -679,13 +679,23 @@ const AuthForm = ({ type }: { type: FormType }) => {
 
           <p className="mt-8 text-center text-xs text-slate-500">
             By continuing, you agree to our{" "}
-            <Link href="/terms" className="text-slate-400 hover:text-slate-300 underline">
-              Terms of Service
-            </Link>{" "}
-            and{" "}
-            <Link href="/privacy" className="text-slate-400 hover:text-slate-300 underline">
-              Privacy Policy
-            </Link>
+            <a 
+  href="https://preciprocal.com/terms" 
+  target="_blank" 
+  rel="noopener noreferrer"
+  className="text-slate-400 hover:text-slate-300 underline"
+>
+  Terms of Service
+</a>{" "}
+and{" "}
+<a 
+  href="https://preciprocal.com/privacy" 
+  target="_blank" 
+  rel="noopener noreferrer"
+  className="text-slate-400 hover:text-slate-300 underline"
+>
+  Privacy Policy
+</a>
           </p>
         </div>
       </div>
