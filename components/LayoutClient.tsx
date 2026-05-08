@@ -20,6 +20,7 @@ import NotificationCenter from '@/components/Notifications';
 import type { LucideIcon } from 'lucide-react';
 import { Toaster } from 'sonner';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
+import { Analytics } from "@vercel/analytics/next"
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -942,6 +943,7 @@ export default function LayoutClient({ children, user, userStats }: LayoutClient
       <LayoutContent user={user} userStats={userStats}>
         {children}
       </LayoutContent>
+      <Analytics/>
     </>
   );
 }
