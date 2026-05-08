@@ -1,643 +1,768 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth, db } from '@/firebase/client';
-import { doc, updateDoc } from 'firebase/firestore';
-import { FirebaseService } from '@/lib/services/firebase-service';
-import { Resume } from '@/types/resume';
+import { auth } from '@/firebase/client';
 import {
-  ArrowLeft, Download, Eye, FileText, Building2, Briefcase,
-  CheckCircle2, Shield, Edit3, Star, TrendingUp, Award,
-  Activity, PenTool, ChevronDown, AlertTriangle, Zap, Clock,
-  BarChart3, Users, Loader2, Save, Check, FileDown,
+  Plus, Loader2, Briefcase, Building2, MapPin, Calendar, ExternalLink,
+  Edit3, Trash2, X, Save, ArrowLeft, Search, Filter, ChevronDown,
+  CheckCircle2, AlertTriangle, DollarSign, Globe, Laptop,
+  SlidersHorizontal, CalendarPlus, Sparkles, Mail, UserSearch, Copy,
+  Check, RefreshCw, Linkedin, Shield, ArrowRight,
 } from 'lucide-react';
-import RecruiterEyeSimulation  from '@/components/resume/RecruiterEyeSimulation';
-import InterviewIntelligence   from '@/components/resume/InterviewIntelligence';
-import CandidateBenchmarking   from '@/components/resume/CandidateBenchmarking';
-import ResumePreview           from '@/components/resume/ResumePreview';
-import IntelligentAIPanel      from '@/components/resume/IntelligentAIPanel';
-import type { OverallAnalysis, TailorResult } from '@/components/resume/IntelligentAIPanel';
-import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
-import { SeeExampleButton } from '@/components/ServiceModal';
-import type { ResumeInitialTab } from '@/components/ServiceModal/types';
-import ServiceFeedback, { recordServiceUse } from '@/components/ServiceFeedback';
+import Link from 'next/link';
 import { toast } from 'sonner';
-import Image from 'next/image';
+import AnimatedLoader from '@/components/loader/AnimatedLoader';
+import { NotificationService } from '@/lib/services/notification-services';
+import UsersFeedback from '@/components/UserFeedback';
+import { useUsageTracking } from '@/lib/hooks/useUsageTracking';
+import { SeeExampleButton } from '@/components/ServiceModal';
+import NextStepPrompt from '@/components/NextStepPrompt'; // ← ADDED
 
-// ─── Score helpers ────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-function getScoreColor(s: number) { return s >= 80 ? 'text-emerald-400' : s >= 60 ? 'text-amber-400' : 'text-red-400'; }
-function getScoreBg(s: number) { return s >= 80 ? 'bg-emerald-500/10 border-emerald-500/20' : s >= 60 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-red-500/10 border-red-500/20'; }
-function getScoreLabel(s: number) { return s >= 90 ? 'Excellent' : s >= 80 ? 'Very Good' : s >= 70 ? 'Good' : s >= 60 ? 'Fair' : 'Needs Work'; }
+type AppStatus = 'wishlist' | 'applied' | 'phone-screen' | 'technical' | 'final' | 'offer' | 'rejected' | 'ghosted' | 'withdrew';
+type WorkType  = 'remote' | 'hybrid' | 'onsite';
 
-// ─── OverallScoreHero ─────────────────────────────────────────────────────────
+interface Application {
+  id: string; userId: string; company: string; jobTitle: string;
+  jobUrl: string | null; location: string | null; salary: string | null;
+  workType: WorkType; source: string | null; notes: string | null;
+  status: AppStatus; appliedDate: string; createdAt: unknown; updatedAt: unknown;
+}
 
-function OverallScoreHero({ score }: { score: number }) {
-  const pot = Math.min(95 - score, 95);
+type AppForm = Omit<Application, 'id' | 'userId' | 'createdAt' | 'updatedAt'>;
+
+interface Contact {
+  email: string; firstName: string; lastName: string; fullName: string;
+  position: string; department: string; confidence: number;
+  linkedin: string | null; generatedEmail: string | null; tier?: number;
+}
+
+// ─── Role badge ───────────────────────────────────────────────────────────────
+
+function RoleBadge({ position }: { position: string; tier?: number }) {
+  const pos = position.toLowerCase();
+  let label = ''; let cls = '';
+  if (/recruiter|talent|hr|people/.test(pos))                                                                     { label = 'Recruiter';   cls = 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25'; }
+  else if (/ceo|founder|president|chief exec/.test(pos))                                                          { label = 'CEO/Founder'; cls = 'bg-amber-500/15 text-amber-400 border-amber-500/25'; }
+  else if (/cto|chief tech|vp of eng|vp eng/.test(pos))                                                          { label = 'CTO/VP Eng'; cls = 'bg-violet-500/15 text-violet-400 border-violet-500/25'; }
+  else if (/cpo|chief product/.test(pos))                                                                         { label = 'CPO';         cls = 'bg-blue-500/15 text-blue-400 border-blue-500/25'; }
+  else if (/director|vp /.test(pos))                                                                              { label = 'Director/VP'; cls = 'bg-indigo-500/15 text-indigo-400 border-indigo-500/25'; }
+  else if (/team lead|tech lead|lead data|lead ml|lead ai|lead software|lead engineer|technical lead/.test(pos)) { label = 'Team Lead';   cls = 'bg-cyan-500/15 text-cyan-400 border-cyan-500/25'; }
+  else if (/manager|principal|staff/.test(pos))                                                                   { label = 'Manager';     cls = 'bg-slate-500/15 text-slate-400 border-slate-500/25'; }
+  else                                                                                                            { label = 'Contact';     cls = 'bg-slate-500/15 text-slate-500 border-slate-600/25'; }
+  return <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border ${cls}`}>{label}</span>;
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const STATUS_CONFIG: Record<AppStatus, { label: string; color: string; bg: string; border: string; dot: string }> = {
+  wishlist:       { label: 'Wishlist',     color: 'text-slate-400',   bg: 'bg-slate-500/10',   border: 'border-slate-500/20',   dot: 'bg-slate-400'   },
+  applied:        { label: 'Applied',      color: 'text-blue-400',    bg: 'bg-blue-500/10',    border: 'border-blue-500/20',    dot: 'bg-blue-400'    },
+  'phone-screen': { label: 'Phone Screen', color: 'text-violet-400',  bg: 'bg-violet-500/10',  border: 'border-violet-500/20',  dot: 'bg-violet-400'  },
+  technical:      { label: 'Technical',    color: 'text-indigo-400',  bg: 'bg-indigo-500/10',  border: 'border-indigo-500/20',  dot: 'bg-indigo-400'  },
+  final:          { label: 'Final Round',  color: 'text-amber-400',   bg: 'bg-amber-500/10',   border: 'border-amber-500/20',   dot: 'bg-amber-400'   },
+  offer:          { label: '🎉 Offer',     color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', dot: 'bg-emerald-400' },
+  rejected:       { label: 'Rejected',     color: 'text-red-400',     bg: 'bg-red-500/10',     border: 'border-red-500/20',     dot: 'bg-red-400'     },
+  ghosted:        { label: 'Ghosted',      color: 'text-slate-400',   bg: 'bg-slate-500/10',   border: 'border-slate-500/20',   dot: 'bg-slate-500'   },
+  withdrew:       { label: 'Withdrew',     color: 'text-orange-400',  bg: 'bg-orange-500/10',  border: 'border-orange-500/20',  dot: 'bg-orange-400'  },
+};
+
+const WORK_TYPE_CONFIG: Record<WorkType, { label: string; icon: React.ElementType }> = {
+  remote: { label: 'Remote', icon: Globe }, hybrid: { label: 'Hybrid', icon: Laptop }, onsite: { label: 'Onsite', icon: Building2 },
+};
+
+const PIPELINE_STAGES: AppStatus[] = ['wishlist', 'applied', 'phone-screen', 'technical', 'final', 'offer'];
+
+const EMPTY_FORM: AppForm = {
+  company: '', jobTitle: '', jobUrl: null, location: null, salary: null,
+  workType: 'onsite', source: null, notes: null, status: 'applied',
+  appliedDate: new Date().toISOString().split('T')[0],
+};
+
+const inp = [
+  'w-full px-3 py-2.5 rounded-xl text-sm text-white',
+  'bg-white/[0.04] border border-white/[0.08]', 'placeholder-slate-600',
+  'focus:outline-none focus:ring-1 focus:ring-purple-500/40 focus:border-purple-500/40',
+  'transition-all duration-150',
+].join(' ');
+
+// ─── Upgrade Gate ─────────────────────────────────────────────────────────────
+
+function UpgradeGate({ feature }: { feature: 'jobs' | 'contacts' }) {
+  const [activeStat, setActiveStat] = useState(0);
+
+  const STATS_MAP = {
+    jobs: [
+      { num: '32+',  line: 'applications needed on average before landing an offer' },
+      { num: '85%',  line: 'of jobs are filled through networking — track every lead' },
+      { num: '68.5', line: 'days median time to first offer — organisation wins the race' },
+      { num: '44%',  line: 'of hires come from candidates already in a company\'s system' },
+    ],
+    contacts: [
+      { num: '85%',  line: 'of jobs are filled through connections, not cold applications' },
+      { num: '5×',   line: 'more likely to get hired when referred by an internal contact' },
+      { num: '44%',  line: 'of hires come from candidates already in the employer\'s system' },
+      { num: '80%',  line: 'of job openings are never publicly posted — warm intros unlock them' },
+    ],
+  };
+
+  const STRIP_MAP = {
+    jobs:     [{ num: '32+', label: 'avg apps to offer' }, { num: '68.5d', label: 'median time to hire' }, { num: '85%', label: 'hired via networking' }],
+    contacts: [{ num: '85%', label: 'jobs via networking' }, { num: '5×', label: 'referral hire boost' }, { num: '80%', label: 'jobs never posted' }],
+  };
+
+  const HEADLINE_MAP = { jobs: "Organised job seekers get hired faster. Don\u2019t lose track.", contacts: "Cold applying? You\u2019re playing on hard mode." };
+  const SUB_MAP = {
+    jobs: "The average search takes 32+ applications and over 2 months. Without a tracker, you\u2019re flying blind \u2014 missing follow-ups, forgetting where you applied, and losing momentum.",
+    contacts: "Referrals are 5\u00d7 more effective than cold applications. Finding the right person at the company is the single highest-ROI action in your job search.",
+  };
+
+  const isJobs = feature === 'jobs';
+  const STATS = STATS_MAP[feature];
+  const STRIP = STRIP_MAP[feature];
+
+  useEffect(() => {
+    const t = setInterval(() => setActiveStat(i => (i + 1) % STATS.length), 4000);
+    return () => clearInterval(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [feature]);
+
   return (
-    <div className="glass-card p-5 sm:p-6">
-      <div className="flex items-center gap-3 mb-5">
-        <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center shadow-glass flex-shrink-0"><Award className="w-5 h-5 text-white" /></div>
-        <div><h2 className="text-base font-semibold text-white">Overall Score</h2><p className="text-slate-400 text-xs">Comprehensive AI evaluation</p></div>
-      </div>
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-end gap-3">
-          <div className="text-5xl font-bold text-white leading-none">{score}</div>
-          <div className="mb-1"><span className={`text-sm font-semibold ${getScoreColor(score)}`}>{getScoreLabel(score)}</span><p className="text-slate-500 text-xs">out of 100</p></div>
+    <div className="space-y-3 animate-fade-in-up">
+      <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0d1526] via-[#111c35] to-[#0d1526]">
+        <div className={`absolute -top-24 -right-24 w-56 h-56 rounded-full pointer-events-none blur-3xl ${isJobs ? 'bg-purple-500/[0.06]' : 'bg-indigo-500/[0.06]'}`} />
+        <div className="relative p-6">
+          <div className="inline-flex items-center gap-1.5 bg-amber-500/[0.08] border border-amber-500/20 rounded-full px-3 py-1 mb-4">
+            <Sparkles className="w-3 h-3 text-amber-400" />
+            <span className="text-xs font-semibold text-amber-400">{isJobs ? 'Job tracker limit reached' : 'Find contacts limit reached'}</span>
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-bold text-white leading-snug mb-2">{HEADLINE_MAP[feature]}</h2>
+          <p className="text-sm text-slate-500 mb-6 max-w-md">{SUB_MAP[feature]}</p>
+          <div className="flex items-center gap-4 bg-white/[0.03] border border-white/[0.06] rounded-xl px-5 py-4 mb-6 min-h-[64px]">
+            <span className={`text-3xl font-black flex-shrink-0 w-16 text-center ${isJobs ? 'text-purple-400' : 'text-indigo-400'}`}>{STATS[activeStat].num}</span>
+            <span className="text-sm text-slate-400 leading-snug">{STATS[activeStat].line}</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <Link href="/pricing" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all group bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-[0_4px_20px_rgba(124,58,237,0.3)] hover:shadow-[0_6px_28px_rgba(124,58,237,0.4)]">
+              Go Unlimited <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+            </Link>
+            <span className="text-[10px] text-slate-600">Cancel anytime · Instant access</span>
+          </div>
         </div>
-        <div className="flex-1 max-w-[160px]">
-          <div className="flex justify-between text-xs text-slate-500 mb-1.5"><span>Current</span><span>Potential</span></div>
-          <div className="h-2 bg-slate-800 rounded-full overflow-hidden"><div className={`h-full rounded-full transition-all duration-1000 ${score >= 80 ? 'bg-emerald-500' : score >= 60 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${score}%` }} /></div>
-          <div className="flex justify-between text-xs mt-1.5"><span className={`font-semibold ${getScoreColor(score)}`}>{score}%</span><span className="text-emerald-400 font-semibold">+{pot}%</span></div>
+      </div>
+      <div className="grid grid-cols-3 gap-2.5">
+        {STRIP.map(s => (
+          <div key={s.num} className="glass-card py-4 text-center">
+            <p className={`text-xl font-black ${isJobs ? 'text-purple-400' : 'text-indigo-400'}`}>{s.num}</p>
+            <p className="text-xs text-slate-500 mt-1">{s.label}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Small components ─────────────────────────────────────────────────────────
+
+function StatusBadge({ status }: { status: AppStatus }) {
+  const cfg = STATUS_CONFIG[status];
+  return <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${cfg.color} ${cfg.bg} ${cfg.border}`}><span className={`w-1.5 h-1.5 rounded-full ${cfg.dot} flex-shrink-0`} />{cfg.label}</span>;
+}
+
+function StatCard({ label, value, sub, accentClass }: { label: string; value: string | number; sub?: string; accentClass: string }) {
+  return (
+    <div className="glass-card p-4">
+      <div className="flex items-center justify-between mb-2"><span className="text-[11px] text-slate-500 uppercase tracking-wide font-semibold">{label}</span></div>
+      <p className={`text-2xl font-bold leading-none tabular-nums ${accentClass}`}>{value}</p>
+      {sub && <p className="text-[11px] text-slate-600 mt-1">{sub}</p>}
+    </div>
+  );
+}
+
+function PipelineFunnel({ apps }: { apps: Application[] }) {
+  const counts = PIPELINE_STAGES.reduce((acc, s) => { acc[s] = apps.filter(a => a.status === s).length; return acc; }, {} as Record<AppStatus, number>);
+  const hasAny = PIPELINE_STAGES.some(s => counts[s] > 0);
+  return (
+    <div className="glass-card px-4 py-3">
+      <div className="flex items-center gap-2 flex-wrap">
+        {hasAny ? PIPELINE_STAGES.map(stage => {
+          const cfg = STATUS_CONFIG[stage]; const count = counts[stage];
+          if (!count) return null;
+          return <div key={stage} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold ${cfg.bg} ${cfg.border} ${cfg.color}`}><span className={`w-1.5 h-1.5 rounded-full ${cfg.dot} flex-shrink-0`} />{cfg.label} <span className="font-bold ml-0.5">{count}</span></div>;
+        }) : <span className="text-xs text-slate-600">No active applications in pipeline</span>}
+      </div>
+    </div>
+  );
+}
+
+// ─── Form modal ───────────────────────────────────────────────────────────────
+
+interface FormModalProps { form: AppForm; setForm: React.Dispatch<React.SetStateAction<AppForm>>; onSave: () => void; onCancel: () => void; saving: boolean; isEdit: boolean; }
+
+function FormModal({ form, setForm, onSave, onCancel, saving, isEdit }: FormModalProps) {
+  const f = (key: keyof AppForm, val: string | null) => setForm(p => ({ ...p, [key]: val || null }));
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-[#090d1a]/85 backdrop-blur-sm" onClick={onCancel} />
+      <div className="relative bg-[#0d1526]/98 border border-white/[0.09] rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-[0_32px_64px_rgba(0,0,0,0.6)]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06] flex-shrink-0">
+          <div className="flex items-center gap-2.5"><div className="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center"><Briefcase className="w-4 h-4 text-white" /></div><h2 className="text-sm font-bold text-white">{isEdit ? 'Edit Application' : 'Add Application'}</h2></div>
+          <button onClick={onCancel} className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-white hover:bg-white/[0.05] transition-all"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="overflow-y-auto flex-1 px-6 py-5 space-y-4 glass-scrollbar">
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Company *</label><input type="text" value={form.company} onChange={e => setForm(p => ({ ...p, company: e.target.value }))} placeholder="e.g. Stripe" className={inp} /></div>
+            <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Job Title *</label><input type="text" value={form.jobTitle} onChange={e => setForm(p => ({ ...p, jobTitle: e.target.value }))} placeholder="e.g. Senior SWE" className={inp} /></div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Status</label><select value={form.status} onChange={e => setForm(p => ({ ...p, status: e.target.value as AppStatus }))} className={`${inp} appearance-none cursor-pointer`}>{(Object.keys(STATUS_CONFIG) as AppStatus[]).map(s => <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>)}</select></div>
+            <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Applied Date</label><input type="date" value={form.appliedDate} onChange={e => setForm(p => ({ ...p, appliedDate: e.target.value }))} className={inp} /></div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Location</label><input type="text" value={form.location || ''} onChange={e => f('location', e.target.value)} placeholder="e.g. San Francisco, CA" className={inp} /></div>
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1.5">Work Type</label>
+              <div className="flex gap-1.5">
+                {(Object.keys(WORK_TYPE_CONFIG) as WorkType[]).map(wt => { const WIcon = WORK_TYPE_CONFIG[wt].icon; return (
+                  <button key={wt} type="button" onClick={() => setForm(p => ({ ...p, workType: wt }))}
+                    className={`flex-1 flex items-center justify-center gap-1 py-2.5 rounded-xl text-xs font-semibold transition-all border ${form.workType === wt ? 'bg-purple-500/20 border-purple-500/40 text-purple-300' : 'bg-white/[0.03] border-white/[0.07] text-slate-500 hover:text-slate-300 hover:border-white/[0.12]'}`}>
+                    <WIcon className="w-3.5 h-3.5" />{WORK_TYPE_CONFIG[wt].label}
+                  </button>); })}
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Salary / Range</label><input type="text" value={form.salary || ''} onChange={e => f('salary', e.target.value)} placeholder="e.g. $140k–$170k" className={inp} /></div>
+            <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Source</label><input type="text" value={form.source || ''} onChange={e => f('source', e.target.value)} placeholder="e.g. LinkedIn, referral" className={inp} /></div>
+          </div>
+          <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Job URL</label><input type="url" value={form.jobUrl || ''} onChange={e => f('jobUrl', e.target.value)} placeholder="https://…" className={inp} /></div>
+          <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Notes</label><textarea rows={3} value={form.notes || ''} onChange={e => f('notes', e.target.value)} placeholder="Interview details, recruiter name, key contacts, follow-up dates…" className={`${inp} resize-none`} /></div>
+        </div>
+        <div className="flex gap-3 px-6 py-4 border-t border-white/[0.06] flex-shrink-0">
+          <button onClick={onSave} disabled={saving || !form.company.trim() || !form.jobTitle.trim()} className="flex-1 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl font-semibold text-sm transition-all shadow-[0_4px_14px_rgba(124,58,237,0.3)] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+            {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</> : <><Save className="w-4 h-4" /> {isEdit ? 'Update' : 'Save Application'}</>}
+          </button>
+          <button onClick={onCancel} className="px-5 py-2.5 bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.07] text-slate-300 rounded-xl font-semibold text-sm transition-all">Cancel</button>
         </div>
       </div>
     </div>
   );
 }
 
-// ─── DetailedAnalysisSection ──────────────────────────────────────────────────
+// ─── App card ─────────────────────────────────────────────────────────────────
 
-interface Tip { type: string; tip?: string; message?: string; explanation?: string; solution?: string; priority?: string; }
+function AppCard({ app, onEdit, onDelete, onStatusChange, onCreatePlan, onFindContacts }: {
+  app: Application; onEdit: () => void; onDelete: () => void; onStatusChange: (status: AppStatus) => void; onCreatePlan: () => void; onFindContacts: () => void;
+}) {
+  const [showStatusMenu, setShowStatusMenu] = useState(false);
+  const menuRef = React.useRef<HTMLDivElement>(null);
+  const WIcon = WORK_TYPE_CONFIG[app.workType]?.icon || Building2;
 
-function DetailedAnalysisSection({ title, description, score, tips, icon }: { title: string; description: string; score: number; tips: Tip[]; icon: React.ReactNode }) {
-  const [expanded, setExpanded] = useState(false);
-  const goodTips = tips.filter(t => t.type === 'good');
-  const improveTips = tips.filter(t => t.type !== 'good');
+  useEffect(() => {
+    if (!showStatusMenu) return;
+    const handler = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) setShowStatusMenu(false); };
+    document.addEventListener('mousedown', handler); return () => document.removeEventListener('mousedown', handler);
+  }, [showStatusMenu]);
+
+  const daysSince = (() => { const diff = Math.floor((Date.now() - new Date(app.appliedDate).getTime()) / 86_400_000); if (diff === 0) return 'Today'; if (diff === 1) return '1 day ago'; return `${diff} days ago`; })();
+
   return (
-    <div className="glass-card overflow-hidden">
-      <button onClick={() => setExpanded(!expanded)} className="w-full p-4 sm:p-5 flex items-center gap-4 text-left cursor-pointer hover:bg-white/[0.02] transition-colors">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-glass ${score >= 80 ? 'gradient-success' : score >= 60 ? 'gradient-warning' : 'gradient-secondary'}`}>{icon}</div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2 mb-1">
-            <h3 className="text-sm font-semibold text-white truncate">{title}</h3>
-            <div className="flex items-center gap-2 flex-shrink-0"><span className={`text-sm font-bold ${getScoreColor(score)}`}>{score}</span><div className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${getScoreBg(score)}`}>{getScoreLabel(score)}</div></div>
+    <div className="glass-card group flex flex-col">
+      <div className="p-4 flex-1">
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <div className="flex items-start gap-2.5 flex-1 min-w-0">
+            <div className="w-9 h-9 bg-white/[0.07] border border-white/[0.09] rounded-xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0">{app.company.charAt(0).toUpperCase()}</div>
+            <div className="min-w-0 flex-1"><p className="text-sm text-white font-bold truncate leading-tight">{app.company}</p><p className="text-xs text-slate-500 truncate mt-0.5">{app.jobTitle}</p></div>
           </div>
-          <p className="text-slate-500 text-xs">{description}</p>
-          <div className="mt-2 h-1 bg-slate-800 rounded-full overflow-hidden"><div className={`h-full rounded-full transition-all duration-700 ${score >= 80 ? 'bg-emerald-500' : score >= 60 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${score}%` }} /></div>
+          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+            {app.jobUrl && <a href={app.jobUrl} target="_blank" rel="noopener noreferrer" className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:text-blue-400 hover:bg-blue-500/[0.08] transition-all"><ExternalLink className="w-3.5 h-3.5" /></a>}
+            <button onClick={onEdit} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:text-purple-400 hover:bg-purple-500/[0.08] transition-all"><Edit3 className="w-3.5 h-3.5" /></button>
+            <button onClick={onDelete} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/[0.08] transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
+          </div>
         </div>
-        <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform flex-shrink-0 ${expanded ? 'rotate-180' : ''}`} />
+        <div className="flex items-center gap-2.5 flex-wrap mb-3">
+          {app.location && <span className="flex items-center gap-1 text-[11px] text-slate-600"><MapPin className="w-3 h-3" /> {app.location}</span>}
+          <span className="flex items-center gap-1 text-[11px] text-slate-600"><WIcon className="w-3 h-3" /> {WORK_TYPE_CONFIG[app.workType]?.label}</span>
+          <span className="flex items-center gap-1 text-[11px] text-slate-600"><Calendar className="w-3 h-3" /> {daysSince}</span>
+          {app.salary && <span className="flex items-center gap-1 text-[11px] text-slate-600"><DollarSign className="w-3 h-3" /> {app.salary}</span>}
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <div className="relative" ref={menuRef}>
+            <button onClick={() => setShowStatusMenu(!showStatusMenu)} className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
+              <StatusBadge status={app.status} />
+              <ChevronDown className={`w-3 h-3 text-slate-600 transition-transform duration-150 ${showStatusMenu ? 'rotate-180' : ''}`} />
+            </button>
+            {showStatusMenu && (
+              <div className="absolute left-0 top-full mt-2 z-50 bg-[#0d1526]/98 border border-white/[0.08] rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.5)] py-1 min-w-[175px]">
+                {(Object.keys(STATUS_CONFIG) as AppStatus[]).map(s => (
+                  <button key={s} onClick={() => { onStatusChange(s); setShowStatusMenu(false); }}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${app.status === s ? `${STATUS_CONFIG[s].color} bg-white/[0.05] font-semibold` : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'}`}>
+                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_CONFIG[s].dot}`} />{STATUS_CONFIG[s].label}
+                    {app.status === s && <CheckCircle2 className="w-3 h-3 ml-auto opacity-60" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {app.source && <span className="text-[11px] text-slate-600 truncate">{app.source}</span>}
+        </div>
+        {app.notes && <p className="mt-2.5 text-[11px] text-slate-600 line-clamp-2 border-t border-white/[0.05] pt-2.5 leading-relaxed">{app.notes}</p>}
+      </div>
+      <div className="px-4 pb-4 grid grid-cols-2 gap-2">
+        <button onClick={onFindContacts} className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-semibold text-purple-400 bg-purple-500/[0.07] border border-purple-500/20 hover:bg-purple-500/15 hover:border-purple-500/35 hover:text-purple-300 transition-all duration-150"><UserSearch className="w-3.5 h-3.5" /> Find Contacts</button>
+        <button onClick={onCreatePlan} className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-semibold text-violet-400 bg-violet-500/[0.07] border border-violet-500/20 hover:bg-violet-500/15 hover:border-violet-500/35 hover:text-violet-300 transition-all duration-150"><CalendarPlus className="w-3.5 h-3.5" /> Create Plan</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Contacts modal helpers ───────────────────────────────────────────────────
+
+function CopyBtn({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return <button onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:text-white hover:bg-white/[0.05] transition-all flex-shrink-0" title="Copy">{copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}</button>;
+}
+
+function ConfidenceDot({ score }: { score: number }) {
+  const color = score >= 80 ? 'bg-emerald-400' : score >= 60 ? 'bg-amber-400' : 'bg-red-400';
+  return <div className="flex items-center gap-1.5" title={`${score}% email verified`}><div className={`w-1.5 h-1.5 rounded-full ${color}`} /><span className="text-[11px] text-slate-500">{score}% verified</span></div>;
+}
+
+function buildSubject(jobTitle: string, company: string): string { return `${jobTitle} Role at ${company} – Reaching Out`; }
+function openInGmail(to: string, subject: string, body: string) { const url = new URL('https://mail.google.com/mail/'); url.searchParams.set('view', 'cm'); url.searchParams.set('to', to); url.searchParams.set('su', subject); url.searchParams.set('body', body); window.open(url.toString(), '_blank', 'noopener,noreferrer'); }
+function openInOutlook(to: string, subject: string, body: string) { window.location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`; }
+
+function SendEmailButtons({ recipientEmail, emailBody, jobTitle, company }: { recipientEmail: string; emailBody: string; jobTitle: string; company: string }) {
+  const subject = buildSubject(jobTitle, company);
+  return (
+    <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/[0.06]">
+      <span className="text-[11px] text-slate-600 flex-shrink-0">Send via</span>
+      <button onClick={() => openInGmail(recipientEmail, subject, emailBody)} className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-[11px] font-semibold transition-all border border-red-500/20 bg-red-500/[0.07] text-red-400 hover:bg-red-500/15 hover:border-red-500/35 hover:text-red-300">
+        <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 6.5A2.5 2.5 0 0 1 4.5 4h15A2.5 2.5 0 0 1 22 6.5v11A2.5 2.5 0 0 1 19.5 20h-15A2.5 2.5 0 0 1 2 17.5v-11Z" stroke="currentColor" strokeWidth="1.5"/><path d="M2 7l10 7 10-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+        Gmail <ExternalLink className="w-3 h-3 opacity-50" />
       </button>
-      {expanded && (
-        <div className="px-4 sm:px-5 pb-4 sm:pb-5 space-y-2 border-t border-white/[0.06] pt-4">
-          {tips.length === 0 ? <p className="text-slate-500 text-sm">No tips available.</p>
-            : [...improveTips, ...goodTips].map((tip, i) => {
-              const isGood = tip.type === 'good';
-              const text = tip.tip || tip.message || '';
-              return (
-                <div key={i} className={`flex gap-3 p-3 rounded-xl border ${isGood ? 'bg-emerald-500/[0.05] border-emerald-500/15' : 'bg-slate-800/40 border-white/[0.06]'}`}>
-                  <div className="flex-shrink-0 mt-0.5">{isGood ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <AlertTriangle className="w-4 h-4 text-amber-400" />}</div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm ${isGood ? 'text-emerald-300' : 'text-slate-200'}`}>{text}</p>
-                    {tip.explanation && <p className="text-xs text-slate-500 mt-1 leading-relaxed">{tip.explanation}</p>}
-                    {tip.solution && <div className="mt-2 p-2.5 bg-indigo-500/[0.08] border border-indigo-500/20 rounded-lg"><p className="text-xs text-indigo-300 leading-relaxed"><span className="font-semibold">Fix: </span>{tip.solution}</p></div>}
+      <button onClick={() => openInOutlook(recipientEmail, subject, emailBody)} className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-[11px] font-semibold transition-all border border-blue-500/20 bg-blue-500/[0.07] text-blue-400 hover:bg-blue-500/15 hover:border-blue-500/35 hover:text-blue-300">
+        <Mail className="w-3.5 h-3.5 flex-shrink-0" /> Outlook <ExternalLink className="w-3 h-3 opacity-50" />
+      </button>
+    </div>
+  );
+}
+
+// ─── Contacts modal ───────────────────────────────────────────────────────────
+
+function ContactsModal({ app, onClose, onContactsFound }: { app: Application; onClose: () => void; onContactsFound?: () => Promise<void> }) {
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [domain, setDomain] = useState('');
+  const [foundDomain, setFoundDomain] = useState('');
+  const [showDomainOverride, setShowDomainOverride] = useState(false);
+  const [activeIdx, setActiveIdx] = useState<number | null>(null);
+  const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
+
+  const fetchContacts = async (overrideDomain?: string) => {
+    setLoading(true); setError(''); setContacts([]); setActiveIdx(null);
+    try {
+      const res = await fetch('/api/job-tracker/find-contacts', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ company: app.company, jobTitle: app.jobTitle, jobDescription: app.notes || '', domain: overrideDomain || domain || undefined, jobUrl: app.jobUrl || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch contacts');
+      setContacts(data.contacts || []);
+      setFoundDomain(data.domain || '');
+      if (data.contacts?.length > 0) {
+        setActiveIdx(0);
+        if (onContactsFound) await onContactsFound();
+      }
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to fetch contacts'); }
+    finally { setLoading(false); }
+  };
+
+  const copyEmail = (email: string) => { navigator.clipboard.writeText(email); setCopiedEmail(email); setTimeout(() => setCopiedEmail(null), 2000); toast.success('Email copied'); };
+  const activeContact = activeIdx !== null ? contacts[activeIdx] : null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-[#090d1a]/85 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-[#0d1526]/98 border border-white/[0.09] rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-[0_32px_64px_rgba(0,0,0,0.6)] overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06] flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 gradient-primary rounded-xl flex items-center justify-center"><UserSearch className="w-4 h-4 text-white" /></div>
+            <div><h2 className="text-sm font-bold text-white">Find Contacts</h2><p className="text-[11px] text-slate-500">{app.company} · {app.jobTitle}{app.jobUrl && <span className="ml-2 text-slate-700">· {(() => { try { return new URL(app.jobUrl).hostname.replace(/^www\./, ''); } catch { return ''; } })()}</span>}</p></div>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-white hover:bg-white/[0.05] transition-all"><X className="w-4 h-4" /></button>
+        </div>
+
+        {((contacts.length > 0 && foundDomain) || showDomainOverride) && (
+          <div className="px-6 py-3 border-b border-white/[0.05] flex-shrink-0">
+            {contacts.length > 0 && foundDomain && !showDomainOverride ? (
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-slate-400">Found <span className="text-white font-semibold">{contacts.length}</span> contacts at <span className="text-purple-400 font-semibold">{foundDomain}</span></p>
+                <button onClick={() => { setContacts([]); setFoundDomain(''); setError(''); setShowDomainOverride(true); }} className="text-[11px] text-slate-600 hover:text-slate-300 transition-colors flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Wrong company?</button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <div className="flex-1 relative"><Globe className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none" /><input type="text" value={domain} onChange={e => setDomain(e.target.value)} onKeyDown={e => e.key === 'Enter' && fetchContacts()} placeholder="Enter domain manually (e.g. stripe.com)" autoFocus className={`${inp} pl-9`} /></div>
+                <button onClick={() => fetchContacts()} disabled={loading || !domain.trim()} className="w-9 h-10 flex items-center justify-center rounded-xl bg-white/[0.04] border border-white/[0.08] hover:border-purple-500/40 hover:bg-purple-500/[0.08] text-slate-500 hover:text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0">{loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserSearch className="w-4 h-4" />}</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex-1 overflow-hidden flex min-h-0">
+          {error && (
+            <div className="flex-1 flex items-center justify-center p-8"><div className="text-center max-w-xs">
+              <div className="w-12 h-12 bg-red-500/[0.08] border border-red-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4"><AlertTriangle className="w-5 h-5 text-red-400" /></div>
+              <p className="text-sm font-bold text-white mb-2">Couldn&apos;t find contacts</p><p className="text-xs text-slate-500 mb-5 leading-relaxed">{error}</p>
+              <button onClick={() => { setShowDomainOverride(true); setError(''); }} className="w-full px-4 py-2.5 bg-white/[0.04] border border-white/[0.08] hover:border-purple-500/40 hover:bg-purple-500/[0.08] rounded-xl text-xs font-semibold text-slate-300 hover:text-white transition-all flex items-center justify-center gap-2"><Globe className="w-3.5 h-3.5" /> Enter domain manually</button>
+              <button onClick={() => fetchContacts()} className="mt-3 text-[11px] text-slate-600 hover:text-slate-300 flex items-center gap-1 mx-auto transition-colors"><RefreshCw className="w-3 h-3" /> Retry</button>
+            </div></div>
+          )}
+          {!loading && !error && contacts.length === 0 && (
+            <div className="flex-1 flex items-center justify-center p-8"><div className="text-center">
+              <div className="w-12 h-12 bg-white/[0.03] border border-white/[0.07] rounded-2xl flex items-center justify-center mx-auto mb-4"><UserSearch className="w-5 h-5 text-slate-600" /></div>
+              <p className="text-base font-bold text-white mb-2">Stop cold-applying. Start warm outreach.</p>
+              <p className="text-xs text-slate-500 max-w-xs leading-relaxed mb-6">Find the recruiter, hiring manager, and decision-makers at <span className="text-slate-300 font-semibold">{app.company}</span> and get a personalised email ready to send.</p>
+              <button onClick={() => fetchContacts()} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-sm font-semibold shadow-[0_4px_16px_rgba(102,126,234,0.3)] transition-all duration-200"><UserSearch className="w-4 h-4" /> Find Contacts at {app.company}</button>
+              <button onClick={() => setShowDomainOverride(true)} className="mt-3 text-[11px] text-slate-600 hover:text-slate-400 transition-colors flex items-center gap-1 mx-auto"><Globe className="w-3 h-3" /> Enter domain manually</button>
+            </div></div>
+          )}
+          {loading && (
+            <div className="flex-1 flex items-center justify-center p-8"><div className="text-center">
+              <div className="relative w-10 h-10 mx-auto mb-4"><Loader2 className="w-10 h-10 text-purple-400 animate-spin" /><UserSearch className="w-4 h-4 text-purple-300 absolute inset-0 m-auto" /></div>
+              <p className="text-sm font-semibold text-white mb-1">Finding contacts…</p><p className="text-xs text-slate-500">Searching and writing personalised emails…</p>
+            </div></div>
+          )}
+          {!loading && contacts.length > 0 && (
+            <div className="flex flex-1 min-h-0">
+              <div className="w-52 flex-shrink-0 border-r border-white/[0.05] overflow-y-auto glass-scrollbar">
+                {contacts.map((c, i) => (
+                  <button key={c.email} onClick={() => setActiveIdx(i)} className={`w-full text-left px-4 py-3 border-b border-white/[0.04] transition-colors ${activeIdx === i ? 'bg-purple-500/[0.10] border-l-2 border-l-purple-500' : 'hover:bg-white/[0.03]'}`}>
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-7 h-7 bg-white/[0.07] rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0 mt-0.5">{(c.firstName?.[0] || c.fullName?.[0] || '?').toUpperCase()}</div>
+                      <div className="min-w-0 flex-1"><p className="text-xs font-semibold text-white truncate">{c.fullName}</p><p className="text-[10px] text-slate-500 truncate mb-1">{c.position}</p><RoleBadge position={c.position} tier={c.tier} /></div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              {activeContact && (
+                <div className="flex-1 overflow-y-auto glass-scrollbar p-5 space-y-4">
+                  <div className="glass-card p-4">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="flex-1 min-w-0"><div className="flex items-center gap-2 flex-wrap mb-1"><h3 className="text-sm font-bold text-white">{activeContact.fullName}</h3><RoleBadge position={activeContact.position} tier={activeContact.tier} /></div><p className="text-xs text-slate-400">{activeContact.position}</p>{activeContact.department && <p className="text-[11px] text-slate-600">{activeContact.department}</p>}</div>
+                      <ConfidenceDot score={activeContact.confidence} />
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-2 px-3 py-2 bg-white/[0.04] border border-white/[0.07] rounded-xl flex-1 min-w-0">
+                        <Mail className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" /><span className="text-sm text-white truncate font-medium">{activeContact.email}</span>
+                        <button onClick={() => copyEmail(activeContact.email)} className="flex-shrink-0 text-slate-600 hover:text-white transition-colors">{copiedEmail === activeContact.email ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}</button>
+                      </div>
+                      {activeContact.linkedin && <a href={activeContact.linkedin} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 py-2 bg-blue-500/[0.08] border border-blue-500/20 rounded-xl text-blue-400 text-[11px] font-semibold hover:bg-blue-500/15 transition-colors flex-shrink-0"><Linkedin className="w-3.5 h-3.5" /> LinkedIn</a>}
+                    </div>
                   </div>
-                  {!isGood && tip.priority && <span className={`flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border self-start ${tip.priority === 'high' ? 'bg-red-500/10 border-red-500/20 text-red-400' : tip.priority === 'medium' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-slate-500/10 border-slate-500/20 text-slate-400'}`}>{tip.priority}</span>}
+                  {activeContact.generatedEmail ? (
+                    <div className="glass-card overflow-hidden">
+                      <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06]"><div className="flex items-center gap-2"><Sparkles className="w-3.5 h-3.5 text-violet-400" /><span className="text-xs font-bold text-white">AI-Written Outreach</span></div><CopyBtn text={activeContact.generatedEmail} /></div>
+                      <div className="p-4"><p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{activeContact.generatedEmail}</p><SendEmailButtons recipientEmail={activeContact.email} emailBody={activeContact.generatedEmail} jobTitle={app.jobTitle} company={app.company} /></div>
+                    </div>
+                  ) : <div className="glass-card p-6 text-center"><p className="text-xs text-slate-600">Could not generate email for this contact — try again</p></div>}
                 </div>
-              );
-            })}
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Create plan modal ────────────────────────────────────────────────────────
+
+const PLAN_PRESETS = [{ days: 3, label: '3 days' }, { days: 7, label: '1 week' }, { days: 14, label: '2 weeks' }, { days: 21, label: '3 weeks' }, { days: 30, label: '1 month' }];
+
+function CreatePlanModal({ app, onConfirm, onClose }: { app: Application; onConfirm: (days: number) => void; onClose: () => void }) {
+  const [selected, setSelected] = useState(7);
+  const [custom, setCustom] = useState(false);
+  const [customVal, setCustomVal] = useState('14');
+  const handleConfirm = () => { const days = custom ? Math.max(1, Math.min(90, parseInt(customVal) || 7)) : selected; onConfirm(days); };
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-[#090d1a]/85 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-[#0d1526]/98 border border-white/[0.09] rounded-2xl w-full max-w-sm shadow-[0_32px_64px_rgba(0,0,0,0.6)] overflow-hidden">
+        <div className="px-5 py-4 border-b border-white/[0.06] flex items-center justify-between">
+          <div className="flex items-center gap-2.5"><div className="w-8 h-8 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-lg flex items-center justify-center"><CalendarPlus className="w-4 h-4 text-white" /></div><div><p className="text-sm font-bold text-white">Create Prep Plan</p><p className="text-[11px] text-slate-500 truncate max-w-[180px]">{app.jobTitle} @ {app.company}</p></div></div>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-white hover:bg-white/[0.05] transition-all"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="p-5 space-y-4">
+          <p className="text-xs text-slate-500 leading-relaxed">When is your interview? We&apos;ll build a day-by-day plan to get you ready.</p>
+          <div className="grid grid-cols-3 gap-2">
+            {PLAN_PRESETS.map(p => (<button key={p.days} type="button" onClick={() => { setSelected(p.days); setCustom(false); }} className={`py-2.5 rounded-xl text-xs font-semibold transition-all border ${!custom && selected === p.days ? 'bg-gradient-to-r from-violet-600 to-indigo-600 border-violet-500 text-white shadow-[0_4px_12px_rgba(124,58,237,0.3)]' : 'bg-white/[0.03] border-white/[0.07] text-slate-500 hover:border-violet-500/40 hover:text-white'}`}>{p.label}</button>))}
+            <button type="button" onClick={() => setCustom(true)} className={`py-2.5 rounded-xl text-xs font-semibold transition-all border ${custom ? 'bg-gradient-to-r from-violet-600 to-indigo-600 border-violet-500 text-white shadow-[0_4px_12px_rgba(124,58,237,0.3)]' : 'bg-white/[0.03] border-white/[0.07] text-slate-500 hover:border-violet-500/40 hover:text-white'}`}>Custom</button>
+          </div>
+          {custom && <div><label className="block text-xs text-slate-400 mb-1.5">Days until interview (1–90)</label><input type="number" min={1} max={90} value={customVal} onChange={e => setCustomVal(e.target.value)} className={inp} autoFocus /></div>}
+          <div className="flex gap-2 pt-1">
+            <button onClick={handleConfirm} className="flex-1 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-xl font-semibold text-sm transition-all shadow-[0_4px_14px_rgba(124,58,237,0.3)] flex items-center justify-center gap-2"><Sparkles className="w-4 h-4" /> Generate Plan</button>
+            <button onClick={onClose} className="px-4 py-2.5 bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.07] text-slate-300 rounded-xl font-semibold text-sm transition-all">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Custom select ────────────────────────────────────────────────────────────
+
+function CustomSelect<T extends string>({ value, onChange, options, icon: Icon }: { value: T; onChange: (v: T) => void; options: { value: T; label: string }[]; icon?: React.ElementType }) {
+  const [open, setOpen] = useState(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+  const active = options.find(o => o.value === value);
+  useEffect(() => { if (!open) return; const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); }; document.addEventListener('mousedown', handler); return () => document.removeEventListener('mousedown', handler); }, [open]);
+  return (
+    <div className="relative" ref={ref}>
+      <button type="button" onClick={() => setOpen(!open)} className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-400 bg-white/[0.04] border transition-all min-w-[130px] ${open ? 'border-purple-500/40 text-slate-200' : 'border-white/[0.07] hover:border-white/[0.12] hover:text-slate-200'}`}>
+        {Icon && <Icon className="w-3.5 h-3.5 flex-shrink-0" />}<span className="flex-1 text-left truncate">{active?.label}</span><ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 transition-transform duration-150 ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-2 z-50 bg-[#0d1526]/98 border border-white/[0.08] rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.5)] py-1 min-w-full">
+          {options.map(opt => (<button key={opt.value} type="button" onClick={() => { onChange(opt.value); setOpen(false); }} className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-xs transition-colors ${value === opt.value ? 'text-purple-300 bg-purple-500/[0.10] font-semibold' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'}`}>{opt.label}{value === opt.value && <Check className="w-3.5 h-3.5 opacity-70 flex-shrink-0" />}</button>))}
         </div>
       )}
     </div>
   );
 }
 
-// ─── ImprovementRoadmap ───────────────────────────────────────────────────────
+// ─── Main page ────────────────────────────────────────────────────────────────
 
-interface RoadmapItem { action: string; timeToComplete: string; impact: 'high' | 'medium' | 'low'; }
-interface ImprovementRoadmapData { quickWins?: RoadmapItem[]; mediumTermGoals?: RoadmapItem[]; mediumTerm?: RoadmapItem[]; longTermStrategies?: RoadmapItem[]; longTerm?: RoadmapItem[]; }
+export default function JobTrackerPage() {
+  const [user, loading] = useAuthState(auth);
+  const router = useRouter();
 
-function ImprovementRoadmap({ roadmap }: { roadmap: ImprovementRoadmapData }) {
-  const [activeTab, setActiveTab] = useState<'quick' | 'medium' | 'long'>('quick');
-  if (!roadmap) return null;
-  const tabs = [
-    { key: 'quick' as const, label: 'Quick Wins', data: roadmap.quickWins ?? [], icon: <Zap className="w-3.5 h-3.5" /> },
-    { key: 'medium' as const, label: 'Medium Term', data: roadmap.mediumTermGoals ?? roadmap.mediumTerm ?? [], icon: <Clock className="w-3.5 h-3.5" /> },
-    { key: 'long' as const, label: 'Long Term', data: roadmap.longTermStrategies ?? roadmap.longTerm ?? [], icon: <TrendingUp className="w-3.5 h-3.5" /> },
-  ];
-  const activeData = tabs.find(t => t.key === activeTab)?.data ?? [];
-  return (
-    <div className="glass-card p-4 sm:p-5">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="w-9 h-9 gradient-primary rounded-lg flex items-center justify-center shadow-glass flex-shrink-0"><Activity className="w-4 h-4 text-white" /></div>
-        <div><h3 className="text-sm font-semibold text-white">Improvement Roadmap</h3><p className="text-slate-500 text-xs">Prioritised action plan</p></div>
-      </div>
-      <div className="flex gap-1 p-1 bg-slate-900/50 rounded-xl mb-4">
-        {tabs.map(t => <button key={t.key} onClick={() => setActiveTab(t.key)} className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-medium transition-all ${activeTab === t.key ? 'bg-white/[0.08] text-white' : 'text-slate-500 hover:text-slate-300'}`}>{t.icon}{t.label}</button>)}
-      </div>
-      <div className="space-y-2">
-        {activeData.length === 0 ? <p className="text-slate-500 text-sm text-center py-4">No items.</p>
-          : activeData.map((item, i) => (
-            <div key={i} className="flex gap-3 p-3 bg-slate-800/40 rounded-xl border border-white/[0.06]">
-              <div className={`w-1.5 rounded-full flex-shrink-0 ${item.impact === 'high' ? 'bg-red-400' : item.impact === 'medium' ? 'bg-amber-400' : 'bg-emerald-400'}`} />
-              <div className="flex-1 min-w-0"><p className="text-sm text-slate-200">{item.action}</p><p className="text-xs text-slate-500 mt-0.5">{item.timeToComplete}</p></div>
-              <span className={`flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border self-start capitalize ${item.impact === 'high' ? 'bg-red-500/10 border-red-500/20 text-red-400' : item.impact === 'medium' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'}`}>{item.impact}</span>
-            </div>
-          ))}
-      </div>
-    </div>
-  );
-}
+  const { canUseFeature, getLimit, incrementUsage, usageData } = useUsageTracking();
+  const isUnlimitedPlan = usageData?.plan === 'pro' || usageData?.plan === 'premium';
 
-// ─── ToolBtn ──────────────────────────────────────────────────────────────────
+  const [apps, setApps] = useState<Application[]>([]);
+  const [loadingApps, setLoadingApps] = useState(true);
+  const [loadingStep, setLoadingStep] = useState(0);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<AppForm>({ ...EMPTY_FORM });
+  const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState('');
+  const [filterStatus, setFilterStatus] = useState<AppStatus | 'all'>('all');
+  const [filterWork, setFilterWork] = useState<WorkType | 'all'>('all');
+  const [sortBy, setSortBy] = useState<'date' | 'company' | 'status'>('date');
+  const [planModal, setPlanModal] = useState<Application | null>(null);
+  const [creatingPlan, setCreatingPlan] = useState(false);
+  const [contactsModal, setContactsModal] = useState<Application | null>(null);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [nextStepCtx, setNextStepCtx] = useState<{ company: string; jobTitle: string } | null>(null); // ← ADDED
 
-function ToolBtn({ onClick, title, children }: { onClick: () => void; title: string; children: React.ReactNode }) {
-  return <button title={title} onMouseDown={e => { e.preventDefault(); onClick(); }} className="flex items-center justify-center w-6 h-6 rounded text-slate-300 hover:bg-white/10 hover:text-white transition-colors cursor-pointer flex-shrink-0">{children}</button>;
-}
+  const jobsLimit = getLimit('jobTracker');
+  const canAddJob = isUnlimitedPlan || apps.length < jobsLimit;
+  const jobsLeft  = isUnlimitedPlan ? -1 : Math.max(0, jobsLimit - apps.length);
+  const canFindContacts = canUseFeature('findContacts');
+  const contactsLimit   = getLimit('findContacts');
 
-// ─── InlineResumeEditor ───────────────────────────────────────────────────────
-
-function InlineResumeEditor({ resumeId, initialHtml, onContentChange, highlightText }: { resumeId: string; initialHtml: string; onContentChange: (html: string) => void; highlightText?: string | null }) {
-  const editorRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const prevHighlightedEl = useRef<HTMLElement | null>(null);
-  const saveTimer = useRef<NodeJS.Timeout | null>(null);
-
-  const [scale, setScale] = useState(1);
-  const [editorHeight, setEditorHeight] = useState(0);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saved'>('idle');
-  const [hasChanges, setHasChanges] = useState(false);
-  const [isDownloading, setIsDownloading] = useState<'pdf' | 'docx' | null>(null);
-  const [showDownloadMenu, setShowDownloadMenu] = useState(false);
-  const downloadBtnRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => { const h = (e: MouseEvent) => { if (downloadBtnRef.current && !downloadBtnRef.current.contains(e.target as Node)) setShowDownloadMenu(false); }; document.addEventListener('mousedown', h); return () => document.removeEventListener('mousedown', h); }, []);
-
-  const externalChangeRef = useRef(false);
-
-  useEffect(() => {
-    const editor = editorRef.current; if (!editor) return;
-    if (prevHighlightedEl.current) { prevHighlightedEl.current.style.background = ''; prevHighlightedEl.current.style.borderRadius = ''; prevHighlightedEl.current.style.outline = ''; prevHighlightedEl.current.removeAttribute('data-ai-highlight'); prevHighlightedEl.current = null; }
-    if (!highlightText || highlightText.length < 5) return;
-    const search = highlightText.trim().substring(0, 60);
-    const all = Array.from(editor.querySelectorAll('p, li, span, h1, h2, h3, h4')) as HTMLElement[];
-    const target = all.find(el => el.children.length === 0 && el.textContent?.includes(search)) ?? all.find(el => el.textContent?.includes(search));
-    if (!target) return;
-    target.style.background = '#fde68a'; target.style.borderRadius = '3px'; target.style.outline = '2px solid #f59e0b';
-    target.setAttribute('data-ai-highlight', 'true'); prevHighlightedEl.current = target;
-    requestAnimationFrame(() => target.scrollIntoView({ behavior: 'smooth', block: 'center' }));
-  }, [highlightText]);
-
-  useEffect(() => {
-    if (!editorRef.current || !initialHtml) return;
-    if (editorRef.current.innerHTML !== initialHtml) {
-      editorRef.current.innerHTML = initialHtml;
-      externalChangeRef.current = true;
-      requestAnimationFrame(() => { scrollContainerRef.current?.scrollTo(0, 0); });
-    }
-  }, [initialHtml]);
-
-  useEffect(() => {
-    if (!externalChangeRef.current) return; externalChangeRef.current = false; if (!editorRef.current) return;
-    const html = editorRef.current.innerHTML; onContentChange(html); setHasChanges(true);
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(async () => {
-      setIsSaving(true);
-      try { await updateDoc(doc(db, 'resumes', resumeId), { resumeHtml: html, resumeText: editorRef.current?.innerText ?? '', updatedAt: new Date().toISOString() }); setSaveStatus('saved'); setHasChanges(false); setTimeout(() => setSaveStatus('idle'), 2000); } catch { toast.error('Auto-save failed'); }
-      finally { setIsSaving(false); }
-    }, 1500);
-  }, [initialHtml, resumeId, onContentChange]);
-
-  useEffect(() => {
-    const update = () => {
-      if (!containerRef.current) return;
-      setScale(Math.min(1, (containerRef.current.clientWidth - 32) / 816));
-    };
-    update();
-    const ro = new ResizeObserver(update);
-    if (containerRef.current) ro.observe(containerRef.current);
-    return () => ro.disconnect();
+  const fetchApps = useCallback(async () => {
+    setLoadingApps(true); setLoadingStep(0);
+    try { setLoadingStep(1); const res = await fetch('/api/job-tracker'); setLoadingStep(2); if (!res.ok) throw new Error('Failed to fetch'); const json = await res.json(); setLoadingStep(3); setApps(json.data || []); setLoadingStep(4); }
+    catch { toast.error('Failed to load applications'); } finally { setLoadingApps(false); }
   }, []);
 
-  // Track editor content height for proper scaled layout
-  useEffect(() => {
-    const editor = editorRef.current;
-    if (!editor) return;
-    const updateHeight = () => setEditorHeight(editor.scrollHeight);
-    updateHeight();
-    const ro = new ResizeObserver(updateHeight);
-    ro.observe(editor);
-    return () => ro.disconnect();
-  }, [initialHtml]);
+  useEffect(() => { if (user) fetchApps(); }, [user, fetchApps]);
+  useEffect(() => { if (!loading && !user) router.push('/auth'); }, [user, loading, router]);
 
-  const handleInput = useCallback(() => {
-    if (!editorRef.current) return;
-    const html = editorRef.current.innerHTML; onContentChange(html); setHasChanges(true);
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(async () => {
-      setIsSaving(true);
-      try { await updateDoc(doc(db, 'resumes', resumeId), { resumeHtml: html, resumeText: editorRef.current?.innerText ?? '', updatedAt: new Date().toISOString() }); setSaveStatus('saved'); setHasChanges(false); setTimeout(() => setSaveStatus('idle'), 2000); } catch { toast.error('Auto-save failed'); }
-      finally { setIsSaving(false); }
-    }, 3000);
-  }, [resumeId, onContentChange]);
-
-  const handleSaveNow = async () => {
-    if (!editorRef.current) return; setIsSaving(true);
-    try { const html = editorRef.current.innerHTML; await updateDoc(doc(db, 'resumes', resumeId), { resumeHtml: html, resumeText: editorRef.current.innerText, updatedAt: new Date().toISOString() }); setSaveStatus('saved'); setHasChanges(false); toast.success('Saved', { duration: 1500 }); setTimeout(() => setSaveStatus('idle'), 2000); }
-    catch { toast.error('Save failed'); } finally { setIsSaving(false); }
+  const handleAddApp = () => {
+    if (!canAddJob) { toast.error(`Free plan is limited to ${jobsLimit} tracked jobs. Upgrade to Pro for unlimited tracking.`); return; }
+    setForm({ ...EMPTY_FORM }); setEditingId(null); setShowForm(true);
   };
 
-  const handleDownload = async (format: 'pdf' | 'docx') => {
-    if (!editorRef.current) return; setIsDownloading(format); toast.loading(`Generating ${format.toUpperCase()}…`, { id: `dl-${format}` });
+  const handleFindContacts = (app: Application) => {
+    if (!canFindContacts) { toast.error(`You've used all ${contactsLimit} free contact searches this month. Upgrade for more.`); return; }
+    setContactsModal(app);
+  };
+
+  const handleSave = async () => {
+    if (!form.company.trim() || !form.jobTitle.trim()) { toast.error('Company and job title are required'); return; }
+    setSaving(true);
     try {
-      const computed = window.getComputedStyle(editorRef.current);
-      const editorPadding = { top: computed.paddingTop, right: computed.paddingRight, bottom: computed.paddingBottom, left: computed.paddingLeft };
-      const res = await fetch('/api/resume/download', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ htmlContent: editorRef.current.innerHTML, editorPadding, resumeId, format }) });
-      const ct = res.headers.get('Content-Type') ?? '';
-      if (!res.ok || ct.includes('application/json')) { let msg = `${format.toUpperCase()} failed (${res.status})`; try { const j = await res.json() as { error?: string }; if (j.error) msg = j.error; } catch {} throw new Error(msg); }
-      const disposition = res.headers.get('Content-Disposition') ?? '';
-      const match = disposition.match(/filename="?([^";\n]+)"?/);
-      const filename = match ? match[1] : `resume_${Date.now()}.${format}`;
-      const blob = await res.blob(); const url = URL.createObjectURL(blob);
-      const a = Object.assign(document.createElement('a'), { href: url, download: filename }); document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(() => URL.revokeObjectURL(url), 1000);
-      toast.success(`${format.toUpperCase()} downloaded!`, { id: `dl-${format}` });
-    } catch (err) { toast.error(err instanceof Error ? err.message : `Failed`, { id: `dl-${format}` }); }
-    finally { setIsDownloading(null); }
+      const isEdit = !!editingId;
+      const res = await fetch('/api/job-tracker', { method: isEdit ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(isEdit ? { id: editingId, ...form } : form) });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Failed'); }
+      toast.success(isEdit ? 'Application updated' : 'Application added');
+      if (!isEdit && user?.uid) {
+        await NotificationService.createNotification(user.uid, 'planner', 'Application Tracked 📋', `${form.jobTitle} at ${form.company} has been added to your job tracker.`, { actionUrl: '/job-tracker', actionLabel: 'View Tracker' });
+        setShowFeedback(true);
+        setNextStepCtx({ company: form.company.trim(), jobTitle: form.jobTitle.trim() }); // ← ADDED
+      }
+      setShowForm(false); setEditingId(null); setForm({ ...EMPTY_FORM }); await fetchApps();
+    } catch (e: unknown) { toast.error(e instanceof Error ? e.message : 'Failed to save'); } finally { setSaving(false); }
   };
 
-  return (
-    <div className="h-full flex flex-col min-w-0 overflow-hidden">
-      {/* Toolbar Row 1 */}
-      <div className="flex-shrink-0 bg-slate-900/80 backdrop-blur-sm border-b border-white/[0.06]">
-        <div className="flex items-center justify-between px-3 py-2 border-b border-white/[0.04]">
-          <div className="flex items-center gap-2"><PenTool className="w-3.5 h-3.5 text-indigo-400" /><span className="text-xs font-medium text-slate-300">Editable Resume</span></div>
-          <div className="flex items-center gap-2">
-            <button onClick={handleSaveNow} disabled={isSaving || !hasChanges} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${saveStatus === 'saved' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : hasChanges ? 'bg-indigo-600/70 hover:bg-indigo-600 text-white cursor-pointer' : 'bg-slate-700/40 text-slate-600 cursor-not-allowed'}`}>
-              {isSaving ? <><Loader2 className="w-3 h-3 animate-spin" /> Saving…</> : saveStatus === 'saved' ? <><Check className="w-3 h-3" /> Saved</> : <><Save className="w-3 h-3" /> Save</>}
-            </button>
-            <div ref={downloadBtnRef} className="relative">
-              <button onClick={() => setShowDownloadMenu(v => !v)} disabled={!!isDownloading} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-700/50 hover:bg-slate-700 text-slate-300 hover:text-white border border-white/[0.08] transition-all cursor-pointer disabled:opacity-50">
-                {isDownloading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}Download<ChevronDown className={`w-3 h-3 transition-transform ${showDownloadMenu ? 'rotate-180' : ''}`} />
-              </button>
-              {showDownloadMenu && (
-                <div className="absolute right-0 top-full mt-2 w-48 bg-[#0d1526]/98 border border-white/[0.08] rounded-xl shadow-[0_16px_48px_rgba(0,0,0,0.5)] z-[9999] overflow-hidden">
-                  <button onClick={() => { setShowDownloadMenu(false); handleDownload('pdf'); }} className="w-full px-4 py-2.5 text-left text-xs font-medium text-slate-300 hover:text-white hover:bg-white/[0.04] flex items-center gap-2.5 transition-colors cursor-pointer"><FileDown className="w-3.5 h-3.5 text-red-400" /> Download as PDF</button>
-                  <div className="h-px bg-white/[0.06]" />
-                  <button onClick={() => { setShowDownloadMenu(false); handleDownload('docx'); }} className="w-full px-4 py-2.5 text-left text-xs font-medium text-slate-300 hover:text-white hover:bg-white/[0.04] flex items-center gap-2.5 transition-colors cursor-pointer"><FileDown className="w-3.5 h-3.5 text-blue-400" /> Download as Word</button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-        {/* Toolbar Row 2 */}
-        <div className="flex items-center gap-1 px-2 py-1.5 flex-wrap">
-          <select onChange={e => { editorRef.current?.focus(); document.execCommand('fontName', false, e.target.value); }} className="bg-slate-800 text-slate-300 text-[11px] rounded px-1.5 py-1 border border-white/[0.08] cursor-pointer outline-none" defaultValue="Calibri">
-            {['Calibri','Arial','Times New Roman','Georgia','Verdana','Helvetica','Garamond'].map(f => (<option key={f} value={f}>{f}</option>))}
-          </select>
-          <select onChange={e => { editorRef.current?.focus(); document.execCommand('fontSize', false, e.target.value); }} className="bg-slate-800 text-slate-300 text-[11px] rounded px-1.5 py-1 border border-white/[0.08] w-14 cursor-pointer outline-none" defaultValue="3">
-            {[['1','8pt'],['2','10pt'],['3','11pt'],['4','12pt'],['5','14pt'],['6','18pt'],['7','24pt']].map(([v, label]) => (<option key={v} value={v}>{label}</option>))}
-          </select>
-          <div className="w-px h-4 bg-white/10 mx-0.5" />
-          <ToolBtn title="Bold" onClick={() => document.execCommand('bold')}><span className="font-bold text-[11px]">B</span></ToolBtn>
-          <ToolBtn title="Italic" onClick={() => document.execCommand('italic')}><span className="italic text-[11px]">I</span></ToolBtn>
-          <ToolBtn title="Underline" onClick={() => document.execCommand('underline')}><span className="underline text-[11px]">U</span></ToolBtn>
-          <ToolBtn title="Strikethrough" onClick={() => document.execCommand('strikeThrough')}><span className="line-through text-[11px]">S</span></ToolBtn>
-          <div className="w-px h-4 bg-white/10 mx-0.5" />
-          <ToolBtn title="Align Left" onClick={() => document.execCommand('justifyLeft')}><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path d="M2 3.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zm0 4a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm0 4a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/></svg></ToolBtn>
-          <ToolBtn title="Align Center" onClick={() => document.execCommand('justifyCenter')}><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path d="M4 3.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-2 4a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zm2 4a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5z"/></svg></ToolBtn>
-          <ToolBtn title="Align Right" onClick={() => document.execCommand('justifyRight')}><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path d="M2 3.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zm4 4a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-4 4a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/></svg></ToolBtn>
-          <div className="w-px h-4 bg-white/10 mx-0.5" />
-          <ToolBtn title="Bullet List" onClick={() => document.execCommand('insertUnorderedList')}><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path fillRule="evenodd" d="M5 11.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zm-3 1a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm0 4a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm0 4a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></svg></ToolBtn>
-          <ToolBtn title="Numbered List" onClick={() => document.execCommand('insertOrderedList')}><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path fillRule="evenodd" d="M5 11.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5z"/></svg></ToolBtn>
-          <ToolBtn title="Indent" onClick={() => document.execCommand('indent')}><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path d="M2 3.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zm3.5 4a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-3.5 4a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zM2 8l2-2v4z"/></svg></ToolBtn>
-          <ToolBtn title="Outdent" onClick={() => document.execCommand('outdent')}><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path d="M2 3.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zm3.5 4a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-3.5 4a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zM4 8l-2 2V6z"/></svg></ToolBtn>
-          <div className="w-px h-4 bg-white/10 mx-0.5" />
-          <label title="Text Color" className="relative flex items-center justify-center w-6 h-6 rounded hover:bg-white/10 cursor-pointer transition-colors">
-            <span className="text-[11px] font-bold text-slate-300" style={{ textDecoration: 'underline 2px solid #6366f1' }}>A</span>
-            <input type="color" defaultValue="#000000" onChange={e => { editorRef.current?.focus(); document.execCommand('foreColor', false, e.target.value); }} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
-          </label>
-          <label title="Highlight Color" className="relative flex items-center justify-center w-6 h-6 rounded hover:bg-white/10 cursor-pointer transition-colors">
-            <span className="text-[11px] font-bold" style={{ background: '#fde68a', padding: '0 2px', borderRadius: 2 }}>H</span>
-            <input type="color" defaultValue="#fde68a" onChange={e => { editorRef.current?.focus(); document.execCommand('hiliteColor', false, e.target.value); }} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
-          </label>
-          <div className="w-px h-4 bg-white/10 mx-0.5" />
-          <ToolBtn title="Insert Link" onClick={() => { const url = window.prompt('Enter URL:', 'https://'); if (url) document.execCommand('createLink', false, url); }}><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path d="M6.354 5.5H4a3 3 0 0 0 0 6h3a3 3 0 0 0 2.83-4H9c-.086 0-.17.01-.25.031A2 2 0 0 1 7 9.5H4a2 2 0 1 1 0-4h1.535c.218-.376.495-.714.82-1z"/><path d="M9 5.5a3 3 0 0 0-2.83 4h1.098A2 2 0 0 1 9 6.5h3a2 2 0 1 1 0 4h-1.535a4.02 4.02 0 0 1-.82 1H12a3 3 0 1 0 0-6H9z"/></svg></ToolBtn>
-          <ToolBtn title="Remove Link" onClick={() => document.execCommand('unlink')}><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path d="M6.354 5.5H4a3 3 0 0 0 0 6h3a3 3 0 0 0 2.83-4H9c-.086 0-.17.01-.25.031A2 2 0 0 1 7 9.5H4a2 2 0 1 1 0-4h1.535c.218-.376.495-.714.82-1z"/><path d="M9 5.5a3 3 0 0 0-2.83 4h1.098A2 2 0 0 1 9 6.5h3a2 2 0 1 1 0 4h-1.535a4.02 4.02 0 0 1-.82 1H12a3 3 0 1 0 0-6H9z"/><line x1="3" y1="3" x2="13" y2="13" stroke="currentColor" strokeWidth="1.5"/></svg></ToolBtn>
-          <div className="w-px h-4 bg-white/10 mx-0.5" />
-          <ToolBtn title="Undo" onClick={() => document.execCommand('undo')}><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path fillRule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2v1z"/><path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966A.25.25 0 0 0 8 4.466z"/></svg></ToolBtn>
-          <ToolBtn title="Redo" onClick={() => document.execCommand('redo')}><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path fillRule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/><path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/></svg></ToolBtn>
-        </div>
-      </div>
-      {/* Editor */}
-      <div ref={containerRef} className="flex-1 min-h-0 relative overflow-hidden bg-slate-900/60">
-        <div ref={scrollContainerRef} className="absolute inset-0 overflow-y-auto overflow-x-hidden glass-scrollbar" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(100,116,139,0.3) transparent' }}>
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 16px', width: '100%' }}>
-            <div style={{ width: `${816 * scale}px`, height: `${editorHeight * scale}px`, position: 'relative', flexShrink: 0 }}>
-              <div ref={editorRef} contentEditable suppressContentEditableWarning onInput={handleInput}
-                onPaste={e => { e.preventDefault(); const html = e.clipboardData.getData('text/html'); document.execCommand(html ? 'insertHTML' : 'insertText', false, html || e.clipboardData.getData('text/plain')); }}
-                className="outline-none rounded shadow-2xl border border-white/10"
-                style={{ fontFamily: 'Calibri, Arial, sans-serif', fontSize: '10pt', lineHeight: '1.4', color: '#000', backgroundColor: '#fff', width: '816px', minHeight: '300px', padding: '72px 72px', boxSizing: 'border-box' as const, wordBreak: 'break-word', overflowWrap: 'break-word', transformOrigin: 'top left', transform: `scale(${scale})`, position: 'absolute', top: 0, left: 0 }} />
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="flex-shrink-0 flex items-center justify-center py-2 bg-slate-900/40 border-t border-white/[0.05]"><p className="text-[10px] text-slate-600">Auto-saves 3 s after typing</p></div>
-    </div>
-  );
-}
-
-// ─── Loading steps ────────────────────────────────────────────────────────────
-
-const loadingSteps: LoadingStep[] = [
-  { name: 'Authenticating…', weight: 1 }, { name: 'Loading resume…', weight: 2 },
-  { name: 'Fetching analysis…', weight: 2 }, { name: 'Preparing…', weight: 1 }, { name: 'Ready!', weight: 1 },
-];
-
-type TabId = 'analysis' | 'benchmark' | 'recruiter' | 'intel' | 'writer';
-
-// ─── Main Page ────────────────────────────────────────────────────────────────
-
-export default function ResumeDetailsPage() {
-  const params = useParams();
-  const router = useRouter();
-  const [user, loading] = useAuthState(auth);
-
-  const [resume, setResume] = useState<Resume | null>(null);
-  const [loadingResume, setLoadingResume] = useState(true);
-  const [loadingStep, setLoadingStep] = useState(0);
-  const [error, setError] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
-  const [activeTab, setActiveTab] = useState<TabId>('analysis');
-  const [showPreview, setShowPreview] = useState(false);
-
-  const [editorHtml, setEditorHtml] = useState('');
-  const [isLoadingEditor, setIsLoadingEditor] = useState(false);
-  const [, setEditorReady] = useState(false);
-  const [persistedAnalysis, setPersistedAnalysis] = useState<OverallAnalysis | null>(null);
-  const [persistedAppliedKeys, setPersistedAppliedKeys] = useState<Set<string>>(new Set());
-  const [persistedTailorResult, setPersistedTailorResult] = useState<TailorResult | null>(null);
-
-  const [highlightText, setHighlightText] = useState<string | null>(null);
-  const handleHighlightLine = useCallback((text: string | null) => { setHighlightText(text); }, []);
-
-  const editorLoadedForId = useRef<string | null>(null);
-  const feedbackRecorded = useRef(false);
-
-  useEffect(() => {
-    if (resume && !feedbackRecorded.current) {
-      feedbackRecorded.current = true;
-      recordServiceUse('resume-analyzer');
-    }
-  }, [resume]);
-
-  // Load resume
-  useEffect(() => {
-    const load = async () => {
-      if (!params.id || typeof params.id !== 'string') { setError('Invalid resume ID'); setLoadingResume(false); return; }
-      try {
-        setLoadingStep(1);
-        const data = await FirebaseService.getResume(params.id);
-        setLoadingStep(2);
-        if (!data) { setError('Resume not found'); setResume(null); }
-        else if (user && data.userId !== user.uid) { setError('Access denied'); setResume(null); }
-        else { setResume(data); if (data.imagePath) setImageUrl(data.imagePath); }
-        setLoadingStep(4); await new Promise(r => setTimeout(r, 150));
-      } catch { setError('Failed to load resume'); setResume(null); }
-      finally { setLoadingResume(false); }
-    };
-    if (user) load(); else if (!loading) setLoadingResume(false);
-  }, [params.id, user, loading]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Load editor HTML on writer tab
-  useEffect(() => {
-    if (activeTab !== 'writer' || !resume) return;
-    if (editorLoadedForId.current === resume.id) return;
-    editorLoadedForId.current = resume.id;
-    const load = async () => {
-      setIsLoadingEditor(true);
-      try {
-        const rd = resume as Resume & { resumeHtml?: string; resumeText?: string; imagePath?: string; resumePath?: string };
-        if (rd.resumeHtml && rd.resumeHtml.length > 500 && !rd.resumeHtml.includes('Paste your resume')) { setEditorHtml(rd.resumeHtml); setEditorReady(true); return; }
-        if (rd.resumePath && rd.resumePath.startsWith('http')) {
-          try { const res = await fetch('/api/resume/pdf-to-html', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ pdfUrl: rd.resumePath, resumeId: resume.id }) }); const result = await res.json() as { html?: string }; if (res.ok && result.html && result.html.length > 100) { setEditorHtml(result.html); await updateDoc(doc(db, 'resumes', resume.id), { resumeHtml: result.html, updatedAt: new Date().toISOString() }); setEditorReady(true); return; } } catch {}
-        }
-        if (rd.resumeText && rd.resumeText.length > 100) { const escaped = rd.resumeText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); setEditorHtml(`<div style="font-family:Calibri,Arial,sans-serif;font-size:10pt;color:#000;white-space:pre-wrap;line-height:1.4;">${escaped}</div>`); setEditorReady(true); return; }
-        if (rd.imagePath?.startsWith('data:image/')) {
-          try { const res = await fetch('/api/resume/format-from-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ resumeId: resume.id, imageBase64: rd.imagePath }) }); if (res.ok) { const result = await res.json() as { html?: string }; if (result.html && result.html.length > 100) { setEditorHtml(result.html); await updateDoc(doc(db, 'resumes', resume.id), { resumeHtml: result.html, updatedAt: new Date().toISOString() }); setEditorReady(true); return; } } } catch {}
-        }
-        setEditorHtml('<p style="color:#6b7280;font-style:italic;">Could not extract content. Paste your resume here.</p>'); setEditorReady(true);
-      } catch { setEditorHtml('<p>Could not load resume. Paste content here.</p>'); setEditorReady(true); }
-      finally { setIsLoadingEditor(false); }
-    };
-    load();
-  }, [activeTab, resume]);
-
-  const handleDownloadPdf = () => {
-    if (!resume?.resumePath) { alert('PDF not available'); return; }
-    try { if (resume.resumePath.startsWith('data:')) { const url = FirebaseService.createDownloadableUrl(resume.resumePath); const a = Object.assign(document.createElement('a'), { href: url, download: resume.originalFileName || `resume_${resume.id}.pdf` }); document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(() => URL.revokeObjectURL(url), 100); } else { window.open(resume.resumePath, '_blank'); } } catch { alert('Failed to download'); }
+  const handleStatusChange = async (id: string, status: AppStatus) => {
+    const app = apps.find(a => a.id === id);
+    setApps(p => p.map(a => a.id === id ? { ...a, status } : a));
+    try {
+      const res = await fetch('/api/job-tracker', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status }) });
+      if (!res.ok) throw new Error('Failed');
+      if (user?.uid && app) {
+        const milestones: Partial<Record<AppStatus, { title: string; message: string; type: 'interview' | 'achievement' | 'planner' }>> = {
+          'phone-screen': { type: 'interview', title: 'Phone Screen Scheduled 📞', message: `You advanced to phone screen for ${app.jobTitle} at ${app.company}!` },
+          'technical': { type: 'interview', title: 'Technical Round Incoming 💻', message: `You reached the technical round for ${app.jobTitle} at ${app.company}.` },
+          'final': { type: 'interview', title: 'Final Round! 🔥', message: `You made it to the final round for ${app.jobTitle} at ${app.company}.` },
+          'offer': { type: 'achievement', title: 'Offer Received! 🎉🏆', message: `Congratulations! You received an offer for ${app.jobTitle} at ${app.company}!` },
+        };
+        const m = milestones[status];
+        if (m) await NotificationService.createNotification(user.uid, m.type, m.title, m.message, { actionUrl: '/job-tracker', actionLabel: 'View Application' });
+      }
+    } catch { setApps(p => p.map(a => a.id === id ? { ...a, status: app?.status ?? a.status } : a)); toast.error('Failed to update status'); }
   };
 
-  const handleApplySuggestion = useCallback((o: string, n: string) => { setEditorHtml(h => h.replace(o, n)); }, []);
-
-  const handleViewPdf = () => {
-    if (!resume?.resumePath) { alert('PDF not available'); return; }
-    try { window.open(resume.resumePath.startsWith('data:') ? FirebaseService.createDownloadableUrl(resume.resumePath) : resume.resumePath, '_blank'); } catch { alert('Failed'); }
+  const handleCreatePlan = async (app: Application, days: number) => {
+    setCreatingPlan(true); setPlanModal(null);
+    try {
+      const interviewDate = new Date(); interviewDate.setDate(interviewDate.getDate() + days);
+      const res = await fetch('/api/planner/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role: app.jobTitle, company: app.company, interviewDate: interviewDate.toISOString().split('T')[0], daysUntilInterview: days, skillLevel: 'intermediate' }) });
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || 'Failed to generate plan'); }
+      const data = await res.json();
+      toast.success(`${days}-day plan created for ${app.company}!`, { action: { label: 'Open Planner', onClick: () => window.open(`/planner/${data.planId}`, '_blank') } });
+      if (user?.uid) await NotificationService.createNotification(user.uid, 'planner', 'Prep Plan Created 📅', `Your ${days}-day preparation plan for ${app.jobTitle} at ${app.company} is ready.`, { actionUrl: `/planner/${data.planId}`, actionLabel: 'View Plan' });
+    } catch (e: unknown) { toast.error(e instanceof Error ? e.message : 'Failed to create plan'); } finally { setCreatingPlan(false); }
   };
 
-  const handleReplaceFullContent = useCallback((html: string) => {
-    setEditorHtml(html);
-    const save = async () => {
-      try {
-        const parser = new DOMParser();
-        const d = parser.parseFromString(html, 'text/html');
-        await updateDoc(doc(db, 'resumes', resume!.id), { resumeHtml: html, resumeText: d.body.innerText || '', updatedAt: new Date().toISOString() });
-        toast.success('Tailored resume saved');
-      } catch { toast.error('Failed to save'); }
-    };
-    save();
-  }, [resume]);
-
-  // ── Guards ──
-  if (loading || loadingResume) return <AnimatedLoader isVisible mode="steps" steps={loadingSteps} currentStep={loadingStep} loadingText="Loading your resume analysis…" showNavigation />;
-  if (!user) { router.push('/auth'); return null; }
-  if (error || !resume) return (
-    <div className="flex items-center justify-center min-h-screen px-4"><div className="glass-card max-w-md w-full p-8 text-center">
-      <div className="w-14 h-14 gradient-secondary rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-glass"><FileText className="w-7 h-7 text-white" /></div>
-      <h1 className="text-xl font-bold text-white mb-2">{error || 'Resume Not Found'}</h1>
-      <p className="text-slate-400 mb-6 text-sm">{error === 'Access denied' ? 'This resume belongs to another user.' : 'This analysis does not exist.'}</p>
-      <Link href="/resume"><button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl glass-button-primary text-white text-sm font-semibold"><ArrowLeft className="w-4 h-4" /> Back to Resumes</button></Link>
-    </div></div>
-  );
-
-  const resumeDoc = resume as Resume & {
-    benchmarkResult?: Record<string, unknown>;
-    benchmarkGeneratedAt?: number;
-    recruiterSimulation?: Record<string, unknown>;
-    recruiterSimulationGeneratedAt?: number;
-    deepAnalysis?: Record<string, unknown>;
-    deepAnalysisGeneratedAt?: number;
-    tailorResult?: Record<string, unknown>;
-    tailorResultGeneratedAt?: number;
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete this application?')) return;
+    setApps(p => p.filter(a => a.id !== id));
+    try { const res = await fetch(`/api/job-tracker?id=${id}`, { method: 'DELETE' }); if (!res.ok) throw new Error(); toast.success('Deleted'); }
+    catch { toast.error('Failed to delete'); await fetchApps(); }
   };
 
-  const feedback = resume.feedback;
-  const atsData = feedback?.ATS ?? { score: 0, tips: [] };
-  const contentData = feedback?.content ?? { score: 0, tips: [] };
-  const structureData = feedback?.structure ?? { score: 0, tips: [] };
-  const skillsData = feedback?.skills ?? { score: 0, tips: [] };
-  const toneData = feedback?.toneAndStyle ?? { score: 0, tips: [] };
-
-  const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
-    { id: 'analysis', label: 'Analysis', icon: BarChart3 }, { id: 'benchmark', label: 'Benchmark', icon: Users },
-    { id: 'recruiter', label: 'Recruiter', icon: Eye }, { id: 'intel', label: 'Intel', icon: Activity }, { id: 'writer', label: 'Writer', icon: PenTool },
-  ];
-
-  const MetaBadge = () => (
-    <div className="flex items-center gap-2 flex-wrap">
-      {resume.jobTitle && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/[0.05] border border-white/[0.08] text-xs text-slate-300"><Briefcase className="w-3 h-3 text-slate-500" />{resume.jobTitle}</span>}
-      {resume.companyName && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/[0.05] border border-white/[0.08] text-xs text-slate-300"><Building2 className="w-3 h-3 text-slate-500" />{resume.companyName}</span>}
-      {resume.score != null && <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-semibold ${getScoreBg(resume.score)}`}><Star className="w-3 h-3" />{resume.score}/100</span>}
-    </div>
-  );
-
-  const TabBar = ({ size = 'md' }: { size?: 'sm' | 'md' }) => (
-    <div className="flex gap-1 p-1 glass-card">
-      {tabs.map(tab => <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl font-medium transition-all cursor-pointer ${size === 'sm' ? 'py-2 px-2 text-xs' : 'py-2.5 px-3 text-sm'} ${activeTab === tab.id ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-white/[0.05]'}`}><tab.icon className={size === 'sm' ? 'w-3.5 h-3.5' : 'w-4 h-4'} />{tab.label}</button>)}
-    </div>
-  );
-
-  const AnalysisSections = () => (
-    <div className="space-y-3">
-      <DetailedAnalysisSection title="ATS Compatibility" description="ATS optimization" score={atsData.score} tips={atsData.tips} icon={<Shield className="w-4 h-4 text-white" />} />
-      <DetailedAnalysisSection title="Content Quality" description="Relevance and impact" score={contentData.score} tips={contentData.tips} icon={<FileText className="w-4 h-4 text-white" />} />
-      <DetailedAnalysisSection title="Structure & Format" description="Organisation and appeal" score={structureData.score} tips={structureData.tips} icon={<Edit3 className="w-4 h-4 text-white" />} />
-      <DetailedAnalysisSection title="Skills & Keywords" description="Technical and soft skills" score={skillsData.score} tips={skillsData.tips} icon={<Star className="w-4 h-4 text-white" />} />
-      {toneData.score > 0 && <DetailedAnalysisSection title="Tone & Style" description="Writing quality" score={toneData.score} tips={toneData.tips} icon={<Edit3 className="w-4 h-4 text-white" />} />}
-      {feedback?.roadmap && <ImprovementRoadmap roadmap={feedback.roadmap} />}
-    </div>
-  );
-
-  // ★ Shared AI Panel props — includes preloaded tailor data
-  const aiPanelProps = {
-    resumeId: resume.id,
-    userId: resume.userId,
-    resumeContent: editorHtml,
-    onHighlightLine: handleHighlightLine,
-    onApplySuggestion: handleApplySuggestion,
-    onReplaceFullContent: handleReplaceFullContent,
-    initialJobDescription: resume.jobDescription ?? '',
-    initialJobTitle: resume.jobTitle ?? '',
-    initialCompanyName: resume.companyName ?? '',
-    initialDeepAnalysis: (resumeDoc.deepAnalysis ?? null) as OverallAnalysis | null,
-    persistedAnalysis,
-    persistedAppliedKeys,
-    onAnalysisChange: setPersistedAnalysis,
-    onAppliedKeysChange: setPersistedAppliedKeys,
-    preloadedTailorResult: persistedTailorResult ?? (resumeDoc.tailorResult as TailorResult | undefined) ?? null,
-    onTailorResultChange: setPersistedTailorResult,
+  const handleEdit = (app: Application) => {
+    setForm({ company: app.company, jobTitle: app.jobTitle, jobUrl: app.jobUrl, location: app.location, salary: app.salary, workType: app.workType, source: app.source, notes: app.notes, status: app.status, appliedDate: app.appliedDate });
+    setEditingId(app.id); setShowForm(true);
   };
 
-  const MobilePreviewPanel = () => (
-    <div className="space-y-3">
-      {imageUrl ? <Image src={imageUrl} alt="Resume" width={800} height={1000} className="w-full rounded-xl shadow-glass border border-white/10 object-contain" />
-        : <div className="w-full aspect-[3/4] bg-slate-800/40 border border-dashed border-white/10 rounded-xl flex items-center justify-center"><div className="text-center p-6"><FileText className="w-10 h-10 text-slate-600 mx-auto mb-2" /><p className="text-slate-500 text-sm">Preview unavailable</p></div></div>}
-      <div className="grid grid-cols-2 gap-2.5">
-        <button onClick={handleViewPdf} disabled={!resume.resumePath} className="glass-card hover-lift text-white px-4 py-2.5 rounded-xl text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-40 cursor-pointer"><Eye className="w-4 h-4" /> View PDF</button>
-        <button onClick={handleDownloadPdf} disabled={!resume.resumePath} className="glass-card hover-lift text-white px-4 py-2.5 rounded-xl text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-40 cursor-pointer"><Download className="w-4 h-4" /> Download</button>
-      </div>
-    </div>
-  );
+  const total = apps.length;
+  const activeCount = apps.filter(a => !['rejected', 'ghosted', 'withdrew', 'offer'].includes(a.status)).length;
+  const offerCount = apps.filter(a => a.status === 'offer').length;
+  const responseRate = total > 0 ? Math.round((apps.filter(a => !['applied', 'wishlist'].includes(a.status)).length / total) * 100) : 0;
+
+  const filtered = apps
+    .filter(a => {
+      const q = search.toLowerCase();
+      return (!q || a.company.toLowerCase().includes(q) || a.jobTitle.toLowerCase().includes(q) || (a.location || '').toLowerCase().includes(q))
+        && (filterStatus === 'all' || a.status === filterStatus) && (filterWork === 'all' || a.workType === filterWork);
+    })
+    .sort((a, b) => { if (sortBy === 'company') return a.company.localeCompare(b.company); if (sortBy === 'status') return a.status.localeCompare(b.status); return new Date(b.appliedDate).getTime() - new Date(a.appliedDate).getTime(); });
+
+  if (loading || loadingApps) {
+    return <AnimatedLoader isVisible={true} mode="steps" steps={[{ name: 'Authenticating…', weight: 1 }, { name: 'Connecting…', weight: 1 }, { name: 'Loading applications…', weight: 3 }, { name: 'Calculating stats…', weight: 2 }, { name: 'Ready!', weight: 1 }]} currentStep={loadingStep} loadingText="Loading your job tracker…" showNavigation={true} />;
+  }
 
   return (
     <>
-      <ServiceFeedback serviceKey="resume-analyzer" serviceName="Resume Analyzer" triggerAfterUses={2} />
-
-      {/* ═════ MOBILE ═════ */}
-      <div className="lg:hidden px-4 py-5 space-y-4">
-        <div className="glass-card p-4">
-          <Link href="/resume" className="inline-flex items-center text-xs text-slate-400 hover:text-white transition-colors mb-4"><ArrowLeft className="w-3.5 h-3.5 mr-1.5" /> All Resumes</Link>
-          <div className="flex items-start justify-between gap-3 mb-3">
-            <div><h1 className="text-xl font-bold text-white mb-0.5">Resume Analysis</h1><p className="text-slate-400 text-xs">AI-powered evaluation</p></div>
-            <SeeExampleButton serviceId="resume" className="!px-3 !py-2 !rounded-lg !text-xs flex-shrink-0" initialTab={activeTab as ResumeInitialTab} />
-          </div>
-          <MetaBadge />
-        </div>
-
-        {activeTab !== 'writer' && (<><button onClick={() => setShowPreview(!showPreview)} className="w-full glass-card p-3 text-slate-300 hover:text-white text-sm font-medium flex items-center justify-center gap-2 cursor-pointer"><Eye className="w-4 h-4" />{showPreview ? 'Hide Preview' : 'Show Preview'}</button>{showPreview && <div className="glass-card p-4"><MobilePreviewPanel /></div>}</>)}
-
-        <TabBar size="sm" />
-        {activeTab !== 'writer' && <OverallScoreHero score={feedback?.overallScore ?? 0} />}
-
-        {activeTab === 'analysis' && feedback && <AnalysisSections />}
-        {activeTab === 'benchmark' && <CandidateBenchmarking resumeId={resume.id} overallScore={feedback?.overallScore ?? 0} jobTitle={resume.jobTitle} preloadedData={resumeDoc.benchmarkResult ?? null} />}
-        {activeTab === 'writer' && (
-          <div className="space-y-4">
-            <div className="glass-card overflow-hidden" style={{ minHeight: 600 }}>
-              {isLoadingEditor ? <div className="h-full flex flex-col items-center justify-center gap-3 py-16 text-slate-500"><Loader2 className="w-6 h-6 animate-spin text-indigo-400" /><p className="text-xs">Converting…</p></div>
-                : <InlineResumeEditor resumeId={resume.id} initialHtml={editorHtml} onContentChange={setEditorHtml} highlightText={highlightText} />}
-            </div>
-            <div className="glass-card overflow-hidden"><IntelligentAIPanel {...aiPanelProps} /></div>
-          </div>
-        )}
-        <div style={{ display: activeTab === 'recruiter' ? 'block' : 'none' }}>
-          <RecruiterEyeSimulation resumeId={resume.id} imageUrl={imageUrl} preloadedSimulation={resumeDoc.recruiterSimulation ?? null} jobTitle={resume.jobTitle} companyName={resume.companyName} jobDescription={resume.jobDescription} />
-        </div>
-        <div style={{ display: activeTab === 'intel' ? 'block' : 'none' }}>
-          <InterviewIntelligence resumeId={resume.id} companyName={resume.companyName} jobTitle={resume.jobTitle} jobDescription={resume.jobDescription} preloadedIntel={resume.interviewIntel as unknown as Parameters<typeof InterviewIntelligence>[0]['preloadedIntel']} />
-        </div>
-
-        <div className="flex gap-2.5 pt-1 pb-4">
-          <Link href="/resume/upload" className="flex-1 glass-button-primary hover-lift px-4 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2"><FileText className="w-4 h-4" /> New Analysis</Link>
-          <Link href="/resume" className="flex-1 glass-card hover-lift text-white px-4 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2"><ArrowLeft className="w-4 h-4" /> All Resumes</Link>
-        </div>
-      </div>
-
-      {/* ═════ DESKTOP ═════ */}
-      <div className="hidden lg:flex fixed inset-0 lg:left-64 top-[73px] overflow-hidden">
-        {/* Left column */}
-        <div className="w-[42%] flex-shrink-0 h-full p-4 pr-2">
-          <div className="glass-card h-full overflow-hidden" style={{ maxHeight: 'calc(100vh - 73px)' }}>
-            {activeTab === 'writer' ? (
-              isLoadingEditor ? <div className="h-full flex flex-col items-center justify-center gap-3 text-slate-500"><Loader2 className="w-6 h-6 animate-spin text-indigo-400" /><p className="text-xs">Converting PDF…</p></div>
-                : <InlineResumeEditor resumeId={resume.id} initialHtml={editorHtml} onContentChange={setEditorHtml} highlightText={highlightText} />
-            ) : resume.resumePath ? <ResumePreview resumePath={resume.resumePath} onViewPdf={handleViewPdf} onDownloadPdf={handleDownloadPdf} />
-              : <div className="h-full flex flex-col items-center justify-center gap-3 p-6"><div className="w-12 h-12 rounded-xl bg-slate-800/60 flex items-center justify-center"><FileText className="w-6 h-6 text-slate-600" /></div><p className="text-slate-500 text-sm text-center">No PDF available</p>{imageUrl && <Image src={imageUrl} alt="Resume" width={600} height={800} className="w-full rounded-xl shadow-glass border border-white/10 object-contain mt-2" />}</div>}
+      {showForm && <FormModal form={form} setForm={setForm} onSave={handleSave} onCancel={() => { setShowForm(false); setEditingId(null); setForm({ ...EMPTY_FORM }); }} saving={saving} isEdit={!!editingId} />}
+      {contactsModal && <ContactsModal app={contactsModal} onClose={() => setContactsModal(null)} onContactsFound={async () => { await incrementUsage('findContacts'); }} />}
+      {planModal && <CreatePlanModal app={planModal} onConfirm={days => handleCreatePlan(planModal, days)} onClose={() => setPlanModal(null)} />}
+      {creatingPlan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#090d1a]/70 backdrop-blur-sm">
+          <div className="glass-card p-8 text-center">
+            <div className="relative w-12 h-12 mx-auto mb-4"><Loader2 className="w-12 h-12 text-violet-400 animate-spin" /><Sparkles className="w-4 h-4 text-violet-300 absolute inset-0 m-auto" /></div>
+            <p className="text-sm font-bold text-white mb-1">Generating your prep plan…</p><p className="text-xs text-slate-500">Building your personalised prep roadmap</p>
           </div>
         </div>
+      )}
 
-        {/* Right column */}
-        <div className="flex-1 flex flex-col overflow-hidden" style={{ maxHeight: 'calc(100vh - 73px)' }}>
-          <div className="flex-shrink-0 p-4 pl-2 pb-0 space-y-3">
-            <div className="glass-card p-5">
-              <Link href="/resume" className="inline-flex items-center text-xs text-slate-400 hover:text-white transition-colors mb-4"><ArrowLeft className="w-3.5 h-3.5 mr-1.5" /> All Resumes</Link>
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <div><h1 className="text-xl font-bold text-white mb-0.5">{resume.fileName || 'Resume Analysis'}</h1><p className="text-slate-400 text-xs">AI-powered evaluation</p></div>
-                <SeeExampleButton serviceId="resume" className="!px-4 !py-2.5 !rounded-lg !text-sm flex-shrink-0" initialTab={activeTab as ResumeInitialTab} />
+      <div className="space-y-4 pt-4">
+        {/* Page header */}
+        <div className="glass-card p-5 animate-fade-in-up">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors mb-3"><ArrowLeft className="w-3.5 h-3.5" /> Dashboard</Link>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 gradient-primary rounded-xl flex items-center justify-center shadow-[0_4px_14px_rgba(102,126,234,0.3)]"><Briefcase className="w-4 h-4 text-white" /></div>
+                <div><h1 className="text-xl font-bold text-white leading-tight">Job Tracker</h1><p className="text-xs text-slate-500">Track every application from wishlist to offer</p></div>
               </div>
-              <MetaBadge />
             </div>
-            <TabBar />
-          </div>
-
-          <div className="flex-1 overflow-y-auto glass-scrollbar">
-            <div className="p-4 pl-2 space-y-4">
-              {activeTab === 'writer' && <IntelligentAIPanel {...aiPanelProps} />}
-
-              {activeTab !== 'writer' && (
-                <>
-                  <OverallScoreHero score={feedback?.overallScore ?? 0} />
-                  {activeTab === 'analysis' && feedback && <AnalysisSections />}
-                  {activeTab === 'benchmark' && <CandidateBenchmarking resumeId={resume.id} overallScore={feedback?.overallScore ?? 0} jobTitle={resume.jobTitle} preloadedData={resumeDoc.benchmarkResult ?? null} />}
-                  <div style={{ display: activeTab === 'recruiter' ? 'block' : 'none' }}>
-                    <RecruiterEyeSimulation resumeId={resume.id} imageUrl={imageUrl} preloadedSimulation={resumeDoc.recruiterSimulation ?? null} jobTitle={resume.jobTitle} companyName={resume.companyName} jobDescription={resume.jobDescription} />
-                  </div>
-                  <div style={{ display: activeTab === 'intel' ? 'block' : 'none' }}>
-                    <InterviewIntelligence resumeId={resume.id} companyName={resume.companyName} jobTitle={resume.jobTitle} jobDescription={resume.jobDescription} preloadedIntel={resume.interviewIntel as unknown as Parameters<typeof InterviewIntelligence>[0]['preloadedIntel']} />
-                  </div>
-                  <div className="flex gap-2.5 pb-4">
-                    <Link href="/resume/upload" className="flex-1 glass-button-primary hover-lift px-4 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2"><FileText className="w-4 h-4" /> New Analysis</Link>
-                    <Link href="/resume" className="flex-1 glass-card hover-lift text-white px-4 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2"><ArrowLeft className="w-4 h-4" /> All Resumes</Link>
-                  </div>
-                </>
-              )}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <SeeExampleButton serviceId="job-tracker" className="!px-4 !py-2.5 !text-sm !font-semibold" />
+              <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-500/[0.07] border border-purple-500/20">
+                <Shield className="w-4 h-4 text-purple-400" />
+                <span className="text-[13px] font-semibold text-purple-400">{isUnlimitedPlan ? 'Unlimited' : `${jobsLeft} jobs left`}</span>
+              </div>
+              <button onClick={handleAddApp} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-sm font-semibold shadow-[0_4px_14px_rgba(102,126,234,0.28)] transition-all duration-200">
+                <Plus className="w-4 h-4" /> Add Application
+              </button>
             </div>
           </div>
         </div>
+
+        {/* Gate or content */}
+        {!canAddJob && apps.length === 0 ? (
+          <UpgradeGate feature="jobs" />
+        ) : (
+          <>
+            {/* Stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 animate-fade-in-up" style={{ animationDelay: '60ms' }}>
+              <StatCard label="Total" value={total} accentClass="text-white" />
+              <StatCard label="Active" value={activeCount} accentClass="text-blue-400" sub="in progress" />
+              <StatCard label="Response Rate" value={`${responseRate}%`} accentClass="text-amber-400" />
+              <StatCard label="Offers" value={offerCount} accentClass="text-emerald-400" />
+            </div>
+
+            <div className="animate-fade-in-up" style={{ animationDelay: '120ms' }}><PipelineFunnel apps={apps} /></div>
+
+            {/* ← ADDED: NextStepPrompt after adding a new application */}
+            {nextStepCtx && (
+              <NextStepPrompt
+                trigger="job_tracked"
+                context={nextStepCtx}
+                delay={600}
+              />
+            )}
+
+            {/* Search + filters */}
+            <div className="flex flex-col sm:flex-row gap-2.5 animate-fade-in-up" style={{ animationDelay: '180ms' }}>
+              <div className="relative flex-1"><Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none" /><input type="text" placeholder="Search by company, role, or location…" value={search} onChange={e => setSearch(e.target.value)} className={`${inp} pl-10`} /></div>
+              <CustomSelect<AppStatus | 'all'> value={filterStatus} onChange={setFilterStatus} icon={Filter} options={[{ value: 'all', label: `All (${apps.length})` }, ...(Object.keys(STATUS_CONFIG) as AppStatus[]).map(s => ({ value: s, label: STATUS_CONFIG[s].label }))]} />
+              <CustomSelect<WorkType | 'all'> value={filterWork} onChange={setFilterWork} options={[{ value: 'all', label: 'All Types' }, ...(Object.keys(WORK_TYPE_CONFIG) as WorkType[]).map(w => ({ value: w, label: WORK_TYPE_CONFIG[w].label }))]} />
+              <CustomSelect<'date' | 'company' | 'status'> value={sortBy} onChange={setSortBy} icon={SlidersHorizontal} options={[{ value: 'date', label: 'Recent First' }, { value: 'company', label: 'By Company' }, { value: 'status', label: 'By Status' }]} />
+            </div>
+
+            {/* Grid / empty */}
+            {filtered.length === 0 ? (
+              <div className="glass-card p-12 text-center">
+                <div className="w-12 h-12 bg-white/[0.03] border border-white/[0.07] rounded-2xl flex items-center justify-center mx-auto mb-4"><Briefcase className="w-5 h-5 text-slate-600" /></div>
+                <h3 className="text-sm font-bold text-slate-400 mb-2">{apps.length === 0 ? 'No applications yet' : 'No results match your filters'}</h3>
+                <p className="text-xs text-slate-600 mb-6 max-w-xs mx-auto leading-relaxed">{apps.length === 0 ? 'Start tracking your job search. Add your first application to see it here.' : 'Try adjusting your search or filters.'}</p>
+                {apps.length === 0 && canAddJob && (
+                  <div className="flex items-center justify-center gap-3">
+                    <button onClick={() => { setForm({ ...EMPTY_FORM }); setShowForm(true); }} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-semibold transition-all duration-150"><Plus className="w-4 h-4" /> Add First Application</button>
+                    <SeeExampleButton serviceId="job-tracker" className="!px-5 !py-2.5 !text-sm !font-semibold" />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <p className="text-[11px] text-slate-600">{filtered.length} application{filtered.length !== 1 ? 's' : ''}{(search || filterStatus !== 'all' || filterWork !== 'all') ? ' matching filters' : ''}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {filtered.map(app => (
+                    <AppCard key={app.id} app={app} onEdit={() => handleEdit(app)} onDelete={() => handleDelete(app.id)}
+                      onStatusChange={status => handleStatusChange(app.id, status)} onCreatePlan={() => setPlanModal(app)}
+                      onFindContacts={() => handleFindContacts(app)} />
+                  ))}
+                </div>
+              </>
+            )}
+          </>
+        )}
       </div>
+
+      <UsersFeedback page="job-tracker" forceOpen={showFeedback} onClose={() => setShowFeedback(false)} />
     </>
   );
 }

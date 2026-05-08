@@ -16,6 +16,7 @@ import { NotificationService } from '@/lib/services/notification-services';
 import UsersFeedback from '@/components/UserFeedback';
 import { useUsageTracking } from '@/lib/hooks/useUsageTracking';
 import { SeeExampleButton } from '@/components/ServiceModal';
+import NextStepPrompt from '@/components/NextStepPrompt'; // ← NEW
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -616,6 +617,7 @@ export default function CareerToolsPage() {
   const [liLoading, setLiLoading] = useState(false);
   const [liError, setLiError] = useState('');
   const [liResult, setLiResult] = useState<LinkedInResult | null>(null);
+  const [liNextStep, setLiNextStep] = useState(false); // ← NEW
 
   const [orType, setOrType] = useState('job-inquiry');
   const [orRecipName, setOrRecipName] = useState('');
@@ -630,10 +632,18 @@ export default function CareerToolsPage() {
   const [orLoading, setOrLoading] = useState(false);
   const [orError, setOrError] = useState('');
   const [orResult, setOrResult] = useState<OutreachResult | null>(null);
+  const [orNextStep, setOrNextStep] = useState(false); // ← NEW
 
   const [showFeedback, setShowFeedback] = useState(false);
 
   useEffect(() => { if (!loading && !user) router.push('/auth'); }, [user, loading, router]);
+
+  // ← NEW: reset next step prompts when switching tools
+  const handleToolChange = (v: 'linkedin' | 'outreach') => {
+    setActiveTool(v);
+    setLiNextStep(false);
+    setOrNextStep(false);
+  };
 
   const handleLinkedIn = async () => {
     if (!canUseFeature('linkedinOptimisations')) {
@@ -641,7 +651,7 @@ export default function CareerToolsPage() {
       return;
     }
     if (!liHeadline.trim() && !liAbout.trim()) { setLiError('Enter at least your headline or about section'); return; }
-    setLiLoading(true); setLiError(''); setLiResult(null);
+    setLiLoading(true); setLiError(''); setLiResult(null); setLiNextStep(false); // ← reset
     try {
       const res = await fetch('/api/career-tools/linkedin-optimize', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -652,6 +662,7 @@ export default function CareerToolsPage() {
       setLiResult(result);
       await incrementUsage('linkedinOptimisations');
       setShowFeedback(true);
+      setLiNextStep(true); // ← NEW
       if (user?.uid) {
         const label = result.overallScore >= 75 ? 'Strong' : result.overallScore >= 50 ? 'Needs Work' : 'Needs Improvement';
         await NotificationService.createNotification(user.uid, 'system', 'LinkedIn Profile Optimised 🔵', `Your profile scored ${result.overallScore}/100 (${label}).`, { actionUrl: '/career-tools', actionLabel: 'View Results' });
@@ -666,7 +677,7 @@ export default function CareerToolsPage() {
       return;
     }
     if (!orCompany.trim() && !orRecipRole.trim()) { setOrError('Enter at least the recipient company or role'); return; }
-    setOrLoading(true); setOrError(''); setOrResult(null);
+    setOrLoading(true); setOrError(''); setOrResult(null); setOrNextStep(false); // ← reset
     try {
       const res = await fetch('/api/career-tools/cold-outreach', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -677,6 +688,7 @@ export default function CareerToolsPage() {
       setOrResult(result);
       await incrementUsage('coldOutreach');
       setShowFeedback(true);
+      setOrNextStep(true); // ← NEW
       if (user?.uid) {
         const target = orRecipName ? `${orRecipName}${orCompany ? ` at ${orCompany}` : ''}` : orCompany || orRecipRole || 'your target';
         await NotificationService.createNotification(user.uid, 'system', `${orPlatform === 'linkedin' ? 'LinkedIn' : 'Email'} Outreach Ready ✉️`, `3 personalised messages for ${target} have been generated.`, { actionUrl: '/career-tools', actionLabel: 'View Messages' });
@@ -699,7 +711,20 @@ export default function CareerToolsPage() {
       return <UpgradeGate feature="linkedin" used={liUsed} limit={liLimit} />;
     if (liLoading)
       return <LoadingCard icon={Linkedin} message="Analysing your LinkedIn profile…" sub="Checking keyword density, rewriting headline & about section" color="text-blue-400" />;
-    if (liResult) return <LinkedInResults data={liResult} />;
+    if (liResult) return (
+      <>
+        <LinkedInResults data={liResult} />
+        {/* ← NEW */}
+        {liNextStep && (
+          <NextStepPrompt
+            trigger="linkedin_optimised"
+            context={{}}
+            delay={800}
+            className="mt-3"
+          />
+        )}
+      </>
+    );
     return null;
   };
 
@@ -708,7 +733,20 @@ export default function CareerToolsPage() {
       return <UpgradeGate feature="outreach" used={orUsed} limit={orLimit} />;
     if (orLoading)
       return <LoadingCard icon={Send} message="Crafting your outreach…" sub="Writing 3 versions + follow-up template" color="text-emerald-400" />;
-    if (orResult) return <OutreachResults data={orResult} platform={orPlatform} />;
+    if (orResult) return (
+      <>
+        <OutreachResults data={orResult} platform={orPlatform} />
+        {/* ← NEW */}
+        {orNextStep && (
+          <NextStepPrompt
+            trigger="outreach_generated"
+            context={{ company: orCompany.trim() || undefined }}
+            delay={800}
+            className="mt-3"
+          />
+        )}
+      </>
+    );
     return null;
   };
 
@@ -726,13 +764,10 @@ export default function CareerToolsPage() {
                 <p className="text-[11px] text-slate-600">AI-powered LinkedIn & outreach optimizer</p>
               </div>
             </div>
-            <SeeExampleButton
-              serviceId="career-tools"
-              className="!px-3 !py-2 !text-xs !font-semibold flex-shrink-0"
-            />
+            <SeeExampleButton serviceId="career-tools" className="!px-3 !py-2 !text-xs !font-semibold flex-shrink-0" />
           </div>
         </div>
-        <ToolTabs active={activeTool} setActive={setActiveTool} />
+        <ToolTabs active={activeTool} setActive={handleToolChange} /> {/* ← handleToolChange */}
         {isLI ? <LinkedInForm {...liFormProps} /> : <OutreachForm {...orFormProps} />}
         {isLI ? renderLIResults() : renderORResults()}
       </div>
@@ -756,12 +791,9 @@ export default function CareerToolsPage() {
                   {isUnlimitedPlan ? 'Unlimited' : isLI ? `${liLeft} optimisations left` : `${orLeft} messages left`}
                 </span>
               </div>
-              <SeeExampleButton
-                serviceId="career-tools"
-                className="!px-3 !py-2 !text-[12px] !font-semibold flex-shrink-0"
-              />
+              <SeeExampleButton serviceId="career-tools" className="!px-3 !py-2 !text-[12px] !font-semibold flex-shrink-0" />
             </div>
-            <ToolTabs active={activeTool} setActive={setActiveTool} />
+            <ToolTabs active={activeTool} setActive={handleToolChange} /> {/* ← handleToolChange */}
           </div>
           <div className="flex-1 overflow-y-auto glass-scrollbar px-5 py-5">
             {isLI ? <LinkedInForm {...liFormProps} /> : <OutreachForm {...orFormProps} />}

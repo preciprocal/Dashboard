@@ -23,7 +23,7 @@ import { NotificationService } from '@/lib/services/notification-services';
 import UsersFeedback from '@/components/UserFeedback';
 import { useUsageTracking } from '@/lib/hooks/useUsageTracking';
 import { SeeExampleButton } from '@/components/ServiceModal';
-
+import NextStepPrompt from '@/components/NextStepPrompt'; // ← NEW
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -156,8 +156,6 @@ const EMPTY_FORM: Omit<DebriefEntry, 'id' | 'userId' | 'createdAt'> = {
   questionsAsked: [''], whatWentWell: '', whatWentPoorly: '',
   surprises: '', followUpActions: '', overallNotes: '', selfScore: 70,
 };
-
-// ─── Shared input styles ──────────────────────────────────────────────────────
 
 const inp = [
   'w-full px-3 py-2.5 rounded-xl text-[13px] text-white',
@@ -317,22 +315,10 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <Link
-              href="/pricing"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
-                         text-sm font-bold text-white
-                         bg-gradient-to-r from-violet-600 to-indigo-600
-                         hover:from-violet-500 hover:to-indigo-500
-                         shadow-[0_4px_20px_rgba(124,58,237,0.3)]
-                         hover:shadow-[0_6px_28px_rgba(124,58,237,0.4)]
-                         transition-all group"
-            >
-              Go Unlimited
-              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+            <Link href="/pricing" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-[0_4px_20px_rgba(124,58,237,0.3)] hover:shadow-[0_6px_28px_rgba(124,58,237,0.4)] transition-all group">
+              Go Unlimited <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </Link>
-            <span className="text-[10px] text-slate-600">
-              Cancel anytime · Instant access
-            </span>
+            <span className="text-[10px] text-slate-600">Cancel anytime · Instant access</span>
           </div>
         </div>
       </div>
@@ -405,8 +391,7 @@ function AIInsightsPanel({ entries }: { entries: DebriefEntry[] }) {
         <XCircle className="w-9 h-9 text-red-400 mx-auto mb-4" />
         <p className="text-[14px] font-semibold text-white mb-1">Analysis failed</p>
         <p className="text-[12px] text-slate-500 mb-5">{error}</p>
-        <button onClick={runAnalysis}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-[13px] font-semibold transition-all">
+        <button onClick={runAnalysis} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-[13px] font-semibold transition-all">
           <RefreshCw className="w-3.5 h-3.5" /> Retry
         </button>
       </SectionCard>
@@ -424,8 +409,7 @@ function AIInsightsPanel({ entries }: { entries: DebriefEntry[] }) {
           Analyse all {entries.length} debrief entries and identify what&apos;s actually holding you back.
         </p>
         <p className="text-[11px] text-amber-400 mb-6">Brutally honest. No sugarcoating.</p>
-        <button onClick={runAnalysis}
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-[13px] font-semibold shadow-[0_4px_16px_rgba(124,58,237,0.3)] transition-all duration-200">
+        <button onClick={runAnalysis} className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-[13px] font-semibold shadow-[0_4px_16px_rgba(124,58,237,0.3)] transition-all duration-200">
           <Zap className="w-4 h-4" /> Analyse My Interviews
         </button>
       </SectionCard>
@@ -447,8 +431,7 @@ function AIInsightsPanel({ entries }: { entries: DebriefEntry[] }) {
             <h3 className="text-[13px] font-bold text-white">AI Career Coach Analysis</h3>
             <p className="text-[11px] text-slate-600 mt-0.5">Based on {entries.length} entries</p>
           </div>
-          <button onClick={runAnalysis} title="Re-run analysis"
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:text-violet-400 hover:bg-white/[0.05] transition-all">
+          <button onClick={runAnalysis} title="Re-run analysis" className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:text-violet-400 hover:bg-white/[0.05] transition-all">
             <RefreshCw className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -665,7 +648,6 @@ export default function InterviewDebriefPage() {
   const [user, loading] = useAuthState(auth);
   const router = useRouter();
 
-  // ── Subscription / usage ──────────────────────────────────────────────────
   const {
     canUseFeature, getRemainingCount, getUsedCount,
     getLimit, incrementUsage, usageData,
@@ -687,6 +669,11 @@ export default function InterviewDebriefPage() {
   const [filterOutcome,  setFilterOutcome]  = useState<InterviewOutcome | 'all'>('all');
   const [activeView,     setActiveView]     = useState<'log' | 'insights' | 'ai'>('log');
   const [showFeedback,   setShowFeedback]   = useState(false);
+
+  // ← NEW: next step state
+  const [debriefNextStep, setDebriefNextStep] = useState<{
+    company: string; outcome: string; stage: string;
+  } | null>(null);
 
   const fetchEntries = useCallback(async () => {
     if (!user) return;
@@ -734,7 +721,6 @@ export default function InterviewDebriefPage() {
       } else {
         await addDoc(collection(db, 'interviewDebrief'), payload);
         toast.success('Debrief saved to your journal');
-
         await incrementUsage('interviewDebriefs');
 
         const msgs: Record<InterviewOutcome, string> = {
@@ -752,6 +738,13 @@ export default function InterviewDebriefPage() {
           msgs[formData.outcome],
           { actionUrl: '/debrief', actionLabel: 'View Journal' }
         );
+
+        // ← NEW: set next step context
+        setDebriefNextStep({
+          company: formData.companyName,
+          outcome: formData.outcome,
+          stage: formData.stage,
+        });
       }
       setShowFeedback(true);
       setFormData({ ...EMPTY_FORM }); setShowForm(false); setEditingId(null);
@@ -834,8 +827,7 @@ export default function InterviewDebriefPage() {
       <div className="glass-card p-5 animate-fade-in-up">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <Link href="/dashboard"
-              className="inline-flex items-center gap-1.5 text-[12px] text-slate-500 hover:text-slate-300 transition-colors mb-3">
+            <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-[12px] text-slate-500 hover:text-slate-300 transition-colors mb-3">
               <ArrowLeft className="w-3.5 h-3.5" /> Dashboard
             </Link>
             <div className="flex items-center gap-3 mb-1">
@@ -847,20 +839,15 @@ export default function InterviewDebriefPage() {
             <p className="text-[12px] text-slate-500 ml-12">Log real interviews, let AI find your patterns, turn losses into learning.</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* See Example */}
             <SeeExampleButton serviceId="debrief" />
-            {/* Usage badge */}
             <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-500/[0.07] border border-violet-500/20">
               <Shield className="w-4 h-4 text-violet-400" />
               <span className="text-[13px] font-semibold text-violet-400">
                 {isUnlimitedPlan ? 'Unlimited' : `${debriefLeft} left`}
               </span>
             </div>
-            {/* Log Interview button */}
-            <button
-              onClick={handleLogInterview}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-[13px] font-semibold shadow-[0_4px_14px_rgba(124,58,237,0.3)] transition-all duration-200"
-            >
+            <button onClick={handleLogInterview}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-[13px] font-semibold shadow-[0_4px_14px_rgba(124,58,237,0.3)] transition-all duration-200">
               {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
               {showForm ? 'Cancel' : 'Log Interview'}
             </button>
@@ -868,7 +855,6 @@ export default function InterviewDebriefPage() {
         </div>
       </div>
 
-      {/* Show upgrade gate when limit reached and no entries to view */}
       {!canUseFeature('interviewDebriefs') && entries.length === 0 ? (
         <UpgradeGate used={debriefUsed} limit={debriefLimit} />
       ) : (
@@ -880,6 +866,15 @@ export default function InterviewDebriefPage() {
             <StatCard icon={TrendingUp} label="Advance Rate"   value={`${advanceRate}%`}   sub={`${advancedCount} of ${totalEntries}`} accentClass="text-emerald-400" />
             <StatCard icon={Award}      label="Offers"         value={offerCount}           accentClass="text-blue-400" />
           </div>
+
+          {/* ← NEW: NextStepPrompt after saving a new debrief */}
+          {debriefNextStep && (
+            <NextStepPrompt
+              trigger="debrief_saved"
+              context={debriefNextStep}
+              delay={600}
+            />
+          )}
 
           {/* Log form */}
           {showForm && (
@@ -1053,15 +1048,12 @@ export default function InterviewDebriefPage() {
             </div>
           )}
 
-          {/* View tabs */}
           {entries.length > 0 && (
             <TabBar tabs={mainTabs} active={activeView} onChange={setActiveView} />
           )}
 
-          {/* AI view */}
           {activeView === 'ai' && entries.length > 0 && <AIInsightsPanel entries={entries} />}
 
-          {/* Stats view */}
           {activeView === 'insights' && entries.length > 0 && (
             <div className="space-y-4">
               <SectionCard>
@@ -1121,7 +1113,6 @@ export default function InterviewDebriefPage() {
             </div>
           )}
 
-          {/* Log view */}
           {activeView === 'log' && (
             <>
               {entries.length > 0 && (

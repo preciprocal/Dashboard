@@ -18,6 +18,7 @@ import { NotificationService } from '@/lib/services/notification-services';
 import UsersFeedback from '@/components/UserFeedback';
 import { useUsageTracking } from '@/lib/hooks/useUsageTracking';
 import { SeeExampleButton } from '@/components/ServiceModal';
+import NextStepPrompt from '@/components/NextStepPrompt'; // ← ADDED
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -558,6 +559,7 @@ export default function JobTrackerPage() {
   const [creatingPlan, setCreatingPlan] = useState(false);
   const [contactsModal, setContactsModal] = useState<Application | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [nextStepCtx, setNextStepCtx] = useState<{ company: string; jobTitle: string } | null>(null); // ← ADDED
 
   const jobsLimit = getLimit('jobTracker');
   const canAddJob = isUnlimitedPlan || apps.length < jobsLimit;
@@ -595,6 +597,7 @@ export default function JobTrackerPage() {
       if (!isEdit && user?.uid) {
         await NotificationService.createNotification(user.uid, 'planner', 'Application Tracked 📋', `${form.jobTitle} at ${form.company} has been added to your job tracker.`, { actionUrl: '/job-tracker', actionLabel: 'View Tracker' });
         setShowFeedback(true);
+        setNextStepCtx({ company: form.company.trim(), jobTitle: form.jobTitle.trim() }); // ← ADDED
       }
       setShowForm(false); setEditingId(null); setForm({ ...EMPTY_FORM }); await fetchApps();
     } catch (e: unknown) { toast.error(e instanceof Error ? e.message : 'Failed to save'); } finally { setSaving(false); }
@@ -686,10 +689,7 @@ export default function JobTrackerPage() {
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <SeeExampleButton
-                serviceId="job-tracker"
-                className="!px-4 !py-2.5 !text-sm !font-semibold"
-              />
+              <SeeExampleButton serviceId="job-tracker" className="!px-4 !py-2.5 !text-sm !font-semibold" />
               <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-500/[0.07] border border-purple-500/20">
                 <Shield className="w-4 h-4 text-purple-400" />
                 <span className="text-[13px] font-semibold text-purple-400">{isUnlimitedPlan ? 'Unlimited' : `${jobsLeft} jobs left`}</span>
@@ -716,6 +716,15 @@ export default function JobTrackerPage() {
 
             <div className="animate-fade-in-up" style={{ animationDelay: '120ms' }}><PipelineFunnel apps={apps} /></div>
 
+            {/* ← ADDED: NextStepPrompt after adding a new application */}
+            {nextStepCtx && (
+              <NextStepPrompt
+                trigger="job_tracked"
+                context={nextStepCtx}
+                delay={600}
+              />
+            )}
+
             {/* Search + filters */}
             <div className="flex flex-col sm:flex-row gap-2.5 animate-fade-in-up" style={{ animationDelay: '180ms' }}>
               <div className="relative flex-1"><Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none" /><input type="text" placeholder="Search by company, role, or location…" value={search} onChange={e => setSearch(e.target.value)} className={`${inp} pl-10`} /></div>
@@ -733,10 +742,7 @@ export default function JobTrackerPage() {
                 {apps.length === 0 && canAddJob && (
                   <div className="flex items-center justify-center gap-3">
                     <button onClick={() => { setForm({ ...EMPTY_FORM }); setShowForm(true); }} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-semibold transition-all duration-150"><Plus className="w-4 h-4" /> Add First Application</button>
-                    <SeeExampleButton
-                      serviceId="job-tracker"
-                      className="!px-5 !py-2.5 !text-sm !font-semibold"
-                    />
+                    <SeeExampleButton serviceId="job-tracker" className="!px-5 !py-2.5 !text-sm !font-semibold" />
                   </div>
                 )}
               </div>

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Preciprocal",
-  "version": "1.4.0",
-  "description": "AI career assistant: auto-apply on LinkedIn, Indeed, Workday & 12 more job boards, plus cover letters & interview prep",
+  "version": "1.4.1",
+  "description": "Apply to 50+ jobs with one click. AI cover letters in 10 seconds. Track every application. 60-day money-back guarantee.",
   "permissions": [
     "storage",
     "activeTab",

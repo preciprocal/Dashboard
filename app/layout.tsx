@@ -1,4 +1,5 @@
 // app/layout.tsx
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import {
@@ -10,9 +11,31 @@ import {
   getFeedbackByInterviewId,
 } from "@/lib/actions/general.action";
 import LayoutClient from "@/components/LayoutClient";
+import { buildMetadata, SITE } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
+// ─── SEO ──────────────────────────────────────────────────────────────────────
+// Dashboard root is behind auth. Default everything to noindex, and canonical
+// the root back to the marketing site so any link equity flows there.
+export const metadata: Metadata = buildMetadata({
+  title: `${SITE.name} — ${SITE.tagline}`,
+  description: SITE.description,
+  path: "/",
+  index: false,
+  canonical: SITE.marketing,
+});
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#0a0a0a" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+  ],
+  width: "device-width",
+  initialScale: 1,
+};
+
+// ─── Fonts ────────────────────────────────────────────────────────────────────
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -23,6 +46,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// ─── Stats helpers ────────────────────────────────────────────────────────────
 const defaultStats = {
   totalInterviews: 0,
   averageScore: 0,
@@ -53,10 +77,10 @@ const calculateUserStats = async (interviews: Interview[]) => {
 
   for (const interview of interviews) {
     try {
-      const feedback = await getFeedbackByInterviewId({
+      const feedback = (await getFeedbackByInterviewId({
         interviewId: interview.id,
         userId: interview.userId,
-      }) as Feedback | null;
+      })) as Feedback | null;
 
       if (feedback && feedback.totalScore) {
         totalScore += feedback.totalScore;
@@ -84,12 +108,12 @@ const calculateUserStats = async (interviews: Interview[]) => {
   };
 };
 
+// ─── Root layout ──────────────────────────────────────────────────────────────
 export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // Always default to null/empty — never let auth errors crash the layout
   let user = null;
   let userStats = { ...defaultStats };
 
@@ -115,8 +139,6 @@ export default async function RootLayout({
       }
     }
   } catch (error) {
-    // Stale cookie, expired token, etc. — treat as logged out
-    // LayoutClient will resolve the real state via Firebase client SDK
     console.error("Auth check failed (treated as logged out):", error);
     user = null;
     userStats = { ...defaultStats };
