@@ -18,13 +18,18 @@ export const dynamic = "force-dynamic";
 // ─── SEO ──────────────────────────────────────────────────────────────────────
 // Dashboard root is behind auth. Default everything to noindex, and canonical
 // the root back to the marketing site so any link equity flows there.
-export const metadata: Metadata = buildMetadata({
-  title: `${SITE.name} — ${SITE.tagline}`,
-  description: SITE.description,
-  path: "/",
-  index: false,
-  canonical: SITE.marketing,
-});
+export const metadata: Metadata = {
+  ...buildMetadata({
+    title: `${SITE.name} — ${SITE.tagline}`,
+    description: SITE.description,
+    path: "/",
+    index: false,
+    canonical: SITE.marketing,
+  }),
+  verification: {
+    google:"Gx5JSJmIhdKsJydR1agYdbj3-GZw5Cm5Js3K16sbgbU",
+  },
+};
 
 export const viewport: Viewport = {
   themeColor: [
