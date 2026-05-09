@@ -14,7 +14,7 @@ const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 // Add every student coupon ID you create in Stripe here.
 // Find them at: dashboard.stripe.com → Billing → Coupons
 const STUDENT_COUPON_IDS = new Set([
-  "student_free_month", // ← replace with your actual Stripe coupon ID
+  "Ll6U1Tw4", // Student — 1 month free
 ]);
 
 interface SubscriptionWithPeriods extends Stripe.Subscription {
@@ -27,14 +27,31 @@ interface InvoiceWithSubscription extends Stripe.Invoice {
 }
 
 // Stripe >=2022-11-15 uses `discounts` (array) instead of `discount` (object).
-// Safely extracts the first applied coupon ID from a subscription.
-function getAppliedCouponId(subscription: SubscriptionWithPeriods): string | null {
+// Safely extracts the first applied Stripe.Discount from a subscription.
+function getFirstDiscount(subscription: SubscriptionWithPeriods): Stripe.Discount | null {
   const discounts = subscription.discounts;
   if (!Array.isArray(discounts) || discounts.length === 0) return null;
   const first = discounts[0];
-  if (typeof first === 'string') return null; // not expanded
-  if ('deleted' in first) return null;        // DeletedDiscount
-  return (first as Stripe.Discount).coupon?.id ?? null;
+  if (typeof first === "string") return null; // not expanded
+  if ("deleted" in first) return null;        // DeletedDiscount
+  return first as Stripe.Discount;
+}
+
+function getAppliedCouponId(subscription: SubscriptionWithPeriods): string | null {
+  return getFirstDiscount(subscription)?.coupon?.id ?? null;
+}
+
+// userId may live on the subscription metadata (normal flow) OR on the coupon
+// metadata (student discount applied manually in the Stripe dashboard).
+function getUserId(subscription: SubscriptionWithPeriods): string | null {
+  if (subscription.metadata?.userId) return subscription.metadata.userId;
+  const discount = getFirstDiscount(subscription);
+  const couponUserId = discount?.coupon?.metadata?.userId;
+  if (couponUserId) {
+    console.log("ℹ️ userId resolved from coupon metadata:", couponUserId);
+    return couponUserId;
+  }
+  return null;
 }
 
 function safeTimestampToISO(timestamp: number | null | undefined): string | null {
@@ -119,9 +136,9 @@ export async function POST(request: NextRequest) {
 async function handleSubscriptionCreated(subscription: SubscriptionWithPeriods) {
   console.log("🆕 Subscription created:", subscription.id);
 
-  const userId = subscription.metadata.userId;
+  const userId = getUserId(subscription);
   if (!userId) {
-    console.error("❌ No userId in subscription metadata");
+    console.error("❌ No userId in subscription metadata or coupon metadata");
     return;
   }
 
@@ -164,9 +181,9 @@ async function handleSubscriptionCreated(subscription: SubscriptionWithPeriods) 
 async function handleSubscriptionUpdated(subscription: SubscriptionWithPeriods) {
   console.log("🔄 Subscription updated:", subscription.id);
 
-  const userId = subscription.metadata.userId;
+  const userId = getUserId(subscription);
   if (!userId) {
-    console.error("❌ No userId in subscription metadata");
+    console.error("❌ No userId in subscription metadata or coupon metadata");
     return;
   }
 
@@ -214,9 +231,9 @@ async function handleSubscriptionUpdated(subscription: SubscriptionWithPeriods) 
 async function handleSubscriptionDeleted(subscription: SubscriptionWithPeriods) {
   console.log("🗑️ Subscription deleted:", subscription.id);
 
-  const userId = subscription.metadata.userId;
+  const userId = getUserId(subscription);
   if (!userId) {
-    console.error("❌ No userId in subscription metadata");
+    console.error("❌ No userId in subscription metadata or coupon metadata");
     return;
   }
 
@@ -254,7 +271,7 @@ async function handlePaymentSucceeded(invoice: InvoiceWithSubscription) {
     invoice.subscription as string
   )) as unknown as SubscriptionWithPeriods;
 
-  const userId = subscription.metadata.userId;
+  const userId = getUserId(subscription);
   if (!userId) return;
 
   const plan = getPlanFromPriceId(subscription.items.data[0].price.id);
@@ -299,7 +316,7 @@ async function handlePaymentFailed(invoice: InvoiceWithSubscription) {
     invoice.subscription as string
   )) as unknown as SubscriptionWithPeriods;
 
-  const userId = subscription.metadata.userId;
+  const userId = getUserId(subscription);
   if (!userId) return;
 
   try {
