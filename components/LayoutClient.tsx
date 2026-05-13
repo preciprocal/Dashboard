@@ -20,7 +20,6 @@ import NotificationCenter from '@/components/Notifications';
 import type { LucideIcon } from 'lucide-react';
 import { Toaster } from 'sonner';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
-import { Analytics } from "@vercel/analytics/next"
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -497,10 +496,18 @@ function LayoutContent({ children, user }: LayoutClientProps) {
 
   useEffect(() => { if (!loading) setAuthResolved(true); }, [loading]);
 
+  // ── Auth guard: redirect to sign-in if session is missing or empty ─────────
   useEffect(() => {
     const isPublicRoute = PUBLIC_ROUTES.some(route => pathname.startsWith(route));
     if (!authResolved) return;
-    if (!user && !currentUser && !isPublicRoute) {
+    if (isPublicRoute) return;
+    // Redirect if no server-side user data (no session cookie / broken session)
+    // OR if there's no Firebase client user at all
+    if (!user || (!user.id && !user.email && !user.name)) {
+      router.push(`/sign-in?redirect=${encodeURIComponent(pathname)}`);
+      return;
+    }
+    if (!currentUser) {
       router.push(`/sign-in?redirect=${encodeURIComponent(pathname)}`);
     }
   }, [user, currentUser, authResolved, pathname, router]);
@@ -588,7 +595,9 @@ function LayoutContent({ children, user }: LayoutClientProps) {
     return <AnimatedLoader isVisible={true} loadingText="Loading" showNavigation={false} tone="focused" />;
   }
 
-  if (!user && !currentUser && !isPublicRoute) {
+  // Show loader while redirect fires (covers both empty user and missing Firebase session)
+  const userIsEmpty = !user || (!user.id && !user.email && !user.name);
+  if ((userIsEmpty || !currentUser) && !isPublicRoute) {
     return <AnimatedLoader isVisible={true} loadingText="Redirecting" showNavigation={false} tone="focused" />;
   }
 
@@ -943,7 +952,6 @@ export default function LayoutClient({ children, user, userStats }: LayoutClient
       <LayoutContent user={user} userStats={userStats}>
         {children}
       </LayoutContent>
-      <Analytics/>
     </>
   );
 }
