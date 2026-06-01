@@ -24,10 +24,6 @@ html {
   background: var(--background);
 }
 
-body::-webkit-scrollbar {
-  display: none;
-}
-
 /* Sidebar Glassmorphism */
 .glass-sidebar {
   background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%);
@@ -186,7 +182,7 @@ body::-webkit-scrollbar {
   background: rgba(239, 68, 68, 0.1);
 }
 
-/* Scrollbar Styling */
+/* Scrollbar Styling — applied to specific scrollable containers, not the body */
 .glass-scrollbar::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -252,7 +248,7 @@ body::-webkit-scrollbar {
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
 }
 
-/* Scrollbar */
+/* Scrollbar hide — use on specific containers only, not body */
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -262,6 +258,7 @@ body::-webkit-scrollbar {
   display: none;
 }
 
+/* Thin sidebar scrollbar */
 .sidebar-scroll {
   scrollbar-width: thin;
   scrollbar-color: rgba(75, 85, 99, 0.5) transparent;

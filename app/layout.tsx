@@ -16,8 +16,6 @@ import { buildMetadata, SITE } from "@/lib/seo";
 export const dynamic = "force-dynamic";
 
 // ─── SEO ──────────────────────────────────────────────────────────────────────
-// Dashboard root is behind auth. Default everything to noindex, and canonical
-// the root back to the marketing site so any link equity flows there.
 export const metadata: Metadata = {
   ...buildMetadata({
     title: `${SITE.name} — ${SITE.tagline}`,
@@ -27,7 +25,7 @@ export const metadata: Metadata = {
     canonical: SITE.marketing,
   }),
   verification: {
-    google:"Gx5JSJmIhdKsJydR1agYdbj3-GZw5Cm5Js3K16sbgbU",
+    google: "Gx5JSJmIhdKsJydR1agYdbj3-GZw5Cm5Js3K16sbgbU",
   },
 };
 
@@ -51,65 +49,110 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// ─── Stats helpers ────────────────────────────────────────────────────────────
+// ─── Defaults ─────────────────────────────────────────────────────────────────
 const defaultStats = {
   totalInterviews: 0,
   averageScore: 0,
   currentStreak: 0,
   practiceHours: 0,
   improvement: 0,
-  remainingSessions: 8,
+  remainingSessions: 0,
   interviewsUsed: 0,
-  interviewsLimit: 10,
+  interviewsLimit: 0,
   resumesUsed: 0,
-  resumesLimit: 5,
+  resumesLimit: 0,
 };
 
 interface Interview {
   id: string;
   userId: string;
+  createdAt?: { toDate?: () => Date } | string | Date;
 }
 
 interface Feedback {
   totalScore?: number;
 }
 
+// ─── Stats helper ─────────────────────────────────────────────────────────────
+// Uses Promise.all (parallel) instead of sequential awaits to avoid N+1.
 const calculateUserStats = async (interviews: Interview[]) => {
   const totalInterviews = interviews.length;
+
+  // Fetch all feedbacks in parallel
+  const feedbackResults = await Promise.allSettled(
+    interviews.map((interview) =>
+      getFeedbackByInterviewId({
+        interviewId: interview.id,
+        userId: interview.userId,
+      })
+    )
+  );
 
   let totalScore = 0;
   let scoredInterviews = 0;
 
-  for (const interview of interviews) {
-    try {
-      const feedback = (await getFeedbackByInterviewId({
-        interviewId: interview.id,
-        userId: interview.userId,
-      })) as Feedback | null;
-
-      if (feedback && feedback.totalScore) {
+  feedbackResults.forEach((result) => {
+    if (result.status === "fulfilled") {
+      const feedback = result.value as Feedback | null;
+      if (feedback?.totalScore) {
         totalScore += feedback.totalScore;
         scoredInterviews++;
       }
-    } catch (error) {
-      console.error("Error fetching feedback for interview:", interview.id, error);
     }
-  }
+  });
 
   const averageScore =
     scoredInterviews > 0 ? Math.round(totalScore / scoredInterviews) : 0;
 
+  // ── Real consecutive-day streak ──────────────────────────────────────────
+  // Build a Set of "YYYY-MM-DD" strings for days that had an interview,
+  // then count how many consecutive days (ending today) are present.
+  const daySet = new Set<string>();
+  interviews.forEach((iv) => {
+    try {
+      const raw = iv.createdAt;
+      let d: Date;
+      if (raw && typeof raw === "object" && "toDate" in raw && typeof raw.toDate === "function") {
+        d = raw.toDate();
+      } else {
+        d = new Date(raw as string | Date);
+      }
+      if (!isNaN(d.getTime())) {
+        daySet.add(d.toISOString().slice(0, 10));
+      }
+    } catch {
+      // skip unparseable dates
+    }
+  });
+
+  let currentStreak = 0;
+  const today = new Date();
+  for (let offset = 0; offset < 365; offset++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - offset);
+    const key = d.toISOString().slice(0, 10);
+    if (daySet.has(key)) {
+      currentStreak++;
+    } else if (offset > 0) {
+      // Gap found — streak ends (we allow today to be empty since the day isn't over)
+      break;
+    }
+  }
+
   return {
     totalInterviews,
     averageScore,
-    currentStreak: Math.min(totalInterviews, 10),
+    currentStreak,
     practiceHours: Math.round((totalInterviews * 45) / 60),
-    improvement: Math.min(Math.max(totalInterviews * 2, 5), 50),
-    remainingSessions: 20,
+    improvement: Math.min(Math.max(totalInterviews * 2, 0), 50),
+    // These should ideally come from your plan/subscription service.
+    // Leaving 0 as a safe default so the UI can handle "unknown" gracefully
+    // rather than showing a hardcoded wrong number.
+    remainingSessions: 0,
     interviewsUsed: totalInterviews,
-    interviewsLimit: 10,
+    interviewsLimit: 0,
     resumesUsed: 0,
-    resumesLimit: 5,
+    resumesLimit: 0,
   };
 };
 
@@ -136,7 +179,9 @@ export default async function RootLayout({
       if (user?.id) {
         try {
           const interviews = await getInterviewsByUserId(user.id);
-          userStats = await calculateUserStats(interviews || []);
+          userStats = await calculateUserStats(
+            (interviews || []) as Interview[]
+          );
         } catch (e) {
           console.error("Failed to fetch user stats:", e);
           userStats = { ...defaultStats };
