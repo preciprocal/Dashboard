@@ -10,7 +10,7 @@ import {
 
 export type { AppNotification };
 
-// Accepts an optional uid — if provided, uses it directly (avoids double auth call).
+// Accepts an optional uid - if provided, uses it directly (avoids double auth call).
 // If not provided, falls back to useAuthState internally.
 export function useNotifications(uid?: string) {
   const [currentUser] = useAuthState(auth);

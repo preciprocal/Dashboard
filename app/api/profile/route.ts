@@ -28,13 +28,13 @@ interface ProfileData {
   linkedIn?: string;
   github?: string;
   website?: string;
-  /** Storage path (not base64) — e.g. "users/{uid}/transcript.pdf" */
+  /** Storage path (not base64) - e.g. "users/{uid}/transcript.pdf" */
   transcriptPath?: string;
   transcriptFileName?: string;
-  /** Storage path (not base64) — e.g. "users/{uid}/resume.pdf" */
+  /** Storage path (not base64) - e.g. "users/{uid}/resume.pdf" */
   resumePath?: string;
   resumeFileName?: string;
-  /** @deprecated — kept for backwards compat during migration */
+  /** @deprecated - kept for backwards compat during migration */
   transcript?: string;
   resume?: string;
   provider: string;
@@ -163,7 +163,7 @@ export async function GET() {
       createdAt: d.createdAt || user.createdAt || new Date().toISOString(),
       lastLogin: d.lastLogin || new Date().toISOString(),
       subscription: {
-        plan: d.subscription?.plan || "starter",
+        plan: d.subscription?.plan || "free",
         status: d.subscription?.status || "active",
         interviewsUsed: d.subscription?.interviewsUsed || 0,
         interviewsLimit: d.subscription?.interviewsLimit || 10,
@@ -227,7 +227,7 @@ export async function PUT(request: NextRequest) {
       const fileName = updateData[`${fileType}FileName`] as string | undefined;
 
       if (fileData && fileData.startsWith('data:')) {
-        // It's a new base64 upload — store in Firebase Storage
+        // It's a new base64 upload - store in Firebase Storage
         console.log(`📤 Uploading ${fileType} to Firebase Storage for ${user.id}`);
         const storagePath = await uploadUserFile(user.id, fileType, fileData, fileName || `${fileType}.pdf`);
 
@@ -247,7 +247,7 @@ export async function PUT(request: NextRequest) {
         delete updateData[fileType];
         await invalidateUserTextCache(user.id, fileType);
       } else {
-        // No change to this file — remove from update payload
+        // No change to this file - remove from update payload
         delete updateData[fileType];
       }
     }

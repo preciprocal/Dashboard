@@ -97,15 +97,15 @@ function UpgradeGate({ feature }: { feature: 'jobs' | 'contacts' }) {
   const STATS_MAP = {
     jobs: [
       { num: '32+',  line: 'applications needed on average before landing an offer' },
-      { num: '85%',  line: 'of jobs are filled through networking — track every lead' },
-      { num: '68.5', line: 'days median time to first offer — organisation wins the race' },
+      { num: '85%',  line: 'of jobs are filled through networking - track every lead' },
+      { num: '68.5', line: 'days median time to first offer - organisation wins the race' },
       { num: '44%',  line: 'of hires come from candidates already in a company\'s system' },
     ],
     contacts: [
       { num: '85%',  line: 'of jobs are filled through connections, not cold applications' },
       { num: '5×',   line: 'more likely to get hired when referred by an internal contact' },
       { num: '44%',  line: 'of hires come from candidates already in the employer\'s system' },
-      { num: '80%',  line: 'of job openings are never publicly posted — warm intros unlock them' },
+      { num: '80%',  line: 'of job openings are never publicly posted - warm intros unlock them' },
     ],
   };
 
@@ -469,7 +469,7 @@ function ContactsModal({ app, onClose, onContactsFound }: { app: Application; on
                       <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06]"><div className="flex items-center gap-2"><Sparkles className="w-3.5 h-3.5 text-violet-400" /><span className="text-xs font-bold text-white">AI-Written Outreach</span></div><CopyBtn text={activeContact.generatedEmail} /></div>
                       <div className="p-4"><p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{activeContact.generatedEmail}</p><SendEmailButtons recipientEmail={activeContact.email} emailBody={activeContact.generatedEmail} jobTitle={app.jobTitle} company={app.company} /></div>
                     </div>
-                  ) : <div className="glass-card p-6 text-center"><p className="text-xs text-slate-600">Could not generate email for this contact — try again</p></div>}
+                  ) : <div className="glass-card p-6 text-center"><p className="text-xs text-slate-600">Could not generate email for this contact - try again</p></div>}
                 </div>
               )}
             </div>
@@ -574,7 +574,7 @@ export default function JobTrackerPage() {
   }, []);
 
   useEffect(() => { if (user) fetchApps(); }, [user, fetchApps]);
-  useEffect(() => { if (!loading && !user) router.push('/auth'); }, [user, loading, router]);
+  useEffect(() => { if (!loading && !user) router.push('/sign-in'); }, [user, loading, router]);
 
   const handleAddApp = () => {
     if (!canAddJob) { toast.error(`Free plan is limited to ${jobsLimit} tracked jobs. Upgrade to Pro for unlimited tracking.`); return; }

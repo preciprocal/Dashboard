@@ -1,8 +1,9 @@
 // lib/ai/usage-guard.ts
-// Server-side usage gate — checks and increments Firestore usage counters.
+// Server-side usage gate - checks and increments Firestore usage counters.
 // Shared across all API routes that consume AI credits.
 import { db } from '@/firebase/admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import { USAGE_LIMITS } from '@/lib/config/usage-limits';
 
 export type GatedFeature =
   | 'resumes'
@@ -12,61 +13,8 @@ export type GatedFeature =
   | 'interviewDebriefs'
   | 'linkedinOptimisations'
   | 'coldOutreach'
-  | 'findContacts';
-
-interface PlanLimits {
-  resumes: number;
-  coverLetters: number;
-  studyPlans: number;
-  interviews: number;
-  interviewDebriefs: number;
-  linkedinOptimisations: number;
-  coldOutreach: number;
-  findContacts: number;
-}
-
-const PLAN_LIMITS: Record<string, PlanLimits> = {
-  free: {
-    resumes: 2,
-    coverLetters: 3,
-    studyPlans: 1,
-    interviews: 1,
-    interviewDebriefs: 1,
-    linkedinOptimisations: 1,
-    coldOutreach: 1,
-    findContacts: 1,
-  },
-  starter: {
-    resumes: 2,
-    coverLetters: 3,
-    studyPlans: 1,
-    interviews: 1,
-    interviewDebriefs: 1,
-    linkedinOptimisations: 1,
-    coldOutreach: 1,
-    findContacts: 1,
-  },
-  pro: {
-    resumes: 10,
-    coverLetters: 20,
-    studyPlans: 5,
-    interviews: -1,       // unlimited
-    interviewDebriefs: 5,
-    linkedinOptimisations: 5,
-    coldOutreach: 5,
-    findContacts: 5,
-  },
-  premium: {
-    resumes: -1,
-    coverLetters: -1,
-    studyPlans: -1,
-    interviews: -1,
-    interviewDebriefs: -1,
-    linkedinOptimisations: -1,
-    coldOutreach: -1,
-    findContacts: -1,
-  },
-};
+  | 'findContacts'
+  | 'jobTracker';
 
 const FEATURE_FIELD: Record<GatedFeature, string> = {
   resumes:               'resumesUsed',
@@ -77,6 +25,7 @@ const FEATURE_FIELD: Record<GatedFeature, string> = {
   linkedinOptimisations: 'linkedinOptimisationsUsed',
   coldOutreach:          'coldOutreachUsed',
   findContacts:          'findContactsUsed',
+  jobTracker:            'jobTrackerUsed',
 };
 
 const FEATURE_NAMES: Record<GatedFeature, string> = {
@@ -88,6 +37,7 @@ const FEATURE_NAMES: Record<GatedFeature, string> = {
   linkedinOptimisations: 'LinkedIn Optimisations',
   coldOutreach:          'Cold Outreach',
   findContacts:          'Find Contacts',
+  jobTracker:            'Job Tracker',
 };
 
 export interface UsageCheckResult {
@@ -111,8 +61,8 @@ export async function checkUsage(
     const data = userDoc.exists ? userDoc.data() : null;
 
     const plan   = normalisePlan(data?.subscription?.plan);
-    const limits = PLAN_LIMITS[plan] ?? PLAN_LIMITS.free;
-    const limit  = limits[feature];
+    const limits = USAGE_LIMITS[plan];
+    const limit  = limits[feature as keyof typeof limits];
     const field  = FEATURE_FIELD[feature];
     const used   = (data?.usage?.[field] as number) ?? 0;
 
@@ -131,7 +81,7 @@ export async function checkUsage(
     };
   } catch (err) {
     console.error(`❌ Usage check failed for ${userId}/${feature}:`, err);
-    // Fail CLOSED — block the user if we can't verify their quota.
+    // Fail CLOSED - block the user if we can't verify their quota.
     return {
       allowed: false, used: 0, limit: 0, remaining: 0, plan: 'unknown', feature,
       message: 'Unable to verify usage at this time. Please try again in a moment.',
@@ -142,7 +92,7 @@ export async function checkUsage(
 // ─── Check AND increment atomically via Firestore transaction ─────────────────
 //
 // The read + conditional write run inside a single Firestore transaction,
-// so only one request can win at the limit boundary — no race conditions.
+// so only one request can win at the limit boundary - no race conditions.
 
 export async function checkAndIncrementUsage(
   userId: string,
@@ -157,11 +107,11 @@ export async function checkAndIncrementUsage(
       const data    = userDoc.exists ? userDoc.data() : null;
 
       const plan   = normalisePlan(data?.subscription?.plan);
-      const limits = PLAN_LIMITS[plan] ?? PLAN_LIMITS.free;
-      const limit  = limits[feature];
+      const limits = USAGE_LIMITS[plan];
+      const limit  = limits[feature as keyof typeof limits];
       const used   = (data?.usage?.[field] as number) ?? 0;
 
-      // Unlimited — increment and allow immediately
+      // Unlimited - increment and allow immediately
       if (limit === -1) {
         txn.update(userRef, {
           [`usage.${field}`]:  FieldValue.increment(1),
@@ -170,7 +120,7 @@ export async function checkAndIncrementUsage(
         return { allowed: true, used: used + 1, limit: -1, remaining: -1, plan, feature };
       }
 
-      // Hard limit reached — abort without writing anything
+      // Hard limit reached - abort without writing anything
       if (used >= limit) {
         return {
           allowed: false, used, limit, remaining: 0, plan, feature,
@@ -178,7 +128,7 @@ export async function checkAndIncrementUsage(
         };
       }
 
-      // Within limit — increment atomically inside the same transaction
+      // Within limit - increment atomically inside the same transaction
       txn.update(userRef, {
         [`usage.${field}`]:  FieldValue.increment(1),
         'usage.lastUpdated': FieldValue.serverTimestamp(),
@@ -190,12 +140,12 @@ export async function checkAndIncrementUsage(
     });
 
     console.log(
-      `📊 Usage [${feature}] for ${userId}: ${result.used}/${result.limit} — ${result.allowed ? 'ALLOWED' : 'BLOCKED'}`,
+      `📊 Usage [${feature}] for ${userId}: ${result.used}/${result.limit} - ${result.allowed ? 'ALLOWED' : 'BLOCKED'}`,
     );
     return result;
   } catch (err) {
     console.error(`❌ Usage transaction failed for ${userId}/${feature}:`, err);
-    // Fail CLOSED — if the transaction errors we cannot safely allow the request.
+    // Fail CLOSED - if the transaction errors we cannot safely allow the request.
     return {
       allowed: false, used: 0, limit: 0, remaining: 0, plan: 'unknown', feature,
       message: 'Unable to verify usage at this time. Please try again in a moment.',
@@ -205,9 +155,9 @@ export async function checkAndIncrementUsage(
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function normalisePlan(raw: unknown): string {
+function normalisePlan(raw: unknown): keyof typeof USAGE_LIMITS {
   const plan = (typeof raw === 'string' ? raw : 'free').toLowerCase().trim();
-  if (plan === 'starter') return 'free';
-  if (['free', 'pro', 'premium'].includes(plan)) return plan;
+  if (plan === 'pro')     return 'pro';
+  if (plan === 'premium') return 'premium';
   return 'free';
 }

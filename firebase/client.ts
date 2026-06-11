@@ -21,12 +21,12 @@ if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
   );
 }
 
-// Initialise once — Next.js hot-reload can re-run this module
+// Initialise once - Next.js hot-reload can re-run this module
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
 export const auth = getAuth(app);
 
-// Always use local persistence — prevents login loops when tabs are backgrounded
+// Always use local persistence - prevents login loops when tabs are backgrounded
 setPersistence(auth, browserLocalPersistence).catch((err) => {
   console.error('❌ Failed to set auth persistence:', err);
 });
@@ -35,7 +35,7 @@ setPersistence(auth, browserLocalPersistence).catch((err) => {
 // We use the app's _isDeleted check via getApps() to detect if this module has
 // already run (Next.js hot-reload re-executes modules). On the first run we
 // call initializeFirestore with experimentalForceLongPolling which replaces the
-// WebChannel with standard HTTP long-polling — permanently eliminating the CORS
+// WebChannel with standard HTTP long-polling - permanently eliminating the CORS
 // wildcard error on both localhost and production. On subsequent module
 // evaluations (hot-reload) we fall back to getFirestore which returns the
 // already-configured instance.

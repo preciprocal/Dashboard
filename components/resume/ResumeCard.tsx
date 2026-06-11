@@ -27,7 +27,7 @@ interface FeedbackCategory {
   tips?: Array<{ type: string; message: string }>;
 }
 
-// ─── Global thumbnail cache — survives re-renders and re-mounts ───────────────
+// ─── Global thumbnail cache - survives re-renders and re-mounts ───────────────
 
 const thumbnailCache = new Map<string, string>();
 
@@ -44,7 +44,7 @@ const PdfThumbnail = memo(function PdfThumbnail({ resumePath, small = false }: {
 
   useEffect(() => {
     if (!resumePath) { setStatus('error'); return; }
-    // Already cached — use the data URL
+    // Already cached - use the data URL
     if (thumbnailCache.has(resumePath)) {
       setCachedSrc(thumbnailCache.get(resumePath)!);
       setStatus('done');
@@ -115,7 +115,7 @@ const PdfThumbnail = memo(function PdfThumbnail({ resumePath, small = false }: {
           thumbnailCache.set(resumePath, dataUrl);
           setCachedSrc(dataUrl);
         } catch {
-          // toDataURL can fail on tainted canvases — still show the canvas
+          // toDataURL can fail on tainted canvases - still show the canvas
         }
 
         setStatus('done');

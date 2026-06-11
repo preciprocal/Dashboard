@@ -8,7 +8,7 @@ import { getRandomInterviewCover } from '@/lib/utils';
 interface InterviewTemplate {
   id: string;
   role: string;
-  type: 'Technical' | 'Behavioral' | 'Mixed';
+  type: 'Technical' | 'Behavioral' | 'Mixed' | 'System Design';
   techstack: string[];
   category: string;
   difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     const { interviewTemplates } = await import('@/app/data/interviewTemplates');
     
     // Find the template
-    const template = interviewTemplates.find(t => t.id === templateId);
+    const template = interviewTemplates.find(t => t.id === templateId) as InterviewTemplate | undefined;
 
     if (!template) {
       return NextResponse.json(
@@ -100,13 +100,15 @@ export async function POST(request: NextRequest) {
 
     // Generate technical questions if needed
     if (template.type === 'Technical' || template.type === 'Mixed') {
-      const techCount = template.type === 'Mixed' 
-        ? Math.floor(template.questions * 0.6) 
+      const techCount = template.type === 'Mixed'
+        ? Math.floor(template.questions * 0.6)
         : template.questions;
-      
-      technicalQuestions.push(
-        ...generateTechnicalQuestions(template, techCount)
-      );
+      technicalQuestions.push(...generateTechnicalQuestions(template, techCount));
+    }
+
+    // System design gets its own focused question pool (all technical, asked by Lead)
+    if (template.type === 'System Design') {
+      technicalQuestions.push(...generateSystemDesignQuestions(template, template.questions));
     }
 
     // Generate behavioral questions if needed
@@ -114,10 +116,7 @@ export async function POST(request: NextRequest) {
       const behavioralCount = template.type === 'Mixed'
         ? Math.ceil(template.questions * 0.4)
         : template.questions;
-      
-      behavioralQuestions.push(
-        ...generateBehavioralQuestions(template, behavioralCount)
-      );
+      behavioralQuestions.push(...generateBehavioralQuestions(template, behavioralCount));
     }
 
     // Combine all questions
@@ -184,6 +183,53 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+// System design question pool - asked by the Technical Lead
+function generateSystemDesignQuestions(template: InterviewTemplate, count: number): string[] {
+  const primaryTech = template.techstack[0] || 'your stack';
+  const techStack   = template.techstack.join(', ');
+
+  const pool: string[] = [
+    // Real-world design scenarios
+    `Design a URL shortener service. Walk me through the components, database schema, and how you'd handle scale.`,
+    `How would you design a real-time notification system that supports millions of concurrent users?`,
+    `Design a distributed rate limiter. What data store would you use and why?`,
+    `Walk me through designing a news feed system similar to Twitter or LinkedIn.`,
+    `How would you design a global CDN? What caching strategies would you apply?`,
+    `Design a distributed task queue. How do you handle retries, failures, and ordering guarantees?`,
+    `How would you architect a chat application that supports group messaging and message history?`,
+    `Design an API gateway for a microservices architecture using ${techStack}.`,
+
+    // Scalability & trade-offs
+    `How would you scale a ${primaryTech} application from 10,000 to 10 million users? What breaks first?`,
+    `Explain the CAP theorem and describe a real situation where you had to choose between consistency and availability.`,
+    `How do you design a system that needs both low-latency reads and high write throughput with ${primaryTech}?`,
+    `Walk me through horizontal vs vertical scaling trade-offs in the context of ${techStack}.`,
+    `How would you implement database sharding for a ${template.role} system?`,
+
+    // Distributed systems concepts
+    `How would you implement idempotency in a distributed ${primaryTech} API to prevent duplicate operations?`,
+    `Explain eventual consistency and describe when it is acceptable in a ${template.role} context.`,
+    `How do you handle distributed transactions across multiple services in a ${techStack} architecture?`,
+    `What strategies would you use to prevent cascading failures in a microservices system?`,
+    `How would you implement a leader-election mechanism in a distributed ${primaryTech} cluster?`,
+
+    // Caching & storage
+    `Design a caching layer for a high-traffic ${template.role} system. What would you cache and what eviction strategy would you use?`,
+    `When would you choose a SQL database vs a NoSQL database for a ${template.role} system? Walk me through your decision.`,
+    `How would you design a write-through vs write-behind caching strategy and when would each be appropriate?`,
+    `How do you handle cache invalidation in a distributed ${techStack} environment?`,
+
+    // Reliability & observability
+    `How would you design a monitoring and alerting system for a critical ${template.role} service?`,
+    `What does your approach to disaster recovery look like for a ${techStack} production system?`,
+    `How would you implement circuit breakers and graceful degradation in a ${primaryTech} service?`,
+    `Describe how you would design for zero-downtime deployments in a ${template.role} context.`,
+  ];
+
+  const shuffled = pool.sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, count);
 }
 
 // Helper function to generate technical questions based on template

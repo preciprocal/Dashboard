@@ -60,7 +60,7 @@ function LoadingCard({ message, sub }: { message: string; sub: string }) {
 function LinkedInForm({ onGenerate, isLoading }: { onGenerate: () => void; isLoading: boolean }) {
   return (
     <div className="flex gap-3 h-full" style={{ minHeight: 520 }}>
-      {/* Left — Form */}
+      {/* Left - Form */}
       <div className="w-[48%] flex-shrink-0 flex flex-col">
         <FadeIn delay={0}>
           <div className="flex items-center gap-2.5 mb-3">
@@ -140,7 +140,7 @@ function LinkedInForm({ onGenerate, isLoading }: { onGenerate: () => void; isLoa
         </div>
       </div>
 
-      {/* Right — Empty state or Loading */}
+      {/* Right - Empty state or Loading */}
       {isLoading ? (
         <LoadingCard
           message="Analysing your profile…"
@@ -170,7 +170,7 @@ function LinkedInResults() {
     <div className="flex gap-3 h-full" style={{ minHeight: 520 }}>
       <style dangerouslySetInnerHTML={{ __html: SCROLL_CSS }} />
 
-      {/* Left — Form (filled) */}
+      {/* Left - Form (filled) */}
       <div className="w-[42%] flex-shrink-0 overflow-y-auto pr-0.5 ct-scroll" style={{ maxHeight: 520 }}>
         <div className="flex items-center gap-2 mb-3">
           <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center"><Sparkles className="w-3 h-3 text-white" /></div>
@@ -195,7 +195,7 @@ function LinkedInResults() {
         </div>
       </div>
 
-      {/* Right — Results */}
+      {/* Right - Results */}
       <div className="flex-1 min-w-0 overflow-y-auto ct-scroll space-y-2.5" style={{ maxHeight: 520 }}>
         {/* Overall Score */}
         <FadeIn delay={0}>
@@ -238,7 +238,7 @@ function LinkedInResults() {
                 <span className="text-[7px] text-slate-500 flex items-center gap-0.5"><Copy className="w-2 h-2" /> Copy</span>
               </div>
               <p className="text-[10px] text-white font-medium leading-relaxed">Senior Software Engineer | Building Scalable Fintech Systems | Python & Java | Ex-JPMorgan</p>
-              <p className="text-[8px] text-slate-500 mt-1">Includes target role, industry, key skills, and social proof — 4x more searchable.</p>
+              <p className="text-[8px] text-slate-500 mt-1">Includes target role, industry, key skills, and social proof - 4x more searchable.</p>
             </div>
           </div>
         </FadeIn>
@@ -394,7 +394,7 @@ function OutreachForm({ onGenerate, isLoading }: { onGenerate: () => void; isLoa
         </div>
       </div>
 
-      {/* Right — Empty state or Loading */}
+      {/* Right - Empty state or Loading */}
       {isLoading ? (
         <LoadingCard
           message="Crafting your messages…"
@@ -425,13 +425,13 @@ function OutreachResults() {
   const versions = [
     { label: 'Best', approach: 'Value-first: lead with what you can offer Stripe, not what you want.',
       subject: "Quick question about Stripe's new payments API architecture",
-      body: "Hi Sarah,\n\nI noticed your post about Stripe's new payments API — the shift to idempotent request handling is exactly what I've been building at JPMorgan for our real-time settlement system.\n\nI led a team that redesigned our payment processing pipeline to handle 50K TPS with 99.99% uptime. James Lee mentioned your team is scaling the infrastructure side — I'd love to hear more about the challenges you're tackling.\n\nWould a 15-min chat next week work?\n\nBest,\nAlex" },
+      body: "Hi Sarah,\n\nI noticed your post about Stripe's new payments API - the shift to idempotent request handling is exactly what I've been building at JPMorgan for our real-time settlement system.\n\nI led a team that redesigned our payment processing pipeline to handle 50K TPS with 99.99% uptime. James Lee mentioned your team is scaling the infrastructure side - I'd love to hear more about the challenges you're tackling.\n\nWould a 15-min chat next week work?\n\nBest,\nAlex" },
     { label: 'Option 2', approach: 'Mutual connection angle: leverage the shared network.',
-      subject: 'James Lee suggested I reach out — payments engineering',
-      body: "Hi Sarah,\n\nJames Lee suggested I reach out — he mentioned your team at Stripe is doing impressive work on the payments infrastructure.\n\nI've spent the last 4 years building financial APIs at JPMorgan, and I'm exploring what's next. Your recent post about API design really resonated with the challenges I've been solving.\n\nWould you be open to a brief chat about what it's like on the engineering side at Stripe?\n\nCheers,\nAlex" },
+      subject: 'James Lee suggested I reach out - payments engineering',
+      body: "Hi Sarah,\n\nJames Lee suggested I reach out - he mentioned your team at Stripe is doing impressive work on the payments infrastructure.\n\nI've spent the last 4 years building financial APIs at JPMorgan, and I'm exploring what's next. Your recent post about API design really resonated with the challenges I've been solving.\n\nWould you be open to a brief chat about what it's like on the engineering side at Stripe?\n\nCheers,\nAlex" },
     { label: 'Option 3', approach: 'Direct & bold: express clear interest upfront.',
       subject: "Interested in Stripe's backend engineering team",
-      body: "Hi Sarah,\n\nI'll keep this short — I'm a backend engineer with 5 years in fintech (JPMorgan), and Stripe's payments team is at the top of my list.\n\nI saw the Senior Backend role and your post about the API redesign. My experience scaling payment systems to 50K TPS maps directly to what you're building.\n\nCould I get 10 minutes of your time this week?\n\nThanks,\nAlex" },
+      body: "Hi Sarah,\n\nI'll keep this short - I'm a backend engineer with 5 years in fintech (JPMorgan), and Stripe's payments team is at the top of my list.\n\nI saw the Senior Backend role and your post about the API redesign. My experience scaling payment systems to 50K TPS maps directly to what you're building.\n\nCould I get 10 minutes of your time this week?\n\nThanks,\nAlex" },
   ];
 
   const active = versions[activeVersion];
@@ -440,7 +440,7 @@ function OutreachResults() {
     <div className="flex gap-3 h-full" style={{ minHeight: 520 }}>
       <style dangerouslySetInnerHTML={{ __html: SCROLL_CSS }} />
 
-      {/* Left — compact form summary */}
+      {/* Left - compact form summary */}
       <div className="w-[35%] flex-shrink-0 overflow-y-auto ct-scroll" style={{ maxHeight: 520 }}>
         <div className="flex items-center gap-2 mb-2">
           <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center"><Sparkles className="w-3 h-3 text-white" /></div>
@@ -466,7 +466,7 @@ function OutreachResults() {
         </div>
       </div>
 
-      {/* Right — Results */}
+      {/* Right - Results */}
       <div className="flex-1 min-w-0 overflow-y-auto ct-scroll space-y-2.5" style={{ maxHeight: 520 }}>
         {/* Version tabs */}
         <FadeIn delay={0}>
@@ -517,7 +517,7 @@ function OutreachResults() {
               <p className="text-[8px] text-blue-300">Send 3–5 business days after initial email</p>
             </div>
             <div className="p-2 bg-white/[0.03] border border-white/[0.07] rounded-lg">
-              <p className="text-[8px] text-slate-300 leading-relaxed">Hi Sarah, just bumping this to the top — I know inboxes move fast. Would a 10-minute call work this week? Happy to share more about the payment pipeline work I mentioned. No worries if the timing isn&apos;t right.</p>
+              <p className="text-[8px] text-slate-300 leading-relaxed">Hi Sarah, just bumping this to the top - I know inboxes move fast. Would a 10-minute call work this week? Happy to share more about the payment pipeline work I mentioned. No worries if the timing isn&apos;t right.</p>
             </div>
           </div>
         </FadeIn>
@@ -544,7 +544,7 @@ function OutreachResults() {
   );
 }
 
-// ─── Phase 5: Interactive (user explores both tools — two-panel layout) ───────
+// ─── Phase 5: Interactive (user explores both tools - two-panel layout) ───────
 
 function InteractiveView() {
   const [activeTool, setActiveTool] = useState<'linkedin' | 'outreach'>('linkedin');
@@ -553,20 +553,20 @@ function InteractiveView() {
   const versions = [
     { label: 'Best', approach: 'Value-first: lead with what you can offer Stripe, not what you want.',
       subject: "Quick question about Stripe's new payments API architecture",
-      body: "Hi Sarah,\n\nI noticed your post about Stripe's new payments API — the shift to idempotent request handling is exactly what I've been building at JPMorgan for our real-time settlement system.\n\nI led a team that redesigned our payment processing pipeline to handle 50K TPS with 99.99% uptime. James Lee mentioned your team is scaling the infrastructure side — I'd love to hear more about the challenges you're tackling.\n\nWould a 15-min chat next week work?\n\nBest,\nAlex" },
+      body: "Hi Sarah,\n\nI noticed your post about Stripe's new payments API - the shift to idempotent request handling is exactly what I've been building at JPMorgan for our real-time settlement system.\n\nI led a team that redesigned our payment processing pipeline to handle 50K TPS with 99.99% uptime. James Lee mentioned your team is scaling the infrastructure side - I'd love to hear more about the challenges you're tackling.\n\nWould a 15-min chat next week work?\n\nBest,\nAlex" },
     { label: 'Option 2', approach: 'Mutual connection angle: leverage the shared network.',
-      subject: 'James Lee suggested I reach out — payments engineering',
-      body: "Hi Sarah,\n\nJames Lee suggested I reach out — he mentioned your team at Stripe is doing impressive work on the payments infrastructure.\n\nI've spent the last 4 years building financial APIs at JPMorgan, and I'm exploring what's next. Your recent post about API design really resonated with the challenges I've been solving.\n\nWould you be open to a brief chat about what it's like on the engineering side at Stripe?\n\nCheers,\nAlex" },
+      subject: 'James Lee suggested I reach out - payments engineering',
+      body: "Hi Sarah,\n\nJames Lee suggested I reach out - he mentioned your team at Stripe is doing impressive work on the payments infrastructure.\n\nI've spent the last 4 years building financial APIs at JPMorgan, and I'm exploring what's next. Your recent post about API design really resonated with the challenges I've been solving.\n\nWould you be open to a brief chat about what it's like on the engineering side at Stripe?\n\nCheers,\nAlex" },
     { label: 'Option 3', approach: 'Direct & bold: express clear interest upfront.',
       subject: "Interested in Stripe's backend engineering team",
-      body: "Hi Sarah,\n\nI'll keep this short — I'm a backend engineer with 5 years in fintech (JPMorgan), and Stripe's payments team is at the top of my list.\n\nI saw the Senior Backend role and your post about the API redesign. My experience scaling payment systems to 50K TPS maps directly to what you're building.\n\nCould I get 10 minutes of your time this week?\n\nThanks,\nAlex" },
+      body: "Hi Sarah,\n\nI'll keep this short - I'm a backend engineer with 5 years in fintech (JPMorgan), and Stripe's payments team is at the top of my list.\n\nI saw the Senior Backend role and your post about the API redesign. My experience scaling payment systems to 50K TPS maps directly to what you're building.\n\nCould I get 10 minutes of your time this week?\n\nThanks,\nAlex" },
   ];
 
   return (
     <div className="flex gap-3 h-full" style={{ minHeight: 520 }}>
       <style dangerouslySetInnerHTML={{ __html: SCROLL_CSS }} />
 
-      {/* Left — Form summary + tool switcher */}
+      {/* Left - Form summary + tool switcher */}
       <div className="w-[42%] flex-shrink-0 overflow-y-auto pr-0.5 ct-scroll" style={{ maxHeight: 520 }}>
         <div className="flex items-center gap-2 mb-3">
           <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center"><Sparkles className="w-3 h-3 text-white" /></div>
@@ -591,7 +591,7 @@ function InteractiveView() {
         {/* Hint */}
         <p className="text-[8px] text-indigo-400 text-center mb-2.5 font-medium">✨ Switch tabs to explore both tools</p>
 
-        {/* Form summary — changes based on active tool */}
+        {/* Form summary - changes based on active tool */}
         {activeTool === 'linkedin' ? (
           <div className="space-y-2">
             {[
@@ -624,7 +624,7 @@ function InteractiveView() {
         )}
       </div>
 
-      {/* Right — Results (changes based on active tool) */}
+      {/* Right - Results (changes based on active tool) */}
       <div className="flex-1 min-w-0 overflow-y-auto ct-scroll space-y-2.5" style={{ maxHeight: 520 }}>
         {activeTool === 'linkedin' ? (
           <>
@@ -761,7 +761,7 @@ function InteractiveView() {
                   <p className="text-[8px] text-blue-300">Send 3–5 business days after initial email</p>
                 </div>
                 <div className="p-2 bg-white/[0.03] border border-white/[0.07] rounded-lg">
-                  <p className="text-[8px] text-slate-300 leading-relaxed">Hi Sarah, just bumping this to the top — I know inboxes move fast. Would a 10-minute call work this week? Happy to share more about the payment pipeline work I mentioned. No worries if the timing isn&apos;t right.</p>
+                  <p className="text-[8px] text-slate-300 leading-relaxed">Hi Sarah, just bumping this to the top - I know inboxes move fast. Would a 10-minute call work this week? Happy to share more about the payment pipeline work I mentioned. No worries if the timing isn&apos;t right.</p>
                 </div>
               </div>
             </FadeIn>

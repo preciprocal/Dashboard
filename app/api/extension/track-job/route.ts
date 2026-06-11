@@ -173,7 +173,7 @@ export async function POST(request: NextRequest) {
       updatedAt:     now,
     });
 
-    console.log('[track-job] ✅ Saved:', docRef.id, '—', jobTitle, '@', company);
+    console.log('[track-job] ✅ Saved:', docRef.id, '-', jobTitle, '@', company);
     return NextResponse.json({ success: true, id: docRef.id });
 
   } catch (error) {

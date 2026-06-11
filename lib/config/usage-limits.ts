@@ -33,24 +33,24 @@ export const USAGE_LIMITS: PlanLimits = {
   pro: {
     coverLetters: 20,
     resumes: 10,
-    studyPlans: 5,
-    interviews: -1,       // unlimited
-    interviewDebriefs: 5,
-    linkedinOptimisations: 5,
+    studyPlans: 3,
+    interviews: 5,
+    interviewDebriefs: 3,
+    linkedinOptimisations: 3,
     coldOutreach: 5,
-    findContacts: 5,
-    jobTracker: 30,
+    findContacts: 10,
+    jobTracker: -1,       // unlimited
   },
   premium: {
-    coverLetters: -1,
-    resumes: -1,
-    studyPlans: -1,
-    interviews: -1,
-    interviewDebriefs: -1,
-    linkedinOptimisations: -1,
-    coldOutreach: -1,
-    findContacts: -1,
-    jobTracker: -1,
+    coverLetters: -1,     // unlimited
+    resumes: 30,
+    studyPlans: 15,
+    interviews: 30,
+    interviewDebriefs: 20,
+    linkedinOptimisations: 15,
+    coldOutreach: -1,     // unlimited
+    findContacts: 30,
+    jobTracker: -1,       // unlimited
   },
 };
 

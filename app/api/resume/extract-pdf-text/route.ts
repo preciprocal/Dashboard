@@ -1,6 +1,6 @@
 // app/api/resume/extract-pdf-text/route.ts
 // Accepts the actual PDF (or image) file via multipart/form-data.
-// Gemini reads it natively — no base64 JSON payloads, no data-URL juggling.
+// Gemini reads it natively - no base64 JSON payloads, no data-URL juggling.
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     if (!genAI || !apiKey) {
       console.error('❌ Gemini API not configured');
       return NextResponse.json(
-        { error: 'AI service not configured — add GOOGLE_GENERATIVE_AI_API_KEY' },
+        { error: 'AI service not configured - add GOOGLE_GENERATIVE_AI_API_KEY' },
         { status: 500 },
       );
     }
@@ -62,7 +62,7 @@ INSTRUCTIONS:
 - Extract every bullet point in full
 - Include all technical skills, tools, frameworks, and languages
 - Include contact information (name, email, phone, LinkedIn, GitHub)
-- Do NOT summarise, interpret, or modify — extract exactly what is present
+- Do NOT summarise, interpret, or modify - extract exactly what is present
 - Output ONLY the extracted text, nothing else
 
 Return the complete text content of this document.`,
@@ -74,7 +74,7 @@ Return the complete text content of this document.`,
     console.log('📝 Preview:', extractedText.substring(0, 200));
 
     if (!extractedText || extractedText.length < 50) {
-      throw new Error('Extracted text is too short — the file may be empty or unreadable');
+      throw new Error('Extracted text is too short - the file may be empty or unreadable');
     }
 
     return NextResponse.json({ success: true, text: extractedText });

@@ -92,16 +92,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid feedback data" }, { status: 400 });
     }
 
+    const { FieldValue } = await import("firebase-admin/firestore");
     await db.collection("feedback").add({
-      userId: user.id,
+      type:      'feature-rating',
+      userId:    user.id,
       userEmail: user.email ?? null,
-      userName: user.name ?? null,
+      userName:  user.name  ?? null,
       serviceKey,
       rating,
-      nps: nps ?? null,
-      tags: tags ?? [],
+      nps:     nps     ?? null,
+      tags:    tags    ?? [],
       comment: comment ?? "",
-      createdAt: new Date(),
+      createdAt: FieldValue.serverTimestamp(),
     });
 
     return NextResponse.json({ success: true });

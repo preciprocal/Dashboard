@@ -83,7 +83,7 @@ function getFileKind(file: File): 'pdf' | 'word' | null {
 function validateFile(file: File): { valid: boolean; error?: string } {
   const kind = getFileKind(file);
   if (!kind) return { valid: false, error: 'Please upload a PDF or Word document (.pdf, .docx, .doc)' };
-  if (file.size > MAX_FILE_SIZE) return { valid: false, error: `File too large — max 10 MB (yours is ${(file.size / 1024 / 1024).toFixed(1)} MB)` };
+  if (file.size > MAX_FILE_SIZE) return { valid: false, error: `File too large - max 10 MB (yours is ${(file.size / 1024 / 1024).toFixed(1)} MB)` };
   if (file.size < 1024) return { valid: false, error: 'File appears to be empty or corrupted' };
   return { valid: true };
 }
@@ -100,7 +100,7 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
   const [activeStat, setActiveStat] = useState(0);
 
   const STATS = [
-    { num: '180+', line: 'applicants per role on average — only 5 get an interview' },
+    { num: '180+', line: 'applicants per role on average - only 5 get an interview' },
     { num: '43%',  line: 'of resume rejections are from formatting issues, not qualifications' },
     { num: '92%',  line: 'of recruiters value a clear, skimmable resume structure' },
     { num: '52%',  line: 'of recruiters say applying in the first 48 hrs boosts your chances' },
@@ -130,7 +130,7 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
             Don&apos;t apply blind. Know your score first.
           </h2>
           <p className="text-sm text-slate-500 mb-6 max-w-md">
-            You&apos;ve already tested {used} resume{used !== 1 ? 's' : ''} — every fix you make before hitting &ldquo;Apply&rdquo; is one less reason to get filtered out.
+            You&apos;ve already tested {used} resume{used !== 1 ? 's' : ''} - every fix you make before hitting &ldquo;Apply&rdquo; is one less reason to get filtered out.
           </p>
           <div className="flex items-center gap-4 bg-white/[0.03] border border-white/[0.06]
                           rounded-xl px-5 py-4 mb-6 min-h-[64px]">
@@ -225,9 +225,9 @@ export default function UploadResume() {
 
     const token = await auth.currentUser?.getIdToken().catch(() => null);
     if (!token) {
-      setError('Session expired — please sign in again');
+      setError('Session expired - please sign in again');
       toast.error('Session expired. Please sign in again.');
-      router.push('/auth');
+      router.push('/sign-in');
       return;
     }
 
@@ -312,7 +312,7 @@ export default function UploadResume() {
         { actionUrl: `/resume/${resumeId}`, actionLabel: 'View Analysis' },
       );
 
-      // ── Step 3: Done — redirect to results page ────────────────
+      // ── Step 3: Done - redirect to results page ────────────────
       // ServiceFeedback is handled on the /resume/[id] page,
       // so we just redirect immediately.
       setCurrentStep(3);
@@ -351,7 +351,7 @@ export default function UploadResume() {
       </div>
     );
   }
-  if (!user) { router.push('/auth'); return null; }
+  if (!user) { router.push('/sign-in'); return null; }
 
   return (
     <>
@@ -422,7 +422,7 @@ export default function UploadResume() {
           </div>
         </div>
 
-        {/* Limit reached — show gate instead of form */}
+        {/* Limit reached - show gate instead of form */}
         {!canUseFeature('resumes') ? (
           <UpgradeGate used={resumesUsed} limit={resumesLimit} />
         ) : (

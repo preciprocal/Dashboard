@@ -6,7 +6,7 @@ import { useDropzone, FileRejection, DropzoneOptions } from 'react-dropzone';
 
 interface FileUploaderProps {
   onFileSelect?: (file: File | null) => void;
-  accept?: string; // comma-separated MIME types / extensions (optional — defaults to PDF + Word)
+  accept?: string; // comma-separated MIME types / extensions (optional - defaults to PDF + Word)
 }
 
 const formatSize = (bytes: number): string => {
@@ -23,7 +23,7 @@ function parseAccept(accept: string): Record<string, string[]> {
   const map: Record<string, string[]> = {};
   accept.split(',').map(s => s.trim()).forEach(token => {
     if (token.startsWith('.')) {
-      // extension — attach to a wildcard bucket so dropzone keeps it
+      // extension - attach to a wildcard bucket so dropzone keeps it
       map['application/octet-stream'] = [...(map['application/octet-stream'] ?? []), token];
     } else {
       // MIME type

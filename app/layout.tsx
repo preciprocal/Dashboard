@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 // ─── SEO ──────────────────────────────────────────────────────────────────────
 export const metadata: Metadata = {
   ...buildMetadata({
-    title: `${SITE.name} — ${SITE.tagline}`,
+    title: `${SITE.name} - ${SITE.tagline}`,
     description: SITE.description,
     path: "/",
     index: false,
@@ -134,7 +134,7 @@ const calculateUserStats = async (interviews: Interview[]) => {
     if (daySet.has(key)) {
       currentStreak++;
     } else if (offset > 0) {
-      // Gap found — streak ends (we allow today to be empty since the day isn't over)
+      // Gap found - streak ends (we allow today to be empty since the day isn't over)
       break;
     }
   }

@@ -170,7 +170,7 @@ function renderDisconnected() {
       </div>
     </div>
     <div class="si-block">
-      <button id="btnLogin" class="btn-si">Get Started — It's Free</button>
+      <button id="btnLogin" class="btn-si">Get Started - It's Free</button>
       <div class="how-box">
         <div class="how-lbl">How to connect</div>
         <ol>

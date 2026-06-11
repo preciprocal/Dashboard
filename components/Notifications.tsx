@@ -163,7 +163,7 @@ export default function NotificationCenter({
             )}
           </div>
 
-          {/* Footer — reserved for future use */}
+          {/* Footer - reserved for future use */}
         </div>
       )}
     </div>

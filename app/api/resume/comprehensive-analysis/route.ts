@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { auth, db } from '@/firebase/admin';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || '');
 
 interface LinkedInJob {
   title: string;

@@ -10,10 +10,10 @@ import { crossValidateBenchmark } from '@/lib/ai/cross-validate';
 
 const MAX_TOKENS = 3500; // bumped slightly for hiredCandidateProfile
 
-const BENCHMARK_SYSTEM = `You are a senior technical recruiter with 15+ years at FAANG companies. 50,000+ resumes reviewed. Tell the truth — not a softened version.
+const BENCHMARK_SYSTEM = `You are a senior technical recruiter with 15+ years at FAANG companies. 50,000+ resumes reviewed. Tell the truth - not a softened version.
 
 HIRED CANDIDATE PROFILING:
-Before scoring, you MUST build a profile of what a HIRED candidate for this role actually looks like, using your knowledge of real LinkedIn profiles, Glassdoor data, and hiring patterns for this company/role. This is NOT a hypothetical — you know what people who actually got hired at these companies have on their resumes because you've seen thousands.
+Before scoring, you MUST build a profile of what a HIRED candidate for this role actually looks like, using your knowledge of real LinkedIn profiles, Glassdoor data, and hiring patterns for this company/role. This is NOT a hypothetical - you know what people who actually got hired at these companies have on their resumes because you've seen thousands.
 
 When a company is provided, reference that company's SPECIFIC hiring bar:
 - Amazon: Leadership Principles, data-driven impact, "disagree and commit" mindset
@@ -26,13 +26,13 @@ When no company is provided, use general hiring patterns for the role type.
 
 RULES:
 1. SCORE CALIBRATION: 90-99th top 5%, 70-89 above avg, 50-69 mediocre (most), 30-49 weak, 1-29 reject.
-2. CITE EVIDENCE from the actual resume — quote specific bullets, titles, skills.
+2. CITE EVIDENCE from the actual resume - quote specific bullets, titles, skills.
 3. NO EMPTY PRAISE. Adequate is baseline.
 4. KILLER FLAW = single most damaging thing vs. hired candidates.
 5. THREE FIXES must be specific and actionable today.
 6. RECRUITER'S FIRST IMPRESSION = unfiltered internal monologue.
 7. Missing user context (no JD, no target role) is NOT a resume flaw.
-8. "whatHiredCandidatesHaveThatYouDont" must reference SPECIFIC skills, experience patterns, or credentials that real hired people at this company/role typically have — not generic advice.
+8. "whatHiredCandidatesHaveThatYouDont" must reference SPECIFIC skills, experience patterns, or credentials that real hired people at this company/role typically have - not generic advice.
 
 Return ONLY valid JSON. No markdown. Start with { end with }.`;
 
@@ -51,7 +51,7 @@ const buildPrompt = (d: Record<string, unknown>): string => {
   const hasCompany = !!company.trim();
 
   const hiredProfileInstruction = hasCompany
-    ? `STEP 1 — BUILD HIRED CANDIDATE PROFILE FOR ${company.toUpperCase()}:
+    ? `STEP 1 - BUILD HIRED CANDIDATE PROFILE FOR ${company.toUpperCase()}:
 Before scoring, research and establish what a typical HIRED ${title} at ${company} looks like:
 - What tech stack / tools do they use? (from ${company}'s known stack, job postings, engineering blog)
 - What's the typical YOE (years of experience) for this level?
@@ -60,8 +60,8 @@ Before scoring, research and establish what a typical HIRED ${title} at ${compan
 - What do their top 3 resume bullets look like? (quantified impact, scale, complexity)
 - What soft skills / cultural traits does ${company} specifically screen for?
 
-Use this profile as your benchmark — then compare the candidate's resume against it.`
-    : `STEP 1 — BUILD GENERAL HIRED CANDIDATE PROFILE FOR ${title}:
+Use this profile as your benchmark - then compare the candidate's resume against it.`
+    : `STEP 1 - BUILD GENERAL HIRED CANDIDATE PROFILE FOR ${title}:
 Based on your knowledge of who gets hired for ${title} roles across the industry:
 - What's the typical tech stack and experience level?
 - What do strong candidates' resumes emphasize?
@@ -69,10 +69,10 @@ Based on your knowledge of who gets hired for ${title} roles across the industry
 
   return `${hiredProfileInstruction}
 
-STEP 2 — BENCHMARK THIS RESUME:
+STEP 2 - BENCHMARK THIS RESUME:
 
 TARGET: ${title}${company ? ` at ${company}` : ''}
-${jd ? `JD:\n${jd.slice(0, 1500)}` : 'No JD — benchmark against general applicants for this role.'}
+${jd ? `JD:\n${jd.slice(0, 1500)}` : 'No JD - benchmark against general applicants for this role.'}
 
 CURRENT SCORES: Overall ${overall}, ATS ${ats}, Content ${content}, Structure ${structure}, Skills ${skills}
 
@@ -93,19 +93,19 @@ Return JSON:
   },
   "overallPercentile": <1-99>,
   "hiringChance": "very low|low|moderate|high|very high",
-  "hiringChanceReason": "<2 sentences — reference the hired candidate profile>",
-  "killerFlaw": { "title": "<5-8 words>", "detail": "<2-3 sentences — compare to hired profile>", "urgency": "critical|high|medium" },
+  "hiringChanceReason": "<2 sentences - reference the hired candidate profile>",
+  "killerFlaw": { "title": "<5-8 words>", "detail": "<2-3 sentences - compare to hired profile>", "urgency": "critical|high|medium" },
   "dimensions": [
-    { "name": "ATS Compatibility", "userScore": ${ats}, "peerMedian": <n>, "hiredMedian": <n>, "topTen": <n>, "userPercentile": <1-99>, "verdict": "strong|competitive|weak|critical", "honestTake": "<specific — reference resume content>" },
+    { "name": "ATS Compatibility", "userScore": ${ats}, "peerMedian": <n>, "hiredMedian": <n>, "topTen": <n>, "userPercentile": <1-99>, "verdict": "strong|competitive|weak|critical", "honestTake": "<specific - reference resume content>" },
     { "name": "Content Quality", "userScore": ${content}, "peerMedian": <n>, "hiredMedian": <n>, "topTen": <n>, "userPercentile": <n>, "verdict": "<>", "honestTake": "<>" },
     { "name": "Structure & Format", "userScore": ${structure}, "peerMedian": <n>, "hiredMedian": <n>, "topTen": <n>, "userPercentile": <n>, "verdict": "<>", "honestTake": "<>" },
     { "name": "Skills & Keywords", "userScore": ${skills}, "peerMedian": <n>, "hiredMedian": <n>, "topTen": <n>, "userPercentile": <n>, "verdict": "<>", "honestTake": "<>" },
     { "name": "Impact & Achievements", "userScore": <0-100>, "peerMedian": <n>, "hiredMedian": <n>, "topTen": <n>, "userPercentile": <n>, "verdict": "<>", "honestTake": "<>" }
   ],
-  "whatHiredCandidatesHaveThatYouDont": ["<SPECIFIC gap vs hired profile — e.g. 'Hired SWEs at Google average 3+ system design projects; you have 0'>", "<another specific gap>", "<another>"],
+  "whatHiredCandidatesHaveThatYouDont": ["<SPECIFIC gap vs hired profile - e.g. 'Hired SWEs at Google average 3+ system design projects; you have 0'>", "<another specific gap>", "<another>"],
   "threeThingsToFixNow": [{ "action": "<specific>", "whyItMatters": "<tied to hired profile>", "estimatedScoreGain": "<>" }, {}, {}],
-  "recruitersFirstImpression": "<2-3 sentences unfiltered — as a ${company || 'senior'} recruiter>",
-  "ifThisResumeAppliedToday": "<1 sentence — would ${company || 'a top company'} interview this person?>"
+  "recruitersFirstImpression": "<2-3 sentences unfiltered - as a ${company || 'senior'} recruiter>",
+  "ifThisResumeAppliedToday": "<1 sentence - would ${company || 'a top company'} interview this person?>"
 }`;
 };
 

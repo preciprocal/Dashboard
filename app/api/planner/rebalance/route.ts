@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
 
     if (undoneTasks.length === 0) {
       return NextResponse.json({
-        message: 'No tasks to rebalance — you\'re on track!',
+        message: 'No tasks to rebalance - you\'re on track!',
         rebalanced: false,
         movedTasks: 0,
       });

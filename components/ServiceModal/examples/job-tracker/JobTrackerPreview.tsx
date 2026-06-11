@@ -35,7 +35,7 @@ const CONTACTS = [
 
 I came across the Data Scientist, Product Analytics role at Meta and I'm genuinely excited about the opportunity. Having spent 3+ years building ML pipelines and conducting A/B tests at scale, I'm drawn to Meta's data-driven approach to product development.
 
-In my current role, I led a recommendation engine overhaul that improved CTR by 23% and built real-time analytics dashboards serving 50+ stakeholders — work that maps directly to the scale Meta operates at.
+In my current role, I led a recommendation engine overhaul that improved CTR by 23% and built real-time analytics dashboards serving 50+ stakeholders - work that maps directly to the scale Meta operates at.
 
 I'd love to learn more about the team and how I might contribute. Would you be open to a brief chat?
 
@@ -46,7 +46,7 @@ Alex` },
 
 I noticed you lead the ML team at Meta and wanted to reach out about the Data Scientist, Product Analytics role. Your team's work on large-scale recommendation systems is exactly the kind of challenge I'm looking for.
 
-I've spent the past 3 years shipping production ML models — most recently a demand forecasting system that reduced inventory waste by 18% and a real-time anomaly detection pipeline processing 500K events/sec. I'd love to hear how your team approaches experimentation at Meta's scale.
+I've spent the past 3 years shipping production ML models - most recently a demand forecasting system that reduced inventory waste by 18% and a real-time anomaly detection pipeline processing 500K events/sec. I'd love to hear how your team approaches experimentation at Meta's scale.
 
 Would you have 15 minutes for a quick chat? Happy to work around your schedule.
 
@@ -134,7 +134,7 @@ function MiniCard({ app, onFindContacts, onEdit, highlight }: { app: typeof APPS
   4 = Find contacts searching
   5 = Contacts found
   6 = AI email typing
-  7 = Complete — fully interactive
+  7 = Complete - fully interactive
 */
 
 export function JobTrackerExamplePreview({ step }: { step: number }) {
@@ -492,7 +492,7 @@ export function JobTrackerExamplePreview({ step }: { step: number }) {
         </FadeIn>
       )}
 
-      {/* Cards grid — full width, 4 cols */}
+      {/* Cards grid - full width, 4 cols */}
       {(step >= 3 || isComplete || userTriggered) && (
         <FadeIn delay={100}>
           <p className="text-[8px] text-slate-600 mb-1.5">{APPS.length} applications</p>

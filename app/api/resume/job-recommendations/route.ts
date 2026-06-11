@@ -558,7 +558,7 @@ export async function POST(request: NextRequest) {
     if (!resumeText || resumeText.length < 100) {
       console.log(`🖼️ Attempting to extract text from image...`);
       try {
-        const bucketName = process.env.FIREBASE_STORAGE_BUCKET || `${process.env.FIREBASE_PROJECT_ID}.appspot.com`;
+        const bucketName = process.env.FIREBASE_STORAGE_BUCKET || process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || `${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.appspot.com`;
         const file = storage.bucket(bucketName).file(`resumes/${user.uid}/${resumeId}/image.png`);
         const [exists] = await file.exists();
         if (exists) {

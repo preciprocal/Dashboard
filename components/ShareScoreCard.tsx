@@ -89,7 +89,7 @@ function StatPill({ label, value, color }: { label: string; value: string | numb
   );
 }
 
-// THE card — export named so results page can reuse it
+// THE card - export named so results page can reuse it
 export function ScoreCardVisual({
   userName, role, company, interviewType, scores, strengths,
 }: Omit<ShareScoreCardProps, "interviewId" | "baseUrl">) {
@@ -133,7 +133,7 @@ export function ScoreCardVisual({
         {/* Header: logo + interview type badge */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            {/* Logo placeholder — next/image can't render in inline styles; using gradient box */}
+            {/* Logo placeholder - next/image can't render in inline styles; using gradient box */}
             <div style={{
               width: "36px", height: "36px", borderRadius: "10px",
               background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
@@ -270,7 +270,7 @@ export default function ShareScoreCard(props: ShareScoreCardProps) {
 
   const handleTwitterShare = useCallback(() => {
     const target = company ? `${role} at ${company}` : role;
-    const tweet  = `Just scored ${scores.overall}/100 on an AI ${TYPE_LABELS[interviewType]} mock interview for ${target} — rated "${sl.label}" 🎯\n\nPrepare smarter → ${shareUrl}`;
+    const tweet  = `Just scored ${scores.overall}/100 on an AI ${TYPE_LABELS[interviewType]} mock interview for ${target} - rated "${sl.label}" 🎯\n\nPrepare smarter → ${shareUrl}`;
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(tweet)}`, "_blank", "noopener");
   }, [scores.overall, role, company, interviewType, sl.label, shareUrl]);
 
@@ -320,12 +320,12 @@ export default function ShareScoreCard(props: ShareScoreCardProps) {
       {/* Two-column: card left, actions right */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 items-start">
 
-        {/* LEFT — the shareable card */}
+        {/* LEFT - the shareable card */}
         <div ref={cardRef}>
           <ScoreCardVisual {...props} />
         </div>
 
-        {/* RIGHT — actions panel */}
+        {/* RIGHT - actions panel */}
         <div className="flex flex-col gap-3">
 
           {/* Score summary */}

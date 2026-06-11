@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/firebase/admin";
 import { invalidateUserCache } from "@/lib/actions/auth.action";
+import { USAGE_LIMITS } from "@/lib/config/usage-limits";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-07-30.basil",
@@ -14,7 +15,7 @@ const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 // Add every student coupon ID you create in Stripe here.
 // Find them at: dashboard.stripe.com → Billing → Coupons
 const STUDENT_COUPON_IDS = new Set([
-  "Ll6U1Tw4", // Student — 1 month free
+  "Ll6U1Tw4", // Student - 1 month free
 ]);
 
 interface SubscriptionWithPeriods extends Stripe.Subscription {
@@ -67,6 +68,23 @@ function safeTimestampToISO(timestamp: number | null | undefined): string | null
     console.warn(`⚠️ Error converting timestamp ${timestamp} to ISO:`, error);
     return null;
   }
+}
+
+function buildLimitsSnapshot(plan: "free" | "pro" | "premium") {
+  const l = USAGE_LIMITS[plan];
+  return {
+    coverLetters:          l.coverLetters,
+    resumes:               l.resumes,
+    studyPlans:            l.studyPlans,
+    interviews:            l.interviews,
+    interviewDebriefs:     l.interviewDebriefs,
+    linkedinOptimisations: l.linkedinOptimisations,
+    coldOutreach:          l.coldOutreach,
+    findContacts:          l.findContacts,
+    jobTracker:            l.jobTracker,
+    plan,
+    updatedAt:             new Date().toISOString(),
+  };
 }
 
 function getPlanFromPriceId(priceId: string): "free" | "pro" | "premium" {
@@ -168,6 +186,7 @@ async function handleSubscriptionCreated(subscription: SubscriptionWithPeriods) 
       "subscription.currentPeriodEnd":     currentPeriodEnd,
       "subscription.subscriptionEndsAt":   currentPeriodEnd,
       "subscription.updatedAt":            new Date().toISOString(),
+      limits:                              buildLimitsSnapshot(plan),
     });
 
     await invalidateUserCache(userId);
@@ -218,6 +237,7 @@ async function handleSubscriptionUpdated(subscription: SubscriptionWithPeriods) 
       "subscription.currentPeriodEnd":     currentPeriodEnd,
       "subscription.subscriptionEndsAt":   currentPeriodEnd,
       "subscription.updatedAt":            new Date().toISOString(),
+      limits:                              buildLimitsSnapshot(plan),
     });
 
     await invalidateUserCache(userId);
@@ -244,7 +264,7 @@ async function handleSubscriptionDeleted(subscription: SubscriptionWithPeriods) 
       return;
     }
 
-    // Keep studentVerified on cancellation — they earned it.
+    // Keep studentVerified on cancellation - they earned it.
     // If you want to clear it on cancel, set studentVerified: false here instead.
     await db.collection("users").doc(userId).update({
       "subscription.status":               "canceled",
@@ -252,6 +272,7 @@ async function handleSubscriptionDeleted(subscription: SubscriptionWithPeriods) 
       "subscription.stripeSubscriptionId": null,
       "subscription.subscriptionEndsAt":   null,
       "subscription.updatedAt":            new Date().toISOString(),
+      limits:                              buildLimitsSnapshot("free"),
     });
 
     await invalidateUserCache(userId);
@@ -285,7 +306,7 @@ async function handlePaymentSucceeded(invoice: InvoiceWithSubscription) {
 
     const currentPeriodEnd = safeTimestampToISO(subscription.current_period_end);
 
-    // Preserve studentVerified on every renewal — never accidentally wipe it
+    // Preserve studentVerified on every renewal - never accidentally wipe it
     const existingData    = userDoc.data();
     const studentVerified = existingData?.subscription?.studentVerified === true;
 
@@ -297,6 +318,7 @@ async function handlePaymentSucceeded(invoice: InvoiceWithSubscription) {
       "subscription.subscriptionEndsAt": currentPeriodEnd,
       "subscription.lastPaymentAt":      new Date().toISOString(),
       "subscription.updatedAt":          new Date().toISOString(),
+      limits:                            buildLimitsSnapshot(plan),
     });
 
     await invalidateUserCache(userId);

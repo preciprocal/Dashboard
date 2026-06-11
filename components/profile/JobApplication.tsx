@@ -340,7 +340,7 @@ const WORK_TYPE  = opts(['Remote','Hybrid','On-site','Flexible']);
 const EMP_TYPE   = opts(['Full-time','Part-time','Contract','Internship','Freelance','Temporary']);
 const TRAVEL     = opts(['No','Occasionally (up to 10%)','Sometimes (10–25%)','Frequently (25–50%)','Yes, as needed']);
 const REFERRAL   = opts(['LinkedIn','Indeed','Glassdoor','Company Website','Referral','Job Board','Google','Other']);
-const WORK_AUTH  = optsKV([['Yes','Yes — I am authorized'],['No','No — I need authorization']]);
+const WORK_AUTH  = optsKV([['Yes','Yes - I am authorized'],['No','No - I need authorization']]);
 const VISA       = opts(['','US Citizen','Permanent Resident (Green Card)','H-1B Visa','H-4 EAD','L-1 Visa','OPT / STEM OPT','CPT','TN Visa (Canada/Mexico)','E-3 (Australian)','Other Work Visa','Not applicable']);
 const DEGREE     = opts(['','High School Diploma / GED',"Associate's Degree","Bachelor's Degree","Master's Degree",'MBA','Doctoral Degree (PhD)','JD (Law)','MD (Medicine)','Professional Certificate','Bootcamp Certificate','Other']);
 const GRAD_YEARS = optsKV([['','Year…'], ...Array.from({ length: 30 }, (_, k) => { const y = String(2026 - k); return [y, y] as [string, string]; }), ['In Progress', 'In Progress']]);
@@ -354,8 +354,8 @@ const DISABILITY = opts(['I do not have a disability','I have a disability','I h
 
 function CompletionBar({ pct, filled, total }: { pct: number; filled: number; total: number }) {
   const color = pct >= 80 ? '#22c55e' : pct >= 50 ? '#a855f7' : '#f59e0b';
-  const label = pct >= 80 ? 'Great — the extension will fill most fields'
-              : pct >= 50 ? 'Good start — add more for better coverage'
+  const label = pct >= 80 ? 'Great - the extension will fill most fields'
+              : pct >= 50 ? 'Good start - add more for better coverage'
               : 'Fill in more fields for best autofill results';
   return (
     <div className="glass-card p-4">
@@ -707,7 +707,7 @@ export default function JobApplicationProfile() {
       </Section>
 
       {/* ── 8. EEO ── */}
-      <Section label="EEO & Diversity" icon={Users} gradient="gradient-primary" desc="Optional — voluntary diversity questions" defaultOpen={false}>
+      <Section label="EEO & Diversity" icon={Users} gradient="gradient-primary" desc="Optional - voluntary diversity questions" defaultOpen={false}>
         <div className="space-y-4 mt-5">
           <div className="px-4 py-3 rounded-xl bg-blue-500/[0.08] border border-blue-500/[0.15]">
             <p className="text-xs text-blue-400/80">Only used to auto-fill voluntary EEO sections. Never shared for any other purpose.</p>
@@ -738,13 +738,13 @@ export default function JobApplicationProfile() {
             placeholder="I am writing to express my strong interest in the [Role] position at [Company]. With [X] years of experience in [field], I am confident I can contribute meaningfully…"
           />
           <FTextarea
-            label="Body — Why you're a great fit" rows={4}
+            label="Body - Why you're a great fit" rows={4}
             value={p.coverLetterBody} onChange={set('coverLetterBody')}
             placeholder="In my previous role at [Company], I led the development of [achievement]. I am particularly drawn to [Company] because…"
           />
           <div className="px-4 py-3 rounded-xl bg-purple-500/[0.08] border border-purple-500/[0.15]">
             <p className="text-xs text-purple-400/70">
-              💡 Use <code className="bg-purple-500/20 px-1 rounded text-purple-300">[Company]</code> and <code className="bg-purple-500/20 px-1 rounded text-purple-300">[Role]</code> — the extension replaces them automatically.
+              💡 Use <code className="bg-purple-500/20 px-1 rounded text-purple-300">[Company]</code> and <code className="bg-purple-500/20 px-1 rounded text-purple-300">[Role]</code> - the extension replaces them automatically.
             </p>
           </div>
         </div>

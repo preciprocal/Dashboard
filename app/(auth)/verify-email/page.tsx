@@ -49,12 +49,12 @@ function VerifyEmailContent() {
           console.log("✅ Firestore registration completed after email verification");
         } else {
           console.error("Firestore registration failed:", result.message);
-          // Non-fatal — sign-in guard will handle incomplete profiles
+          // Non-fatal - sign-in guard will handle incomplete profiles
         }
       }
     } catch (err) {
       console.error("completeRegistration error:", err);
-      // Non-fatal — proceed with redirect regardless
+      // Non-fatal - proceed with redirect regardless
     }
   };
 
@@ -242,7 +242,7 @@ function VerifyEmailContent() {
               </li>
               <li className="flex items-start space-x-2">
                 <span className="text-slate-600 mt-0.5">•</span>
-                <span>Links expire after 24 hours — use the resend button above</span>
+                <span>Links expire after 24 hours - use the resend button above</span>
               </li>
             </ul>
           </div>

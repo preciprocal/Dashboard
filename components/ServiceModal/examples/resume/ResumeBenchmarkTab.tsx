@@ -26,7 +26,7 @@ export function ResumeBenchmarkTab() {
         <div className="flex items-center gap-3 p-2 bg-amber-500/[0.04] border border-amber-500/15 rounded-lg">
           <PercentileGauge percentile={65} />
           <div className="flex-1 text-left">
-            <p className="text-[9px] font-bold text-amber-300">— Moderate Chance of Interview</p>
+            <p className="text-[9px] font-bold text-amber-300">- Moderate Chance of Interview</p>
             <p className="text-[8px] text-slate-400 mt-0.5 leading-snug">The resume demonstrates relevant experience and skills for a Software Engineer role. However, the impact of achievements is not consistently quantified, which may hinder competitiveness against stronger candidates.</p>
           </div>
         </div>
@@ -91,9 +91,9 @@ export function ResumeBenchmarkTab() {
                   </div>
                 </div>
                 <div className="flex justify-between mt-0.5 text-[6px] text-slate-600 relative">
-                  <span>— All: {dim.all}</span>
-                  <span>— Hired: {dim.hired}</span>
-                  <span>— Top 10%: {dim.top}</span>
+                  <span>- All: {dim.all}</span>
+                  <span>- Hired: {dim.hired}</span>
+                  <span>- Top 10%: {dim.top}</span>
                   <span className="text-slate-500">You: {dim.pct} pct</span>
                 </div>
               </div>

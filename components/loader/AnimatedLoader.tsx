@@ -359,7 +359,7 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
             </defs>
           </svg>
 
-          {/* Logo centred inside ring — no wrapper, no background box */}
+          {/* Logo centred inside ring - no wrapper, no background box */}
           <div className="absolute inset-0 flex items-center justify-center">
             <Image
               src={logo}
@@ -396,7 +396,7 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
 
         {/* Text block */}
         <div className="flex flex-col items-center gap-3 w-full text-center">
-          {/* Primary heading — step name in steps mode */}
+          {/* Primary heading - step name in steps mode */}
           <h2 className="text-[15px] font-medium text-white leading-snug tracking-[-0.01em]">
             {primaryHeading}
           </h2>
@@ -475,7 +475,7 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
             </span>
           </div>
 
-          {/* Linear progress bar — secondary indicator */}
+          {/* Linear progress bar - secondary indicator */}
           <div className="w-full h-[2px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
             <div
               className="h-full rounded-full"

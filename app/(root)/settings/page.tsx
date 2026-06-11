@@ -180,7 +180,7 @@ function BillingNewsletterBlock() {
 
   return (
     <div className="p-5 space-y-3">
-      <p className="text-xs text-slate-400 text-center">Get notified when we launch — no spam, ever.</p>
+      <p className="text-xs text-slate-400 text-center">Get notified when we launch - no spam, ever.</p>
       <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2.5">
         <input
           type="email" value={email} onChange={e => setEmail(e.target.value)}
@@ -317,7 +317,7 @@ export default function SettingsPage() {
       const credential = EmailAuthProvider.credential(user.email, emailPassword);
       await reauthenticateWithCredential(user, credential);
       await updateEmail(user, newEmail.trim());
-      toast.success('Email updated — please verify your new address');
+      toast.success('Email updated - please verify your new address');
       setEmailPassword('');
     } catch (err: unknown) {
       const code = (err as { code?: string }).code;
@@ -532,11 +532,11 @@ export default function SettingsPage() {
                   },
                   {
                     label: 'Member since', value: user.metadata.creationTime
-                      ? new Date(user.metadata.creationTime).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—',
+                      ? new Date(user.metadata.creationTime).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '-',
                   },
                   {
                     label: 'Last sign-in', value: user.metadata.lastSignInTime
-                      ? new Date(user.metadata.lastSignInTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—',
+                      ? new Date(user.metadata.lastSignInTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-',
                   },
                 ].map(({ label, value, mono, badge }) => (
                   <div key={label} className="flex flex-col gap-1.5 p-3.5 rounded-xl bg-slate-800/30 border border-white/[0.05] hover:border-white/[0.08] transition-colors">
@@ -675,7 +675,7 @@ export default function SettingsPage() {
                           ))}
                         </div>
                         <p className="text-xs text-slate-500">
-                          {newPassword.length < 8 ? 'Too short' : newPassword.length < 12 ? 'Fair — consider longer' : 'Strong password'}
+                          {newPassword.length < 8 ? 'Too short' : newPassword.length < 12 ? 'Fair - consider longer' : 'Strong password'}
                         </p>
                       </div>
                     )}
@@ -796,7 +796,7 @@ export default function SettingsPage() {
                     'Unlimited resume analyses',
                     'D-ID avatar video interviews',
                     'Priority question banks',
-                    'Early-bird pricing — locked in forever',
+                    'Early-bird pricing - locked in forever',
                   ].map(feature => (
                     <div key={feature} className="flex items-center gap-2 text-slate-300 text-xs">
                       <div className="w-4 h-4 rounded-md bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
@@ -825,7 +825,7 @@ export default function SettingsPage() {
                   {[
                     { step: 1, text: <span>Click <strong className="text-white">&quot;Connect Extension&quot;</strong> above to generate your auth token</span> },
                     { step: 2, text: <span>Install the <strong className="text-white">Preciprocal Chrome Extension</strong> from the Chrome Web Store</span> },
-                    { step: 3, text: <span>Token auto-syncs to your extension — or paste it manually in the extension popup</span> },
+                    { step: 3, text: <span>Token auto-syncs to your extension - or paste it manually in the extension popup</span> },
                     { step: 4, text: <span>Navigate to any <strong className="text-white">LinkedIn job posting</strong></span> },
                     { step: 5, text: <span>Click the <strong className="text-white">Preciprocal icon</strong> in your toolbar to analyze the job</span> },
                   ].map(({ step, text }) => (
@@ -880,7 +880,7 @@ export default function SettingsPage() {
                       try {
                         const token = await user.getIdToken();
                         const res = await fetch('/api/settings/export-data', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
-                        if (res.ok) toast.success('Export requested — check your email within 24 hours.', { duration: 5000 });
+                        if (res.ok) toast.success('Export requested - check your email within 24 hours.', { duration: 5000 });
                         else throw new Error();
                       } catch {
                         toast.error('Failed to request export. Please try again.');

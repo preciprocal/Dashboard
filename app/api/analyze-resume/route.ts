@@ -63,7 +63,7 @@ async function callClaude<T>(fn: () => Promise<T>, maxRetries = 2, baseDelayMs =
       const status = (err as Error & { status?: number }).status;
       if ((status === 529 || status === 429) && attempt < maxRetries) {
         const delay = baseDelayMs * (attempt + 1);
-        console.warn(`⏳ Claude ${status} — retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+        console.warn(`⏳ Claude ${status} - retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
         await new Promise(r => setTimeout(r, delay));
         continue;
       }
@@ -187,12 +187,12 @@ const SCORE_WEIGHTS = {
 
 // ─── System prompts ───────────────────────────────────────────────────────────
 
-const ANALYSIS_SYSTEM = `You are a brutally honest senior recruiter who has reviewed 50,000+ resumes at Google, Amazon, and top VC-backed startups. Your job is NOT to make the candidate feel good — it is to tell them exactly what is wrong so they can actually get hired.
+const ANALYSIS_SYSTEM = `You are a brutally honest senior recruiter who has reviewed 50,000+ resumes at Google, Amazon, and top VC-backed startups. Your job is NOT to make the candidate feel good - it is to tell them exactly what is wrong so they can actually get hired.
 
 RULES:
 1. Do NOT sugarcoat. If something is bad, say it's bad and say exactly WHY.
 2. Reference SPECIFIC content from the resume in every tip. Never give generic advice.
-3. "Improve" tips must include a concrete "solution" — a copy-pasteable rewrite.
+3. "Improve" tips must include a concrete "solution" - a copy-pasteable rewrite.
 4. Scores calibrated against real hired candidates: 90-100 top 5%, 70-89 above average, 50-69 mediocre (most resumes), 30-49 weak, 0-29 reject.
 5. Do NOT pad scores. An honest 55 is more valuable than a dishonest 80.
 6. Be specific about WHICH line, bullet, or section you are referencing.
@@ -212,7 +212,7 @@ CRITICAL: Return ONLY a valid JSON object. No markdown fences, no preamble. Star
 
 Each section: 4–6 tips, mix of good/improve. At least 2 improve tips per section must have a "solution".`;
 
-const FIX_SYSTEM = `You are an expert resume editor. Give specific, copy-pasteable improvements — not encouragement.
+const FIX_SYSTEM = `You are an expert resume editor. Give specific, copy-pasteable improvements - not encouragement.
 
 RULES:
 - Every fix must quote the EXACT original text from the resume.
@@ -407,7 +407,7 @@ async function handleResumeAnalysis(request: NextRequest, userId: string) {
               max_tokens: 4000,
               messages: [{ role: 'user', content: extractContent }],
             }),
-            1, // fewer retries for extraction — it's optional
+            1, // fewer retries for extraction - it's optional
           );
           logUsage('extract-text', extractResponse);
           extractedText = extractText(extractResponse).trim();
@@ -418,7 +418,7 @@ async function handleResumeAnalysis(request: NextRequest, userId: string) {
           extractedText = '';
         }
       } else {
-        console.warn(`⚠️ Skipping text extraction — only ${Math.round(timeLeftMs / 1000)}s left`);
+        console.warn(`⚠️ Skipping text extraction - only ${Math.round(timeLeftMs / 1000)}s left`);
       }
     }
 
@@ -456,7 +456,7 @@ async function handleResumeAnalysis(request: NextRequest, userId: string) {
 function applyWeightedScore(obj: z.infer<typeof resumeFeedbackSchema>): ResumeFeedback {
   const proc = (s: z.infer<typeof sectionSchema>) => ({
     score: s.score,
-    tips: s.tips.map(t => ({ ...t, explanation: t.explanation ?? `${t.tip} — see details.` })),
+    tips: s.tips.map(t => ({ ...t, explanation: t.explanation ?? `${t.tip} - see details.` })),
   });
   const p: ResumeFeedback = {
     overallScore: obj.overallScore,
@@ -489,7 +489,7 @@ async function handleGenerateResumeFixes(data: z.infer<typeof generateFixesBodyS
   const cleaned = cleanResumeText(resumeContent).slice(0, MAX_RESUME_CHARS);
   const userPrompt = `<resume>\n${cleaned}\n</resume>
 ${jobDescription ? `<job_description>\n${jobDescription.slice(0, MAX_JOB_DESC_CHARS)}\n</job_description>` : ''}
-${feedback ? `Current scores — Overall: ${feedback.overallScore}/100, ATS: ${feedback.ATS?.score}/100, Content: ${feedback.content?.score}/100` : ''}
+${feedback ? `Current scores - Overall: ${feedback.overallScore}/100, ATS: ${feedback.ATS?.score}/100, Content: ${feedback.content?.score}/100` : ''}
 
 Generate fixes now.`;
 

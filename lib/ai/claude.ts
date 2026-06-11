@@ -45,7 +45,7 @@ export function extractJsonString(raw: string): string {
 
   s = s.slice(start);
 
-  // 3. Try parsing as-is first (fast path — no repair overhead)
+  // 3. Try parsing as-is first (fast path - no repair overhead)
   try {
     JSON.parse(s);
     return s;
@@ -68,7 +68,7 @@ export function extractJsonString(raw: string): string {
       console.warn('[extractJsonString] Last-resort truncation succeeded');
       return lastResort;
     } catch {
-      // Return the repaired version anyway — caller will get a clearer error
+      // Return the repaired version anyway - caller will get a clearer error
       console.error('[extractJsonString] All repair attempts failed:', (e as Error).message);
       return repaired;
     }
@@ -176,7 +176,7 @@ function truncateToLastValid(raw: string): string {
     if (ch === '}' || ch === ']') {
       depth--;
       if (depth === 0) {
-        // Fully closed at top level — this is the ideal cut point
+        // Fully closed at top level - this is the ideal cut point
         lastGoodEnd = i;
       }
     }
@@ -218,10 +218,10 @@ export function logUsage(label: string, response: Anthropic.Message): void {
     `[${label}] in=${u.input_tokens} (cached=${cached}, created=${created}) out=${u.output_tokens} | stop=${response.stop_reason}`,
   );
 
-  // Warn when response was truncated — likely the source of JSON parse errors
+  // Warn when response was truncated - likely the source of JSON parse errors
   if (response.stop_reason === 'max_tokens') {
     console.warn(
-      `⚠️  [${label}] Response truncated by max_tokens — output may be incomplete. Consider raising max_tokens.`,
+      `⚠️  [${label}] Response truncated by max_tokens - output may be incomplete. Consider raising max_tokens.`,
     );
   }
 }

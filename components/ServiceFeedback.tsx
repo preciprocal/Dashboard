@@ -43,7 +43,7 @@ export function useServiceFeedback(serviceKey: string, triggerAfterUses = 2) {
   const recordUse = useCallback(() => {
     if (typeof window === "undefined") return;
 
-    // Already submitted feedback for this service — don't nag again
+    // Already submitted feedback for this service - don't nag again
     const done = localStorage.getItem(FEEDBACK_DONE_KEY(serviceKey));
     if (done) return;
 
@@ -143,7 +143,7 @@ export default function ServiceFeedback({
         body: JSON.stringify(data),
       });
     } catch {
-      // Silently fail — don't disrupt UX for a feedback form
+      // Silently fail - don't disrupt UX for a feedback form
     }
 
     onSubmit?.(data);

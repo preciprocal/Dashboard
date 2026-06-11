@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: Props) {
 
   return {
     title: `${score}/100 on ${role} · Preciprocal`,
-    description: `Check out this AI mock interview score on Preciprocal — the smarter way to prep.`,
+    description: `Check out this AI mock interview score on Preciprocal - the smarter way to prep.`,
     openGraph: {
       title: `I scored ${score}/100 on my ${role} mock interview`,
       description: "See how I'm preparing for my next interview with Preciprocal AI.",
@@ -122,7 +122,7 @@ export default async function InterviewResultsPage({ params }: Props) {
           </p>
         </div>
 
-        {/* The score card — full width, read-only */}
+        {/* The score card - full width, read-only */}
         <ScoreCardVisual
           userName="Anonymous"
           role={interview.role}

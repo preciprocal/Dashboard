@@ -22,21 +22,21 @@ The resume is a MARKETING DOCUMENT, not a biography. It should be tailored to ma
 
 CRITICAL RULES:
 
-1. KEEP IT REAL — but REFRAME AGGRESSIVELY. Take the candidate's actual experience and reframe it using the exact language, keywords, and priorities from the job description. If they managed a database and the JD says "data pipeline engineering", reframe "managed database" as "engineered and maintained data pipelines". This is standard resume optimization, not fabrication.
+1. KEEP IT REAL - but REFRAME AGGRESSIVELY. Take the candidate's actual experience and reframe it using the exact language, keywords, and priorities from the job description. If they managed a database and the JD says "data pipeline engineering", reframe "managed database" as "engineered and maintained data pipelines". This is standard resume optimization, not fabrication.
 
-2. SKILLS INJECTION — If the JD requires skills the candidate doesn't explicitly list but likely has exposure to (e.g., any developer probably knows Git, any analyst probably knows Excel), ADD them to the skills section. If the JD mentions tools in the same ecosystem the candidate works in (e.g., candidate uses React, JD mentions Next.js), add them. The interview prep plan will cover any gaps.
+2. SKILLS INJECTION - If the JD requires skills the candidate doesn't explicitly list but likely has exposure to (e.g., any developer probably knows Git, any analyst probably knows Excel), ADD them to the skills section. If the JD mentions tools in the same ecosystem the candidate works in (e.g., candidate uses React, JD mentions Next.js), add them. The interview prep plan will cover any gaps.
 
-3. KEYWORD DENSITY — The tailored resume must contain AT LEAST 80% of the critical keywords from the JD. Weave them naturally into bullet points, skills section, and summary. ATS systems do keyword matching — this is non-negotiable.
+3. KEYWORD DENSITY - The tailored resume must contain AT LEAST 80% of the critical keywords from the JD. Weave them naturally into bullet points, skills section, and summary. ATS systems do keyword matching - this is non-negotiable.
 
-4. BULLET FORMULA — Every experience bullet must follow: [Power Verb] + [What You Did Using JD Keywords] + [Quantified Result]. If the original bullet has no metric, ADD a plausible one based on context.
+4. BULLET FORMULA - Every experience bullet must follow: [Power Verb] + [What You Did Using JD Keywords] + [Quantified Result]. If the original bullet has no metric, ADD a plausible one based on context.
 
-5. SUMMARY/OBJECTIVE — Write a 2-3 sentence professional summary that mirrors the JD's top 3 requirements and positions the candidate as an exact match for this specific role.
+5. SUMMARY/OBJECTIVE - Write a 2-3 sentence professional summary that mirrors the JD's top 3 requirements and positions the candidate as an exact match for this specific role.
 
-6. SKILLS SECTION — Reorganize to put JD-matching skills FIRST. Group by the categories the JD uses.
+6. SKILLS SECTION - Reorganize to put JD-matching skills FIRST. Group by the categories the JD uses.
 
-7. PRESERVE STRUCTURE — Keep the same sections, same number of jobs, same education. Only change the CONTENT within each section to align with the JD.
+7. PRESERVE STRUCTURE - Keep the same sections, same number of jobs, same education. Only change the CONTENT within each section to align with the JD.
 
-8. ATS FORMATTING — No tables, no columns, no graphics, no headers/footers. Standard section names.
+8. ATS FORMATTING - No tables, no columns, no graphics, no headers/footers. Standard section names.
 
 CRITICAL FORMAT RULES FOR "changes" ARRAY:
 - EVERY change MUST use arrow format: "exact original text → exact replacement text"
@@ -129,7 +129,7 @@ ${resumeText}
 
 === WHAT TO RETURN ===
 {
-  "tailoredResume": "<THE COMPLETE TAILORED RESUME as plain text — ready to copy-paste. Include all sections.>",
+  "tailoredResume": "<THE COMPLETE TAILORED RESUME as plain text - ready to copy-paste. Include all sections.>",
   "summary": { "original": "<exact original summary text or 'None'>", "tailored": "<new 2-3 sentence summary>", "keywordsAdded": ["..."] },
   "sections": [
     {

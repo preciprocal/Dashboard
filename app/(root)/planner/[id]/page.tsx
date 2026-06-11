@@ -107,7 +107,7 @@ export default function ReadinessScore({ planId }: Props) {
 
   useEffect(() => { fetchReadiness(); }, [fetchReadiness]);
 
-  // Loading — skeleton with same dimensions as loaded state
+  // Loading - skeleton with same dimensions as loaded state
   if (loading) return <ReadinessSkeleton />;
 
   // Error

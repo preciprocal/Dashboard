@@ -175,7 +175,7 @@ export default function ResumeDashboard() {
       throw err;
     }
 
-    // Animate out, then update local state only — no refetch
+    // Animate out, then update local state only - no refetch
     setTimeout(() => {
       setDeletingId(null);
       setResumes(prev => {

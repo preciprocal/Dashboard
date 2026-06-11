@@ -33,7 +33,7 @@ const VALID_STATUSES: AppStatus[] = [
 ];
 const VALID_WORK_TYPES: WorkType[] = ['remote','hybrid','onsite'];
 
-// ─── Auth — session cookie first, then Bearer token ───────────────────────────
+// ─── Auth - session cookie first, then Bearer token ───────────────────────────
 
 async function getUid(request: NextRequest): Promise<string | null> {
   // 1. Session cookie (web app)
@@ -146,7 +146,7 @@ function normaliseDoc(doc: FirebaseFirestore.DocumentSnapshot, uid: string): App
   };
 }
 
-// ─── GET — list applications ──────────────────────────────────────────────────
+// ─── GET - list applications ──────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
   try {
@@ -155,7 +155,7 @@ export async function GET(request: NextRequest) {
 
     let snap: FirebaseFirestore.QuerySnapshot;
 
-    // Try ordered query first — requires a composite index (userId ASC, createdAt DESC).
+    // Try ordered query first - requires a composite index (userId ASC, createdAt DESC).
     // If the index doesn't exist yet Firestore throws a "requires an index" error;
     // fall back to an unordered query and sort in JS so the app still works.
     try {
@@ -186,7 +186,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// ─── POST — create a new application ─────────────────────────────────────────
+// ─── POST - create a new application ─────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
   try {
@@ -228,7 +228,7 @@ export async function POST(request: NextRequest) {
       notes:       data.notes       ?? null,
       status:      data.status      ?? 'applied',
       appliedDate: data.appliedDate ?? now.toISOString().split('T')[0],
-      createdAt:   now,   // Firestore Timestamp — consistent with orderBy
+      createdAt:   now,   // Firestore Timestamp - consistent with orderBy
       updatedAt:   now,
     });
 
@@ -239,7 +239,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// ─── PATCH — update an application ───────────────────────────────────────────
+// ─── PATCH - update an application ───────────────────────────────────────────
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -267,7 +267,7 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-// ─── DELETE — delete an application ──────────────────────────────────────────
+// ─── DELETE - delete an application ──────────────────────────────────────────
 
 export async function DELETE(request: NextRequest) {
   try {

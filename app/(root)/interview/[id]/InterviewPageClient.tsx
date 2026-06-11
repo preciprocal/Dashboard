@@ -525,7 +525,7 @@ const InterviewDetailsClient = ({
 
                 {/* Join Button */}
                 <div className="mt-4 sm:mt-6">
-                  {/* Tooltip container — shows reason why join is disabled */}
+                  {/* Tooltip container - shows reason why join is disabled */}
                   <div className="relative group">
                     <button
                       onClick={handleJoinInterview}

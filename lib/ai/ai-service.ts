@@ -51,7 +51,7 @@ interface ParsedBenchmark {
 }
 
 /**
- * AIService — provider-agnostic class name, currently backed by OpenAI
+ * AIService - provider-agnostic class name, currently backed by OpenAI
  */
 export class AIService {
   /**

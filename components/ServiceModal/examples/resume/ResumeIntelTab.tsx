@@ -42,7 +42,7 @@ export function ResumeIntelTab() {
         </div>
         <div className="p-1.5 bg-amber-500/[0.04] border border-amber-500/15 rounded flex items-start gap-1.5">
           <AlertTriangle className="w-2.5 h-2.5 text-amber-400 flex-shrink-0 mt-0.5" />
-          <p className="text-[7px] text-slate-400"><span className="text-amber-400 font-semibold">Moderate Data Available</span> — Data sourced from Glassdoor and Levels.fyi, with limited specific data for &apos;Software Engineer&apos; roles.</p>
+          <p className="text-[7px] text-slate-400"><span className="text-amber-400 font-semibold">Moderate Data Available</span> - Data sourced from Glassdoor and Levels.fyi, with limited specific data for &apos;Software Engineer&apos; roles.</p>
         </div>
         <div className="flex items-center gap-1 mt-1.5">
           <span className="text-[7px] text-slate-600">Sources:</span>
@@ -103,7 +103,7 @@ export function ResumeIntelTab() {
           <div className="p-2 bg-amber-500/[0.04] border-l-2 border-amber-500/40 rounded-lg">
             <div className="flex items-center gap-1.5 mb-1"><AlertTriangle className="w-3 h-3 text-amber-400" /><p className="text-[9px] font-bold text-amber-400">Things to Watch Out For</p></div>
             <div className="space-y-0.5">
-              {['On-call expectations can be demanding for infrastructure teams.', 'Fast pace means projects shift quickly — adaptability is key.'].map((w, i) => (
+              {['On-call expectations can be demanding for infrastructure teams.', 'Fast pace means projects shift quickly - adaptability is key.'].map((w, i) => (
                 <div key={i} className="flex items-start gap-1"><div className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0 mt-0.5" /><p className="text-[7.5px] text-slate-400">{w}</p></div>
               ))}
             </div>
@@ -190,7 +190,7 @@ export function ResumeIntelTab() {
             <p className="text-[18px] font-bold text-emerald-400">$210,000</p>
             <p className="text-[7px] text-slate-500 mb-2">Median TC</p>
             <div className="grid grid-cols-2 gap-1.5">
-              <div className="p-1.5 bg-white/[0.02] border border-white/[0.06] rounded"><p className="text-[6px] text-slate-600">Range</p><p className="text-[8px] font-bold text-white">$180K — $250K</p></div>
+              <div className="p-1.5 bg-white/[0.02] border border-white/[0.06] rounded"><p className="text-[6px] text-slate-600">Range</p><p className="text-[8px] font-bold text-white">$180K - $250K</p></div>
               <div className="p-1.5 bg-white/[0.02] border border-white/[0.06] rounded"><p className="text-[6px] text-slate-600">Negotiation Room</p><p className="text-[7px] text-emerald-400 font-semibold">Standard, typically 10-15% on base/total.</p></div>
             </div>
           </div>
@@ -207,7 +207,7 @@ export function ResumeIntelTab() {
           <div className="flex items-center gap-1.5 mb-1"><Sparkles className="w-3 h-3 text-amber-400" /><p className="text-[9px] font-bold text-white">Insider Tips</p></div>
           {[
             { icon: '⚠️', tip: 'Be prepared for system design questions focused on high-throughput data pipelines and distributed monitoring.', source: 'Glassdoor', priority: 'Critical', prColor: 'text-red-400 bg-red-500/10' },
-            { icon: '⚡', tip: 'Understand observability concepts deeply — metrics, traces, and logs. Know the differences and trade-offs.', source: 'Glassdoor', priority: 'High', prColor: 'text-amber-400 bg-amber-500/10' },
+            { icon: '⚡', tip: 'Understand observability concepts deeply - metrics, traces, and logs. Know the differences and trade-offs.', source: 'Glassdoor', priority: 'High', prColor: 'text-amber-400 bg-amber-500/10' },
             { icon: '⚠️', tip: 'Demonstrate strong Go or Python skills. Live coding rounds focus on real-world scenarios, not LeetCode.', source: 'Glassdoor', priority: 'Critical', prColor: 'text-red-400 bg-red-500/10' },
             { icon: '💡', tip: 'Practice behavioral questions using the STAR method, focusing on debugging and cross-team collaboration.', source: 'Glassdoor', priority: 'Medium', prColor: 'text-emerald-400 bg-emerald-500/10' },
           ].map((item, i) => (

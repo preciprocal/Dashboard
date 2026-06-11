@@ -76,9 +76,9 @@ const SYSTEM_PROMPT = `You are an expert interview preparation coach. Create per
 
 IMPORTANT GUIDELINES:
 1. Each day should have 3-5 focused tasks with realistic time estimates.
-2. Resources must include REAL URLs — use actual YouTube channels (NeetCode, TechLead, Clément Mihailescu), real LeetCode problem URLs, and real documentation links.
+2. Resources must include REAL URLs - use actual YouTube channels (NeetCode, TechLead, Clément Mihailescu), real LeetCode problem URLs, and real documentation links.
 3. Behavioral questions should use the STAR framework and be relevant to the target role.
-4. Scale difficulty progressively — start with fundamentals, build to advanced topics.
+4. Scale difficulty progressively - start with fundamentals, build to advanced topics.
 5. For shorter plans (< 7 days), focus on highest-impact topics only.
 6. For longer plans (> 14 days), include revision days and mock interview practice.
 7. Each day should have exactly 1 behavioral prep question.
@@ -89,7 +89,7 @@ CRITICAL: Return ONLY valid JSON. No markdown fences, no preamble, no explanatio
 {
   "dailyPlans": [
     {
-      "focus": "Topic name — clear and specific",
+      "focus": "Topic name - clear and specific",
       "topics": ["Subtopic 1", "Subtopic 2", "Subtopic 3"],
       "resources": [
         {
@@ -117,7 +117,7 @@ CRITICAL: Return ONLY valid JSON. No markdown fences, no preamble, no explanatio
         "tips": ["Use STAR format", "Quantify the outcome", "Mention what you learned"],
         "framework": "STAR"
       },
-      "communicationTip": "When answering technical questions, think out loud — narrate your thought process before jumping to the solution.",
+      "communicationTip": "When answering technical questions, think out loud - narrate your thought process before jumping to the solution.",
       "tasks": [
         {
           "type": "technical",
@@ -226,7 +226,7 @@ Create a detailed, day-by-day plan with specific resources, practice problems, a
 
     if (!cleaned) {
       console.error('❌ No JSON found in response');
-      throw new Error('Failed to parse AI response — no JSON found');
+      throw new Error('Failed to parse AI response - no JSON found');
     }
 
     let generatedPlan: GeneratedPlan;
@@ -235,7 +235,7 @@ Create a detailed, day-by-day plan with specific resources, practice problems, a
     } catch (parseError) {
       console.error('❌ JSON parsing error:', parseError);
       console.error('   First 500 chars:', cleaned.slice(0, 500));
-      throw new Error('Failed to parse AI response — invalid JSON');
+      throw new Error('Failed to parse AI response - invalid JSON');
     }
 
     if (!generatedPlan.dailyPlans || !Array.isArray(generatedPlan.dailyPlans)) {

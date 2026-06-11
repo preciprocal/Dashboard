@@ -58,12 +58,12 @@ const inp = [
 // ─── Tips / facts ─────────────────────────────────────────────────────────────
 
 const COVER_LETTER_FACTS = [
-  "🎯 Recruiters spend just 7.4 seconds on your cover letter — start with a bang, not 'I am writing to apply...'",
+  "🎯 Recruiters spend just 7.4 seconds on your cover letter - start with a bang, not 'I am writing to apply...'",
   "🔥 The magic formula: Problem they have → Your solution → Proof it worked.",
-  "💰 Mentioning '$500K revenue increase' beats saying 'increased revenue' — numbers = credibility!",
+  "💰 Mentioning '$500K revenue increase' beats saying 'increased revenue' - numbers = credibility!",
   "🎪 Cover letters with a brief personal story get 60% more callbacks than generic ones.",
-  "🚀 'Achieved, Led, Created' >> 'Responsible for, Worked on, Helped with' — own your wins!",
-  "📱 80% of cover letters are now read on mobile first — keep paragraphs short and punchy.",
+  "🚀 'Achieved, Led, Created' >> 'Responsible for, Worked on, Helped with' - own your wins!",
+  "📱 80% of cover letters are now read on mobile first - keep paragraphs short and punchy.",
   "🎭 Mirror their vibe: Startup? Be conversational. Corporate? Polish it up.",
   "⚡ The 3-paragraph play: 1) Why you're excited 2) Why you're qualified 3) What's next",
   "🔍 Check their 'About' page or latest blog post for insider intel.",
@@ -79,7 +79,7 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
   const [activeStat, setActiveStat] = useState(0);
 
   const STATS = [
-    { num: '83%',  line: 'of hiring managers read cover letters — even when optional' },
+    { num: '83%',  line: 'of hiring managers read cover letters - even when optional' },
     { num: '1.9×', line: 'more interviews when you send a tailored letter' },
     { num: '94%',  line: 'say cover letters influence who gets the interview' },
     { num: '81%',  line: 'of recruiters have rejected someone based on their letter alone' },
@@ -109,7 +109,7 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
             Your next interview is one letter away.
           </h2>
           <p className="text-sm text-slate-500 mb-6 max-w-md">
-            You&apos;ve built momentum — don&apos;t let a limit decide where your job search stops.
+            You&apos;ve built momentum - don&apos;t let a limit decide where your job search stops.
           </p>
           <div className="flex items-center gap-4 bg-white/[0.03] border border-white/[0.06]
                           rounded-xl px-5 py-4 mb-6 min-h-[64px]">
@@ -826,7 +826,7 @@ export default function CoverLetterGeneratorPage() {
             </div>
           </div>
 
-          {/* ── NextStepPrompt — fires after letter is generated ── */}
+          {/* ── NextStepPrompt - fires after letter is generated ── */}
           {showNextStep && (
             <NextStepPrompt
               trigger="cover_letter_generated"

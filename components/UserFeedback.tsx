@@ -135,7 +135,7 @@ const PAGE_CONFIGS: Record<string, PageConfig> = {
 
   "career-tools": {
     title: "Career Tools Feedback",
-    subtitle: "LinkedIn optimizer & outreach — help us sharpen both",
+    subtitle: "LinkedIn optimizer & outreach - help us sharpen both",
     overallQuestion: "How valuable were the career tools overall?",
     featureRatings: [
       { id: "linkedin_optimizer", label: "LinkedIn Optimizer", icon: <Linkedin className="w-3.5 h-3.5" /> },
@@ -280,7 +280,7 @@ const PAGE_CONFIGS: Record<string, PageConfig> = {
       { id: "would_recommend", label: "I would recommend Preciprocal to a friend in job search" },
       { id: "worth_subscribing", label: "The platform feels worth subscribing to" },
     ],
-    freePlaceholder: "Bugs, feature requests, praise — it all helps.",
+    freePlaceholder: "Bugs, feature requests, praise - it all helps.",
   },
 };
 

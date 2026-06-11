@@ -159,7 +159,7 @@ function ServiceExampleModal({ serviceId, isOpen, onClose, initialTab }: Service
           </button>
         </div>
 
-        {/* Progress bar — now smooth and continuous */}
+        {/* Progress bar - now smooth and continuous */}
         <div className="px-6 pb-2">
           <div className="flex items-center gap-3">
             <div className="flex-1 h-1 bg-white/[0.06] rounded-full overflow-hidden">

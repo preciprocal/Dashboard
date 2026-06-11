@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { auth, db } from "@/firebase/admin";
 import { redis } from "@/lib/redis/redis-client";
+import { USAGE_LIMITS } from "@/lib/config/usage-limits";
 
 export const runtime = "nodejs";
 
@@ -99,7 +100,23 @@ export async function POST(req: NextRequest) {
     const periodEndISO = periodEnd ? new Date(periodEnd * 1000).toISOString() : null;
     const now          = new Date().toISOString();
 
-    // Write flat fields using dot notation — avoids merging stale nested data
+    // Build limits snapshot so Firebase Console shows plan caps alongside usage counts
+    const planLimits = USAGE_LIMITS[plan];
+    const limitsSnapshot = {
+      coverLetters:          planLimits.coverLetters,
+      resumes:               planLimits.resumes,
+      studyPlans:            planLimits.studyPlans,
+      interviews:            planLimits.interviews,
+      interviewDebriefs:     planLimits.interviewDebriefs,
+      linkedinOptimisations: planLimits.linkedinOptimisations,
+      coldOutreach:          planLimits.coldOutreach,
+      findContacts:          planLimits.findContacts,
+      jobTracker:            planLimits.jobTracker,
+      plan,
+      updatedAt:             now,
+    };
+
+    // Write flat fields using dot notation - avoids merging stale nested data
     const firestoreUpdate: Record<string, unknown> = {
       "subscription.plan":                  plan,
       "subscription.status":                "active",
@@ -110,15 +127,16 @@ export async function POST(req: NextRequest) {
       "subscription.lastPaymentAt":         now,
       "subscription.updatedAt":             now,
       "subscription.canceledAt":            null,
+      limits:                               limitsSnapshot,
     };
 
     // ── Write to Firestore ─────────────────────────────────────────────────
     await db.collection("users").doc(userId).update(firestoreUpdate);
-    console.log("✅ Firestore updated — plan:", plan, "userId:", userId);
+    console.log("✅ Firestore updated - plan:", plan, "userId:", userId);
     
     // Verify the write succeeded
     const verify = await db.collection("users").doc(userId).get();
-    console.log("🔍 Firestore verify — plan is now:", verify.data()?.subscription?.plan);
+    console.log("🔍 Firestore verify - plan is now:", verify.data()?.subscription?.plan);
 
     // ── Bust Redis so next server request reads fresh Firestore data ───────
     await invalidateAllUserCache(userId);

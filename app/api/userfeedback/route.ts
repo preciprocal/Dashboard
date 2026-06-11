@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
       nps,
       featureRatings,   // [{ id, label, rating }]
       usageOptions,     // string[]
-      specificAnswers,  // Record<string, string> — agree/disagree per page
+      specificAnswers,  // Record<string, string> - agree/disagree per page
       topImprovement,   // string
       freeText,
       page,
@@ -47,14 +47,16 @@ export async function POST(req: NextRequest) {
 
     const doc = {
       // Identity
-      userId: user?.id ?? null,
+      type:      'product-survey',
+      userId:    user?.id    ?? null,
       userEmail: user?.email ?? null,
+      userName:  user?.name  ?? null,
 
       // Context
       page,
       submittedAt: submittedAt ?? new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-      userAgent: req.headers.get("user-agent") ?? "unknown",
+      createdAt:   new Date().toISOString(),
+      userAgent:   req.headers.get("user-agent") ?? "unknown",
 
       // Step 1
       overallRating,

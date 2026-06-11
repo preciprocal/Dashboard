@@ -43,7 +43,7 @@ async function getCachedText(userId: string, fileType: 'resume' | 'transcript'):
     const key = `user-file-text:${userId}:${fileType}`;
     const cached = await redis.get(key);
     if (cached) {
-      console.log(`✅ Cache HIT — ${fileType} text for ${userId}`);
+      console.log(`✅ Cache HIT - ${fileType} text for ${userId}`);
       return typeof cached === 'string' ? cached : null;
     }
     return null;

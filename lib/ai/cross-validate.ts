@@ -1,9 +1,9 @@
 // lib/ai/cross-validate.ts
-// Adversarial AI peer-review. Non-blocking — failures never block the main response.
+// Adversarial AI peer-review. Non-blocking - failures never block the main response.
 
 import { anthropic, CLAUDE_MODEL, extractText, logUsage } from '@/lib/ai/claude';
 
-// 1200 tokens — the JSON with 2-3 issues + assessment needs ~800-1000.
+// 1200 tokens - the JSON with 2-3 issues + assessment needs ~800-1000.
 // Previous 600 was truncating every single time.
 const V_TOKENS = 1200;
 
@@ -19,7 +19,7 @@ export interface CrossValidationResult {
   trustScore: number;
 }
 
-// ─── Safe JSON extraction — handles truncation gracefully ─────────────────────
+// ─── Safe JSON extraction - handles truncation gracefully ─────────────────────
 
 function extractAndParseJSON(raw: string): CrossValidationResult | null {
   if (!raw || raw.trim().length === 0) return null;
@@ -41,7 +41,7 @@ function extractAndParseJSON(raw: string): CrossValidationResult | null {
     parsed.issuesFound = parsed.issues?.length ?? 0;
     return parsed;
   } catch {
-    // JSON is truncated — attempt repair
+    // JSON is truncated - attempt repair
   }
 
   // Repair strategy: close open strings, arrays, objects
@@ -82,12 +82,12 @@ function extractAndParseJSON(raw: string): CrossValidationResult | null {
     parsed.issuesFound = parsed.issues?.length ?? 0;
     return parsed;
   } catch {
-    // Still can't parse — return a safe default
+    // Still can't parse - return a safe default
     console.warn('⚠️ Cross-validation JSON repair failed, returning default');
     return {
       issuesFound: 0,
       issues: [],
-      overallAssessment: 'Validation check completed — response was partially truncated.',
+      overallAssessment: 'Validation check completed - response was partially truncated.',
       trustScore: 65,
     };
   }

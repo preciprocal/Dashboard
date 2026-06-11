@@ -4,7 +4,7 @@ import { auth, db } from '@/firebase/admin';
 import { revalidatePath } from 'next/cache';
 import { redis } from '@/lib/redis/redis-client';
 
-// Cache TTL for resume data (30 days — resumes don't change often after creation)
+// Cache TTL for resume data (30 days - resumes don't change often after creation)
 const RESUME_CACHE_TTL = 30 * 24 * 60 * 60;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -19,7 +19,7 @@ export interface Resume {
   originalFileName?: string;
   fileSize: number;
 
-  // Storage — new records store a Firebase Storage HTTPS URL here.
+  // Storage - new records store a Firebase Storage HTTPS URL here.
   // Legacy records may have a base64 data-URL; both are supported.
   resumePath?: string;
   imagePath?:  string;   // no longer written for new records, kept for legacy reads
@@ -47,11 +47,11 @@ async function getCachedResume(resumeId: string, userId: string): Promise<Resume
   try {
     const cached = await redis.get(`resume:${userId}:${resumeId}`);
     if (cached) {
-      console.log(`⚡ Cache HIT — resume ${resumeId}`);
+      console.log(`⚡ Cache HIT - resume ${resumeId}`);
       const data = typeof cached === 'string' ? JSON.parse(cached) : cached;
       return (data as CachedResume).resume;
     }
-    console.log(`❌ Cache MISS — resume ${resumeId}`);
+    console.log(`❌ Cache MISS - resume ${resumeId}`);
     return null;
   } catch (err) {
     console.error('Redis get error:', err);
@@ -74,7 +74,7 @@ async function invalidateResumeCache(resumeId: string, userId: string): Promise<
   if (!redis) return;
   try {
     await redis.del(`resume:${userId}:${resumeId}`);
-    console.log(`🗑️  Cache invalidated — resume ${resumeId}`);
+    console.log(`🗑️  Cache invalidated - resume ${resumeId}`);
   } catch (err) {
     console.error('Redis delete error:', err);
   }

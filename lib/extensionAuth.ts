@@ -24,7 +24,7 @@ export async function syncAuthToExtension(
         { type: 'SAVE_AUTH', uid, email, token },
         (response) => {
           if (chrome.runtime.lastError) {
-            // Extension not installed or not reachable — silent fail
+            // Extension not installed or not reachable - silent fail
             console.warn('Extension not reachable:', chrome.runtime.lastError.message);
             resolve(false);
           } else {

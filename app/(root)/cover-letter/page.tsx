@@ -231,7 +231,7 @@ function LetterCard({
           )}
         </div>
 
-        {/* Word count bar — grid only */}
+        {/* Word count bar - grid only */}
         {!isList && (
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
@@ -264,7 +264,7 @@ function LetterCard({
           </span>
         </div>
 
-        {/* Date chip — list only */}
+        {/* Date chip - list only */}
         {isList && (
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.03] border border-white/[0.06] flex-shrink-0">
             <Calendar className="w-3 h-3 text-slate-600" />

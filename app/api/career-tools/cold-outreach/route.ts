@@ -11,7 +11,7 @@ import { applyRateLimit } from '@/lib/ai/rate-limit';
 // Typical output: ~1200-1600 tokens. 1800 is safe ceiling.
 const MAX_TOKENS = 1800;
 
-const OUTREACH_SYSTEM = `You are a master of professional outreach — sales psychology, personal branding, career development. Thousands of cold emails/LinkedIn messages that get responses.
+const OUTREACH_SYSTEM = `You are a master of professional outreach - sales psychology, personal branding, career development. Thousands of cold emails/LinkedIn messages that get responses.
 
 Rules: Lead with a hook about THEM. Be concise. Small ask. Never "My name is..." or "I hope this finds you well". Sound human. Use sender's resume achievements when available.
 

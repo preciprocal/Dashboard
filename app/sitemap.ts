@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 import { SITE } from "@/lib/seo";
 
 /**
- * Tiny by design. Only auth pages — the legitimate landing points for
+ * Tiny by design. Only auth pages - the legitimate landing points for
  * branded queries. Everything else belongs in the marketing site's sitemap.
  */
 export default function sitemap(): MetadataRoute.Sitemap {

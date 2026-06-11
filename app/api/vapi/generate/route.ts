@@ -10,7 +10,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 interface FunctionCall { name: string; parameters: GenerateInterviewParams | SaveInterviewParams; }
 interface Message { function_call?: FunctionCall; }
 interface VapiRequest { message: Message; }
-interface GenerateInterviewParams { role: string; level: string; type: 'technical' | 'behavioural' | 'mixed'; techstack: string | string[]; amount: number; userid?: string; jobDescription?: string; }
+interface GenerateInterviewParams { role: string; level: string; type: 'technical' | 'behavioural' | 'mixed' | 'system-design'; techstack: string | string[]; amount: number; userid?: string; jobDescription?: string; }
 interface SaveInterviewParams { interview_data: InterviewData; }
 interface InterviewData { role: string; type: string; level: string; techstack: string[]; questions: string[]; technicalQuestions?: string[]; behavioralQuestions?: string[]; userId?: string; }
 
@@ -46,7 +46,16 @@ Generate ${amount} behavioral interview questions for a ${level} ${role} positio
 FOCUS: Communication, teamwork, leadership, conflict resolution, motivation, adaptability.
 Start with warm greeting questions. Use STAR-compatible questions.
 ${userContext ? 'Reference specific roles, companies, or experiences from their resume when forming questions.' : ''}
-IMPORTANT: No technical content — behavioral only.`;
+IMPORTANT: No technical content - behavioral only.`;
+  }
+  if (type === "system-design") {
+    return `${base}
+Generate ${amount} system design interview questions for a ${level} ${role} position.
+FOCUS: Distributed systems, scalability trade-offs, database design, API design, microservices, load balancing, caching, CDN, message queues, CAP theorem, consistency vs availability.
+Include real-world design scenarios such as: design a URL shortener, design a real-time chat system, design a distributed cache, design a notification service, design a rate limiter.
+Tech context: ${techstackString}.
+${userContext ? 'Reference specific technologies and experience from their resume when forming system design questions.' : ''}
+Questions should require the candidate to discuss trade-offs, failure modes, capacity estimation, and architectural decisions.`;
   }
   return `${base}
 Generate ${amount} mixed interview questions for a ${level} ${role} position.
@@ -116,6 +125,13 @@ export async function POST(req: NextRequest) {
             const extra = await generateQuestions(`Generate ${amount - behavioralQuestions.length} additional behavioral questions for ${level} ${role}. Return JSON array.`, 0.7);
             behavioralQuestions = [...behavioralQuestions, ...extra];
           }
+        } else if (type === "system-design") {
+          const prompt = buildEnhancedPrompt("system-design", amount, role, level, techstackString, userContextPrompt);
+          technicalQuestions = await generateQuestions(prompt, 0.7);
+          if (technicalQuestions.length < amount) {
+            const extra = await generateQuestions(`Generate ${amount - technicalQuestions.length} additional system design questions for ${level} ${role}. Return JSON array.`, 0.8);
+            technicalQuestions = [...technicalQuestions, ...extra];
+          }
         } else if (type === "mixed") {
           const techCount = Math.ceil(amount * 0.6);
           const behavCount = amount - techCount;
@@ -164,6 +180,7 @@ export async function POST(req: NextRequest) {
         let successMessage = "";
         if (type === "technical") successMessage = `Generated ${technicalQuestions.length} technical questions for ${level} ${role} covering ${techstackString}.`;
         else if (type === "behavioural") successMessage = `Generated ${behavioralQuestions.length} behavioral questions for ${level} ${role}.`;
+        else if (type === "system-design") successMessage = `Generated ${technicalQuestions.length} system design questions for ${level} ${role}.`;
         else successMessage = `Generated ${allQuestions.length} balanced questions (${technicalQuestions.length} technical, ${behavioralQuestions.length} behavioral) for ${level} ${role}.`;
 
         return NextResponse.json({

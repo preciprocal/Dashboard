@@ -121,7 +121,7 @@ export function ResumeRecruiterTab() {
         </div>
         <div className="space-y-1">
           {[
-            "Cognizant bullet 'Built automated testing suite covering 85% of codebase' — this describes a duty, not an achievement. Zero business impact shown.",
+            "Cognizant bullet 'Built automated testing suite covering 85% of codebase' - this describes a duty, not an achievement. Zero business impact shown.",
             'Lack of a professional summary section means the recruiter has to infer fit rather than being told directly.',
           ].map((item, i) => (
             <div key={i} className="flex items-start gap-1.5">
@@ -155,7 +155,7 @@ export function ResumeRecruiterTab() {
         <div className="space-y-2">
           {[
             { section: 'Work Experience', time: '4s', score: 80, notes: 'Strong role at Datadog with quantified metrics. The progression from Cognizant to Datadog shows clear growth. However, the Cognizant bullets lack specific impact.', barColor: 'bg-amber-500', dotColor: 'bg-amber-400' },
-            { section: 'Skills', time: '1.5s', score: 70, notes: 'Good coverage of relevant technologies — Python, Go, Kubernetes, AWS. Well-categorized into 4 groups which aids quick scanning.', barColor: 'bg-emerald-500', dotColor: 'bg-emerald-400' },
+            { section: 'Skills', time: '1.5s', score: 70, notes: 'Good coverage of relevant technologies - Python, Go, Kubernetes, AWS. Well-categorized into 4 groups which aids quick scanning.', barColor: 'bg-emerald-500', dotColor: 'bg-emerald-400' },
             { section: 'Education', time: '0.5s', score: 35, notes: 'MS Computer Science from Boston University carries solid weight. Relevant coursework listed strengthens the education section.', barColor: 'bg-red-500', dotColor: 'bg-red-400' },
             { section: 'Projects', time: '1s', score: 55, notes: 'SmartHire AI and FinTrack demonstrate hands-on initiative. Including user numbers (1,000+ and 500+) adds credibility.', barColor: 'bg-amber-500', dotColor: 'bg-amber-400' },
           ].map(item => (
@@ -189,7 +189,7 @@ export function ResumeRecruiterTab() {
         <div className="space-y-1.5">
           {[
             'This candidate has strong experience at Datadog and Wayfair with quantified achievements. The technical progression is impressive. Worth moving forward to technical screen.',
-            "The biggest gap is the Cognizant role — it reads like a job description, not an achievement list. They should revise those bullets before the next round.",
+            "The biggest gap is the Cognizant role - it reads like a job description, not an achievement list. They should revise those bullets before the next round.",
             'Overall a solid resume with room to improve. Recommend for first-round technical interview based on Datadog experience alone.',
           ].map((note, i) => (
             <div key={i} className="flex items-start gap-1.5">

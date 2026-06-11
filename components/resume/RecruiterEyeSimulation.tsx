@@ -148,7 +148,7 @@ export default function RecruiterEyeSimulation({
     }
   }, [resumeId, jobTitle, companyName, jobDescription]);
 
-  // Only hydrate from preloaded data — never auto-run
+  // Only hydrate from preloaded data - never auto-run
   useEffect(() => {
     if (initialData && !simulationData) {
       setSimulationData(initialData);
@@ -190,7 +190,7 @@ export default function RecruiterEyeSimulation({
     );
   }
 
-  // ── Empty state — manual run only ───────────────────────────────
+  // ── Empty state - manual run only ───────────────────────────────
   if (!simulationData) {
     return (
       <div className="glass-card p-10 text-center">

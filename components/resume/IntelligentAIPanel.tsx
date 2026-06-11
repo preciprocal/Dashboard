@@ -51,12 +51,12 @@ const ANALYSIS_FACTS = [
   { emoji: '🤖', fact: 'Over 75% of resumes are rejected by ATS before a human ever reads them.' },
   { emoji: '⏱️', fact: 'Recruiters spend an average of 7.4 seconds on an initial resume scan.' },
   { emoji: '📊', fact: 'Resumes with quantified achievements are 40% more likely to get callbacks.' },
-  { emoji: '🔑', fact: 'The average job posting receives 250 resumes — only 4–6 get interviews.' },
+  { emoji: '🔑', fact: 'The average job posting receives 250 resumes - only 4–6 get interviews.' },
   { emoji: '🎯', fact: 'Tailoring your resume to each job description can double your interview rate.' },
   { emoji: '💡', fact: 'Action verbs like "spearheaded" and "optimized" outperform "responsible for" every time.' },
   { emoji: '📝', fact: 'One-page resumes are 2.3× more likely to be selected for entry-level roles.' },
   { emoji: '🏆', fact: 'Including 5+ measurable results increases your ATS match score by up to 25%.' },
-  { emoji: '🔍', fact: 'Most ATS systems rank keyword density — missing 3 key terms can drop you below the cutoff.' },
+  { emoji: '🔍', fact: 'Most ATS systems rank keyword density - missing 3 key terms can drop you below the cutoff.' },
   { emoji: '📈', fact: 'Candidates who A/B test their resumes land roles 30% faster on average.' },
   { emoji: '🧠', fact: 'Hiring managers prefer resumes that lead each bullet with a strong action verb.' },
   { emoji: '🌐', fact: 'Applicants with an optimised LinkedIn profile are 71% more likely to get interviews.' },
@@ -65,9 +65,9 @@ const ANALYSIS_FACTS = [
   { emoji: '💼', fact: 'Using the exact job title from the posting in your resume header boosts ATS ranking significantly.' },
   { emoji: '🚀', fact: 'Companies using AI screening increased from 35% to over 75% in the last 3 years.' },
   { emoji: '📉', fact: 'Typos or formatting errors cause 58% of recruiters to immediately reject a resume.' },
-  { emoji: '🎨', fact: 'Clean, single-column layouts parse best through ATS — creative designs often break parsing.' },
+  { emoji: '🎨', fact: 'Clean, single-column layouts parse best through ATS - creative designs often break parsing.' },
   { emoji: '🔗', fact: 'Adding a portfolio or GitHub link increases callbacks by 20% for technical roles.' },
-  { emoji: '📌', fact: 'The top third of your resume gets 80% of a recruiter\'s attention — make it count.' },
+  { emoji: '📌', fact: 'The top third of your resume gets 80% of a recruiter\'s attention - make it count.' },
 ];
 
 function AnalysingFacts() {
@@ -130,7 +130,7 @@ function AnalysingFacts() {
           return <div key={i} className={`rounded-full transition-all duration-300 ${isActive ? 'w-4 h-1.5 bg-indigo-400' : 'w-1.5 h-1.5 bg-slate-600'}`} />;
         })}
       </div>
-      <p className="text-[10px] text-slate-600 text-center">Sit tight — we&apos;re scoring every bullet, section &amp; keyword</p>
+      <p className="text-[10px] text-slate-600 text-center">Sit tight - we&apos;re scoring every bullet, section &amp; keyword</p>
     </div>
   );
 }
@@ -289,14 +289,14 @@ function QuickWinCard({ win, index, onApply, onHighlight, appliedSet, ignoredSet
   if (isApplied) return (
     <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
       <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-      <div className="flex-1 min-w-0"><p className="text-xs text-emerald-300 font-semibold">Applied — {win.title}</p><p className="text-[10px] text-slate-400 truncate mt-0.5">{win.rewrite}</p></div>
+      <div className="flex-1 min-w-0"><p className="text-xs text-emerald-300 font-semibold">Applied - {win.title}</p><p className="text-[10px] text-slate-400 truncate mt-0.5">{win.rewrite}</p></div>
     </div>
   );
 
   if (isIgnored) return (
     <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-slate-800/20 border border-white/[0.04]">
       <XCircle className="w-3.5 h-3.5 text-slate-600 shrink-0" />
-      <p className="text-[11px] text-slate-600 truncate flex-1">Ignored — {win.title}</p>
+      <p className="text-[11px] text-slate-600 truncate flex-1">Ignored - {win.title}</p>
       <button onClick={() => onMarkIgnored(win.originalText)} className="text-[10px] text-slate-500 hover:text-slate-300 cursor-pointer transition-colors">Undo</button>
     </div>
   );
@@ -530,7 +530,7 @@ function TailorTab({ resumeId, resumeContent, jobTitle: initTitle, companyName: 
           {ats && (<div className="bg-slate-800/30 border border-white/[0.06] rounded-xl p-4"><div className="flex items-center justify-between mb-3"><p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">ATS Score</p>{improvement > 0 && <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-400"><TrendingUp className="w-3 h-3" />+{improvement} pts</span>}</div><div className="flex items-center gap-3"><div className="text-center"><p className={`text-xl font-bold tabular-nums ${ats.before >= 70 ? 'text-amber-400' : 'text-red-400'}`}>{ats.before}</p><p className="text-[10px] text-slate-500">Before</p></div><div className="flex-1"><div className="flex items-center gap-2"><div className="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-red-500/60 rounded-full" style={{ width: `${ats.before}%` }} /></div><ArrowRight className="w-3.5 h-3.5 text-slate-600 shrink-0" /><div className="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-emerald-500 rounded-full" style={{ width: `${ats.after}%` }} /></div></div></div><div className="text-center"><p className="text-xl font-bold tabular-nums text-emerald-400">{ats.after}</p><p className="text-[10px] text-slate-500">After</p></div></div></div>)}
           {result.keywordsFromJD && (result.keywordsFromJD.matched.length > 0 || result.keywordsFromJD.missing.length > 0) && (<div className="bg-slate-800/30 border border-white/[0.06] rounded-xl p-4 space-y-2.5"><p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Keyword Coverage</p>{result.keywordsFromJD.matched.length > 0 && <div className="flex flex-wrap gap-1">{result.keywordsFromJD.matched.map(kw => <span key={kw} className="px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-300">{kw}</span>)}</div>}{result.keywordsFromJD.missing.length > 0 && <div><p className="text-[10px] text-amber-400 font-medium mb-1">Could not fit:</p><div className="flex flex-wrap gap-1">{result.keywordsFromJD.missing.map(kw => <span key={kw} className="px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-300">{kw}</span>)}</div></div>}</div>)}
 
-          {/* ── Suggested Changes — QuickWin-style cards ── */}
+          {/* ── Suggested Changes - QuickWin-style cards ── */}
           {result.sections && result.sections.length > 0 && (() => {
             const totalChanges = result.sections.reduce((s, sec) => s + sec.changes.length, 0);
             const appliedCount = result.sections.reduce((s, sec) => s + sec.changes.filter((_, ci) => appliedKeys.has(`tailor:${sec.name}:${ci}`)).length, 0);
@@ -757,7 +757,7 @@ export default function IntelligentAIPanel({
       {/* Body */}
       <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(100,116,139,0.3) transparent' }}>
 
-        {/* Analysing state — facts ticker */}
+        {/* Analysing state - facts ticker */}
         {isAnalyzing && <AnalysingFacts />}
 
         {/* Empty state */}
@@ -767,8 +767,8 @@ export default function IntelligentAIPanel({
               <BarChart3 className="w-8 h-8 text-indigo-400" />
             </div>
             <h3 className="text-lg font-bold text-white mb-2">Your Resume Has a Hidden Score</h3>
-            <p className="text-sm text-slate-400 leading-relaxed mb-2 max-w-xs">75% of resumes get rejected before a human ever sees them. Find out exactly where yours stands — bullet by bullet.</p>
-            <p className="text-xs text-slate-500 mb-6 max-w-xs">Takes 15 seconds. No guesswork — just a clear score and the fixes that actually move the needle.</p>
+            <p className="text-sm text-slate-400 leading-relaxed mb-2 max-w-xs">75% of resumes get rejected before a human ever sees them. Find out exactly where yours stands - bullet by bullet.</p>
+            <p className="text-xs text-slate-500 mb-6 max-w-xs">Takes 15 seconds. No guesswork - just a clear score and the fixes that actually move the needle.</p>
             <button onClick={() => runAnalysis()} disabled={isAnalyzing} className="w-full max-w-xs py-3 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 cursor-pointer transition-all hover:-translate-y-0.5 mb-5" style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)', boxShadow: '0 4px 20px rgba(99,102,241,0.3)' }}>
               <Sparkles className="w-4 h-4" /> Reveal My Score
             </button>

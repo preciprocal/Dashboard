@@ -111,6 +111,6 @@ async function generateSuggestions({ section, originalText, tone, context, fileB
 
     return NextResponse.json({ ...data, optimizationMode: mode, meta: { model: CLAUDE_MODEL, mode } });
   } catch (err) {
-    return NextResponse.json({ suggestions: [{ id: '1', original: originalText.substring(0, 100), rewritten: `[Unavailable — ${(err as Error).message}]`, improvements: ['Service temporarily unavailable'], tone, score: 70, keywordsAdded: [], atsOptimizations: [], confidenceScore: 0.5, optimizationMode: mode }], optimizationMode: mode, meta: { model: 'fallback' } });
+    return NextResponse.json({ suggestions: [{ id: '1', original: originalText.substring(0, 100), rewritten: `[Unavailable - ${(err as Error).message}]`, improvements: ['Service temporarily unavailable'], tone, score: 70, keywordsAdded: [], atsOptimizations: [], confidenceScore: 0.5, optimizationMode: mode }], optimizationMode: mode, meta: { model: 'fallback' } });
   }
 }

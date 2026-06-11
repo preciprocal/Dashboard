@@ -107,10 +107,10 @@ function LoadingCard({ message, sub }: { message: string; sub: string }) {
 // ─── Mock data ────────────────────────────────────────────────────────────────
 
 const MOCK_ENTRIES = [
-  { company: 'Stripe', role: 'Senior SWE', stage: 'System Design', outcome: 'Moved Forward', outcomeColor: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20', date: 'Mar 18, 2026', duration: '60m', score: 82, before: '🤩', after: '😎', difficulty: 4, questions: ['Design a payment processing system', 'How would you handle idempotency?', 'Walk me through your approach to rate limiting'], well: 'Nailed the high-level architecture and idempotency discussion. Interviewer was nodding along.', poorly: 'Got a bit hand-wavy on the database sharding strategy. Should have been more specific about partition keys.', surprises: 'They asked about my experience with event-driven architectures — wasn\'t expecting that for a system design round.', followUp: 'Study consistent hashing and Kafka partition strategies before final round.' },
-  { company: 'Google', role: 'SWE III', stage: 'Technical', outcome: 'Rejected', outcomeColor: 'text-red-400 bg-red-400/10 border-red-400/20', date: 'Mar 10, 2026', duration: '45m', score: 55, before: '😟', after: '😓', difficulty: 5, questions: ['Implement LRU cache from scratch', 'Optimize for O(1) operations'], well: 'Got the basic implementation right and identified the doubly-linked list approach.', poorly: 'Ran out of time on the follow-up optimization. Panicked and forgot to discuss trade-offs.', surprises: 'The follow-up was harder than expected — they wanted multi-threaded LRU cache.', followUp: 'Practice timed coding problems. Work on staying calm under pressure.' },
-  { company: 'Datadog', role: 'Backend Engineer', stage: 'Behavioral', outcome: 'Moved Forward', outcomeColor: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20', date: 'Mar 5, 2026', duration: '45m', score: 75, before: '😐', after: '😎', difficulty: 3, questions: ['Tell me about a time you disagreed with a teammate', 'Describe a project that failed'], well: 'STAR format was smooth. Great examples from the payment pipeline project.', poorly: 'Could have been more concise on the failure story — rambled a bit.', surprises: 'They seemed more interested in the failure story than the success one.', followUp: 'Prepare a tighter 2-minute version of each STAR story.' },
-  { company: 'Coinbase', role: 'Senior SWE', stage: 'Phone Screen', outcome: 'Pending', outcomeColor: 'text-amber-400 bg-amber-400/10 border-amber-400/20', date: 'Mar 1, 2026', duration: '30m', score: 70, before: '😐', after: '😐', difficulty: 2, questions: ['Why Coinbase?', 'Walk me through your most impactful project'], well: 'Good energy, showed genuine interest in crypto infrastructure.', poorly: 'Could have quantified impact better — said "improved performance" instead of giving numbers.', surprises: 'Very casual vibe — felt more like a conversation than an interview.', followUp: 'Prepare 3 impact metrics for every project on resume.' },
+  { company: 'Stripe', role: 'Senior SWE', stage: 'System Design', outcome: 'Moved Forward', outcomeColor: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20', date: 'Mar 18, 2026', duration: '60m', score: 82, before: '🤩', after: '😎', difficulty: 4, questions: ['Design a payment processing system', 'How would you handle idempotency?', 'Walk me through your approach to rate limiting'], well: 'Nailed the high-level architecture and idempotency discussion. Interviewer was nodding along.', poorly: 'Got a bit hand-wavy on the database sharding strategy. Should have been more specific about partition keys.', surprises: 'They asked about my experience with event-driven architectures - wasn\'t expecting that for a system design round.', followUp: 'Study consistent hashing and Kafka partition strategies before final round.' },
+  { company: 'Google', role: 'SWE III', stage: 'Technical', outcome: 'Rejected', outcomeColor: 'text-red-400 bg-red-400/10 border-red-400/20', date: 'Mar 10, 2026', duration: '45m', score: 55, before: '😟', after: '😓', difficulty: 5, questions: ['Implement LRU cache from scratch', 'Optimize for O(1) operations'], well: 'Got the basic implementation right and identified the doubly-linked list approach.', poorly: 'Ran out of time on the follow-up optimization. Panicked and forgot to discuss trade-offs.', surprises: 'The follow-up was harder than expected - they wanted multi-threaded LRU cache.', followUp: 'Practice timed coding problems. Work on staying calm under pressure.' },
+  { company: 'Datadog', role: 'Backend Engineer', stage: 'Behavioral', outcome: 'Moved Forward', outcomeColor: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20', date: 'Mar 5, 2026', duration: '45m', score: 75, before: '😐', after: '😎', difficulty: 3, questions: ['Tell me about a time you disagreed with a teammate', 'Describe a project that failed'], well: 'STAR format was smooth. Great examples from the payment pipeline project.', poorly: 'Could have been more concise on the failure story - rambled a bit.', surprises: 'They seemed more interested in the failure story than the success one.', followUp: 'Prepare a tighter 2-minute version of each STAR story.' },
+  { company: 'Coinbase', role: 'Senior SWE', stage: 'Phone Screen', outcome: 'Pending', outcomeColor: 'text-amber-400 bg-amber-400/10 border-amber-400/20', date: 'Mar 1, 2026', duration: '30m', score: 70, before: '😐', after: '😐', difficulty: 2, questions: ['Why Coinbase?', 'Walk me through your most impactful project'], well: 'Good energy, showed genuine interest in crypto infrastructure.', poorly: 'Could have quantified impact better - said "improved performance" instead of giving numbers.', surprises: 'Very casual vibe - felt more like a conversation than an interview.', followUp: 'Prepare 3 impact metrics for every project on resume.' },
 ];
 
 // ─── Phase 1: Log Form ────────────────────────────────────────────────────────
@@ -119,7 +119,7 @@ function LogFormPhase({ onSave, isLoading }: { onSave: () => void; isLoading: bo
   return (
     <div className="flex gap-3 h-full" style={{ minHeight: 520 }}>
       <style dangerouslySetInnerHTML={{ __html: SCROLL_CSS }} />
-      {/* Left — Form */}
+      {/* Left - Form */}
       <div className="w-[52%] flex-shrink-0 overflow-y-auto pr-0.5 db-scroll" style={{ maxHeight: 520 }}>
         <FadeIn delay={0}>
           <div className="flex items-center gap-2 mb-3">
@@ -268,7 +268,7 @@ function LogFormPhase({ onSave, isLoading }: { onSave: () => void; isLoading: bo
         </div>
       </div>
 
-      {/* Right — Empty state or loading */}
+      {/* Right - Empty state or loading */}
       {isLoading ? (
         <LoadingCard message="Saving entry…" sub="Logging your interview debrief to the journal" />
       ) : (
@@ -390,10 +390,10 @@ function StatsPhase() {
           </div>
           <div className="space-y-1.5">
             {[
-              { label: 'Coinbase — Phone Screen', value: 70 },
-              { label: 'Datadog — Behavioral', value: 75 },
-              { label: 'Google — Technical', value: 55 },
-              { label: 'Stripe — System Design', value: 82 },
+              { label: 'Coinbase - Phone Screen', value: 70 },
+              { label: 'Datadog - Behavioral', value: 75 },
+              { label: 'Google - Technical', value: 55 },
+              { label: 'Stripe - System Design', value: 82 },
             ].map((s, i) => (
               <MiniProgressBar key={i} label={s.label} value={s.value} />
             ))}
@@ -507,7 +507,7 @@ function AIAnalysisPhase() {
           </div>
           <div className="space-y-1.5">
             {[
-              { area: 'System Architecture', evidence: 'Nailed high-level design at Stripe, strong Datadog STAR stories', leverage: 'Lead with architecture in every interview — it\'s your differentiator.' },
+              { area: 'System Architecture', evidence: 'Nailed high-level design at Stripe, strong Datadog STAR stories', leverage: 'Lead with architecture in every interview - it\'s your differentiator.' },
               { area: 'Storytelling (STAR)', evidence: 'Smooth behavioral at Datadog, good project narratives', leverage: 'Prepare 5 polished stories that each showcase a different skill.' },
             ].map((s, i) => (
               <div key={i} className="p-2 bg-emerald-500/[0.06] border border-emerald-500/15 rounded-lg">
@@ -725,7 +725,7 @@ export function DebriefExamplePreview({ step }: { step: number }) {
     case 'ai-loading':
       return (
         <div className="flex items-center justify-center" style={{ minHeight: 520 }}>
-          <LoadingCard message="Analysing your interview history…" sub="Identifying patterns across 4 entries — brutally honest, no sugarcoating" />
+          <LoadingCard message="Analysing your interview history…" sub="Identifying patterns across 4 entries - brutally honest, no sugarcoating" />
         </div>
       );
     case 'ai':

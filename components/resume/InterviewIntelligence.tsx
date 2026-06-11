@@ -348,7 +348,7 @@ export default function InterviewIntelligence({
         <div className={`rounded-xl p-3 border mb-4 flex items-center gap-2 ${confidenceBadge.bg}`}>
           <Info className={`w-3.5 h-3.5 flex-shrink-0 ${confidenceBadge.text}`} />
           <span className={`text-xs font-medium ${confidenceBadge.text}`}>{confidenceBadge.label}</span>
-          <span className="text-xs text-slate-600 hidden sm:inline">— {intel.dataNote}</span>
+          <span className="text-xs text-slate-600 hidden sm:inline">- {intel.dataNote}</span>
         </div>
 
         {co.sources?.length > 0 && (
@@ -388,7 +388,7 @@ export default function InterviewIntelligence({
                 {tab.count}
               </span>
             )}
-            {!tab.hasData && tab.id !== 'overview' && <span className="text-[10px] text-slate-700">—</span>}
+            {!tab.hasData && tab.id !== 'overview' && <span className="text-[10px] text-slate-700">-</span>}
           </button>
         ))}
       </div>
@@ -628,7 +628,7 @@ export default function InterviewIntelligence({
               <div className="flex items-center gap-2 mb-4"><Trophy className="w-4 h-4 text-amber-400" /><h3 className="text-sm font-semibold text-white">Total Compensation</h3></div>
               <div className="text-center mb-4"><div className="text-3xl font-bold text-emerald-400">{formatCurrency(si.totalComp.median)}</div><p className="text-xs text-slate-500 mt-1">Median TC</p></div>
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-slate-800/40 border border-white/[0.06] rounded-xl p-3"><p className="text-[10px] text-slate-500 mb-1">Range</p><p className="text-sm font-bold text-white">{formatCurrency(si.totalComp.min)} — {formatCurrency(si.totalComp.max)}</p></div>
+                <div className="bg-slate-800/40 border border-white/[0.06] rounded-xl p-3"><p className="text-[10px] text-slate-500 mb-1">Range</p><p className="text-sm font-bold text-white">{formatCurrency(si.totalComp.min)} - {formatCurrency(si.totalComp.max)}</p></div>
                 <div className="bg-slate-800/40 border border-white/[0.06] rounded-xl p-3"><p className="text-[10px] text-slate-500 mb-1">Negotiation Room</p><p className="text-sm font-bold text-emerald-400">{si.negotiationRoom || 'N/A'}</p></div>
               </div>
             </div>
@@ -643,7 +643,7 @@ export default function InterviewIntelligence({
         </div>
       ) : <NotAvailable message="Salary data not available" />)}
 
-      {/* REVIEWS — updated with thread links */}
+      {/* REVIEWS - updated with thread links */}
       {activeTab === 'reviews' && (rr && rr.length > 0 ? (
         <div className="space-y-4">
           <div className="glass-card p-5">

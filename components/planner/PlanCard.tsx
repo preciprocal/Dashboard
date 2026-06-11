@@ -107,7 +107,7 @@ export default function PlanCard({ plan, onUpdate }: PlanCardProps) {
         boxShadow: `0 0 0 1px rgba(255,255,255,0.04), 0 8px 32px rgba(0,0,0,0.3)`,
       }}
     >
-      {/* Ambient glow blob — top right */}
+      {/* Ambient glow blob - top right */}
       <div
         className="absolute -top-10 -right-10 w-40 h-40 rounded-full pointer-events-none opacity-60 transition-opacity duration-300 group-hover:opacity-100"
         style={{ background: cfg.glow, filter: 'blur(32px)' }}

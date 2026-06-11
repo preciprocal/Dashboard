@@ -273,9 +273,9 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
 
   const STATS = [
     { num: '47%',  line: 'of interview failures come from not knowing enough about the company' },
-    { num: '94%',  line: 'want feedback after interviews — but only 1% ever receive it' },
-    { num: '51%',  line: 'chance of getting hired after 3+ interviews — if you learn from each one' },
-    { num: '57%',  line: 'of candidates skip follow-ups — the ones who don\'t get 25% more offers' },
+    { num: '94%',  line: 'want feedback after interviews - but only 1% ever receive it' },
+    { num: '51%',  line: 'chance of getting hired after 3+ interviews - if you learn from each one' },
+    { num: '57%',  line: 'of candidates skip follow-ups - the ones who don\'t get 25% more offers' },
   ];
 
   useEffect(() => {
@@ -727,8 +727,8 @@ export default function InterviewDebriefPage() {
           offer:           `🎉 You got an offer for ${formData.jobTitle} at ${formData.companyName}!`,
           'moved-forward': `You moved forward for ${formData.jobTitle} at ${formData.companyName}. Keep going!`,
           rejected:        `Debrief logged for ${formData.jobTitle} at ${formData.companyName}. Learn and keep pushing.`,
-          ghosted:         `Debrief logged for ${formData.jobTitle} at ${formData.companyName}. Ghosted — their loss.`,
-          withdrew:        `Debrief logged for ${formData.jobTitle} at ${formData.companyName}. You withdrew — good self-awareness.`,
+          ghosted:         `Debrief logged for ${formData.jobTitle} at ${formData.companyName}. Ghosted - their loss.`,
+          withdrew:        `Debrief logged for ${formData.jobTitle} at ${formData.companyName}. You withdrew - good self-awareness.`,
           pending:         `Debrief logged for ${formData.jobTitle} at ${formData.companyName}. Awaiting outcome.`,
         };
         await NotificationService.createNotification(
@@ -810,7 +810,7 @@ export default function InterviewDebriefPage() {
         loadingText="Loading your Interview Journal…" showNavigation={true} />
     );
   }
-  if (!user) { router.push('/auth'); return null; }
+  if (!user) { router.push('/sign-in'); return null; }
 
   const sel = `${inp} appearance-none cursor-pointer`;
 
@@ -1060,7 +1060,7 @@ export default function InterviewDebriefPage() {
                 <SectionHeader icon={Activity} title="Self-Score Trend" sub="How you feel about your performance over time" accentClass="text-amber-400" />
                 <div className="space-y-2.5">
                   {[...entries].slice(0, 10).reverse().map(e => (
-                    <ProgressBar key={e.id} label={`${e.companyName} — ${STAGE_LABELS[e.stage]}`} value={e.selfScore} />
+                    <ProgressBar key={e.id} label={`${e.companyName} - ${STAGE_LABELS[e.stage]}`} value={e.selfScore} />
                   ))}
                 </div>
               </SectionCard>

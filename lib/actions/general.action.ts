@@ -121,7 +121,7 @@ export async function createFeedback(params: CreateFeedbackParams) {
       console.warn('⚠️ Failed to load user context for feedback:', err);
     }
 
-    const prompt = `You are an AI interviewer analyzing a mock interview. Be thorough and honest. Don't be lenient — point out mistakes clearly.
+    const prompt = `You are an AI interviewer analyzing a mock interview. Be thorough and honest. Don't be lenient - point out mistakes clearly.
 ${userContext ? `\n${userContext}\nIMPORTANT: Use the candidate's resume and academic background to evaluate whether their answers align with their claimed experience. Flag any inconsistencies.\n` : ''}
 Transcript:
 ${formattedTranscript}
@@ -167,6 +167,7 @@ Return ONLY valid JSON matching this schema:
     }
 
     const feedback = {
+      type: 'interview-assessment',
       interviewId, userId,
       totalScore: object.totalScore,
       categoryScores: categoryScoresRecord,

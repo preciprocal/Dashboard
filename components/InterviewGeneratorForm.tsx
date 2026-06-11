@@ -185,7 +185,7 @@ export default function InterviewGeneratorForm({ userId }: InterviewGeneratorFor
 
         toast.success('Interview sessions generated!');
 
-        // Fire-and-forget notification — never blocks navigation
+        // Fire-and-forget notification - never blocks navigation
         NotificationService.createNotification(userId, 'interview', 'Interview Session Ready 🎤',
           `Your mixed ${formData.role} interview (${Math.ceil(formData.amount / 2)} technical + ${Math.floor(formData.amount / 2)} behavioral) is ready.`,
           { actionUrl: `/interview/${interviewId}`, actionLabel: 'Start Interview' }
@@ -209,7 +209,7 @@ export default function InterviewGeneratorForm({ userId }: InterviewGeneratorFor
 
         toast.success('Interview session generated!');
 
-        // Fire-and-forget notification — never blocks navigation
+        // Fire-and-forget notification - never blocks navigation
         NotificationService.createNotification(userId, 'interview', 'Interview Session Ready 🎤',
           `Your ${formData.type === 'technical' ? 'Technical' : 'Behavioral'} ${formData.role} interview (${formData.amount} questions) is ready.`,
           { actionUrl: `/interview/${interviewId}`, actionLabel: 'Start Interview' }

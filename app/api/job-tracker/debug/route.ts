@@ -1,5 +1,5 @@
 // app/api/job-tracker/debug/route.ts
-// TEMPORARY — delete after debugging
+// TEMPORARY - delete after debugging
 import { NextRequest, NextResponse } from 'next/server';
 import { db, auth } from '@/firebase/admin';
 

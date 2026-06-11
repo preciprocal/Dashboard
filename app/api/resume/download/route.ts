@@ -45,7 +45,7 @@ async function launchBrowser() {
   const isDev = process.env.NODE_ENV === 'development';
 
   if (isDev) {
-    // Local: use system Chrome — no download needed
+    // Local: use system Chrome - no download needed
     const fs = await import('fs');
     const localPaths = [
       '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',

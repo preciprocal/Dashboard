@@ -16,8 +16,8 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const SYSTEM_PROMPT = `You are an expert at converting resume PDFs into clean editable HTML that looks IDENTICAL to the original.
 
 STRICT RULES:
-- Reproduce EVERY word, date, bullet point, skill, and link exactly — no paraphrasing, no omissions
-- Use ONLY inline styles — no <style> tags, no class names
+- Reproduce EVERY word, date, bullet point, skill, and link exactly - no paraphrasing, no omissions
+- Use ONLY inline styles - no <style> tags, no class names
 - Name: <h1 style="text-align:center;font-size:18pt;font-weight:700;margin:0 0 2px 0;font-family:Calibri,Arial,sans-serif;color:#000;">NAME</h1>
 - Contact line: <p style="text-align:center;font-size:9pt;margin:0 0 10px 0;font-family:Calibri,Arial,sans-serif;color:#000;">email | phone | location | LinkedIn</p>
 - Section headings: <h2 style="font-size:11pt;font-weight:700;text-transform:uppercase;border-bottom:1.5px solid #000;padding-bottom:2px;margin:12px 0 4px 0;font-family:Calibri,Arial,sans-serif;color:#000;">SECTION NAME</h2>
@@ -32,7 +32,7 @@ STRICT RULES:
     • Any raw URL → wrap it in <a href="..."> with the same URL as both href and display text
     • If the PDF shows a word like "LinkedIn", "GitHub", "Portfolio" without showing the full URL, still create the <a> tag using whatever URL information is visible or inferable from the document
 - Do NOT wrap in <html>, <head>, or <body>
-- Return ONLY the raw HTML fragment — no markdown fences, no explanation, no preamble`;
+- Return ONLY the raw HTML fragment - no markdown fences, no explanation, no preamble`;
 
 export async function POST(request: NextRequest) {
   try {
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
         const textContent = await page.getTextContent();
 
         for (const ann of annotations) {
-          // ann is typed as AnnotationData — access url/unsafeUrl defensively
+          // ann is typed as AnnotationData - access url/unsafeUrl defensively
           const annAny = ann as Record<string, unknown>;
           if (annAny['subtype'] === 'Link' && (annAny['url'] || annAny['unsafeUrl'])) {
             const url  = (annAny['url'] || annAny['unsafeUrl'] || '') as string;

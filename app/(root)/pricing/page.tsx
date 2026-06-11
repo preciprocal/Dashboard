@@ -64,35 +64,41 @@ const PLANS: Plan[] = [
     features: [
       { text: "10 resume analyses / month",        highlight: true },
       { text: "20 cover letters / month",           highlight: true },
-      { text: "Unlimited mock interviews",          highlight: true },
-      { text: "5 LinkedIn optimisations / month",   highlight: true },
-      { text: "5 interview debriefs / month",       highlight: true },
+      { text: "5 mock interviews / month",          highlight: true },
+      { text: "3 LinkedIn optimisations / month",   highlight: true },
+      { text: "3 interview debriefs / month",       highlight: true },
       { text: "5 cold outreach messages / month",   highlight: true },
-      { text: "5 find contacts / month",            highlight: true },
-      { text: "5 active study plans",               highlight: true },
-      { text: "Job tracker (30 jobs)",              highlight: true },
+      { text: "10 find contacts / month",           highlight: true },
+      { text: "3 active study plans",               highlight: true },
+      { text: "Unlimited job tracker",              highlight: true },
       { text: "Chrome extension (full)" },
       { text: "Resume editor + PDF & Word export",  highlight: true },
       { text: "Recruiter eye simulation",           highlight: true },
       { text: "Full analytics dashboard" },
       { text: "Priority AI responses" },
-      { text: "Students: 1 month free — no card needed", highlight: true },
+      { text: "Students: 1 month free - no card needed", highlight: true },
     ],
   },
   {
     id: "premium", name: "Premium",
     monthlyPrice: 24.99, annualPrice: 19.99, annualTotal: 239.88,
-    description: "Unlimited access for serious candidates.",
+    description: "Maximum power for serious candidates.",
     cta: "Start Premium",
     gradient: "from-purple-600/20 to-pink-600/20",
     border: "border-purple-500/30",
     features: [
-      { text: "Unlimited everything",                   highlight: true },
-      { text: "Company-specific interview prep",        highlight: true },
-      { text: "AI interview coach + deep analysis",     highlight: true },
-      { text: "Post-interview improvement roadmap",     highlight: true },
-      { text: "All Pro features included" },
-      { text: "Priority support (24hr SLA)",            highlight: true },
+      { text: "30 resume analyses / month",         highlight: true },
+      { text: "30 mock interviews / month",         highlight: true },
+      { text: "Unlimited cover letters",            highlight: true },
+      { text: "15 LinkedIn optimisations / month",  highlight: true },
+      { text: "20 interview debriefs / month",      highlight: true },
+      { text: "30 find contacts / month",           highlight: true },
+      { text: "15 active study plans",              highlight: true },
+      { text: "Unlimited job tracker",              highlight: true },
+      { text: "Chrome extension (full)" },
+      { text: "Resume editor + PDF & Word export",  highlight: true },
+      { text: "Priority AI responses",              highlight: true },
+      { text: "Priority support (24hr SLA)",        highlight: true },
       { text: "Early access to new features" },
     ],
   },
@@ -143,7 +149,7 @@ const TESTIMONIALS = [
   { quote: "I'd been applying for 4 months with nothing. Two weeks on Preciprocal and I had 3 interviews lined up. It genuinely changed my trajectory.", name: "Arjun M.", role: "SWE @ Brex · Pro user", initial: "A", gradient: "linear-gradient(135deg,#6366f1,#a855f7)" },
   { quote: "The resume feedback was harsh but so accurate. Rewrote my bullet points and went from no callbacks to a role at a Series B I actually love.", name: "Priya K.", role: "Product Manager @ Deel · Premium user", initial: "P", gradient: "linear-gradient(135deg,#ec4899,#f97316)" },
   { quote: "Mock interviews made me realise how much I was rambling. After a week of practice I was so much more confident and concise in the real thing.", name: "James T.", role: "Backend Engineer @ Gusto · Pro user", initial: "J", gradient: "linear-gradient(135deg,#06b6d4,#6366f1)" },
-  { quote: "I was switching industries and felt totally lost. The AI coach helped me frame my experience in a way that actually landed — got the offer in 3 weeks.", name: "Sofia R.", role: "Ops Analyst @ Rippling · Premium user", initial: "S", gradient: "linear-gradient(135deg,#10b981,#06b6d4)" },
+  { quote: "I was switching industries and felt totally lost. The AI coach helped me frame my experience in a way that actually landed - got the offer in 3 weeks.", name: "Sofia R.", role: "Ops Analyst @ Rippling · Premium user", initial: "S", gradient: "linear-gradient(135deg,#10b981,#06b6d4)" },
   { quote: "Worth every penny. Used the cover letter tool and mock debrief together and walked into my final round feeling overprepared. Got the job.", name: "Marcus L.", role: "Growth @ Loom · Pro user", initial: "M", gradient: "linear-gradient(135deg,#f59e0b,#ef4444)" },
   { quote: "I was skeptical at first but the mock interview feedback was so specific it was almost uncomfortable. Landed my first product role within a month.", name: "Rohan S.", role: "APM @ Razorpay · Pro user", initial: "R", gradient: "linear-gradient(135deg,#8b5cf6,#06b6d4)" },
   { quote: "Applied to 30 companies and heard nothing. Revamped my resume with Preciprocal and got 4 calls in the same week. Joined Zepto last month.", name: "Ananya V.", role: "Data Analyst @ Zepto · Premium user", initial: "A", gradient: "linear-gradient(135deg,#f59e0b,#10b981)" },
@@ -460,7 +466,7 @@ function CheckoutFormInner({ plan, cycle, user, couponId, billedAmount, displayP
                 <p className="text-xs text-emerald-400">✓ Saving ${((plan.monthlyPrice - plan.annualPrice) * 12).toFixed(2)} vs monthly</p>
               )}
               {couponId && (
-                <p className="text-xs text-emerald-400">🎓 Student discount — first month free. Then ${displayPrice.toFixed(2)}/mo.</p>
+                <p className="text-xs text-emerald-400">🎓 Student discount - first month free. Then ${displayPrice.toFixed(2)}/mo.</p>
               )}
 
               <div className="flex items-start gap-2.5">
@@ -473,9 +479,9 @@ function CheckoutFormInner({ plan, cycle, user, couponId, billedAmount, displayP
                 </button>
                 <p className="text-xs text-slate-500 leading-relaxed">
                   I agree to the{" "}
-                  <a href="/terms" className="text-slate-400 hover:text-white transition-colors underline underline-offset-2">Terms</a>
+                  <a href="https://preciprocal.com/terms" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-white transition-colors underline underline-offset-2">Terms</a>
                   {" "}&amp;{" "}
-                  <a href="/privacy" className="text-slate-400 hover:text-white transition-colors underline underline-offset-2">Privacy Policy</a>.
+                  <a href="https://preciprocal.com/privacy" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-white transition-colors underline underline-offset-2">Privacy Policy</a>.
                   {" "}Renews automatically. Cancel anytime.
                 </p>
               </div>
@@ -839,7 +845,7 @@ export default function PricingPage() {
             <svg className="w-5 h-5 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/>
             </svg>
-            <p className="text-sm text-emerald-300 font-medium">Student status verified — your first month is on us!</p>
+            <p className="text-sm text-emerald-300 font-medium">Student status verified - your first month is on us!</p>
           </div>
         )}
 

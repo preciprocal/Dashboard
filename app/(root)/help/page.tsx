@@ -10,7 +10,7 @@ import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage
 import {
   collection, addDoc, updateDoc, doc as fsDoc,
   query, where, orderBy, getDocs,
-  serverTimestamp, Timestamp,
+  serverTimestamp, Timestamp, increment,
 } from 'firebase/firestore';
 import {
   Search, MessageSquare, BookOpen, Video, FileText, Send, Mail, Clock,
@@ -105,6 +105,8 @@ function HelpSupportContent() {
   const [selectedTicket, setSelectedTicket] = useState<string | null>(null);
   const [ticketReplies,  setTicketReplies]  = useState<TicketReply[]>([]);
   const [loadingReplies, setLoadingReplies] = useState(false);
+  const [replyText,      setReplyText]      = useState('');
+  const [isReplying,     setIsReplying]     = useState(false);
 
   useEffect(() => {
     const q   = searchParams.get('q');
@@ -125,8 +127,8 @@ function HelpSupportContent() {
     const valid: File[]    = [];
 
     for (const f of picked) {
-      if (!ALLOWED_TYPES.includes(f.type)) { errors.push(`"${f.name}" — unsupported type`); continue; }
-      if (f.size > MAX_FILE_SIZE)          { errors.push(`"${f.name}" — exceeds 10 MB`);    continue; }
+      if (!ALLOWED_TYPES.includes(f.type)) { errors.push(`"${f.name}" - unsupported type`); continue; }
+      if (f.size > MAX_FILE_SIZE)          { errors.push(`"${f.name}" - exceeds 10 MB`);    continue; }
       valid.push(f);
     }
 
@@ -275,6 +277,56 @@ function HelpSupportContent() {
     }
   };
 
+  // ── User reply from app ─────────────────────────────────────────────────────
+  const handleUserReply = async () => {
+    if (!user || !selectedTicket || !replyText.trim()) return;
+    setIsReplying(true);
+    try {
+      const ticket = userTickets.find(t => t.id === selectedTicket);
+      if (!ticket) return;
+
+      await addDoc(collection(db, 'supportTickets', selectedTicket, 'replies'), {
+        ticketId:  selectedTicket,
+        message:   replyText.trim(),
+        from:      'user',
+        fromEmail: user.email,
+        isStaff:   false,
+        createdAt: serverTimestamp(),
+      });
+
+      await updateDoc(fsDoc(db, 'supportTickets', selectedTicket), {
+        updatedAt:   serverTimestamp(),
+        lastReplyBy: 'user',
+        lastReplyAt: serverTimestamp(),
+        replyCount:  increment(1),
+      });
+
+      fetch('/api/support/notify-admin', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ticketId:      selectedTicket,
+          ticketSubject: ticket.subject,
+          userName:      user.displayName || 'User',
+          userEmail:     user.email,
+          message:       replyText.trim(),
+        }),
+      }).catch(err => console.error('Failed to notify admin:', err));
+
+      setReplyText('');
+      setUserTickets(prev => prev.map(t =>
+        t.id === selectedTicket ? { ...t, lastReplyBy: 'user' as const } : t
+      ));
+      await loadTicketReplies(selectedTicket);
+      toast.success('Reply sent');
+    } catch (error) {
+      console.error('Error sending reply:', error);
+      toast.error('Failed to send reply');
+    } finally {
+      setIsReplying(false);
+    }
+  };
+
   // ── Submit ticket ───────────────────────────────────────────────────────────
   const handleSubmitTicket = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -286,16 +338,19 @@ function HelpSupportContent() {
 
     try {
       const ticketData = {
-        userId:    user.uid,
-        userEmail: user.email,
-        userName:  user.displayName || 'User',
-        subject:   subject.trim(),
-        message:   message.trim(),
+        userId:      user.uid,
+        userEmail:   user.email,
+        userName:    user.displayName || 'User',
+        subject:     subject.trim(),
+        message:     message.trim(),
         category,
         priority,
-        status:    'open' as const,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+        status:      'open' as const,
+        replyCount:  0,
+        lastReplyBy: null,
+        lastReplyAt: null,
+        createdAt:   serverTimestamp(),
+        updatedAt:   serverTimestamp(),
       };
 
       const docRef = await addDoc(collection(db, 'supportTickets'), ticketData);
@@ -314,7 +369,7 @@ function HelpSupportContent() {
         }
       }
 
-      // Fire-and-forget email
+      // Fire-and-forget email — log response so failures are visible in console
       fetch('/api/firebase/emails', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -322,7 +377,12 @@ function HelpSupportContent() {
           ticketId: docRef.id,
           ticket:   { ...ticketData, userEmail: user.email, userName: user.displayName || 'User', attachments: uploadedAttachments },
         }),
-      }).catch(err => console.error('Error sending email notification:', err));
+      })
+        .then(r => r.json().then(d => {
+          if (!r.ok) console.error('❌ Email route error:', d);
+          else        console.log('✅ Ticket emails sent:', d);
+        }))
+        .catch(err => console.error('❌ Email fetch failed:', err));
 
       // Non-critical in-app notification
       try {
@@ -576,7 +636,7 @@ function HelpSupportContent() {
                         <Paperclip className="w-4 h-4 flex-shrink-0" />
                         <span>
                           {attachments.length > 0
-                            ? `${attachments.length} file${attachments.length > 1 ? 's' : ''} selected — click to add more`
+                            ? `${attachments.length} file${attachments.length > 1 ? 's' : ''} selected - click to add more`
                             : 'Attach images, PDFs, or documents'}
                         </span>
                       </button>
@@ -769,19 +829,39 @@ function HelpSupportContent() {
                         ) : (
                           <p className="text-center text-slate-500 text-sm py-4">No replies yet. We&apos;ll respond via email within 24 hours.</p>
                         )}
-                        <div className="mt-4 glass-morphism p-4 rounded-lg border border-blue-500/20 bg-blue-500/5">
-                          <div className="flex items-start gap-3">
-                            <Mail className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
-                            <div>
-                              <p className="text-sm font-medium text-white mb-1">Reply via Email</p>
-                              <p className="text-xs text-slate-400 leading-relaxed">
-                                {ticket.status === 'resolved'
-                                  ? 'This ticket has been resolved. If you need further assistance, please create a new ticket.'
-                                  : "We'll send updates to your email. You can reply directly to our emails to continue the conversation, and your replies will appear here automatically."}
-                              </p>
-                            </div>
+                        {ticket.status === 'resolved' ? (
+                          <div className="mt-4 glass-morphism p-4 rounded-lg border border-white/10 text-center">
+                            <CheckCircle2 className="w-5 h-5 text-green-400 mx-auto mb-1.5" />
+                            <p className="text-sm font-medium text-white mb-0.5">Ticket Resolved</p>
+                            <p className="text-xs text-slate-400">If you need further assistance, please create a new ticket.</p>
                           </div>
-                        </div>
+                        ) : ticketReplies.some(r => r.isStaff) ? (
+                          <div className="mt-4 space-y-2">
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Send a Reply</p>
+                            <textarea
+                              value={replyText}
+                              onChange={e => setReplyText(e.target.value)}
+                              placeholder="Type your reply..."
+                              rows={3}
+                              className="glass-input w-full px-3 py-2.5 rounded-lg text-white placeholder-slate-500 resize-none glass-scrollbar text-sm"
+                            />
+                            <button
+                              onClick={handleUserReply}
+                              disabled={isReplying || !replyText.trim()}
+                              className="w-full glass-button-primary hover-lift px-4 py-2 rounded-lg font-medium flex items-center justify-center gap-2 disabled:opacity-50 text-sm">
+                              {isReplying
+                                ? <><Loader2 className="w-4 h-4 animate-spin" />Sending...</>
+                                : <><Send className="w-4 h-4" />Send Reply</>}
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="mt-4 glass-morphism p-4 rounded-lg border border-white/10 flex items-start gap-3">
+                            <Mail className="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5" />
+                            <p className="text-xs text-slate-500 leading-relaxed">
+                              Once our team replies, you&apos;ll be able to respond here. We typically reply within 24 hours.
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -799,6 +879,12 @@ function HelpSupportContent() {
                           <div className="flex items-center gap-2 mb-1.5 sm:mb-2 flex-wrap">
                             <h3 className="text-sm sm:text-base font-semibold text-white line-clamp-1">{ticket.subject}</h3>
                             <span className={`px-2 py-0.5 rounded text-xs font-medium flex-shrink-0 ${getStatusBadge(ticket.status)}`}>{ticket.status.toUpperCase()}</span>
+                            {ticket.lastReplyBy === 'support' && (
+                              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 text-[11px] font-semibold flex-shrink-0">
+                                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block" />
+                                New Reply
+                              </span>
+                            )}
                           </div>
                           <p className="text-slate-400 text-xs sm:text-sm mb-1.5 sm:mb-2 line-clamp-2">{ticket.message}</p>
                           <div className="flex items-center gap-2 sm:gap-3 text-xs text-slate-500 flex-wrap">

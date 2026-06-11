@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing url' }, { status: 400 });
     }
 
-    // Only allow Firebase Storage — never proxy arbitrary URLs
+    // Only allow Firebase Storage - never proxy arbitrary URLs
     const isStorageUrl =
       url.startsWith('https://firebasestorage.googleapis.com/') ||
       url.startsWith('https://storage.googleapis.com/');

@@ -187,7 +187,7 @@ export default function ResumePreview({ resumePath, onViewPdf, onDownloadPdf }: 
 
   // ── Recompute link overlays on container resize ────────────────────────────
   // The canvas CSS size changes on resize but links are stored as % so they
-  // stay aligned automatically — no recalculation needed. The % approach handles it.
+  // stay aligned automatically - no recalculation needed. The % approach handles it.
 
   const showPagination = status === 'ready' && total > 1;
 
@@ -240,7 +240,7 @@ export default function ResumePreview({ resumePath, onViewPdf, onDownloadPdf }: 
                 status === 'ready' ? 'opacity-100' : 'opacity-0 pointer-events-none'
               }`}
             />
-            {/* Clickable link overlays — positioned as % of the canvas element */}
+            {/* Clickable link overlays - positioned as % of the canvas element */}
             {status === 'ready' && links.map((link, i) => (
               <a
                 key={i}
@@ -271,7 +271,7 @@ export default function ResumePreview({ resumePath, onViewPdf, onDownloadPdf }: 
           </div>
         )}
 
-        {/* Action buttons — floating over PDF */}
+        {/* Action buttons - floating over PDF */}
         <div className="absolute bottom-3 left-3 right-3 z-20 flex gap-2">
           <button onClick={onViewPdf} disabled={!resumePath}
             className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl

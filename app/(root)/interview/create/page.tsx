@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/actions/auth.action";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Shield, ArrowRight, Calendar, Sparkles, History } from "lucide-react";
+import { USAGE_LIMITS, normalisePlan, isUnlimited } from "@/lib/config/usage-limits";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -56,12 +57,11 @@ export default async function CreateInterviewPage() {
 
   const subscription    = user.subscription;
   const usage           = (user as unknown as UserWithUsage).usage;
-  const isUnlimitedPlan = subscription?.plan === 'pro' || subscription?.plan === 'premium';
   const interviewsUsed  = usage?.interviewsUsed || 0;
-  const interviewsLimit = isUnlimitedPlan ? -1 : 2;
-  const remaining       = isUnlimitedPlan ? -1 : Math.max(0, interviewsLimit - interviewsUsed);
-  const hasSessions     = isUnlimitedPlan || remaining > 0;
-  const nextResetDate   = !isUnlimitedPlan ? calculateNextResetDate(subscription) : null;
+  const interviewsLimit = USAGE_LIMITS[normalisePlan(subscription?.plan ?? 'free')].interviews;
+  const remaining       = isUnlimited(interviewsLimit) ? -1 : Math.max(0, interviewsLimit - interviewsUsed);
+  const hasSessions     = isUnlimited(interviewsLimit) || remaining > 0;
+  const nextResetDate   = !isUnlimited(interviewsLimit) ? calculateNextResetDate(subscription) : null;
   const daysUntilReset  = nextResetDate
     ? Math.max(0, Math.ceil((nextResetDate.getTime() - Date.now()) / 86_400_000))
     : 0;
@@ -93,7 +93,7 @@ export default async function CreateInterviewPage() {
                 <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-500/[0.07] border border-indigo-500/20">
                   <Shield className="w-4 h-4 text-indigo-400" />
                   <span className="text-[13px] font-semibold text-indigo-400">
-                    {isUnlimitedPlan ? 'Unlimited' : `${remaining} left`}
+                    {isUnlimited(interviewsLimit) ? 'Unlimited' : `${remaining} left`}
                   </span>
                 </div>
                 {/* History button */}
@@ -137,7 +137,7 @@ export default async function CreateInterviewPage() {
 
             {/* CTAs */}
             <Link
-              href="/subscription"
+              href="/pricing"
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
                          bg-gradient-to-r from-indigo-600 to-purple-600
                          hover:from-indigo-500 hover:to-purple-500
@@ -189,10 +189,10 @@ export default async function CreateInterviewPage() {
               </p>
               <div className="space-y-2">
                 {[
-                  'Unlimited interview sessions',
-                  'Unlimited resume analyses',
-                  'Unlimited cover letters & study plans',
-                  'Priority support',
+                  '5 mock interviews / month',
+                  '10 resume analyses / month',
+                  '20 cover letters & 3 study plans / month',
+                  'Priority AI responses',
                 ].map(benefit => (
                   <div key={benefit} className="flex items-center gap-2 text-xs text-slate-400">
                     <div className="w-1.5 h-1.5 rounded-full bg-indigo-400/60 flex-shrink-0" />

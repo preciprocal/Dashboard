@@ -210,7 +210,7 @@ type HunterEmail = {
 
 // ─── Guard: reject contacts with no useful identity data ──────────
 // Hunter sometimes returns generic/support emails with no name or role.
-// These are useless for outreach — filter them out before returning.
+// These are useless for outreach - filter them out before returning.
 function isUsableContact(e: HunterEmail): boolean {
   const hasName     = !!(e.first_name?.trim() || e.last_name?.trim());
   const hasPosition = !!(e.position?.trim());
@@ -241,7 +241,7 @@ async function fetchHunterContacts(domain: string): Promise<HunterContact[]> {
     const isPlanLimit = detail.toLowerCase().includes('limited') || detail.toLowerCase().includes('plan');
 
     if (emails.length > 0) {
-      log('⚠️', 'Hunter non-200 but emails present — proceeding', { status: res.status, detail, count: emails.length });
+      log('⚠️', 'Hunter non-200 but emails present - proceeding', { status: res.status, detail, count: emails.length });
     } else if (isPlanLimit) {
       log('⚠️', 'Hunter plan limit hit', { domain, detail });
       throw new Error(
@@ -250,10 +250,10 @@ async function fetchHunterContacts(domain: string): Promise<HunterContact[]> {
       );
     } else {
       log('❌', 'Domain search failed', { status: res.status, detail, domain });
-      if (res.status === 401) throw new Error('Invalid API key — please check your HUNTER_API_KEY.');
+      if (res.status === 401) throw new Error('Invalid API key - please check your HUNTER_API_KEY.');
       if (res.status === 429) throw new Error('Search limit reached for this month. Upgrade your plan to search more companies.');
       throw new Error(
-        `No contacts found for "${domain}". Try entering the company's actual website domain — ` +
+        `No contacts found for "${domain}". Try entering the company's actual website domain - ` +
         `e.g. if the company is "Match Group" try "match.com" or "gotinder.com".`
       );
     }
@@ -270,7 +270,7 @@ async function fetchHunterContacts(domain: string): Promise<HunterContact[]> {
 
   // If nothing usable remains, treat as no contacts found for this domain
   if (usable.length === 0) {
-    log('⚠️', 'All contacts filtered out — no usable identity data');
+    log('⚠️', 'All contacts filtered out - no usable identity data');
     return [];
   }
 
@@ -301,7 +301,7 @@ async function fetchHunterContacts(domain: string): Promise<HunterContact[]> {
   add(recruiters.slice(0, 2), 2);
   if (picked.length === 0) {
     add(scored.slice(0, 2), 2);
-    log('⚠️', 'No recruiters found — using top-tier contacts as fallback', { picked: picked.length });
+    log('⚠️', 'No recruiters found - using top-tier contacts as fallback', { picked: picked.length });
   }
 
   log('📊', 'Contact selection', { recruitersFound: recruiters.length, picked: picked.length });
@@ -333,15 +333,15 @@ async function generatePersonalisedEmail(
   const pos = contact.position.toLowerCase();
   let recipientAngle: string;
   if (/recruiter|talent|hr|people|hiring/.test(pos)) {
-    recipientAngle = `This person handles recruiting/talent. Write a direct, friendly note about interest in the ${jobTitle} role. Keep it short — they receive hundreds of these. One clear ask: a 15-min call or "can you point me to the right person".`;
+    recipientAngle = `This person handles recruiting/talent. Write a direct, friendly note about interest in the ${jobTitle} role. Keep it short - they receive hundreds of these. One clear ask: a 15-min call or "can you point me to the right person".`;
   } else if (/cto|vp of eng|director of eng|head of eng/.test(pos)) {
     recipientAngle = `This is a senior technical leader. Show genuine technical depth and excitement about their technical direction. Reference a specific technical challenge in their stack if possible. Ask for a brief conversation about the team's vision.`;
   } else if (/ceo|co-founder|founder|president/.test(pos)) {
-    recipientAngle = `This is the CEO/founder. Show you understand the company mission and business problems they're solving. Demonstrate you can make an impact, not just fill a seat. Keep it very short — executives skim.`;
+    recipientAngle = `This is the CEO/founder. Show you understand the company mission and business problems they're solving. Demonstrate you can make an impact, not just fill a seat. Keep it very short - executives skim.`;
   } else if (/engineer|developer|architect|tech lead|principal/.test(pos)) {
     recipientAngle = `This is a peer engineer. Be technical and collegial. Show respect for their work and genuine curiosity about the engineering challenges. Ask about the team's approach to a relevant technical problem.`;
   } else if (/manager|director|vp/.test(pos)) {
-    recipientAngle = `This is a manager/director. Focus on impact and execution — what you've shipped, problems you've solved. Make it easy for them to champion your candidacy internally.`;
+    recipientAngle = `This is a manager/director. Focus on impact and execution - what you've shipped, problems you've solved. Make it easy for them to champion your candidacy internally.`;
   } else {
     recipientAngle = `Write a professional, warm outreach expressing genuine interest in ${company} and asking about ${jobTitle} opportunities.`;
   }
@@ -382,7 +382,7 @@ ${ctx.resumeText ? `\nRESUME HIGHLIGHTS\n${ctx.resumeText.slice(0, 700)}` : ''}
 WHAT TO WRITE
 3 short paragraphs, 100-150 words total.
 
-Paragraph 1: Something specific and genuine about the company or team's work. Not a compliment — an observation. Like something you'd actually say to someone at a networking event.
+Paragraph 1: Something specific and genuine about the company or team's work. Not a compliment - an observation. Like something you'd actually say to someone at a networking event.
 
 Paragraph 2: One or two sentences about relevant work. Just the most relevant fact from the resume. No preamble, no "I'm a X who has spent Y years doing Z." Just state what you did.
 
@@ -393,8 +393,8 @@ Sign-off block (exactly this format, nothing else):
 [email]
 ${primarySocial ? primarySocial : '[one social link if available]'}
 
-BANNED WORDS AND PHRASES — if any appear, rewrite:
-- em dash (—) — use a comma or period instead
+BANNED WORDS AND PHRASES - if any appear, rewrite:
+- em dash (-) - use a comma or period instead
 - "I'm a [title] who" or "I'm a [title] based in"
 - "exactly what [excites/interests/gets] me"
 - "I came across"
@@ -405,8 +405,8 @@ BANNED WORDS AND PHRASES — if any appear, rewrite:
 - "I hope this"
 - "My name is"
 - "I am writing"
-- "Here's my" or "My LinkedIn" or "My GitHub" — links go bare, no label
-- "Best regards" — use "Best," only
+- "Here's my" or "My LinkedIn" or "My GitHub" - links go bare, no label
+- "Best regards" - use "Best," only
 - "looking forward"
 - "please feel free"
 - "don't hesitate"
@@ -430,8 +430,8 @@ Return only the email. No subject line. No meta-commentary.`;
   let text = response.content[0].type === 'text' ? response.content[0].text.trim() : '';
 
   text = text
-    .replace(/\s—\s/g, ', ')
-    .replace(/—/g, ', ')
+    .replace(/\s-\s/g, ', ')
+    .replace(/-/g, ', ')
     .replace(/\bI'm a (\w+) (who|based)/gi, "I've been working as a $1,")
     .replace(/\bexactly what (excites|interests|gets) me\b/gi, 'interesting work')
     .replace(/\bI came across\b/gi, 'I saw')
@@ -445,7 +445,7 @@ Return only the email. No subject line. No meta-commentary.`;
 
   if (!text || text.length < 50) throw new Error('AI returned empty response');
 
-  // Detect unfilled template placeholders — means Claude had no real data
+  // Detect unfilled template placeholders - means Claude had no real data
   const hasUnfilledPlaceholder = /\[First name only\]|\[email\]|\[one social link\]|\[Candidate Name\]|\[Your Name\]/i.test(text);
   if (hasUnfilledPlaceholder) throw new Error('Insufficient contact data to generate email');
 
@@ -554,7 +554,7 @@ function extractDomainFromJobUrl(jobUrl: string): string | null {
     const hostname = url.hostname.toLowerCase().replace(/^www\./, '');
 
     if (ATS_HOSTS.has(hostname) || [...ATS_HOSTS].some(ats => hostname.endsWith('.' + ats))) {
-      log('⚠️', 'Job URL is on ATS platform — skipping', { hostname });
+      log('⚠️', 'Job URL is on ATS platform - skipping', { hostname });
       return null;
     }
 
@@ -645,9 +645,9 @@ async function findContactsAcrossDomains(
     try {
       const contacts = await fetchHunterContacts(urlDomain);
       if (contacts.length > 0) return { contacts, domain: urlDomain };
-      log('⚠️', 'Job URL domain returned 0 usable contacts — falling back', { urlDomain });
+      log('⚠️', 'Job URL domain returned 0 usable contacts - falling back', { urlDomain });
     } catch (e) {
-      log('⚠️', 'Job URL domain failed — falling back', { urlDomain, error: e instanceof Error ? e.message : String(e) });
+      log('⚠️', 'Job URL domain failed - falling back', { urlDomain, error: e instanceof Error ? e.message : String(e) });
     }
   }
 
@@ -667,7 +667,7 @@ async function findContactsAcrossDomains(
     } catch (e) {
       lastError = e instanceof Error ? e.message : String(e);
       if (lastError.includes('plan limits results') || lastError.includes('Upgrade your Hunter')) {
-        log('❌', 'Plan limit hit — stopping', { domain });
+        log('❌', 'Plan limit hit - stopping', { domain });
         break;
       }
       log('⚠️', 'Domain failed, trying next', { domain, error: lastError });
@@ -757,10 +757,10 @@ export async function POST(request: NextRequest) {
   const succeeded = contactsWithEmails.filter(c => c.generatedEmail).length;
   log('📊', 'Email generation complete', { succeeded, total: contacts.length, ms: Date.now() - start });
 
-  // ── Drop any contacts where email generation failed — don't show half-baked results ──
+  // ── Drop any contacts where email generation failed - don't show half-baked results ──
   const validContacts = contactsWithEmails.filter(c => c.generatedEmail !== null);
   if (validContacts.length === 0) {
-    log('⚠️', 'All email generations failed — returning no contacts');
+    log('⚠️', 'All email generations failed - returning no contacts');
     return NextResponse.json({
       success:  true,
       contacts: [],

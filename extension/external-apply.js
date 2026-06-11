@@ -1,5 +1,5 @@
 // external-apply.js
-// Preciprocal Universal Auto-Apply — sidebar for external job boards
+// Preciprocal Universal Auto-Apply - sidebar for external job boards
 // Platforms: Greenhouse, Lever, Workday/MyWorkdayJobs, Indeed Smart Apply,
 //            Ashby, iCIMS, Jobvite, SmartRecruiters, Taleo, BambooHR,
 //            Recruitee, Wellfound/AngelList + generic fallback
@@ -402,18 +402,18 @@ function isJobDetailPage() {
 
 async function clickApplyAndWaitForForm(statusEl) {
   const applyBtn = findApplyButton();
-  if (!applyBtn) { console.log('ℹ️ No apply button found — assuming form is already visible'); return false; }
+  if (!applyBtn) { console.log('ℹ️ No apply button found - assuming form is already visible'); return false; }
   console.log('🖱️ Clicking apply button:', applyBtn.textContent?.trim().slice(0,40));
   if (statusEl) { statusEl.style.display='block'; statusEl.className='prc-sb-status info'; statusEl.innerHTML='🖱️ Clicking Apply button…'; }
   const target = applyBtn.getAttribute('target');
   const href   = applyBtn.getAttribute('href');
   const opensNewTab = target === '_blank' || (href && !href.startsWith('#') && !href.startsWith('javascript'));
-  if (opensNewTab && href) { console.log('🔗 Apply button opens new tab — navigating...'); return false; }
+  if (opensNewTab && href) { console.log('🔗 Apply button opens new tab - navigating...'); return false; }
   applyBtn.click();
   if (statusEl) statusEl.innerHTML = '⏳ Waiting for application form…';
   const formAppeared = await waitForApplicationForm(8000);
-  if (formAppeared) { console.log('✅ Application form appeared after clicking Apply'); if (statusEl) statusEl.innerHTML = '📝 Form detected — filling…'; return true; }
-  console.log('ℹ️ Form not detected in current DOM — may have navigated');
+  if (formAppeared) { console.log('✅ Application form appeared after clicking Apply'); if (statusEl) statusEl.innerHTML = '📝 Form detected - filling…'; return true; }
+  console.log('ℹ️ Form not detected in current DOM - may have navigated');
   return false;
 }
 
@@ -1760,7 +1760,7 @@ async function fillWellfound(p) {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// SMART SCAN — fills everything on the page
+// SMART SCAN - fills everything on the page
 // ─────────────────────────────────────────────────────────────────
 
 async function smartScan(p) {
@@ -2077,7 +2077,7 @@ class PreciprocalSidebar {
   }
 
   async init() {
-    if (!isApplicationPage()) { console.log('ℹ️ Not an application page — skipping sidebar'); return; }
+    if (!isApplicationPage()) { console.log('ℹ️ Not an application page - skipping sidebar'); return; }
     await this._checkAuth();
     this._injectStyles();
     this._render();
@@ -2295,7 +2295,7 @@ class PreciprocalSidebar {
       }
 
       if (!this.profile) {
-        if (!this.authToken) throw new Error('Not signed in — open the extension and sign in first');
+        if (!this.authToken) throw new Error('Not signed in - open the extension and sign in first');
         if (label) label.textContent = 'Fetching profile…';
         const res = await fetch(`${PRECIPROCAL_URL}/api/extension/auto-apply`, {
           headers: { 'x-extension-token':this.authToken, 'x-user-email':this.authEmail||'', 'x-user-id':this.authUserId||'' },

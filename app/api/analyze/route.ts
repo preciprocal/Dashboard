@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: validation.error }, { status: 400 });
     }
 
-    // Validate analysis type — return a clear error instead of silently remapping
+    // Validate analysis type - return a clear error instead of silently remapping
     if (!VALID_ANALYSIS_TYPES.includes(analysisType as ValidAnalysisType)) {
       return NextResponse.json(
         {

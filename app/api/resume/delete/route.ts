@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
             const [nextCursor, keys] = await redis.scan(Number(aCursor), { match: 'resume:analysis:*', count: 100 });
             aCursor = String(nextCursor);
             aScanned += 100;
-            // Delete all analysis cache keys for this user (nuclear but safe — they auto-regenerate)
+            // Delete all analysis cache keys for this user (nuclear but safe - they auto-regenerate)
             if (keys.length > 0) {
               for (const key of keys) {
                 try {
@@ -171,7 +171,7 @@ export async function POST(request: NextRequest) {
             }
           } while (aCursor !== '0' && aScanned < 500);
         } else {
-          // We have the content hash — delete directly
+          // We have the content hash - delete directly
           for (const hash of hashesToClear) {
             const analysisKey = `resume:analysis:${hash}`;
             const textKey = `resume:text:${hash}`;
@@ -191,7 +191,7 @@ export async function POST(request: NextRequest) {
         console.warn('   ⚠️  Cache cleanup error (non-fatal):', cacheErr);
       }
     } else {
-      console.log('   ℹ️  Redis not available — skipping cache cleanup');
+      console.log('   ℹ️  Redis not available - skipping cache cleanup');
     }
 
     // ── 3. Delete from Firestore ──────────────────────────────────

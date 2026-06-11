@@ -396,12 +396,12 @@ function UpgradeGate({ feature, used, limit }: { feature: 'linkedin' | 'outreach
       { num: '95%',  line: 'of recruiters use LinkedIn as their main sourcing tool' },
       { num: '40×',  line: 'more opportunities for job seekers with optimised profiles' },
       { num: '71%',  line: 'higher chance of an interview with a comprehensive profile' },
-      { num: '6 sec', line: 'is all a recruiter spends scanning your profile — make it count' },
+      { num: '6 sec', line: 'is all a recruiter spends scanning your profile - make it count' },
     ],
     outreach: [
       { num: '80%',  line: 'of jobs are filled through networking, not applications' },
       { num: '5×',   line: 'more likely to get hired through a referral than cold applying' },
-      { num: '57%',  line: 'of candidates skip follow-ups — the ones who don\'t win more offers' },
+      { num: '57%',  line: 'of candidates skip follow-ups - the ones who don\'t win more offers' },
       { num: '48%',  line: 'of top hires come from employee referrals' },
     ],
   };
@@ -431,7 +431,7 @@ function UpgradeGate({ feature, used, limit }: { feature: 'linkedin' | 'outreach
             {isLI ? "Your profile is your pitch. Make recruiters stop scrolling." : "The best opportunities don't get posted. They get messaged."}
           </h2>
           <p className="text-sm text-slate-500 mb-6 max-w-md">
-            {isLI ? "You've used your free LinkedIn optimisations. Recruiters spend 6 seconds on your profile — an AI-optimised one makes every second count." : "You've used your free outreach messages. 80% of jobs are filled through networking — don't go silent now."}
+            {isLI ? "You've used your free LinkedIn optimisations. Recruiters spend 6 seconds on your profile - an AI-optimised one makes every second count." : "You've used your free outreach messages. 80% of jobs are filled through networking - don't go silent now."}
           </p>
           <div className="flex items-center gap-4 bg-white/[0.03] border border-white/[0.06] rounded-xl px-5 py-4 mb-6 min-h-[64px]">
             <span className={`text-3xl font-black flex-shrink-0 w-16 text-center ${isLI ? 'text-blue-400' : 'text-emerald-400'}`}>{STATS[activeStat].num}</span>
@@ -636,7 +636,7 @@ export default function CareerToolsPage() {
 
   const [showFeedback, setShowFeedback] = useState(false);
 
-  useEffect(() => { if (!loading && !user) router.push('/auth'); }, [user, loading, router]);
+  useEffect(() => { if (!loading && !user) router.push('/sign-in'); }, [user, loading, router]);
 
   // ← NEW: reset next step prompts when switching tools
   const handleToolChange = (v: 'linkedin' | 'outreach') => {
@@ -804,7 +804,7 @@ export default function CareerToolsPage() {
             {isLI ? (
               renderLIResults() || <EmptyState icon={Linkedin} title="Results appear here" sub="Paste your current headline or about section on the left and click Optimise." />
             ) : (
-              renderORResults() || <EmptyState icon={Send} title="Messages appear here" sub="Fill in the recipient details on the left. The context field is the most important — it makes messages feel personal." />
+              renderORResults() || <EmptyState icon={Send} title="Messages appear here" sub="Fill in the recipient details on the left. The context field is the most important - it makes messages feel personal." />
             )}
           </div>
         </div>

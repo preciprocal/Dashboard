@@ -52,7 +52,7 @@ export async function uploadUserFile(
 
   console.log(`✅ Uploaded ${fileType} for user ${userId} (${buffer.length} bytes)`);
 
-  // Return the storage path (not a public URL — we read via admin SDK)
+  // Return the storage path (not a public URL - we read via admin SDK)
   return filePath;
 }
 

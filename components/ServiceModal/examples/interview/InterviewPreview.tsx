@@ -35,7 +35,7 @@ const STRENGTHS = [
 ];
 
 const IMPROVEMENTS = [
-  { text: 'Deepen system design knowledge — practice designing scalable frontend architectures', priority: 'High' },
+  { text: 'Deepen system design knowledge - practice designing scalable frontend architectures', priority: 'High' },
   { text: 'Add more quantified metrics and measurable outcomes to behavioral examples', priority: 'Medium' },
   { text: 'Practice articulating trade-offs in technical decisions more clearly', priority: 'Medium' },
 ];
@@ -63,7 +63,7 @@ function PanelAvatar({ initials, gradient, isSpeaking, size = 'lg' }: {
 function WaitingRoom({ step }: { step: number }) {
   return (
     <div className="flex gap-3 h-full" style={{ minHeight: 520 }}>
-      {/* Left — Main area */}
+      {/* Left - Main area */}
       <div className="flex-1 min-w-0 flex flex-col gap-2.5">
         <FadeIn delay={0}>
           <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-lg">
@@ -140,7 +140,7 @@ function WaitingRoom({ step }: { step: number }) {
         </FadeIn>
       </div>
 
-      {/* Right — Sidebar */}
+      {/* Right - Sidebar */}
       <div className="w-[38%] flex-shrink-0 flex flex-col gap-2.5">
         <FadeIn delay={100}>
           <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-lg">
@@ -280,10 +280,10 @@ function LiveInterview({ step }: { step: number }) {
       "How do you decide between building a custom component vs using a library?",
     ],
     you: [
-      "At my previous role, I used React Profiler and Lighthouse to identify render bottlenecks — we reduced bundle size by 40% and cut LCP from 3.2s to 1.1s.",
+      "At my previous role, I used React Profiler and Lighthouse to identify render bottlenecks - we reduced bundle size by 40% and cut LCP from 3.2s to 1.1s.",
       "I'd propose a module federation approach with shared design tokens, independent deployments per team, and a thin shell app handling routing and auth.",
       "I migrated our REST endpoints to GraphQL which reduced over-fetching by 60%. The trade-off was added complexity in caching, which we solved with Apollo Client.",
-      "I've used a combination of React Context for global state and Zustand for feature-level stores — it keeps things modular without prop drilling.",
+      "I've used a combination of React Context for global state and Zustand for feature-level stores - it keeps things modular without prop drilling.",
     ],
   };
 
@@ -314,7 +314,7 @@ function LiveInterview({ step }: { step: number }) {
         </div>
       </FadeIn>
 
-      {/* 2×2 Grid — flex-1 to fill all available space */}
+      {/* 2×2 Grid - flex-1 to fill all available space */}
       <FadeIn delay={200} className="flex-1 min-h-0 flex flex-col">
         <div className="grid grid-cols-2 gap-3 flex-1">
                       {participants.map(p => {
@@ -358,7 +358,7 @@ function LiveInterview({ step }: { step: number }) {
         </div>
       </FadeIn>
 
-      {/* Controls — compact at bottom */}
+      {/* Controls - compact at bottom */}
       <FadeIn delay={400}>
         <div className="mt-1.5 p-2 bg-white/[0.02] border border-white/[0.06] rounded-lg space-y-1.5">
           <div className="flex items-center justify-between">
@@ -391,7 +391,7 @@ function LiveInterview({ step }: { step: number }) {
             <div className="flex items-center gap-1.5 mb-0.5">
               <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
               <span className="text-[7px] text-slate-400 font-medium">
-                Live Transcript {speakerId && speakerId !== 'you' ? `— ${participants.find(p => p.id === speakerId)?.name}` : speakerId === 'you' ? '— Jordan Lee' : ''}
+                Live Transcript {speakerId && speakerId !== 'you' ? `- ${participants.find(p => p.id === speakerId)?.name}` : speakerId === 'you' ? '- Jordan Lee' : ''}
               </span>
             </div>
             <p className="text-[9px] text-white leading-relaxed">{currentTranscript}</p>

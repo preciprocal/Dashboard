@@ -34,7 +34,7 @@ export const RedisKeys = {
   // User preferences
   userPrefs: (userId: string) => `prefs:${userId}`,
 
-  // Quiz cache (per plan — quiz is regenerated only when plan progress changes)
+  // Quiz cache (per plan - quiz is regenerated only when plan progress changes)
   quiz: (planId: string) => `quiz:${planId}`,
 };
 

@@ -5,10 +5,10 @@ import { redis } from '@/lib/redis/redis-client';
 export type RateLimitTier = 'heavy' | 'medium' | 'light' | 'global';
 
 const TIER_CONFIG: Record<RateLimitTier, { maxRequests: number; windowSeconds: number }> = {
-  heavy:  { maxRequests: 10, windowSeconds: 120 },   // was 3/60 — too tight for multi-call flows
+  heavy:  { maxRequests: 10, windowSeconds: 120 },   // was 3/60 - too tight for multi-call flows
   medium: { maxRequests: 15, windowSeconds: 60 },     // was 5/60
   light:  { maxRequests: 30, windowSeconds: 60 },     // was 10/60
-  global: { maxRequests: 60, windowSeconds: 60 },     // was 30/60 — unauthenticated fallback
+  global: { maxRequests: 60, windowSeconds: 60 },     // was 30/60 - unauthenticated fallback
 };
 
 interface RateLimitResult {

@@ -40,18 +40,19 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // ── Cancel any existing incomplete subscriptions ───────────────────────
-    const existing = await stripe.subscriptions.list({
-      customer: customerId,
-      status:   "incomplete",
-    });
-    for (const s of existing.data) {
-      await stripe.subscriptions.cancel(s.id);
-      console.log("Cancelled incomplete subscription:", s.id);
+    // ── Cancel any existing subscriptions to prevent double billing ──────────
+    // Fetches incomplete + active (trialing) subscriptions and cancels them so
+    // the new subscription is the single source of truth in Stripe.
+    for (const status of ["incomplete", "trialing", "active"] as const) {
+      const existing = await stripe.subscriptions.list({ customer: customerId, status });
+      for (const s of existing.data) {
+        await stripe.subscriptions.cancel(s.id);
+        console.log(`Cancelled ${status} subscription:`, s.id);
+      }
     }
 
     // ── Create incomplete subscription ─────────────────────────────────────
-    // FIXED: `coupon: couponId` is a removed Stripe param — throws "unknown parameter" error.
+    // FIXED: `coupon: couponId` is a removed Stripe param - throws "unknown parameter" error.
     //        Correct format is `discounts: [{ coupon: couponId }]`
     const sub = await stripe.subscriptions.create({
       customer:         customerId,
@@ -63,7 +64,7 @@ export async function POST(req: NextRequest) {
     });
 
     // ── Create SetupIntent with automatic payment methods ──────────────────
-    // ✅ automatic_payment_methods is required — never use payment_method_types
+    // ✅ automatic_payment_methods is required - never use payment_method_types
     // here or it will conflict with PaymentElement's automatic mode.
     const setupIntent = await stripe.setupIntents.create({
       customer:                  customerId,

@@ -227,7 +227,7 @@ function WordEditor({
       <div className="flex items-center justify-between px-4 py-2 border-b border-white/[0.06] flex-shrink-0">
         <div className="flex items-center gap-2">
           <FileEdit className="w-3.5 h-3.5 text-indigo-400" />
-          <span className="text-xs font-medium text-slate-300">Word Mode — Editable</span>
+          <span className="text-xs font-medium text-slate-300">Word Mode - Editable</span>
         </div>
         <button onClick={handleSaveNow} disabled={isSaving || !hasChanges}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
@@ -339,9 +339,9 @@ export default function EditableResumePanel({
       setWordReady(true);
       onContentChange(placeholder);
       setMode('word');
-      toast.info('No source content found — you can paste your resume manually');
+      toast.info('No source content found - you can paste your resume manually');
     } catch {
-      toast.error('Conversion failed — try again');
+      toast.error('Conversion failed - try again');
     } finally {
       setIsConverting(false);
     }

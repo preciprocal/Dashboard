@@ -93,7 +93,7 @@ export interface Resume {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Interview Intelligence — sub-types (matching component exactly)
+// Interview Intelligence - sub-types (matching component exactly)
 // ─────────────────────────────────────────────────────────────────
 
 export interface InterviewIntelJobOpenings {

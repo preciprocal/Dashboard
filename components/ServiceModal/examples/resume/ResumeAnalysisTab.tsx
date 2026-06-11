@@ -57,9 +57,9 @@ const CATEGORIES: Category[] = [
     iconBg: 'bg-purple-500/10',
     iconEl: <FileText className="w-3 h-3 text-purple-400" />,
     tips: [
-      { type: 'good', title: "Strong quantified impact across roles — '2M+ events/sec', '22% lift', '99.8% uptime'.", desc: "Numbers make achievements concrete and memorable for recruiters." },
+      { type: 'good', title: "Strong quantified impact across roles - '2M+ events/sec', '22% lift', '99.8% uptime'.", desc: "Numbers make achievements concrete and memorable for recruiters." },
       { type: 'warning', title: "Cognizant role bullet points lack specific outcome metrics.", desc: "Adding 'resulting in X% improvement' would strengthen these points.", fix: "Revise Cognizant bullets to include specific business outcomes and impact numbers." },
-      { type: 'good', title: "Project descriptions include concrete usage numbers — '1,000+ applications', '500+ users'.", desc: "This demonstrates real-world impact beyond just technical implementation." },
+      { type: 'good', title: "Project descriptions include concrete usage numbers - '1,000+ applications', '500+ users'.", desc: "This demonstrates real-world impact beyond just technical implementation." },
     ],
   },
   {

@@ -202,7 +202,7 @@ function ReadinessRing({ score }: { score: number }) {
   );
 }
 
-/** Stat pill — hero card only */
+/** Stat pill - hero card only */
 function StatPill({ label, value, sub, trend }: {
   label: string;
   value: string | number;
@@ -312,7 +312,7 @@ export default function Dashboard() {
   const [stats,        setStats]        = useState<UserStats | null>(null);
   const [isLoading,    setIsLoading]    = useState(true);
 
-  // Clock — update every minute
+  // Clock - update every minute
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60_000);
     return () => clearInterval(timer);
@@ -572,7 +572,7 @@ export default function Dashboard() {
     _resumes,
     _stats,
   ) => {
-    // Cast back to concrete types — safe because the caller always passes the right shapes
+    // Cast back to concrete types - safe because the caller always passes the right shapes
     const interviews = _interviews as Interview[];
     const resumes    = _resumes    as Resume[];
     const stats      = _stats      as unknown as UserStats;
@@ -691,7 +691,7 @@ export default function Dashboard() {
     : readiness < 50
     ? {
         icon: TrendingUp,
-        text: 'Keep practicing — consistency drives your readiness score up.',
+        text: 'Keep practicing - consistency drives your readiness score up.',
         color: 'text-indigo-400',
         borderColor: 'border-indigo-500/20',
         bg: 'bg-indigo-500/[0.04]',
@@ -787,7 +787,7 @@ export default function Dashboard() {
 
         <MetricCard
           icon={FileText} label="Resume quality"
-          value={hasResume ? `${stats.averageResumeScore ?? 0}%` : '—'}
+          value={hasResume ? `${stats.averageResumeScore ?? 0}%` : '-'}
           sub={hasResume ? `${stats.totalResumes} file${stats.totalResumes !== 1 ? 's' : ''}` : 'No resume yet'}
           accentClass={!hasResume ? 'text-slate-600' : (stats.averageResumeScore ?? 0) >= 70 ? 'text-emerald-400' : 'text-amber-400'}
         >
@@ -798,7 +798,7 @@ export default function Dashboard() {
 
         <MetricCard
           icon={Brain} label="Technical depth"
-          value={stats.technicalDepth ? `${stats.technicalDepth}/5` : '—'}
+          value={stats.technicalDepth ? `${stats.technicalDepth}/5` : '-'}
           sub={stats.technicalDepth ? 'rating' : 'No tech sessions'}
           accentClass={!stats.technicalDepth ? 'text-slate-600' : 'text-violet-400'}
         >
@@ -817,7 +817,7 @@ export default function Dashboard() {
 
         <MetricCard
           icon={Users} label="Communication"
-          value={stats.communicationScore ? `${stats.communicationScore}` : '—'}
+          value={stats.communicationScore ? `${stats.communicationScore}` : '-'}
           sub={stats.communicationScore ? '/100' : 'No data yet'}
           accentClass={!stats.communicationScore ? 'text-slate-600' : stats.communicationScore >= 70 ? 'text-sky-400' : 'text-amber-400'}
         >

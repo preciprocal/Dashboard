@@ -72,7 +72,7 @@ export const SERVICE_EXAMPLES: ServiceExample[] = [
     steps: [
       { label: 'Filling in details…', duration: 2500 },
       { label: 'Selecting focus areas…', duration: 2000 },
-      { label: 'Plan generated — Schedule view…', duration: 4500 },
+      { label: 'Plan generated - Schedule view…', duration: 4500 },
       { label: 'Browsing tasks & resources…', duration: 5000 },
       { label: 'Viewing analytics…', duration: 5000 },
       { label: 'Chatting with AI Coach…', duration: 7000 },

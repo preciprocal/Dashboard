@@ -82,7 +82,7 @@ export interface User {
 
 /**
  * Builds a fresh subscription object for a given plan.
- * Limits are always read from usage-limits.ts — never hardcoded.
+ * Limits are always read from usage-limits.ts - never hardcoded.
  */
 function buildSubscription(plan: "free" | "pro" | "premium" = "free") {
   const limits = USAGE_LIMITS[plan];
@@ -123,6 +123,28 @@ function buildUsage() {
     findContactsUsed:          0,
     jobTrackerUsed:            0,
     lastReset:                 new Date().toISOString(),
+  };
+}
+
+/**
+ * Builds a limits snapshot from usage-limits.ts for the given plan.
+ * Stored in the `limits` sub-document so Firebase Console shows plan caps
+ * alongside usage counts without needing to cross-reference source code.
+ */
+function buildLimits(plan: "free" | "pro" | "premium" = "free") {
+  const l = USAGE_LIMITS[plan];
+  return {
+    coverLetters:          l.coverLetters,
+    resumes:               l.resumes,
+    studyPlans:            l.studyPlans,
+    interviews:            l.interviews,
+    interviewDebriefs:     l.interviewDebriefs,
+    linkedinOptimisations: l.linkedinOptimisations,
+    coldOutreach:          l.coldOutreach,
+    findContacts:          l.findContacts,
+    jobTracker:            l.jobTracker,
+    plan,
+    updatedAt:             new Date().toISOString(),
   };
 }
 
@@ -274,6 +296,16 @@ async function validateAndFixUserDocument(firebaseUser: {
       }
     }
 
+    // ── Sync limits sub-document when missing or plan has changed ────────────
+    const currentPlan = normalisePlan(userData?.subscription?.plan ?? "free") as "free" | "pro" | "premium";
+    if (!userData?.limits || userData.limits.plan !== currentPlan) {
+      console.log(`🔧 Syncing limits snapshot for plan: ${currentPlan}`);
+      await db.collection("users").doc(firebaseUser.uid).update({
+        limits: buildLimits(currentPlan),
+      });
+      await invalidateUserCache(firebaseUser.uid);
+    }
+
     console.log("✅ User document is valid");
     return true;
   } catch (error) {
@@ -325,11 +357,12 @@ export async function signUp(params: SignUpParams) {
       isAdmin:      false,
       subscription: buildSubscription("free"),
       usage:        buildUsage(),
+      limits:       buildLimits("free"),
     };
 
     await db.collection("users").doc(uid).set(userData);
     console.log(
-      `✅ New user created — UID: ${uid} | Email: ${email} | Plan: free`,
+      `✅ New user created - UID: ${uid} | Email: ${email} | Plan: free`,
       `| Limits: resumes=${USAGE_LIMITS.free.resumes} coverLetters=${USAGE_LIMITS.free.coverLetters}`,
       `studyPlans=${USAGE_LIMITS.free.studyPlans} interviews=${USAGE_LIMITS.free.interviews}`
     );
@@ -376,7 +409,7 @@ export async function signIn(params: SignInParams) {
           await invalidateUserCache(oldClaims.uid);
         }
       } catch {
-        // Old session was invalid — continue
+        // Old session was invalid - continue
       }
     }
 
@@ -400,11 +433,12 @@ export async function signIn(params: SignInParams) {
           isAdmin:   false,
           subscription: buildSubscription("free"),
           usage:        buildUsage(),
+          limits:       buildLimits("free"),
         };
 
         await db.collection("users").doc(decodedToken.uid).set(userData);
         console.log(
-          `✅ OAuth user created — UID: ${decodedToken.uid} | Provider: ${provider}`,
+          `✅ OAuth user created - UID: ${decodedToken.uid} | Provider: ${provider}`,
           `| Limits: resumes=${USAGE_LIMITS.free.resumes} coverLetters=${USAGE_LIMITS.free.coverLetters}`,
           `studyPlans=${USAGE_LIMITS.free.studyPlans} interviews=${USAGE_LIMITS.free.interviews}`
         );

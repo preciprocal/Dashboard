@@ -124,8 +124,8 @@ function sanitizeReply(message: string): string {
     /^(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+\d{4}/i,
     /^Subject:.*\[Ticket/i,
     /^To:.*<.*>$/i,
-    /^Preciprocal Support\s*[—-]/i,
-    /^Internal\s*[—-]\s*Admin Only$/i,
+    /^Preciprocal Support\s*[--]/i,
+    /^Internal\s*[--]\s*Admin Only$/i,
     /^Admin Only$/i,
     /^Reply to this email/i,
     /^Preciprocal Support$/i,
@@ -180,7 +180,7 @@ function generateReplyEmail(
     <xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml>
   </noscript>
   <![endif]-->
-  <title>Support Reply — Ticket #${ticketId}</title>
+  <title>Support Reply - Ticket #${ticketId}</title>
   <style>
     /* Reset */
     * { box-sizing: border-box; }
@@ -211,7 +211,7 @@ function generateReplyEmail(
 
   <!-- Preheader (hidden preview text) -->
   <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#f4f5f7;">
-    Our support team has responded to your ticket #${ticketId} — ${subject}
+    Our support team has responded to your ticket #${ticketId} - ${subject}
     &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;
   </div>
 

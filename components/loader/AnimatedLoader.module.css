@@ -7,7 +7,7 @@
  * in Tailwind (custom easing, multi-property keyframes) and the
  * reduced-motion override that applies globally to the component.
  *
- * Do NOT add visual styles here — keep all layout, color, and spacing
+ * Do NOT add visual styles here - keep all layout, color, and spacing
  * in AnimatedLoader.tsx so the component stays in one place.
  */
 
@@ -63,7 +63,7 @@
 
 /*
  * ── Logo container idle state ──
- * A single, gentle float. One animation only — no rotation, no spin.
+ * A single, gentle float. One animation only - no rotation, no spin.
  * Respects reduced-motion via the block above.
  */
 .logoFloat {
@@ -79,7 +79,7 @@
  * ── Message pill ──
  * The fade in/out of messages is handled via inline opacity transition
  * in TSX (opacity: msgVisible ? 1 : 0, transition: 'opacity 0.3s ease').
- * No CSS class needed here — kept as documentation.
+ * No CSS class needed here - kept as documentation.
  */
 
 /*
@@ -118,6 +118,6 @@
 /*
  * ── Grid background ──
  * Handled via inline backgroundImage in TSX.
- * The opacity is set to 0.12 (12%) — visible but not distracting.
+ * The opacity is set to 0.12 (12%) - visible but not distracting.
  * No CSS class needed here.
  */

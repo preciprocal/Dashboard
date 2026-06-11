@@ -88,11 +88,11 @@ export async function POST(request: NextRequest) {
       try {
         const quizData = await redis.get(`quiz:${planId}`);
         if (quizData) {
-          quizDetail = 'Quiz available — take it to improve your readiness score';
+          quizDetail = 'Quiz available - take it to improve your readiness score';
         }
       } catch { /* ignore */ }
     }
-    // Check Firestore for quiz results — wrapped in try/catch since subcollection may not exist
+    // Check Firestore for quiz results - wrapped in try/catch since subcollection may not exist
     try {
       const quizRef = db.collection('interviewPlans').doc(planId).collection('quizResults');
       const quizSnap = await quizRef.orderBy('completedAt', 'desc').limit(1).get();
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
           quizDetail = `${result.score}/${result.total} correct (${quizScore}%)`;
         }
       }
-    } catch { /* subcollection may not exist yet — that's fine */ }
+    } catch { /* subcollection may not exist yet - that's fine */ }
 
     // ── 3. Mock interview performance (20% weight) ──
     let interviewScore = 0;

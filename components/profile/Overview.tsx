@@ -45,9 +45,9 @@ interface Resume {
 interface Interview {
   id: string;
   type: string;
-  score?: number;               // optional — dashboard uses score?
+  score?: number;               // optional - dashboard uses score?
   createdAt: Date | string;
-  // Extra fields from the dashboard — optional so nothing breaks
+  // Extra fields from the dashboard - optional so nothing breaks
   userId?: string;
   role?: string;
   techstack?: string[];
@@ -93,7 +93,7 @@ interface Stats {
   [key: string]: unknown;
 }
 
-// id accepts number | string — dashboard generates numeric ids
+// id accepts number | string - dashboard generates numeric ids
 interface DailyFocus {
   id: number | string;
   type: string;
@@ -108,7 +108,7 @@ interface ProfileOverviewProps {
   interviews: Interview[];
   resumes?: Resume[];
   generateDailyFocus: (interviews: unknown[], resumes: unknown[], stats: Record<string, unknown>) => DailyFocus[];
-  // Extra props the dashboard passes — accepted but unused inside this component
+  // Extra props the dashboard passes - accepted but unused inside this component
   userProfile?: unknown;
   loading?: boolean;
 }
@@ -205,7 +205,7 @@ const ProfileOverview: React.FC<ProfileOverviewProps> = ({
                 </div>
                 <p className="text-slate-400 text-sm">
                   {jobReadiness.status === "ready"
-                    ? "Your profile is optimised — start applying with confidence."
+                    ? "Your profile is optimised - start applying with confidence."
                     : jobReadiness.status === "improving"
                     ? "Keep practising to reach full readiness."
                     : "Complete your first interview and upload a resume to get started."}
@@ -278,7 +278,7 @@ const ProfileOverview: React.FC<ProfileOverviewProps> = ({
               ))
             ) : (
               <p className="text-sm text-slate-500 text-center py-4">
-                No focus items yet — complete an interview to get started.
+                No focus items yet - complete an interview to get started.
               </p>
             )}
           </div>

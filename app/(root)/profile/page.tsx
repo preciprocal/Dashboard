@@ -188,6 +188,7 @@ const ProfilePage = () => {
 
   const [isLoading,              setIsLoading]              = useState(true);
   const [loadingStep,            setLoadingStep]            = useState(0);
+  const [fetchKey,               setFetchKey]               = useState(0);
   const [isEditing,              setIsEditing]              = useState(false);
   const [isSaving,               setIsSaving]               = useState(false);
   const [isUploadingTranscript,  setIsUploadingTranscript]  = useState(false);
@@ -316,7 +317,7 @@ const ProfilePage = () => {
       }
     };
     fetchUserData();
-  }, [user, router]);
+  }, [user, router, fetchKey]);
 
   const readFileAsBase64 = (file: File): Promise<string> =>
     new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result as string); r.onerror = rej; r.readAsDataURL(file); });
@@ -385,7 +386,7 @@ const ProfilePage = () => {
 
   const handleOpenFile = async (fileData: string, fileType: 'resume' | 'transcript') => {
   try {
-    // Legacy base64 data — open directly (backwards compat for old uploads)
+    // Legacy base64 data - open directly (backwards compat for old uploads)
     if (fileData.startsWith('data:')) {
       const byteStr = atob(fileData.split(',')[1]);
       const mime = fileData.split(',')[0].split(':')[1].split(';')[0];
@@ -398,7 +399,7 @@ const ProfilePage = () => {
       return;
     }
 
-    // New Storage-based files — fetch a signed URL
+    // New Storage-based files - fetch a signed URL
     const toastId = toast.loading('Opening file…');
     const res = await fetch(`/api/profile/file?type=${fileType}`);
     if (!res.ok) {
@@ -418,7 +419,7 @@ const ProfilePage = () => {
     setIsEditing(v => !v);
   };
 
-  const handleRetry = () => { setCriticalError(null); setProfileError(''); setIsLoading(true); };
+  const handleRetry = () => { setCriticalError(null); setProfileError(''); setFetchKey(k => k + 1); };
 
   // ── Guards ────────────────────────────────────────────────────
   if (criticalError) {

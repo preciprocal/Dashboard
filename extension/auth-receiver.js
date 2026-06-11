@@ -64,7 +64,7 @@
         };
 
         req.onupgradeneeded = (event) => {
-          // DB doesn't exist yet — user not logged in
+          // DB doesn't exist yet - user not logged in
           event.target.transaction.abort();
           resolve(null);
         };
@@ -94,12 +94,12 @@
             savedAt: Date.now(),
           }
         }, () => {
-          console.log('[Preciprocal] ✅ Auth synced from IndexedDB — user:', user.email);
+          console.log('[Preciprocal] ✅ Auth synced from IndexedDB - user:', user.email);
         });
       });
 
     } else {
-      // Not logged in — clear stale auth
+      // Not logged in - clear stale auth
       chrome.storage.local.get([STORAGE_KEY], (result) => {
         if (result[STORAGE_KEY]) {
           chrome.storage.local.remove([STORAGE_KEY], () => {
@@ -112,7 +112,7 @@
 
   // ── Run at document_idle + with delays ───────────────────────
   // document_idle means DOM is ready but Firebase may still be
-  // restoring its auth state from IndexedDB — delays catch that.
+  // restoring its auth state from IndexedDB - delays catch that.
   syncAuth();
   setTimeout(syncAuth, 1000);
   setTimeout(syncAuth, 3000);

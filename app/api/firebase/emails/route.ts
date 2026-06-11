@@ -4,226 +4,383 @@ import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// ✅ Fix: typed interface instead of any
 interface SupportTicket {
-  userName: string;
+  userName:  string;
   userEmail: string;
-  subject: string;
-  message: string;
-  category: string;
-  priority: 'high' | 'medium' | 'low';
+  subject:   string;
+  message:   string;
+  category:  string;
+  priority:  'high' | 'medium' | 'low';
+}
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('📧 Email API called (Resend)');
-    
     const { ticketId, ticket } = await request.json() as { ticketId: string; ticket: SupportTicket };
-    
-    console.log('✅ Ticket ID:', ticketId);
-    console.log('✅ User:', ticket.userName, '-', ticket.userEmail);
 
     if (!process.env.RESEND_API_KEY) {
-      console.error('❌ Resend API key not configured');
-      return NextResponse.json(
-        { error: 'Email service not configured' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Email service not configured' }, { status: 500 });
     }
 
-    const shortTicketId = ticketId.slice(0, 12).toUpperCase();
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@preciprocal.com';
+    const shortId    = ticketId.slice(0, 8).toUpperCase();
 
-    // 1. Send INTERNAL notification to admin (with full details)
+    // ── 1. Admin notification ─────────────────────────────────────────────────
+    // IMPORTANT: replyTo is support@preciprocal.com (NOT userEmail).
+    // When the admin replies, the email routes through the inbound webhook
+    // which saves the reply to Firestore and notifies the user automatically.
+    // Ensure Resend Inbound is configured to route support@preciprocal.com
+    // to: https://your-domain.com/api/support/inbound-email
     const { data: adminData, error: adminError } = await resend.emails.send({
-      from: 'Preciprocal Support <admin@preciprocal.com>',
-      to: 'admin@preciprocal.com',
-      replyTo: ticket.userEmail,
-      subject: `[Ticket #${shortTicketId}] ${ticket.subject}`,
-      html: generateAdminNotificationEmail(ticketId, ticket),
+      from:    'Preciprocal Support <admin@preciprocal.com>',
+      to:      adminEmail,
+      replyTo: 'support@preciprocal.com',
+      subject: `[Ticket #${ticketId}] ${ticket.subject}`,
+      html:    generateAdminEmail(ticketId, shortId, ticket),
     });
 
-    if (adminError) {
-      console.error('❌ Admin email error:', adminError);
-    } else {
-      console.log('✅ Admin notification sent, ID:', adminData?.id);
-    }
+    if (adminError) console.error('❌ Admin email error:', adminError);
+    else            console.log('✅ Admin notification sent:', adminData?.id);
 
-    // 2. Send CLEAN confirmation to the user (no internal metadata)
+    // ── 2. User confirmation ──────────────────────────────────────────────────
     const { data: userData, error: userError } = await resend.emails.send({
-      from: 'Preciprocal Support <admin@preciprocal.com>',
-      to: ticket.userEmail,
-      replyTo: 'admin@preciprocal.com',
-      subject: `[Ticket #${shortTicketId}] ${ticket.subject}`,
-      html: generateUserConfirmationEmail(ticket.userName, shortTicketId, ticket.subject, ticket.message),
+      from:    'Preciprocal Support <admin@preciprocal.com>',
+      to:      ticket.userEmail,
+      replyTo: 'support@preciprocal.com',
+      subject: `[Ticket #${shortId}] We received your request`,
+      html:    generateUserConfirmationEmail(ticket.userName, shortId, ticket.subject, ticket.message),
     });
 
-    if (userError) {
-      console.error('❌ User confirmation email error:', userError);
-    } else {
-      console.log('✅ User confirmation sent, ID:', userData?.id);
-    }
+    if (userError) console.error('❌ User confirmation error:', userError);
+    else           console.log('✅ User confirmation sent:', userData?.id);
 
-    return NextResponse.json({ 
-      success: true,
-      adminEmailId: adminData?.id,
-      userEmailId: userData?.id,
-      message: 'Emails sent successfully'
-    });
+    return NextResponse.json({ success: true, adminEmailId: adminData?.id, userEmailId: userData?.id });
   } catch (error) {
-    console.error('❌ Email sending error:', error);
-    return NextResponse.json(
-      { 
-        error: 'Failed to send email',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    );
+    console.error('❌ Email error:', error);
+    return NextResponse.json({ error: 'Failed to send email' }, { status: 500 });
   }
 }
 
-// ============================================================
-// ADMIN EMAIL - Internal notification with full ticket details
-// ============================================================
-function generateAdminNotificationEmail(ticketId: string, ticket: SupportTicket) {
-  const shortId = ticketId.slice(0, 12).toUpperCase();
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1a1a1a; margin: 0; padding: 0; background: #f8f9fa; }
-        .container { max-width: 650px; margin: 40px auto; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.07); }
-        .header { background: linear-gradient(135deg, #2563eb, #1e40af); color: #fff; padding: 40px; }
-        .header h1 { margin: 0 0 8px; font-size: 24px; font-weight: 600; }
-        .header-meta { margin: 12px 0 0; opacity: 0.9; font-size: 14px; }
-        .ticket-id-badge { display: inline-block; background: rgba(255,255,255,0.2); padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; margin-top: 12px; letter-spacing: 0.5px; }
-        .content { padding: 40px; }
-        .user-section { background: #f8fafc; border: 1px solid #e2e8f0; border-left: 3px solid #3b82f6; padding: 24px; border-radius: 8px; margin-bottom: 30px; }
-        .user-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; font-weight: 600; margin-bottom: 10px; }
-        .user-name { font-size: 18px; font-weight: 600; color: #0f172a; margin-bottom: 6px; }
-        .user-email { font-size: 15px; color: #3b82f6; font-weight: 500; }
-        .detail-row { padding: 14px 0; border-bottom: 1px solid #f1f5f9; }
-        .detail-row:last-child { border-bottom: none; }
-        .detail-label { font-size: 13px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 6px; }
-        .detail-value { font-size: 15px; color: #0f172a; font-weight: 500; }
-        .priority-badge { display: inline-block; padding: 5px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; text-transform: uppercase; }
-        .priority-high { background: #fee2e2; color: #dc2626; }
-        .priority-medium { background: #fef3c7; color: #d97706; }
-        .priority-low { background: #e0f2fe; color: #0369a1; }
-        .category-badge { display: inline-block; padding: 5px 14px; background: #f1f5f9; color: #475569; border-radius: 6px; font-size: 13px; font-weight: 500; }
-        .message-section { margin-top: 30px; padding-top: 30px; border-top: 2px solid #e2e8f0; }
-        .section-title { font-size: 13px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
-        .message-content { background: #f8fafc; padding: 24px; border-radius: 8px; border: 1px solid #e2e8f0; white-space: pre-wrap; color: #1e293b; line-height: 1.7; font-size: 15px; }
-        .footer { padding: 30px 40px; background: #f8fafc; border-top: 1px solid #e2e8f0; text-align: center; }
-        .footer-text { color: #64748b; font-size: 13px; margin: 0; }
-        .internal-badge { display: inline-block; background: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; margin-top: 8px; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>New Support Ticket</h1>
-          <p class="header-meta">Support request submitted</p>
-          <div class="ticket-id-badge">#${shortId}</div>
-          <br/><span class="internal-badge">Internal — Admin Only</span>
-        </div>
-        <div class="content">
-          <div class="user-section">
-            <div class="user-label">Customer</div>
-            <div class="user-name">${ticket.userName}</div>
-            <div class="user-email">${ticket.userEmail}</div>
-          </div>
-          <div>
-            <div class="detail-row">
-              <div class="detail-label">Subject</div>
-              <div class="detail-value">${ticket.subject}</div>
-            </div>
-            <div class="detail-row">
-              <div class="detail-label">Category</div>
-              <div class="detail-value"><span class="category-badge">${ticket.category.charAt(0).toUpperCase() + ticket.category.slice(1)}</span></div>
-            </div>
-            <div class="detail-row">
-              <div class="detail-label">Priority</div>
-              <div class="detail-value"><span class="priority-badge priority-${ticket.priority}">${ticket.priority}</span></div>
-            </div>
-            <div class="detail-row">
-              <div class="detail-label">Submitted</div>
-              <div class="detail-value">${new Date().toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}</div>
-            </div>
-          </div>
-          <div class="message-section">
-            <div class="section-title">Message</div>
-            <div class="message-content">${ticket.message}</div>
-          </div>
-        </div>
-        <div class="footer">
-          <p class="footer-text"><strong>Preciprocal Support</strong> — Internal Notification</p>
-          <p class="footer-text" style="margin-top: 8px; font-size: 12px; color: #94a3b8;">Reply to this email to respond directly to the customer</p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN EMAIL — Professional dark-themed internal notification
+// ─────────────────────────────────────────────────────────────────────────────
+function generateAdminEmail(ticketId: string, shortId: string, ticket: SupportTicket): string {
+  const priorityMeta: Record<string, { color: string; bg: string; stripe: string; label: string }> = {
+    high:   { color: '#f85149', bg: 'rgba(248,81,73,0.12)',  stripe: '#f85149', label: 'High Priority'   },
+    medium: { color: '#e3b341', bg: 'rgba(227,179,65,0.12)', stripe: '#e3b341', label: 'Medium Priority' },
+    low:    { color: '#3fb950', bg: 'rgba(63,185,80,0.12)',  stripe: '#3fb950', label: 'Low Priority'    },
+  };
+  const categoryMeta: Record<string, { color: string; bg: string }> = {
+    general:   { color: '#58a6ff', bg: 'rgba(88,166,255,0.12)' },
+    technical: { color: '#bc8cff', bg: 'rgba(188,140,255,0.12)' },
+    billing:   { color: '#ffa657', bg: 'rgba(255,166,87,0.12)'  },
+    feature:   { color: '#39d353', bg: 'rgba(57,211,83,0.12)'   },
+    bug:       { color: '#f85149', bg: 'rgba(248,81,73,0.12)'   },
+  };
+
+  const p   = priorityMeta[ticket.priority] ?? priorityMeta.medium;
+  const cat = categoryMeta[ticket.category] ?? categoryMeta.general;
+
+  const submittedAt = new Date().toLocaleString('en-US', {
+    month: 'long', day: 'numeric', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
+  });
+
+  const initial = escapeHtml(ticket.userName.charAt(0).toUpperCase());
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Support Ticket #${shortId}</title>
+</head>
+<body style="margin:0;padding:0;background:#0d1117;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+
+  <!-- Preheader -->
+  <div style="display:none;max-height:0;overflow:hidden;font-size:1px;color:#0d1117;">
+    [${ticket.priority.toUpperCase()}] ${escapeHtml(ticket.subject)} · from ${escapeHtml(ticket.userName)} &zwnj;&nbsp;&zwnj;&nbsp;
+  </div>
+
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#0d1117;min-height:100vh;">
+    <tr><td align="center" style="padding:40px 16px;">
+
+      <!-- Card -->
+      <table width="640" cellpadding="0" cellspacing="0" border="0"
+             style="width:640px;max-width:100%;background:#161b22;border-radius:12px;border:1px solid #30363d;overflow:hidden;">
+
+        <!-- Priority stripe -->
+        <tr><td style="height:3px;background:${p.stripe};font-size:0;line-height:0;">&nbsp;</td></tr>
+
+        <!-- Header -->
+        <tr>
+          <td style="padding:24px 32px;border-bottom:1px solid #21262d;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td valign="middle">
+                  <span style="font-size:17px;font-weight:700;color:#ffffff;letter-spacing:-0.3px;">Preciprocal</span>
+                  <span style="font-size:13px;color:#6e7681;margin-left:6px;font-weight:400;">Support</span>
+                </td>
+                <td align="right" valign="middle">
+                  <span style="display:inline-block;font-size:12px;font-weight:600;color:#58a6ff;background:#1f3a5f;padding:4px 12px;border-radius:20px;border:1px solid #1f6feb;letter-spacing:0.3px;">
+                    #${shortId}
+                  </span>
+                  &nbsp;
+                  <span style="display:inline-block;font-size:11px;font-weight:700;color:#484f58;background:#21262d;padding:3px 8px;border-radius:4px;text-transform:uppercase;letter-spacing:0.5px;">
+                    Internal
+                  </span>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Body -->
+        <tr>
+          <td style="padding:28px 32px 0;">
+
+            <!-- Label + Subject -->
+            <p style="margin:0 0 6px;font-size:11px;font-weight:600;color:#6e7681;text-transform:uppercase;letter-spacing:0.8px;">New Support Ticket</p>
+            <h1 style="margin:0 0 24px;font-size:22px;font-weight:700;color:#ffffff;line-height:1.3;letter-spacing:-0.3px;">
+              ${escapeHtml(ticket.subject)}
+            </h1>
+
+            <!-- Submitter card -->
+            <table width="100%" cellpadding="0" cellspacing="0" border="0"
+                   style="background:#0d1117;border:1px solid #21262d;border-radius:8px;margin-bottom:20px;">
+              <tr>
+                <td style="padding:16px 20px;">
+                  <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                    <tr>
+                      <td width="40" valign="middle">
+                        <div style="width:38px;height:38px;background:linear-gradient(135deg,#6366f1,#a855f7);border-radius:50%;text-align:center;line-height:38px;font-size:16px;font-weight:700;color:#ffffff;display:inline-block;">
+                          ${initial}
+                        </div>
+                      </td>
+                      <td style="padding-left:14px;" valign="middle">
+                        <p style="margin:0 0 3px;font-size:15px;font-weight:600;color:#ffffff;">${escapeHtml(ticket.userName)}</p>
+                        <p style="margin:0;font-size:13px;color:#58a6ff;">${escapeHtml(ticket.userEmail)}</p>
+                      </td>
+                      <td align="right" valign="middle">
+                        <p style="margin:0;font-size:12px;color:#6e7681;">${submittedAt}</p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Badges -->
+            <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
+              <tr>
+                <td style="padding-right:8px;">
+                  <span style="display:inline-block;font-size:12px;font-weight:600;padding:5px 14px;border-radius:20px;background:${cat.bg};color:${cat.color};">
+                    ${escapeHtml(ticket.category.charAt(0).toUpperCase() + ticket.category.slice(1))}
+                  </span>
+                </td>
+                <td>
+                  <span style="display:inline-block;font-size:12px;font-weight:600;padding:5px 14px;border-radius:20px;background:${p.bg};color:${p.color};">
+                    ${p.label}
+                  </span>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Divider -->
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:20px;">
+              <tr><td style="height:1px;background:#21262d;font-size:0;line-height:0;">&nbsp;</td></tr>
+            </table>
+
+            <!-- Message -->
+            <p style="margin:0 0 10px;font-size:11px;font-weight:600;color:#6e7681;text-transform:uppercase;letter-spacing:0.6px;">Message from Customer</p>
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
+              <tr>
+                <td style="background:#0d1117;border:1px solid #21262d;border-left:3px solid #6366f1;border-radius:6px;padding:20px 22px;">
+                  <p style="margin:0;font-size:14px;color:#c9d1d9;line-height:1.75;white-space:pre-wrap;word-break:break-word;">${escapeHtml(ticket.message)}</p>
+                </td>
+              </tr>
+            </table>
+
+          </td>
+        </tr>
+
+        <!-- Reply CTA box -->
+        <tr>
+          <td style="padding:0 32px 28px;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0"
+                   style="background:#1a2740;border:1px solid #1f6feb;border-radius:8px;">
+              <tr>
+                <td style="padding:18px 22px;">
+                  <table cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                      <td valign="top" style="padding-right:12px;">
+                        <div style="width:32px;height:32px;background:#1f6feb;border-radius:6px;text-align:center;line-height:32px;font-size:15px;">↩</div>
+                      </td>
+                      <td valign="middle">
+                        <p style="margin:0 0 3px;font-size:13px;font-weight:600;color:#58a6ff;">Reply to this email to respond</p>
+                        <p style="margin:0;font-size:12px;color:#8b949e;line-height:1.55;">
+                          Your reply is automatically saved to the ticket and the customer is notified. Do not forward — just reply.
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Divider -->
+        <tr><td style="height:1px;background:#21262d;font-size:0;line-height:0;">&nbsp;</td></tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="padding:18px 32px;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td>
+                  <p style="margin:0;font-size:12px;color:#484f58;">
+                    Preciprocal · Internal Admin Notification · Ticket ID: <span style="font-family:monospace;color:#6e7681;">${ticketId}</span>
+                  </p>
+                </td>
+                <td align="right">
+                  <a href="https://preciprocal.com" style="font-size:12px;color:#484f58;text-decoration:none;">preciprocal.com</a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+      </table>
+      <!-- /Card -->
+
+    </td></tr>
+  </table>
+</body>
+</html>`;
 }
 
-// ============================================================
-// USER EMAIL - Clean confirmation the customer sees
-// ============================================================
-function generateUserConfirmationEmail(userName: string, ticketId: string, subject: string, message: string) {
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1a1a1a; margin: 0; padding: 0; background: #f8f9fa; }
-        .container { max-width: 600px; margin: 40px auto; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.07); }
-        .header { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; padding: 35px 40px; }
-        .header h1 { margin: 0; font-size: 22px; font-weight: 600; }
-        .header p { margin: 8px 0 0; opacity: 0.9; font-size: 14px; }
-        .content { padding: 40px; }
-        .message-box { background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #667eea; padding: 20px; border-radius: 8px; margin: 20px 0; }
-        .message-label { font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
-        .message-text { color: #1e293b; font-size: 15px; line-height: 1.7; white-space: pre-wrap; }
-        .cta { text-align: center; margin: 30px 0; }
-        .cta a { display: inline-block; background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px; }
-        .info-box { background: #eff6ff; border: 1px solid #bfdbfe; padding: 16px; border-radius: 8px; margin: 25px 0; font-size: 14px; color: #1e40af; }
-        .footer { padding: 25px 40px; background: #f8fafc; border-top: 1px solid #e2e8f0; text-align: center; }
-        .footer p { color: #64748b; font-size: 13px; margin: 0; }
-        .footer a { color: #667eea; text-decoration: none; font-weight: 500; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>We've received your request</h1>
-          <p>Ticket #${ticketId} — ${subject}</p>
-        </div>
-        <div class="content">
-          <p style="font-size: 16px; color: #1f2937;">Hi ${userName},</p>
-          <p style="font-size: 15px; color: #4b5563;">Thank you for reaching out. We've received your support request and our team will get back to you as soon as possible.</p>
-          <div class="message-box">
-            <div class="message-label">Your Message</div>
-            <div class="message-text">${message}</div>
-          </div>
-          <div class="cta">
-            <a href="${process.env.NEXT_PUBLIC_APP_URL}/help?section=tickets">View Your Tickets</a>
-          </div>
-          <div class="info-box">
-            <strong>What happens next?</strong><br/>
-            Our support team typically responds within 24 hours. You can reply to this email or check your ticket status from your dashboard.
-          </div>
-        </div>
-        <div class="footer">
-          <p><strong>Preciprocal Support</strong></p>
-          <p style="margin-top: 8px;"><a href="https://preciprocal.com">preciprocal.com</a></p>
-          <p style="margin-top: 12px; font-size: 11px; color: #94a3b8;">Ticket #${ticketId}</p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
+// ─────────────────────────────────────────────────────────────────────────────
+// USER CONFIRMATION EMAIL
+// ─────────────────────────────────────────────────────────────────────────────
+function generateUserConfirmationEmail(
+  userName: string, ticketId: string, subject: string, message: string,
+): string {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://preciprocal.com';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>We received your request · Preciprocal Support</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+
+  <div style="display:none;max-height:0;overflow:hidden;font-size:1px;color:#f4f5f7;">
+    Your support request has been received — Ticket #${ticketId} &zwnj;&nbsp;&zwnj;
+  </div>
+
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f5f7;">
+    <tr><td align="center" style="padding:40px 16px;">
+
+      <table width="580" cellpadding="0" cellspacing="0" border="0"
+             style="width:580px;max-width:100%;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+
+        <!-- Header -->
+        <tr>
+          <td style="padding:32px 36px 28px;background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%);">
+            <p style="margin:0 0 4px;font-size:19px;font-weight:700;color:#ffffff;letter-spacing:-0.2px;">We received your request</p>
+            <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.75);">Ticket #${ticketId} · ${escapeHtml(subject)}</p>
+          </td>
+        </tr>
+
+        <!-- Body -->
+        <tr>
+          <td style="padding:32px 36px;">
+            <p style="margin:0 0 8px;font-size:16px;color:#111827;font-weight:600;">Hi ${escapeHtml(userName)},</p>
+            <p style="margin:0 0 24px;font-size:14px;color:#4b5563;line-height:1.65;">
+              Thanks for reaching out. We've received your support request and our team will get back to you within <strong style="color:#111827;">24 hours</strong>.
+            </p>
+
+            <!-- Message recap -->
+            <p style="margin:0 0 10px;font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.6px;">Your message</p>
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
+              <tr>
+                <td style="background:#f9fafb;border:1px solid #e5e7eb;border-left:3px solid #6366f1;border-radius:6px;padding:16px 18px;">
+                  <p style="margin:0;font-size:14px;color:#374151;line-height:1.7;white-space:pre-wrap;word-break:break-word;">${escapeHtml(message)}</p>
+                </td>
+              </tr>
+            </table>
+
+            <!-- CTA -->
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
+              <tr>
+                <td align="center">
+                  <a href="${appUrl}/help?section=tickets"
+                     style="display:inline-block;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:12px 28px;border-radius:8px;letter-spacing:0.1px;">
+                    View Your Ticket
+                  </a>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Info note -->
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:14px 18px;">
+                  <p style="margin:0;font-size:13px;color:#1d4ed8;line-height:1.55;">
+                    <strong>What happens next?</strong><br/>
+                    Our team typically responds within 24 hours. You can also check your ticket status and full conversation history from the Help &amp; Support section in your dashboard.
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Divider -->
+        <tr><td style="height:1px;background:#f3f4f6;font-size:0;">&nbsp;</td></tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="padding:20px 36px;background:#f9fafb;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td>
+                  <p style="margin:0 0 3px;font-size:13px;font-weight:600;color:#374151;">Preciprocal</p>
+                  <p style="margin:0;font-size:12px;color:#9ca3af;">
+                    <a href="https://preciprocal.com" style="color:#6b7280;text-decoration:none;">preciprocal.com</a>
+                    &nbsp;·&nbsp;
+                    <a href="${appUrl}/help" style="color:#6b7280;text-decoration:none;">Help Center</a>
+                    &nbsp;·&nbsp;
+                    <a href="https://preciprocal.com/privacy" style="color:#6b7280;text-decoration:none;">Privacy Policy</a>
+                  </p>
+                </td>
+                <td align="right" valign="top">
+                  <p style="margin:0;font-size:11px;color:#d1d5db;font-family:monospace;">Ticket #${ticketId}</p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+      </table>
+
+      <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;text-align:center;">
+        You received this because you submitted a support ticket at preciprocal.com
+      </p>
+
+    </td></tr>
+  </table>
+</body>
+</html>`;
 }

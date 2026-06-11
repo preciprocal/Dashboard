@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid code. Please check your email and try again." }, { status: 400 });
     }
 
-    // ── All checks passed — create a Stripe coupon for 100% off first invoice ──
+    // ── All checks passed - create a Stripe coupon for 100% off first invoice ──
 
     // Create a one-off coupon: 100% off, applies once, expires after 30 days
     const coupon = await stripe.coupons.create({
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
       duration:           "once",          // only applies to the first invoice
       max_redemptions:    1,               // single use
       redeem_by:          Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30, // 30 days to redeem
-      name:               "Student — 1 month free",
+      name:               "Student - 1 month free",
       metadata:           { userId: decoded.uid, eduEmail },
     });
 

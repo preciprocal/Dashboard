@@ -453,7 +453,7 @@ export default function ResumeDetailsPage() {
 
   // ── Guards ──
   if (loading || loadingResume) return <AnimatedLoader isVisible mode="steps" steps={loadingSteps} currentStep={loadingStep} loadingText="Loading your resume analysis…" showNavigation />;
-  if (!user) { router.push('/auth'); return null; }
+  if (!user) { router.push('/sign-in'); return null; }
   if (error || !resume) return (
     <div className="flex items-center justify-center min-h-screen px-4"><div className="glass-card max-w-md w-full p-8 text-center">
       <div className="w-14 h-14 gradient-secondary rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-glass"><FileText className="w-7 h-7 text-white" /></div>
@@ -511,7 +511,7 @@ export default function ResumeDetailsPage() {
     </div>
   );
 
-  // ★ Shared AI Panel props — includes preloaded tailor data
+  // ★ Shared AI Panel props - includes preloaded tailor data
   const aiPanelProps = {
     resumeId: resume.id,
     userId: resume.userId,

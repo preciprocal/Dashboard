@@ -9,8 +9,8 @@ import { applyRateLimit } from '@/lib/ai/rate-limit';
 const MAX_TOKENS_DEEP   = 8192;
 const MAX_TOKENS_LEGACY = 2500;
 
-const DEEP_SYSTEM = 'You are a brutally honest senior technical recruiter at a FAANG company with 15+ years of experience. You have reviewed 50,000+ resumes. You DO NOT sugarcoat feedback. Return ONLY valid JSON — no markdown, no preamble. Start with { end with }.';
-const LEGACY_SYSTEM = 'You are a brutally honest senior recruiter. Return ONLY valid JSON — no markdown, no preamble. Start with { end with }.';
+const DEEP_SYSTEM = 'You are a brutally honest senior technical recruiter at a FAANG company with 15+ years of experience. You have reviewed 50,000+ resumes. You DO NOT sugarcoat feedback. Return ONLY valid JSON - no markdown, no preamble. Start with { end with }.';
+const LEGACY_SYSTEM = 'You are a brutally honest senior recruiter. Return ONLY valid JSON - no markdown, no preamble. Start with { end with }.';
 
 export async function POST(request: NextRequest) {
   try {
@@ -84,7 +84,7 @@ RULES: originalText MUST be EXACT verbatim. Only accomplishment bullets. Rewrite
     const cleaned = extractJsonString(extractText(response));
     if (!cleaned) throw new Error('No JSON returned from AI');
 
-    // extractJsonString already repairs truncated JSON — parse directly
+    // extractJsonString already repairs truncated JSON - parse directly
     let deepAnalysis: Record<string, unknown>;
     try {
       deepAnalysis = JSON.parse(cleaned);
@@ -92,7 +92,7 @@ RULES: originalText MUST be EXACT verbatim. Only accomplishment bullets. Rewrite
       console.error('❌ JSON parse failed after repair:', (parseErr as Error).message);
       console.error('   First 500 chars:', cleaned.slice(0, 500));
       console.error('   Last 200 chars:', cleaned.slice(-200));
-      return NextResponse.json({ error: 'AI response was malformed — please try again' }, { status: 502 });
+      return NextResponse.json({ error: 'AI response was malformed - please try again' }, { status: 502 });
     }
 
     // Backfill lineId fields
@@ -114,7 +114,7 @@ RULES: originalText MUST be EXACT verbatim. Only accomplishment bullets. Rewrite
     return NextResponse.json({ deepAnalysis, cached: false });
   } catch (e) {
     console.error('❌ Deep analysis error:', e);
-    return NextResponse.json({ error: 'Failed to analyze resume — please try again' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to analyze resume - please try again' }, { status: 500 });
   }
 }
 
@@ -134,7 +134,7 @@ Return JSON: { "recommendations": [{ "id": "rec-1", "type": "weak_verb"|"missing
     try {
       data = JSON.parse(cleaned);
     } catch {
-      return NextResponse.json({ error: 'AI returned malformed response — please retry' }, { status: 502 });
+      return NextResponse.json({ error: 'AI returned malformed response - please retry' }, { status: 502 });
     }
 
     if (userId) await checkAndIncrementUsage(userId, 'resumes');

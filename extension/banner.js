@@ -6,7 +6,7 @@ const IS_DEV = false;
 const PRECIPROCAL_URL = IS_DEV ? 'http://localhost:3000' : 'https://app.preciprocal.com';
 
 // ─────────────────────────────────────────────────────────────────
-// Job Card Label Injector — chip sits inline with the job title
+// Job Card Label Injector - chip sits inline with the job title
 // ─────────────────────────────────────────────────────────────────
 
 class LabelInjector {
@@ -52,7 +52,7 @@ class LabelInjector {
     const span = document.createElement('span');
     span.className = `prc-card-chip ${type === 'applied' ? 'prc-chip-applied' : 'prc-chip-saved'}`;
     span.setAttribute('data-prc-chip', type);
-    // Full inline style fallback — survives LinkedIn style resets
+    // Full inline style fallback - survives LinkedIn style resets
     const base = 'display:inline-flex!important;align-items:center!important;flex-shrink:0!important;gap:3px!important;padding:1px 6px!important;border-radius:4px!important;font-size:9px!important;font-weight:700!important;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;white-space:nowrap!important;line-height:1.6!important;letter-spacing:0.06em!important;text-transform:uppercase!important;pointer-events:none!important;user-select:none!important;vertical-align:middle!important;';
     if (type === 'applied') {
       span.style.cssText = base + 'background:rgba(99,102,241,0.15)!important;color:#a5b4fc!important;border:1px solid rgba(99,102,241,0.4)!important;';
@@ -119,7 +119,7 @@ class LabelInjector {
 
     const chip = LabelInjector._chipEl(type);
 
-    // Target: the dismiss (✕) button — place chip immediately before it in the same row
+    // Target: the dismiss (✕) button - place chip immediately before it in the same row
     const dismissBtn = card.querySelector(
       'button[aria-label*="ismiss"], button[aria-label*="iscard"], button[data-control-name*="dismiss"]'
     );
@@ -304,9 +304,9 @@ class EasyApplyEngine {
       await this._fillCurrentStep(modal); await this._delay(400);
       const action = this._detectNextAction(modal);
       if (action === 'none') break;
-      if (action === 'submit') { this._updateBanner('✅ All done — click Submit when ready', 'ready'); this.onStatus('All fields filled! Review and click Submit.', 'success'); break; }
+      if (action === 'submit') { this._updateBanner('✅ All done - click Submit when ready', 'ready'); this.onStatus('All fields filled! Review and click Submit.', 'success'); break; }
       if (action === 'review') { this._updateBanner('📋 Auto-clicking Review…', 'filling'); const rb = this._findButton(modal, ['review']); if (rb) { rb.click(); await this._delay(1200); continue; } this._updateBanner('📋 Review your application then submit', 'ready'); this.onStatus('Please review and submit your application.', 'success'); break; }
-      const nb = this._findButton(modal, ['next', 'continue']); if (nb) { this._updateBanner(`Step ${this.stepCount} — moving to next…`, 'filling'); nb.click(); await this._delay(900); } else break;
+      const nb = this._findButton(modal, ['next', 'continue']); if (nb) { this._updateBanner(`Step ${this.stepCount} - moving to next…`, 'filling'); nb.click(); await this._delay(900); } else break;
     }
   }
 
@@ -425,7 +425,7 @@ function getApplyButtonInfo() {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Main banner class — minimal, professional UI
+// Main banner class - minimal, professional UI
 // ─────────────────────────────────────────────────────────────────
 
 class PreciprocalBanner {
@@ -625,7 +625,7 @@ class PreciprocalBanner {
         if (ai.button) {
           if (labelEl) labelEl.textContent = 'Opening…'; ai.button.click();
           this.applyState = 'done'; if (btn) { btn.classList.remove('loading'); btn.classList.add('done'); } if (labelEl) labelEl.textContent = 'Filling…';
-          this.showNotification('Opening company site — Preciprocal will auto-fill', 'success');
+          this.showNotification('Opening company site - Preciprocal will auto-fill', 'success');
           if (this.currentJobId) LabelInjector.inject(this.currentJobId, 'applied');
         } else throw new Error('Could not find the Apply button');
       } else throw new Error('No Apply button found');
@@ -664,7 +664,7 @@ class PreciprocalBanner {
       if (btn) { btn.classList.remove('loading'); btn.classList.add('done'); }
       this._replaceButtonIcon(btn, 'check');
       btn?.setAttribute('title', 'Saved to your tracker');
-      resp.data?.duplicate ? this.showNotificationWithLink('Already in your tracker', 'View →', `${PRECIPROCAL_URL}/job-tracker`, 'info') : this.showNotificationWithLink(`Saved — ${this.jobData?.company}`, 'View Tracker →', `${PRECIPROCAL_URL}/job-tracker`, 'success');
+      resp.data?.duplicate ? this.showNotificationWithLink('Already in your tracker', 'View →', `${PRECIPROCAL_URL}/job-tracker`, 'info') : this.showNotificationWithLink(`Saved - ${this.jobData?.company}`, 'View Tracker →', `${PRECIPROCAL_URL}/job-tracker`, 'success');
       if (this.currentJobId) LabelInjector.inject(this.currentJobId, 'saved');
     } catch (err) {
       this.trackState = 'idle'; if (btn) btn.classList.remove('loading');
@@ -745,7 +745,7 @@ class PreciprocalBanner {
     this.banner.querySelectorAll('[data-action]').forEach(btn => {
       btn.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); this.handleAction(btn.getAttribute('data-action')); });
     });
-    // JS tooltip — appends to body so it is never clipped by the banner container
+    // JS tooltip - appends to body so it is never clipped by the banner container
     this.banner.querySelectorAll('[data-tip]').forEach(btn => {
       let tipEl = null;
       btn.addEventListener('mouseenter', () => {

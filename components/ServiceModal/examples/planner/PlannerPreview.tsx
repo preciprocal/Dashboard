@@ -50,8 +50,8 @@ const QUIZ_QUESTIONS = [
     explanation: 'BFS (Breadth-First Search) uses a queue to visit all nodes at depth d before moving to depth d+1, producing level-order output.' },
   { q: 'Dijkstra\'s algorithm fails with:',
     options: ['Dense graphs', 'Negative edge weights', 'Undirected graphs', 'Sparse graphs'], correct: 1,
-    wrongExplanation: 'Dense graphs slow Dijkstra down but don\'t break it. The algorithm assumes relaxing an edge always brings you closer to the shortest path — negative weights violate this assumption, causing it to miss shorter paths discovered later.',
-    explanation: 'Dijkstra\'s greedy approach assumes once a node is finalized, no shorter path exists. Negative edges break this — use Bellman-Ford instead.' },
+    wrongExplanation: 'Dense graphs slow Dijkstra down but don\'t break it. The algorithm assumes relaxing an edge always brings you closer to the shortest path - negative weights violate this assumption, causing it to miss shorter paths discovered later.',
+    explanation: 'Dijkstra\'s greedy approach assumes once a node is finalized, no shorter path exists. Negative edges break this - use Bellman-Ford instead.' },
 ];
 
 const DAILY_PROGRESS = [
@@ -269,7 +269,7 @@ function Sidebar({ checkedCount }: { checkedCount: number }) {
         <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-lg">
           <div className="flex items-center gap-1.5 mb-2">
             <Sparkles className="w-3 h-3 text-indigo-400" />
-            <span className="text-[9px] font-semibold text-indigo-400 uppercase tracking-widest">Today — Day 3</span>
+            <span className="text-[9px] font-semibold text-indigo-400 uppercase tracking-widest">Today - Day 3</span>
           </div>
           <p className="text-[10px] font-semibold text-white mb-0.5">Trees & Binary Search Trees</p>
           <p className="text-[8px] text-slate-500 mb-2">2.5h · {checkedCount}/7 tasks</p>
@@ -506,7 +506,7 @@ function AnalyticsView() {
               <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden mb-1.5">
                 <div className="h-full bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full" style={{ width: '47%' }} />
               </div>
-              <p className="text-[8px] text-slate-500">Building up — complete Day 3 and start system design to reach &quot;Almost Ready&quot;.</p>
+              <p className="text-[8px] text-slate-500">Building up - complete Day 3 and start system design to reach &quot;Almost Ready&quot;.</p>
             </div>
           </FadeIn>
 
@@ -543,13 +543,13 @@ function AnalyticsView() {
 // ─── Phase 5: AI Coach Chat ───────────────────────────────────────────────────
 
 const FULL_CHAT = [
-  { role: 'assistant' as const, text: "👋 Hi! I'm your AI interview coach. I see you're prepping for Senior Backend Engineer at Stripe. You're on Day 3 — Trees & BSTs. What can I help with?" },
+  { role: 'assistant' as const, text: "👋 Hi! I'm your AI interview coach. I see you're prepping for Senior Backend Engineer at Stripe. You're on Day 3 - Trees & BSTs. What can I help with?" },
   { role: 'user' as const, text: "When should I use DFS vs BFS for tree problems?" },
-  { role: 'assistant' as const, text: "Great question! Here's a quick rule:\n\n**DFS** → depth-related problems: path sum, max depth, validate BST, diameter of tree.\n\n**BFS** → level/width problems: level-order traversal, minimum depth, right side view, zigzag traversal.\n\nDFS uses a stack (or recursion). BFS uses a queue. For Stripe interviews, they love asking about trade-offs — DFS is O(h) space, BFS is O(w) space." },
+  { role: 'assistant' as const, text: "Great question! Here's a quick rule:\n\n**DFS** → depth-related problems: path sum, max depth, validate BST, diameter of tree.\n\n**BFS** → level/width problems: level-order traversal, minimum depth, right side view, zigzag traversal.\n\nDFS uses a stack (or recursion). BFS uses a queue. For Stripe interviews, they love asking about trade-offs - DFS is O(h) space, BFS is O(w) space." },
   { role: 'user' as const, text: "Can you give me a practice question on BSTs?" },
   { role: 'assistant' as const, text: "Sure! Try this:\n\n**Given a BST, find the kth smallest element.**\n\nHint: Think about which traversal visits BST nodes in sorted order. What's the time complexity of your approach? Can you do it in O(h + k) instead of O(n)?\n\nWant me to walk through the solution after you try?" },
   { role: 'user' as const, text: "Inorder traversal gives sorted order, so I can stop at the kth element" },
-  { role: 'assistant' as const, text: "Exactly right! ✅ Inorder traversal of a BST visits nodes in ascending order. You can use an iterative approach with a stack to stop early at k.\n\nTime: O(h + k), Space: O(h). This is the optimal approach Stripe expects. Well done — mark 'Practice LCA' as done and move on! 🚀" },
+  { role: 'assistant' as const, text: "Exactly right! ✅ Inorder traversal of a BST visits nodes in ascending order. You can use an iterative approach with a stack to stop early at k.\n\nTime: O(h + k), Space: O(h). This is the optimal approach Stripe expects. Well done - mark 'Practice LCA' as done and move on! 🚀" },
 ];
 
 function AiCoachView() {
@@ -949,7 +949,7 @@ function InteractiveView() {
                   <span className="ml-auto text-[14px] font-bold text-indigo-400">47</span>
                 </div>
                 <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden mb-1.5"><div className="h-full bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full" style={{ width: '47%' }} /></div>
-                <p className="text-[8px] text-slate-500">Building up — complete Day 3 and start system design to reach &quot;Almost Ready&quot;.</p>
+                <p className="text-[8px] text-slate-500">Building up - complete Day 3 and start system design to reach &quot;Almost Ready&quot;.</p>
               </div>
             </div>
           )}
@@ -1022,7 +1022,7 @@ function InteractiveView() {
                     <div className={`mt-2 p-2 rounded-lg text-[8px] leading-relaxed ${isCorrect ? 'bg-emerald-500/[0.06] border border-emerald-500/20 text-emerald-300' : 'bg-red-500/[0.06] border border-red-500/20'}`}>
                       {!isCorrect && (
                         <>
-                          <p className="text-red-300 mb-1"><span className="font-semibold">Your answer:</span> {q.options[userAnswer]} — {(q as { wrongExplanation?: string }).wrongExplanation || 'This is not correct.'}</p>
+                          <p className="text-red-300 mb-1"><span className="font-semibold">Your answer:</span> {q.options[userAnswer]} - {(q as { wrongExplanation?: string }).wrongExplanation || 'This is not correct.'}</p>
                           <p className="text-emerald-300 mb-1"><span className="font-semibold">Correct:</span> {q.options[q.correct]}</p>
                         </>
                       )}

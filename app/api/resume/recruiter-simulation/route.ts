@@ -14,7 +14,7 @@ const MAX_TOKENS = 1800; // bumped slightly to accommodate companyProfile + hiri
 
 function buildSystemPrompt(hasCompany: boolean, hasJD: boolean): string {
   const base = `You are a brutal, no-nonsense senior recruiter. Resume #187 of your day. You do not care about feelings.
-Your response MUST reference ACTUAL TEXT from the resume — quote specific job titles, company names, bullet points. Nothing generic.
+Your response MUST reference ACTUAL TEXT from the resume - quote specific job titles, company names, bullet points. Nothing generic.
 Most resumes score 40-65. passScreening = true ONLY if you'd forward to the hiring manager right now.`;
 
   if (hasJD && hasCompany) {
@@ -25,7 +25,7 @@ You have deep knowledge about this company from public sources (Glassdoor review
 Before reviewing the resume, you MUST:
 1. Research the company's known hiring culture, values, and what they look for
 2. Profile the typical hiring manager personality for this role at this company (e.g., Amazon HMs obsess over Leadership Principles; Google HMs want "Googleyness" + technical depth; startup HMs want scrappiness + ownership)
-3. Evaluate the resume through the lens of THAT SPECIFIC hiring manager — what would excite them vs. concern them
+3. Evaluate the resume through the lens of THAT SPECIFIC hiring manager - what would excite them vs. concern them
 4. Reference specific company values, engineering principles, or cultural traits by name
 
 You are NOT a generic recruiter. You are a recruiter who has been briefed on this company's hiring bar and culture.
@@ -47,7 +47,7 @@ CRITICAL: Return ONLY valid JSON. No markdown. Start with { end with }.`;
   return `${base}
 
 MULTI-PERSPECTIVE MODE:
-Evaluate from three recruiter archetypes: (1) HR Screener — fast scan, keywords, formatting, gaps; (2) Technical Lead — depth of experience, project complexity, tech stack match; (3) Hiring Manager — culture fit, career trajectory, growth potential.
+Evaluate from three recruiter archetypes: (1) HR Screener - fast scan, keywords, formatting, gaps; (2) Technical Lead - depth of experience, project complexity, tech stack match; (3) Hiring Manager - culture fit, career trajectory, growth potential.
 
 CRITICAL: Return ONLY valid JSON. No markdown. Start with { end with }.`;
 }
@@ -74,9 +74,9 @@ function buildUserPrompt(
 Company: ${companyName}
 Role: ${jobTitle || 'Not specified'}
 
-INSTRUCTIONS — Before reviewing the resume, research and establish:
+INSTRUCTIONS - Before reviewing the resume, research and establish:
 1. What ${companyName} is publicly known for valuing in candidates (from Glassdoor, LinkedIn, their careers page, engineering blog, culture docs)
-2. The typical hiring manager profile for ${jobTitle || 'this role'} at ${companyName} — what's their personality? What triggers a "yes" vs "pass"?
+2. The typical hiring manager profile for ${jobTitle || 'this role'} at ${companyName} - what's their personality? What triggers a "yes" vs "pass"?
 3. Any known interview culture traits (e.g., "bar raiser" at Amazon, "culture fit round" at Stripe, "system design emphasis" at Google)
 
 JOB DESCRIPTION:
@@ -95,26 +95,26 @@ Use your knowledge of ${companyName}'s public reputation and hiring culture to e
 
   const jsonSchema = hasCompany && hasJD ? `{
   "companyProfile": {
-    "hiringCulture": "<2-3 sentences: what ${companyName} is known to value in candidates — cite specific values/principles>",
-    "hiringManagerPersona": "<2-3 sentences: typical HM personality for ${jobTitle || 'this role'} at ${companyName} — what do they look for?>",
+    "hiringCulture": "<2-3 sentences: what ${companyName} is known to value in candidates - cite specific values/principles>",
+    "hiringManagerPersona": "<2-3 sentences: typical HM personality for ${jobTitle || 'this role'} at ${companyName} - what do they look for?>",
     "keyTraits": ["<trait 1 they screen for>", "<trait 2>", "<trait 3>"],
     "sources": ["<public source 1: e.g. Glassdoor reviews>", "<source 2: e.g. company engineering blog>"]
   },
   "firstImpression": {
     "score": <0-100>,
     "standoutElements": ["<quote something from resume that ${companyName} HMs would love>", "<another>"],
-    "concerningElements": ["<something ${companyName} specifically would flag — tied to their values>", "<another>"],
+    "concerningElements": ["<something ${companyName} specifically would flag - tied to their values>", "<another>"],
     "timeSpentInSeconds": <6-9>
   },
   "timeToReview": <6-9>,
   "eyeTrackingHeatmap": [
-    { "section": "Work Experience", "attentionScore": <0-100>, "timeSpent": <3-5>, "notes": "<what ${companyName} recruiter specifically looks for here — reference actual resume content>" },
+    { "section": "Work Experience", "attentionScore": <0-100>, "timeSpent": <3-5>, "notes": "<what ${companyName} recruiter specifically looks for here - reference actual resume content>" },
     { "section": "Skills", "attentionScore": <0-100>, "timeSpent": <1-2>, "notes": "<which skills match ${companyName}'s known stack?>" },
     { "section": "Education", "attentionScore": <0-100>, "timeSpent": <0.5-1>, "notes": "<actual degree>" },
-    { "section": "Achievements & Metrics", "attentionScore": <0-100>, "timeSpent": <1-2>, "notes": "<${companyName} values metrics — count how many bullets have numbers>" }
+    { "section": "Achievements & Metrics", "attentionScore": <0-100>, "timeSpent": <1-2>, "notes": "<${companyName} values metrics - count how many bullets have numbers>" }
   ],
   "passScreening": <true|false>,
-  "screenerNotes": ["<verdict as a ${companyName} recruiter — reference their specific bar>", "<biggest concern relative to ${companyName}'s standards>", "<one fix to improve chances at ${companyName}>"],
+  "screenerNotes": ["<verdict as a ${companyName} recruiter - reference their specific bar>", "<biggest concern relative to ${companyName}'s standards>", "<one fix to improve chances at ${companyName}>"],
   "simulationMode": "company-research",
   "researchInsights": ["<insight 1 about ${companyName}'s hiring>", "<insight 2>", "<insight 3>"]
 }` : `{

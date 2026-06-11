@@ -176,7 +176,7 @@ export default function CandidateBenchmarking({ resumeId, jobTitle, preloadedDat
       <div className="w-12 h-12 bg-purple-500/10 border border-purple-500/20 rounded-xl flex items-center justify-center mx-auto mb-4"><Users className="w-6 h-6 text-purple-400" /></div>
       <p className="text-white font-semibold mb-2">Get your benchmark</p>
       <p className="text-slate-400 text-sm mb-1 max-w-xs mx-auto">See how your resume compares to candidates who actually got hired{jobTitle ? ` for ${jobTitle} roles` : ''}.</p>
-      <p className="text-amber-400 text-xs mb-5">Honest feedback only — no sugarcoating.</p>
+      <p className="text-amber-400 text-xs mb-5">Honest feedback only - no sugarcoating.</p>
       <button onClick={() => fetchBenchmark()} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 transition-all shadow-lg shadow-purple-500/20 cursor-pointer"><Zap className="w-4 h-4" /> Run Benchmark</button>
     </div>
   );

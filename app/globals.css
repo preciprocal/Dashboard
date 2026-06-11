@@ -1,276 +1,458 @@
 @import "tailwindcss";
 
-/* Always dark — this is a dark-only app */
+/* ─── Design Tokens ─────────────────────────────────────────────────────────
+   Single source of truth for the entire app. Keep color theme as-is.
+   These variables are used by utility classes below and can be referenced
+   inline via var(--*) for one-off customisations.
+─────────────────────────────────────────────────────────────────────────── */
 :root {
+  /* Background layers */
+  --bg:             #090d1a;
+  --bg-subtle:      rgba(15, 23, 42, 0.35);
+  --bg-surface:     rgba(15, 23, 42, 0.55);
+  --bg-raised:      rgba(15, 23, 42, 0.80);
+  --bg-overlay:     rgba(9, 13, 26, 0.92);
+  --bg-hover:       rgba(255, 255, 255, 0.04);
+  --bg-active:      rgba(255, 255, 255, 0.07);
+  --bg-selected:    rgba(102, 126, 234, 0.12);
+
+  /* Borders */
+  --border:         rgba(255, 255, 255, 0.08);
+  --border-hover:   rgba(255, 255, 255, 0.12);
+  --border-strong:  rgba(255, 255, 255, 0.16);
+  --border-accent:  rgba(102, 126, 234, 0.30);
+
+  /* Text */
+  --text-1:   #f1f5f9;  /* headings, primary */
+  --text-2:   #cbd5e1;  /* body */
+  --text-3:   #94a3b8;  /* secondary / descriptions */
+  --text-4:   #64748b;  /* muted / labels */
+  --text-5:   #475569;  /* faint / placeholders */
+
+  /* Accent (purple/indigo - keep original brand) */
+  --accent:        #667eea;
+  --accent-2:      #764ba2;
+  --accent-subtle: rgba(102, 126, 234, 0.12);
+  --accent-border: rgba(102, 126, 234, 0.28);
+  --accent-glow:   rgba(102, 126, 234, 0.35);
+
+  /* Semantic */
+  --success:        #10b981;
+  --success-subtle: rgba(16, 185, 129, 0.12);
+  --warning:        #f59e0b;
+  --warning-subtle: rgba(245, 158, 11, 0.12);
+  --danger:         #ef4444;
+  --danger-subtle:  rgba(239, 68, 68, 0.12);
+  --info:           #3b82f6;
+  --info-subtle:    rgba(59, 130, 246, 0.12);
+
+  /* Radius scale */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r:    8px;
+  --r-md: 10px;
+  --r-lg: 12px;
+  --r-xl: 14px;
+  --r-2xl: 18px;
+
+  /* Shadows */
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.20);
+  --shadow-sm: 0 2px 6px  rgba(0,0,0,0.24), 0 1px 2px rgba(0,0,0,0.10);
+  --shadow-md: 0 4px 14px rgba(0,0,0,0.28), 0 2px 4px rgba(0,0,0,0.12);
+  --shadow-lg: 0 8px 28px rgba(0,0,0,0.32), 0 4px 8px rgba(0,0,0,0.14);
+  --shadow-xl: 0 16px 48px rgba(0,0,0,0.38), 0 8px 16px rgba(0,0,0,0.18);
+
+  /* Transitions */
+  --t1: 100ms ease;
+  --t2: 160ms ease;
+  --t3: 240ms ease;
+
+  /* Tailwind compat */
   --background: #090d1a;
-  --foreground: #ededed;
+  --foreground: #f1f5f9;
   color-scheme: dark;
 }
 
 .dark {
   --background: #090d1a;
-  --foreground: #ededed;
+  --foreground: #f1f5f9;
   color-scheme: dark;
 }
 
-/* Base body styles */
+/* ─── Base ───────────────────────────────────────────────────────────────── */
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text-1);
+  font-family: var(--font-geist-sans, system-ui, sans-serif);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 html {
-  background: var(--background);
+  background: var(--bg);
 }
 
-/* ── Universal themed scrollbar — catches body + every overflow container ── */
-*::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-*::-webkit-scrollbar-track {
-  background: rgba(9, 13, 26, 0.8);
-}
-
-*::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
-  border-radius: 10px;
-}
-
-*::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #7b8ff0 0%, #8f62be 100%);
-}
-
-*::-webkit-scrollbar-corner {
-  background: transparent;
-}
-
-/* Firefox */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: #667eea rgba(9, 13, 26, 0.8);
-}
-
-/* Sidebar Glassmorphism */
-.glass-sidebar {
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.1);
-}
-
-/* Card Glassmorphism */
-.glass-card {
-  background: rgba(15, 23, 42, 0.6);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-}
-
-/* General Glassmorphism */
-.glass-morphism {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-}
-
-/* Button Glassmorphism */
-.glass-button {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  transition: all 0.3s ease;
-}
-
-.glass-button:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px);
-}
-
-.glass-button-primary {
-  background: linear-gradient(135deg, rgb(102, 126, 234) 0%, rgb(118, 75, 162) 100%) !important;
-  border: 1px solid rgba(102, 126, 234, 0.4);
-}
-
-.glass-button-primary:hover {
-  background: linear-gradient(135deg, rgb(92, 116, 224) 0%, rgb(108, 65, 152) 100%) !important;
-  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
-}
-
-/* Input Glassmorphism */
-.glass-input {
-  background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  transition: all 0.3s ease;
-}
-
-.glass-input:focus {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(102, 126, 234, 0.5);
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-/* Badge Glassmorphism */
-.glass-badge {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-/* Gradient Backgrounds */
-.gradient-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-}
-
-.gradient-secondary {
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-}
-
-.gradient-accent {
-  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-}
-
-.gradient-success {
-  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-}
-
-.gradient-warning {
-  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-}
-
-.gradient-mesh {
-  background: radial-gradient(at 40% 20%, hsla(280, 100%, 70%, 0.3) 0px, transparent 50%),
-              radial-gradient(at 80% 0%, hsla(240, 100%, 70%, 0.3) 0px, transparent 50%),
-              radial-gradient(at 0% 50%, hsla(340, 100%, 70%, 0.3) 0px, transparent 50%),
-              radial-gradient(at 80% 50%, hsla(200, 100%, 70%, 0.3) 0px, transparent 50%),
-              radial-gradient(at 0% 100%, hsla(260, 100%, 70%, 0.3) 0px, transparent 50%),
-              radial-gradient(at 80% 100%, hsla(320, 100%, 70%, 0.3) 0px, transparent 50%),
-              radial-gradient(at 0% 0%, hsla(200, 100%, 70%, 0.3) 0px, transparent 50%);
-}
-
-/* glass-card-gradient variant */
-.glass-card-gradient {
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 41, 59, 0.6) 100%);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-}
-
-.glass-card-gradient-inner {
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 12px;
-}
-
-/* Status Badges */
-.status-badge-todo {
-  background: rgba(245, 158, 11, 0.15);
-  border-color: rgba(245, 158, 11, 0.3);
-  color: #fbbf24;
-}
-
-.status-badge-progress {
-  background: rgba(59, 130, 246, 0.15);
-  border-color: rgba(59, 130, 246, 0.3);
-  color: #60a5fa;
-}
-
-.status-badge-done {
-  background: rgba(16, 185, 129, 0.15);
-  border-color: rgba(16, 185, 129, 0.3);
-  color: #34d399;
-}
-
-/* Priority Badges */
-.priority-low {
-  color: #3b82f6;
-  background: rgba(59, 130, 246, 0.1);
-}
-
-.priority-medium {
-  color: #f59e0b;
-  background: rgba(245, 158, 11, 0.1);
-}
-
-.priority-high {
-  color: #ef4444;
-  background: rgba(239, 68, 68, 0.1);
-}
-
-/* ── Scrollbar variants (size overrides — colour inherited from * rule) ───── */
-.glass-scrollbar::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
-}
-
-.glass-scrollbar {
-  scrollbar-width: thin;
-}
-
-/* Animations */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes shimmer {
-  0% { background-position: -1000px 0; }
-  100% { background-position: 1000px 0; }
-}
-
-.animate-fade-in-up {
-  animation: fadeInUp 0.5s ease-out;
-}
-
-.animate-shimmer {
-  animation: shimmer 2s infinite linear;
-  background: linear-gradient(to right, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0) 100%);
-  background-size: 1000px 100%;
-}
-
-/* Shadow Utilities */
-.shadow-glass {
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-}
-
-.shadow-glass-lg {
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-}
-
-/* Hover Effects */
-.hover-lift {
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.hover-lift:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
-}
-
+/* ─── Scrollbar - hidden globally, thin opt-in ──────────────────────────── */
 * {
   scrollbar-width: none;
 }
-
 *::-webkit-scrollbar {
   display: none;
+}
+
+/* Opt-in thin scrollbar for long lists */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(102, 126, 234, 0.35) transparent;
+}
+.scrollbar-thin::-webkit-scrollbar         { width: 4px; height: 4px; display: block; }
+.scrollbar-thin::-webkit-scrollbar-track   { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb   { background: rgba(102, 126, 234, 0.35); border-radius: 99px; }
+.scrollbar-thin::-webkit-scrollbar-thumb:hover { background: rgba(102, 126, 234, 0.55); }
+
+/* Kept for backward compat */
+.glass-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+.glass-scrollbar { scrollbar-width: thin; }
+
+/* ─── Glass Components ───────────────────────────────────────────────────── */
+
+/* Sidebar */
+.glass-sidebar {
+  background: rgba(9, 13, 26, 0.94);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid var(--border);
+}
+
+/* Primary card - the most common container */
+.glass-card {
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-md);
+}
+
+/* Richer card variant */
+.glass-card-gradient {
+  background: linear-gradient(145deg, rgba(22, 32, 58, 0.70) 0%, rgba(15, 23, 42, 0.55) 100%);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-md);
+}
+
+.glass-card-gradient-inner {
+  background: rgba(255, 255, 255, 0.025);
+  border-radius: var(--r-lg);
+}
+
+/* Generic overlay panel */
+.glass-morphism {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--border);
+}
+
+/* ─── Buttons ────────────────────────────────────────────────────────────── */
+
+.glass-button {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  transition: background var(--t2), border-color var(--t2), box-shadow var(--t2);
+  cursor: pointer;
+}
+.glass-button:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-sm);
+}
+.glass-button:active {
+  background: rgba(255, 255, 255, 0.06);
+  transform: scale(0.985);
+}
+
+.glass-button-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: 1px solid rgba(102, 126, 234, 0.35);
+  transition: filter var(--t2), box-shadow var(--t2);
+}
+.glass-button-primary:hover {
+  filter: brightness(1.10);
+  box-shadow: 0 4px 18px rgba(102, 126, 234, 0.38);
+}
+.glass-button-primary:active {
+  filter: brightness(0.95);
+  transform: scale(0.988);
+}
+
+/* ─── Input ──────────────────────────────────────────────────────────────── */
+
+.glass-input {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  transition: border-color var(--t2), box-shadow var(--t2), background var(--t2);
+}
+.glass-input:focus {
+  outline: none;
+  background: rgba(255, 255, 255, 0.045);
+  border-color: rgba(102, 126, 234, 0.45);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.10);
+}
+
+/* ─── Badge ──────────────────────────────────────────────────────────────── */
+
+.glass-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border);
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.4;
+}
+
+/* ─── Surface Variants ───────────────────────────────────────────────────── */
+/* Use these as alternatives to glass-card where you don't want blur */
+
+.surface {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+}
+
+.surface-raised {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-sm);
+}
+
+.surface-item {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  transition: background var(--t2), border-color var(--t2);
+}
+.surface-item:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-hover);
+}
+
+/* ─── Button Scale ───────────────────────────────────────────────────────── */
+/* Combine with glass-button, glass-button-primary, or your own bg class.
+   Provides consistent height + padding + font-size across every page.    */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  text-decoration: none;
+  transition: var(--t2);
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+}
+.btn:disabled { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
+
+.btn-xs { height: 26px; padding: 0  9px; font-size: 11px; border-radius: var(--r-sm); gap: 4px; }
+.btn-sm { height: 30px; padding: 0 11px; font-size: 12px; border-radius: var(--r-md); gap: 5px; }
+.btn-md { height: 34px; padding: 0 13px; font-size: 13px; border-radius: var(--r-md); gap: 6px; }
+.btn-lg { height: 38px; padding: 0 16px; font-size: 13px; border-radius: var(--r-lg); gap: 6px; }
+.btn-xl { height: 42px; padding: 0 20px; font-size: 14px; border-radius: var(--r-lg); gap: 7px; font-weight: 600; }
+
+/* ─── Typography Utilities ───────────────────────────────────────────────── */
+
+.page-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+}
+
+.page-subtitle {
+  font-size: 13px;
+  color: var(--text-3);
+  line-height: 1.5;
+  margin-top: 4px;
+}
+
+.section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+}
+
+.label-xs {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-4);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.label-sm {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-4);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.text-body {
+  font-size: 13px;
+  color: var(--text-3);
+  line-height: 1.6;
+}
+
+.text-caption {
+  font-size: 12px;
+  color: var(--text-4);
+  line-height: 1.45;
+}
+
+/* ─── Layout Utilities ───────────────────────────────────────────────────── */
+
+.page-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Horizontal rule */
+.divider {
+  height: 1px;
+  background: var(--border);
+  width: 100%;
+}
+
+/* Responsive auto-fill grid */
+.grid-auto-fill {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+/* ─── Status Badges ──────────────────────────────────────────────────────── */
+
+.status-badge-todo {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.25);
+  color: #fbbf24;
+}
+.status-badge-progress {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.25);
+  color: #60a5fa;
+}
+.status-badge-done {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.25);
+  color: #34d399;
+}
+
+/* ─── Priority Badges ────────────────────────────────────────────────────── */
+
+.priority-low    { color: #3b82f6; background: rgba(59,  130, 246, 0.10); }
+.priority-medium { color: #f59e0b; background: rgba(245, 158, 11,  0.10); }
+.priority-high   { color: #ef4444; background: rgba(239, 68,  68,  0.10); }
+
+/* ─── Gradient Backgrounds ───────────────────────────────────────────────── */
+
+.gradient-primary   { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+.gradient-secondary { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+.gradient-accent    { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+.gradient-success   { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+.gradient-warning   { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+.gradient-mesh {
+  background:
+    radial-gradient(at 40%  20%, hsla(280,100%,70%,0.18) 0px, transparent 50%),
+    radial-gradient(at 80%   0%, hsla(240,100%,70%,0.18) 0px, transparent 50%),
+    radial-gradient(at  0%  50%, hsla(340,100%,70%,0.18) 0px, transparent 50%),
+    radial-gradient(at 80%  50%, hsla(200,100%,70%,0.18) 0px, transparent 50%),
+    radial-gradient(at  0% 100%, hsla(260,100%,70%,0.18) 0px, transparent 50%),
+    radial-gradient(at 80% 100%, hsla(320,100%,70%,0.18) 0px, transparent 50%),
+    radial-gradient(at  0%   0%, hsla(200,100%,70%,0.18) 0px, transparent 50%);
+}
+
+/* ─── Shadows ────────────────────────────────────────────────────────────── */
+
+.shadow-glass    { box-shadow: var(--shadow-lg),  inset 0 1px 0 rgba(255,255,255,0.05); }
+.shadow-glass-lg { box-shadow: var(--shadow-xl), inset 0 1px 0 rgba(255,255,255,0.05); }
+
+/* ─── Hover Effects ──────────────────────────────────────────────────────── */
+
+.hover-lift {
+  transition: transform var(--t3), box-shadow var(--t3);
+}
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Subtle background shift for row/list items - no lift */
+.hover-row {
+  transition: background var(--t2);
+}
+.hover-row:hover {
+  background: var(--bg-hover);
+}
+
+/* ─── Animations ─────────────────────────────────────────────────────────── */
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -800px 0; }
+  100% { background-position:  800px 0; }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.22s ease-out both;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.18s ease-out both;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.18s ease-out both;
+}
+
+.animate-shimmer {
+  animation: shimmer 1.8s infinite linear;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.055) 50%,
+    transparent 100%
+  );
+  background-size: 800px 100%;
 }

@@ -1,10 +1,10 @@
 'use client';
 
 /**
- * NextStepPrompt — contextual cross-feature nudge
+ * NextStepPrompt - contextual cross-feature nudge
  *
  * Drop this at the bottom of any page after a user completes an action.
- * It fires at peak motivation — the moment they finish something — and
+ * It fires at peak motivation - the moment they finish something - and
  * guides them to the natural next step in their job search workflow.
  *
  * ─── Usage ────────────────────────────────────────────────────────────────
@@ -101,7 +101,7 @@ function buildSteps(trigger: NextStepTrigger, ctx: NextStepContext): Step[] {
           accentBorder: 'border-violet-500/25',
           headline: `Practice a mock interview for ${role}`,
           sub: lowScore
-            ? `Your resume scored ${ctx.score}/100. Interviewers will probe the exact gaps it shows — get ahead of them now.`
+            ? `Your resume scored ${ctx.score}/100. Interviewers will probe the exact gaps it shows - get ahead of them now.`
             : `Your resume is solid. Now make sure you can back it up when the calls start coming.`,
           cta: 'Start Mock Interview',
           href: '/interview/create',
@@ -143,7 +143,7 @@ function buildSteps(trigger: NextStepTrigger, ctx: NextStepContext): Step[] {
           accentBg: 'bg-emerald-500/[0.08]',
           accentBorder: 'border-emerald-500/25',
           headline: `Find the hiring manager at ${co}`,
-          sub: `You have the letter. Now send it to the right person. Cold applications get a 2% response rate — direct outreach gets 27%.`,
+          sub: `You have the letter. Now send it to the right person. Cold applications get a 2% response rate - direct outreach gets 27%.`,
           cta: 'Find Contacts',
           href: '/job-tracker',
           isPrimary: true,
@@ -155,7 +155,7 @@ function buildSteps(trigger: NextStepTrigger, ctx: NextStepContext): Step[] {
           accentBg: 'bg-purple-500/[0.08]',
           accentBorder: 'border-purple-500/25',
           headline: `Track your ${co} application`,
-          sub: `Add this to your tracker so you never miss a follow-up. Most offers go to candidates who follow up — once.`,
+          sub: `Add this to your tracker so you never miss a follow-up. Most offers go to candidates who follow up - once.`,
           cta: 'Add to Tracker',
           href: '/job-tracker',
           isPrimary: false,
@@ -208,7 +208,7 @@ function buildSteps(trigger: NextStepTrigger, ctx: NextStepContext): Step[] {
           accentBg: 'bg-emerald-500/[0.08]',
           accentBorder: 'border-emerald-500/25',
           headline: `Find a contact at ${co}`,
-          sub: `80% of jobs are filled via networking. Find the recruiter or hiring manager now — before you even apply.`,
+          sub: `80% of jobs are filled via networking. Find the recruiter or hiring manager now - before you even apply.`,
           cta: 'Find Contacts',
           href: '/job-tracker',
           isPrimary: false,
@@ -228,7 +228,7 @@ function buildSteps(trigger: NextStepTrigger, ctx: NextStepContext): Step[] {
           accentBorder: 'border-violet-500/25',
           headline: rejected
             ? `Turn this rejection into your next offer`
-            : `Keep the momentum — build a prep plan`,
+            : `Keep the momentum - build a prep plan`,
           sub: rejected
             ? `Every rejected candidate who debriefs and prepares systematically converts their next interview at a higher rate. Start now.`
             : `You\'re moving forward. Build a structured plan so you\'re ready when the next round comes.`,
@@ -256,7 +256,7 @@ function buildSteps(trigger: NextStepTrigger, ctx: NextStepContext): Step[] {
           accentColor: 'text-indigo-400',
           accentBg: 'bg-indigo-500/[0.08]',
           accentBorder: 'border-indigo-500/25',
-          headline: `Keep applying — generate your next cover letter`,
+          headline: `Keep applying - generate your next cover letter`,
           sub: `Don\'t pause your search while you prep. Keep the pipeline moving with a tailored letter for your next target.`,
           cta: 'Generate Cover Letter',
           href: '/cover-letter/generate',
@@ -273,7 +273,7 @@ function buildSteps(trigger: NextStepTrigger, ctx: NextStepContext): Step[] {
           accentColor: 'text-emerald-400',
           accentBg: 'bg-emerald-500/[0.08]',
           accentBorder: 'border-emerald-500/25',
-          headline: 'Your profile is ready — now reach out',
+          headline: 'Your profile is ready - now reach out',
           sub: `An optimised profile without outreach is a locked door. Write a cold message now while your profile is strong and fresh.`,
           cta: 'Write Cold Outreach',
           href: '/career-tools',
@@ -303,7 +303,7 @@ function buildSteps(trigger: NextStepTrigger, ctx: NextStepContext): Step[] {
           accentBg: 'bg-purple-500/[0.08]',
           accentBorder: 'border-purple-500/25',
           headline: `Track this ${co} opportunity`,
-          sub: `You\'ve sent outreach — now monitor it. Add ${co} to your tracker to follow up at the right time. Follow-ups get 25% more replies.`,
+          sub: `You\'ve sent outreach - now monitor it. Add ${co} to your tracker to follow up at the right time. Follow-ups get 25% more replies.`,
           cta: 'Track Application',
           href: '/job-tracker',
           isPrimary: true,
@@ -436,7 +436,7 @@ export default function NextStepPrompt({
             </p>
           </div>
           <p className="text-[12px] text-slate-500 leading-relaxed">
-            Keep the momentum going — here&apos;s your logical next move.
+            Keep the momentum going - here&apos;s your logical next move.
           </p>
         </div>
 
@@ -503,12 +503,12 @@ export default function NextStepPrompt({
 
         </div>
 
-        {/* Progress indicator — subtle visual of the job search journey */}
+        {/* Progress indicator - subtle visual of the job search journey */}
         <div className="px-5 pb-4 pt-1">
           <div className="flex items-center gap-2">
             <TrendingUp className="w-3 h-3 text-slate-600 flex-shrink-0" />
             <p className="text-[10px] text-slate-600">
-              Each step you complete increases your interview odds — most offers go to candidates who used 3+ tools.
+              Each step you complete increases your interview odds - most offers go to candidates who used 3+ tools.
             </p>
           </div>
         </div>

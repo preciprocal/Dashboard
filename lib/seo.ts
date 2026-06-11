@@ -18,7 +18,7 @@ export const SITE = {
   name: "Preciprocal",
   tagline: "Land your next job, faster.",
   description:
-    "Preciprocal is the AI-powered job search platform that auto-fills applications, optimizes your resume for ATS, and runs realistic AI mock interviews — all in one place.",
+    "Preciprocal is the AI-powered job search platform that auto-fills applications, optimizes your resume for ATS, and runs realistic AI mock interviews - all in one place.",
 
   twitterHandle: "@preciprocal",
   ogImage: "/og-default.png", // 1200×630 in /public
@@ -31,7 +31,7 @@ interface PageMetaInput {
   path?: string;
   /** Override canonical (e.g. point dashboard root back to marketing site) */
   canonical?: string;
-  /** Allow indexing. Default false — dashboard pages should NOT be indexed. */
+  /** Allow indexing. Default false - dashboard pages should NOT be indexed. */
   index?: boolean;
   ogImage?: string;
 }

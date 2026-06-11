@@ -1,5 +1,5 @@
 // app/api/extension/debug-files/route.ts
-// TEMPORARY DEBUG ENDPOINT — shows exactly what fields are in Firestore
+// TEMPORARY DEBUG ENDPOINT - shows exactly what fields are in Firestore
 // Remove this after debugging the resume/transcript issue
 // Access: GET /api/extension/debug-files (with same auth headers as auto-apply)
 

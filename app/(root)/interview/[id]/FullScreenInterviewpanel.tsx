@@ -51,7 +51,7 @@ interface FullScreenInterviewPanelProps {
   userName: string;
   userId: string;
   interviewRole: string;
-  interviewType: "technical" | "behavioral" | "mixed";
+  interviewType: "technical" | "behavioral" | "mixed" | "system-design";
   questions: string[];
   technicalQuestions?: string[];
   behavioralQuestions?: string[];
@@ -181,7 +181,11 @@ const FullScreenInterviewPanel = ({
   const [currentInterviewPhase,  setCurrentInterviewPhase]  = useState<"technical" | "behavioral" | null>(null);
   const [showExitConfirm,        setShowExitConfirm]        = useState(false);
 
-  const callStartTime = useRef<Date | null>(null);
+  const callStartTime    = useRef<Date | null>(null);
+  // Tracks which phase of a mixed interview we are in (1 = behavioral/HR, 2 = technical/Lead)
+  const mixedPhase       = useRef<1 | 2>(1);
+  // Accumulates messages across both mixed phases so the final transcript is complete
+  const allMessagesRef   = useRef<SavedMessage[]>([]);
 
   const videoSources = useMemo(() => ({
     hr:            "/videos/hr-female-avatar.mp4",
@@ -189,7 +193,7 @@ const FullScreenInterviewPanel = ({
     junior:        `/videos/junior-${interviewRole.toLowerCase().replace(/\s+/g, "-")}-avatar.mp4`,
   }), [interviewRole]);
 
-  // ── Panel — uses the shared generator so names match the waiting room ──────
+  // ── Panel - uses the shared generator so names match the waiting room ──────
   const interviewPanel = useMemo(() => {
     const names = generatePanelNames(interviewId);
     const roleNormalized = interviewRole.toLowerCase();
@@ -248,6 +252,7 @@ const FullScreenInterviewPanel = ({
     if (message.type === "transcript" && message.transcriptType === "final") {
       const newMessage = { role: message.role, content: message.transcript };
       setMessages(prev => [...prev, newMessage]);
+      allMessagesRef.current = [...allMessagesRef.current, newMessage];
       if (message.role === "assistant" && message.transcript.includes("?")) {
         setTimeout(() => setCurrentQuestionIndex(prev => Math.min(prev + 1, totalQuestions)), 3000);
       }
@@ -256,7 +261,7 @@ const FullScreenInterviewPanel = ({
 
   // ── startInterview: phase is passed explicitly to avoid stale-closure bug ──
   // Previously `currentInterviewPhase` was read from state inside the callback
-  // after having just been set — the set is async so the old value was used.
+  // after having just been set - the set is async so the old value was used.
   // Now we resolve the phase synchronously before any setState call and use
   // the local variable everywhere in this invocation.
   const startInterview = useCallback(async (explicitPhase?: "technical" | "behavioral") => {
@@ -277,52 +282,75 @@ const FullScreenInterviewPanel = ({
         return;
       }
 
-      // Resolve phase synchronously so variable values are always correct.
       let resolvedPhase: "technical" | "behavioral" | null = explicitPhase ?? currentInterviewPhase;
       let selectedAgent;
       let questionsToUse: string[] = [];
 
       if (interviewType === "technical") {
-        resolvedPhase     = "technical";
-        selectedAgent     = technicalInterviewer;
-        questionsToUse    = technicalQuestions || questions;
+        // Lead (tech_recruiter) asks all technical questions
+        resolvedPhase  = "technical";
+        selectedAgent  = technicalInterviewer;
+        questionsToUse = technicalQuestions || questions;
+
+      } else if (interviewType === "system-design") {
+        // Lead (tech_recruiter) asks all system design questions
+        resolvedPhase  = "technical";
+        selectedAgent  = technicalInterviewer;
+        questionsToUse = technicalQuestions || questions;
+
       } else if (interviewType === "behavioral") {
-        resolvedPhase     = "behavioral";
-        selectedAgent     = behavioralInterviewer;
-        questionsToUse    = behavioralQuestions || questions;
+        // HR asks all behavioral questions
+        resolvedPhase  = "behavioral";
+        selectedAgent  = behavioralInterviewer;
+        questionsToUse = behavioralQuestions || questions;
+
       } else if (interviewType === "mixed") {
-        resolvedPhase     = "behavioral"; // Part 1 of 2
-        selectedAgent     = behavioralInterviewer;
-        questionsToUse    = behavioralQuestions || [];
-        if (questionsToUse.length === 0 && questions.length > 0)
-          questionsToUse  = questions.slice(0, Math.ceil(questions.length / 2));
+        if (explicitPhase === "technical") {
+          // Phase 2: Lead (tech_recruiter) asks technical questions
+          resolvedPhase  = "technical";
+          selectedAgent  = technicalInterviewer;
+          questionsToUse = technicalQuestions || [];
+          if (questionsToUse.length === 0 && questions.length > 0)
+            questionsToUse = questions.slice(Math.ceil(questions.length / 2));
+          mixedPhase.current = 2;
+        } else {
+          // Phase 1: HR asks behavioral questions first
+          resolvedPhase  = "behavioral";
+          selectedAgent  = behavioralInterviewer;
+          questionsToUse = behavioralQuestions || [];
+          if (questionsToUse.length === 0 && questions.length > 0)
+            questionsToUse = questions.slice(0, Math.ceil(questions.length / 2));
+          mixedPhase.current = 1;
+        }
+
       } else {
-        selectedAgent     = interviewer || technicalInterviewer;
-        questionsToUse    = questions;
+        selectedAgent  = interviewer || technicalInterviewer;
+        questionsToUse = questions;
       }
 
-      // Sync state now that phase is resolved
       setCurrentInterviewPhase(resolvedPhase);
 
-      if (!selectedAgent)  throw new Error("Interviewer configuration not available");
-      const formattedQuestions = questionsToUse?.map(q => `- ${q}`).join("\n") || "";
-      if (!formattedQuestions) throw new Error("Failed to format questions");
+      if (!selectedAgent) throw new Error("Interviewer configuration not available");
+      const formattedQuestions = questionsToUse.map(q => `- ${q}`).join("\n");
+      if (!formattedQuestions) throw new Error("No questions available for this session");
 
-      const isBehavioral = resolvedPhase === "behavioral" || interviewType === "behavioral";
+      const isBehavioral = resolvedPhase === "behavioral";
 
       await vapi.start(selectedAgent, {
         variableValues: {
           questions:              formattedQuestions,
-          interviewer_name:       isBehavioral ? "Priya Sharma"               : "Marcus Rivera",
-          interviewer_role:       isBehavioral ? "Director of People Operations" : "Senior Software Architect",
+          interviewer_name:       isBehavioral ? "Priya Sharma"                  : "Marcus Rivera",
+          interviewer_role:       isBehavioral ? "Director of People Operations"  : "Senior Software Architect",
           company_name:           "TechCorp",
           department:             isBehavioral ? "talent acquisition and employee development" : "engineering and infrastructure",
-          years_at_company:       isBehavioral ? "four years"                 : "six years",
+          years_at_company:       isBehavioral ? "four years"                     : "six years",
           brief_role_description: isBehavioral
             ? "fostering our company culture and ensuring we bring in people who align with our values"
-            : "designing scalable systems and mentoring our engineering talent",
-          techstack:              interviewRole,
-          user:                   userName,
+            : interviewType === "system-design"
+              ? "designing large-scale distributed systems and leading our architecture team"
+              : "designing scalable systems and mentoring our engineering talent",
+          techstack: interviewRole,
+          user:      userName,
         },
       });
     } catch (error) {
@@ -349,7 +377,7 @@ const FullScreenInterviewPanel = ({
   useEffect(() => {
     if (interviewType === "mixed") {
       setTotalQuestions((technicalQuestions?.length || 0) + (behavioralQuestions?.length || 0));
-    } else if (interviewType === "technical" && technicalQuestions) {
+    } else if ((interviewType === "technical" || interviewType === "system-design") && technicalQuestions) {
       setTotalQuestions(technicalQuestions.length);
     } else if (interviewType === "behavioral" && behavioralQuestions) {
       setTotalQuestions(behavioralQuestions.length);
@@ -417,7 +445,7 @@ const FullScreenInterviewPanel = ({
 
   // ── Feedback on completion ─────────────────────────────────────────────────
   useEffect(() => {
-    const handleGenerateFeedback = async (msgs: SavedMessage[]) => {
+    const generateFeedbackAndRedirect = async (msgs: SavedMessage[]) => {
       setIsGeneratingFeedback(true);
       try {
         const { success, feedbackId: id } = await createFeedback({
@@ -451,13 +479,23 @@ const FullScreenInterviewPanel = ({
     if (callStatus === CallStatus.FINISHED) {
       if (type === "generate") {
         router.push("/");
-      } else if (messages.length > 0) {
-        handleGenerateFeedback(messages);
+      } else if (interviewType === "mixed" && mixedPhase.current === 1) {
+        // Phase 1 (behavioral/HR) ended — start Phase 2 (technical/Lead)
+        setMessages([]);
+        setCurrentQuestionIndex(1);
+        setCallStatus(CallStatus.INACTIVE);
+        setTimeout(() => startInterview("technical"), 1500);
       } else {
-        router.push("/");
+        // Use allMessagesRef to get the full transcript across both phases (or the single phase)
+        const transcript = allMessagesRef.current.length > 0 ? allMessagesRef.current : messages;
+        if (transcript.length > 0) {
+          generateFeedbackAndRedirect(transcript);
+        } else {
+          router.push("/");
+        }
       }
     }
-  }, [callStatus, messages, feedbackId, interviewId, router, type, userId, incrementUsage]);
+  }, [callStatus, messages, feedbackId, interviewId, router, type, userId, incrementUsage, interviewType, startInterview]);
 
   // ── Controls ───────────────────────────────────────────────────────────────
   const handleDisconnect = () => { setCallStatus(CallStatus.FINISHED); vapi.stop(); };
@@ -535,15 +573,18 @@ const FullScreenInterviewPanel = ({
             <div className="min-w-0 flex-1">
               <h1 className="text-white font-medium text-xs sm:text-sm md:text-base truncate">Interview Conference</h1>
               <p className="text-slate-500 text-xs truncate">
-                {interviewRole} {interviewType && `• ${interviewType.charAt(0).toUpperCase() + interviewType.slice(1)}`}
-                {currentInterviewPhase && (
+                {interviewRole} {interviewType && `• ${interviewType === "system-design" ? "System Design" : interviewType.charAt(0).toUpperCase() + interviewType.slice(1)}`}
+                {interviewType === "mixed" && currentInterviewPhase && (
+                  <span className="hidden sm:inline"> • {currentInterviewPhase === "behavioral" ? "Behavioral (1/2)" : "Technical (2/2)"}</span>
+                )}
+                {interviewType !== "mixed" && currentInterviewPhase && (
                   <span className="hidden sm:inline"> ({currentInterviewPhase.charAt(0).toUpperCase() + currentInterviewPhase.slice(1)} Round)</span>
                 )}
               </p>
             </div>
           </div>
 
-          {/* Connection quality + timer — only shown when call is active */}
+          {/* Connection quality + timer - only shown when call is active */}
           {callStatus === CallStatus.ACTIVE && (
             <div className="hidden lg:flex items-center gap-3 xl:gap-4 text-xs xl:text-sm text-slate-500 flex-shrink-0">
               {getConnectionIcon()}
@@ -712,7 +753,13 @@ const FullScreenInterviewPanel = ({
                   <div className="min-w-0 flex-1">
                     <h4 className="text-blue-300 font-medium text-xs sm:text-sm">Preparing Interview</h4>
                     <p className="text-blue-400/70 text-xs">
-                      Setting up your {interviewType === "mixed" ? "behavioral round (Part 1 of 2)" : "session"}…
+                      {interviewType === "mixed"
+                        ? mixedPhase.current === 2
+                          ? "Starting technical round with Marcus (Part 2 of 2)…"
+                          : "Starting behavioral round with Priya (Part 1 of 2)…"
+                        : interviewType === "system-design"
+                          ? "Setting up your system design session with Marcus…"
+                          : "Setting up your session…"}
                     </p>
                   </div>
                 </div>

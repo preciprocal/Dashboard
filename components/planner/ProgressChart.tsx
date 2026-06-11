@@ -161,7 +161,7 @@ export default function ProgressChart({ plan }: ProgressChartProps) {
             </>
           ) : (
             <>
-              <p className="text-lg font-bold text-slate-400">—</p>
+              <p className="text-lg font-bold text-slate-400">-</p>
               <p className="text-xs text-slate-500 mt-0.5">Complete tasks to see estimate</p>
             </>
           )}

@@ -323,7 +323,7 @@ export async function uploadTranscript(userId: string, file: File): Promise<Tran
     const uploadResult = await Promise.race([
       uploadBytes(storageRef, file),
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Upload timeout — please try again')), 60000),
+        setTimeout(() => reject(new Error('Upload timeout - please try again')), 60000),
       ),
     ]);
 
