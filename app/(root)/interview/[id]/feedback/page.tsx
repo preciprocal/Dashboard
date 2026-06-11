@@ -21,7 +21,8 @@ import {
   Users,
   ArrowLeft
 } from "lucide-react";
-import NextStepPrompt from "@/components/NextStepPrompt"; // ← NEW
+import NextStepPrompt from "@/components/NextStepPrompt";
+// import ShareScoreCard from "@/components/ShareScoreCard"; // ← temporarily disabled
 
 interface CategoryScore {
   name: string;
@@ -156,6 +157,16 @@ export default async function InterviewFeedbackPage({ params }: Props) {
     industryAverage: Math.max(60, avgCategoryScore - 5),
     topPerformers: Math.min(95, avgCategoryScore + 15),
     companyAverage: Math.max(65, avgCategoryScore),
+  };
+
+  // ── Map category scores to ShareScoreCard's named slots ───────────────────
+  // Tries to match by name (case-insensitive); falls back to undefined so the
+  // card simply omits any category it can't find rather than showing 0.
+  const findCategoryScore = (keywords: string[]): number | undefined => {
+    const match = categoryScores.find((c) =>
+      keywords.some((kw) => c.name.toLowerCase().includes(kw))
+    );
+    return match?.score;
   };
 
   return (
@@ -508,7 +519,7 @@ export default async function InterviewFeedbackPage({ params }: Props) {
         </div>
       </div>
 
-      {/* ← NEW: NextStepPrompt — fires after score analysis */}
+      {/* NextStepPrompt */}
       <NextStepPrompt
         trigger="interview_feedback"
         context={{
@@ -518,6 +529,28 @@ export default async function InterviewFeedbackPage({ params }: Props) {
         }}
         delay={1500}
       />
+
+      {/* ── Share Score Card (temporarily disabled) ──────────────────────────
+      <ShareScoreCard
+        userName={user.name}
+        role={interview.role}
+        company={interview.company}
+        interviewType={
+          (["technical", "behavioral", "system-design", "coding"].includes(interview.type)
+            ? interview.type
+            : "technical") as "technical" | "behavioral" | "system-design" | "coding"
+        }
+        scores={{
+          overall:        feedback.totalScore,
+          technical:      findCategoryScore(["technical", "coding", "engineering"]),
+          communication:  findCategoryScore(["communication", "verbal", "clarity"]),
+          problemSolving: findCategoryScore(["problem", "solving", "analytical"]),
+          confidence:     findCategoryScore(["confidence", "delivery", "presence"]),
+        }}
+        strengths={strengths.slice(0, 3)}
+        interviewId={id}
+      />
+      ─────────────────────────────────────────────────────────────────────── */}
 
       {/* Action Center */}
       <div className="glass-card">
