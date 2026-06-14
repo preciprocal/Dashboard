@@ -277,7 +277,8 @@ class EasyApplyEngine {
     if (!this.modalEl || this.modalEl.querySelector('#prc-apply-status-banner')) return;
     const banner = document.createElement('div');
     banner.id = 'prc-apply-status-banner'; banner.className = 'preciprocal-banner'; banner.dataset.state = 'filling';
-    banner.innerHTML = `<span class="pr-icon">🤖</span><span id="prc-apply-msg">Filling in your details…</span><div class="pr-spinner"></div><button class="pr-dismiss" id="prc-apply-dismiss" title="Stop auto-fill">✕</button>`;
+    const _logoUrl = chrome.runtime.getURL('icons/icon16.png');
+    banner.innerHTML = `<img src="${_logoUrl}" class="pr-modal-logo" alt=""><span id="prc-apply-msg">Filling in your details…</span><div class="pr-spinner"></div><button class="pr-dismiss" id="prc-apply-dismiss" title="Stop auto-fill">✕</button>`;
     const fc = this.modalEl.querySelector('.jobs-easy-apply-content, .artdeco-modal__content, form');
     if (fc) fc.insertBefore(banner, fc.firstChild); else this.modalEl.insertBefore(banner, this.modalEl.firstChild);
     document.getElementById('prc-apply-dismiss')?.addEventListener('click', () => this._updateBanner('Auto-fill stopped', 'ready'));
@@ -304,7 +305,7 @@ class EasyApplyEngine {
       await this._fillCurrentStep(modal); await this._delay(400);
       const action = this._detectNextAction(modal);
       if (action === 'none') break;
-      if (action === 'submit') { this._updateBanner('✅ All done - click Submit when ready', 'ready'); this.onStatus('All fields filled! Review and click Submit.', 'success'); break; }
+      if (action === 'submit') { this._updateBanner('All done - click Submit when ready', 'ready'); this.onStatus('All fields filled! Review and click Submit.', 'success'); break; }
       if (action === 'review') { this._updateBanner('📋 Auto-clicking Review…', 'filling'); const rb = this._findButton(modal, ['review']); if (rb) { rb.click(); await this._delay(1200); continue; } this._updateBanner('📋 Review your application then submit', 'ready'); this.onStatus('Please review and submit your application.', 'success'); break; }
       const nb = this._findButton(modal, ['next', 'continue']); if (nb) { this._updateBanner(`Step ${this.stepCount} - moving to next…`, 'filling'); nb.click(); await this._delay(900); } else break;
     }
@@ -315,10 +316,11 @@ class EasyApplyEngine {
 
   async _fillCurrentStep(modal) {
     const p = this.profile;
-    for (const el of modal.querySelectorAll('input:not([type="file"]):not([type="hidden"])')) await this._fillInput(el, p);
+    for (const el of modal.querySelectorAll('input:not([type="file"]):not([type="hidden"]):not([type="radio"]):not([type="checkbox"])')) await this._fillInput(el, p);
     for (const el of modal.querySelectorAll('select')) await this._fillSelect(el, p);
     for (const el of modal.querySelectorAll('textarea')) await this._fillTextarea(el, p);
     await this._fillRadioGroups(modal, p);
+    await this._fillCheckboxGroups(modal, p);
   }
 
   _rangeToSingleNumber(v) { if (!v) return ''; const s = String(v).trim(); const r = s.match(/^(\d+)\s*[-–]\s*\d+/); if (r) return r[1]; const p2 = s.match(/^(\d+)\s*\+/); if (p2) return p2[1]; const n = s.match(/^(\d+)/); return n ? n[1] : s; }
@@ -356,13 +358,28 @@ class EasyApplyEngine {
 
   async _fillRadioGroups(modal, p) {
     for (const group of modal.querySelectorAll('[role="radiogroup"], fieldset')) {
-      const legend = (group.querySelector('legend, [role="group"] label')?.textContent || '').toLowerCase();
+      const legendEl = group.querySelector('legend, [id*="label"], [class*="legend"], [class*="question"]');
+      const legend = (legendEl?.textContent || group.getAttribute('aria-labelledby') && document.getElementById(group.getAttribute('aria-labelledby'))?.textContent || '').toLowerCase();
+      if (!legend) continue;
       let answer = null;
       if (/sponsor/i.test(legend)) answer = p.requireSponsorship ? 'yes' : 'no';
       if (/relocat/i.test(legend)) answer = p.willingToRelocate ? 'yes' : 'no';
-      if (/legally.*work|authorized/i.test(legend)) answer = 'yes';
-      if (/currently employ/i.test(legend)) answer = 'yes';
-      if (answer) { for (const r of group.querySelectorAll('input[type="radio"]')) { if ((this._getLabel(r) + r.value).toLowerCase().includes(answer)) { if (!r.checked) r.click(); break; } } }
+      if (/legally.*work|authorized.*work|work.*authoriz|eligible.*work/i.test(legend)) answer = p.workAuthorization || 'yes';
+      if (/currently employ/i.test(legend)) answer = p.currentlyEmployed ? 'yes' : 'no';
+      if (/schedule.*work.*for you|this schedule work|available.*schedule|agree.*schedule/i.test(legend)) answer = 'yes';
+      if (/driver.?s?\s*licen[sc]e/i.test(legend)) answer = p.driverLicense ? 'yes' : 'no';
+      if (/background\s*check/i.test(legend)) answer = p.backgroundCheck ? 'yes' : 'no';
+      if (/drug\s*test/i.test(legend)) answer = p.drugTest ? 'yes' : 'no';
+      if (/criminal\s*record|felony|conviction/i.test(legend)) answer = p.criminalRecord ? 'yes' : 'no';
+      if (/18\s*years?\s*(of age|or older|and over)|at least\s*18|must be\s*18/i.test(legend)) answer = p.over18 ? 'yes' : 'no';
+      if (!answer) continue;
+      const radios = Array.from(group.querySelectorAll('input[type="radio"]'));
+      const target = answer.toLowerCase();
+      const match = radios.find(r => {
+        const lab = (this._getLabel(r) + ' ' + r.value).toLowerCase();
+        return target === 'yes' ? /\byes\b/.test(lab) : /\bno\b/.test(lab);
+      }) || radios.find(r => (this._getLabel(r) + r.value).toLowerCase().includes(target));
+      if (match && !match.checked) { match.click(); await this._delay(100); }
     }
   }
 
@@ -375,8 +392,76 @@ class EasyApplyEngine {
     if (/linkedin/i.test(hint)) return p.linkedInUrl; if (/github/i.test(hint)) return p.githubUrl;
     if (/website|portfolio/i.test(hint)) return p.portfolioUrl;
     if (/year.*exp|exp.*year|years.*work|years.*experience|how many year/i.test(hint)) return this._rangeToSingleNumber(p.yearsOfExperience || '');
-    if (/salary|compensation/i.test(hint)) return p.desiredSalary; if (/title|headline/i.test(hint)) return p.headline;
+    if (/salary|compensation/i.test(hint)) return p.desiredSalary;
+    if (/most.?recent.*employer|current.*employer|previous.*employer|last.*employer|\bemployer\b/i.test(hint)) { const exp = p.experience?.[0]; return exp?.company || ''; }
+    if (/most.?recent.*title|current.*(?:job|position|role).*title|previous.*title|\bjob\s*title\b/i.test(hint)) { const exp = p.experience?.[0]; return exp?.title || p.headline || ''; }
+    if (/title|headline/i.test(hint)) return p.headline;
     if (/notice|start date/i.test(hint)) return p.noticePeriod;
+    return null;
+  }
+
+  async _fillCheckboxGroups(modal, p) {
+    const userLocs = [
+      (p.city || '').toLowerCase(),
+      (p.location || '').toLowerCase().split(',')[0].trim(),
+      ...((p.preferredLocations || []).map(l => l.toLowerCase())),
+    ].filter(Boolean);
+    for (const group of modal.querySelectorAll('[role="group"], fieldset')) {
+      const legendEl = group.querySelector('legend, [id*="label"], [class*="legend"], [class*="question"]');
+      const legend = (legendEl?.textContent || '').toLowerCase();
+      if (!/office|location|work.*location|site|which.*office/i.test(legend)) continue;
+      const boxes = Array.from(group.querySelectorAll('input[type="checkbox"]'));
+      if (!boxes.length) continue;
+      let checked = false;
+      for (const cb of boxes) {
+        const lab = this._getLabel(cb).toLowerCase().replace(/,\s*/g, ' ');
+        if (userLocs.some(ul => lab.includes(ul) || ul.includes(lab.split(' ')[0]))) {
+          if (!cb.checked) cb.click();
+          checked = true; await this._delay(80);
+        }
+      }
+      if (!checked) {
+        const nearest = this._nearestLocation(userLocs, boxes.map(cb => this._getLabel(cb)));
+        if (nearest !== null) { const cb = boxes[nearest]; if (!cb.checked) cb.click(); await this._delay(80); }
+      }
+    }
+  }
+
+  _nearestLocation(userLocs, labels) {
+    const regions = [
+      ['san francisco','oakland','san jose','palo alto','menlo park','mountain view','sunnyvale','santa clara','redwood city','fremont'],
+      ['new york','brooklyn','queens','bronx','manhattan','jersey city','newark','hoboken','yonkers'],
+      ['los angeles','santa monica','culver city','burbank','glendale','long beach','pasadena','torrance','el segundo'],
+      ['seattle','bellevue','redmond','kirkland','tacoma','renton','bothell'],
+      ['boston','cambridge','somerville','waltham','newton','quincy','medford','malden','brookline'],
+      ['chicago','evanston','oak park','naperville','aurora','joliet','schaumburg'],
+      ['austin','round rock','cedar park','pflugerville','georgetown'],
+      ['denver','boulder','aurora','lakewood','arvada','westminster','thornton','englewood'],
+      ['washington','arlington','alexandria','bethesda','silver spring','reston','herndon','tysons'],
+      ['atlanta','decatur','sandy springs','marietta','alpharetta','smyrna','dunwoody'],
+      ['miami','fort lauderdale','boca raton','coral gables','hialeah','hollywood'],
+      ['dallas','fort worth','plano','irving','garland','frisco','mckinney','arlington'],
+      ['houston','sugar land','the woodlands','katy','pearland','pasadena'],
+      ['phoenix','scottsdale','tempe','mesa','chandler','gilbert','glendale'],
+      ['minneapolis','saint paul','bloomington','eden prairie','plymouth','maple grove'],
+      ['philadelphia','camden','cherry hill','wilmington','king of prussia'],
+      ['san diego','chula vista','el cajon','la mesa','santee','escondido'],
+      ['portland','beaverton','hillsboro','gresham','lake oswego','vancouver'],
+      ['raleigh','durham','chapel hill','cary','morrisville','apex'],
+      ['salt lake city','provo','orem','west valley','sandy','ogden'],
+      ['charlotte','concord','gastonia','huntersville','matthews'],
+      ['nashville','murfreesboro','franklin','brentwood','hendersonville'],
+      ['las vegas','henderson','north las vegas','paradise'],
+    ];
+    for (const ul of userLocs) {
+      const region = regions.find(r => r.some(c => ul.includes(c) || c.includes(ul)));
+      if (region) {
+        for (let i = 0; i < labels.length; i++) {
+          const lab = labels[i].toLowerCase();
+          if (region.some(c => lab.includes(c))) return i;
+        }
+      }
+    }
     return null;
   }
 
@@ -530,6 +615,7 @@ class PreciprocalBanner {
 
   injectBanner() {
     document.getElementById('preciprocal-inline-banner')?.remove();
+    document.querySelectorAll('.prc-tooltip').forEach(el => el.remove());
     const ins = this.findBestInsertionPoint();
     if (!ins) return;
     this.banner = this.createBannerElement();
@@ -745,23 +831,26 @@ class PreciprocalBanner {
     this.banner.querySelectorAll('[data-action]').forEach(btn => {
       btn.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); this.handleAction(btn.getAttribute('data-action')); });
     });
-    // JS tooltip - appends to body so it is never clipped by the banner container
+    // JS tooltip - appended to body so it is never clipped by the banner container
     this.banner.querySelectorAll('[data-tip]').forEach(btn => {
       let tipEl = null;
+      const removeTip = () => { tipEl?.remove(); tipEl = null; };
       btn.addEventListener('mouseenter', () => {
+        removeTip(); // clean up any previous orphaned instance
         const text = btn.getAttribute('data-tip'); if (!text) return;
         tipEl = document.createElement('div'); tipEl.className = 'prc-tooltip'; tipEl.textContent = text;
         document.body.appendChild(tipEl);
         const rect = btn.getBoundingClientRect();
         const tw = tipEl.offsetWidth; const th = tipEl.offsetHeight;
         let left = rect.left + rect.width / 2 - tw / 2;
-        let top  = rect.top - th - 10 + window.scrollY;
+        let top  = rect.top - th - 8; // position:fixed — no scrollY offset needed
         if (left < 8) left = 8;
         if (left + tw > window.innerWidth - 8) left = window.innerWidth - tw - 8;
         tipEl.style.left = left + 'px'; tipEl.style.top = top + 'px';
         requestAnimationFrame(() => tipEl && tipEl.classList.add('prc-tooltip-show'));
       });
-      btn.addEventListener('mouseleave', () => { tipEl?.remove(); tipEl = null; });
+      btn.addEventListener('mouseleave', removeTip);
+      btn.addEventListener('click', removeTip);
     });
   }
 
@@ -844,7 +933,7 @@ class PreciprocalBanner {
       .prc-logo-img { width:20px; height:20px; border-radius:5px; flex-shrink:0; object-fit:contain; }
 
       /* ── Tooltip (JS-rendered, appended to body) ── */
-      .prc-tooltip { position:absolute; z-index:2147483647; background:rgba(10,14,30,0.97); color:#f1f5f9; padding:7px 11px; border-radius:7px; font-size:12px; font-weight:500; line-height:1.45; white-space:normal; max-width:240px; text-align:center; pointer-events:none; box-shadow:0 4px 16px rgba(0,0,0,0.5); border:1px solid rgba(99,102,241,0.25); opacity:0; transform:translateY(3px); transition:opacity 0.15s ease, transform 0.15s ease; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+      .prc-tooltip { position:fixed; z-index:2147483647; background:rgba(10,14,30,0.97); color:#f1f5f9; padding:7px 11px; border-radius:7px; font-size:12px; font-weight:500; line-height:1.45; white-space:normal; max-width:240px; text-align:center; pointer-events:none; box-shadow:0 4px 16px rgba(0,0,0,0.5); border:1px solid rgba(99,102,241,0.25); opacity:0; transform:translateY(3px); transition:opacity 0.15s ease, transform 0.15s ease; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
       .prc-tooltip.prc-tooltip-show { opacity:1; transform:translateY(0); }
 
       /* ── Spinner ── */
@@ -869,6 +958,7 @@ class PreciprocalBanner {
       .preciprocal-banner[data-state="filling"] { color:#93c5fd; }
       .preciprocal-banner[data-state="ready"] { color:#86efac; border-bottom-color:rgba(134,239,172,0.2); }
       .pr-icon { font-size:14px; flex-shrink:0; }
+      .pr-modal-logo { width:16px; height:16px; border-radius:3px; flex-shrink:0; object-fit:contain; }
       .preciprocal-banner span:not(.pr-icon):not(.pr-spinner) { flex:1; font-weight:500; }
       .pr-dismiss { background:none; border:none; color:rgba(134,239,172,0.6); cursor:pointer; font-size:12px; padding:2px 4px; border-radius:4px; line-height:1; flex-shrink:0; }
       .pr-dismiss:hover { color:#86efac; background:rgba(134,239,172,0.1); }

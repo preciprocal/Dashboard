@@ -1,6 +1,7 @@
 // app/api/extension/auto-apply/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { db, auth } from '@/firebase/admin';
+import { getUserAIContext } from '@/lib/ai/user-context';
 
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
@@ -44,9 +45,10 @@ async function getLatestResume(uid: string) {
     }
     const fileUrl  = data.resumePath || data.resumeUrl || data.resume || data.resumeFile || data.cvPath || data.cvUrl || data.cv || null;
     const fileName = data.resumeFileName || data.resumeName || data.cvFileName || data.cvName || 'resume.pdf';
+    const resumeText = (data.resumeText || data.resumeContent || data.parsedResume || data.resumeParsed || '') as string;
     if (!fileUrl) { console.log('⚠️ No resume found on user doc'); return null; }
     console.log(`✅ Profile resume found | ${fileName}`);
-    return { id: uid, fileName, url: fileUrl, available: true };
+    return { id: uid, fileName, url: fileUrl, available: true, text: resumeText || null };
   } catch (error) {
     console.error('❌ Error fetching profile resume:', error);
     return null;
@@ -134,8 +136,9 @@ function buildApplyProfile(userData: Record<string, unknown>, uid: string) {
     race:             (userData.race as string)             || 'Prefer not to say',
     veteranStatus:    (userData.veteranStatus as string)    || 'I am not a protected veteran',
     disabilityStatus: (userData.disabilityStatus as string) || 'I do not have a disability',
-    coverLetterIntro: (userData.coverLetterIntro as string) || '',
-    coverLetterBody:  (userData.coverLetterBody as string)  || '',
+    coverLetterIntro:   (userData.coverLetterIntro as string) || '',
+    coverLetterBody:    (userData.coverLetterBody as string)  || '',
+    preferredLocations: Array.isArray(userData.preferredLocations) ? userData.preferredLocations as string[] : [],
     subscriptionTier: (userData.subscription as Record<string, string>)?.plan || 'free',
     userId: uid,
   };
@@ -148,10 +151,11 @@ export async function GET(request: NextRequest) {
     if (!uid) return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: CORS });
 
     console.log('✅ uid:', uid);
-    const [userDoc, resumeData, transcriptData] = await Promise.all([
+    const [userDoc, resumeData, transcriptData, aiCtx] = await Promise.all([
       db.collection('users').doc(uid).get(),
       getLatestResume(uid),
       getTranscript(uid),
+      getUserAIContext(uid).catch(() => null),
     ]);
 
     if (!userDoc.exists) return NextResponse.json({ error: 'User profile not found' }, { status: 404, headers: CORS });
@@ -159,14 +163,17 @@ export async function GET(request: NextRequest) {
     const userData     = userDoc.data() as Record<string, unknown>;
     const applyProfile = buildApplyProfile(userData, uid);
 
+    const resumeText     = aiCtx?.resumeText     || resumeData?.text     || null;
+    const transcriptText = aiCtx?.transcriptText || null;
+
     const files = {
-      resume:     resumeData     ? { available: true,  url: resumeData.url,     fileName: resumeData.fileName,     id: resumeData.id     }
-                                 : { available: false, url: null,               fileName: null,                    id: null              },
-      transcript: transcriptData ? { available: true,  url: transcriptData.url, fileName: transcriptData.fileName, id: transcriptData.id }
-                                 : { available: false, url: null,               fileName: null,                    id: null              },
+      resume:     resumeData     ? { available: true,  url: resumeData.url,     fileName: resumeData.fileName,     id: resumeData.id,     text: resumeText     }
+                                 : { available: false, url: null,               fileName: null,                    id: null,              text: null           },
+      transcript: transcriptData ? { available: true,  url: transcriptData.url, fileName: transcriptData.fileName, id: transcriptData.id, text: transcriptText }
+                                 : { available: false, url: null,               fileName: null,                    id: null,              text: null           },
     };
 
-    console.log('📦 Final response:', { user: applyProfile.email, resumeAvail: files.resume.available, transcriptAvail: files.transcript.available });
+    console.log('📦 Final response:', { user: applyProfile.email, resumeAvail: files.resume.available, resumeTextLen: resumeText?.length || 0, transcriptAvail: files.transcript.available });
 
     return NextResponse.json(
       { success: true, applyProfile, files,

@@ -648,9 +648,11 @@ function getLabel(el) {
 function matchByLabel(label, p) {
   if (!label) return null;
   const L = label.toLowerCase();
+  // Specific multi-word patterns FIRST — before greedy single-word checks
+  if (/legal.*first.*last|first.*and.*last.*name|full.*legal|legal.*full/i.test(L)) return p.fullName;
+  if (/full.?name|your name|^name$|legal name/i.test(L))     return p.fullName;
   if (/first.?name|given.?name|forename/i.test(L))           return p.firstName;
   if (/last.?name|surname|family.?name/i.test(L))            return p.lastName;
-  if (/full.?name|your name|^name$|legal name/i.test(L))     return p.fullName;
   if (/email|e-mail|electronic mail/i.test(L))               return p.email;
   if (/phone|mobile|cell|tel(ephone)?|contact number/i.test(L)) return p.phone;
   if (/linkedin/i.test(L))                                   return p.linkedInUrl;
@@ -680,6 +682,19 @@ function matchByLabel(label, p) {
   if (/gpa|grade point/i.test(L))                            return p.education?.[0]?.gpa || '';
   if (/skills?/i.test(L) && p.skills?.length)               return p.skills.join(', ');
   if (/summary|about (me|yourself)|tell us/i.test(L))        return p.summary;
+  // ── Common custom-question patterns seen across job portals ──
+  if (/preferred.?name|known as|go.?by|prefer to be called/i.test(L))       return p.firstName || p.fullName || '';
+  if (/legal.*first.*last|full.*legal.*name|legal.*full.*name/i.test(L))     return p.fullName || '';
+  if (/middle.?name|middle initial/i.test(L))                                return '';
+  if (/base salary|salary expectation|expected salary|desired salary/i.test(L)) return p.desiredSalary ? String(p.desiredSalary) : '';
+  if (/total comp(ensation)?|expected comp|total pay|target comp/i.test(L))  return p.desiredSalary ? String(p.desiredSalary) : '';
+  if (/non.?compete|restrictive.*covenant|agreement.*prohibit|prior.*agreement/i.test(L)) return 'No';
+  if (/why.*interested|why.*want.*work|why.*apply|what.*excites|motivation/i.test(L)) return p.summary || '';
+  if (/describe.*experience|tell.*about.*background|elaborate.*experience/i.test(L))  return p.summary || '';
+  if (/certif(icate|ication)/i.test(L))                                       return p.certifications || '';
+  if (/language/i.test(L))                                                     return p.languages || 'English';
+  if (/twitter|x\.com|social media.*url/i.test(L))                            return '';
+  if (/cover letter/i.test(L))                                                 return null;
   return null;
 }
 
@@ -707,7 +722,6 @@ function matchSelectByLabel(label, p) {
   }
   if (/employment type|job type|work type/i.test(L))          return p.employmentType || 'Full-time';
   if (/remote|hybrid|on.?site|work.*arrangement/i.test(L))    return p.workType || 'Remote';
-  if (/gender|sex/i.test(L))                                  return p.gender || 'Prefer not to say';
   if (/pronoun/i.test(L))                                     return p.pronouns || 'Prefer not to say';
   if (/race|ethnicit/i.test(L))                               return p.race || 'Prefer not to say';
   if (/veteran|military/i.test(L))                            return p.veteranStatus || 'I am not a protected veteran';
@@ -726,6 +740,30 @@ function matchSelectByLabel(label, p) {
   if (/salary|compensation/i.test(L))                         return p.desiredSalary || '';
   if (/state|province/i.test(L))                              return p.state || '';
   if (/city/i.test(L))                                        return p.city  || '';
+  // ── Gender: normalize profile value → canonical option so fuzzy match is safe ──
+  if (/\bgender\b|\bsex\b/i.test(L)) {
+    const g = (p.gender || '').trim().toLowerCase();
+    if (!g || /prefer not|decline|not (to say|disclose)|choose not|no answer|n\/a/i.test(g)) return 'Prefer not to say';
+    if (/^m(ale)?$|^man$|^boy$|^he\b/i.test(g)) return 'Male';
+    if (/^f(emale)?$|^woman$|^girl$|^she\b/i.test(g)) return 'Female';
+    if (/non.?binary|non.?conform|genderqueer|genderfluid|agender|two.?spirit|other/i.test(g)) return 'Non-binary / gender non-conforming';
+    return 'Prefer not to say';
+  }
+  // ── Common company-specific Yes/No questions ──
+  if (/employee of|are you.*employee|currently.*employee.*at/i.test(L))      return 'No';
+  if (/former employee|previously.*employed.*at|ex.?employee/i.test(L))      return 'No';
+  if (/non.?compete|restrictive.*covenant|agreement.*prohibit/i.test(L))     return 'No';
+  if (/security clearance/i.test(L))                                          return 'No';
+  if (/us citizen|american citizen|citizenship/i.test(L))                     return 'Yes';
+  if (/willing.*overtime|open.*overtime|overtime.*requir/i.test(L))           return 'Yes';
+  if (/within.*miles|within.*distance|near.*office|commute.*distance|office.*proximity/i.test(L)) return 'None';
+  if (/willing.*travel|open.*travel|travel.*requir/i.test(L))                 return p.openToTravel || 'No';
+  if (/hear about this|learn.*about.*role|source.*position|know.*about.*job/i.test(L)) return p.howDidYouHear || 'LinkedIn';
+  if (/highest.*education|level.*education|education.*level/i.test(L))        return p.education?.[0]?.degree || 'Bachelor\'s Degree';
+  if (/graduation.*year|year.*graduate/i.test(L))                             return p.education?.[0]?.graduationYear || '';
+  if (/preferred.?name|go.?by|known as/i.test(L))                             return p.firstName || '';
+  if (/salary.*type|pay.*type|compensation.*type/i.test(L))                   return p.salaryType || 'Yearly';
+  if (/start date|available.*start|earliest.*start/i.test(L))                 return p.noticePeriod || '2 weeks';
   return null;
 }
 
@@ -1010,6 +1048,19 @@ async function fillReactSelect(controlEl, desiredValue) {
     if (cur && !/^select/i.test(cur) && scoreMatch(desiredValue.toLowerCase(), cur) > 0.8) return true;
   }
 
+  // For multi-select dropdowns (e.g. gender "mark all that apply"): clear any
+  // existing tag selections first so a previous wrong value doesn't persist.
+  const existingTags = Array.from(root.querySelectorAll(
+    '[class*="multi-value__remove"],[class*="multiValueRemove"],[class*="-multiValue"] > div:last-child,[class*="MultiValueRemove"],' +
+    '[aria-label*="Remove"],[aria-label*="remove"],[title*="Remove"],[title*="remove"]'
+  )).filter(el => el.offsetParent !== null);
+  for (const tag of existingTags) {
+    tag.dispatchEvent(new MouseEvent('mousedown', { bubbles:true, cancelable:true, view:window }));
+    tag.click();
+    await new Promise(r => setTimeout(r, 80));
+  }
+  if (existingTags.length) await new Promise(r => setTimeout(r, 150));
+
   // Open — fire mousedown on the exact control div so React Select's handler fires.
   clickTarget.dispatchEvent(new MouseEvent('mousedown', { bubbles:true, cancelable:true, view:window }));
   clickTarget.dispatchEvent(new MouseEvent('mouseup',   { bubbles:true, cancelable:true, view:window }));
@@ -1030,6 +1081,20 @@ async function fillReactSelect(controlEl, desiredValue) {
   if (!isReactSelectOpen(clickTarget)) {
     const inp = root.querySelector('input[role="combobox"],input[aria-autocomplete],input:not([aria-hidden])');
     if (inp) { inp.focus(); inp.dispatchEvent(new KeyboardEvent('keydown', { bubbles:true, key:'ArrowDown', keyCode:40 })); await new Promise(r => setTimeout(r, 350)); }
+  }
+
+  // Find search input (NOT the aria-hidden validation input Greenhouse adds)
+  const searchInput = root.querySelector('input[role="combobox"]:not([aria-hidden]),input[aria-autocomplete="list"]:not([aria-hidden])');
+
+  // Type first few chars to filter options — this also ensures the combobox is focused
+  // so the subsequent Enter keypress lands on the right React Select instance.
+  if (searchInput && isReactSelectOpen(clickTarget)) {
+    searchInput.focus();
+    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    nativeSetter.call(searchInput, desiredValue.slice(0, 6));
+    searchInput.dispatchEvent(new Event('input',  { bubbles:true }));
+    searchInput.dispatchEvent(new Event('change', { bubbles:true }));
+    await new Promise(r => setTimeout(r, 400));
   }
 
   // Find open menu — check both near root and body-portalled menus.
@@ -1062,12 +1127,78 @@ async function fillReactSelect(controlEl, desiredValue) {
   const optList = optionEls.map(o => ({ text:(o.textContent||'').trim(), _el:o }));
   const best    = bestMatch(optList, desiredValue);
 
+  // Helper: call a React prop handler directly via the fiber tree, bypassing
+  // DOM event delegation (React 17+ attaches listeners to the root, not body,
+  // so portalled menus' dispatched events may never reach the React root).
+  const _callFiber = (el, propName) => {
+    try {
+      const k = Object.keys(el).find(k => k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance'));
+      if (!k) return false;
+      let f = el[k];
+      while (f) {
+        const p = f.memoizedProps || f.pendingProps || {};
+        if (typeof p[propName] === 'function') {
+          p[propName]({ preventDefault:()=>{}, stopPropagation:()=>{}, nativeEvent:{ stopImmediatePropagation:()=>{}, preventDefault:()=>{} } });
+          return true;
+        }
+        f = f.return;
+      }
+    } catch {}
+    return false;
+  };
+
+  const comboInput = searchInput
+    || root.querySelector('input[role="combobox"]:not([aria-hidden])')
+    || root.querySelector('input[aria-autocomplete]:not([aria-hidden])');
+
+  const _isSelected = () => {
+    const sv = root.querySelector('[class*="single-value"],[class*="singleValue"]');
+    if (sv && (sv.textContent||'').trim() && !/^(select|choose)/i.test(sv.textContent)) return true;
+    // For multi-select: check if a multi-value tag with our text appeared
+    const tags = root.querySelectorAll('[class*="multiValue"],[class*="multi-value"]');
+    return Array.from(tags).some(t => scoreMatch(desiredValue.toLowerCase(), (t.textContent||'').toLowerCase()) > 0.7);
+  };
+
   if (best) {
     console.log(`  ✅ React Select: "${desiredValue}" → "${best.text}"`);
-    // Fire both mousedown and click — React Select listens to mousedown to prevent blur
-    best._el.dispatchEvent(new MouseEvent('mousedown', { bubbles:true, cancelable:true, view:window }));
-    best._el.dispatchEvent(new MouseEvent('mouseup',   { bubbles:true, cancelable:true, view:window }));
-    best._el.click();
+
+    // ── Strategy 1: React fiber – call onMouseDown directly on the option ──
+    // Most reliable: bypasses DOM event delegation entirely.
+    const fiberOk = _callFiber(best._el, 'onMouseDown');
+    if (fiberOk) { await new Promise(r => setTimeout(r, 350)); if (_isSelected()) return true; }
+
+    // ── Strategy 2: ArrowDown keyboard navigation ──
+    // Walk through filtered options using arrow keys, checking aria-activedescendant
+    // after each press. Press Enter when the correct option is focused.
+    // This works even for portalled menus where mousedown events don't reach React's
+    // event delegation root (React 17+ registers on the React container, not body).
+    if (comboInput) {
+      comboInput.focus();
+      await new Promise(r => setTimeout(r, 50));
+      const targetId = best._el.id;
+      let navigated  = false;
+      for (let nav = 0; nav < 15; nav++) {
+        comboInput.dispatchEvent(new KeyboardEvent('keydown', { bubbles:true, cancelable:true, key:'ArrowDown', code:'ArrowDown', keyCode:40, which:40 }));
+        await new Promise(r => setTimeout(r, 70));
+        const activeId   = comboInput.getAttribute('aria-activedescendant');
+        const activeEl   = activeId ? document.getElementById(activeId) : null;
+        const activeText = (activeEl?.textContent || '').trim().toLowerCase();
+        // ID match is definitive; text match is a case-insensitive fallback
+        const hitById   = !!(targetId && activeId && activeId === targetId);
+        const hitByText = !!(activeText && activeText === desiredValue.toLowerCase());
+        if (hitById || hitByText) {
+          comboInput.dispatchEvent(new KeyboardEvent('keydown', { bubbles:true, cancelable:true, key:'Enter', code:'Enter', keyCode:13, which:13 }));
+          navigated = true;
+          await new Promise(r => setTimeout(r, 350));
+          break;
+        }
+      }
+      if (navigated && _isSelected()) return true;
+    }
+
+    // ── Strategy 3: classic click sequence ──
+    best._el.dispatchEvent(new MouseEvent('mouseup',  { bubbles:true, cancelable:true, view:window }));
+    best._el.dispatchEvent(new MouseEvent('click',    { bubbles:true, cancelable:true, view:window }));
     await new Promise(r => setTimeout(r, 300));
     return true;
   }
@@ -1142,6 +1273,21 @@ class FileInjector {
         try { input.files = dt.files; } catch { const d = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'files'); if (d?.set) d.set.call(input, dt.files); }
         input.dispatchEvent(new Event('change', { bubbles:true }));
         input.dispatchEvent(new Event('input',  { bubbles:true }));
+        // Also call React fiber onChange so React 17+ component state updates
+        try {
+          const fk = Object.keys(input).find(k => /^__reactFiber|^__reactInternalInstance/.test(k));
+          if (fk) {
+            let fib = input[fk];
+            while (fib) {
+              const props = fib.memoizedProps || fib.pendingProps;
+              if (props?.onChange && typeof props.onChange === 'function') {
+                props.onChange({ target: input, currentTarget: input, type: 'change', bubbles: true });
+                break;
+              }
+              fib = fib.return;
+            }
+          }
+        } catch {}
         count++;
         console.log(`✅ File injected into input:`, input.name||input.id||'(unnamed)');
       } catch (err) { console.warn('⚠️ Could not inject file:', err.message); }
@@ -2023,7 +2169,14 @@ async function smartScan(p) {
     if (/disabilit/i.test(legend))  desiredAnswer = p.disabilityStatus || 'no disability';
     if (/background.?check/i.test(legend)) desiredAnswer = 'yes';
     if (/drug.?test/i.test(legend))        desiredAnswer = 'yes';
-    if (/gender|sex\b/i.test(legend))  desiredAnswer = p.gender   || 'prefer not to say';
+    if (/gender|sex\b/i.test(legend)) {
+      const g = (p.gender || '').trim().toLowerCase();
+      if (!g || /prefer not|decline|not (to say|disclose)|choose not/i.test(g)) desiredAnswer = 'prefer not to say';
+      else if (/^m(ale)?$|^man$|^he\b/i.test(g))  desiredAnswer = 'male';
+      else if (/^f(emale)?$|^woman$|^she\b/i.test(g)) desiredAnswer = 'female';
+      else if (/non.?binary|other|agender/i.test(g)) desiredAnswer = 'non-binary';
+      else desiredAnswer = 'prefer not to say';
+    }
     if (/pronouns?/i.test(legend))     desiredAnswer = p.pronouns || 'prefer not to say';
     if (/race|ethnicit/i.test(legend)) desiredAnswer = p.race     || 'prefer not to say';
     if (!desiredAnswer) continue;
@@ -2060,7 +2213,13 @@ async function smartScan(p) {
     if (/gender|sex\b/i.test(questionLabel)) {
       const target = (p.gender||'Prefer not to say').toLowerCase();
       if (/prefer not|decline|not to say/i.test(target)) { if (/prefer not|decline|not to say|choose not|opt out/i.test(cbLbl)) { cb.click(); cb.dispatchEvent(new Event('change',{bubbles:true})); filled++; } }
-      else { if (scoreMatch(target, cbLbl) >= 0.5 || cbLbl.includes(target.split(' ')[0])) { cb.click(); cb.dispatchEvent(new Event('change',{bubbles:true})); filled++; } }
+      else {
+        // Word-boundary check prevents 'male' from matching 'female' (substring bug).
+        // Fall back to high-threshold scoreMatch for multi-word values like 'non-binary'.
+        const targetWord = target.split(/[-\s\/]+/)[0];
+        const ok = new RegExp('\\b' + targetWord + '\\b', 'i').test(cbLbl) || scoreMatch(target, cbLbl) >= 0.9;
+        if (ok) { cb.click(); cb.dispatchEvent(new Event('change',{bubbles:true})); filled++; }
+      }
       continue;
     }
     if (/race|ethnicit/i.test(questionLabel)) {
@@ -2272,6 +2431,84 @@ class PreciprocalSidebar {
   _setupAsFillAgent() {
     // Signal to the top frame that we have a form here and can fill it.
     try { window.parent.postMessage({ _prc: 1, t: 'READY', platform: this.platform }, '*'); } catch {}
+
+    // Helper: snapshot which core fields are filled in THIS iframe's document.
+    const _iframeFieldStatuses = () => {
+      // Resume: file inputs or button-based upload sections
+      const resumeInputs = Array.from(document.querySelectorAll('input[type="file"]'))
+        .filter(el => /resume|cv/i.test((el.name||'')+(el.id||'')+(el.accept||'')) || !el.name);
+      const resumeFilledViaFile = resumeInputs.some(el => el.files && el.files.length > 0);
+      const resumeFilledViaText = Array.from(document.querySelectorAll('textarea'))
+        .some(ta => {
+          const val = (ta.value||'').trim();
+          if (val.length < 20) return false;
+          if (/resume|cv/i.test(getLabel(ta).toLowerCase())) return true;
+          let el = ta.parentElement;
+          for (let d = 0; d < 8 && el && el !== document.body; d++, el = el.parentElement) {
+            if (Array.from(el.querySelectorAll('label,legend,strong,h2,h3'))
+                .some(l => !l.contains(ta) && /resume|cv/i.test(l.textContent||''))) return true;
+          }
+          return false;
+        });
+      const resumeFilled  = resumeFilledViaFile || resumeFilledViaText;
+      const _hasResume    = resumeInputs.length > 0 ||
+        Array.from(document.querySelectorAll('label,legend,strong'))
+          .some(el => /resume.?\/?.?cv|attach.*resume/i.test(el.textContent||''));
+
+      // Work auth: detect field presence (text in labels/questions)
+      const _hasWorkAuth = !!(
+        document.querySelector('select[name*="work" i],select[name*="auth" i],select[name*="sponsor" i]') ||
+        Array.from(document.querySelectorAll('label,legend,.application-question'))
+          .some(el => /authorized.*work|work.*authorized|legally.*work|work.*permit|sponsorship|visa.?status/i.test(el.textContent||''))
+      );
+      // Work auth filled: radio, native select, or React Select with non-placeholder value
+      const workAuthFilled = (() => {
+        if (document.querySelector('[role="radiogroup"] input[type="radio"]:checked')) return true;
+        try { const s = document.querySelector('select[name*="work" i],select[name*="auth" i],select[name*="sponsor" i]'); if (s && s.value && s.value !== '0') return true; } catch {}
+        // Check React Selects near a work-auth label
+        for (const lr of document.querySelectorAll('span[id^="react-select"][id$="-live-region"]')) {
+          let c = lr.parentElement;
+          while (c && c !== document.body && !/container/i.test(c.className||'')) c = c.parentElement;
+          if (!c || c === document.body) continue;
+          const qLabel = (c.closest('.application-question,[class*="question"]')?.querySelector('label,legend')?.textContent||'').toLowerCase();
+          if (!/authorized|sponsor|visa|work.?permit|legally.*work/i.test(qLabel)) continue;
+          const sv = c.querySelector('[class*="single-value"],[class*="singleValue"]');
+          if (sv && sv.textContent?.trim() && !/^(select|choose)/i.test(sv.textContent)) return true;
+        }
+        return false;
+      })();
+
+      // Cover letter: detect section presence and filled state
+      const _hasCoverLetter = Array.from(document.querySelectorAll('label,legend'))
+        .some(el => /cover.?letter/i.test(el.textContent||''));
+      const coverLetterFilled = Array.from(document.querySelectorAll('textarea'))
+        .some(ta => {
+          const val = (ta.value||'').trim();
+          if (val.length < 10) return false;
+          if (/cover.?letter/i.test(getLabel(ta).toLowerCase()) || /cover/i.test(ta.name||'')) return true;
+          let el = ta.parentElement;
+          for (let d = 0; d < 8 && el && el !== document.body; d++, el = el.parentElement) {
+            if (Array.from(el.querySelectorAll('label,legend,strong,h2,h3'))
+                .some(l => !l.contains(ta) && /cover.?letter/i.test(l.textContent||''))) return true;
+          }
+          return false;
+        });
+
+      return {
+        fullName: !!(document.querySelector('input[name*="first_name"],#first_name,input[id*="firstName"],input[name*="firstName"]')?.value || document.querySelector('input[name*="last_name"],#last_name')?.value),
+        email:    !!(document.querySelector('input[type="email"],input[name*="email"],#email')?.value),
+        phone:    !!(document.querySelector('input[type="tel"],input[name*="phone"],#phone')?.value),
+        location: !!(document.querySelector('input[name*="location"],input[name*="city"],#job_application_location,input[id*="city"]')?.value),
+        linkedin: !!(document.querySelector('input[name*="linkedin" i],input[id*="linkedin" i]')?.value),
+        workAuth: workAuthFilled,
+        resume:   resumeFilled,
+        coverLetter: coverLetterFilled,
+        _hasResume,
+        _hasWorkAuth,
+        _hasCoverLetter,
+      };
+    };
+
     // Listen for fill requests from the top frame's sidebar.
     window.addEventListener('message', async (e) => {
       if (!e.data || e.data._prc !== 1) return;
@@ -2279,8 +2516,91 @@ class PreciprocalSidebar {
         this.profile = e.data.profile || this.profile;
         this.files   = e.data.files   || this.files;
         if (!this.profile) return;
-        const { filled } = await fillForm(this.profile, this.platform);
-        try { window.parent.postMessage({ _prc:1, t:'FILL_DONE', filled }, '*'); } catch {}
+        // Send field-status snapshots every 350ms so the top-frame sidebar
+        // can tick circles and animate the progress bar in real time.
+        const _progId = setInterval(() => {
+          try { window.parent.postMessage({ _prc:1, t:'FILL_PROGRESS', fs: _iframeFieldStatuses() }, '*'); } catch {}
+        }, 350);
+        let filled = 0;
+        try {
+          const r = await fillForm(this.profile, this.platform);
+          filled = r.filled;
+        } finally {
+          clearInterval(_progId);
+        }
+        // Inject files and handle "Enter manually" for resume + cover letter
+        try {
+          // Helper: find "Enter manually" button scoped to a section containing a given label pattern
+          const findEnterManuallyBtn = (sectionPattern) => {
+            for (const btn of document.querySelectorAll('button')) {
+              if (!/enter.{0,5}manually/i.test(btn.textContent?.trim()||'')) continue;
+              let el = btn.parentElement;
+              for (let d = 0; d < 8 && el && el !== document.body; d++, el = el.parentElement) {
+                const labels = Array.from(el.querySelectorAll('label,legend,h2,h3,h4,strong'));
+                if (labels.some(lbl => !lbl.contains(btn) && new RegExp(sectionPattern,'i').test(lbl.textContent||''))) return btn;
+              }
+            }
+            return null;
+          };
+
+          // Helper: click a button then fill the revealed textarea
+          const clickEnterManually = async (btn, text) => {
+            if (!btn || !text) return false;
+            btn.click();
+            await new Promise(r => setTimeout(r, 700));
+            const sectionEl = btn.closest('[class*="question"],[class*="field"],fieldset,section') || btn.parentElement;
+            const ta = sectionEl?.querySelector('textarea') ||
+              Array.from(document.querySelectorAll('textarea'))
+                .find(t => !t.value && t.getBoundingClientRect().height > 0);
+            if (ta && !ta.value) { setReactValue(ta, text); return true; }
+            return false;
+          };
+
+          const { resume: resumeEls, transcript: transcriptEls } = FileInjector.classify();
+
+          // ── Resume ──
+          if (this.files?.resume?.available) {
+            let injected = 0;
+            if (resumeEls.length && this.files.resume.url) {
+              injected = await FileInjector.injectFromUrl(this.files.resume.url, this.files.resume.fileName || 'resume.pdf', resumeEls);
+            }
+            // Fallback: "Enter manually" using stored resume text
+            if (!injected) {
+              const resumeText = this.files.resume.text || '';
+              if (resumeText) {
+                const existingTa = Array.from(document.querySelectorAll('textarea'))
+                  .find(ta => /resume|cv/i.test(getLabel(ta).toLowerCase()) && !ta.value && ta.getBoundingClientRect().height > 0);
+                if (existingTa) {
+                  setReactValue(existingTa, resumeText);
+                } else {
+                  const resumeBtn = findEnterManuallyBtn('resume|cv');
+                  await clickEnterManually(resumeBtn, resumeText);
+                }
+              }
+            }
+          }
+
+          // ── Transcript ──
+          if (transcriptEls.length && this.files?.transcript?.available && this.files.transcript.url) {
+            await FileInjector.injectFromUrl(this.files.transcript.url, this.files.transcript.fileName || 'transcript.pdf', transcriptEls);
+          }
+
+          // ── Cover Letter: always use "Enter manually" with profile text ──
+          const clText = [this.profile?.coverLetterIntro, this.profile?.coverLetterBody]
+            .filter(s => (s||'').trim()).join('\n\n');
+          if (clText) {
+            const existingCLTa = Array.from(document.querySelectorAll('textarea'))
+              .find(ta => /cover.?letter/i.test(getLabel(ta).toLowerCase()) && !ta.value && ta.getBoundingClientRect().height > 0);
+            if (existingCLTa) {
+              setReactValue(existingCLTa, clText);
+            } else {
+              const clBtn = findEnterManuallyBtn('cover.?letter');
+              await clickEnterManually(clBtn, clText);
+            }
+          }
+
+        } catch (fileErr) { console.warn('[FillAgent] file injection error:', fileErr.message); }
+        try { window.parent.postMessage({ _prc:1, t:'FILL_DONE', filled, fs: _iframeFieldStatuses() }, '*'); } catch {}
       }
     });
   }
@@ -2297,12 +2617,59 @@ class PreciprocalSidebar {
       }
     }
 
+    // Helper: apply iframe field-status snapshot to the sidebar circles.
+    const _applyFS = (fs, filledCount) => {
+      if (!fs) return;
+      const svgOk = `<svg width="8" height="8" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>`;
+      // Core fields always shown; optional/required determined by presence flags from fill agent
+      const rows = [
+        { label:'Full Name', filled: !!fs.fullName },
+        { label:'Email',     filled: !!fs.email },
+        { label:'Phone',     filled: !!fs.phone },
+        { label:'Location',  filled: !!fs.location },
+        { label:'LinkedIn',  filled: !!fs.linkedin, optional: true },
+        { label:'Work Auth', filled: !!fs.workAuth, optional: !fs._hasWorkAuth },
+      ];
+      if (fs._hasResume || fs.resume !== undefined) {
+        rows.push({ label:'Resume', filled: !!fs.resume });
+      }
+      if (fs._hasCoverLetter || fs.coverLetter !== undefined) {
+        rows.push({ label:'Cover Letter', filled: !!fs.coverLetter, optional: !fs._hasCoverLetter });
+      }
+      const list = document.getElementById('prc-fields-list');
+      if (list) {
+        list.innerHTML = rows.map(f => {
+          const state = f.filled ? 'filled' : f.optional ? 'optional' : 'empty';
+          const check = f.filled ? svgOk : '';
+          const badge = f.optional && !f.filled ? `<span class="prc-opt-badge">opt</span>` : '';
+          return `<div class="prc-field-item"><div class="prc-fi-dot prc-fi-${state}">${check}</div><span class="prc-fi-label ${f.filled ? 'prc-fi-done' : ''}">${f.label}</span>${badge}</div>`;
+        }).join('');
+      }
+      const req = rows.filter(f => !f.optional);
+      const reqFilled = req.filter(f => f.filled).length;
+      const count = document.getElementById('prc-fields-count');
+      if (count) count.textContent = `${reqFilled}/${req.length} filled`;
+      // Progress bar
+      if (filledCount !== undefined) {
+        const total = this._countPageFields();
+        const pct = total > 0 ? Math.min(100, Math.round((filledCount / total) * 100)) : Math.min(100, reqFilled * 20);
+        this._updateCompletion(pct);
+      } else {
+        // During fill: animate bar based on how many core fields are ticked
+        this._updateCompletion(Math.min(95, reqFilled * 18));
+      }
+    };
+
     // Also accept the window reference that the iframe sends in its READY message.
     window.addEventListener('message', (e) => {
       if (!e.data || e.data._prc !== 1) return;
       if (e.data.t === 'READY') {
         this._iframeFillWindow = e.source;
         this._updateFieldChecks();
+      }
+      // Real-time progress ticks from the fill agent
+      if (e.data.t === 'FILL_PROGRESS') {
+        _applyFS(e.data.fs);
       }
       if (e.data.t === 'FILL_DONE') {
         const filled = e.data.filled || 0;
@@ -2314,9 +2681,7 @@ class PreciprocalSidebar {
         btn?.classList.remove('loading'); btn?.classList.add('done');
         if (icon)  icon.innerHTML = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
         if (label) label.textContent = `${filled} fields filled`;
-        const totalOnPage = this._countPageFields();
-        const pct = totalOnPage > 0 ? Math.min(100, Math.round((filled / totalOnPage) * 100)) : 100;
-        this._updateCompletion(pct);
+        _applyFS(e.data.fs, filled);
         if (statusEl) { statusEl.style.display='flex'; statusEl.className='prc-status-banner prc-status-ok'; statusEl.innerHTML=`<svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span>Done — review fields before submitting</span>`; }
       }
     });
@@ -2372,17 +2737,41 @@ class PreciprocalSidebar {
     const workAuthAnswered = () =>
       !!document.querySelector('[role="radiogroup"] input[type="radio"]:checked,fieldset input[type="radio"]:checked') ||
       (() => { try { const s = document.querySelector('select[id*="work" i],select[id*="auth" i],select[name*="work" i],select[name*="auth" i],select[name*="sponsor" i]'); return !!(s && s.value && s.value !== ''); } catch { return false; } })();
+    // qv: check a set of selectors for a non-empty .value OR non-empty text content
+    // Uses substring [name*=] to catch Greenhouse's job_application[field] wrappers.
     const fields = [
-      { label:'Full Name', filled:q('input[name="first_name"]','#first_name','input[name="firstName"]','input[name="name"]','input[aria-label*="First name" i]','input[aria-label*="Full name" i]','[data-automation-id="legalNameSection_firstName"] input','[data-automation-id="firstName"] input') },
-      { label:'Email',     filled:q('input[type="email"]','input[name="email"]','#email','input[aria-label*="Email" i]','[data-automation-id="email"] input') },
-      { label:'Phone',     filled:q('input[type="tel"]','input[name="phone"]','#phone','input[aria-label*="Phone" i]','input[aria-label*="Mobile" i]','[data-automation-id="phone"] input') },
-      { label:'Location',  filled:q('input[name="location"]','input[name="city"]','#job_application_location','input[aria-label*="City" i]','input[aria-label*="Location" i]','[data-automation-id="addressSection_city"] input') },
-      { label:'LinkedIn',  filled:q('input[name*="linkedin" i]','input[id*="linkedin" i]','input[aria-label*="LinkedIn" i]','input[name="urls[LinkedIn]"]'), optional:true },
+      { label:'Full Name', filled:q(
+          'input[name="first_name"]','input[name*="first_name"]','input[name*="firstName"]',
+          '#first_name','input[name="name"]',
+          'input[aria-label*="First name" i]','input[aria-label*="Full name" i]',
+          '[data-automation-id="legalNameSection_firstName"] input','[data-automation-id="firstName"] input'
+        )},
+      { label:'Email', filled:q(
+          'input[type="email"]','input[name="email"]','input[name*="email"]',
+          '#email','input[aria-label*="Email" i]','[data-automation-id="email"] input'
+        )},
+      { label:'Phone', filled:q(
+          'input[type="tel"]','input[name="phone"]','input[name*="phone"]',
+          '#phone','input[aria-label*="Phone" i]','input[aria-label*="Mobile" i]','[data-automation-id="phone"] input'
+        )},
+      { label:'Location', filled:q(
+          'input[name="location"]','input[name*="location"]','input[name="city"]','input[name*="city"]',
+          '#job_application_location','input[aria-label*="City" i]','input[aria-label*="Location" i]',
+          '[data-automation-id="addressSection_city"] input'
+        )},
+      { label:'LinkedIn', filled:q(
+          'input[name*="linkedin" i]','input[id*="linkedin" i]','input[aria-label*="LinkedIn" i]','input[name="urls[LinkedIn]"]'
+        ), optional:true },
     ];
     if (resumeEls.length)      fields.push({ label:'Resume',       filled: fileUploaded(resumeEls) || !!(this.files?.resume?.available) });
     if (transcriptEls.length)  fields.push({ label:'Transcript',   filled: fileUploaded(transcriptEls), optional:true });
     if (coverLetterEls.length) fields.push({ label:'Cover Letter', filled: coverLetterEls.some(el => (el.value||'').trim().length > 10), optional:true });
-    fields.push({ label:'Work Auth', filled:workAuthAnswered(), optional:true });
+    const workAuthPresent = !!(
+      document.querySelector('[role="radiogroup"]') ||
+      document.querySelector('select[name*="work" i],select[name*="auth" i],select[name*="sponsor" i]') ||
+      Array.from(document.querySelectorAll('label,legend')).some(el => /authorized.*work|work.*authorized|legally.*work|work.*permit|sponsorship/i.test(el.textContent||''))
+    );
+    fields.push({ label:'Work Auth', filled:workAuthAnswered(), optional:!workAuthPresent });
     return fields;
   }
 
@@ -2487,6 +2876,8 @@ class PreciprocalSidebar {
 
             <!-- Status / file rows -->
             <div id="prc-fill-status" class="prc-status-banner" style="display:none;"></div>
+            <!-- Post-fill analysis: shows unfilled required fields -->
+            <div id="prc-analysis" style="display:none;"></div>
             <div id="prc-file-status" class="prc-files-wrap" style="display:none;">
               <div id="prc-resume-status" class="prc-file-row"></div>
               <div id="prc-transcript-status" class="prc-file-row"></div>
@@ -2544,6 +2935,79 @@ class PreciprocalSidebar {
     }
     const count = document.getElementById('prc-fields-count');
     if (count) count.textContent = `${reqFilled}/${required.length} filled`;
+  }
+
+  // Scans every visible form field after fill, compares filled vs empty,
+  // and displays an analysis panel in the sidebar so the user can review
+  // before submitting.
+  _analyzeAndShowResults() {
+    const issues = [];
+    const getFieldLabel = (el) => {
+      try { return getLabel(el).replace(/\s*\*\s*$/, '').trim(); } catch { return ''; }
+    };
+
+    // ── Scan native inputs ──
+    for (const inp of document.querySelectorAll('input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]):not([aria-hidden])')) {
+      if (!inp.offsetParent) continue;
+      const required = inp.required || inp.getAttribute('aria-required') === 'true' || !!inp.closest('[required]');
+      if (!required) continue;
+      const lbl = getFieldLabel(inp);
+      if (!lbl) continue;
+      if (!(inp.value||'').trim()) issues.push(lbl);
+    }
+
+    // ── Scan native selects ──
+    for (const sel of document.querySelectorAll('select:not([disabled])')) {
+      if (!sel.offsetParent) continue;
+      const required = sel.required || sel.getAttribute('aria-required') === 'true';
+      if (!required) continue;
+      const lbl = getFieldLabel(sel);
+      if (!lbl) continue;
+      if (!sel.value || sel.value === '' || sel.value === '0') issues.push(lbl);
+    }
+
+    // ── Scan textareas ──
+    for (const ta of document.querySelectorAll('textarea:not([disabled])')) {
+      if (!ta.offsetParent) continue;
+      const required = ta.required || ta.getAttribute('aria-required') === 'true';
+      if (!required) continue;
+      const lbl = getFieldLabel(ta);
+      if (!lbl || /cover.?letter|covering/i.test(lbl)) continue;
+      if (!(ta.value||'').trim()) issues.push(lbl);
+    }
+
+    // ── Scan React Select dropdowns ──
+    for (const lr of document.querySelectorAll('span[id^="react-select"][id$="-live-region"]')) {
+      const container = lr.closest('[class*="-container"],[class*="select-shell"]');
+      if (!container || !container.offsetParent) continue;
+      // Check if required (look for nearby required input or asterisk label)
+      const hasReqInput = !!container.querySelector('input[required],[aria-required="true"]');
+      const hasAsterisk = !!container.closest('.select__container,[class*="field-wrapper"]')?.querySelector('[aria-hidden="true"]:not(svg),[class*="required-star"],.asterisk');
+      if (!hasReqInput && !hasAsterisk) continue;
+      const sv = container.querySelector('[class*="single-value"],[class*="singleValue"]');
+      if (!sv || !sv.textContent?.trim() || /^(select|choose|--)/i.test(sv.textContent)) {
+        // Try to get label
+        const labelEl = container.closest('[class*="select__container"],[class*="field-wrapper"]')?.querySelector('label,legend');
+        const lbl = (labelEl?.textContent || '').replace(/\s*\*\s*$/,'').trim();
+        if (lbl) issues.push(lbl);
+      }
+    }
+
+    // Deduplicate
+    const unique = [...new Set(issues)].slice(0, 10);
+
+    // Show analysis panel
+    const analysisEl = document.getElementById('prc-analysis');
+    if (!analysisEl) return;
+
+    if (unique.length === 0) {
+      analysisEl.style.display = 'block';
+      analysisEl.innerHTML = `<div class="prc-analysis-ok"><svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="#16a34a" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> All required fields appear filled</div>`;
+    } else {
+      analysisEl.style.display = 'block';
+      const rows = unique.map(lbl => `<div class="prc-analysis-row">· ${lbl}</div>`).join('');
+      analysisEl.innerHTML = `<div class="prc-analysis-warn"><div class="prc-analysis-hdr">⚠ ${unique.length} field${unique.length > 1 ? 's' : ''} may need review</div>${rows}</div>`;
+    }
   }
 
   _listen() {
@@ -2651,7 +3115,28 @@ class PreciprocalSidebar {
         await delay(800);
       }
 
-      const { filled } = await fillForm(this.profile, this.platform);
+      // Poll field circles in real-time while fillForm runs so the user sees
+      // each field light up as it gets filled (seamless progress).
+      const _self = this;
+      let _filledSoFar = 0;
+      const _pollId = setInterval(() => {
+        _self._updateFieldChecks();
+        // Also nudge the completion bar proportionally to filled fields so far
+        const total = _self._countPageFields();
+        if (total > 0) {
+          const pctNow = Math.min(95, Math.round((_filledSoFar / total) * 100));
+          _self._updateCompletion(pctNow);
+        }
+      }, 350);
+
+      let filled = 0;
+      try {
+        const result = await fillForm(this.profile, this.platform);
+        filled = result.filled;
+        _filledSoFar = filled;
+      } finally {
+        clearInterval(_pollId);
+      }
 
       if (label) label.textContent = 'Uploading files…';
       await this._injectFiles(fileEl);
@@ -2667,6 +3152,8 @@ class PreciprocalSidebar {
       this._updateFieldChecks();
 
       if (statusEl) { statusEl.style.display='flex'; statusEl.className='prc-status-banner prc-status-ok'; statusEl.innerHTML=`<svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span>Done — review fields before submitting</span>`; }
+      // Delay slightly so React re-renders fill results before we inspect field values
+      setTimeout(() => this._analyzeAndShowResults(), 700);
     } catch (err) {
       console.error('❌ Autofill error:', err);
       this.state = 'error';
@@ -2835,6 +3322,12 @@ class PreciprocalSidebar {
       #prc-sidebar .prc-status-ok{background:#f0fdf4!important;color:#15803d!important;border:1px solid #bbf7d0!important;}
       #prc-sidebar .prc-status-err{background:#fef2f2!important;color:#dc2626!important;border:1px solid #fecaca!important;}
       #prc-sidebar .prc-status-info{background:#eff6ff!important;color:#2563eb!important;border:1px solid #bfdbfe!important;}
+      /* ── Post-fill analysis panel ── */
+      #prc-sidebar #prc-analysis{margin-top:2px!important;}
+      #prc-sidebar .prc-analysis-ok{display:flex!important;align-items:center!important;gap:5px!important;font-size:11px!important;color:#15803d!important;font-weight:500!important;padding:6px 8px!important;background:#f0fdf4!important;border-radius:7px!important;border:1px solid #bbf7d0!important;}
+      #prc-sidebar .prc-analysis-warn{background:#fffbeb!important;border:1px solid #fde68a!important;border-radius:7px!important;padding:7px 9px!important;}
+      #prc-sidebar .prc-analysis-hdr{font-size:11px!important;font-weight:700!important;color:#92400e!important;margin-bottom:4px!important;}
+      #prc-sidebar .prc-analysis-row{font-size:10.5px!important;color:#78350f!important;padding:1px 0!important;font-weight:400!important;}
 
       /* ── File rows ── */
       #prc-sidebar .prc-files-wrap{display:flex!important;flex-direction:column!important;gap:4px!important;padding:8px 10px!important;background:#fafafa!important;border:1px solid #e4e4e7!important;border-radius:8px!important;}

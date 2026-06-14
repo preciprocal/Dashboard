@@ -37,6 +37,7 @@ interface JobAppProfile {
   reasonForLeaving: string; criminalRecord: boolean;
   languages: string; certifications: string;
   coverLetterIntro: string; coverLetterBody: string;
+  preferredLocations: string[];
 }
 
 const DEFAULT_EDU: EducationEntry  = { school:'', degree:'', field:'', gpa:'', year:'', current:false };
@@ -55,7 +56,7 @@ const DEFAULT_PROFILE: JobAppProfile = {
   howDidYouHear:'LinkedIn', driverLicense:true, backgroundCheck:true,
   drugTest:true, over18:true, currentlyEmployed:false,
   reasonForLeaving:'', criminalRecord:false, languages:'English', certifications:'',
-  coverLetterIntro:'', coverLetterBody:'',
+  coverLetterIntro:'', coverLetterBody:'', preferredLocations:[],
 };
 
 // ─── Completion meter ─────────────────────────────────────────────────────────
@@ -331,6 +332,47 @@ function SalaryField({ salary, salaryType, onSalary, onType }: {
   );
 }
 
+// ─── Location picker ──────────────────────────────────────────────────────────
+
+const PREFERRED_LOCS = [
+  'Remote','New York, NY','San Francisco, CA','Los Angeles, CA','Seattle, WA',
+  'Boston, MA','Chicago, IL','Austin, TX','Denver, CO','Atlanta, GA',
+  'Washington, DC','Miami, FL','San Diego, CA','Portland, OR','Dallas, TX',
+  'Houston, TX','Phoenix, AZ','Minneapolis, MN','Philadelphia, PA','Detroit, MI',
+  'San Jose, CA','Oakland, CA','Raleigh, NC','Charlotte, NC','Nashville, TN',
+  'Salt Lake City, UT','Las Vegas, NV','Pittsburgh, PA','Columbus, OH','Indianapolis, IN',
+];
+
+function LocationPicker({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  const toggle = (loc: string) =>
+    onChange(value.includes(loc) ? value.filter(l => l !== loc) : [...value, loc]);
+  return (
+    <F label="Preferred Locations" hint="select all that apply — used for office location questions">
+      <div className="flex flex-wrap gap-2 mt-1">
+        {PREFERRED_LOCS.map(loc => {
+          const active = value.includes(loc);
+          return (
+            <button
+              key={loc}
+              type="button"
+              onClick={() => toggle(loc)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all duration-150
+                ${active
+                  ? 'bg-purple-600/30 border-purple-500/50 text-purple-200'
+                  : 'bg-white/[0.03] border-white/[0.08] text-slate-400 hover:border-white/20 hover:text-slate-300'}`}
+            >
+              {loc}
+            </button>
+          );
+        })}
+      </div>
+      {value.length > 0 && (
+        <p className="text-[11px] text-slate-600 mt-2">{value.length} location{value.length !== 1 ? 's' : ''} selected</p>
+      )}
+    </F>
+  );
+}
+
 // ─── Option lists ─────────────────────────────────────────────────────────────
 
 const COUNTRIES  = opts(['United States','Canada','United Kingdom','Australia','India','Germany','France','Other']);
@@ -448,6 +490,7 @@ export default function JobApplicationProfile() {
             certifications:   d.certifications   || prev.certifications,
             coverLetterIntro: d.coverLetterIntro || prev.coverLetterIntro,
             coverLetterBody:  d.coverLetterBody  || prev.coverLetterBody,
+            preferredLocations: Array.isArray(d.preferredLocations) ? d.preferredLocations : prev.preferredLocations,
           }));
         }
       } catch (e) { console.error(e); }
@@ -590,6 +633,7 @@ export default function JobApplicationProfile() {
             <FSelect label="Open to Travel"   value={p.openToTravel}   onChange={set('openToTravel')}   options={TRAVEL} />
             <FSelect label="How did you hear?" hint="default answer" value={p.howDidYouHear} onChange={set('howDidYouHear')} options={REFERRAL} />
           </div>
+          <LocationPicker value={p.preferredLocations} onChange={set('preferredLocations')} />
           <div className="grid grid-cols-2 gap-2">
             <FToggle value={p.willingToRelocate} onChange={set('willingToRelocate')} label="Willing to relocate" />
             <FToggle value={p.currentlyEmployed} onChange={set('currentlyEmployed')} label="Currently employed" />
