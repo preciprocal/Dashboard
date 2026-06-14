@@ -213,7 +213,7 @@ async function syncAuthFromPreciprocal() {
           savedAt:     Date.now(),
         }
       });
-      console.log('[BG] ✅ Auth synced:', user.email);
+      // auth synced
       return user;
     }
   }
@@ -231,9 +231,8 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (!url) return;
 
   // 1. Auth sync for preciprocal app tabs
-  if (url.includes('preciprocal.com') || url.includes('localhost:3000')) {
-    setTimeout(async () => {
-      const user = await readAuthFromTab(tabId);
+  if (url.includes('preciprocal.com')) {
+    readAuthFromTab(tabId).then(async (user) => {
       if (user) {
         await chrome.storage.local.set({
           [STORAGE_KEY]: {
@@ -245,18 +244,14 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
             savedAt:     Date.now(),
           }
         });
-        console.log('[BG] ✅ Auto-synced on tab load:', user.email);
         flushJobQueue(user.token, user.uid, user.email);
       } else {
-        // Tab is a preciprocal page but has no Firebase user → user logged out.
-        // Clear stale auth so the extension reflects the logged-out state.
         const current = await chrome.storage.local.get([STORAGE_KEY]);
         if (current[STORAGE_KEY]?.uid) {
           await chrome.storage.local.remove([STORAGE_KEY]);
-          console.log('[BG] 🗑️ Auth cleared — preciprocal tab has no user');
         }
       }
-    }, 2000);
+    }).catch(() => {});
   }
 
   // 2. Dynamic injection for custom-domain job portals (e.g. fanduel.careers, custom Greenhouse)
@@ -333,9 +328,9 @@ async function flushJobQueue(token, userId, email) {
 // FETCH_FILE — fetch Firebase Storage files on behalf of content scripts
 // (service worker has no CORS restrictions; content scripts do)
 // ─────────────────────────────────────────────────────────────────
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  if (msg.type === 'FETCH_FILE') {
-    fetch(msg.url)
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.type === 'FETCH_FILE') {
+    fetch(message.url)
       .then(r => r.blob())
       .then(blob => {
         const reader = new FileReader();
@@ -347,11 +342,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         reader.readAsDataURL(blob);
       })
       .catch(() => sendResponse(null));
-    return true; // keep port open for async response
+    return true;
   }
-});
-
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   if (message.type === 'CHECK_AUTH') {
     chrome.storage.local.get([STORAGE_KEY], (result) => {
@@ -522,18 +514,18 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         .then(r => r.json())
         .then(data => {
           if (data.success || data.duplicate) {
-            console.log('[BG] ✅ Job tracked:', jobData.jobTitle, '@', jobData.company);
+            // job tracked
             sendResponse({ success: true, queued: false });
             flushJobQueue(auth.token, auth.uid, auth.email);
           } else {
-            console.warn('[BG] ⚠️ track-job API error:', data.error);
+            // track-job error, queuing
             enqueueJobApplication(jobData).then(() =>
               sendResponse({ success: true, queued: true })
             );
           }
         })
         .catch(err => {
-          console.warn('[BG] ⚠️ track-job network error:', err.message);
+          // network error, queuing
           enqueueJobApplication(jobData).then(() =>
             sendResponse({ success: true, queued: true })
           );
@@ -548,7 +540,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 // External messages from preciprocal.com
 // ─────────────────────────────────────────────────────────────────
 chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
-  const allowed = ['https://app.preciprocal.com', 'https://preciprocal.com', 'http://localhost:3000'];
+  const allowed = ['https://app.preciprocal.com', 'https://preciprocal.com'];
   if (!allowed.includes(sender.origin)) {
     sendResponse({ success: false, error: 'Unauthorized' });
     return;

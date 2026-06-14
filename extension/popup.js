@@ -1,7 +1,11 @@
 // popup.js
 
 const IS_DEV   = false;
-const BASE_URL = IS_DEV ? 'http://localhost:3000' : 'https://app.preciprocal.com';
+const BASE_URL = 'https://app.preciprocal.com';
+
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
 
 const ICON_URL = chrome.runtime.getURL('icons/icon48.png');
 
@@ -87,6 +91,18 @@ function render() {
     c.innerHTML = renderLoading();
   } else if (authState.authenticated && authState.user) {
     c.innerHTML = renderConnected();
+    // Set user data via textContent to prevent XSS
+    const u = authState.user;
+    const init = (u.displayName || u.email || 'U').charAt(0).toUpperCase();
+    const nameEl  = document.getElementById('uName');
+    const emailEl = document.getElementById('uEmail');
+    const avImg   = document.getElementById('avImg');
+    if (nameEl)  nameEl.textContent  = u.displayName || 'User';
+    if (emailEl) emailEl.textContent = u.email || '';
+    if (avImg) avImg.addEventListener('error', () => {
+      const avEl = document.getElementById('avEl');
+      if (avEl) avEl.textContent = init;
+    });
   } else {
     c.innerHTML = renderDisconnected();
   }
@@ -183,22 +199,22 @@ function renderConnected() {
   const tCls = (tier === 'pro' || tier === 'premium') ? 'pro' : '';
 
   const avatarInner = u.photoURL
-    ? `<img src="${u.photoURL}" alt="${u.displayName}" onerror="this.style.display='none';this.parentElement.textContent='${init}'">`
-    : init;
+    ? `<img id="avImg" src="${escHtml(u.photoURL)}" alt="">`
+    : escHtml(init);
 
   return `
     ${header(true)}
     <div class="connected-wrap">
       <div class="user-card">
         <div class="av-wrap">
-          <div class="av">${avatarInner}</div>
+          <div class="av" id="avEl">${avatarInner}</div>
           <div class="av-badge"><img src="${ICON_URL}" alt=""></div>
         </div>
         <div class="u-info">
-          <div class="u-name">${u.displayName || 'User'}</div>
-          <div class="u-email">${u.email || ''}</div>
+          <div class="u-name" id="uName"></div>
+          <div class="u-email" id="uEmail"></div>
         </div>
-        <span class="tier ${tCls}">${tLbl}</span>
+        <span class="tier ${tCls}">${escHtml(tLbl)}</span>
       </div>
       <button id="btnDash" class="btn-main">Open Dashboard</button>
       <button id="btnLogout" class="btn-danger">Disconnect account</button>
@@ -219,7 +235,7 @@ function renderDisconnected() {
         <div class="fc-ico i1">⚡</div>
         <div class="fc-body">
           <div class="fc-title">1-click Auto Apply</div>
-          <div class="fc-desc">Fill any application form instantly using your saved profile</div>
+          <div class="fc-desc">Fill any application form instantly with one click</div>
         </div>
       </div>
       <div class="fc-row">

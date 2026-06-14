@@ -1,4 +1,17 @@
-// banner.js - LinkedIn-integrated banner with Preciprocal job tracker + Universal Auto Apply
+// ═══════════════════════════════════════════════════════════════════
+// banner.js — LINKEDIN ONLY
+// Injected exclusively on: linkedin.com/*
+// Handles: job card chips, match score, Easy Apply auto-fill, job tracker
+//
+// DO NOT add external ATS logic here.
+// External ATS auto-fill lives in external-apply.js (different domains).
+//
+// Storage handoff (write here, read in external-apply.js):
+//   preciprocal_auto_apply_profile  — user profile object
+//   preciprocal_auto_apply_files    — resume / transcript file info
+//   preciprocal_auto_apply_job      — job metadata
+//   preciprocal_pending_confirm_job — confirmation prompt on return
+// ═══════════════════════════════════════════════════════════════════
 
 console.log('🎯 Preciprocal banner.js loaded on:', window.location.href);
 
@@ -119,23 +132,19 @@ class LabelInjector {
 
     const chip = LabelInjector._chipEl(type);
 
-    // Target: the dismiss (✕) button - place chip immediately before it in the same row
-    const dismissBtn = card.querySelector(
-      'button[aria-label*="ismiss"], button[aria-label*="iscard"], button[data-control-name*="dismiss"]'
-    );
-
-    if (dismissBtn) {
-      const parent = dismissBtn.parentElement;
-      // Make sure the parent is a flex row so chip and button align
-      parent.style.cssText += ';display:flex!important;align-items:center!important;gap:6px!important;';
-      parent.insertBefore(chip, dismissBtn);
-      console.log(`[PRC] ✅ Chip "${type}" injected beside dismiss btn for jobId: ${jobId}`);
+    // Target: the job title element — chip sits inline right after the title text
+    const titleEl = LabelInjector._findTitleEl(card);
+    if (titleEl) {
+      const titleParent = titleEl.parentElement;
+      titleParent.style.cssText += ';display:flex!important;align-items:center!important;flex-wrap:wrap!important;gap:6px!important;';
+      titleEl.after(chip);
+      console.log(`[PRC] ✅ Chip "${type}" injected after title for jobId: ${jobId}`);
     } else {
-      // Fallback: absolute position top-right of card, before where ✕ would be
+      // Fallback: absolute position top-left of card (away from action buttons)
       card.style.setProperty('position', 'relative', 'important');
-      chip.style.cssText += ';position:absolute!important;top:10px!important;right:36px!important;z-index:9999!important;';
+      chip.style.cssText += ';position:absolute!important;top:10px!important;left:10px!important;z-index:9999!important;';
       card.appendChild(chip);
-      console.log(`[PRC] ✅ Chip "${type}" injected absolute top-right for jobId: ${jobId}`);
+      console.log(`[PRC] ✅ Chip "${type}" injected absolute top-left for jobId: ${jobId}`);
     }
 
     LabelInjector._persistLabel(jobId, type);
@@ -241,7 +250,7 @@ class JobExtractor {
 // ─────────────────────────────────────────────────────────────────
 
 class EasyApplyEngine {
-  constructor(profile, onStatus) { this.profile = profile; this.onStatus = onStatus; this.maxSteps = 20; this.stepCount = 0; this.modalEl = null; }
+  constructor(profile, onStatus, jobData) { this.profile = profile; this.onStatus = onStatus; this.jobData = jobData || null; this.maxSteps = 20; this.stepCount = 0; this.modalEl = null; }
 
   async start() {
     this.onStatus('Opening Easy Apply…', 'filling');
@@ -298,10 +307,28 @@ class EasyApplyEngine {
     return 'none';
   }
 
+  _attachUserTypingGuard(modal) {
+    if (modal._prTypingGuard) return;
+    modal._prTypingGuard = true;
+    this._lastUserInput = 0;
+    const handler = () => { this._lastUserInput = Date.now(); };
+    modal.addEventListener('input', handler, true);
+    modal.addEventListener('keydown', handler, true);
+  }
+
+  async _waitForUserToFinishTyping() {
+    if (!this._lastUserInput) return;
+    while (Date.now() - this._lastUserInput < 3000) {
+      await this._delay(300);
+    }
+  }
+
   async _processAllSteps() {
     while (this.stepCount < this.maxSteps) {
       this.stepCount++; await this._delay(600);
       const modal = this._getModal(); if (!modal) break;
+      this._attachUserTypingGuard(modal);
+      await this._waitForUserToFinishTyping();
       await this._fillCurrentStep(modal); await this._delay(400);
       const action = this._detectNextAction(modal);
       if (action === 'none') break;
@@ -321,12 +348,16 @@ class EasyApplyEngine {
     for (const el of modal.querySelectorAll('textarea')) await this._fillTextarea(el, p);
     await this._fillRadioGroups(modal, p);
     await this._fillCheckboxGroups(modal, p);
+    // Retry selects once after a short delay — React may need a tick to register the first pass
+    await this._delay(300);
+    for (const el of modal.querySelectorAll('select')) await this._fillSelect(el, p);
   }
 
   _rangeToSingleNumber(v) { if (!v) return ''; const s = String(v).trim(); const r = s.match(/^(\d+)\s*[-–]\s*\d+/); if (r) return r[1]; const p2 = s.match(/^(\d+)\s*\+/); if (p2) return p2[1]; const n = s.match(/^(\d+)/); return n ? n[1] : s; }
 
   async _fillInput(input, p) {
     if (input.disabled || input.readOnly || (input.value && input.value.trim())) return;
+    if (document.activeElement === input) return;
     const hint = `${this._getLabel(input)} ${input.id || ''} ${input.name || ''}`.toLowerCase();
     let val = this._matchProfileField(hint, p); if (!val && val !== 0) return; val = String(val);
     if (input.type === 'number' || input.getAttribute('inputmode') === 'numeric') val = this._rangeToSingleNumber(val);
@@ -334,21 +365,60 @@ class EasyApplyEngine {
     this._setNativeValue(input, val); await this._delay(50);
   }
 
+  _selectIsEmpty(select) {
+    if (select.disabled) return false;
+    // Always check visible text first — React can revert the DOM value while keeping select.value set
+    const selText = (select.options[select.selectedIndex]?.text || '').toLowerCase().trim();
+    if (/^select\b|^choose\b|^please select|^--|\bselect an option\b|\bselect one\b|^none$/.test(selText)) return true;
+    if (!select.value || select.value === '' || select.value === '0' || select.value === '-1' || select.value === 'null' || select.value === 'undefined') return true;
+    return false;
+  }
+
   async _fillSelect(select, p) {
-    if (select.disabled || (select.value && select.value !== '' && select.value !== '0')) return;
+    if (!this._selectIsEmpty(select)) return;
     const hint = `${this._getLabel(select)} ${select.id || ''} ${select.name || ''}`.toLowerCase();
     if (/authoriz|visa|work permit|eligible|legally/i.test(hint)) { this._selectByText(select, p.workAuthorization || 'Yes'); return; }
     if (/sponsor/i.test(hint)) { this._selectByText(select, p.requireSponsorship ? 'Yes' : 'No'); return; }
     if (/relocat/i.test(hint)) { this._selectByText(select, p.willingToRelocate ? 'Yes' : 'No'); return; }
-    if (/country/i.test(hint)) { this._selectByText(select, p.country || 'United States'); return; }
+    if (/country/i.test(hint)) {
+      const variants = [p.country, 'United States', 'United States of America', 'USA', 'US'].filter(Boolean);
+      for (const v of variants) { this._selectByText(select, v); if (!this._selectIsEmpty(select)) break; }
+      return;
+    }
+    if (/\bstate\b|current.*state|state.*address/i.test(hint)) { if (p.state) this._selectByText(select, p.state); return; }
+    if (/province/i.test(hint)) { if (p.state) this._selectByText(select, p.state); return; }
     if (/year.*exp|exp.*year/i.test(hint)) { this._selectClosestNumber(select, p.yearsOfExperience || ''); return; }
     if (/notice|start/i.test(hint)) { this._selectByText(select, p.noticePeriod || '2 weeks'); return; }
+    if (/over.*18|18.*older|age.*18|18.*age/i.test(hint)) { this._selectByText(select, p.over18 ? 'Yes' : 'No'); return; }
+    if (/driver.?s?\s*licen[sc]e/i.test(hint)) { this._selectByText(select, p.driverLicense ? 'Yes' : 'No'); return; }
+    if (/background\s*check/i.test(hint)) { this._selectByText(select, p.backgroundCheck ? 'Yes' : 'No'); return; }
+    if (/drug\s*test/i.test(hint)) { this._selectByText(select, p.drugTest ? 'Yes' : 'No'); return; }
+    if (/criminal|felony|conviction/i.test(hint)) { this._selectByText(select, p.criminalRecord ? 'Yes' : 'No'); return; }
+    if (/currently employ/i.test(hint)) { this._selectByText(select, p.currentlyEmployed ? 'Yes' : 'No'); return; }
+    if (/have you ever worked|previously worked|worked (at|for|with)|previous.*employ|former.*employ/i.test(hint)) { this._selectByText(select, 'No'); return; }
+    if (/do you currently work for|currently work (at|for)|work.*currently/i.test(hint)) { this._selectByText(select, p.currentlyEmployed ? 'Yes' : 'No'); return; }
+    if (/family member|relative.*work|employee.*family/i.test(hint)) { this._selectByText(select, 'No'); return; }
+    if (/consent.*text|consent.*call|consent.*email|contact.*consent/i.test(hint)) { this._selectByText(select, 'Yes'); return; }
+    if (/schedule.*work|available.*schedule|this schedule/i.test(hint)) { this._selectByText(select, 'Yes'); return; }
+    if (/employ.*type|job.*type|position.*type|full.?time|part.?time/i.test(hint)) { this._selectByText(select, p.employmentType || 'Full-time'); return; }
+    if (/work.*arrang|remote|hybrid|on.?site/i.test(hint)) { this._selectByText(select, p.workType || 'Remote'); return; }
+    if (/gender/i.test(hint)) { this._selectByText(select, p.gender || 'Prefer not to say'); return; }
+    if (/pronoun/i.test(hint)) { this._selectByText(select, p.pronouns || 'Prefer not to say'); return; }
+    if (/race|ethnicity/i.test(hint)) { this._selectByText(select, p.race || 'Prefer not to say'); return; }
+    if (/veteran/i.test(hint)) { this._selectByText(select, p.veteranStatus || 'I am not a protected veteran'); return; }
+    if (/disability/i.test(hint)) { this._selectByText(select, p.disabilityStatus || 'I do not have a disability'); return; }
+    if (/salary|compensation|pay/i.test(hint)) { if (p.desiredSalary) this._selectClosestNumber(select, p.desiredSalary); return; }
+    if (/how.*hear|referr|source/i.test(hint)) { this._selectByText(select, p.howDidYouHear || 'LinkedIn'); return; }
   }
 
   async _fillTextarea(textarea, p) {
     if (textarea.disabled || textarea.readOnly || textarea.value?.trim().length > 10) return;
+    if (document.activeElement === textarea) return;
     const hint = `${this._getLabel(textarea)} ${textarea.id || ''}`.toLowerCase();
     if (/cover.?letter|covering/i.test(hint)) return;
+    if (/interest.*joining|interest.*working|interest.*role|interest.*position|why.*apply|why.*want.*work|what.*excit|what.*draw|what.*attract|motivat.*apply|passion.*role/i.test(hint)) {
+      const val = this._matchProfileField(hint, p); if (val) this._setNativeValue(textarea, val); return;
+    }
     if (/summary|about|additional|message|note/i.test(hint)) this._setNativeValue(textarea, p.summary || '');
     if (/linkedin/i.test(hint)) this._setNativeValue(textarea, p.linkedInUrl || '');
     if (/github/i.test(hint)) this._setNativeValue(textarea, p.githubUrl || '');
@@ -383,6 +453,53 @@ class EasyApplyEngine {
     }
   }
 
+  _extractJDSkills(description) {
+    if (!description) return [];
+    const SKILL_TERMS = [
+      'python','javascript','typescript','react','node','java','go','rust','c++','c#','scala','kotlin','swift',
+      'sql','nosql','postgresql','mysql','mongodb','redis','elasticsearch','kafka','spark','hadoop',
+      'aws','gcp','azure','kubernetes','docker','terraform','ci/cd','devops','mlops',
+      'machine learning','deep learning','llm','nlp','computer vision','data science','analytics',
+      'product management','product strategy','roadmap','agile','scrum','okr','kpi',
+      'growth','marketing','seo','a/b testing','user research','ux','design systems',
+      'sales','crm','salesforce','b2b','saas','api','microservices','distributed systems',
+      'security','compliance','fintech','healthtech','edtech','ecommerce',
+      'leadership','cross-functional','stakeholder','communication','strategy',
+    ];
+    const desc = description.toLowerCase();
+    const found = SKILL_TERMS.filter(skill => desc.includes(skill));
+    // Deduplicate and return top 4
+    return [...new Set(found)].slice(0, 4);
+  }
+
+  _buildInterestAnswer(p) {
+    const jd = this.jobData;
+    const roleTitle = jd?.title || p.headline || 'this role';
+    const company = jd?.company || 'your team';
+    const jdSkills = this._extractJDSkills(jd?.description || '');
+
+    // Intersect JD skills with user's profile skills for the most relevant match
+    const userSkillsRaw = Array.isArray(p.skills)
+      ? p.skills.map(s => s.toLowerCase())
+      : (p.skills || '').split(',').map(s => s.trim().toLowerCase());
+
+    const matchedSkills = jdSkills.filter(s => userSkillsRaw.some(us => us.includes(s) || s.includes(us)));
+    const highlightSkills = matchedSkills.length >= 2 ? matchedSkills : jdSkills.length ? jdSkills : userSkillsRaw.slice(0, 3);
+    const skillsStr = highlightSkills.slice(0, 3).join(', ');
+
+    const exp = p.experience?.[0];
+    const backgroundStr = exp
+      ? `my experience as a ${exp.title} at ${exp.company}`
+      : `my background in ${p.headline || 'software engineering'}`;
+
+    const yoe = p.yearsOfExperience ? `${p.yearsOfExperience} years of` : 'years of';
+
+    return `The ${roleTitle} role at ${company} stands out because the core challenges map directly onto problems I have spent ${yoe} experience solving. `
+      + `${backgroundStr.charAt(0).toUpperCase() + backgroundStr.slice(1)} has given me deep, hands-on proficiency in ${skillsStr || p.headline || 'this domain'}, `
+      + `which aligns closely with what the team is looking for. `
+      + `I am drawn to ${company} because of the scale and ambition of the work, and I am confident I can contribute meaningfully from day one while continuing to grow alongside the team.`;
+  }
+
   _matchProfileField(hint, p) {
     if (/phone|mobile|cell|tel/i.test(hint)) return p.phone; if (/email|e-mail/i.test(hint)) return p.email;
     if (/first.?name|fname|given/i.test(hint)) return p.firstName; if (/last.?name|lname|surname|family/i.test(hint)) return p.lastName;
@@ -397,32 +514,21 @@ class EasyApplyEngine {
     if (/most.?recent.*title|current.*(?:job|position|role).*title|previous.*title|\bjob\s*title\b/i.test(hint)) { const exp = p.experience?.[0]; return exp?.title || p.headline || ''; }
     if (/title|headline/i.test(hint)) return p.headline;
     if (/notice|start date/i.test(hint)) return p.noticePeriod;
+    if (/interest.*joining|interest.*working|interest.*role|interest.*position|why.*apply|why.*want.*work|what.*excit|what.*draw|what.*attract|motivat.*apply|passion.*role/i.test(hint)) {
+      return this._buildInterestAnswer(p);
+    }
     return null;
   }
 
   async _fillCheckboxGroups(modal, p) {
-    const userLocs = [
-      (p.city || '').toLowerCase(),
-      (p.location || '').toLowerCase().split(',')[0].trim(),
-      ...((p.preferredLocations || []).map(l => l.toLowerCase())),
-    ].filter(Boolean);
     for (const group of modal.querySelectorAll('[role="group"], fieldset')) {
       const legendEl = group.querySelector('legend, [id*="label"], [class*="legend"], [class*="question"]');
       const legend = (legendEl?.textContent || '').toLowerCase();
       if (!/office|location|work.*location|site|which.*office/i.test(legend)) continue;
       const boxes = Array.from(group.querySelectorAll('input[type="checkbox"]'));
       if (!boxes.length) continue;
-      let checked = false;
       for (const cb of boxes) {
-        const lab = this._getLabel(cb).toLowerCase().replace(/,\s*/g, ' ');
-        if (userLocs.some(ul => lab.includes(ul) || ul.includes(lab.split(' ')[0]))) {
-          if (!cb.checked) cb.click();
-          checked = true; await this._delay(80);
-        }
-      }
-      if (!checked) {
-        const nearest = this._nearestLocation(userLocs, boxes.map(cb => this._getLabel(cb)));
-        if (nearest !== null) { const cb = boxes[nearest]; if (!cb.checked) cb.click(); await this._delay(80); }
+        if (!cb.checked) { cb.click(); await this._delay(80); }
       }
     }
   }
@@ -475,15 +581,44 @@ class EasyApplyEngine {
   }
 
   _setNativeValue(el, value) {
-    const proto = el.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
+    let proto;
+    if (el.tagName === 'TEXTAREA') proto = window.HTMLTextAreaElement.prototype;
+    else if (el.tagName === 'SELECT') proto = window.HTMLSelectElement.prototype;
+    else proto = window.HTMLInputElement.prototype;
     const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
     if (setter) setter.call(el, value); else el.value = value;
-    el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true }));
+    el.dispatchEvent(new Event('input',  { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    el.dispatchEvent(new Event('blur',   { bubbles: true }));
+    // Trigger React fiber onChange directly for controlled components
+    try {
+      const fk = Object.keys(el).find(k => /^__reactFiber|^__reactInternalInstance/.test(k));
+      if (fk) {
+        let fib = el[fk];
+        while (fib) {
+          const props = fib.memoizedProps || fib.pendingProps;
+          if (props?.onChange && typeof props.onChange === 'function') {
+            props.onChange({ target: el, currentTarget: el, type: 'change', bubbles: true });
+            break;
+          }
+          fib = fib.return;
+        }
+      }
+    } catch {}
   }
 
   _selectByText(select, text) {
-    const lower = text.toLowerCase(); const opts = Array.from(select.options);
-    const match = opts.find(o => o.text.toLowerCase() === lower) || opts.find(o => o.text.toLowerCase().includes(lower)) || opts.find(o => lower.includes(o.text.toLowerCase().split(' ')[0]));
+    if (!text) return;
+    const lower = text.toLowerCase().trim();
+    const STATE_MAP = { 'al':'alabama','ak':'alaska','az':'arizona','ar':'arkansas','ca':'california','co':'colorado','ct':'connecticut','de':'delaware','fl':'florida','ga':'georgia','hi':'hawaii','id':'idaho','il':'illinois','in':'indiana','ia':'iowa','ks':'kansas','ky':'kentucky','la':'louisiana','me':'maine','md':'maryland','ma':'massachusetts','mi':'michigan','mn':'minnesota','ms':'mississippi','mo':'missouri','mt':'montana','ne':'nebraska','nv':'nevada','nh':'new hampshire','nj':'new jersey','nm':'new mexico','ny':'new york','nc':'north carolina','nd':'north dakota','oh':'ohio','ok':'oklahoma','or':'oregon','pa':'pennsylvania','ri':'rhode island','sc':'south carolina','sd':'south dakota','tn':'tennessee','tx':'texas','ut':'utah','vt':'vermont','va':'virginia','wa':'washington','wv':'west virginia','wi':'wisconsin','wy':'wyoming','dc':'district of columbia' };
+    const expanded = STATE_MAP[lower] || lower;
+    const opts = Array.from(select.options).filter(o => o.value && o.value !== '' && o.value !== '0');
+    const match =
+      opts.find(o => o.text.toLowerCase() === expanded) ||
+      opts.find(o => o.text.toLowerCase() === lower) ||
+      opts.find(o => o.text.toLowerCase().includes(expanded)) ||
+      opts.find(o => o.text.toLowerCase().includes(lower)) ||
+      opts.find(o => lower.includes(o.text.toLowerCase()) && o.text.length > 2);
     if (match && select.value !== match.value) this._setNativeValue(select, match.value);
   }
 
@@ -527,6 +662,7 @@ class PreciprocalBanner {
   async init() {
     try {
       await this.checkAuth();
+      await this._checkPendingApplyConfirm();
       await this.waitForJobPanel();
       const extractor = new JobExtractor();
       this.jobData = extractor.extractJobData();
@@ -539,6 +675,66 @@ class PreciprocalBanner {
       if (this.isAuthenticated) await Promise.all([this.fetchMatchScore(), this.prefetchApplyProfile()]);
       this.observeJobChanges();
     } catch (err) { console.error('[PRC] Banner init error:', err); }
+  }
+
+  async _checkPendingApplyConfirm() {
+    try {
+      const result = await chrome.storage.local.get(['preciprocal_pending_confirm_job']);
+      const pending = result.preciprocal_pending_confirm_job;
+      if (!pending?.jobId) return;
+      await chrome.storage.local.remove(['preciprocal_pending_confirm_job']);
+      await this._delay(800);
+      this._showApplyConfirmModal(pending.jobId, pending.jobData);
+    } catch {}
+  }
+
+  _showApplyConfirmModal(jobId, jobData) {
+    const existing = document.getElementById('prc-apply-confirm-modal');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'prc-apply-confirm-modal';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);';
+
+    const card = document.createElement('div');
+    card.style.cssText = 'background:#0f172a;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:28px 32px;max-width:400px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,0.7);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;';
+
+    const title = jobData?.title ? `<strong style="color:#e2e8f0">${jobData.title}</strong>` : 'this role';
+    const company = jobData?.company ? ` at <strong style="color:#e2e8f0">${jobData.company}</strong>` : '';
+
+    card.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
+        <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="white"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+        <p style="margin:0;font-size:15px;font-weight:600;color:#f1f5f9;">Did you apply?</p>
+      </div>
+      <p style="margin:0 0 22px;font-size:13px;color:#94a3b8;line-height:1.5;">Did you complete your application for ${title}${company}?</p>
+      <div style="display:flex;gap:10px;">
+        <button id="prc-confirm-yes" style="flex:1;padding:10px;border-radius:10px;border:none;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Yes, I applied</button>
+        <button id="prc-confirm-no" style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:#94a3b8;font-size:13px;font-weight:600;cursor:pointer;">No, I did not</button>
+      </div>
+    `;
+
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+
+    const close = () => overlay.remove();
+
+    card.querySelector('#prc-confirm-yes').addEventListener('click', async () => {
+      close();
+      LabelInjector.inject(jobId, 'applied');
+      // Also track in job tracker
+      try {
+        if (this.authToken && jobData) {
+          await chrome.runtime.sendMessage({ type: 'API_FETCH_TRACK_JOB', token: this.authToken, userId: this.authUserId || '', email: this.authEmail || '', baseUrl: PRECIPROCAL_URL, jobData });
+        }
+      } catch {}
+      this.showNotification('Marked as Applied and added to tracker', 'success');
+    });
+
+    card.querySelector('#prc-confirm-no').addEventListener('click', close);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
   }
 
   waitForJobPanel(timeout = 10000) {
@@ -685,6 +881,27 @@ class PreciprocalBanner {
     return c;
   }
 
+  _watchForSubmit(jobId) {
+    const modal = document.querySelector('[data-test-modal-id="easy-apply-modal"], .jobs-easy-apply-modal, .artdeco-modal[role="dialog"]');
+    if (!modal) return;
+
+    let fired = false;
+    const submitHandler = (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      const text = btn.textContent?.trim().toLowerCase() || '';
+      if (/submit\s*application|^submit$/.test(text)) {
+        if (fired) return; fired = true;
+        modal.removeEventListener('click', submitHandler, true);
+        LabelInjector.inject(jobId, 'applied');
+      }
+    };
+    modal.addEventListener('click', submitHandler, true);
+
+    // Safety cleanup after 10 minutes
+    setTimeout(() => modal.removeEventListener('click', submitHandler, true), 600000);
+  }
+
   async handleAutoApply() {
     if (this.applyState === 'done' || this.applyState === 'loading') return;
     const btn = this.banner?.querySelector('[data-action="auto-apply"]');
@@ -701,18 +918,18 @@ class PreciprocalBanner {
       const ai = getApplyButtonInfo();
       if (ai.type === 'easy') {
         if (labelEl) labelEl.textContent = 'Filling…';
-        const engine = new EasyApplyEngine(this.applyProfile, (msg, t) => { if (t === 'success') this.showNotification(msg, 'success'); if (t === 'error') this.showNotification(msg, 'error'); });
+        const engine = new EasyApplyEngine(this.applyProfile, (msg, t) => { if (t === 'success') this.showNotification(msg, 'success'); if (t === 'error') this.showNotification(msg, 'error'); }, this.jobData);
         await engine.start(); try { await this._injectFilesIntoModal(); } catch {}
         this.applyState = 'done'; if (btn) { btn.classList.remove('loading'); btn.classList.add('done'); } if (labelEl) labelEl.textContent = 'Review & Submit';
         this.showNotificationWithLink(`Easy Apply filled for ${this.jobData?.company}`, 'View Tracker →', `${PRECIPROCAL_URL}/job-tracker`, 'success');
-        if (this.currentJobId) LabelInjector.inject(this.currentJobId, 'applied');
+        if (this.currentJobId) this._watchForSubmit(this.currentJobId);
       } else if (ai.type === 'external') {
-        await chrome.storage.local.set({ preciprocal_auto_apply_profile: this.applyProfile, preciprocal_auto_apply_files: this.applyFiles || null, preciprocal_auto_apply_timestamp: Date.now(), preciprocal_auto_apply_job: this.jobData });
+        await chrome.storage.local.set({ preciprocal_auto_apply_profile: this.applyProfile, preciprocal_auto_apply_files: this.applyFiles || null, preciprocal_auto_apply_timestamp: Date.now(), preciprocal_auto_apply_job: this.jobData, preciprocal_pending_confirm_job: this.currentJobId ? { jobId: this.currentJobId, jobData: this.jobData } : null });
         if (ai.button) {
           if (labelEl) labelEl.textContent = 'Opening…'; ai.button.click();
           this.applyState = 'done'; if (btn) { btn.classList.remove('loading'); btn.classList.add('done'); } if (labelEl) labelEl.textContent = 'Filling…';
           this.showNotification('Opening company site - Preciprocal will auto-fill', 'success');
-          if (this.currentJobId) LabelInjector.inject(this.currentJobId, 'applied');
+          // Do NOT mark applied yet — will confirm when user returns to LinkedIn
         } else throw new Error('Could not find the Apply button');
       } else throw new Error('No Apply button found');
     } catch (err) {

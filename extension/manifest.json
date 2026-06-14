@@ -15,15 +15,19 @@
   "externally_connectable": {
     "matches": [
       "https://app.preciprocal.com/*",
-      "https://www.app.preciprocal.com/*",
-      "http://localhost:3000/*"
+      "https://www.app.preciprocal.com/*"
     ]
   },
   "background": {
     "service_worker": "background.js"
   },
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
   },
   "content_scripts": [
     {
@@ -102,8 +106,7 @@
       "matches": [
         "https://app.preciprocal.com/*",
         "https://preciprocal.com/*",
-        "https://www.preciprocal.com/*",
-        "http://localhost:3000/*"
+        "https://www.preciprocal.com/*"
       ],
       "js": [
         "localhost-bridge.js"

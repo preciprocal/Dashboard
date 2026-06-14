@@ -265,6 +265,19 @@
     .how-box ol { padding-left: 16px; display: flex; flex-direction: column; gap: 5px; }
     .how-box li { font-size: 12px; color: var(--txt2); line-height: 1.5; }
 
+    /* ── Custom scrollbar ── */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(91,110,245,0.35);
+      border-radius: 999px;
+      transition: background 0.2s;
+    }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(91,110,245,0.65); }
+    ::-webkit-scrollbar-corner { background: transparent; }
+    html { scrollbar-width: thin; scrollbar-color: rgba(91,110,245,0.35) transparent; }
+    body { overflow-y: auto; max-height: 600px; }
+
     /* ── Manual token paste ── */
     .token-box {
       background: var(--glass);
