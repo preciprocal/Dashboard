@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { auth, db } from '@/firebase/client';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import {
   MessageSquarePlus, Star, ChevronRight, CheckCircle2,
   Loader2, Zap, BarChart3, FileText, Headphones, AlertCircle,
@@ -284,12 +287,6 @@ const PAGE_CONFIGS: Record<string, PageConfig> = {
   },
 };
 
-// ─── Storage ──────────────────────────────────────────────────────────────────
-
-const STORAGE_KEY = "preciprocal_feedback_submitted";
-const MIN_SESSIONS_BEFORE_PROMPT = 3;
-const SESSION_COUNT_KEY = "preciprocal_session_count";
-
 // ─── Star Rating ──────────────────────────────────────────────────────────────
 
 const StarRating = ({
@@ -372,12 +369,12 @@ export default function UsersFeedback({
   onClose,
 }: UsersFeedbackProps) {
   const config = PAGE_CONFIGS[page] ?? PAGE_CONFIGS["global"];
+  const [user] = useAuthState(auth);
 
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [showTrigger, setShowTrigger] = useState(false);
 
   // Step 1
   const [overallRating, setOverallRating] = useState(0);
@@ -392,18 +389,30 @@ export default function UsersFeedback({
   // Step 3
   const [freeText, setFreeText] = useState("");
 
+  // Check Firebase for prior submission for this user+page
   useEffect(() => {
     if (forceOpen) { setIsOpen(true); return; }
-    const alreadySubmitted = localStorage.getItem(STORAGE_KEY);
-    if (alreadySubmitted) return;
-    const raw = sessionStorage.getItem(SESSION_COUNT_KEY);
-    const count = raw ? parseInt(raw, 10) + 1 : 1;
-    sessionStorage.setItem(SESSION_COUNT_KEY, String(count));
-    if (count >= MIN_SESSIONS_BEFORE_PROMPT) {
-      const t = setTimeout(() => setShowTrigger(true), 4000);
-      return () => clearTimeout(t);
-    }
-  }, [forceOpen]);
+    if (!user) return;
+
+    const check = async () => {
+      try {
+        const snap = await getDocs(
+          query(
+            collection(db, 'usersfeedback'),
+            where('userId', '==', user.uid),
+            where('page', '==', page),
+          )
+        );
+        if (!snap.empty) return; // already submitted for this page
+        const t = setTimeout(() => setIsOpen(true), 4000);
+        return () => clearTimeout(t);
+      } catch {
+        // don't block on error
+      }
+    };
+
+    check();
+  }, [forceOpen, user, page]);
 
   const handleClose = useCallback(() => {
     setIsOpen(false);
@@ -432,13 +441,12 @@ export default function UsersFeedback({
       submittedAt: new Date().toISOString(),
     };
     try {
-      await fetch("/api/usersfeedback", {
+      await fetch("/api/userfeedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
     } catch { /* fail silently */ } finally {
-      localStorage.setItem(STORAGE_KEY, "true");
       setIsSubmitting(false);
       setSubmitted(true);
     }
@@ -452,7 +460,6 @@ export default function UsersFeedback({
   // Step 2: NPS + topImprovement both required
   const canStep2 = nps !== null && topImprovement.trim() !== "";
 
-  if (!isOpen && !showTrigger) return null;
   if (!isOpen) return null;
 
   return (
@@ -466,7 +473,7 @@ export default function UsersFeedback({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-800">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center shadow-lg">
+            <div className="w-8 h-8 rounded-xl bg-linear-to-br from-purple-600 to-indigo-600 flex items-center justify-center shadow-lg">
               <MessageSquarePlus className="w-4 h-4 text-white" />
             </div>
             <div>
@@ -645,7 +652,7 @@ export default function UsersFeedback({
                     <span>{usageSelected.length} usage tag{usageSelected.length > 1 ? "s" : ""}</span>
                   )}
                   {topImprovement && (
-                    <span className="text-indigo-400 truncate max-w-[160px]">Priority: {topImprovement}</span>
+                    <span className="text-indigo-400 truncate max-w-40">Priority: {topImprovement}</span>
                   )}
                 </div>
               </div>
@@ -680,7 +687,7 @@ export default function UsersFeedback({
                 disabled={step === 1 ? !canStep1 : !canStep2}
                 onClick={() => setStep((s) => (s + 1) as 1 | 2 | 3)}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl
-                  bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-medium
+                  bg-linear-to-r from-purple-600 to-indigo-600 text-white text-xs font-medium
                   shadow-lg disabled:opacity-40 disabled:cursor-not-allowed
                   hover:from-purple-500 hover:to-indigo-500 transition-all">
                 Continue <ChevronRight className="w-3.5 h-3.5" />
@@ -688,7 +695,7 @@ export default function UsersFeedback({
             ) : (
               <button type="button" onClick={handleSubmit} disabled={isSubmitting}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl
-                  bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-medium
+                  bg-linear-to-r from-purple-600 to-indigo-600 text-white text-xs font-medium
                   shadow-lg disabled:opacity-60 hover:from-purple-500 hover:to-indigo-500 transition-all">
                 {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                 {isSubmitting ? "Submitting..." : "Submit feedback"}

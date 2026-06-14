@@ -88,6 +88,7 @@
     },
     {
       "matches": [
+        "https://app.preciprocal.com/*",
         "https://preciprocal.com/*",
         "https://www.preciprocal.com/*",
         "http://localhost:3000/*"

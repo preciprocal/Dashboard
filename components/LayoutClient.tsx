@@ -496,6 +496,32 @@ function LayoutContent({ children, user }: LayoutClientProps) {
 
   useEffect(() => { if (!loading) setAuthResolved(true); }, [loading]);
 
+  // ── Sync Firebase auth state to the Preciprocal Chrome extension ─────────────
+  // Fires on every login, logout, or account switch — no polling needed.
+  useEffect(() => {
+    if (loading) return;
+    const sync = async () => {
+      try {
+        if (currentUser) {
+          const token = await currentUser.getIdToken(false).catch(() => currentUser.getIdToken(true));
+          window.postMessage({
+            type: 'PRECIPROCAL_AUTH_CHANGE',
+            user: {
+              uid:         currentUser.uid,
+              email:       currentUser.email        || '',
+              displayName: currentUser.displayName  || '',
+              photoURL:    currentUser.photoURL      || '',
+              token,
+            },
+          }, window.location.origin);
+        } else {
+          window.postMessage({ type: 'PRECIPROCAL_AUTH_CHANGE', user: null }, window.location.origin);
+        }
+      } catch { /* extension may not be installed — silent */ }
+    };
+    sync();
+  }, [currentUser, loading]);
+
   // ── Auth guard: redirect to sign-in if session is missing or empty ─────────
   useEffect(() => {
     const isPublicRoute = PUBLIC_ROUTES.some(route => pathname.startsWith(route));

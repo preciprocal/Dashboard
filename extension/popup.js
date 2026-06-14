@@ -12,6 +12,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   render();
 });
 
+// Re-render popup live if auth changes while popup is open
+// (e.g. user logs in on the app tab while popup is open)
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'local' || !changes.preciprocal_auth) return;
+  const { newValue } = changes.preciprocal_auth;
+  if (newValue?.uid && newValue?.token) {
+    setAuthenticated(newValue);
+  } else {
+    authState.authenticated = false;
+    authState.user = null;
+  }
+  authState.loading = false;
+  render();
+});
+
 async function checkAuthStatus() {
   try {
     const result = await chrome.storage.local.get(['preciprocal_auth']);
@@ -82,6 +97,59 @@ function bindEvents() {
   on('btnLogin',  () => openApp('/sign-in'));
   on('btnDash',   () => openApp('/'));
   on('btnLogout', () => logout());
+  on('btnPasteToken', () => connectWithToken());
+}
+
+async function connectWithToken() {
+  const input = document.getElementById('tokenInput');
+  const errEl = document.getElementById('tokenError');
+  const btn   = document.getElementById('btnPasteToken');
+  if (!input || !errEl || !btn) return;
+
+  const raw = input.value.trim();
+  if (!raw) { showTokenError(errEl, 'Please paste your token first.'); return; }
+
+  btn.textContent = '…';
+  btn.disabled = true;
+  errEl.style.display = 'none';
+
+  try {
+    // Detect old UUID format (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw)) {
+      throw new Error('This is an old-format token. Hard-refresh the Settings page (Ctrl+Shift+R), then Generate Token again.');
+    }
+    // Token is raw JSON — parse directly
+    const payload = JSON.parse(raw);
+    if (!payload?.uid || !payload?.token) throw new Error('Invalid token format.');
+
+    await chrome.runtime.sendMessage({
+      type:        'SAVE_AUTH',
+      uid:         payload.uid,
+      email:       payload.email        || '',
+      displayName: payload.displayName  || '',
+      photoURL:    payload.photoURL      || '',
+      token:       payload.token,
+    });
+
+    // Re-read storage and re-render as connected
+    const fresh = await chrome.storage.local.get(['preciprocal_auth']);
+    if (fresh?.preciprocal_auth?.uid) {
+      setAuthenticated(fresh.preciprocal_auth);
+      authState.loading = false;
+      render();
+    } else {
+      throw new Error('Token saved but could not verify. Try again.');
+    }
+  } catch (e) {
+    showTokenError(errEl, e?.message || 'Invalid token. Copy from Settings → Extension.');
+    btn.textContent = 'Connect';
+    btn.disabled = false;
+  }
+}
+
+function showTokenError(el, msg) {
+  el.textContent = msg;
+  el.style.display = 'block';
 }
 
 function header(connected) {
@@ -178,6 +246,14 @@ function renderDisconnected() {
           <li>Come back and open this extension</li>
           <li>You'll be connected automatically</li>
         </ol>
+      </div>
+      <div class="token-box">
+        <div class="token-lbl">Having trouble? Paste your token</div>
+        <div class="token-row">
+          <input id="tokenInput" class="token-input" type="password" placeholder="Paste token from Settings → Extension" autocomplete="off" spellcheck="false" />
+          <button id="btnPasteToken" class="btn-token">Connect</button>
+        </div>
+        <div id="tokenError" class="token-error" style="display:none;"></div>
       </div>
     </div>`;
 }

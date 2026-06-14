@@ -8,6 +8,67 @@ const IS_DEV_BG    = false;
 const BASE_URL     = IS_DEV_BG ? 'http://localhost:3000' : 'https://app.preciprocal.com';
 
 // ─────────────────────────────────────────────────────────────────
+// DYNAMIC INJECTION — covers custom career domains not in the manifest
+// e.g. fanduel.careers (Greenhouse), greenhouse-hosted custom domains, etc.
+// ─────────────────────────────────────────────────────────────────
+
+// Domains already handled by static content scripts in manifest.json — skip
+const STATIC_DOMAINS = [
+  'greenhouse.io','lever.co','workday.com','myworkdayjobs.com','myworkday.com',
+  'indeed.com','ashbyhq.com','icims.com','jobvite.com','smartrecruiters.com',
+  'taleo.net','successfactors.com','bamboohr.com','recruitee.com','applytojob.com',
+  'wellfound.com','angel.co','rippling.com','pinpointhq.com','dover.com',
+  'workable.com','breezy.hr','jazz.co','jazhr.com','polymer.co','hiring.com',
+  'comeet.com','teamtailor.com','personio.de','personio.com','hi.com',
+  'jobscore.com','paylocity.com','paycom.com','adp.com','ultipro.com','dayforce.com',
+  'linkedin.com','preciprocal.com','localhost',
+];
+
+// URL signals that strongly indicate an ATS job application page on a custom domain
+const JOB_URL_SIGNALS = [
+  /[?&]gh_jid=\d+/,                  // Greenhouse on custom domain (fanduel.careers, etc.)
+  /[?&]gh_src=/,                      // Greenhouse source tracking
+  /\/jobs\/[^/]+\/[^/]+-\d{5,}/,     // Greenhouse job slug pattern
+  /[?&]lever-origin=/,                // Lever custom domain
+  /[?&]jobId=[A-Za-z0-9-]{8,}/,      // Generic ATS job ID
+  /\/job-application\//,
+  /\/apply\/(now|here|online)?\/?$/i,
+  /\/careers\/jobs\//,
+  /\/open-positions\//,
+  /\/job-openings\//,
+  /\/current-openings\//,
+];
+
+// Tracks tabs where we already injected to avoid double-injection
+const _injectedTabs = new Set();
+
+function _isStaticDomain(url) {
+  try {
+    const host = new URL(url).hostname;
+    return STATIC_DOMAINS.some(d => host === d || host.endsWith('.' + d));
+  } catch { return true; }
+}
+
+function _looksLikeJobPage(url) {
+  return JOB_URL_SIGNALS.some(re => re.test(url));
+}
+
+async function _dynamicInject(tabId, url) {
+  if (_injectedTabs.has(tabId)) return;
+  if (_isStaticDomain(url) || !_looksLikeJobPage(url)) return;
+  try {
+    await chrome.scripting.insertCSS({ target: { tabId }, files: ['content.css'] });
+    await chrome.scripting.executeScript({ target: { tabId }, files: ['external-apply.js'] });
+    _injectedTabs.add(tabId);
+    console.log('[BG] ✅ Dynamically injected on custom job portal:', url);
+  } catch (err) {
+    console.warn('[BG] ⚠️ Dynamic injection failed:', err.message);
+  }
+}
+
+chrome.tabs.onRemoved.addListener(tabId => _injectedTabs.delete(tabId));
+
+// ─────────────────────────────────────────────────────────────────
 // Read Firebase auth from a preciprocal.com tab via scripting API
 // ─────────────────────────────────────────────────────────────────
 async function readAuthFromTab(tabId) {
@@ -70,7 +131,7 @@ async function readAuthFromTab(tabId) {
 // ─────────────────────────────────────────────────────────────────
 async function syncAuthFromPreciprocal() {
   const tabs = await chrome.tabs.query({
-    url: ['https://preciprocal.com/*', 'http://localhost:3000/*']
+    url: ['https://app.preciprocal.com/*', 'https://preciprocal.com/*', 'http://localhost:3000/*']
   });
 
   for (const tab of tabs) {
@@ -80,9 +141,9 @@ async function syncAuthFromPreciprocal() {
       await chrome.storage.local.set({
         [STORAGE_KEY]: {
           uid:         user.uid,
-          email:       user.email,
-          displayName: user.displayName,
-          photoURL:    user.photoURL || '',
+          email:       user.email        || '',
+          displayName: user.displayName  || '',
+          photoURL:    user.photoURL     || '',
           token:       user.token,
           savedAt:     Date.now(),
         }
@@ -102,25 +163,39 @@ async function syncAuthFromPreciprocal() {
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status !== 'complete') return;
   const url = tab.url || '';
-  if (!url.includes('preciprocal.com') && !url.includes('localhost:3000')) return;
+  if (!url) return;
 
-  setTimeout(async () => {
-    const user = await readAuthFromTab(tabId);
-    if (user) {
-      await chrome.storage.local.set({
-        [STORAGE_KEY]: {
-          uid:         user.uid,
-          email:       user.email,
-          displayName: user.displayName,
-          photoURL:    user.photoURL || '',
-          token:       user.token,
-          savedAt:     Date.now(),
+  // 1. Auth sync for preciprocal app tabs
+  if (url.includes('preciprocal.com') || url.includes('localhost:3000')) {
+    setTimeout(async () => {
+      const user = await readAuthFromTab(tabId);
+      if (user) {
+        await chrome.storage.local.set({
+          [STORAGE_KEY]: {
+            uid:         user.uid,
+            email:       user.email,
+            displayName: user.displayName || '',
+            photoURL:    user.photoURL    || '',
+            token:       user.token,
+            savedAt:     Date.now(),
+          }
+        });
+        console.log('[BG] ✅ Auto-synced on tab load:', user.email);
+        flushJobQueue(user.token, user.uid, user.email);
+      } else {
+        // Tab is a preciprocal page but has no Firebase user → user logged out.
+        // Clear stale auth so the extension reflects the logged-out state.
+        const current = await chrome.storage.local.get([STORAGE_KEY]);
+        if (current[STORAGE_KEY]?.uid) {
+          await chrome.storage.local.remove([STORAGE_KEY]);
+          console.log('[BG] 🗑️ Auth cleared — preciprocal tab has no user');
         }
-      });
-      console.log('[BG] ✅ Auto-synced on tab load:', user.email);
-      flushJobQueue(user.token, user.uid, user.email);
-    }
-  }, 2000);
+      }
+    }, 2000);
+  }
+
+  // 2. Dynamic injection for custom-domain job portals (e.g. fanduel.careers, custom Greenhouse)
+  _dynamicInject(tabId, url);
 });
 
 // ─────────────────────────────────────────────────────────────────
@@ -189,6 +264,28 @@ async function flushJobQueue(token, userId, email) {
 // ─────────────────────────────────────────────────────────────────
 // Messages from popup.js and banner.js
 // ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────
+// FETCH_FILE — fetch Firebase Storage files on behalf of content scripts
+// (service worker has no CORS restrictions; content scripts do)
+// ─────────────────────────────────────────────────────────────────
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg.type === 'FETCH_FILE') {
+    fetch(msg.url)
+      .then(r => r.blob())
+      .then(blob => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64 = reader.result.split(',')[1];
+          sendResponse({ base64, mimeType: blob.type });
+        };
+        reader.onerror = () => sendResponse(null);
+        reader.readAsDataURL(blob);
+      })
+      .catch(() => sendResponse(null));
+    return true; // keep port open for async response
+  }
+});
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   if (message.type === 'CHECK_AUTH') {
@@ -237,10 +334,17 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message.type === 'SAVE_AUTH') {
-    const { uid, email, token } = message;
+    const { uid, email, token, displayName, photoURL } = message;
     if (uid && token) {
       chrome.storage.local.set({
-        [STORAGE_KEY]: { uid, email: email || '', token, savedAt: Date.now() }
+        [STORAGE_KEY]: {
+          uid,
+          email:       email       || '',
+          displayName: displayName || '',
+          photoURL:    photoURL    || '',
+          token,
+          savedAt: Date.now(),
+        }
       }, () => sendResponse({ success: true }));
     } else {
       sendResponse({ success: false });
@@ -379,17 +483,24 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 // External messages from preciprocal.com
 // ─────────────────────────────────────────────────────────────────
 chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
-  const allowed = ['https://preciprocal.com', 'http://localhost:3000'];
+  const allowed = ['https://app.preciprocal.com', 'https://preciprocal.com', 'http://localhost:3000'];
   if (!allowed.includes(sender.origin)) {
     sendResponse({ success: false, error: 'Unauthorized' });
     return;
   }
 
   if (message.type === 'SAVE_AUTH') {
-    const { uid, email, token } = message;
+    const { uid, email, token, displayName, photoURL } = message;
     if (uid && token) {
       chrome.storage.local.set({
-        [STORAGE_KEY]: { uid, email: email || '', token, savedAt: Date.now() }
+        [STORAGE_KEY]: {
+          uid,
+          email:       email       || '',
+          displayName: displayName || '',
+          photoURL:    photoURL    || '',
+          token,
+          savedAt: Date.now(),
+        }
       }, () => {
         console.log('[BG] ✅ Auth saved via external message:', email);
         sendResponse({ success: true });
