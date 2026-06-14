@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Preciprocal",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "description": "Apply to 50+ jobs with one click. AI cover letters in 10 seconds. Track every application. 60-day money-back guarantee.",
   "permissions": [
     "storage",
@@ -76,7 +76,18 @@
         "https://*.paycom.com/*",
         "https://*.adp.com/*",
         "https://*.ultipro.com/*",
-        "https://*.dayforce.com/*"
+        "https://*.dayforce.com/*",
+        "https://*.ceridian.com/*",
+        "https://*.careers/*",
+        "https://*.jobs/*",
+        "https://*.work/*",
+        "https://*.join.com/*",
+        "https://*.jobspage.co/*",
+        "https://*.greenhouse-hosted.com/*",
+        "https://*.lever-hosted.co/*",
+        "https://*.workdayjobs.com/*",
+        "https://*.fa.us6.oraclecloud.com/*",
+        "https://*.oracle.com/*"
       ],
       "js": [
         "external-apply.js"
@@ -84,7 +95,8 @@
       "css": [
         "content.css"
       ],
-      "run_at": "document_idle"
+      "run_at": "document_idle",
+      "all_frames": true
     },
     {
       "matches": [

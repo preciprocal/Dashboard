@@ -12,7 +12,7 @@ const BASE_URL     = IS_DEV_BG ? 'http://localhost:3000' : 'https://app.precipro
 // e.g. fanduel.careers (Greenhouse), greenhouse-hosted custom domains, etc.
 // ─────────────────────────────────────────────────────────────────
 
-// Domains already handled by static content scripts in manifest.json — skip
+// Domains already handled by static content scripts in manifest.json — skip dynamic injection
 const STATIC_DOMAINS = [
   'greenhouse.io','lever.co','workday.com','myworkdayjobs.com','myworkday.com',
   'indeed.com','ashbyhq.com','icims.com','jobvite.com','smartrecruiters.com',
@@ -22,35 +22,100 @@ const STATIC_DOMAINS = [
   'comeet.com','teamtailor.com','personio.de','personio.com','hi.com',
   'jobscore.com','paylocity.com','paycom.com','adp.com','ultipro.com','dayforce.com',
   'linkedin.com','preciprocal.com','localhost',
+  // ATS sub-platforms
+  'join.com','jobspage.co','workday.com','myworkday.com','recruiting.com',
 ];
 
-// URL signals that strongly indicate an ATS job application page on a custom domain
+// Strong ATS URL parameters — unmistakably a job application
 const JOB_URL_SIGNALS = [
-  /[?&]gh_jid=\d+/,                  // Greenhouse on custom domain (fanduel.careers, etc.)
-  /[?&]gh_src=/,                      // Greenhouse source tracking
-  /\/jobs\/[^/]+\/[^/]+-\d{5,}/,     // Greenhouse job slug pattern
-  /[?&]lever-origin=/,                // Lever custom domain
-  /[?&]jobId=[A-Za-z0-9-]{8,}/,      // Generic ATS job ID
-  /\/job-application\//,
-  /\/apply\/(now|here|online)?\/?$/i,
-  /\/careers\/jobs\//,
-  /\/open-positions\//,
-  /\/job-openings\//,
-  /\/current-openings\//,
+  // Greenhouse (custom career domains like fanduel.careers, stripe.com, etc.)
+  /[?&]gh_jid=\d+/,
+  /[?&]gh_src=/,
+  // Lever (UUID-based job IDs on custom domains)
+  /[?&]lever-origin=/,
+  /\/jobs\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/i,
+  // Workday (custom domains)
+  /\/d\/[a-z]{2,}\//,
+  // iCIMS
+  /[?&]iis=|[?&]icims=/i,
+  // SmartRecruiters
+  /[?&]src=smartrecruiters/i,
+  // Generic ATS job ID params
+  /[?&](jobId|job_id|jobID|positionId|position_id|openingId|vacancyId)=[A-Za-z0-9\-]{4,}/i,
+  // Ashby
+  /[?&]ashby_jid=/i,
+  // Application page paths
+  /\/job-application\//i,
+  /\/apply-now\/?$/i,
+  /\/careers\/jobs\//i,
+  /\/careers\/open-positions\//i,
+  /\/open-positions\/[^/]+/i,
+  /\/job-openings\/[^/]+/i,
+  /\/current-openings\/[^/]+/i,
+  /\/join-us\/[^/]+/i,
+  /\/work-with-us\/[^/]+/i,
 ];
 
-// Tracks tabs where we already injected to avoid double-injection
+// Hostname patterns for career/job subdomains (custom company career portals)
+const CAREER_HOST_PATTERNS = [
+  /^careers?\./i,       // careers.company.com, career.company.com
+  /^jobs?\./i,          // jobs.company.com, job.company.com
+  /^apply\./i,          // apply.company.com
+  /^recruiting?\./i,    // recruiting.company.com
+  /^hire\./i,           // hire.company.com
+  /^talent\./i,         // talent.company.com
+  /^work\./i,           // work.company.com (e.g. work.stripe.com)
+  /^openings?\./i,      // openings.company.com
+  /^joinus\./i,         // joinus.company.com
+  /\.careers$/i,        // company.careers (fanduel.careers, stripe.careers)
+  /\.jobs$/i,           // company.jobs
+  /\.work$/i,           // company.work
+];
+
+// Path keywords that suggest an active job application page
+const JOB_PATH_PATTERNS = [
+  /\/careers?\/[^/]+/i,   // /career/job-title, /careers/role
+  /\/jobs?\/[^/]+\/[^/]+/i, // /jobs/company/role, /job/title-id
+  /\/positions?\/[^/]+/i,  // /position/xyz, /positions/abc
+  /\/openings?\/[^/]+/i,   // /opening/xyz
+  /\/vacancy\/[^/]+/i,     // /vacancy/xyz
+  /\/vacancies\/[^/]+/i,   // /vacancies/abc
+  /\/roles?\/[^/]+/i,      // /role/xyz
+  /\/(apply|application)(\/|$)/i, // /apply, /apply/, /application
+];
+
+// Tracks tabs where we dynamically injected to avoid double-injection
 const _injectedTabs = new Set();
 
 function _isStaticDomain(url) {
   try {
     const host = new URL(url).hostname;
-    return STATIC_DOMAINS.some(d => host === d || host.endsWith('.' + d));
+    // Explicit static domains
+    if (STATIC_DOMAINS.some(d => host === d || host.endsWith('.' + d))) return true;
+    // Career TLDs covered by manifest *.careers, *.jobs, *.work patterns
+    if (/\.(careers|jobs|work)$/i.test(host)) return true;
+    return false;
   } catch { return true; }
 }
 
 function _looksLikeJobPage(url) {
-  return JOB_URL_SIGNALS.some(re => re.test(url));
+  try {
+    const parsed = new URL(url);
+    const host   = parsed.hostname;
+    const path   = parsed.pathname;
+    const full   = url;
+
+    // Strong ATS URL signals
+    if (JOB_URL_SIGNALS.some(re => re.test(full))) return true;
+
+    // Career subdomain / TLD
+    if (CAREER_HOST_PATTERNS.some(re => re.test(host))) return true;
+
+    // Path-based signals (must also have a job-like host or be reasonably specific)
+    if (JOB_PATH_PATTERNS.some(re => re.test(path))) return true;
+
+    return false;
+  } catch { return false; }
 }
 
 async function _dynamicInject(tabId, url) {

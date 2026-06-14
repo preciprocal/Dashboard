@@ -28,29 +28,63 @@
 //   });
 // ─────────────────────────────────────────────────────────────────
 
-console.log('🚀 Preciprocal external-apply.js on:', window.location.hostname);
+// ── Double-injection guard ──────────────────────────────────────
+// Manifest content scripts + background dynamic injection can both fire.
+// Only the first script instance should boot; subsequent ones exit immediately.
+if (window._preciprocalLoaded) {
+  console.log('ℹ️ Preciprocal already loaded on this page, skipping duplicate');
+} else {
+  window._preciprocalLoaded = true;
+  console.log('🚀 Preciprocal external-apply.js on:', window.location.hostname);
+}
 
 const IS_DEV = false;
 const PRECIPROCAL_URL = IS_DEV ? 'http://localhost:3000' : 'https://app.preciprocal.com';
 
 // ─────────────────────────────────────────────────────────────────
 // Platform detection
+// _platformViaHostname = true when we identified the ATS from the hostname
+// (i.e. we're on the ATS's own domain). false = custom career domain.
 // ─────────────────────────────────────────────────────────────────
+let _platformViaHostname = false;
 function detectPlatform() {
-  const host = window.location.hostname;
-  if (host.includes('greenhouse.io'))       return 'greenhouse';
-  if (host.includes('lever.co'))            return 'lever';
-  if (host.includes('workday.com') || host.includes('myworkdayjobs.com')) return 'workday';
-  if (host.includes('indeed.com'))          return 'indeed';
-  if (host.includes('ashbyhq.com'))         return 'ashby';
-  if (host.includes('icims.com'))           return 'icims';
-  if (host.includes('jobvite.com'))         return 'jobvite';
-  if (host.includes('smartrecruiters.com')) return 'smartrecruiters';
-  if (host.includes('taleo.net'))           return 'taleo';
-  if (host.includes('bamboohr.com'))        return 'bamboohr';
-  if (host.includes('recruitee.com'))       return 'recruitee';
-  if (host.includes('wellfound.com') || host.includes('angel.co')) return 'wellfound';
-  if (document.querySelector('[data-fkit-id]')) return 'icims';
+  const host   = window.location.hostname;
+  const search = window.location.search;
+
+  // ── Hostname-based (native ATS domains) ──────────────────────────
+  if (host.includes('greenhouse.io'))       { _platformViaHostname = true; return 'greenhouse'; }
+  if (host.includes('lever.co'))            { _platformViaHostname = true; return 'lever'; }
+  if (host.includes('workday.com') || host.includes('myworkdayjobs.com')) { _platformViaHostname = true; return 'workday'; }
+  if (host.includes('indeed.com'))          { _platformViaHostname = true; return 'indeed'; }
+  if (host.includes('ashbyhq.com'))         { _platformViaHostname = true; return 'ashby'; }
+  if (host.includes('icims.com'))           { _platformViaHostname = true; return 'icims'; }
+  if (host.includes('jobvite.com'))         { _platformViaHostname = true; return 'jobvite'; }
+  if (host.includes('smartrecruiters.com')) { _platformViaHostname = true; return 'smartrecruiters'; }
+  if (host.includes('taleo.net'))           { _platformViaHostname = true; return 'taleo'; }
+  if (host.includes('bamboohr.com'))        { _platformViaHostname = true; return 'bamboohr'; }
+  if (host.includes('recruitee.com'))       { _platformViaHostname = true; return 'recruitee'; }
+  if (host.includes('wellfound.com') || host.includes('angel.co')) { _platformViaHostname = true; return 'wellfound'; }
+  if (host.includes('workable.com'))        { _platformViaHostname = true; return 'workable'; }
+  if (host.includes('breezy.hr'))           { _platformViaHostname = true; return 'breezy'; }
+  if (host.includes('teamtailor.com'))      { _platformViaHostname = true; return 'teamtailor'; }
+  if (host.includes('personio.de') || host.includes('personio.com')) { _platformViaHostname = true; return 'personio'; }
+  if (host.includes('rippling.com'))        { _platformViaHostname = true; return 'rippling'; }
+  if (host.includes('pinpointhq.com'))      { _platformViaHostname = true; return 'pinpoint'; }
+  if (host.includes('dover.com'))           { _platformViaHostname = true; return 'dover'; }
+  if (host.includes('comeet.com'))          { _platformViaHostname = true; return 'comeet'; }
+
+  // ── DOM / URL fingerprinting for custom career domains ───────────
+  // _platformViaHostname stays false for all of these (custom domain)
+  if (/[?&]gh_jid=/.test(search) || document.querySelector('#app_body.job-application,#greenhouse-body,script[src*="greenhouse"]')) return 'greenhouse';
+  if (document.querySelector('[data-lever-source],[class*="lever-job"]') || document.querySelector('link[href*="lever.co"]')) return 'lever';
+  if (document.querySelector('[data-automation-id="jobPostingTitle"],[data-automation-id="legalNameSection_firstName"]')) return 'workday';
+  if (document.querySelector('[data-ashby-job-posting-id],[class*="ashby-application"]')) return 'ashby';
+  if (document.querySelector('[data-fkit-id],[id*="iCIMS"]')) return 'icims';
+  if (document.querySelector('[data-test="job-apply"],[class*="smartrecruiters"]') || /[?&]src=smartrecruiters/.test(search)) return 'smartrecruiters';
+  if (document.querySelector('#jv-holder,#jv-apply-form,[class*="jv-"]')) return 'jobvite';
+  if (document.querySelector('.BambooHR-ATS,[id*="BambooHR"]')) return 'bamboohr';
+  if (document.querySelector('[data-workable-widget],[class*="workable"]')) return 'workable';
+
   return 'generic';
 }
 
@@ -429,9 +463,12 @@ function waitForApplicationForm(timeout = 8000) {
 }
 
 function isApplicationPage() {
-  const host = window.location.hostname;
-  const path = window.location.pathname.toLowerCase();
-  const url  = window.location.href.toLowerCase();
+  const host   = window.location.hostname;
+  const path   = window.location.pathname.toLowerCase();
+  const url    = window.location.href.toLowerCase();
+  const search = window.location.search;
+  // Greenhouse on any domain (custom career sites like fanduel.careers)
+  if (/[?&]gh_jid=/.test(search)) return true;
   if (host.includes('greenhouse.io') && (path.includes('/application')||url.includes('?gh_jid')||url.includes('#app'))) return true;
   if (host.includes('lever.co') && path.match(/\/[^/]+\/[a-f0-9-]{36}(\/apply)?/)) return true;
   if (host.includes('workday.com')||host.includes('myworkdayjobs.com')) return path.includes('/apply')||path.includes('/job/')||!!document.querySelector('[data-automation-id]');
@@ -628,7 +665,8 @@ function matchByLabel(label, p) {
   if (/^address\s*2$|^addr\s*2$|^address line\s*2$|apt|suite|unit/i.test(L)) return '';
   if (/^address\s*3$|^addr\s*3$/i.test(L))                   return '';
   if (/\bcounty\b/i.test(L))                                  return p.county || p.city || '';
-  if (/location|\baddress\b|where.*based|home location/i.test(L)) return p.streetAddress || p.location || '';
+  if (/location|where.*based|home location/i.test(L))            return (p.city && p.state ? `${p.city}, ${p.state}` : p.city) || p.location || '';
+  if (/\baddress\b/i.test(L))                                    return p.streetAddress || p.location || '';
   if (/current (company|employer|organization|org)\b/i.test(L)) return p.experience?.[0]?.company || '';
   if (/current (title|role|position|job title)/i.test(L))    return p.experience?.[0]?.title || p.headline;
   if (/job title|professional title|headline/i.test(L))      return p.headline;
@@ -959,31 +997,50 @@ function getReactSelectLabel(controlEl) {
 async function fillReactSelect(controlEl, desiredValue) {
   if (!controlEl || !desiredValue) return false;
 
+  // If we received the outer container, find the actual control div inside it.
+  // The control is the div that React Select uses as the click target.
+  const innerControl = controlEl.querySelector('[class*="select__control"],[class*="__control"],[class*="-control"]');
+  const clickTarget  = innerControl || controlEl;
+
   // Already has correct value?
-  const currentSV = controlEl.querySelector('[class*="single-value"],[class*="singleValue"]');
+  const root = controlEl.closest('[class*="-container"],[class*="select-shell"]') || controlEl;
+  const currentSV = root.querySelector('[class*="single-value"],[class*="singleValue"]');
   if (currentSV) {
     const cur = (currentSV.textContent||'').trim().toLowerCase();
     if (cur && !/^select/i.test(cur) && scoreMatch(desiredValue.toLowerCase(), cur) > 0.8) return true;
   }
 
-  // Open
-  controlEl.dispatchEvent(new MouseEvent('mousedown', { bubbles:true, cancelable:true }));
-  controlEl.click();
-  await new Promise(r => setTimeout(r, 400));
+  // Open — fire mousedown on the exact control div so React Select's handler fires.
+  clickTarget.dispatchEvent(new MouseEvent('mousedown', { bubbles:true, cancelable:true, view:window }));
+  clickTarget.dispatchEvent(new MouseEvent('mouseup',   { bubbles:true, cancelable:true, view:window }));
+  clickTarget.click();
+  await new Promise(r => setTimeout(r, 450));
 
-  if (!isReactSelectOpen(controlEl)) {
-    const indicator = controlEl.querySelector('[class*="indicator" i]:not([class*="separator"])');
-    if (indicator) { indicator.click(); await new Promise(r => setTimeout(r, 350)); }
+  // If still not open, try clicking the dropdown indicator (chevron)
+  if (!isReactSelectOpen(clickTarget)) {
+    const indicator = root.querySelector('[class*="indicator" i]:not([class*="separator"]),[class*="DropdownIndicator" i]');
+    if (indicator) {
+      indicator.dispatchEvent(new MouseEvent('mousedown', { bubbles:true, cancelable:true, view:window }));
+      indicator.click();
+      await new Promise(r => setTimeout(r, 400));
+    }
   }
 
-  // Find open menu (handles portalled menus appended to <body>)
+  // Also try focusing the inner input and pressing ArrowDown as a fallback
+  if (!isReactSelectOpen(clickTarget)) {
+    const inp = root.querySelector('input[role="combobox"],input[aria-autocomplete],input:not([aria-hidden])');
+    if (inp) { inp.focus(); inp.dispatchEvent(new KeyboardEvent('keydown', { bubbles:true, key:'ArrowDown', keyCode:40 })); await new Promise(r => setTimeout(r, 350)); }
+  }
+
+  // Find open menu — check both near root and body-portalled menus.
   const getMenu = () => {
-    const parent = controlEl.closest('[class*="select-shell"],[class*="select__container"],[class*="container"]') || controlEl.parentElement;
-    const inParent = parent?.querySelector('[class*="select__menu"],[class*="__menu-list"]');
-    if (inParent && inParent.offsetParent !== null) return inParent;
-    const bodyMenus = Array.from(document.querySelectorAll('[class*="select__menu"],[class*="__menu"]'))
-      .filter(m => m.offsetParent !== null);
-    return bodyMenus[bodyMenus.length-1] || null;
+    // In-tree menu (non-portalled)
+    const inRoot = root.querySelector('[class*="-menu"],[class*="select__menu"],[class*="__menu-list"]');
+    if (inRoot && inRoot.offsetParent !== null) return inRoot;
+    // Body-portalled menu (React Select appends to <body> when menuPortalTarget is set)
+    const bodyMenus = Array.from(document.querySelectorAll('[class*="-menu"],[class*="select__menu"],[class*="__menu"]'))
+      .filter(m => m.offsetParent !== null && m.querySelectorAll('[class*="-option"],[role="option"]').length > 0);
+    return bodyMenus[bodyMenus.length - 1] || null;
   };
 
   let menu = getMenu();
@@ -991,7 +1048,7 @@ async function fillReactSelect(controlEl, desiredValue) {
   if (!menu) { console.warn('⚠️ React Select: menu did not open for:', desiredValue); closeAnyDropdown(); return false; }
 
   const getOptionEls = (menuEl) => {
-    for (const sel of ['[class*="select__option"]','[class*="__option"]','[role="option"]','div[id*="option"]','li']) {
+    for (const sel of ['[class*="-option"]','[class*="select__option"]','[class*="__option"]','[role="option"]','div[id*="option"]','li[id*="option"]']) {
       const found = Array.from(menuEl.querySelectorAll(sel)).filter(o => o.offsetParent !== null && (o.textContent||'').trim());
       if (found.length) return found;
     }
@@ -1007,9 +1064,11 @@ async function fillReactSelect(controlEl, desiredValue) {
 
   if (best) {
     console.log(`  ✅ React Select: "${desiredValue}" → "${best.text}"`);
-    best._el.dispatchEvent(new MouseEvent('mousedown', { bubbles:true }));
+    // Fire both mousedown and click — React Select listens to mousedown to prevent blur
+    best._el.dispatchEvent(new MouseEvent('mousedown', { bubbles:true, cancelable:true, view:window }));
+    best._el.dispatchEvent(new MouseEvent('mouseup',   { bubbles:true, cancelable:true, view:window }));
     best._el.click();
-    await new Promise(r => setTimeout(r, 250));
+    await new Promise(r => setTimeout(r, 300));
     return true;
   }
 
@@ -1019,13 +1078,15 @@ async function fillReactSelect(controlEl, desiredValue) {
 }
 
 function isReactSelectOpen(controlEl) {
+  if (!controlEl) return false;
+  // Check aria-expanded on control or its input
+  const inp = controlEl.querySelector('input[role="combobox"],input[aria-expanded]');
+  if (inp?.getAttribute('aria-expanded') === 'true') return true;
   if (controlEl.getAttribute('aria-expanded') === 'true') return true;
-  const container = controlEl.closest('[class*="select__container"],[class*="container"]');
-  if (container?.getAttribute('aria-expanded') === 'true') return true;
-  const parent = controlEl.closest('[class*="select-shell"],[class*="select__container"]') || controlEl.parentElement;
-  const menu = parent?.querySelector('[class*="select__menu"]') ||
-               Array.from(document.querySelectorAll('[class*="select__menu"]')).find(m => m.offsetParent !== null);
-  return !!menu;
+  // Check if any menu is visible in the document
+  const anyMenu = Array.from(document.querySelectorAll('[class*="-menu"],[class*="select__menu"]'))
+    .find(m => m.offsetParent !== null && m.querySelectorAll('[class*="-option"],[role="option"]').length > 0);
+  return !!anyMenu;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -1089,17 +1150,21 @@ class FileInjector {
   }
   static classify() {
     const all = Array.from(document.querySelectorAll('input[type="file"]:not([disabled])'));
-    const resume = [], transcript = [], other = [];
+    const resume = [], transcript = [], coverLetter = [], other = [];
     for (const inp of all) {
       const lbl = getLabel(inp).toLowerCase();
-      if (/resume|cv\b|curriculum vitae/i.test(lbl))                   resume.push(inp);
-      else if (/transcript|academic record|grade|certificate/i.test(lbl)) transcript.push(inp);
-      else if (/cover.?letter/i.test(lbl))                             {}
-      else                                                              other.push(inp);
+      if (/resume|cv\b|curriculum vitae/i.test(lbl))                        resume.push(inp);
+      else if (/transcript|academic record|grade|certificate/i.test(lbl))   transcript.push(inp);
+      else if (/cover.?letter/i.test(lbl))                                  coverLetter.push(inp);
+      else                                                                   other.push(inp);
     }
-    if (!resume.length     && other.length) resume.push(other.shift());
-    if (!transcript.length && other.length) transcript.push(other.shift());
-    return { resume, transcript };
+    // Only assign the first unclassified file input to resume — never auto-assign transcript
+    if (!resume.length && other.length) resume.push(other.shift());
+    // Cover letter textareas count too
+    for (const ta of document.querySelectorAll('textarea:not([disabled])')) {
+      if (/cover.?letter/i.test(getLabel(ta).toLowerCase())) coverLetter.push(ta);
+    }
+    return { resume, transcript, coverLetter };
   }
 }
 
@@ -1130,6 +1195,28 @@ async function fillGreenhouse(p) {
     const val = matchByLabel(lbl, p);
     if (val) { setReactValue(inp, val); filled++; }
   }
+  // Greenhouse custom-question <select> elements — name is opaque, find via container label
+  const ghSelects = document.querySelectorAll('.application-question select, .field select, select[name*="answer"], select[id*="question"]');
+  for (const sel of ghSelects) {
+    if (sel.value && sel.value !== '' && sel.value !== '0') continue;
+    const lbl = getLabel(sel);
+    const val = matchSelectByLabel(lbl, p);
+    if (val && setSelectValue(sel, val)) filled++;
+  }
+
+  // ── Phone country React Select (Greenhouse phone-input fieldset) ──
+  // Greenhouse renders a React Select for the country code inside .phone-input__country
+  const phoneCountryContainers = document.querySelectorAll('.phone-input__country [class*="-container"],.phone-input [class*="-container"]');
+  for (const cont of phoneCountryContainers) {
+    const sv = cont.querySelector('[class*="single-value"],[class*="singleValue"]');
+    if (sv && sv.textContent?.trim() && !/^(select|choose|--)/i.test(sv.textContent)) continue;
+    const countryVal = p.country || 'United States';
+    const control    = cont.querySelector('[class*="-control"]') || cont;
+    console.log(`🎯 Phone country React Select → "${countryVal}"`);
+    const ok = await fillReactSelect(control, countryVal);
+    if (ok) { filled++; await delay(600); }
+  }
+
   filled += await smartScan(p);
   return { filled };
 }
@@ -1637,6 +1724,7 @@ async function fillSmartRecruiters(p) {
   const allInputs  = srQueryAll('input:not([type="hidden"]):not([type="file"]):not([type="submit"])');
   const allSelects = srQueryAll('select');
   const fieldDefs = [
+    { val:p.fullName,     tests:[(el)=>/full.?name|your.?name|^name$/i.test(srGetLabel(el)),(el)=>el.name==='name'||el.id==='name'] },
     { val:p.firstName,    tests:[(el)=>/first.?name|given/i.test(srGetLabel(el)),(el)=>el.getAttribute('data-test')==='firstName',(el)=>el.name==='firstName'||el.id==='firstName'] },
     { val:p.lastName,     tests:[(el)=>/last.?name|surname/i.test(srGetLabel(el)),(el)=>el.getAttribute('data-test')==='lastName', (el)=>el.name==='lastName' ||el.id==='lastName' ] },
     { val:p.email,        tests:[(el)=>el.type==='email',(el)=>/email/i.test(srGetLabel(el)),(el)=>el.name==='email'||el.id==='email'] },
@@ -1646,6 +1734,8 @@ async function fillSmartRecruiters(p) {
     { val:p.linkedInUrl,  tests:[(el)=>/linkedin/i.test(srGetLabel(el)),(el)=>el.name==='web-linkedIn'||el.name==='linkedin'] },
     { val:p.githubUrl,    tests:[(el)=>/github/i.test(srGetLabel(el)),(el)=>el.name==='web-github'||el.name==='github'] },
     { val:p.portfolioUrl, tests:[(el)=>/website|portfolio/i.test(srGetLabel(el)),(el)=>el.name==='web-website'||el.name==='website'] },
+    { val:p.city && p.state ? `${p.city}, ${p.state}` : p.city || p.location || '', tests:[(el)=>/\blocation\b/i.test(srGetLabel(el))] },
+    { val:p.city,         tests:[(el)=>/\bcity\b/i.test(srGetLabel(el)),(el)=>el.name==='city'||el.id==='city'] },
   ];
   for (const { val, tests } of fieldDefs) {
     if (!val) continue;
@@ -1670,6 +1760,8 @@ async function fillSmartRecruiters(p) {
     if (/cover.?letter/i.test(lbl)) continue;
     if (/summary|about|message/i.test(lbl) && p.summary) { srSetValue(ta, p.summary); filled++; }
   }
+  // Fall back to smartScan for any fields the SR-specific logic missed
+  if (filled < 3) filled += await smartScan(p);
   return { filled };
 }
 
@@ -1860,12 +1952,51 @@ async function smartScan(p) {
     if (sv && sv.textContent?.trim() && !/^select/i.test(sv.textContent)) continue;
     const desired = matchSelectByLabel(labelText, p);
     if (!desired) continue;
-    const trigger = container.querySelector('[class*="select__control"],[class*="__control"]');
+    // Broaden control selector to catch Remix-CSS hashed names (e.g. remix-css-xxx-control)
+    const trigger = container.querySelector('[class*="select__control"],[class*="__control"],[class*="-control"]');
     if (!trigger) continue;
     console.log(`🎯 EEOC React Select: "${labelText}" → "${desired}"`);
     const ok = await fillReactSelect(trigger, desired);
     if (ok) { filled++; }
     await delay(300);
+  }
+
+  // ── React Select via live-region span (catches Remix-CSS hashed class names) ──
+  // The span id="react-select-*-live-region" is a reliable marker regardless of
+  // CSS-in-JS class name hashing (Greenhouse uses Remix CSS which hashes all names).
+  const liveRegions = Array.from(document.querySelectorAll('span[id^="react-select"][id$="-live-region"]'));
+  const seenRsContainers = new Set();
+  for (const lr of liveRegions) {
+    // Walk up to the container div (has class ending in -container)
+    let container = lr.parentElement;
+    while (container && container !== document.body) {
+      if (/container/i.test(container.className || '')) break;
+      container = container.parentElement;
+    }
+    if (!container || container === document.body || seenRsContainers.has(container)) continue;
+    seenRsContainers.add(container);
+
+    // Skip if already filled
+    const sv = container.querySelector('[class*="single-value"],[class*="singleValue"]');
+    if (sv && sv.textContent?.trim() && !/^(select|choose|--)/i.test(sv.textContent)) continue;
+
+    // Find the clickable control div (first child div that contains the input)
+    const rsInput  = container.querySelector('input[role="combobox"],input[aria-autocomplete]');
+    const control  = rsInput?.closest('div[class]') || container.querySelector('[class*="-control"]') || container;
+
+    // Get label from nearby label element (Greenhouse wraps in .select__container with a <label>)
+    const labelEl  = container.closest('[class*="select__container"],[class*="select-shell"],[class*="field-wrapper"],[class*="phone-input"]')?.querySelector('label,legend');
+    const labelText = (labelEl?.textContent || getReactSelectLabel(control) || getDropdownLabel(control)).replace(/\*/g,'').trim();
+    if (!labelText || labelText.length < 2) continue;
+
+    const desired = matchSelectByLabel(labelText, p);
+    if (!desired) continue;
+    console.log(`🎯 Remix React Select: "${labelText}" → "${desired}"`);
+    const ok = await fillReactSelect(control, desired);
+    if (ok) {
+      filled++;
+      await delay(/country/i.test(labelText) ? 800 : 300);
+    }
   }
 
   // ── Textareas ──
@@ -2064,6 +2195,21 @@ async function fillForm(profile, platform) {
 // ─────────────────────────────────────────────────────────────────
 // Floating sidebar
 // ─────────────────────────────────────────────────────────────────
+
+const ATS_DOMAINS = ['greenhouse.io','lever.co','workday.com','myworkdayjobs.com','ashbyhq.com',
+  'smartrecruiters.com','icims.com','jobvite.com','taleo.net','bamboohr.com',
+  'recruitee.com','wellfound.com','angel.co'];
+
+function _hasKnownATSIframe() {
+  try {
+    for (const iframe of document.querySelectorAll('iframe')) {
+      const src = iframe.src || iframe.getAttribute('src') || '';
+      if (ATS_DOMAINS.some(d => src.includes(d))) return true;
+    }
+  } catch {}
+  return false;
+}
+
 class PreciprocalSidebar {
   constructor() {
     this.platform   = detectPlatform();
@@ -2078,14 +2224,118 @@ class PreciprocalSidebar {
 
   async init() {
     if (!isApplicationPage()) { console.log('ℹ️ Not an application page - skipping sidebar'); return; }
+
+    // Inside an iframe: never show the sidebar UI here — it would be clipped to
+    // the iframe's viewport instead of the full browser window.
+    // Instead register as a fill agent so the top-frame sidebar can relay clicks.
+    if (window !== window.top) {
+      this._setupAsFillAgent();
+      return;
+    }
+
+    // Top frame: always render the sidebar (at the real viewport right edge).
     await this._checkAuth();
     this._injectStyles();
     this._render();
     watchForApplicationSuccess(this.platform);
     console.log(`✅ Preciprocal sidebar on ${this.platform}`);
+
+    // On custom career domains (e.g. fanduel.careers) the actual form lives in a
+    // cross-origin ATS iframe. Set up postMessage relay so Autofill talks to it.
+    if (!_platformViaHostname && _hasKnownATSIframe()) {
+      this._setupIframeRelay();
+    }
+
+    // If auth wasn't ready yet (race with storage sync), retry after 3 s and
+    // also re-render whenever storage changes (e.g. popup triggers SYNC_AUTH).
+    if (!this.isAuth) {
+      setTimeout(async () => {
+        await this._checkAuth();
+        if (this.isAuth) this._render();
+      }, 3000);
+    }
+    try {
+      chrome.storage.onChanged.addListener((changes, area) => {
+        if (area !== 'local' || !changes.preciprocal_auth) return;
+        const v = changes.preciprocal_auth.newValue;
+        const wasAuth = this.isAuth;
+        this.isAuth     = !!(v?.uid && v?.token);
+        this.authToken  = v?.token  || null;
+        this.authEmail  = v?.email  || null;
+        this.authUserId = v?.uid    || null;
+        if (this.isAuth !== wasAuth) this._render();
+      });
+    } catch {}
+  }
+
+  // ── Fill-agent mode (running inside an iframe) ────────────────────
+  _setupAsFillAgent() {
+    // Signal to the top frame that we have a form here and can fill it.
+    try { window.parent.postMessage({ _prc: 1, t: 'READY', platform: this.platform }, '*'); } catch {}
+    // Listen for fill requests from the top frame's sidebar.
+    window.addEventListener('message', async (e) => {
+      if (!e.data || e.data._prc !== 1) return;
+      if (e.data.t === 'FILL') {
+        this.profile = e.data.profile || this.profile;
+        this.files   = e.data.files   || this.files;
+        if (!this.profile) return;
+        const { filled } = await fillForm(this.profile, this.platform);
+        try { window.parent.postMessage({ _prc:1, t:'FILL_DONE', filled }, '*'); } catch {}
+      }
+    });
+  }
+
+  // ── Iframe-relay mode (running in the top frame, form is in an iframe) ──
+  _setupIframeRelay() {
+    this._iframeFillWindow = null;
+
+    // Try to get a direct reference to the ATS iframe's contentWindow.
+    for (const iframe of document.querySelectorAll('iframe')) {
+      if (ATS_DOMAINS.some(d => (iframe.src || '').includes(d))) {
+        try { this._iframeFillWindow = iframe.contentWindow; } catch {}
+        break;
+      }
+    }
+
+    // Also accept the window reference that the iframe sends in its READY message.
+    window.addEventListener('message', (e) => {
+      if (!e.data || e.data._prc !== 1) return;
+      if (e.data.t === 'READY') {
+        this._iframeFillWindow = e.source;
+        this._updateFieldChecks();
+      }
+      if (e.data.t === 'FILL_DONE') {
+        const filled = e.data.filled || 0;
+        const btn   = document.getElementById('prc-autofill-btn');
+        const label = document.getElementById('prc-fill-label');
+        const icon  = document.getElementById('prc-fill-icon');
+        const statusEl = document.getElementById('prc-fill-status');
+        this.state = 'filled';
+        btn?.classList.remove('loading'); btn?.classList.add('done');
+        if (icon)  icon.innerHTML = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
+        if (label) label.textContent = `${filled} fields filled`;
+        const totalOnPage = this._countPageFields();
+        const pct = totalOnPage > 0 ? Math.min(100, Math.round((filled / totalOnPage) * 100)) : 100;
+        this._updateCompletion(pct);
+        if (statusEl) { statusEl.style.display='flex'; statusEl.className='prc-status-banner prc-status-ok'; statusEl.innerHTML=`<svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span>Done — review fields before submitting</span>`; }
+      }
+    });
   }
 
   async _checkAuth() {
+    // Read directly from storage first — faster and avoids service-worker wake latency.
+    try {
+      const result = await chrome.storage.local.get(['preciprocal_auth']);
+      const stored = result?.preciprocal_auth;
+      if (stored?.uid && stored?.token) {
+        this.isAuth     = true;
+        this.authUserId = stored.uid;
+        this.authEmail  = stored.email || null;
+        this.authToken  = stored.token;
+        return;
+      }
+    } catch {}
+    // Fallback: ask background (it may trigger a sync).
     try {
       const resp      = await chrome.runtime.sendMessage({ type:'CHECK_AUTH' });
       this.isAuth     = resp.authenticated;
@@ -2114,21 +2364,26 @@ class PreciprocalSidebar {
       }
       return false;
     };
-    const fileUploaded = () => {
-      const inputs = document.querySelectorAll('input[type="file"]:not([disabled])');
+    const { resume: resumeEls, transcript: transcriptEls, coverLetter: coverLetterEls } = FileInjector.classify();
+    const fileUploaded = (inputs) => {
       for (const inp of inputs) { if (inp.files && inp.files.length > 0) return true; }
-      return !!(this.files?.resume?.available);
+      return false;
     };
-    const radioAnswered = () => !!document.querySelector('[role="radiogroup"] input[type="radio"]:checked,fieldset input[type="radio"]:checked');
-    return [
+    const workAuthAnswered = () =>
+      !!document.querySelector('[role="radiogroup"] input[type="radio"]:checked,fieldset input[type="radio"]:checked') ||
+      (() => { try { const s = document.querySelector('select[id*="work" i],select[id*="auth" i],select[name*="work" i],select[name*="auth" i],select[name*="sponsor" i]'); return !!(s && s.value && s.value !== ''); } catch { return false; } })();
+    const fields = [
       { label:'Full Name', filled:q('input[name="first_name"]','#first_name','input[name="firstName"]','input[name="name"]','input[aria-label*="First name" i]','input[aria-label*="Full name" i]','[data-automation-id="legalNameSection_firstName"] input','[data-automation-id="firstName"] input') },
       { label:'Email',     filled:q('input[type="email"]','input[name="email"]','#email','input[aria-label*="Email" i]','[data-automation-id="email"] input') },
       { label:'Phone',     filled:q('input[type="tel"]','input[name="phone"]','#phone','input[aria-label*="Phone" i]','input[aria-label*="Mobile" i]','[data-automation-id="phone"] input') },
       { label:'Location',  filled:q('input[name="location"]','input[name="city"]','#job_application_location','input[aria-label*="City" i]','input[aria-label*="Location" i]','[data-automation-id="addressSection_city"] input') },
       { label:'LinkedIn',  filled:q('input[name*="linkedin" i]','input[id*="linkedin" i]','input[aria-label*="LinkedIn" i]','input[name="urls[LinkedIn]"]'), optional:true },
-      { label:'Resume',    filled:fileUploaded() },
-      { label:'Work Auth', filled:radioAnswered(), optional:true },
     ];
+    if (resumeEls.length)      fields.push({ label:'Resume',       filled: fileUploaded(resumeEls) || !!(this.files?.resume?.available) });
+    if (transcriptEls.length)  fields.push({ label:'Transcript',   filled: fileUploaded(transcriptEls), optional:true });
+    if (coverLetterEls.length) fields.push({ label:'Cover Letter', filled: coverLetterEls.some(el => (el.value||'').trim().length > 10), optional:true });
+    fields.push({ label:'Work Auth', filled:workAuthAnswered(), optional:true });
+    return fields;
   }
 
   _render() {
@@ -2235,6 +2490,7 @@ class PreciprocalSidebar {
             <div id="prc-file-status" class="prc-files-wrap" style="display:none;">
               <div id="prc-resume-status" class="prc-file-row"></div>
               <div id="prc-transcript-status" class="prc-file-row"></div>
+              <div id="prc-cover-letter-status" class="prc-file-row"></div>
             </div>
 
             <!-- CTA -->
@@ -2374,6 +2630,20 @@ class PreciprocalSidebar {
       } catch {}
 
       if (label) label.textContent = 'Filling form…';
+
+      // If the actual form lives in a cross-origin ATS iframe, send the fill
+      // request there via postMessage and wait for the FILL_DONE reply.
+      if (this._iframeFillWindow) {
+        try {
+          this._iframeFillWindow.postMessage({ _prc:1, t:'FILL', profile:this.profile, files:this.files }, '*');
+        } catch (err) {
+          console.warn('⚠️ postMessage to iframe failed:', err.message);
+        }
+        // UI will be updated by the FILL_DONE listener in _setupIframeRelay()
+        // Leave state as 'loading' until then.
+        return;
+      }
+
       const onDetailPage = isJobDetailPage();
       if (onDetailPage) {
         const clicked = await clickApplyAndWaitForForm(statusEl);
@@ -2427,22 +2697,56 @@ class PreciprocalSidebar {
   }
 
   async _injectFiles(fileEl) {
-    const result = { resume:false, transcript:false };
-    if (!this.files) return result;
+    const result = { resume:false, transcript:false, coverLetter:false };
+    const { resume, transcript, coverLetter } = FileInjector.classify();
+    const hasAny = resume.length || transcript.length || coverLetter.length;
+    if (!hasAny || !this.files) { if (fileEl) fileEl.style.display = 'none'; return result; }
     if (fileEl) fileEl.style.display = 'block';
-    const { resume, transcript } = FileInjector.classify();
-    if (this.files.resume?.available && this.files.resume.url) {
-      this._setFileRow('prc-resume-status','Resume','uploading');
-      const n = await FileInjector.injectFromUrl(this.files.resume.url, this.files.resume.fileName, resume);
-      result.resume = n > 0;
-      this._setFileRow('prc-resume-status','Resume', result.resume ? 'done' : 'manual');
-    } else if (this.files.resume && !this.files.resume.available) { this._setFileRow('prc-resume-status','Resume','missing'); }
-    if (this.files.transcript?.available && this.files.transcript.url) {
-      this._setFileRow('prc-transcript-status','Transcript','uploading');
-      const n = await FileInjector.injectFromUrl(this.files.transcript.url, this.files.transcript.fileName, transcript);
-      result.transcript = n > 0;
-      this._setFileRow('prc-transcript-status','Transcript', result.transcript ? 'done' : 'manual');
-    } else if (this.files.transcript && !this.files.transcript.available) { this._setFileRow('prc-transcript-status','Transcript','missing'); }
+
+    // Resume — only if form has a resume input
+    const resumeRow = document.getElementById('prc-resume-status');
+    if (resume.length) {
+      if (this.files.resume?.available && this.files.resume.url) {
+        this._setFileRow('prc-resume-status','Resume','uploading');
+        const n = await FileInjector.injectFromUrl(this.files.resume.url, this.files.resume.fileName, resume);
+        result.resume = n > 0;
+        this._setFileRow('prc-resume-status','Resume', result.resume ? 'done' : 'manual');
+      } else {
+        this._setFileRow('prc-resume-status','Resume','missing');
+      }
+    } else if (resumeRow) { resumeRow.style.display = 'none'; }
+
+    // Transcript — only if form explicitly asks for it
+    const transcriptRow = document.getElementById('prc-transcript-status');
+    if (transcript.length) {
+      if (this.files.transcript?.available && this.files.transcript.url) {
+        this._setFileRow('prc-transcript-status','Transcript','uploading');
+        const n = await FileInjector.injectFromUrl(this.files.transcript.url, this.files.transcript.fileName, transcript);
+        result.transcript = n > 0;
+        this._setFileRow('prc-transcript-status','Transcript', result.transcript ? 'done' : 'manual');
+      } else {
+        this._setFileRow('prc-transcript-status','Transcript','missing');
+      }
+    } else if (transcriptRow) { transcriptRow.style.display = 'none'; }
+
+    // Cover letter — only if form explicitly asks for it
+    if (coverLetter.length) {
+      const clText = [this.profile?.coverLetterIntro, this.profile?.coverLetterBody].filter(Boolean).join('\n\n') || this.profile?.summary || '';
+      let clDone = false;
+      for (const el of coverLetter) {
+        if (el.tagName === 'TEXTAREA' && !(el.value||'').trim() && clText) {
+          setReactValue(el, clText); clDone = true;
+        } else if (el.tagName === 'INPUT' && el.type === 'file') {
+          // file-based cover letter — skip auto inject, just mark manual
+        }
+      }
+      this._setFileRow('prc-cover-letter-status','Cover Letter', clDone ? 'done' : 'manual');
+      result.coverLetter = clDone;
+    } else {
+      const clRow = document.getElementById('prc-cover-letter-status');
+      if (clRow) clRow.style.display = 'none';
+    }
+
     return result;
   }
 
@@ -2580,6 +2884,8 @@ let _autoFilling = false;
 
 async function boot() {
   if (_instance) return;
+  if (window._preciprocalBooting) return;  // guard against double injection race
+  window._preciprocalBooting = true;
   _instance = new PreciprocalSidebar();
   await _instance.init();
 }
