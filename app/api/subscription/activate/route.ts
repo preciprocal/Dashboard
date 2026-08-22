@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { auth, db } from "@/firebase/admin";
+import { supabaseAdmin } from "@/supabase/admin";
+import { getAuthedUser } from "@/lib/auth/verify-request";
 import { redis } from "@/lib/redis/redis-client";
-import { USAGE_LIMITS } from "@/lib/config/usage-limits";
 
 export const runtime = "nodejs";
 
@@ -40,11 +40,9 @@ async function invalidateAllUserCache(userId: string) {
 export async function POST(req: NextRequest) {
   try {
     // ── Auth ──────────────────────────────────────────────────────────────
-    const token = req.headers.get("Authorization")?.replace("Bearer ", "");
-    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const decoded = await auth.verifyIdToken(token);
-    const userId  = decoded.uid;
+    const authedUser = await getAuthedUser(req);
+    if (!authedUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const { userId, supabaseUserId } = authedUser;
 
     const { setupIntentId, subscriptionId } = await req.json() as {
       setupIntentId: string;
@@ -62,9 +60,12 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Get customer ───────────────────────────────────────────────────────
-    const userDoc    = await db.collection("users").doc(userId).get();
-    const userData   = userDoc.data();
-    const customerId = userData?.subscription?.stripeCustomerId as string;
+    const { data: subRow } = await supabaseAdmin
+      .from("subscriptions")
+      .select("stripe_customer_id")
+      .eq("user_id", supabaseUserId)
+      .maybeSingle();
+    const customerId = subRow?.stripe_customer_id as string;
 
     // ── Set default payment method ─────────────────────────────────────────
     await stripe.customers.update(customerId, {
@@ -95,50 +96,27 @@ export async function POST(req: NextRequest) {
     const priceId = sub.items.data[0]?.price?.id ?? "";
     const plan    = PRICE_TO_PLAN[priceId] ?? "pro";
 
-    // ── Build updated subscription object ──────────────────────────────────
+    // ── Build updated subscription fields ──────────────────────────────────
     const periodEnd    = (sub as unknown as { current_period_end: number }).current_period_end;
     const periodEndISO = periodEnd ? new Date(periodEnd * 1000).toISOString() : null;
     const now          = new Date().toISOString();
 
-    // Build limits snapshot so Firebase Console shows plan caps alongside usage counts
-    const planLimits = USAGE_LIMITS[plan];
-    const limitsSnapshot = {
-      coverLetters:          planLimits.coverLetters,
-      resumes:               planLimits.resumes,
-      studyPlans:            planLimits.studyPlans,
-      interviews:            planLimits.interviews,
-      interviewDebriefs:     planLimits.interviewDebriefs,
-      linkedinOptimisations: planLimits.linkedinOptimisations,
-      coldOutreach:          planLimits.coldOutreach,
-      findContacts:          planLimits.findContacts,
-      jobTracker:            planLimits.jobTracker,
+    // ── Write to Postgres ──────────────────────────────────────────────────
+    const { error: updateError } = await supabaseAdmin.from("subscriptions").update({
       plan,
-      updatedAt:             now,
-    };
+      status: "active",
+      stripe_subscription_id: subscriptionId,
+      stripe_customer_id: customerId,
+      current_period_end: periodEndISO,
+      subscription_ends_at: periodEndISO,
+      last_payment_at: now,
+      updated_at: now,
+      canceled_at: null,
+    }).eq("user_id", supabaseUserId);
+    if (updateError) throw updateError;
+    console.log("✅ Postgres updated - plan:", plan, "userId:", userId);
 
-    // Write flat fields using dot notation - avoids merging stale nested data
-    const firestoreUpdate: Record<string, unknown> = {
-      "subscription.plan":                  plan,
-      "subscription.status":                "active",
-      "subscription.stripeSubscriptionId":  subscriptionId,
-      "subscription.stripeCustomerId":      customerId,
-      "subscription.currentPeriodEnd":      periodEndISO,
-      "subscription.subscriptionEndsAt":    periodEndISO,
-      "subscription.lastPaymentAt":         now,
-      "subscription.updatedAt":             now,
-      "subscription.canceledAt":            null,
-      limits:                               limitsSnapshot,
-    };
-
-    // ── Write to Firestore ─────────────────────────────────────────────────
-    await db.collection("users").doc(userId).update(firestoreUpdate);
-    console.log("✅ Firestore updated - plan:", plan, "userId:", userId);
-    
-    // Verify the write succeeded
-    const verify = await db.collection("users").doc(userId).get();
-    console.log("🔍 Firestore verify - plan is now:", verify.data()?.subscription?.plan);
-
-    // ── Bust Redis so next server request reads fresh Firestore data ───────
+    // ── Bust Redis so next server request reads fresh data ─────────────────
     await invalidateAllUserCache(userId);
 
     return NextResponse.json({ success: true, plan });

@@ -1,8 +1,7 @@
 // hooks/useNotifications.ts
 
 import { useState, useEffect, useCallback } from 'react';
-import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth } from '@/firebase/client';
+import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import {
   NotificationService,
   Notification as AppNotification,
@@ -11,15 +10,18 @@ import {
 export type { AppNotification };
 
 // Accepts an optional uid - if provided, uses it directly (avoids double auth call).
-// If not provided, falls back to useAuthState internally.
+// If not provided, falls back to the Supabase auth state internally. Callers
+// should only pass a uid once client-side Firestore access is bridged (see
+// useFirebaseAuthBridge) - passing undefined until then avoids a guaranteed
+// permission-denied error on the notifications listener.
 export function useNotifications(uid?: string) {
-  const [currentUser] = useAuthState(auth);
+  const [currentUser] = useSupabaseUser();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   // Use the passed uid if available, otherwise fall back to auth state
-  const userId = uid ?? currentUser?.uid;
+  const userId = uid ?? currentUser?.id;
 
   useEffect(() => {
     if (!userId) {

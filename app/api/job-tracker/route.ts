@@ -1,6 +1,7 @@
 // app/api/job-tracker/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { db, auth } from '@/firebase/admin';
+import { getAuthedUser } from '@/lib/auth/verify-request';
+import { supabaseAdmin } from '@/supabase/admin';
 
 // ─── Types matching the page exactly ─────────────────────────────────────────
 
@@ -27,46 +28,28 @@ interface Application {
   updatedAt:   string;
 }
 
+interface JobApplicationRow {
+  id: string;
+  user_id: string;
+  company: string | null;
+  job_title: string | null;
+  job_url: string | null;
+  location: string | null;
+  salary: string | null;
+  work_type: string | null;
+  source: string | null;
+  notes: string | null;
+  status: string | null;
+  applied_date: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 const VALID_STATUSES: AppStatus[] = [
   'wishlist','applied','phone-screen','technical',
   'final','offer','rejected','ghosted','withdrew',
 ];
 const VALID_WORK_TYPES: WorkType[] = ['remote','hybrid','onsite'];
-
-// ─── Auth - session cookie first, then Bearer token ───────────────────────────
-
-async function getUid(request: NextRequest): Promise<string | null> {
-  // 1. Session cookie (web app)
-  const session = request.cookies.get('session')?.value;
-  if (session) {
-    try {
-      const decoded = await auth.verifySessionCookie(session, true);
-      return decoded.uid;
-    } catch { /* fall through */ }
-  }
-
-  // 2. Bearer token (extension / API clients)
-  const authHeader = request.headers.get('authorization');
-  if (authHeader?.startsWith('Bearer ')) {
-    try {
-      return (await auth.verifyIdToken(authHeader.slice(7))).uid;
-    } catch { /* fall through */ }
-  }
-
-  // 3. Extension custom headers
-  const extToken = request.headers.get('x-extension-token');
-  const userId   = request.headers.get('x-user-id');
-  const email    = request.headers.get('x-user-email');
-  if (extToken) {
-    try { return (await auth.verifyIdToken(extToken)).uid; } catch { /* fall through */ }
-    if (userId) return userId;
-    if (email) {
-      try { return (await auth.getUserByEmail(email)).uid; } catch { /* fall through */ }
-    }
-  }
-
-  return null;
-}
 
 // ─── Sanitize body fields ─────────────────────────────────────────────────────
 
@@ -97,13 +80,11 @@ function sanitize(body: Record<string, unknown>): Partial<AppFields> {
   return out;
 }
 
-// ─── Normalise a Firestore doc into an Application ───────────────────────────
+// ─── Normalise a Postgres row into an Application ────────────────────────────
 
-function normaliseDoc(doc: FirebaseFirestore.DocumentSnapshot, uid: string): Application {
-  const d = doc.data() ?? {};
-
+function normaliseRow(row: JobApplicationRow): Application {
   // Normalise legacy status values sent by older extension versions
-  let status = d.status as string;
+  let status = row.status as string;
   const legacyMap: Record<string, AppStatus> = {
     'Applied':      'applied',
     'Under Review': 'applied',
@@ -116,70 +97,57 @@ function normaliseDoc(doc: FirebaseFirestore.DocumentSnapshot, uid: string): App
     status = legacyMap[status];
   }
 
-  // createdAt / updatedAt: Firestore Timestamp OR ISO string (from extension)
-  const toISO = (v: unknown): string => {
-    if (!v) return new Date().toISOString();
-    if (typeof v === 'object' && 'toDate' in (v as object))
-      return (v as FirebaseFirestore.Timestamp).toDate().toISOString();
-    if (typeof v === 'string') return v;
-    return new Date().toISOString();
-  };
-
   return {
-    id:          doc.id,
-    userId:      uid,
-    company:     d.company  || '',
-    jobTitle:    d.jobTitle || '',
-    jobUrl:      d.jobUrl   ?? null,
-    location:    d.location ?? null,
-    salary:      d.salary   ?? null,
-    workType:    (VALID_WORK_TYPES.includes(d.workType) ? d.workType : 'onsite') as WorkType,
-    source:      d.source   ?? null,
-    notes:       d.notes    ?? null,
+    id:          row.id,
+    userId:      row.user_id,
+    company:     row.company   || '',
+    jobTitle:    row.job_title || '',
+    jobUrl:      row.job_url   ?? null,
+    location:    row.location  ?? null,
+    salary:      row.salary    ?? null,
+    workType:    (VALID_WORK_TYPES.includes(row.work_type as WorkType) ? row.work_type : 'onsite') as WorkType,
+    source:      row.source ?? null,
+    notes:       row.notes  ?? null,
     status:      (VALID_STATUSES.includes(status as AppStatus) ? status : 'applied') as AppStatus,
-    // appliedDate: prefer explicit field, fall back to appliedAt (extension sends this)
-    appliedDate: d.appliedDate
-      || (typeof d.appliedAt === 'string' ? d.appliedAt.split('T')[0] : null)
-      || new Date().toISOString().split('T')[0],
-    createdAt:   toISO(d.createdAt),
-    updatedAt:   toISO(d.updatedAt),
+    appliedDate: row.applied_date ?? new Date().toISOString().split('T')[0],
+    createdAt:   row.created_at,
+    updatedAt:   row.updated_at,
   };
+}
+
+const fieldsToColumns: Record<keyof AppFields, string> = {
+  company: 'company', jobTitle: 'job_title', jobUrl: 'job_url',
+  location: 'location', salary: 'salary', workType: 'work_type',
+  source: 'source', notes: 'notes', status: 'status', appliedDate: 'applied_date',
+};
+
+function toColumns(fields: Partial<AppFields>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(fields)) {
+    out[fieldsToColumns[key as keyof AppFields]] = value;
+  }
+  return out;
 }
 
 // ─── GET - list applications ──────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
   try {
-    const uid = await getUid(request);
-    if (!uid) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authedUser = await getAuthedUser(request);
+    if (!authedUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    let snap: FirebaseFirestore.QuerySnapshot;
+    const { data, error } = await supabaseAdmin
+      .from('job_applications')
+      .select('*')
+      .eq('user_id', authedUser.supabaseUserId)
+      .order('created_at', { ascending: false });
 
-    // Try ordered query first - requires a composite index (userId ASC, createdAt DESC).
-    // If the index doesn't exist yet Firestore throws a "requires an index" error;
-    // fall back to an unordered query and sort in JS so the app still works.
-    try {
-      snap = await db
-        .collection('jobApplications')
-        .where('userId', '==', uid)
-        .orderBy('createdAt', 'desc')
-        .get();
-    } catch (indexErr) {
-      console.warn('[job-tracker GET] orderBy failed (index missing?), falling back to unordered:', (indexErr as Error).message);
-      snap = await db
-        .collection('jobApplications')
-        .where('userId', '==', uid)
-        .get();
-    }
+    if (error) throw error;
 
-    const data: Application[] = snap.docs
-      .map(doc => normaliseDoc(doc, uid))
-      // JS-side sort so results are newest-first even on the fallback path
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const result = (data as JobApplicationRow[]).map(normaliseRow);
+    console.log(`[job-tracker GET] uid=${authedUser.supabaseUserId} found=${result.length}`);
 
-    console.log(`[job-tracker GET] uid=${uid} found=${data.length}`);
-
-    return NextResponse.json({ success: true, data });
+    return NextResponse.json({ success: true, data: result });
   } catch (error) {
     console.error('❌ job-tracker GET:', error);
     return NextResponse.json({ error: 'Failed to fetch applications' }, { status: 500 });
@@ -190,8 +158,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const uid = await getUid(request);
-    if (!uid) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authedUser = await getAuthedUser(request);
+    if (!authedUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const uid = authedUser.supabaseUserId;
 
     const body = await request.json() as Record<string, unknown>;
     const data = sanitize(body);
@@ -201,38 +170,41 @@ export async function POST(request: NextRequest) {
 
     // Deduplicate: same user + URL submitted within 10 min
     if (data.jobUrl) {
-      const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000);
-      const dup = await db
-        .collection('jobApplications')
-        .where('userId',    '==', uid)
-        .where('jobUrl',    '==', data.jobUrl)
-        .where('createdAt', '>=', tenMinAgo)
+      const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+      const { data: dup } = await supabaseAdmin
+        .from('job_applications')
+        .select('id')
+        .eq('user_id', uid)
+        .eq('job_url', data.jobUrl)
+        .gte('created_at', tenMinAgo)
         .limit(1)
-        .get();
-      if (!dup.empty)
+        .maybeSingle();
+      if (dup)
         return NextResponse.json({ success: true, duplicate: true, message: 'Already tracked recently' });
     }
 
-    const now    = new Date();
-    const docRef = db.collection('jobApplications').doc();
+    const now = new Date().toISOString();
+    const { data: created, error } = await supabaseAdmin
+      .from('job_applications')
+      .insert({
+        user_id:      uid,
+        company:      data.company,
+        job_title:    data.jobTitle,
+        job_url:      data.jobUrl      ?? null,
+        location:     data.location    ?? null,
+        salary:       data.salary      ?? null,
+        work_type:    data.workType    ?? 'onsite',
+        source:       data.source      ?? null,
+        notes:        data.notes       ?? null,
+        status:       data.status      ?? 'applied',
+        applied_date: data.appliedDate ?? now.split('T')[0],
+      })
+      .select('id')
+      .single();
 
-    await docRef.set({
-      userId:      uid,
-      company:     data.company,
-      jobTitle:    data.jobTitle,
-      jobUrl:      data.jobUrl      ?? null,
-      location:    data.location    ?? null,
-      salary:      data.salary      ?? null,
-      workType:    data.workType    ?? 'onsite',
-      source:      data.source      ?? null,
-      notes:       data.notes       ?? null,
-      status:      data.status      ?? 'applied',
-      appliedDate: data.appliedDate ?? now.toISOString().split('T')[0],
-      createdAt:   now,   // Firestore Timestamp - consistent with orderBy
-      updatedAt:   now,
-    });
+    if (error) throw error;
 
-    return NextResponse.json({ success: true, id: docRef.id }, { status: 201 });
+    return NextResponse.json({ success: true, id: created.id }, { status: 201 });
   } catch (error) {
     console.error('❌ job-tracker POST:', error);
     return NextResponse.json({ error: 'Failed to create application' }, { status: 500 });
@@ -243,23 +215,32 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const uid = await getUid(request);
-    if (!uid) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authedUser = await getAuthedUser(request);
+    if (!authedUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const uid = authedUser.supabaseUserId;
 
     const body = await request.json() as Record<string, unknown>;
     const id   = typeof body.id === 'string' ? body.id.trim() : null;
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 });
 
-    const docRef = db.collection('jobApplications').doc(id);
-    const snap   = await docRef.get();
-    if (!snap.exists)                return NextResponse.json({ error: 'Not found' },  { status: 404 });
-    if (snap.data()?.userId !== uid) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    const { data: existing } = await supabaseAdmin
+      .from('job_applications')
+      .select('user_id')
+      .eq('id', id)
+      .maybeSingle();
+    if (!existing)                return NextResponse.json({ error: 'Not found' },  { status: 404 });
+    if (existing.user_id !== uid) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const updates = sanitize(body);
     if (Object.keys(updates).length === 0)
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
 
-    await docRef.update({ ...updates, updatedAt: new Date() });
+    const { error } = await supabaseAdmin
+      .from('job_applications')
+      .update({ ...toColumns(updates), updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) throw error;
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('❌ job-tracker PATCH:', error);
@@ -271,18 +252,24 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const uid = await getUid(request);
-    if (!uid) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authedUser = await getAuthedUser(request);
+    if (!authedUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const uid = authedUser.supabaseUserId;
 
     const id = new URL(request.url).searchParams.get('id');
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 });
 
-    const docRef = db.collection('jobApplications').doc(id);
-    const snap   = await docRef.get();
-    if (!snap.exists)                return NextResponse.json({ error: 'Not found' },  { status: 404 });
-    if (snap.data()?.userId !== uid) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    const { data: existing } = await supabaseAdmin
+      .from('job_applications')
+      .select('user_id')
+      .eq('id', id)
+      .maybeSingle();
+    if (!existing)                return NextResponse.json({ error: 'Not found' },  { status: 404 });
+    if (existing.user_id !== uid) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-    await docRef.delete();
+    const { error } = await supabaseAdmin.from('job_applications').delete().eq('id', id);
+    if (error) throw error;
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('❌ job-tracker DELETE:', error);

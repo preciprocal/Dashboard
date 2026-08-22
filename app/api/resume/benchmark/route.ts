@@ -1,7 +1,7 @@
 // app/api/resume/benchmark/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { auth, db } from '@/firebase/admin';
+import { getAuthedUser } from '@/lib/auth/verify-request';
+import { supabaseAdmin } from '@/supabase/admin';
 import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
@@ -111,11 +111,9 @@ Return JSON:
 
 export async function POST(request: NextRequest) {
   try {
-    let userId: string | null = null;
-    const session = (await cookies()).get('session');
-    if (session) try { userId = (await auth.verifySessionCookie(session.value, true)).uid; } catch {}
-    if (!userId) { const h = request.headers.get('authorization'); if (h?.startsWith('Bearer ')) try { userId = (await auth.verifyIdToken(h.slice(7))).uid; } catch {} }
-    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authedUser = await getAuthedUser(request);
+    if (!authedUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { userId, supabaseUserId } = authedUser;
     if (!anthropic) return NextResponse.json({ error: 'AI not configured' }, { status: 503 });
 
     const rateLimited = await applyRateLimit(request, userId, 'heavy');
@@ -129,13 +127,21 @@ export async function POST(request: NextRequest) {
     const { resumeId, force = false } = await request.json();
     if (!resumeId) return NextResponse.json({ error: 'resumeId required' }, { status: 400 });
 
-    const doc = await db.collection('resumes').doc(resumeId).get();
-    if (!doc.exists) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    const data = doc.data() as Record<string, unknown>;
-    if (data.userId !== userId) return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    const { data: row, error: fetchError } = await supabaseAdmin.from('resumes').select('*').eq('id', resumeId).maybeSingle();
+    if (fetchError) throw fetchError;
+    if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    if (row.user_id !== supabaseUserId) return NextResponse.json({ error: 'Access denied' }, { status: 403 });
 
-    const cached = data.benchmarkResult as Record<string, unknown> | undefined;
-    const cachedAt = data.benchmarkGeneratedAt as number | undefined;
+    const data: Record<string, unknown> = {
+      feedback: row.feedback,
+      resumeText: row.resume_text,
+      jobTitle: row.job_title,
+      companyName: row.company_name,
+      jobDescription: row.job_description,
+    };
+
+    const cached = row.benchmark_result as Record<string, unknown> | undefined;
+    const cachedAt = row.benchmark_generated_at ? new Date(row.benchmark_generated_at as string).getTime() : undefined;
     if (!force && cached && cachedAt && Date.now() - cachedAt < 7 * 24 * 60 * 60 * 1000) return NextResponse.json({ success: true, data: cached, cached: true });
 
     const response = await anthropic.messages.create({ model: CLAUDE_MODEL, max_tokens: MAX_TOKENS, system: cachedSystem(BENCHMARK_SYSTEM), messages: [{ role: 'user', content: buildPrompt(data) }] });
@@ -162,7 +168,7 @@ export async function POST(request: NextRequest) {
 
     await checkAndIncrementUsage(userId, 'resumes');
 
-    try { await db.collection('resumes').doc(resumeId).update({ benchmarkResult: benchmarkData, benchmarkGeneratedAt: Date.now() }); } catch {}
+    try { await supabaseAdmin.from('resumes').update({ benchmark_result: benchmarkData, benchmark_generated_at: new Date().toISOString() }).eq('id', resumeId); } catch {}
     return NextResponse.json({ success: true, data: benchmarkData, cached: false });
   } catch (error) { console.error('❌ Benchmark error:', error); return NextResponse.json({ error: 'Internal server error' }, { status: 500 }); }
 }

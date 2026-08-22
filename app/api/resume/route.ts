@@ -1,6 +1,7 @@
 // app/api/resume/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, db } from '@/firebase/admin'; // Use your actual export names
+import { getAuthedUser } from '@/lib/auth/verify-request';
+import { supabaseAdmin } from '@/supabase/admin';
 import { revalidatePath } from 'next/cache';
 
 export interface Resume {
@@ -10,8 +11,12 @@ export interface Resume {
   jobTitle: string;
   jobDescription: string;
   fileName: string;
+  originalFileName?: string;
   fileSize: number;
   fileUrl?: string;
+  resumePath?: string;
+  imagePath?: string;
+  filePath?: string;
   createdAt: string;
   updatedAt: string;
   status: 'analyzing' | 'complete' | 'failed';
@@ -25,85 +30,132 @@ export interface Resume {
   analyzedAt?: string;
 }
 
-// Verify Firebase Auth token
-async function verifyToken(request: NextRequest) {
-  try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return null;
-    }
+const RESUME_COLUMNS = 'id, user_id, company_name, job_title, job_description, file_name, original_file_name, file_size, file_url, resume_path, image_path, file_path, status, score, feedback, analyzed_at, created_at, updated_at';
 
-    const token = authHeader.split('Bearer ')[1];
-    const decodedToken = await auth.verifyIdToken(token);
-    return decodedToken;
-  } catch (error) {
-    console.error('Token verification failed:', error);
-    return null;
-  }
+interface ResumeRow {
+  id: string;
+  user_id: string;
+  company_name: string | null;
+  job_title: string | null;
+  job_description: string | null;
+  file_name: string | null;
+  original_file_name: string | null;
+  file_size: number | null;
+  file_url: string | null;
+  resume_path: string | null;
+  image_path: string | null;
+  file_path: string | null;
+  status: string;
+  score: number | null;
+  feedback: Resume['feedback'] | null;
+  analyzed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+function toResume(row: ResumeRow): Resume {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    companyName: row.company_name ?? '',
+    jobTitle: row.job_title ?? '',
+    jobDescription: row.job_description ?? '',
+    fileName: row.file_name ?? '',
+    originalFileName: row.original_file_name ?? undefined,
+    fileSize: row.file_size ?? 0,
+    fileUrl: row.file_url ?? undefined,
+    resumePath: row.resume_path ?? undefined,
+    imagePath: row.image_path ?? undefined,
+    filePath: row.file_path ?? undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    status: row.status as Resume['status'],
+    score: row.score ?? undefined,
+    feedback: row.feedback ?? undefined,
+    analyzedAt: row.analyzed_at ?? undefined,
+  };
 }
 
 // GET /api/resume - Get all resumes for user
 export async function GET(request: NextRequest) {
   try {
-    const user = await verifyToken(request);
-    if (!user) {
+    const authedUser = await getAuthedUser(request);
+    if (!authedUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const snapshot = await db
-      .collection('resumes')
-      .where('userId', '==', user.uid)
-      .orderBy('createdAt', 'desc')
-      .get();
+    const { data, error } = await supabaseAdmin
+      .from('resumes')
+      .select(RESUME_COLUMNS)
+      .eq('user_id', authedUser.supabaseUserId)
+      .eq('deleted', false)
+      .order('created_at', { ascending: false });
 
-    const resumes: Resume[] = [];
-    snapshot.forEach(doc => {
-      resumes.push(doc.data() as Resume);
-    });
+    if (error) throw error;
 
-    return NextResponse.json({ success: true, data: resumes });
+    return NextResponse.json({ success: true, data: (data as ResumeRow[]).map(toResume) });
   } catch (error) {
     console.error('Error fetching resumes:', error);
     return NextResponse.json({ error: 'Failed to fetch resumes' }, { status: 500 });
   }
 }
 
-// POST /api/resume - Create new resume
+// POST /api/resume - Create new resume. Accepts either a bare "pending"
+// record (analysis not run yet) or a fully-analyzed one in one shot - the
+// resume upload flow (lib/services/firebase-service.ts saveResumeWithFiles)
+// already has the AI feedback by the time it calls this, since analysis
+// happens client-side against /api/analyze-resume first.
 export async function POST(request: NextRequest) {
   try {
-    const user = await verifyToken(request);
-    if (!user) {
+    const authedUser = await getAuthedUser(request);
+    if (!authedUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
-    const { companyName, jobTitle, jobDescription, fileName, fileSize, fileUrl } = body;
+    const {
+      id, companyName, jobTitle, jobDescription, fileName, originalFileName, fileSize,
+      fileUrl, resumePath, filePath, resumeText, cacheHash,
+      status, score, feedback, analyzedAt,
+    } = body;
 
-    if (!companyName || !jobTitle || !jobDescription || !fileName) {
+    if (!fileName) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const docRef = db.collection('resumes').doc();
-    const now = new Date().toISOString();
-    
-    const resume: Resume = {
-      id: docRef.id,
-      userId: user.uid,
-      companyName,
-      jobTitle,
-      jobDescription,
-      fileName,
-      fileSize: fileSize || 0,
-      fileUrl,
-      createdAt: now,
-      updatedAt: now,
-      status: 'analyzing'
+    const insertData: Record<string, unknown> = {
+      user_id: authedUser.supabaseUserId,
+      company_name: companyName,
+      job_title: jobTitle,
+      job_description: jobDescription,
+      file_name: fileName,
+      original_file_name: originalFileName ?? null,
+      file_size: fileSize || 0,
+      file_url: fileUrl ?? null,
+      resume_path: resumePath ?? null,
+      file_path: filePath ?? null,
+      resume_text: resumeText ?? null,
+      cache_hash: cacheHash ?? null,
+      status: status ?? 'analyzing',
     };
+    if (id) insertData.id = id;
+    if (status === 'complete') {
+      insertData.score = score ?? null;
+      insertData.feedback = feedback ?? null;
+      insertData.analyzed_at = analyzedAt ?? new Date().toISOString();
+    }
 
-    await docRef.set(resume);
+    const { data: created, error } = await supabaseAdmin
+      .from('resumes')
+      .insert(insertData)
+      .select(RESUME_COLUMNS)
+      .single();
+
+    if (error) throw error;
+
     revalidatePath('/resume');
-    
-    return NextResponse.json({ success: true, data: resume });
+
+    return NextResponse.json({ success: true, data: toResume(created as ResumeRow) });
   } catch (error) {
     console.error('Error creating resume:', error);
     return NextResponse.json({ error: 'Failed to create resume' }, { status: 500 });

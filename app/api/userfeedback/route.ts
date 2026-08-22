@@ -1,7 +1,8 @@
 // app/api/usersfeedback/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/firebase/admin";
+import { supabaseAdmin } from "@/supabase/admin";
+import { getAuthedUser } from "@/lib/auth/verify-request";
 import { getCurrentUser } from "@/lib/actions/auth.action";
 
 export const runtime = "nodejs";
@@ -11,10 +12,35 @@ export async function OPTIONS() {
     status: 204,
     headers: {
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
     },
   });
+}
+
+// GET /api/userfeedback?page=... - has this user already submitted the
+// survey for this page?
+export async function GET(req: NextRequest) {
+  try {
+    const page = req.nextUrl.searchParams.get("page");
+    if (!page) return NextResponse.json({ error: "page is required" }, { status: 400 });
+
+    const authedUser = await getAuthedUser(req);
+    if (!authedUser) return NextResponse.json({ alreadySubmitted: false });
+
+    const { data } = await supabaseAdmin
+      .from("product_surveys")
+      .select("id")
+      .eq("user_id", authedUser.supabaseUserId)
+      .eq("page", page)
+      .limit(1)
+      .maybeSingle();
+
+    return NextResponse.json({ alreadySubmitted: !!data });
+  } catch (err) {
+    console.error("[usersfeedback] Error checking prior submission:", err);
+    return NextResponse.json({ alreadySubmitted: false });
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -30,9 +56,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }
 
-    const user = await getCurrentUser();
+    // getCurrentUser() gives us the Firestore-compatible profile (name/email);
+    // getAuthedUser() gives us the real Supabase auth UUID - Postgres rows
+    // should always store the latter, not the legacy-resolved id.
+    const [user, authedUser] = await Promise.all([
+      getCurrentUser(),
+      getAuthedUser(req),
+    ]);
 
-    // Destructure all known fields for a clean, typed document
     const {
       overallRating,
       nps,
@@ -45,34 +76,23 @@ export async function POST(req: NextRequest) {
       submittedAt,
     } = body;
 
-    const doc = {
-      // Identity
-      type:      'product-survey',
-      userId:    user?.id    ?? null,
-      userEmail: user?.email ?? null,
-      userName:  user?.name  ?? null,
-
-      // Context
+    const { error } = await supabaseAdmin.from("product_surveys").insert({
+      user_id: authedUser?.supabaseUserId ?? null,
+      user_email: user?.email ?? null,
+      user_name: user?.name ?? null,
       page,
-      submittedAt: submittedAt ?? new Date().toISOString(),
-      createdAt:   new Date().toISOString(),
-      userAgent:   req.headers.get("user-agent") ?? "unknown",
-
-      // Step 1
-      overallRating,
-      featureRatings: featureRatings ?? [],
-      usageOptions: usageOptions ?? [],
-
-      // Step 2
+      overall_rating: overallRating,
       nps: nps ?? null,
-      specificAnswers: specificAnswers ?? {},
-      topImprovement: topImprovement ?? "",
+      feature_ratings: featureRatings ?? [],
+      usage_options: usageOptions ?? [],
+      specific_answers: specificAnswers ?? {},
+      top_improvement: topImprovement ?? "",
+      free_text: freeText ?? "",
+      user_agent: req.headers.get("user-agent") ?? "unknown",
+      submitted_at: submittedAt ?? new Date().toISOString(),
+    });
 
-      // Step 3
-      freeText: freeText ?? "",
-    };
-
-    await db.collection("usersfeedback").add(doc);
+    if (error) throw error;
 
     return NextResponse.json({ success: true });
   } catch (err) {

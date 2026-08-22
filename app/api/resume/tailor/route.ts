@@ -1,8 +1,8 @@
 // app/api/resume/tailor/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import crypto from 'crypto';
-import { auth, db } from '@/firebase/admin';
+import { getAuthedUser } from '@/lib/auth/verify-request';
+import { supabaseAdmin } from '@/supabase/admin';
 import { redis } from '@/lib/redis/redis-client';
 import { getUserAIContext } from '@/lib/ai/user-context';
 import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, cleanResumeText } from '@/lib/ai/claude';
@@ -62,12 +62,9 @@ export async function POST(request: NextRequest) {
   try {
     if (!anthropic) return NextResponse.json({ error: 'AI not configured' }, { status: 503 });
 
-    const session = (await cookies()).get('session');
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-    let userId: string;
-    try { userId = (await auth.verifySessionCookie(session.value, true)).uid; }
-    catch { return NextResponse.json({ error: 'Invalid session' }, { status: 401 }); }
+    const authedUser = await getAuthedUser(request);
+    if (!authedUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { userId, supabaseUserId } = authedUser;
 
     // ── Rate limit ────────────────────────────────────────────────
     const rateLimited = await applyRateLimit(request, userId, 'heavy');
@@ -91,8 +88,8 @@ export async function POST(request: NextRequest) {
     let resumeText = '';
     if (resumeId) {
       try {
-        const doc = await db.collection('resumes').doc(resumeId).get();
-        if (doc.exists) { const d = doc.data() as Record<string, unknown>; resumeText = (d.resumeText as string) || (d.extractedText as string) || ''; }
+        const { data: d } = await supabaseAdmin.from('resumes').select('resume_text').eq('id', resumeId).maybeSingle();
+        if (d?.resume_text) resumeText = d.resume_text;
       } catch {}
     }
     if (!resumeText) {
@@ -166,24 +163,24 @@ REMINDER: Every item in "changes" MUST use arrow format "original text → new t
 
     if (redis) { try { await redis.setex(cacheKey, TAILOR_CACHE_TTL, JSON.stringify(data)); } catch {} }
 
-    // ── Save to resume doc for preloading on page load ────────────
+    // ── Save to resume row for preloading on page load ────────────
     if (resumeId) {
       try {
-        await db.collection('resumes').doc(resumeId).update({
-          tailorResult: data,
-          tailorResultGeneratedAt: Date.now(),
-          tailorJobTitle: jobTitle,
-          tailorCompanyName: companyName || null,
-        });
+        await supabaseAdmin.from('resumes').update({
+          tailor_result: data,
+          tailor_result_generated_at: new Date().toISOString(),
+          tailor_job_title: jobTitle,
+          tailor_company_name: companyName || null,
+        }).eq('id', resumeId);
       } catch (e) { console.warn('⚠️ Tailor cache write to resume failed:', e); }
     }
 
     try {
-      await db.collection('tailoredResumes').add({
-        userId, resumeId: resumeId || null, jobTitle, companyName: companyName || null,
-        atsScoreBefore: (data.atsScore as Record<string, number>)?.before ?? null,
-        atsScoreAfter: (data.atsScore as Record<string, number>)?.after ?? null,
-        interviewPrepNotes: data.interviewPrepNotes || [], createdAt: new Date(),
+      await supabaseAdmin.from('tailored_resumes').insert({
+        user_id: supabaseUserId, resume_id: resumeId || null, job_title: jobTitle, company_name: companyName || null,
+        ats_score_before: (data.atsScore as Record<string, number>)?.before ?? null,
+        ats_score_after: (data.atsScore as Record<string, number>)?.after ?? null,
+        interview_prep_notes: data.interviewPrepNotes || [],
       });
     } catch {}
 

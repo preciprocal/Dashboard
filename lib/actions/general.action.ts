@@ -1,9 +1,11 @@
 "use server";
 
 import OpenAI from "openai";
-import { db } from "@/firebase/admin";
+import { supabaseAdmin } from "@/supabase/admin";
+import { toSupabaseUserId } from "@/lib/auth/verify-request";
 import { redis } from "@/lib/redis/redis-client";
 import { getUserAIContext, buildUserContextPrompt } from "@/lib/ai/user-context";
+import { checkAndIncrementUsage } from "@/lib/ai/usage-guard";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -40,6 +42,54 @@ interface Feedback {
 }
 
 interface CachedData<T> { data: T; cachedAt: string; }
+
+interface InterviewRow {
+  id: string; user_id: string; role: string | null; type: string | null;
+  techstack: string[] | null; company: string | null; position: string | null;
+  level: string | null; duration: string | null; status: string | null;
+  finalized: boolean; questions: unknown; metadata: Record<string, unknown> | null;
+  created_at: string; updated_at: string;
+}
+
+function toInterview(row: InterviewRow): Interview {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    role: row.role ?? "",
+    type: (row.type as Interview["type"]) ?? "technical",
+    techstack: row.techstack ?? [],
+    company: row.company ?? "",
+    position: row.position ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    duration: row.duration ? Number(row.duration) || 0 : 0,
+    status: (row.status as Interview["status"]) ?? "completed",
+    finalized: row.finalized,
+    questions: (row.questions as string[]) ?? [],
+    level: row.level ?? undefined,
+  };
+}
+
+interface FeedbackRow {
+  id: string; interview_id: string; user_id: string;
+  total_score: number | null; category_scores: Record<string, number> | null;
+  strengths: string[] | null; areas_for_improvement: string[] | null;
+  final_assessment: string | null; created_at: string;
+}
+
+function toFeedback(row: FeedbackRow): Feedback {
+  return {
+    id: row.id,
+    interviewId: row.interview_id,
+    userId: row.user_id,
+    totalScore: row.total_score ?? 0,
+    categoryScores: row.category_scores ?? {},
+    strengths: row.strengths ?? [],
+    areasForImprovement: row.areas_for_improvement ?? [],
+    finalAssessment: row.final_assessment ?? "",
+    createdAt: row.created_at,
+  };
+}
 
 // ============ CACHE HELPERS ============
 
@@ -166,30 +216,43 @@ Return ONLY valid JSON matching this schema:
       categoryScoresRecord = object.categoryScores as Record<string, number>;
     }
 
-    const feedback = {
-      type: 'interview-assessment',
-      interviewId, userId,
-      totalScore: object.totalScore,
-      categoryScores: categoryScoresRecord,
-      strengths: object.strengths,
-      areasForImprovement: object.areasForImprovement,
-      finalAssessment: object.finalAssessment,
-      createdAt: new Date().toISOString(),
-    };
+    const supabaseUserId = await toSupabaseUserId(userId);
 
-    const feedbackRef = feedbackId
-      ? db.collection("feedback").doc(feedbackId)
-      : db.collection("feedback").doc();
+    // Upsert on the table's (interview_id, user_id) unique constraint - this
+    // is what the old feedbackId param manually achieved (reuse the same doc
+    // when an interview is retaken), so feedbackId itself is now unused.
+    void feedbackId;
+    const { data: row, error } = await supabaseAdmin
+      .from("interview_feedback")
+      .upsert({
+        interview_id: interviewId,
+        user_id: supabaseUserId,
+        total_score: object.totalScore,
+        category_scores: categoryScoresRecord,
+        strengths: object.strengths,
+        areas_for_improvement: object.areasForImprovement,
+        final_assessment: object.finalAssessment,
+      }, { onConflict: "interview_id,user_id" })
+      .select()
+      .single();
 
-    await feedbackRef.set(feedback);
+    if (error) throw error;
 
-    const feedbackWithId: Feedback = { id: feedbackRef.id, ...feedback };
+    const feedbackWithId = toFeedback(row as FeedbackRow);
     await cacheFeedback(feedbackWithId);
     await invalidateUserInterviewsCache(userId);
     await invalidateInterviewCache(interviewId);
 
+    // Best-effort, matches the old client-side Firestore increment this
+    // replaces - never blocks feedback delivery on a usage-tracking hiccup.
+    try {
+      await checkAndIncrementUsage(userId, 'interviews');
+    } catch (usageErr) {
+      console.error('⚠️ Failed to increment interview usage (non-blocking):', usageErr);
+    }
+
     console.log('✅ Feedback created (OpenAI + user context)');
-    return { success: true, feedbackId: feedbackRef.id };
+    return { success: true, feedbackId: feedbackWithId.id };
   } catch (error) {
     console.error("Error saving feedback:", error);
     return { success: false };
@@ -201,9 +264,10 @@ Return ONLY valid JSON matching this schema:
 export async function getInterviewById(id: string): Promise<Interview | null> {
   const cached = await getCachedInterview(id);
   if (cached) return cached;
-  const doc = await db.collection("interviews").doc(id).get();
-  if (!doc.exists) return null;
-  const data = { id: doc.id, ...doc.data() } as Interview;
+  const { data: row, error } = await supabaseAdmin.from("interviews").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  if (!row) return null;
+  const data = toInterview(row as InterviewRow);
   await cacheInterview(data);
   return data;
 }
@@ -212,17 +276,21 @@ export async function getFeedbackByInterviewId(params: GetFeedbackByInterviewIdP
   const { interviewId, userId } = params;
   const cached = await getCachedFeedback(interviewId, userId);
   if (cached) return cached;
-  const snap = await db.collection("feedback").where("interviewId", "==", interviewId).where("userId", "==", userId).limit(1).get();
-  if (snap.empty) {
+
+  const supabaseUserId = await toSupabaseUserId(userId);
+  const { data: row, error } = await supabaseAdmin
+    .from("interview_feedback")
+    .select("*")
+    .eq("interview_id", interviewId)
+    .eq("user_id", supabaseUserId)
+    .maybeSingle();
+  if (error) throw error;
+
+  if (!row) {
     if (redis) { try { await redis.setex(`feedback:${userId}:${interviewId}`, 60, JSON.stringify({ data: null, cachedAt: new Date().toISOString() })); } catch {} }
     return null;
   }
-  const doc = snap.docs[0];
-  const d = doc.data();
-  let scores: Record<string, number> = {};
-  if (Array.isArray(d.categoryScores)) { d.categoryScores.forEach((c: { name: string; score: number }) => { scores[c.name] = c.score; }); }
-  else if (d.categoryScores && typeof d.categoryScores === 'object') { scores = d.categoryScores as Record<string, number>; }
-  const feedback: Feedback = { id: doc.id, ...d, categoryScores: scores } as Feedback;
+  const feedback = toFeedback(row as FeedbackRow);
   await cacheFeedback(feedback);
   return feedback;
 }
@@ -231,8 +299,18 @@ export async function getLatestInterviews(params: GetLatestInterviewsParams): Pr
   const { userId, limit = 20 } = params;
   const cached = await getCachedLatestInterviews(limit);
   if (cached) return cached;
-  const snap = await db.collection("interviews").orderBy("createdAt", "desc").where("finalized", "==", true).where("userId", "!=", userId).limit(limit).get();
-  const list = snap.docs.map(d => ({ id: d.id, ...d.data() })) as Interview[];
+
+  const supabaseUserId = await toSupabaseUserId(userId);
+  const { data, error } = await supabaseAdmin
+    .from("interviews")
+    .select("*")
+    .eq("finalized", true)
+    .neq("user_id", supabaseUserId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+
+  const list = (data as InterviewRow[]).map(toInterview);
   await cacheLatestInterviews(list, limit);
   return list;
 }
@@ -240,8 +318,16 @@ export async function getLatestInterviews(params: GetLatestInterviewsParams): Pr
 export async function getInterviewsByUserId(userId: string): Promise<Interview[] | null> {
   const cached = await getCachedInterviews(userId);
   if (cached) return cached;
-  const snap = await db.collection("interviews").where("userId", "==", userId).orderBy("createdAt", "desc").get();
-  const list = snap.docs.map(d => ({ id: d.id, ...d.data() })) as Interview[];
+
+  const supabaseUserId = await toSupabaseUserId(userId);
+  const { data, error } = await supabaseAdmin
+    .from("interviews")
+    .select("*")
+    .eq("user_id", supabaseUserId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+
+  const list = (data as InterviewRow[]).map(toInterview);
   await cacheInterviews(userId, list);
   return list;
 }

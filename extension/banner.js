@@ -15,7 +15,7 @@
 
 console.log('🎯 Preciprocal banner.js loaded on:', window.location.href);
 
-const IS_DEV = false;
+const IS_DEV = true;
 const PRECIPROCAL_URL = IS_DEV ? 'http://localhost:3000' : 'https://app.preciprocal.com';
 
 // ─────────────────────────────────────────────────────────────────
@@ -994,10 +994,29 @@ class PreciprocalBanner {
     return { resume, transcript };
   }
 
+  async _fetchViaBackground(url, fileName) {
+    return new Promise((resolve) => {
+      try {
+        chrome.runtime.sendMessage({ type: 'FETCH_FILE', url, fileName }, (response) => {
+          if (chrome.runtime.lastError || !response?.base64) resolve(null);
+          else resolve(response);
+        });
+        setTimeout(() => resolve(null), 15000);
+      } catch { resolve(null); }
+    });
+  }
+
   async _buildFileObject(url, fileName) {
     const ext = (fileName.split('.').pop() || '').toLowerCase();
     const mime = { pdf: 'application/pdf', doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }[ext] || 'application/octet-stream';
     if (url.startsWith('data:')) { const b64 = url.split(',')[1]; const bin = atob(b64); const bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i); return new File([bytes], fileName, { type: mime }); }
+    // Route through the background service worker first - it has <all_urls> host
+    // permissions so it isn't subject to linkedin.com's page-level CORS policy.
+    const viaBg = await this._fetchViaBackground(url, fileName);
+    if (viaBg?.base64) {
+      const bin = atob(viaBg.base64); const bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return new File([bytes], fileName, { type: viaBg.mimeType || mime });
+    }
     const res = await fetch(url, { mode: 'cors' }); if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
     return new File([await res.blob()], fileName, { type: mime });
   }

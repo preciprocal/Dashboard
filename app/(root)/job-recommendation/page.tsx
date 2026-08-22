@@ -4,8 +4,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Target, Briefcase, MapPin, DollarSign, Building2, ExternalLink, Loader2, AlertCircle, TrendingUp, Award, Search, Filter, Sparkles, Upload, FileText, ArrowLeft, RefreshCw, Calendar, X, Clock, GraduationCap, Zap, CheckCircle2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth } from '@/firebase/client';
+import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import AnimatedLoader, { LoadingStep as LoaderStep } from '@/components/loader/AnimatedLoader';
 import ErrorPage from '@/components/Error';
 import Link from 'next/link';
@@ -120,7 +119,7 @@ const JOB_TYPE_OPTIONS: JobTypeOption[] = [
 
 function JobRecommendationsPage() {
   const router = useRouter();
-  const [currentUser, authLoading] = useAuthState(auth);
+  const [currentUser, authLoading] = useSupabaseUser();
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null);
@@ -174,16 +173,6 @@ function JobRecommendationsPage() {
     }
   }, [authLoading, currentUser, router]);
 
-  const getAuthToken = useCallback(async (): Promise<string | null> => {
-    if (!currentUser) return null;
-    try {
-      return await currentUser.getIdToken();
-    } catch (error) {
-      console.error('Error getting auth token:', error);
-      return null;
-    }
-  }, [currentUser]);
-
   const formatResumeDate = useCallback((dateValue: string): string => {
     try {
       const date = new Date(dateValue);
@@ -211,26 +200,14 @@ function JobRecommendationsPage() {
 
     try {
       setResumeLoadingStep(0);
-      const token = await getAuthToken();
-      
-      if (!token) {
-        setCriticalError({
-          code: '401',
-          title: 'Authentication Required',
-          message: 'Your session has expired. Please log in again.',
-        });
-        return;
-      }
 
       setResumeLoadingStep(1);
       await new Promise(resolve => setTimeout(resolve, 300));
 
       setResumeLoadingStep(2);
-      const response = await fetch('/api/resume', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      // No Authorization header needed - the Supabase session cookie is
+      // sent automatically for this same-origin request.
+      const response = await fetch('/api/resume');
 
       if (!response.ok) {
         if (response.status === 401) {
@@ -291,7 +268,7 @@ function JobRecommendationsPage() {
     } finally {
       setIsLoadingResumes(false);
     }
-  }, [getAuthToken, selectedResumeId]);
+  }, [selectedResumeId]);
 
   const fetchJobRecommendations = useCallback(async (): Promise<void> => {
     if (!selectedResumeId) {
@@ -308,17 +285,6 @@ function JobRecommendationsPage() {
     
     try {
       setLoadingStep(0);
-      const token = await getAuthToken();
-      
-      if (!token) {
-        setCriticalError({
-          code: '401',
-          title: 'Authentication Required',
-          message: 'Your session has expired. Please log in again.',
-        });
-        return;
-      }
-
       await new Promise(resolve => setTimeout(resolve, 300));
 
       setLoadingStep(1);
@@ -328,11 +294,12 @@ function JobRecommendationsPage() {
       await new Promise(resolve => setTimeout(resolve, 300));
 
       setLoadingStep(3);
+      // No Authorization header needed - the Supabase session cookie is
+      // sent automatically for this same-origin request.
       const response = await fetch('/api/resume/job-recommendations', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           resumeId: selectedResumeId,
@@ -390,7 +357,7 @@ function JobRecommendationsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedResumeId, getAuthToken, filters, searchQuery]);
+  }, [selectedResumeId, filters, searchQuery]);
 
   useEffect(() => {
     if (currentUser) {

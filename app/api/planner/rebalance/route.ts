@@ -1,8 +1,8 @@
 // app/api/planner/rebalance/route.ts
 // Missed-day recovery: redistributes undone tasks across remaining days
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { auth, db } from '@/firebase/admin';
+import { getAuthedUser } from '@/lib/auth/verify-request';
+import { supabaseAdmin } from '@/supabase/admin';
 
 interface Task {
   id: string;
@@ -41,21 +41,19 @@ interface PlanData {
 
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const session = cookieStore.get('session');
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-    const decoded = await auth.verifySessionCookie(session.value, true);
-    const userId = decoded.uid;
+    const authedUser = await getAuthedUser(request);
+    if (!authedUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { supabaseUserId } = authedUser;
 
     const { planId } = await request.json() as { planId: string };
     if (!planId) return NextResponse.json({ error: 'planId required' }, { status: 400 });
 
-    const planDoc = await db.collection('interviewPlans').doc(planId).get();
-    if (!planDoc.exists) return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
+    const { data: row, error: fetchError } = await supabaseAdmin.from('interview_plans').select('user_id, data').eq('id', planId).maybeSingle();
+    if (fetchError) throw fetchError;
+    if (!row) return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
 
-    const plan = planDoc.data() as PlanData;
-    if (plan.userId !== userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    const plan = row.data as PlanData;
+    if (row.user_id !== supabaseUserId) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -137,15 +135,21 @@ export async function POST(request: NextRequest) {
     const totalTasks = allTasks.length;
     const percentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-    // Update Firestore with dot-notation to avoid stale merge
-    await db.collection('interviewPlans').doc(planId).update({
+    // Merge into the plan blob and write the whole `data` column back -
+    // Postgres jsonb has no dot-notation partial update like Firestore did.
+    const nowIso = new Date().toISOString();
+    const updatedPlan = {
+      ...plan,
       dailyPlans: newDailyPlans,
-      'progress.totalTasks': totalTasks,
-      'progress.completedTasks': completedTasks,
-      'progress.percentage': percentage,
-      updatedAt: new Date().toISOString(),
-      lastRebalancedAt: new Date().toISOString(),
-    });
+      progress: { ...plan.progress, totalTasks, completedTasks, percentage },
+      updatedAt: nowIso,
+      lastRebalancedAt: nowIso,
+    };
+    const { error: updateError } = await supabaseAdmin
+      .from('interview_plans')
+      .update({ data: updatedPlan, updated_at: nowIso })
+      .eq('id', planId);
+    if (updateError) throw updateError;
 
     console.log(`✅ Rebalanced plan ${planId}: moved ${undoneTasks.length} tasks across ${updatedFutureDays.length} future days`);
 

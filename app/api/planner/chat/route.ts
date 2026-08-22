@@ -1,7 +1,6 @@
 // app/api/planner/chat/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { auth } from '@/firebase/admin';
+import { getAuthedUserId } from '@/lib/auth/verify-request';
 import OpenAI from 'openai';
 
 const apiKey = process.env.OPENAI_API_KEY;
@@ -71,23 +70,11 @@ export async function POST(request: NextRequest) {
     }
 
     // ==================== AUTH ====================
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('session')?.value;
+    const userId = await getAuthedUserId(request);
 
-    if (!sessionCookie) {
+    if (!userId) {
       return NextResponse.json(
         { success: false, error: 'Not authenticated', code: 'AUTH_REQUIRED' },
-        { status: 401 }
-      );
-    }
-
-    let userId: string;
-    try {
-      const decodedClaims = await auth.verifySessionCookie(sessionCookie, true);
-      userId = decodedClaims.uid;
-    } catch {
-      return NextResponse.json(
-        { success: false, error: 'Invalid session', code: 'INVALID_SESSION' },
         { status: 401 }
       );
     }

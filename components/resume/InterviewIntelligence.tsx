@@ -188,13 +188,9 @@ export default function InterviewIntelligence({
   const fetchIntel = useCallback(async (overrideCompany?: string, overrideRole?: string) => {
     setLoading(true); setError(''); setIntel(null);
     try {
-      const { auth } = await import('@/firebase/client');
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) throw new Error('Not authenticated');
-
       const res = await fetch('/api/resume/interview-intel', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           resumeId,
           companyName: overrideCompany || customCompany || companyName,

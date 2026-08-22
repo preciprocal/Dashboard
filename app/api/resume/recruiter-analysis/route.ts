@@ -1,7 +1,7 @@
 // app/api/resume/recruiter-analysis/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { auth, db } from '@/firebase/admin';
+import { getAuthedUser } from '@/lib/auth/verify-request';
+import { supabaseAdmin } from '@/supabase/admin';
 import Anthropic from '@anthropic-ai/sdk';
 
 const anthropic = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY || '' });
@@ -20,26 +20,15 @@ export async function POST(request: NextRequest) {
     console.log('🔍 Starting recruiter analysis...');
 
     // ==================== AUTHENTICATION ====================
-    const cookieStore = await cookies();
-    const session = cookieStore.get('session');
+    const authedUser = await getAuthedUser(request);
 
-    if (!session) {
+    if (!authedUser) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
-
-    let userId: string;
-    try {
-      const decodedClaims = await auth.verifySessionCookie(session.value, true);
-      userId = decodedClaims.uid;
-    } catch {
-      return NextResponse.json(
-        { success: false, error: 'Invalid session' },
-        { status: 401 }
-      );
-    }
+    const { supabaseUserId } = authedUser;
 
     // ==================== PARSE REQUEST ====================
     const body = await request.json();
@@ -58,26 +47,23 @@ export async function POST(request: NextRequest) {
     console.log('📄 Fetching resume:', resumeId);
     console.log('🎯 LinkedIn job:', linkedInJob ? 'Present' : 'Not provided');
 
-    // ==================== FETCH RESUME FROM FIRESTORE ====================
-    const resumeDoc = await db.collection('resumes').doc(resumeId).get();
+    // ==================== FETCH RESUME FROM POSTGRES ====================
+    const { data: resume, error: fetchError } = await supabaseAdmin
+      .from('resumes')
+      .select('user_id, feedback, resume_text')
+      .eq('id', resumeId)
+      .maybeSingle();
 
-    if (!resumeDoc.exists) {
+    if (fetchError) throw fetchError;
+
+    if (!resume) {
       return NextResponse.json(
         { success: false, error: 'Resume not found' },
         { status: 404 }
       );
     }
 
-    const resume = resumeDoc.data();
-
-    if (!resume) {
-      return NextResponse.json(
-        { success: false, error: 'Resume data is empty' },
-        { status: 404 }
-      );
-    }
-
-    if (resume.userId !== userId) {
+    if (resume.user_id !== supabaseUserId) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized access to resume' },
         { status: 403 }
@@ -85,9 +71,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Extract text from resume - check multiple possible locations
-    const resumeText = resume.feedback?.resumeText ||
-                      resume.resumeText ||
-                      resume.extractedText ||
+    const feedback = resume.feedback as Record<string, unknown> | null;
+    const resumeText = (feedback?.resumeText as string) ||
+                      resume.resume_text ||
                       '';
 
     if (!resumeText || resumeText.trim().length === 0) {

@@ -1,7 +1,6 @@
 // app/api/cover-letter/download/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { auth } from '@/firebase/admin';
+import { getAuthedUserId } from '@/lib/auth/verify-request';
 import { jsPDF } from 'jspdf';
 import { Document, Packer, Paragraph, TextRun, AlignmentType, ExternalHyperlink } from 'docx';
 
@@ -88,21 +87,11 @@ export async function POST(request: NextRequest) {
     console.log('📥 Cover Letter Download Request');
 
     // ==================== AUTHENTICATION ====================
-    const cookieStore = await cookies();
-    const session = cookieStore.get('session');
+    const userId = await getAuthedUserId(request);
 
-    if (!session) {
+    if (!userId) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    try {
-      await auth.verifySessionCookie(session.value, true);
-    } catch {
-      return NextResponse.json(
-        { success: false, error: 'Invalid session' },
         { status: 401 }
       );
     }

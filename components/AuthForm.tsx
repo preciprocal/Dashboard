@@ -4,29 +4,16 @@ import { z } from "zod";
 import Link from "next/link";
 import Image from "next/image";
 import { toast } from "sonner";
-import { auth } from "@/firebase/client";
+import { supabase } from "@/supabase/client";
 import { useForm } from "react-hook-form";
 import { useRouter, useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState, useEffect } from "react";
 
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  GoogleAuthProvider,
-  FacebookAuthProvider,
-  setPersistence,
-  browserLocalPersistence,
-  UserCredential,
-  sendEmailVerification,
-} from "firebase/auth";
-
 import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 
 import { signIn, signUp } from "@/lib/actions/auth.action";
-import { syncAuthToExtension } from "@/lib/syncAuthToExtension";
 import logo from "@/public/logo.png";
 
 type FormType = "sign-in" | "sign-up";
@@ -45,7 +32,6 @@ const AuthForm = ({ type }: { type: FormType }) => {
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const [isFacebookLoading, setIsFacebookLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -74,168 +60,28 @@ const AuthForm = ({ type }: { type: FormType }) => {
     }
   }, [type, form]);
 
-  const clearAllCache = async () => {
-    console.log("🧹 Clearing ALL cached data...");
-
-    const keysToRemove = [
-      "user", "userId", "userEmail", "userName", "userProfile",
-      "authToken", "idToken", "subscriptionStatus", "subscriptionTier",
-      "usageData", "userPreferences", "dashboardData", "recentActivity",
-      "cached_user_data", "user_stats", "interviews_cache", "resumes_cache",
-    ];
-
-    keysToRemove.forEach((key) => {
-      localStorage.removeItem(key);
-      sessionStorage.removeItem(key);
-    });
-
-    const localStorageKeys = Object.keys(localStorage);
-    localStorageKeys.forEach((key) => {
-      if (
-        key.startsWith("user:") ||
-        key.startsWith("firebase:") ||
-        key.startsWith("_firebase")
-      ) {
-        localStorage.removeItem(key);
-      }
-    });
-
-    if (window.indexedDB) {
-      try {
-        const databases = await window.indexedDB.databases();
-        for (const db of databases) {
-          if (
-            db.name &&
-            (db.name.includes("firebase") || db.name.includes("firestore"))
-          ) {
-            console.log("🗑️ Deleting IndexedDB:", db.name);
-            window.indexedDB.deleteDatabase(db.name);
-          }
-        }
-      } catch (error) {
-        console.log("IndexedDB cleanup skipped:", error);
-      }
-    }
-
-    try {
-      await auth.signOut();
-      console.log("✅ Firebase auth state cleared");
-    } catch (error) {
-      console.log("Firebase signout skipped:", error);
-    }
-
-    console.log("✅ Cache cleared successfully");
-  };
-
-  const handleSuccessfulAuth = async (
-    user: import("firebase/auth").User,
-    provider: string
-  ) => {
-    try {
-      const idToken = await user.getIdToken(true);
-
-      const signInResult = await signIn({
-        email: user.email!,
-        idToken,
-        provider,
-      });
-
-      if (!signInResult.success) {
-        toast.error(signInResult.message);
-        return false;
-      }
-
-      localStorage.setItem("rememberedEmail", user.email!);
-      localStorage.setItem("rememberMe", "true");
-
-      // Sync auth state to Chrome extension
-      await syncAuthToExtension(user);
-
-      toast.success(
-        type === "sign-up"
-          ? `Account created successfully with ${provider}!`
-          : "Signed in successfully!"
-      );
-
-      console.log("✅ Auth successful, forcing page reload to:", redirectUrl);
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      const finalUrl =
-        redirectUrl === "/"
-          ? `/?_t=${Date.now()}&_uid=${user.uid.substring(0, 8)}`
-          : `${redirectUrl}${redirectUrl.includes("?") ? "&" : "?"}_t=${Date.now()}&_uid=${user.uid.substring(0, 8)}`;
-
-      console.log("🔄 Redirecting to:", finalUrl);
-      window.location.replace(finalUrl);
-      return true;
-    } catch (error) {
-      console.error("Auth processing error:", error);
-      toast.error("Failed to complete authentication.");
-      return false;
-    }
-  };
-
   const handleGoogleAuth = async () => {
     setIsGoogleLoading(true);
     try {
-      await clearAllCache();
+      const next = redirectUrl !== "/" ? redirectUrl : "/";
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+          queryParams: { prompt: "select_account" },
+        },
+      });
 
-      const provider = new GoogleAuthProvider();
-      provider.addScope("email");
-      provider.addScope("profile");
-      provider.setCustomParameters({ prompt: "select_account" });
-
-      await setPersistence(auth, browserLocalPersistence);
-      const result: UserCredential = await signInWithPopup(auth, provider);
-      await handleSuccessfulAuth(result.user, "google");
+      if (error) {
+        toast.error(error.message || "Failed to authenticate with Google.");
+        setIsGoogleLoading(false);
+      }
+      // On success the browser navigates away to Google's consent screen -
+      // nothing more to do here; app/auth/callback/route.ts handles the return.
     } catch (error) {
       console.error("Google auth error:", error);
-      const err = error as { code?: string };
-      let errorMessage = "Failed to authenticate with Google.";
-
-      if (err.code === "auth/popup-closed-by-user")
-        errorMessage = "Sign-in was cancelled.";
-      else if (err.code === "auth/popup-blocked")
-        errorMessage = "Popup was blocked. Please allow popups and try again.";
-      else if (err.code === "auth/account-exists-with-different-credential")
-        errorMessage = "An account already exists with this email using a different sign-in method.";
-      else if (err.code === "auth/unauthorized-domain")
-        errorMessage = "This domain is not authorized for Google sign-in.";
-
-      toast.error(errorMessage);
-    } finally {
+      toast.error("Failed to authenticate with Google.");
       setIsGoogleLoading(false);
-    }
-  };
-
-  const handleFacebookAuth = async () => {
-    setIsFacebookLoading(true);
-    try {
-      await clearAllCache();
-
-      const provider = new FacebookAuthProvider();
-      provider.addScope("email");
-
-      await setPersistence(auth, browserLocalPersistence);
-      const result: UserCredential = await signInWithPopup(auth, provider);
-      await handleSuccessfulAuth(result.user, "facebook");
-    } catch (error) {
-      console.error("Facebook auth error:", error);
-      const err = error as { code?: string };
-      let errorMessage = "Failed to authenticate with Facebook.";
-
-      if (err.code === "auth/popup-closed-by-user")
-        errorMessage = "Sign-in was cancelled.";
-      else if (err.code === "auth/popup-blocked")
-        errorMessage = "Popup was blocked. Please allow popups and try again.";
-      else if (err.code === "auth/account-exists-with-different-credential")
-        errorMessage = "An account already exists with this email using a different sign-in method.";
-      else if (err.code === "auth/unauthorized-domain")
-        errorMessage = "This domain is not authorized for Facebook sign-in.";
-
-      toast.error(errorMessage);
-    } finally {
-      setIsFacebookLoading(false);
     }
   };
 
@@ -245,30 +91,13 @@ const AuthForm = ({ type }: { type: FormType }) => {
       if (type === "sign-up") {
         const { name, email, password } = data;
 
-        const userCredential: UserCredential =
-          await createUserWithEmailAndPassword(auth, email, password);
-
-        const result = await signUp({
-          uid: userCredential.user.uid,
-          name: name!,
-          email,
-        });
-
+        const result = await signUp({ name: name!, email, password });
         if (!result.success) {
-          // Clean up the Firebase Auth user if Firestore registration failed
-          try {
-            await userCredential.user.delete();
-          } catch {
-            // ignore cleanup error
-          }
           toast.error(result.message);
           return;
         }
 
-        // Send verification email
-        await sendEmailVerification(userCredential.user);
-
-        toast.success("Account created! Check your email to verify before signing in.");
+        toast.success(result.message);
 
         const verifyUrl =
           redirectUrl !== "/"
@@ -278,80 +107,30 @@ const AuthForm = ({ type }: { type: FormType }) => {
       } else {
         const { email, password } = data;
 
-        await clearAllCache();
-        await setPersistence(auth, browserLocalPersistence);
-
-        const userCredential: UserCredential =
-          await signInWithEmailAndPassword(auth, email, password);
-
-        // Block sign-in for unverified email/password accounts
-        if (!userCredential.user.emailVerified) {
-          // Send a fresh verification email so they can act on it right away
-          await sendEmailVerification(userCredential.user);
-          await auth.signOut();
-
-          toast.error("Please verify your email before signing in. A new verification link has been sent.");
-
-          const verifyUrl =
-            redirectUrl !== "/"
-              ? `/verify-email?email=${encodeURIComponent(email)}&redirect=${encodeURIComponent(redirectUrl)}`
-              : `/verify-email?email=${encodeURIComponent(email)}`;
-          router.push(verifyUrl);
-          return;
-        }
-
-        const idToken = await userCredential.user.getIdToken(true);
-
-        if (!idToken) {
-          toast.error("Sign in Failed. Please try again.");
+        const result = await signIn({ email, password });
+        if (!result.success) {
+          if (result.message.toLowerCase().includes("confirm")) {
+            const verifyUrl =
+              redirectUrl !== "/"
+                ? `/verify-email?email=${encodeURIComponent(email)}&redirect=${encodeURIComponent(redirectUrl)}`
+                : `/verify-email?email=${encodeURIComponent(email)}`;
+            router.push(verifyUrl);
+            return;
+          }
+          toast.error(result.message);
           return;
         }
 
         localStorage.setItem("rememberedEmail", email);
         localStorage.setItem("rememberMe", "true");
 
-        const signInResult = await signIn({ email, idToken, provider: "email" });
-
-        if (!signInResult.success) {
-          toast.error(signInResult.message);
-          return;
-        }
-
-        // Sync auth state to Chrome extension
-        await syncAuthToExtension(userCredential.user);
-
         toast.success("Signed in successfully.");
-
-        console.log("✅ Sign in successful, forcing page reload to:", redirectUrl);
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-
-        const finalUrl =
-          redirectUrl === "/"
-            ? `/?_t=${Date.now()}&_uid=${userCredential.user.uid.substring(0, 8)}`
-            : `${redirectUrl}${redirectUrl.includes("?") ? "&" : "?"}_t=${Date.now()}&_uid=${userCredential.user.uid.substring(0, 8)}`;
-
-        console.log("🔄 Redirecting to:", finalUrl);
-        window.location.replace(finalUrl);
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        window.location.replace(redirectUrl === "/" ? `/?_t=${Date.now()}` : redirectUrl);
       }
     } catch (error) {
-      console.log(error);
-      const err = error as { code?: string };
-      let errorMessage = "There was an error signing in.";
-
-      if (err.code === "auth/user-not-found")
-        errorMessage = "No account found with this email address.";
-      else if (err.code === "auth/wrong-password")
-        errorMessage = "Invalid password. Please try again.";
-      else if (err.code === "auth/invalid-email")
-        errorMessage = "Invalid email address format.";
-      else if (err.code === "auth/user-disabled")
-        errorMessage = "This account has been disabled.";
-      else if (err.code === "auth/too-many-requests")
-        errorMessage = "Too many failed attempts. Please try again later.";
-      else if (err.code === "auth/invalid-credential")
-        errorMessage = "Invalid credentials. Please check your email and password.";
-
-      toast.error(errorMessage);
+      console.error(error);
+      toast.error("There was an error signing in.");
     } finally {
       setIsLoading(false);
     }
@@ -528,23 +307,6 @@ const AuthForm = ({ type }: { type: FormType }) => {
               )}
               <span className="text-white font-medium">
                 {isGoogleLoading ? "Connecting..." : "Continue with Google"}
-              </span>
-            </button>
-
-            <button
-              onClick={handleFacebookAuth}
-              disabled={isFacebookLoading}
-              className="w-full flex items-center justify-center space-x-3 py-3 px-4 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed group"
-            >
-              {isFacebookLoading ? (
-                <div className="w-5 h-5 border-2 border-slate-700 border-t-purple-500 rounded-full animate-spin"></div>
-              ) : (
-                <svg className="w-5 h-5 text-[#1877F2]" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                </svg>
-              )}
-              <span className="text-white font-medium">
-                {isFacebookLoading ? "Connecting..." : "Continue with Facebook"}
               </span>
             </button>
           </div>

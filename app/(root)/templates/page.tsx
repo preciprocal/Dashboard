@@ -3,8 +3,7 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import { useRouter } from 'next/navigation';
-import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth } from '@/firebase/client';
+import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import {
   AlertCircle, Search, X, Play, Loader2,
@@ -253,7 +252,7 @@ function FilterDropdown({
 
 export default function TemplatesPage() {
   const router = useRouter();
-  const [user, loading] = useAuthState(auth);
+  const [user, loading] = useSupabaseUser();
 
   const [searchQuery,        setSearchQuery]        = useState('');
   const [selectedCategory,   setSelectedCategory]   = useState('all');

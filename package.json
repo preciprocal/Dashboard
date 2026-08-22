@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "migrate:firebase-users": "tsx --env-file=.env.local scripts/migrate-firebase-users.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^1.1.25",
@@ -22,6 +23,8 @@
     "@sparticuz/chromium-min": "^143.0.4",
     "@stripe/react-stripe-js": "^3.7.0",
     "@stripe/stripe-js": "^7.4.0",
+    "@supabase/ssr": "^0.12.4",
+    "@supabase/supabase-js": "^2.112.3",
     "@tinymce/tinymce-react": "^6.3.0",
     "@types/formidable": "^3.4.5",
     "@types/webrtc": "^0.0.47",
@@ -40,6 +43,7 @@
     "firebase": "^11.4.0",
     "firebase-admin": "^13.6.0",
     "firebase-functions": "^7.0.3",
+    "firebase-scrypt": "^2.2.0",
     "formidable": "^3.5.4",
     "html-docx-js": "^0.3.1",
     "html2canvas": "^1.4.1",
@@ -86,6 +90,7 @@
     "eslint-config-next": "15.2.2",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.18",
+    "tsx": "^4.23.12",
     "typescript": "^5"
   }
 }

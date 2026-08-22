@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, memo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Resume } from '@/types/resume';
+import { fetchResumePdfBytes, openResumePdf } from '@/lib/resume/resolve-pdf-url';
 import {
   Calendar, CheckCircle2, AlertTriangle, FileText,
   Trash2, Download, ArrowRight, X,
@@ -55,26 +56,7 @@ const PdfThumbnail = memo(function PdfThumbnail({ resumePath, small = false }: {
 
     (async () => {
       try {
-        let pdfBytes: ArrayBuffer;
-
-        if (resumePath.startsWith('http')) {
-          const res = await fetch('/api/resume/proxy-pdf', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: resumePath }),
-          });
-          if (!res.ok) throw new Error(`proxy-pdf ${res.status}`);
-          pdfBytes = await res.arrayBuffer();
-        } else {
-          const base64 = resumePath.includes('base64,')
-            ? resumePath.split('base64,')[1]
-            : resumePath;
-          const binary = atob(base64);
-          const buf = new ArrayBuffer(binary.length);
-          const view = new Uint8Array(buf);
-          for (let i = 0; i < binary.length; i++) view[i] = binary.charCodeAt(i);
-          pdfBytes = buf;
-        }
+        const pdfBytes = await fetchResumePdfBytes(resumePath);
 
         if (cancelled) return;
 
@@ -244,8 +226,14 @@ const ResumeCardInner = memo(function ResumeCard({
 
   const handleDownload = (e: React.MouseEvent) => {
     e.preventDefault(); e.stopPropagation();
-    const url = resume.resumePath || resume.fileUrl || resume.imagePath;
-    if (url) window.open(url, '_blank');
+    const path = resume.resumePath || resume.fileUrl;
+    if (path) {
+      openResumePdf(path, 'download', resume.originalFileName || `resume_${resume.id}.pdf`).catch(() => {
+        if (resume.imagePath) window.open(resume.imagePath, '_blank');
+      });
+    } else if (resume.imagePath) {
+      window.open(resume.imagePath, '_blank');
+    }
   };
 
   const handleDeleteClick = (e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); setShowDeleteModal(true); };

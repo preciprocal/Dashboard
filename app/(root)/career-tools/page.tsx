@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth } from '@/firebase/client';
+import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import {
   Linkedin, Mail, Loader2, ArrowLeft, Copy, Check, RefreshCw, XCircle, Zap,
   Star, AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Sparkles, TrendingUp,
@@ -592,12 +591,12 @@ function OutreachForm({ type, setType, recipName, setRecipName, recipRole, setRe
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function CareerToolsPage() {
-  const [user, loading] = useAuthState(auth);
+  const [user, loading] = useSupabaseUser();
   const router = useRouter();
 
   const {
     canUseFeature, getRemainingCount, getUsedCount,
-    getLimit, incrementUsage, usageData,
+    getLimit, refetch: refetchUsage, usageData,
   } = useUsageTracking();
   const isUnlimitedPlan = usageData?.plan === 'pro' || usageData?.plan === 'premium';
   const liUsed  = getUsedCount('linkedinOptimisations');
@@ -660,12 +659,12 @@ export default function CareerToolsPage() {
       if (!res.ok) { const e = await res.json().catch(() => ({ error: 'Request failed' })); throw new Error(e.error || `HTTP ${res.status}`); }
       const result = (await res.json()).data as LinkedInResult;
       setLiResult(result);
-      await incrementUsage('linkedinOptimisations');
+      await refetchUsage();
       setShowFeedback(true);
       setLiNextStep(true); // ← NEW
-      if (user?.uid) {
+      if (user?.id) {
         const label = result.overallScore >= 75 ? 'Strong' : result.overallScore >= 50 ? 'Needs Work' : 'Needs Improvement';
-        await NotificationService.createNotification(user.uid, 'system', 'LinkedIn Profile Optimised 🔵', `Your profile scored ${result.overallScore}/100 (${label}).`, { actionUrl: '/career-tools', actionLabel: 'View Results' });
+        await NotificationService.createNotification(user.id, 'system', 'LinkedIn Profile Optimised 🔵', `Your profile scored ${result.overallScore}/100 (${label}).`, { actionUrl: '/career-tools', actionLabel: 'View Results' });
       }
     } catch (e: unknown) { setLiError(e instanceof Error ? e.message : 'Failed'); }
     finally { setLiLoading(false); }
@@ -686,12 +685,12 @@ export default function CareerToolsPage() {
       if (!res.ok) { const e = await res.json().catch(() => ({ error: 'Request failed' })); throw new Error(e.error || `HTTP ${res.status}`); }
       const result = (await res.json()).data as OutreachResult;
       setOrResult(result);
-      await incrementUsage('coldOutreach');
+      await refetchUsage();
       setShowFeedback(true);
       setOrNextStep(true); // ← NEW
-      if (user?.uid) {
+      if (user?.id) {
         const target = orRecipName ? `${orRecipName}${orCompany ? ` at ${orCompany}` : ''}` : orCompany || orRecipRole || 'your target';
-        await NotificationService.createNotification(user.uid, 'system', `${orPlatform === 'linkedin' ? 'LinkedIn' : 'Email'} Outreach Ready ✉️`, `3 personalised messages for ${target} have been generated.`, { actionUrl: '/career-tools', actionLabel: 'View Messages' });
+        await NotificationService.createNotification(user.id, 'system', `${orPlatform === 'linkedin' ? 'LinkedIn' : 'Email'} Outreach Ready ✉️`, `3 personalised messages for ${target} have been generated.`, { actionUrl: '/career-tools', actionLabel: 'View Messages' });
       }
     } catch (e: unknown) { setOrError(e instanceof Error ? e.message : 'Failed'); }
     finally { setOrLoading(false); }

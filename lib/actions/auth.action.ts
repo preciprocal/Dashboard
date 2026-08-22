@@ -1,38 +1,39 @@
 "use server";
 
-import { cookies } from "next/headers";
-import { auth, db } from "@/firebase/admin";
+import { createServerSupabaseClient } from "@/supabase/server";
+import { supabaseAdmin } from "@/supabase/admin";
+import { resolveDataUserId, toSupabaseUserId } from "@/lib/auth/verify-request";
+import { tryMigrateLegacyPassword } from "@/lib/auth/legacy-password";
 import { redis, RedisKeys } from "@/lib/redis/redis-client";
 import { USAGE_LIMITS, normalisePlan } from "@/lib/config/usage-limits";
 
+// Calendar-month usage period, UTC - matches lib/ai/usage-guard.ts.
+function getCurrentPeriod(): string {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString().slice(0, 10);
+}
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const SESSION_DURATION = 60 * 60 * 24 * 7; // 7 days in seconds
-const USER_CACHE_TTL   = 5 * 60;            // 5 minutes
+const USER_CACHE_TTL = 5 * 60; // 5 minutes
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface SignUpParams {
-  uid: string;
   name: string;
   email: string;
-  provider?: string;
+  password: string;
 }
 
 interface SignInParams {
   email: string;
-  idToken: string;
-  provider: string;
+  password: string;
 }
 
 interface FirebaseTimestamp {
   toDate: () => Date;
   _seconds?: number;
   _nanoseconds?: number;
-}
-
-interface FirebaseError extends Error {
-  code?: string;
 }
 
 export interface User {
@@ -80,73 +81,12 @@ export interface User {
 
 // ─── Plan helpers ─────────────────────────────────────────────────────────────
 
-/**
- * Builds a fresh subscription object for a given plan.
- * Limits are always read from usage-limits.ts - never hardcoded.
- */
-function buildSubscription(plan: "free" | "pro" | "premium" = "free") {
-  const limits = USAGE_LIMITS[plan];
-  return {
-    plan,
-    status:               "active",
-    interviewsUsed:       0,
-    interviewsLimit:      limits.interviews === -1 ? 999999 : limits.interviews,
-    createdAt:            new Date().toISOString(),
-    updatedAt:            new Date().toISOString(),
-    trialEndsAt:          null,
-    subscriptionEndsAt:   null,
-    stripeCustomerId:     null,
-    stripeSubscriptionId: null,
-    currentPeriodStart:   null,
-    currentPeriodEnd:     null,
-    canceledAt:           null,
-    lastPaymentAt:        null,
-    studentVerified:      false,
-    studentEduEmail:      null,
-    studentVerifiedAt:    null,
-  };
-}
-
-/**
- * Builds a fresh usage object. All counters start at 0.
- * Matches every feature in usage-limits.ts.
- */
-function buildUsage() {
-  return {
-    coverLettersUsed:          0,
-    resumesUsed:               0,
-    studyPlansUsed:            0,
-    interviewsUsed:            0,
-    interviewDebriefsUsed:     0,
-    linkedinOptimisationsUsed: 0,
-    coldOutreachUsed:          0,
-    findContactsUsed:          0,
-    jobTrackerUsed:            0,
-    lastReset:                 new Date().toISOString(),
-  };
-}
-
-/**
- * Builds a limits snapshot from usage-limits.ts for the given plan.
- * Stored in the `limits` sub-document so Firebase Console shows plan caps
- * alongside usage counts without needing to cross-reference source code.
- */
-function buildLimits(plan: "free" | "pro" | "premium" = "free") {
-  const l = USAGE_LIMITS[plan];
-  return {
-    coverLetters:          l.coverLetters,
-    resumes:               l.resumes,
-    studyPlans:            l.studyPlans,
-    interviews:            l.interviews,
-    interviewDebriefs:     l.interviewDebriefs,
-    linkedinOptimisations: l.linkedinOptimisations,
-    coldOutreach:          l.coldOutreach,
-    findContacts:          l.findContacts,
-    jobTracker:            l.jobTracker,
-    plan,
-    updatedAt:             new Date().toISOString(),
-  };
-}
+// usage_counters rows are created lazily by the increment_usage_counter RPC
+// (lib/ai/usage-guard.ts) on first use each month, so signup no longer needs
+// to pre-seed a usage row. The old `limits` snapshot map is gone too -
+// USAGE_LIMITS[plan] is read fresh at request time instead of being
+// denormalized onto the user record, so there's nothing to drift out of
+// sync and nothing to self-heal on sign-in.
 
 // ─── Cache helpers ────────────────────────────────────────────────────────────
 
@@ -227,277 +167,222 @@ async function validateAndFixUserDocument(firebaseUser: {
   displayName?: string | null;
 }): Promise<boolean> {
   try {
-    console.log("🔍 Validating user document for UID:", firebaseUser.uid);
-    const userDoc = await db.collection("users").doc(firebaseUser.uid).get();
+    const supabaseUserId = await toSupabaseUserId(firebaseUser.uid);
+    console.log("🔍 Validating profile for UID:", supabaseUserId);
 
-    if (!userDoc.exists) {
-      console.log("⚠️ User document does not exist, will create");
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .select("email, name")
+      .eq("user_id", supabaseUserId)
+      .maybeSingle();
+    if (profileError) throw profileError;
+
+    if (!profile) {
+      console.log("⚠️ Profile does not exist, will create");
       return false;
     }
 
-    const userData = userDoc.data();
-
-    if (userData?.email !== firebaseUser.email) {
+    if (profile.email !== firebaseUser.email) {
       console.error("❌ EMAIL MISMATCH DETECTED!");
-      console.error("   Firestore email:", userData?.email);
-      console.error("   Firebase Auth email:", firebaseUser.email);
-      console.log("🔧 Auto-correcting Firestore document...");
+      console.error("   Postgres:", profile.email);
+      console.error("   Supabase Auth:", firebaseUser.email);
+      console.log("🔧 Auto-correcting profile...");
 
-      await db.collection("users").doc(firebaseUser.uid).update({
-        email:     firebaseUser.email || "",
-        name:      firebaseUser.displayName || userData?.name || "User",
-        updatedAt: new Date().toISOString(),
-      });
+      const { error } = await supabaseAdmin.from("profiles").update({
+        email: firebaseUser.email || "",
+        name: firebaseUser.displayName || profile.name || "User",
+        updated_at: new Date().toISOString(),
+      }).eq("user_id", supabaseUserId);
+      if (error) throw error;
 
-      console.log("✅ Document corrected");
+      console.log("✅ Profile corrected");
       await invalidateUserCache(firebaseUser.uid);
       return true;
     }
 
-    // ── Auto-migrate legacy "starter" → "free" ─────────────────────────────
-    if (userData?.subscription?.plan === "starter") {
+    // ── Auto-expire manually-granted student trials + migrate legacy "starter" ──
+    // Manually-granted trials (e.g. the student .edu offer) have no Stripe
+    // subscription behind them, so nothing else downgrades them when the
+    // trial ends - do it here on sign-in. USAGE_LIMITS[plan] is read fresh
+    // at request time everywhere else now, so there's no snapshot to sync.
+    const { data: sub, error: subError } = await supabaseAdmin
+      .from("subscriptions")
+      .select("plan, status, trial_ends_at")
+      .eq("user_id", supabaseUserId)
+      .maybeSingle();
+    if (subError) throw subError;
+
+    if (sub?.status === "trialing" && sub.trial_ends_at && new Date(sub.trial_ends_at).getTime() < Date.now()) {
+      console.log("🔧 Student trial expired, downgrading to free");
+      const { error } = await supabaseAdmin.from("subscriptions").update({
+        plan: "free",
+        status: "expired",
+        updated_at: new Date().toISOString(),
+      }).eq("user_id", supabaseUserId);
+      if (error) throw error;
+      await invalidateUserCache(firebaseUser.uid);
+    } else if (sub?.plan === "starter") {
       console.log("🔧 Migrating legacy plan: starter → free");
-      await db.collection("users").doc(firebaseUser.uid).update({
-        "subscription.plan":      "free",
-        "subscription.updatedAt": new Date().toISOString(),
-      });
+      const { error } = await supabaseAdmin.from("subscriptions").update({
+        plan: "free",
+        updated_at: new Date().toISOString(),
+      }).eq("user_id", supabaseUserId);
+      if (error) throw error;
       await invalidateUserCache(firebaseUser.uid);
     }
 
-    // ── Ensure subscription limits match current pricing config ──────────────
-    if (userData?.subscription) {
-      const planKey  = normalisePlan(userData.subscription.plan || "free");
-      const limits   = USAGE_LIMITS[planKey];
-      const expected = limits.interviews === -1 ? 999999 : limits.interviews;
-
-      if (userData.subscription.interviewsLimit !== expected) {
-        console.log(`🔧 Correcting interviewsLimit: ${userData.subscription.interviewsLimit} → ${expected}`);
-        await db.collection("users").doc(firebaseUser.uid).update({
-          "subscription.interviewsLimit": expected,
-          "subscription.updatedAt":       new Date().toISOString(),
-        });
-        await invalidateUserCache(firebaseUser.uid);
-      }
-    }
-
-    // ── Backfill missing usage fields for existing users ─────────────────────
-    if (userData?.usage) {
-      const newFields: Record<string, number> = {};
-      if (userData.usage.interviewDebriefsUsed === undefined)     newFields["usage.interviewDebriefsUsed"]     = 0;
-      if (userData.usage.linkedinOptimisationsUsed === undefined) newFields["usage.linkedinOptimisationsUsed"] = 0;
-      if (userData.usage.coldOutreachUsed === undefined)          newFields["usage.coldOutreachUsed"]          = 0;
-      if (userData.usage.findContactsUsed === undefined)          newFields["usage.findContactsUsed"]          = 0;
-      if (userData.usage.jobTrackerUsed === undefined)            newFields["usage.jobTrackerUsed"]            = 0;
-
-      if (Object.keys(newFields).length > 0) {
-        console.log("🔧 Backfilling missing usage fields:", Object.keys(newFields));
-        await db.collection("users").doc(firebaseUser.uid).update(newFields);
-        await invalidateUserCache(firebaseUser.uid);
-      }
-    }
-
-    // ── Sync limits sub-document when missing or plan has changed ────────────
-    const currentPlan = normalisePlan(userData?.subscription?.plan ?? "free") as "free" | "pro" | "premium";
-    if (!userData?.limits || userData.limits.plan !== currentPlan) {
-      console.log(`🔧 Syncing limits snapshot for plan: ${currentPlan}`);
-      await db.collection("users").doc(firebaseUser.uid).update({
-        limits: buildLimits(currentPlan),
-      });
-      await invalidateUserCache(firebaseUser.uid);
-    }
-
-    console.log("✅ User document is valid");
+    console.log("✅ Profile is valid");
     return true;
   } catch (error) {
-    console.error("❌ Error validating user document:", error);
+    console.error("❌ Error validating profile:", error);
     return false;
   }
 }
 
-// ─── Session cookie ───────────────────────────────────────────────────────────
-
-export async function setSessionCookie(idToken: string) {
-  const cookieStore = await cookies();
-  try {
-    const sessionCookie = await auth.createSessionCookie(idToken, {
-      expiresIn: SESSION_DURATION * 1000,
-    });
-
-    cookieStore.set("session", sessionCookie, {
-      maxAge:   SESSION_DURATION,
-      httpOnly: true,
-      secure:   process.env.NODE_ENV === "production",
-      path:     "/",
-      sameSite: "lax",
-    });
-
-    return { success: true };
-  } catch (error) {
-    console.error("Error setting session cookie:", error);
-    return { success: false, error: "Failed to set session cookie" };
-  }
-}
-
-// ─── Sign Up ──────────────────────────────────────────────────────────────────
+// ─── Sign Up (email/password) ─────────────────────────────────────────────────
 
 export async function signUp(params: SignUpParams) {
-  const { uid, name, email, provider } = params;
+  const { name, email, password } = params;
 
   try {
-    const userRecord = await db.collection("users").doc(uid).get();
-    if (userRecord.exists)
-      return { success: false, message: "User already exists. Please sign in." };
-
-    const userData = {
-      name,
+    const supabase = await createServerSupabaseClient();
+    const { data, error } = await supabase.auth.signUp({
       email,
-      provider:     provider || "email",
-      createdAt:    new Date().toISOString(),
-      updatedAt:    new Date().toISOString(),
-      isAdmin:      false,
-      subscription: buildSubscription("free"),
-      usage:        buildUsage(),
-      limits:       buildLimits("free"),
-    };
+      password,
+      options: { data: { name } },
+    });
 
-    await db.collection("users").doc(uid).set(userData);
+    if (error) {
+      if (error.message.toLowerCase().includes("already registered") || error.code === "user_already_exists")
+        return { success: false, message: "This email is already in use" };
+      return { success: false, message: error.message || "Failed to create account. Please try again." };
+    }
+    if (!data.user) return { success: false, message: "Failed to create account. Please try again." };
+
+    // Brand-new signup: the Supabase uuid is the real, authoritative id -
+    // no legacy mapping needed.
+    const userId = data.user.id;
+
+    // Atomic: profile + subscription (defaults to plan:'free', status:
+    // 'active') in one transaction. usage_counters rows are created lazily
+    // on first use.
+    const { error: createError } = await supabaseAdmin.rpc("create_user_account", {
+      p_user_id: userId,
+      p_name: name,
+      p_email: email,
+      p_provider: "email",
+    });
+    if (createError) throw createError;
+
     console.log(
-      `✅ New user created - UID: ${uid} | Email: ${email} | Plan: free`,
+      `✅ New user created - UID: ${userId} | Email: ${email} | Plan: free`,
       `| Limits: resumes=${USAGE_LIMITS.free.resumes} coverLetters=${USAGE_LIMITS.free.coverLetters}`,
       `studyPlans=${USAGE_LIMITS.free.studyPlans} interviews=${USAGE_LIMITS.free.interviews}`
     );
 
-    return { success: true, message: "Account created successfully. Please sign in." };
-  } catch (error: unknown) {
+    return {
+      success: true,
+      message: data.session ? "Account created successfully." : "Account created - check your email to confirm.",
+    };
+  } catch (error) {
     console.error("Error creating user:", error);
-    const firebaseError = error as FirebaseError;
-    if (firebaseError.code === "auth/email-already-exists")
-      return { success: false, message: "This email is already in use" };
     return { success: false, message: "Failed to create account. Please try again." };
   }
 }
 
-// ─── Sign In ──────────────────────────────────────────────────────────────────
+// ─── OAuth user provisioning (called from app/auth/callback/route.ts) ────────
+
+export async function ensureOAuthUserDocument(
+  userId: string,
+  email: string,
+  name: string | null,
+  provider: string
+) {
+  try {
+    const { data: existing, error: fetchError } = await supabaseAdmin
+      .from("profiles")
+      .select("user_id")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (fetchError) throw fetchError;
+
+    if (existing) {
+      await validateAndFixUserDocument({ uid: userId, email, displayName: name });
+      await invalidateUserCache(userId);
+      return;
+    }
+
+    const { error: createError } = await supabaseAdmin.rpc("create_user_account", {
+      p_user_id: userId,
+      p_name: name || `${provider.charAt(0).toUpperCase() + provider.slice(1)} User`,
+      p_email: email,
+      p_provider: provider,
+    });
+    if (createError) throw createError;
+
+    console.log(`✅ OAuth user created - UID: ${userId} | Provider: ${provider}`);
+  } catch (error) {
+    console.error("Error ensuring OAuth user document:", error);
+  }
+}
+
+// ─── Sign In (email/password) ─────────────────────────────────────────────────
 
 export async function signIn(params: SignInParams) {
-  const { email, idToken, provider } = params;
+  const { email, password } = params;
 
-  console.log("🔐 Sign in attempt:", { email, provider });
+  console.log("🔐 Sign in attempt:", { email });
 
   try {
-    // 1. Verify token
-    const decodedToken = await auth.verifyIdToken(idToken);
-    if (!decodedToken) {
-      console.error("❌ Failed to decode ID token");
-      return { success: false, message: "Invalid authentication token." };
-    }
-    console.log("✅ Token verified for UID:", decodedToken.uid);
+    const supabase = await createServerSupabaseClient();
+    let result = await supabase.auth.signInWithPassword({ email, password });
 
-    // 2. Get Firebase Auth user details
-    const firebaseUser = await auth.getUser(decodedToken.uid);
+    if (result.error) {
+      // Bridge for Firebase-migrated users: they have no usable Supabase
+      // password yet. Verify against their legacy scrypt hash and, on
+      // success, a real Supabase password gets set - then retry once.
+      const { data: mapRow } = await supabaseAdmin
+        .from("legacy_user_id_map")
+        .select("user_id")
+        .eq("email", email)
+        .maybeSingle();
 
-    // 3. Clear old session cookie
-    const cookieStore     = await cookies();
-    const existingSession = cookieStore.get("session");
-    if (existingSession) {
-      console.log("🧹 Clearing existing session cookie");
-      cookieStore.delete("session");
-      try {
-        const oldClaims = await auth.verifySessionCookie(existingSession.value, false);
-        if (oldClaims.uid !== decodedToken.uid) {
-          console.log("🧹 Invalidating old user cache:", oldClaims.uid);
-          await invalidateUserCache(oldClaims.uid);
-        }
-      } catch {
-        // Old session was invalid - continue
+      if (mapRow?.user_id) {
+        const migrated = await tryMigrateLegacyPassword(mapRow.user_id as string, password);
+        if (migrated) result = await supabase.auth.signInWithPassword({ email, password });
       }
     }
 
-    // 4. Invalidate cache for incoming user
-    console.log("🧹 Invalidating cache for:", decodedToken.uid);
-    await invalidateUserCache(decodedToken.uid);
-
-    // 5. Check / create Firestore document
-    const userRecord = await db.collection("users").doc(decodedToken.uid).get();
-
-    if (!userRecord.exists) {
-      if (provider === "google" || provider === "facebook") {
-        console.log(`Creating new OAuth user via ${provider}`);
-
-        const userData = {
-          name:      firebaseUser.displayName || `${provider.charAt(0).toUpperCase() + provider.slice(1)} User`,
-          email:     firebaseUser.email!,
-          provider,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          isAdmin:   false,
-          subscription: buildSubscription("free"),
-          usage:        buildUsage(),
-          limits:       buildLimits("free"),
-        };
-
-        await db.collection("users").doc(decodedToken.uid).set(userData);
-        console.log(
-          `✅ OAuth user created - UID: ${decodedToken.uid} | Provider: ${provider}`,
-          `| Limits: resumes=${USAGE_LIMITS.free.resumes} coverLetters=${USAGE_LIMITS.free.coverLetters}`,
-          `studyPlans=${USAGE_LIMITS.free.studyPlans} interviews=${USAGE_LIMITS.free.interviews}`
-        );
-      } else {
-        return { success: false, message: "User does not exist. Create an account." };
-      }
-    } else {
-      // Validate existing document (also corrects stale limits + backfills usage)
-      console.log("✅ User exists, validating document...");
-      await validateAndFixUserDocument(firebaseUser);
-
-      // Initialise usage if completely missing
-      const existingData = userRecord.data();
-      if (!existingData?.usage) {
-        console.log("⚠️ Initializing usage tracking");
-        await db.collection("users").doc(decodedToken.uid).update({
-          usage: buildUsage(),
-        });
-        await invalidateUserCache(decodedToken.uid);
-      }
-
-      // ── Sync interviewsLimit if the plan has changed since last login ──────
-      if (existingData?.subscription) {
-        const planKey  = normalisePlan(existingData.subscription.plan || "free");
-        const limits   = USAGE_LIMITS[planKey];
-        const expected = limits.interviews === -1 ? 999999 : limits.interviews;
-
-        if (existingData.subscription.interviewsLimit !== expected) {
-          console.log(`🔧 Updating stale interviewsLimit on sign-in: ${existingData.subscription.interviewsLimit} → ${expected}`);
-          await db.collection("users").doc(decodedToken.uid).update({
-            "subscription.interviewsLimit": expected,
-            "subscription.updatedAt":       new Date().toISOString(),
-          });
-          await invalidateUserCache(decodedToken.uid);
-        }
-      }
+    const { data, error } = result;
+    if (error || !data.user) {
+      console.error("❌ Sign in failed:", error?.message);
+      return { success: false, message: "Invalid email or password." };
     }
 
-    // 6. Set new session cookie
-    console.log("🔐 Setting NEW session cookie");
-    const sessionResult = await setSessionCookie(idToken);
-    if (!sessionResult.success) {
-      console.error("❌ Failed to set session cookie");
-      return { success: false, message: "Failed to create session. Please try again." };
+    const userId = await resolveDataUserId(data.user.id);
+    console.log("✅ Signed in as:", userId);
+
+    await invalidateUserCache(userId);
+
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .select("user_id")
+      .eq("user_id", data.user.id)
+      .maybeSingle();
+    if (profileError) throw profileError;
+    if (!profile) {
+      console.error("❌ No profile row for:", userId);
+      return { success: false, message: "Account setup incomplete. Please contact support." };
     }
 
-    // 7. Final cache invalidation
-    console.log("🧹 Final cache invalidation");
-    await invalidateUserCache(decodedToken.uid);
+    // Validate existing profile (email match, trial expiry, legacy plan migration)
+    await validateAndFixUserDocument({ uid: userId, email: data.user.email ?? email, displayName: null });
 
+    await invalidateUserCache(userId);
     console.log("✅ Sign in successful for:", email);
     return { success: true, message: "Successfully signed in." };
-  } catch (error: unknown) {
+  } catch (error) {
     console.error("❌ Error during sign in:", error);
-    const firebaseError = error as FirebaseError;
-    if (firebaseError.code === "auth/id-token-expired")
-      return { success: false, message: "Authentication token expired. Please try again." };
-    if (firebaseError.code === "auth/invalid-id-token")
-      return { success: false, message: "Invalid authentication token. Please try again." };
     return { success: false, message: "Failed to log into account. Please try again." };
   }
 }
@@ -505,107 +390,112 @@ export async function signIn(params: SignInParams) {
 // ─── Sign Out ─────────────────────────────────────────────────────────────────
 
 export async function signOut() {
-  const cookieStore   = await cookies();
-  const sessionCookie = cookieStore.get("session")?.value;
-
-  if (sessionCookie) {
-    try {
-      const decodedClaims = await auth.verifySessionCookie(sessionCookie, true);
-      await invalidateUserCache(decodedClaims.uid);
-    } catch (error) {
-      console.error("Error invalidating cache on sign out:", error);
+  try {
+    const supabase = await createServerSupabaseClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const userId = await resolveDataUserId(user.id);
+      await invalidateUserCache(userId);
     }
+    await supabase.auth.signOut();
+  } catch (error) {
+    console.error("Error during sign out:", error);
   }
-
-  cookieStore.delete("session");
 }
 
 // ─── Get Current User ─────────────────────────────────────────────────────────
 
 export async function getCurrentUser(): Promise<User | null> {
-  const cookieStore   = await cookies();
-  const sessionCookie = cookieStore.get("session")?.value;
-  if (!sessionCookie) return null;
-
   try {
-    const decodedClaims = await auth.verifySessionCookie(sessionCookie, true);
+    const supabase = await createServerSupabaseClient();
+    const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+    if (!supabaseUser) return null;
+
+    const userId = await resolveDataUserId(supabaseUser.id);
 
     // Check cache first
-    const cached = await getCachedUser(decodedClaims.uid);
+    const cached = await getCachedUser(userId);
     if (cached) return cached;
 
-    // Fetch from Firestore
-    const userRecord = await db.collection("users").doc(decodedClaims.uid).get();
-    if (!userRecord.exists) return null;
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .select("*")
+      .eq("user_id", supabaseUser.id)
+      .maybeSingle();
+    if (profileError) throw profileError;
+    if (!profile) return null;
 
-    const userData = userRecord.data();
-    if (!userData) return null;
-
-    // ⭐ CRITICAL: verify email matches Firebase Auth
-    const firebaseUser = await auth.getUser(decodedClaims.uid);
-    if (userData.email !== firebaseUser.email) {
+    // ⭐ CRITICAL: verify email matches the Supabase Auth account
+    if (profile.email !== supabaseUser.email) {
       console.error("❌ EMAIL MISMATCH in getCurrentUser!");
-      console.error("   Firestore:", userData.email);
-      console.error("   Firebase Auth:", firebaseUser.email);
-      await validateAndFixUserDocument(firebaseUser);
+      console.error("   Postgres:", profile.email);
+      console.error("   Supabase Auth:", supabaseUser.email);
+      await validateAndFixUserDocument({ uid: userId, email: supabaseUser.email ?? null, displayName: null });
       return getCurrentUser();
     }
 
-    // Initialise usage if missing
-    if (!userData.usage) {
-      const initialUsage = buildUsage();
-      await db.collection("users").doc(decodedClaims.uid).update({ usage: initialUsage });
-      userData.usage = initialUsage;
-    }
+    const { data: sub } = await supabaseAdmin
+      .from("subscriptions")
+      .select("*")
+      .eq("user_id", supabaseUser.id)
+      .maybeSingle();
+
+    const periodStart = getCurrentPeriod();
+    const { data: usageRow } = await supabaseAdmin
+      .from("usage_counters")
+      .select("*")
+      .eq("user_id", supabaseUser.id)
+      .eq("period_start", periodStart)
+      .maybeSingle();
 
     // Resolve plan and limits dynamically from usage-limits.ts
-    const rawPlan  = userData.subscription?.plan || "free";
+    const rawPlan  = sub?.plan || "free";
     const planKey  = normalisePlan(rawPlan);
     const limits   = USAGE_LIMITS[planKey];
     const ivLimit  = limits.interviews === -1 ? 999999 : limits.interviews;
 
     const serializedUser: User = {
-      id:        userRecord.id,
-      name:      userData.name     || "",
-      email:     userData.email    || "",
-      provider:  userData.provider || "email",
-      isAdmin:   userData.isAdmin  === true,
-      createdAt: convertTimestampToISO(userData.createdAt),
-      updatedAt: convertTimestampToISO(userData.updatedAt),
-      lastLogin: userData.lastLogin ? convertTimestampToISO(userData.lastLogin) : undefined,
-      subscription: userData.subscription
+      id:        userId,
+      name:      profile.name  || "",
+      email:     profile.email || "",
+      provider:  profile.provider || "email",
+      isAdmin:   profile.is_admin === true,
+      createdAt: convertTimestampToISO(profile.created_at),
+      updatedAt: convertTimestampToISO(profile.updated_at),
+      lastLogin: profile.last_login ? convertTimestampToISO(profile.last_login) : undefined,
+      subscription: sub
         ? {
             plan:   planKey,
-            status: userData.subscription.status || "active",
-            interviewsUsed:       userData.subscription.interviewsUsed  || 0,
+            status: sub.status || "active",
+            interviewsUsed:       usageRow?.interviews_used || 0,
             interviewsLimit:      ivLimit,
-            createdAt:            convertTimestampToISO(userData.subscription.createdAt),
-            updatedAt:            convertTimestampToISO(userData.subscription.updatedAt),
-            trialEndsAt:          userData.subscription.trialEndsAt        ? convertTimestampToISO(userData.subscription.trialEndsAt)        : null,
-            subscriptionEndsAt:   userData.subscription.subscriptionEndsAt ? convertTimestampToISO(userData.subscription.subscriptionEndsAt) : null,
-            stripeCustomerId:     userData.subscription.stripeCustomerId     || null,
-            stripeSubscriptionId: userData.subscription.stripeSubscriptionId || null,
-            currentPeriodStart:   userData.subscription.currentPeriodStart ? convertTimestampToISO(userData.subscription.currentPeriodStart) : null,
-            currentPeriodEnd:     userData.subscription.currentPeriodEnd   ? convertTimestampToISO(userData.subscription.currentPeriodEnd)   : null,
-            canceledAt:           userData.subscription.canceledAt    ? convertTimestampToISO(userData.subscription.canceledAt)    : null,
-            lastPaymentAt:        userData.subscription.lastPaymentAt ? convertTimestampToISO(userData.subscription.lastPaymentAt) : null,
-            studentVerified:      userData.subscription.studentVerified  || false,
-            studentEduEmail:      userData.subscription.studentEduEmail  || null,
-            studentVerifiedAt:    userData.subscription.studentVerifiedAt || null,
+            createdAt:            convertTimestampToISO(sub.created_at),
+            updatedAt:            convertTimestampToISO(sub.updated_at),
+            trialEndsAt:          sub.trial_ends_at        ? convertTimestampToISO(sub.trial_ends_at)        : null,
+            subscriptionEndsAt:   sub.subscription_ends_at ? convertTimestampToISO(sub.subscription_ends_at) : null,
+            stripeCustomerId:     sub.stripe_customer_id     || null,
+            stripeSubscriptionId: sub.stripe_subscription_id || null,
+            currentPeriodStart:   sub.current_period_start ? convertTimestampToISO(sub.current_period_start) : null,
+            currentPeriodEnd:     sub.current_period_end   ? convertTimestampToISO(sub.current_period_end)   : null,
+            canceledAt:           sub.canceled_at    ? convertTimestampToISO(sub.canceled_at)    : null,
+            lastPaymentAt:        sub.last_payment_at ? convertTimestampToISO(sub.last_payment_at) : null,
+            studentVerified:      sub.student_verified  || false,
+            studentEduEmail:      sub.student_edu_email || null,
+            studentVerifiedAt:    sub.student_verified_at || null,
           }
         : undefined,
       usage: {
-        coverLettersUsed:          userData.usage?.coverLettersUsed          || 0,
-        resumesUsed:               userData.usage?.resumesUsed               || 0,
-        studyPlansUsed:            userData.usage?.studyPlansUsed            || 0,
-        interviewsUsed:            userData.usage?.interviewsUsed            || 0,
-        interviewDebriefsUsed:     userData.usage?.interviewDebriefsUsed     || 0,
-        linkedinOptimisationsUsed: userData.usage?.linkedinOptimisationsUsed || 0,
-        coldOutreachUsed:          userData.usage?.coldOutreachUsed          || 0,
-        findContactsUsed:          userData.usage?.findContactsUsed          || 0,
-        jobTrackerUsed:            userData.usage?.jobTrackerUsed            || 0,
-        lastReset:                 userData.usage?.lastReset ? convertTimestampToISO(userData.usage.lastReset) : new Date().toISOString(),
-        lastUpdated:               userData.usage?.lastUpdated ? convertTimestampToISO(userData.usage.lastUpdated) : undefined,
+        coverLettersUsed:          usageRow?.cover_letters_used          || 0,
+        resumesUsed:               usageRow?.resumes_used                || 0,
+        studyPlansUsed:            usageRow?.study_plans_used            || 0,
+        interviewsUsed:            usageRow?.interviews_used             || 0,
+        interviewDebriefsUsed:     usageRow?.interview_debriefs_used     || 0,
+        linkedinOptimisationsUsed: usageRow?.linkedin_optimisations_used || 0,
+        coldOutreachUsed:          usageRow?.cold_outreach_used          || 0,
+        findContactsUsed:          usageRow?.find_contacts_used          || 0,
+        jobTrackerUsed:            usageRow?.job_tracker_used            || 0,
+        lastReset:                 periodStart,
+        lastUpdated:               usageRow?.updated_at ? convertTimestampToISO(usageRow.updated_at) : undefined,
       },
     };
 
@@ -624,36 +514,3 @@ export async function isAuthenticated() {
   return !!user;
 }
 
-export async function updateUserProfile(
-  userId: string,
-  profileData: Partial<User> & {
-    currentResume?:     string;
-    resumeUrl?:         string;
-    currentTranscript?: string;
-    transcriptUrl?:     string;
-    streetAddress?:     string;
-    city?:              string;
-    state?:             string;
-    phone?:             string;
-    bio?:               string;
-    targetRole?:        string;
-    experienceLevel?:   string;
-    preferredTech?:     string[];
-    careerGoals?:       string;
-    linkedIn?:          string;
-    github?:            string;
-    website?:           string;
-  }
-) {
-  try {
-    await db.collection("users").doc(userId).update({
-      ...profileData,
-      updatedAt: new Date().toISOString(),
-    });
-    await invalidateUserCache(userId);
-    return { success: true };
-  } catch (error) {
-    console.error("Error updating user profile:", error);
-    return { success: false, message: "Failed to update profile." };
-  }
-}

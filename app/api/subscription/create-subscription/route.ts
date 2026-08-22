@@ -1,7 +1,8 @@
 // app/api/subscription/create-subscription/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { auth, db } from "@/firebase/admin";
+import { supabaseAdmin } from "@/supabase/admin";
+import { getAuthedUser } from "@/lib/auth/verify-request";
 
 export const runtime = "nodejs";
 
@@ -11,11 +12,10 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 export async function POST(req: NextRequest) {
   try {
-    const token = req.headers.get("Authorization")?.replace("Bearer ", "");
-    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authedUser = await getAuthedUser(req);
+    if (!authedUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const decoded = await auth.verifyIdToken(token);
-    const userId  = decoded.uid;
+    const { supabaseUserId, email } = authedUser;
 
     const { priceId, billingCycle, couponId } = await req.json() as {
       priceId: string;
@@ -25,19 +25,23 @@ export async function POST(req: NextRequest) {
     if (!priceId) return NextResponse.json({ error: "Missing priceId" }, { status: 400 });
 
     // ── Get or create Stripe customer ──────────────────────────────────────
-    const userDoc  = await db.collection("users").doc(userId).get();
-    const userData = userDoc.data();
-    let customerId = userData?.subscription?.stripeCustomerId as string | undefined;
+    const { data: subRow } = await supabaseAdmin
+      .from("subscriptions")
+      .select("stripe_customer_id")
+      .eq("user_id", supabaseUserId)
+      .maybeSingle();
+    let customerId = subRow?.stripe_customer_id ?? undefined;
 
     if (!customerId) {
       const customer = await stripe.customers.create({
-        email:    decoded.email ?? undefined,
-        metadata: { userId },
+        email:    email ?? undefined,
+        metadata: { userId: supabaseUserId },
       });
       customerId = customer.id;
-      await db.collection("users").doc(userId).update({
-        "subscription.stripeCustomerId": customerId,
-      });
+      const { error: updateError } = await supabaseAdmin.from("subscriptions").update({
+        stripe_customer_id: customerId,
+      }).eq("user_id", supabaseUserId);
+      if (updateError) throw updateError;
     }
 
     // ── Cancel any existing subscriptions to prevent double billing ──────────
@@ -59,7 +63,7 @@ export async function POST(req: NextRequest) {
       items:            [{ price: priceId }],
       payment_behavior: "default_incomplete",
       payment_settings: { save_default_payment_method: "on_subscription" },
-      metadata:         { userId, billingCycle: billingCycle ?? "monthly" },
+      metadata:         { userId: supabaseUserId, billingCycle: billingCycle ?? "monthly" },
       ...(couponId ? { discounts: [{ coupon: couponId }] } : {}),
     });
 
@@ -70,7 +74,7 @@ export async function POST(req: NextRequest) {
       customer:                  customerId,
       automatic_payment_methods: { enabled: true },
       usage:                     "off_session",
-      metadata:                  { userId, subscriptionId: sub.id, priceId },
+      metadata:                  { userId: supabaseUserId, subscriptionId: sub.id, priceId },
     });
 
     if (!setupIntent.client_secret) {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/firebase/admin";
+import { supabaseAdmin } from "@/supabase/admin";
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,16 +14,16 @@ export async function POST(request: NextRequest) {
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    // Check if email exists in subscribers
-    const existingSubscriber = await db
-      .collection("newsletter_subscribers")
-      .where("email", "==", normalizedEmail)
-      .where("status", "==", "active")
+    const { data: existingSubscriber } = await supabaseAdmin
+      .from("newsletter_subscribers")
+      .select("id")
+      .eq("email", normalizedEmail)
+      .eq("subscribed", true)
       .limit(1)
-      .get();
+      .maybeSingle();
 
     return NextResponse.json(
-      { subscribed: !existingSubscriber.empty },
+      { subscribed: !!existingSubscriber },
       { status: 200 }
     );
   } catch (error) {

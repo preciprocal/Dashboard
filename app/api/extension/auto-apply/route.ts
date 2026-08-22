@@ -1,7 +1,10 @@
 // app/api/extension/auto-apply/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { db, auth } from '@/firebase/admin';
+import { getAuthedUser } from '@/lib/auth/verify-request';
 import { getUserAIContext } from '@/lib/ai/user-context';
+import { getSignedUrl } from '@/lib/storage/file-storage';
+import { resolveStoragePathUrl } from '@/lib/storage/resolve-signed-url';
+import { supabaseAdmin } from '@/supabase/admin';
 
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
@@ -14,67 +17,92 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS });
 }
 
-async function verifyExtensionToken(request: NextRequest): Promise<string | null> {
-  const token  = request.headers.get('x-extension-token') || '';
-  const userId = request.headers.get('x-user-id')         || '';
-  const email  = request.headers.get('x-user-email')      || '';
-  if (token) {
-    try { const d = await auth.verifyIdToken(token, true);       return d.uid; } catch {}
-    try { const d = await auth.verifySessionCookie(token, true); return d.uid; } catch {}
-  }
-  if (userId && /^[a-zA-Z0-9]{20,40}$/.test(userId)) {
-    try { await auth.getUser(userId); return userId; } catch {}
-  }
-  if (email) {
-    try { const u = await auth.getUserByEmail(email); return u.uid; } catch {}
-  }
-  return null;
+interface ProfileRow {
+  name: string | null; email: string | null; phone: string | null;
+  city: string | null; state: string | null; street_address: string | null;
+  target_role: string | null; bio: string | null; preferred_tech: string[] | null;
+  linked_in: string | null; github: string | null; website: string | null;
+  resume_path: string | null; resume_file_name: string | null;
+  transcript_path: string | null; transcript_file_name: string | null;
+  extended_data: Record<string, unknown> | null;
+  updated_at: string | null;
 }
 
-async function getLatestResume(uid: string) {
+async function getLatestResume(uid: string, supabaseUserId: string, profile: ProfileRow | null) {
   try {
-    const userDoc = await db.collection('users').doc(uid).get();
-    if (!userDoc.exists) return null;
-    const data    = userDoc.data()!;
-    console.log('🔍 User doc resume-related fields:');
-    for (const [key, val] of Object.entries(data)) {
-      if (/resume/i.test(key)) {
-        const preview = typeof val === 'string' ? val.slice(0, 80) : JSON.stringify(val)?.slice(0, 80);
-        console.log(`   ${key}: ${preview}`);
+    if (profile) {
+      const fileUrl  = profile.resume_path || null;
+      const fileName = profile.resume_file_name || 'resume.pdf';
+      const resumeText = '';
+      if (fileUrl) {
+        // Profile-page uploads (lib/storage/file-storage.ts) store a bare Storage
+        // path like "users/<uid>/resume.pdf", not a fetchable URL - sign it first.
+        const url = /^https?:\/\//i.test(fileUrl) ? fileUrl : await getSignedUrl(uid, 'resume', 60);
+        if (url) {
+          console.log(`✅ Profile resume found | ${fileName}`);
+          return { id: uid, fileName, url, available: true, text: resumeText || null };
+        }
       }
     }
-    const fileUrl  = data.resumePath || data.resumeUrl || data.resume || data.resumeFile || data.cvPath || data.cvUrl || data.cv || null;
-    const fileName = data.resumeFileName || data.resumeName || data.cvFileName || data.cvName || 'resume.pdf';
-    const resumeText = (data.resumeText || data.resumeContent || data.parsedResume || data.resumeParsed || '') as string;
-    if (!fileUrl) { console.log('⚠️ No resume found on user doc'); return null; }
-    console.log(`✅ Profile resume found | ${fileName}`);
-    return { id: uid, fileName, url: fileUrl, available: true, text: resumeText || null };
+
+    // Fall back to the Resume Analyzer's `resumes` table, which stores a
+    // real storage path but isn't written back to the user doc.
+    const { data: rows } = await supabaseAdmin
+      .from('resumes')
+      .select('id, resume_path, file_url, file_name, original_file_name, resume_text')
+      .eq('user_id', supabaseUserId)
+      .order('created_at', { ascending: false })
+      .limit(5);
+    for (const row of rows ?? []) {
+      const fileUrl = row.resume_path || row.file_url || null;
+      if (fileUrl) {
+        const fileName = row.file_name || row.original_file_name || 'resume.pdf';
+        const url = await resolveStoragePathUrl(fileUrl);
+        if (url) {
+          console.log(`✅ Resume-analyzer resume found | ${fileName}`);
+          return { id: row.id, fileName, url, available: true, text: row.resume_text || null };
+        }
+      }
+    }
+
+    console.log('⚠️ No resume found for user');
+    return null;
   } catch (error) {
-    console.error('❌ Error fetching profile resume:', error);
+    console.error('❌ Error fetching resume:', error);
     return null;
   }
 }
 
-async function getTranscript(uid: string) {
+async function getTranscript(uid: string, supabaseUserId: string, profile: ProfileRow | null) {
   try {
-    const userDoc = await db.collection('users').doc(uid).get();
-    if (userDoc.exists) {
-      const data    = userDoc.data()!;
-      const fileUrl  = data.transcriptPath || data.transcriptUrl || data.transcript || null;
-      const fileName = data.transcriptFileName || data.transcriptName || 'transcript.pdf';
-      if (fileUrl) { console.log(`✅ Transcript found | ${fileName}`); return { id: uid, fileName, url: fileUrl, available: true }; }
-    }
-    const snap = await db.collection('transcripts').where('userId', '==', uid)
-      .orderBy('createdAt', 'desc').limit(5).get();
-    if (!snap.empty) {
-      for (const doc of snap.docs) {
-        const data    = doc.data();
-        if (data.deleted) continue;
-        const fileUrl  = data.transcriptPath || data.fileUrl || data.url || null;
-        const fileName = data.fileName || data.originalFileName || 'transcript.pdf';
-        if (fileUrl) return { id: doc.id, fileName, url: fileUrl, available: true };
+    if (profile) {
+      const fileUrl  = profile.transcript_path || null;
+      const fileName = profile.transcript_file_name || 'transcript.pdf';
+      if (fileUrl) {
+        // Profile-page uploads (lib/storage/file-storage.ts) store a bare Storage
+        // path like "users/<uid>/transcript.pdf", not a fetchable URL - sign it first.
+        const url = /^https?:\/\//i.test(fileUrl) ? fileUrl : await getSignedUrl(uid, 'transcript', 60);
+        if (url) { console.log(`✅ Transcript found | ${fileName}`); return { id: uid, fileName, url, available: true }; }
       }
     }
+
+    // Fall back to the legacy `transcripts` table (per-upload records from a
+    // discontinued upload flow, kept only for historical rows).
+    const { data: rows } = await supabaseAdmin
+      .from('transcripts')
+      .select('id, file_name, file_path')
+      .eq('user_id', supabaseUserId)
+      .order('created_at', { ascending: false })
+      .limit(5);
+    for (const row of rows ?? []) {
+      const fileUrl = row.file_path || null;
+      if (fileUrl) {
+        const fileName = row.file_name || 'transcript.pdf';
+        const url = await resolveStoragePathUrl(fileUrl);
+        if (url) return { id: row.id, fileName, url, available: true };
+      }
+    }
+
     return null;
   } catch (error) {
     console.error('❌ Error fetching transcript:', error);
@@ -82,64 +110,63 @@ async function getTranscript(uid: string) {
   }
 }
 
-function buildApplyProfile(userData: Record<string, unknown>, uid: string) {
-  const name      = (userData.name as string) || (userData.displayName as string) || '';
+function buildApplyProfile(profile: ProfileRow, plan: string, uid: string) {
+  const ext = profile.extended_data || {};
+  const name      = profile.name || '';
   const nameParts = name.trim().split(/\s+/);
   return {
     firstName:  nameParts[0] || '',
     lastName:   nameParts.slice(1).join(' ') || '',
     fullName:   name,
-    email:      (userData.email as string)      || '',
-    phone:      (userData.phone && /^[+\d\s\-().]{7,}$/.test(userData.phone as string)) ? userData.phone as string : '',
-    city:       (userData.city as string)       || ((userData.location as string) || '').split(',')[0]?.trim() || '',
-    state:      (userData.state as string)      || ((userData.location as string) || '').split(',')[1]?.trim() || '',
-    location:   (userData.location as string)   || [(userData.city as string), (userData.state as string)].filter(Boolean).join(', ') || '',
-    zipCode:    (userData.zipCode as string)    || '',
-    streetAddress:     (userData.streetAddress as string)     || (userData.address as string) || '',
-    country:    (userData.country as string)    || 'United States',
-    headline:          (userData.targetRole as string)        || (userData.headline as string) || '',
-    yearsOfExperience: (userData.yearsOfExperience as string) || '',
-    summary:           (userData.bio as string)               || (userData.summary as string)  || '',
+    email:      profile.email || '',
+    phone:      (profile.phone && /^[+\d\s\-().]{7,}$/.test(profile.phone)) ? profile.phone : '',
+    city:       profile.city  || '',
+    state:      profile.state || '',
+    location:   [profile.city, profile.state].filter(Boolean).join(', ') || '',
+    zipCode:    (ext.zipCode as string) || '',
+    streetAddress:     profile.street_address || '',
+    country:    (ext.country as string) || 'United States',
+    headline:          profile.target_role || (ext.headline as string) || '',
+    yearsOfExperience: (ext.yearsOfExperience as string) || '',
+    summary:           profile.bio || (ext.summary as string) || '',
     skills:
-      Array.isArray(userData.preferredTech) ? userData.preferredTech
-      : Array.isArray(userData.skills) ? userData.skills
-      : typeof userData.preferredTech === 'string' ? (userData.preferredTech as string).split(',').map((s: string) => s.trim()).filter(Boolean)
-      : typeof userData.skills === 'string' ? (userData.skills as string).split(',').map((s: string) => s.trim()).filter(Boolean)
+      Array.isArray(profile.preferred_tech) && profile.preferred_tech.length ? profile.preferred_tech
+      : typeof ext.skills === 'string' ? (ext.skills as string).split(',').map((s: string) => s.trim()).filter(Boolean)
       : [],
-    certifications:    (userData.certifications as string) || '',
-    languages:         (userData.languages as string)      || 'English',
-    linkedInUrl:  (userData.linkedIn as string)    || (userData.linkedInUrl as string)  || '',
-    githubUrl:    (userData.github as string)      || (userData.githubUrl as string)    || '',
-    portfolioUrl: (userData.website as string)     || (userData.portfolioUrl as string) || '',
-    desiredSalary:      (userData.desiredSalary as string)      || '',
-    salaryType:         (userData.salaryType as string)         || 'yearly',
-    noticePeriod:       (userData.noticePeriod as string)       || '2 weeks',
-    workType:           (userData.workType as string)           || 'Remote',
-    employmentType:     (userData.employmentType as string)     || 'Full-time',
-    openToTravel:       (userData.openToTravel as string)       || 'No',
-    willingToRelocate:  (userData.willingToRelocate as boolean)  ?? false,
-    currentlyEmployed:  (userData.currentlyEmployed as boolean)  ?? false,
-    reasonForLeaving:   (userData.reasonForLeaving as string)    || '',
-    howDidYouHear:      (userData.howDidYouHear as string)       || 'LinkedIn',
-    workAuthorization:  (userData.workAuthorization as string)   || 'Yes',
-    requireSponsorship: (userData.requireSponsorship as boolean) ?? false,
-    visaType:           (userData.visaType as string)            || '',
-    over18:          (userData.over18 as boolean)          ?? true,
-    driverLicense:   (userData.driverLicense as boolean)   ?? true,
-    backgroundCheck: (userData.backgroundCheck as boolean) ?? true,
-    drugTest:        (userData.drugTest as boolean)        ?? true,
-    criminalRecord:  (userData.criminalRecord as boolean)  ?? false,
-    education:  (userData.education  as unknown[]) || [],
-    experience: (userData.experience as unknown[]) || [],
-    gender:           (userData.gender as string)           || 'Prefer not to say',
-    pronouns:         (userData.pronouns as string)         || 'Prefer not to say',
-    race:             (userData.race as string)             || 'Prefer not to say',
-    veteranStatus:    (userData.veteranStatus as string)    || 'I am not a protected veteran',
-    disabilityStatus: (userData.disabilityStatus as string) || 'I do not have a disability',
-    coverLetterIntro:   (userData.coverLetterIntro as string) || '',
-    coverLetterBody:    (userData.coverLetterBody as string)  || '',
-    preferredLocations: Array.isArray(userData.preferredLocations) ? userData.preferredLocations as string[] : [],
-    subscriptionTier: (userData.subscription as Record<string, string>)?.plan || 'free',
+    certifications:    (ext.certifications as string) || '',
+    languages:         (ext.languages as string) || 'English',
+    linkedInUrl:  profile.linked_in || (ext.linkedInUrl as string)  || '',
+    githubUrl:    profile.github    || (ext.githubUrl as string)    || '',
+    portfolioUrl: profile.website   || (ext.portfolioUrl as string) || '',
+    desiredSalary:      (ext.desiredSalary as string) || '',
+    salaryType:         (ext.salaryType as string)    || 'yearly',
+    noticePeriod:       (ext.noticePeriod as string)  || '2 weeks',
+    workType:           (ext.workType as string)      || 'Remote',
+    employmentType:     (ext.employmentType as string) || 'Full-time',
+    openToTravel:       (ext.openToTravel as string)  || 'No',
+    willingToRelocate:  (ext.willingToRelocate as boolean) ?? false,
+    currentlyEmployed:  (ext.currentlyEmployed as boolean) ?? false,
+    reasonForLeaving:   (ext.reasonForLeaving as string) || '',
+    howDidYouHear:      (ext.howDidYouHear as string)    || 'LinkedIn',
+    workAuthorization:  (ext.workAuthorization as string) || 'Yes',
+    requireSponsorship: (ext.requireSponsorship as boolean) ?? false,
+    visaType:           (ext.visaType as string) || '',
+    over18:          (ext.over18 as boolean)          ?? true,
+    driverLicense:   (ext.driverLicense as boolean)   ?? true,
+    backgroundCheck: (ext.backgroundCheck as boolean) ?? true,
+    drugTest:        (ext.drugTest as boolean)        ?? true,
+    criminalRecord:  (ext.criminalRecord as boolean)  ?? false,
+    education:  (ext.education  as unknown[]) || [],
+    experience: (ext.experience as unknown[]) || [],
+    gender:           (ext.gender as string)           || 'Prefer not to say',
+    pronouns:         (ext.pronouns as string)         || 'Prefer not to say',
+    race:             (ext.race as string)             || 'Prefer not to say',
+    veteranStatus:    (ext.veteranStatus as string)    || 'I am not a protected veteran',
+    disabilityStatus: (ext.disabilityStatus as string) || 'I do not have a disability',
+    coverLetterIntro:   (ext.coverLetterIntro as string) || '',
+    coverLetterBody:    (ext.coverLetterBody as string)  || '',
+    preferredLocations: Array.isArray(ext.preferredLocations) ? ext.preferredLocations as string[] : [],
+    subscriptionTier: plan || 'free',
     userId: uid,
   };
 }
@@ -147,21 +174,27 @@ function buildApplyProfile(userData: Record<string, unknown>, uid: string) {
 export async function GET(request: NextRequest) {
   console.log('🔌 Extension auto-apply request');
   try {
-    const uid = await verifyExtensionToken(request);
-    if (!uid) return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: CORS });
+    const authedUser = await getAuthedUser(request);
+    if (!authedUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: CORS });
+    const { userId: uid, supabaseUserId } = authedUser;
 
     console.log('✅ uid:', uid);
-    const [userDoc, resumeData, transcriptData, aiCtx] = await Promise.all([
-      db.collection('users').doc(uid).get(),
-      getLatestResume(uid),
-      getTranscript(uid),
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .eq('user_id', supabaseUserId)
+      .maybeSingle();
+    if (profileError) throw profileError;
+    if (!profile) return NextResponse.json({ error: 'User profile not found' }, { status: 404, headers: CORS });
+
+    const [{ data: sub }, resumeData, transcriptData, aiCtx] = await Promise.all([
+      supabaseAdmin.from('subscriptions').select('plan').eq('user_id', supabaseUserId).maybeSingle(),
+      getLatestResume(uid, supabaseUserId, profile as ProfileRow),
+      getTranscript(uid, supabaseUserId, profile as ProfileRow),
       getUserAIContext(uid).catch(() => null),
     ]);
 
-    if (!userDoc.exists) return NextResponse.json({ error: 'User profile not found' }, { status: 404, headers: CORS });
-
-    const userData     = userDoc.data() as Record<string, unknown>;
-    const applyProfile = buildApplyProfile(userData, uid);
+    const applyProfile = buildApplyProfile(profile as ProfileRow, sub?.plan || 'free', uid);
 
     const resumeText     = aiCtx?.resumeText     || resumeData?.text     || null;
     const transcriptText = aiCtx?.transcriptText || null;
@@ -177,8 +210,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(
       { success: true, applyProfile, files,
-        user: { uid, email: userData.email, name: (userData.name as string) || (userData.displayName as string), plan: (userData.subscription as Record<string, string>)?.plan || 'free' },
-        profileUpdatedAt: userData.updatedAt || null },
+        user: { uid, email: profile.email, name: profile.name, plan: sub?.plan || 'free' },
+        profileUpdatedAt: profile.updated_at || null },
       { headers: CORS }
     );
   } catch (error) {

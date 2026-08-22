@@ -1,23 +1,8 @@
 // lib/services/notification-service.ts
 // Import path: '@/lib/services/notification-service' (no trailing s)
 
-import {
-  collection,
-  doc,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  getDocs,
-  query,
-  where,
-  orderBy,
-  limit,
-  onSnapshot,
-  serverTimestamp,
-  Timestamp,
-  writeBatch,
-} from 'firebase/firestore';
-import { db } from '@/firebase/client';
+import { supabase } from '@/supabase/client';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 // ============================================================
 // TYPES
@@ -45,19 +30,35 @@ export interface Notification {
   updatedAt: Date;
 }
 
-interface FirestoreNotification extends Omit<Notification, 'id' | 'createdAt' | 'updatedAt'> {
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+interface NotificationRow {
+  id: string;
+  user_id: string;
+  type: string | null;
+  title: string | null;
+  body: string | null;
+  read: boolean;
+  action_url: string | null;
+  action_label: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
 }
 
-const COLLECTION = 'notifications';
+const TABLE = 'notifications';
 
-function toNotification(id: string, data: FirestoreNotification): Notification {
+function toNotification(row: NotificationRow): Notification {
   return {
-    ...data,
-    id,
-    createdAt: data.createdAt?.toDate() ?? new Date(),
-    updatedAt: data.updatedAt?.toDate() ?? new Date(),
+    id: row.id,
+    userId: row.user_id,
+    type: (row.type as NotificationType) ?? 'system',
+    title: row.title ?? '',
+    message: row.body ?? '',
+    isRead: row.read,
+    actionUrl: row.action_url ?? undefined,
+    actionLabel: row.action_label ?? undefined,
+    metadata: row.metadata ?? undefined,
+    createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at),
   };
 }
 
@@ -68,6 +69,8 @@ function toNotification(id: string, data: FirestoreNotification): Notification {
 export const NotificationService = {
 
   // ── CREATE ─────────────────────────────────────────────────
+  // RLS (auth.uid() = user_id) means this can only ever create a
+  // notification for the currently signed-in browser session.
 
   async createNotification(
     userId: string,
@@ -80,107 +83,102 @@ export const NotificationService = {
       metadata?: Record<string, unknown>;
     }
   ): Promise<string> {
-    const docRef = await addDoc(collection(db, COLLECTION), {
-      userId,
+    const { data, error } = await supabase.from(TABLE).insert({
+      user_id: userId,
       type,
       title,
-      message,
-      actionUrl:   options?.actionUrl   ?? null,
-      actionLabel: options?.actionLabel ?? null,
-      isRead:      false,
-      createdAt:   serverTimestamp(),
-      updatedAt:   serverTimestamp(),
-      metadata:    options?.metadata    ?? null,
-    });
-    return docRef.id;
+      body: message,
+      action_url: options?.actionUrl ?? null,
+      action_label: options?.actionLabel ?? null,
+      metadata: options?.metadata ?? null,
+    }).select('id').single();
+    if (error) throw error;
+    return data.id as string;
   },
 
   // ── READ ───────────────────────────────────────────────────
 
   async getUserNotifications(userId: string, maxCount = 50): Promise<Notification[]> {
-    const q = query(
-      collection(db, COLLECTION),
-      where('userId', '==', userId),
-      orderBy('createdAt', 'desc'),
-      limit(maxCount)
-    );
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => toNotification(d.id, d.data() as FirestoreNotification));
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(maxCount);
+    if (error) throw error;
+    return (data as NotificationRow[]).map(toNotification);
   },
 
   async getUnreadCount(userId: string): Promise<number> {
-    const q = query(
-      collection(db, COLLECTION),
-      where('userId', '==', userId),
-      where('isRead', '==', false)
-    );
-    const snap = await getDocs(q);
-    return snap.size;
+    const { count, error } = await supabase
+      .from(TABLE)
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('read', false);
+    if (error) throw error;
+    return count ?? 0;
   },
 
   // ── REAL-TIME ──────────────────────────────────────────────
+  // Firestore's onSnapshot redelivers the full, sorted, limited query
+  // result on every change - mirror that exactly here by re-running the
+  // full query whenever a postgres_changes event fires, rather than
+  // hand-merging individual insert/update/delete payloads.
 
   subscribeToNotifications(
     userId: string,
     callback: (notifications: Notification[]) => void,
     limitCount = 50
   ): () => void {
-    const q = query(
-      collection(db, COLLECTION),
-      where('userId', '==', userId),
-      orderBy('createdAt', 'desc'),
-      limit(limitCount)
-    );
+    const refresh = () => {
+      this.getUserNotifications(userId, limitCount)
+        .then(callback)
+        .catch((error) => console.error('❌ Notification listener error:', error));
+    };
 
-    return onSnapshot(
-      q,
-      (snap) => {
-        const notifications = snap.docs.map((d) =>
-          toNotification(d.id, d.data() as FirestoreNotification)
-        );
-        callback(notifications);
-      },
-      (error) => {
-        console.error('❌ Notification listener error:', error);
-      }
-    );
+    refresh();
+
+    const channel: RealtimeChannel = supabase
+      .channel(`notifications:${userId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: TABLE, filter: `user_id=eq.${userId}` },
+        refresh
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   },
 
   // ── UPDATE ─────────────────────────────────────────────────
 
   async markAsRead(notificationId: string): Promise<void> {
-    await updateDoc(doc(db, COLLECTION, notificationId), {
-      isRead:    true,
-      updatedAt: serverTimestamp(),
-    });
+    const { error } = await supabase
+      .from(TABLE)
+      .update({ read: true, updated_at: new Date().toISOString() })
+      .eq('id', notificationId);
+    if (error) throw error;
   },
 
   async markAllAsRead(userId: string): Promise<void> {
-    const q = query(
-      collection(db, COLLECTION),
-      where('userId', '==', userId),
-      where('isRead', '==', false)
-    );
-    const snap  = await getDocs(q);
-    const batch = writeBatch(db);
-    snap.docs.forEach((d) => {
-      batch.update(d.ref, { isRead: true, updatedAt: serverTimestamp() });
-    });
-    await batch.commit();
+    const { error } = await supabase
+      .from(TABLE)
+      .update({ read: true, updated_at: new Date().toISOString() })
+      .eq('user_id', userId)
+      .eq('read', false);
+    if (error) throw error;
   },
 
   // ── DELETE ─────────────────────────────────────────────────
 
   async deleteNotification(notificationId: string): Promise<void> {
-    await deleteDoc(doc(db, COLLECTION, notificationId));
+    const { error } = await supabase.from(TABLE).delete().eq('id', notificationId);
+    if (error) throw error;
   },
 
   async deleteAll(userId: string): Promise<void> {
-    const q     = query(collection(db, COLLECTION), where('userId', '==', userId));
-    const snap  = await getDocs(q);
-    const batch = writeBatch(db);
-    snap.docs.forEach((d) => batch.delete(d.ref));
-    await batch.commit();
+    const { error } = await supabase.from(TABLE).delete().eq('user_id', userId);
+    if (error) throw error;
   },
 
   // ── FEATURE HELPERS ────────────────────────────────────────

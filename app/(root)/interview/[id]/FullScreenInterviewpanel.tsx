@@ -20,7 +20,6 @@ import {
 import { vapi } from "@/lib/vapi.sdk";
 import { interviewer, technicalInterviewer, behavioralInterviewer } from "@/constants";
 import { createFeedback } from "@/lib/actions/general.action";
-import { useUsageTracking } from "@/lib/hooks/useUsageTracking";
 
 // Import the shared panel-name generator so the names match the waiting room.
 import { generatePanelNames } from "./InterviewPageClient";
@@ -163,7 +162,6 @@ const FullScreenInterviewPanel = ({
   type = "interview", onExit,
 }: FullScreenInterviewPanelProps) => {
   const router = useRouter();
-  const { incrementUsage } = useUsageTracking();
 
   const [isVideoOn,              setIsVideoOn]              = useState(true);
   const [isAudioOn,              setIsAudioOn]              = useState(true);
@@ -456,11 +454,6 @@ const FullScreenInterviewPanel = ({
         });
 
         if (success && (id || feedbackId)) {
-          try {
-            await incrementUsage('interviews');
-          } catch (usageErr) {
-            console.error('⚠️ Failed to increment usage (non-blocking):', usageErr);
-          }
           setTimeout(() => {
             setIsGeneratingFeedback(false);
             router.push(`/interview/${interviewId}/feedback`);
@@ -495,7 +488,7 @@ const FullScreenInterviewPanel = ({
         }
       }
     }
-  }, [callStatus, messages, feedbackId, interviewId, router, type, userId, incrementUsage, interviewType, startInterview]);
+  }, [callStatus, messages, feedbackId, interviewId, router, type, userId, interviewType, startInterview]);
 
   // ── Controls ───────────────────────────────────────────────────────────────
   const handleDisconnect = () => { setCallStatus(CallStatus.FINISHED); vapi.stop(); };

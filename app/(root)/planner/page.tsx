@@ -3,8 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth } from '@/firebase/client';
+import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import { PlannerService } from '@/lib/services/planner-services';
 import { InterviewPlan, PlanStats } from '@/types/planner';
 import Link from 'next/link';
@@ -44,7 +43,7 @@ function StatCard({ icon: Icon, value, label, accentClass }: {
 }
 
 export default function PlannerPage() {
-  const [user, loading] = useAuthState(auth);
+  const [user, loading] = useSupabaseUser();
   const router = useRouter();
 
   const [plans, setPlans] = useState<InterviewPlan[]>([]);
@@ -81,15 +80,13 @@ export default function PlannerPage() {
     try {
       setLoadingPlans(true); setPlansError(''); setLoadingStep(0);
       setLoadingStep(1);
-      const userPlans = await PlannerService.getUserPlans(user.uid);
+      const userPlans = await PlannerService.getUserPlans(user.id);
       setPlans(userPlans);
       setLoadingStep(3);
       await new Promise(r => setTimeout(r, 100));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : '';
-      if (msg.includes('Firebase') || msg.includes('firestore')) {
-        setCriticalError({ code: 'DATABASE', title: 'Database Error', message: 'Unable to load your preparation plans.', details: msg });
-      } else if (msg.includes('fetch') || msg.includes('network')) {
+      if (msg.includes('fetch') || msg.includes('network')) {
         setCriticalError({ code: 'NETWORK', title: 'Network Error', message: 'Check your internet connection and try again.', details: msg });
       } else if (msg.includes('permission') || msg.includes('denied')) {
         setPlansError('You do not have permission to view plans. Please contact support.');
@@ -105,7 +102,7 @@ export default function PlannerPage() {
     if (!user) return;
     try {
       setStatsError(''); setLoadingStep(2);
-      const userStats = await PlannerService.getUserPlanStats(user.uid);
+      const userStats = await PlannerService.getUserPlanStats(user.id);
       setStats(userStats);
     } catch {
       setStatsError('Failed to load statistics');

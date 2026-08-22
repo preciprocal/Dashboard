@@ -2,9 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth, db } from '@/firebase/client';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import {
   User, Briefcase, GraduationCap, Shield, Users,
   Save, CheckCircle, AlertCircle, Plus, Trash2,
@@ -425,7 +423,7 @@ function CompletionBar({ pct, filled, total }: { pct: number; filled: number; to
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function JobApplicationProfile() {
-  const [user]    = useAuthState(auth);
+  const [user]    = useSupabaseUser();
   const [p, setP] = useState<JobAppProfile>(DEFAULT_PROFILE);
   const [saving,  setSaving]  = useState(false);
   const [saved,   setSaved]   = useState(false);
@@ -434,63 +432,62 @@ export default function JobApplicationProfile() {
 
   const { pct, filled, total } = useCompletionScore(p);
 
-  // Load from Firestore
+  // Load from /api/profile (named columns + the extendedData jsonb blob)
   useEffect(() => {
     if (!user) return;
     (async () => {
       try {
-        const snap = await getDoc(doc(db, 'users', user.uid));
-        if (snap.exists()) {
-          const d = snap.data();
+        const res = await fetch('/api/profile', { credentials: 'include' });
+        if (res.ok) {
+          const { user: d } = await res.json() as { user: Record<string, unknown> };
+          const ext = (d.extendedData as Record<string, unknown>) || {};
           setP(prev => ({
             ...prev,
-            phone:              d.phone             || prev.phone,
-            streetAddress:      d.streetAddress     || prev.streetAddress,
-            city:               d.city              || ((d.location as string) || '').split(',')[0]?.trim() || prev.city,
-            state:              d.state             || ((d.location as string) || '').split(',')[1]?.trim() || prev.state,
-            zipCode:            d.zipCode           || prev.zipCode,
-            country:            d.country           || prev.country,
-            headline:           d.targetRole        || d.headline      || prev.headline,
-            yearsOfExperience:  d.yearsOfExperience || prev.yearsOfExperience,
-            summary:            d.bio               || d.summary       || prev.summary,
-            skills: Array.isArray(d.preferredTech) && d.preferredTech.length
+            phone:              (d.phone as string)         || prev.phone,
+            streetAddress:      (d.streetAddress as string) || prev.streetAddress,
+            city:               (d.city as string)  || prev.city,
+            state:              (d.state as string) || prev.state,
+            zipCode:            (ext.zipCode as string)           || prev.zipCode,
+            country:            (ext.country as string)           || prev.country,
+            headline:           (d.targetRole as string) || (ext.headline as string) || prev.headline,
+            yearsOfExperience:  (ext.yearsOfExperience as string) || prev.yearsOfExperience,
+            summary:            (d.bio as string) || (ext.summary as string) || prev.summary,
+            skills: Array.isArray(d.preferredTech) && (d.preferredTech as string[]).length
               ? (d.preferredTech as string[]).join(', ')
-              : Array.isArray(d.skills) && d.skills.length
-              ? (d.skills as string[]).join(', ')
-              : typeof d.skills === 'string' ? d.skills : prev.skills,
-            linkedInUrl:        d.linkedIn          || d.linkedInUrl   || prev.linkedInUrl,
-            githubUrl:          d.github            || d.githubUrl     || prev.githubUrl,
-            portfolioUrl:       d.website           || d.portfolioUrl  || prev.portfolioUrl,
-            desiredSalary:      d.desiredSalary     || prev.desiredSalary,
-            salaryType:         d.salaryType        || prev.salaryType,
-            noticePeriod:       d.noticePeriod      || prev.noticePeriod,
-            workType:           d.workType          || prev.workType,
-            employmentType:     d.employmentType    || prev.employmentType,
-            willingToRelocate:  d.willingToRelocate ?? prev.willingToRelocate,
-            openToTravel:       d.openToTravel      || prev.openToTravel,
-            workAuthorization:  d.workAuthorization || prev.workAuthorization,
-            requireSponsorship: d.requireSponsorship ?? prev.requireSponsorship,
-            visaType:           d.visaType          || prev.visaType,
-            education:  Array.isArray(d.education)  && d.education.length  ? d.education  as EducationEntry[]  : prev.education,
-            experience: Array.isArray(d.experience) && d.experience.length ? d.experience as ExperienceEntry[] : prev.experience,
-            gender:           d.gender           || prev.gender,
-            pronouns:         d.pronouns         || prev.pronouns,
-            race:             d.race             || prev.race,
-            veteranStatus:    d.veteranStatus    || prev.veteranStatus,
-            disabilityStatus: d.disabilityStatus || prev.disabilityStatus,
-            howDidYouHear:    d.howDidYouHear    || prev.howDidYouHear,
-            driverLicense:    d.driverLicense    ?? prev.driverLicense,
-            backgroundCheck:  d.backgroundCheck  ?? prev.backgroundCheck,
-            drugTest:         d.drugTest         ?? prev.drugTest,
-            over18:           d.over18           ?? prev.over18,
-            currentlyEmployed:d.currentlyEmployed ?? prev.currentlyEmployed,
-            reasonForLeaving: d.reasonForLeaving || prev.reasonForLeaving,
-            criminalRecord:   d.criminalRecord   ?? prev.criminalRecord,
-            languages:        d.languages        || prev.languages,
-            certifications:   d.certifications   || prev.certifications,
-            coverLetterIntro: d.coverLetterIntro || prev.coverLetterIntro,
-            coverLetterBody:  d.coverLetterBody  || prev.coverLetterBody,
-            preferredLocations: Array.isArray(d.preferredLocations) ? d.preferredLocations : prev.preferredLocations,
+              : typeof ext.skills === 'string' ? ext.skills : prev.skills,
+            linkedInUrl:        (d.linkedIn as string) || (ext.linkedInUrl as string) || prev.linkedInUrl,
+            githubUrl:          (d.github as string)   || (ext.githubUrl as string)   || prev.githubUrl,
+            portfolioUrl:       (d.website as string)  || (ext.portfolioUrl as string) || prev.portfolioUrl,
+            desiredSalary:      (ext.desiredSalary as string)     || prev.desiredSalary,
+            salaryType:         (ext.salaryType as string)        || prev.salaryType,
+            noticePeriod:       (ext.noticePeriod as string)      || prev.noticePeriod,
+            workType:           (ext.workType as string)          || prev.workType,
+            employmentType:     (ext.employmentType as string)    || prev.employmentType,
+            willingToRelocate:  (ext.willingToRelocate as boolean) ?? prev.willingToRelocate,
+            openToTravel:       (ext.openToTravel as string)      || prev.openToTravel,
+            workAuthorization:  (ext.workAuthorization as string) || prev.workAuthorization,
+            requireSponsorship: (ext.requireSponsorship as boolean) ?? prev.requireSponsorship,
+            visaType:           (ext.visaType as string)          || prev.visaType,
+            education:  Array.isArray(ext.education)  && (ext.education as unknown[]).length  ? ext.education  as EducationEntry[]  : prev.education,
+            experience: Array.isArray(ext.experience) && (ext.experience as unknown[]).length ? ext.experience as ExperienceEntry[] : prev.experience,
+            gender:           (ext.gender as string)           || prev.gender,
+            pronouns:         (ext.pronouns as string)         || prev.pronouns,
+            race:             (ext.race as string)             || prev.race,
+            veteranStatus:    (ext.veteranStatus as string)    || prev.veteranStatus,
+            disabilityStatus: (ext.disabilityStatus as string) || prev.disabilityStatus,
+            howDidYouHear:    (ext.howDidYouHear as string)    || prev.howDidYouHear,
+            driverLicense:    (ext.driverLicense as boolean)   ?? prev.driverLicense,
+            backgroundCheck:  (ext.backgroundCheck as boolean) ?? prev.backgroundCheck,
+            drugTest:         (ext.drugTest as boolean)        ?? prev.drugTest,
+            over18:           (ext.over18 as boolean)          ?? prev.over18,
+            currentlyEmployed:(ext.currentlyEmployed as boolean) ?? prev.currentlyEmployed,
+            reasonForLeaving: (ext.reasonForLeaving as string) || prev.reasonForLeaving,
+            criminalRecord:   (ext.criminalRecord as boolean)  ?? prev.criminalRecord,
+            languages:        (ext.languages as string)        || prev.languages,
+            certifications:   (ext.certifications as string)   || prev.certifications,
+            coverLetterIntro: (ext.coverLetterIntro as string) || prev.coverLetterIntro,
+            coverLetterBody:  (ext.coverLetterBody as string)  || prev.coverLetterBody,
+            preferredLocations: Array.isArray(ext.preferredLocations) ? ext.preferredLocations as string[] : prev.preferredLocations,
           }));
         }
       } catch (e) { console.error(e); }
@@ -516,18 +513,38 @@ export default function JobApplicationProfile() {
     setSaving(true); setError('');
     try {
       const skillsArray = p.skills.split(',').map(s => s.trim()).filter(Boolean);
-      await setDoc(doc(db, 'users', user.uid), {
-        ...p,
-        preferredTech: skillsArray,
-        skills: skillsArray,
-        // Mirror fields that other parts of the app expect
-        targetRole: p.headline,
-        bio: p.summary,
-        linkedIn: p.linkedInUrl,
-        github: p.githubUrl,
-        website: p.portfolioUrl,
-        updatedAt: new Date().toISOString(),
-      }, { merge: true });
+      const res = await fetch('/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          // Named columns other parts of the app expect
+          phone: p.phone, streetAddress: p.streetAddress, city: p.city, state: p.state,
+          preferredTech: skillsArray, targetRole: p.headline, bio: p.summary,
+          linkedIn: p.linkedInUrl, github: p.githubUrl, website: p.portfolioUrl,
+          // Everything else buckets into the extendedData jsonb blob
+          zipCode: p.zipCode, country: p.country, headline: p.headline,
+          yearsOfExperience: p.yearsOfExperience, summary: p.summary, skills: p.skills,
+          linkedInUrl: p.linkedInUrl, githubUrl: p.githubUrl, portfolioUrl: p.portfolioUrl,
+          desiredSalary: p.desiredSalary, salaryType: p.salaryType, noticePeriod: p.noticePeriod,
+          workType: p.workType, employmentType: p.employmentType, willingToRelocate: p.willingToRelocate,
+          openToTravel: p.openToTravel, workAuthorization: p.workAuthorization,
+          requireSponsorship: p.requireSponsorship, visaType: p.visaType,
+          education: p.education, experience: p.experience,
+          gender: p.gender, pronouns: p.pronouns, race: p.race,
+          veteranStatus: p.veteranStatus, disabilityStatus: p.disabilityStatus,
+          howDidYouHear: p.howDidYouHear, driverLicense: p.driverLicense,
+          backgroundCheck: p.backgroundCheck, drugTest: p.drugTest, over18: p.over18,
+          currentlyEmployed: p.currentlyEmployed, reasonForLeaving: p.reasonForLeaving,
+          criminalRecord: p.criminalRecord, languages: p.languages, certifications: p.certifications,
+          coverLetterIntro: p.coverLetterIntro, coverLetterBody: p.coverLetterBody,
+          preferredLocations: p.preferredLocations,
+        }),
+      });
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({ error: 'Failed to save' }));
+        throw new Error(e.error || 'Failed to save');
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (e) {

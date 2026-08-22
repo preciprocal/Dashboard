@@ -1,7 +1,6 @@
 // app/api/job-application/customize/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { auth } from '@/firebase/admin';
+import { getAuthedUserId } from '@/lib/auth/verify-request';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
@@ -27,18 +26,14 @@ export async function POST(request: NextRequest) {
     console.log('🎨 AI Customization Started');
 
     // Authentication
-    const cookieStore = await cookies();
-    const session = cookieStore.get('session');
+    const userId = await getAuthedUserId(request);
 
-    if (!session) {
+    if (!userId) {
       return NextResponse.json(
         { error: 'Unauthorized - Please log in' },
         { status: 401 }
       );
     }
-
-    // Verify session but don't need to use the result
-    await auth.verifySessionCookie(session.value, true);
 
     // Check API
     if (!genAI || !apiKey) {

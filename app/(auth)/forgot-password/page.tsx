@@ -4,11 +4,10 @@ import { z } from "zod";
 import Link from "next/link";
 import Image from "next/image";
 import { toast } from "sonner";
-import { auth } from "@/firebase/client";
+import { supabase } from "@/supabase/client";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
-import { sendPasswordResetEmail } from "firebase/auth";
 
 import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
@@ -32,30 +31,20 @@ const ForgotPasswordPage = () => {
   const onSubmit = async (data: z.infer<typeof forgotPasswordSchema>) => {
     setIsLoading(true);
     try {
-      // Send password reset email via Firebase
-      await sendPasswordResetEmail(auth, data.email, {
-        url: `${window.location.origin}/sign-in`,
-        handleCodeInApp: false,
+      const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
+        redirectTo: `${window.location.origin}/reset-password`,
       });
-      
+
+      if (error) {
+        toast.error(error.message || "Failed to send password reset email.");
+        return;
+      }
+
       setEmailSent(true);
       toast.success("Password reset email sent! Check your inbox.");
     } catch (error) {
       console.error("Password reset error:", error);
-      const err = error as { code?: string };
-      let errorMessage = "Failed to send password reset email.";
-
-      if (err.code === "auth/user-not-found") {
-        errorMessage = "No account found with this email address.";
-      } else if (err.code === "auth/invalid-email") {
-        errorMessage = "Invalid email address format.";
-      } else if (err.code === "auth/too-many-requests") {
-        errorMessage = "Too many requests. Please try again later.";
-      } else if (err.code === "auth/network-request-failed") {
-        errorMessage = "Network error. Please check your connection.";
-      }
-
-      toast.error(errorMessage);
+      toast.error("Failed to send password reset email.");
     } finally {
       setIsLoading(false);
     }

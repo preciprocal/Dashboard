@@ -1,7 +1,7 @@
 // app/api/resume/recruiter-analysis/route.ts - WITH DEBUG LOGGING
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { auth, db } from '@/firebase/admin';
+import { getAuthedUser } from '@/lib/auth/verify-request';
+import { supabaseAdmin } from '@/supabase/admin';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || '');
@@ -21,29 +21,17 @@ export async function POST(request: NextRequest) {
   try {
     // ==================== AUTHENTICATION ====================
     console.log('Step 1: Checking authentication...');
-    const cookieStore = await cookies();
-    const session = cookieStore.get('session');
+    const authedUser = await getAuthedUser(request);
 
-    if (!session) {
-      console.error('❌ No session cookie found');
+    if (!authedUser) {
+      console.error('❌ No authenticated user found');
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
-
-    let userId: string;
-    try {
-      const decodedClaims = await auth.verifySessionCookie(session.value, true);
-      userId = decodedClaims.uid;
-      console.log('✅ User authenticated:', userId);
-    } catch (authError) {
-      console.error('❌ Session verification failed:', authError);
-      return NextResponse.json(
-        { success: false, error: 'Invalid session' },
-        { status: 401 }
-      );
-    }
+    const { supabaseUserId } = authedUser;
+    console.log('✅ User authenticated:', supabaseUserId);
 
     // ==================== PARSE REQUEST ====================
     console.log('Step 2: Parsing request body...');
@@ -68,11 +56,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ==================== FETCH RESUME FROM FIRESTORE ====================
-    console.log('Step 3: Fetching resume from Firestore...');
-    const resumeDoc = await db.collection('resumes').doc(resumeId).get();
+    // ==================== FETCH RESUME FROM POSTGRES ====================
+    console.log('Step 3: Fetching resume from Postgres...');
+    const { data: resume, error: fetchError } = await supabaseAdmin
+      .from('resumes')
+      .select('user_id, feedback, resume_text')
+      .eq('id', resumeId)
+      .maybeSingle();
 
-    if (!resumeDoc.exists) {
+    if (fetchError) throw fetchError;
+
+    if (!resume) {
       console.error('❌ Resume not found:', resumeId);
       return NextResponse.json(
         { success: false, error: 'Resume not found' },
@@ -80,24 +74,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const resume = resumeDoc.data();
     console.log('Resume data structure:', {
       hasData: !!resume,
-      userId: resume?.userId,
-      hasFeedback: !!resume?.feedback,
-      hasResumeText: !!resume?.resumeText,
-      hasExtractedText: !!resume?.extractedText
+      userId: resume.user_id,
+      hasFeedback: !!resume.feedback,
+      hasResumeText: !!resume.resume_text,
     });
-    
-    if (!resume) {
-      console.error('❌ Resume data is empty');
-      return NextResponse.json(
-        { success: false, error: 'Resume data is empty' },
-        { status: 404 }
-      );
-    }
 
-    if (resume.userId !== userId) {
+    if (resume.user_id !== supabaseUserId) {
       console.error('❌ Unauthorized access attempt');
       return NextResponse.json(
         { success: false, error: 'Unauthorized access to resume' },
@@ -106,30 +90,28 @@ export async function POST(request: NextRequest) {
     }
 
     // Extract text from resume
-    const resumeText = resume.feedback?.resumeText || 
-                      resume.resumeText || 
-                      resume.extractedText || 
+    const feedback = resume.feedback as Record<string, unknown> | null;
+    const resumeText = (feedback?.resumeText as string) ||
+                      resume.resume_text ||
                       '';
 
     console.log('Resume text status:', {
       length: resumeText.length,
       hasText: resumeText.length > 0,
-      source: resume.feedback?.resumeText ? 'feedback.resumeText' : 
-              resume.resumeText ? 'resumeText' : 
-              resume.extractedText ? 'extractedText' : 'none'
+      source: feedback?.resumeText ? 'feedback.resumeText' :
+              resume.resume_text ? 'resumeText' : 'none'
     });
 
     if (!resumeText || resumeText.trim().length === 0) {
       console.error('❌ No resume text available');
       return NextResponse.json(
-        { 
-          success: false, 
+        {
+          success: false,
           error: 'Resume text not available for analysis. Please re-upload your resume to extract the text content.',
           debugInfo: {
             resumeId,
             hasFeedback: !!resume.feedback,
-            hasResumeText: !!resume.resumeText,
-            hasExtractedText: !!resume.extractedText
+            hasResumeText: !!resume.resume_text,
           }
         },
         { status: 400 }

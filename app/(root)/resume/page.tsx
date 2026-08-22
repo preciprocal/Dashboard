@@ -3,8 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth } from '@/firebase/client';
+import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import { FirebaseService } from '@/lib/services/firebase-service';
 import ResumeCard from '@/components/resume/ResumeCard';
 import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
@@ -57,7 +56,7 @@ function calcStats(list: Resume[]): ResumeStats {
 }
 
 export default function ResumeDashboard() {
-  const [user, loading] = useAuthState(auth);
+  const [user, loading] = useSupabaseUser();
   const router = useRouter();
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [loadingResumes, setLoadingResumes] = useState<boolean>(true);
@@ -103,7 +102,7 @@ export default function ResumeDashboard() {
       setLoadingStep(0);
 
       setLoadingStep(1);
-      const userResumes = await FirebaseService.getUserResumes(user.uid);
+      const userResumes = await FirebaseService.getUserResumes(user.id);
       setResumes(userResumes);
 
       setLoadingStep(2);
@@ -154,12 +153,10 @@ export default function ResumeDashboard() {
   const handleDelete = useCallback(async (resumeId: string): Promise<void> => {
     setDeletingId(resumeId);
     try {
-      const token = await auth.currentUser?.getIdToken();
       const res = await fetch('/api/resume/delete', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         credentials: 'include',
         body: JSON.stringify({ resumeId }),

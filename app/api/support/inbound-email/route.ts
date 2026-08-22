@@ -13,8 +13,7 @@
 //       Resend fires this webhook → reply saved to Firestore → user notified.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/firebase/admin';
-import { Timestamp, FieldValue } from 'firebase-admin/firestore';
+import { supabaseAdmin } from '@/supabase/admin';
 import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -45,8 +44,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing subject' }, { status: 400 });
     }
 
-    // ── Extract full Firestore ticket ID from subject ──────────────────────────
-    // Subject format: "[Ticket #FULL_FIRESTORE_ID] Subject text"
+    // ── Extract ticket ID from subject ─────────────────────────────────────────
+    // Subject format: "[Ticket #FULL_TICKET_ID] Subject text"
     const ticketIdMatch = subject.match(/\[Ticket #([^\]]+)\]/);
     if (!ticketIdMatch) {
       console.warn('⚠️ No ticket ID in subject:', subject);
@@ -56,16 +55,18 @@ export async function POST(request: NextRequest) {
     const ticketId = ticketIdMatch[1].trim();
     console.log('📧 Inbound reply for ticket:', ticketId);
 
-    // ── Look up ticket in Firestore ────────────────────────────────────────────
-    const ticketRef = db.collection('supportTickets').doc(ticketId);
-    const ticketDoc = await ticketRef.get();
+    // ── Look up ticket in Postgres ─────────────────────────────────────────────
+    const { data: ticketData, error: fetchError } = await supabaseAdmin
+      .from('support_tickets')
+      .select('*')
+      .eq('id', ticketId)
+      .maybeSingle();
 
-    if (!ticketDoc.exists) {
+    if (fetchError) throw fetchError;
+    if (!ticketData) {
       console.error('❌ Ticket not found:', ticketId);
       return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
     }
-
-    const ticketData = ticketDoc.data()!;
 
     // ── Parse sender email from "Name <email>" format ─────────────────────────
     const fromEmail = parseEmail(from);
@@ -79,33 +80,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, message: 'Empty reply body ignored' });
     }
 
-    // ── Save reply to Firestore subcollection ─────────────────────────────────
-    await ticketRef.collection('replies').add({
-      ticketId,
-      message:   cleanReply,
-      from:      'support',
-      fromEmail,
-      createdAt: Timestamp.now(),
-      isStaff:   true,
+    // ── Save reply to Postgres ─────────────────────────────────────────────────
+    const { error: replyError } = await supabaseAdmin.from('support_ticket_replies').insert({
+      ticket_id: ticketId,
+      body: cleanReply,
+      from_email: fromEmail,
+      is_staff: true,
     });
+    if (replyError) throw replyError;
 
     // ── Update ticket meta ────────────────────────────────────────────────────
-    await ticketRef.update({
-      status:      'in-progress',
-      updatedAt:   FieldValue.serverTimestamp(),
-      lastReplyBy: 'support',
-      lastReplyAt: FieldValue.serverTimestamp(),
-      replyCount:  FieldValue.increment(1),
-    });
+    const nowIso = new Date().toISOString();
+    const { error: updateError } = await supabaseAdmin.from('support_tickets').update({
+      status: 'in-progress',
+      updated_at: nowIso,
+      last_reply_by: 'support',
+      last_reply_at: nowIso,
+      reply_count: (ticketData.reply_count ?? 0) + 1,
+    }).eq('id', ticketId);
+    if (updateError) throw updateError;
 
     console.log('✅ Reply saved for ticket:', ticketId);
 
     // ── Notify user via email ─────────────────────────────────────────────────
     await notifyUserOfReply(
-      ticketData.userEmail as string,
-      ticketData.userName  as string,
+      ticketData.user_email as string,
+      ticketData.user_name  as string,
       ticketId,
-      ticketData.subject   as string,
+      ticketData.subject    as string,
       cleanReply,
     );
 

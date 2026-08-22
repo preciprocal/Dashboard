@@ -2,9 +2,8 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth } from '@/firebase/client';
-import { 
+import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
+import {
   Briefcase, MapPin, Building2, DollarSign, ArrowLeft, Loader2, FileText, 
   MessageSquare, Video, Clock, Users, TrendingUp, Award, Globe, 
   ChevronDown, ChevronUp, Copy, Check, Download, Save, CheckCircle2, 
@@ -12,8 +11,6 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/firebase/client';
 
 interface JobData {
   title: string;
@@ -53,7 +50,7 @@ interface GenerationResults {
 
 // ─── Inner component that uses useSearchParams ────────────────────────────────
 function JobToolsContent() {
-  const [user, loading] = useAuthState(auth);
+  const [user, loading] = useSupabaseUser();
   const router = useRouter();
   const searchParams = useSearchParams();
   const fromExtension = searchParams.get('from_extension') === 'true';
@@ -257,12 +254,15 @@ function JobToolsContent() {
     if (!user || !results.coverLetter || !jobData) { toast.error('Missing data to save'); return; }
     setIsSaving(true);
     try {
-      await addDoc(collection(db, 'coverLetters'), {
-        userId: user.uid, jobRole: jobData.title, companyName: jobData.company,
-        jobDescription: jobData.description, tone: coverLetterTone, content: results.coverLetter,
-        wordCount: results.coverLetter.split(/\s+/).filter(w => w.length > 0).length,
-        createdAt: serverTimestamp(),
+      const res = await fetch('/api/cover-letter/save', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobRole: jobData.title, companyName: jobData.company,
+          jobDescription: jobData.description, tone: coverLetterTone, content: results.coverLetter,
+          wordCount: results.coverLetter.split(/\s+/).filter(w => w.length > 0).length,
+        }),
       });
+      if (!res.ok) throw new Error('Save failed');
       setIsSaved(true);
       toast.success('Cover letter saved successfully!');
     } catch { toast.error('Failed to save cover letter'); }

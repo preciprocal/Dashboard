@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth, db } from '@/firebase/client';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import {
   MessageSquarePlus, Star, ChevronRight, CheckCircle2,
   Loader2, Zap, BarChart3, FileText, Headphones, AlertCircle,
@@ -369,7 +367,7 @@ export default function UsersFeedback({
   onClose,
 }: UsersFeedbackProps) {
   const config = PAGE_CONFIGS[page] ?? PAGE_CONFIGS["global"];
-  const [user] = useAuthState(auth);
+  const [user] = useSupabaseUser();
 
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -389,21 +387,16 @@ export default function UsersFeedback({
   // Step 3
   const [freeText, setFreeText] = useState("");
 
-  // Check Firebase for prior submission for this user+page
+  // Check for prior submission for this user+page
   useEffect(() => {
     if (forceOpen) { setIsOpen(true); return; }
     if (!user) return;
 
     const check = async () => {
       try {
-        const snap = await getDocs(
-          query(
-            collection(db, 'usersfeedback'),
-            where('userId', '==', user.uid),
-            where('page', '==', page),
-          )
-        );
-        if (!snap.empty) return; // already submitted for this page
+        const res = await fetch(`/api/userfeedback?page=${encodeURIComponent(page)}`);
+        const { alreadySubmitted } = await res.json();
+        if (alreadySubmitted) return;
         const t = setTimeout(() => setIsOpen(true), 4000);
         return () => clearTimeout(t);
       } catch {

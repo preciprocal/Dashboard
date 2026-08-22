@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Eye, Download, FileText, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react';
+import { fetchResumePdfBytes } from '@/lib/resume/resolve-pdf-url';
 
 interface ResumePreviewProps {
   resumePath:    string;
@@ -51,23 +52,6 @@ async function getPdfjs(): Promise<PDFJSStatic> {
   return lib;
 }
 
-async function fetchPdfBytes(resumePath: string): Promise<ArrayBuffer> {
-  if (!resumePath.startsWith('http')) {
-    const base64 = resumePath.includes('base64,') ? resumePath.split('base64,')[1] : resumePath;
-    const binary = atob(base64);
-    const buf    = new ArrayBuffer(binary.length);
-    const view   = new Uint8Array(buf);
-    for (let i = 0; i < binary.length; i++) view[i] = binary.charCodeAt(i);
-    return buf;
-  }
-  const res = await fetch('/api/resume/proxy-pdf', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url: resumePath }),
-  });
-  if (!res.ok) throw new Error(`Failed to load PDF (${res.status})`);
-  return res.arrayBuffer();
-}
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function ResumePreview({ resumePath, onViewPdf, onDownloadPdf }: ResumePreviewProps) {
@@ -92,7 +76,7 @@ export default function ResumePreview({ resumePath, onViewPdf, onDownloadPdf }: 
     (async () => {
       setStatus('loading'); setErrMsg('');
       try {
-        const [lib, bytes] = await Promise.all([getPdfjs(), fetchPdfBytes(resumePath)]);
+        const [lib, bytes] = await Promise.all([getPdfjs(), fetchResumePdfBytes(resumePath)]);
         if (cancelled) return;
         const doc = await lib.getDocument({ data: bytes }).promise;
         if (cancelled) return;

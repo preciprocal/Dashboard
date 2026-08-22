@@ -1,7 +1,7 @@
 // app/api/user/feedback/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/firebase/admin";
-import { getCurrentUser } from "@/lib/actions/auth.action";
+import { getAuthedUser } from "@/lib/auth/verify-request";
+import { supabaseAdmin } from "@/supabase/admin";
 
 // ─── GET: Check use count + whether user has already submitted feedback ────────
 // Called on component mount to decide whether to show the modal
@@ -9,30 +9,32 @@ import { getCurrentUser } from "@/lib/actions/auth.action";
 
 export async function GET(req: NextRequest) {
   try {
-    const user = await getCurrentUser();
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authedUser = await getAuthedUser(req);
+    if (!authedUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const { supabaseUserId } = authedUser;
 
     const serviceKey = req.nextUrl.searchParams.get("serviceKey");
     if (!serviceKey) {
       return NextResponse.json({ error: "serviceKey is required" }, { status: 400 });
     }
 
-    const userRef = db.collection("users").doc(user.id);
+    const [{ count: feedbackCount }, { data: profile }] = await Promise.all([
+      supabaseAdmin
+        .from("feature_ratings")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", supabaseUserId)
+        .eq("feature", serviceKey),
+      supabaseAdmin
+        .from("profiles")
+        .select("extended_data")
+        .eq("user_id", supabaseUserId)
+        .maybeSingle(),
+    ]);
 
-    // Check if user already submitted feedback for this service
-    const feedbackSnap = await db
-      .collection("feedback")
-      .where("userId", "==", user.id)
-      .where("serviceKey", "==", serviceKey)
-      .limit(1)
-      .get();
-
-    const hasFeedback = !feedbackSnap.empty;
-
-    // Get current use count from user doc (stored under serviceUsage map)
-    const userSnap = await userRef.get();
-    const userData = userSnap.data();
-    const useCount = userData?.serviceUsage?.[serviceKey] ?? 0;
+    const hasFeedback = !!feedbackCount && feedbackCount > 0;
+    const ext = (profile?.extended_data as Record<string, unknown>) || {};
+    const serviceUsage = (ext.serviceUsage as Record<string, number>) || {};
+    const useCount = serviceUsage[serviceKey] ?? 0;
 
     return NextResponse.json({ useCount, hasFeedback });
   } catch (error) {
@@ -47,27 +49,20 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const user = await getCurrentUser();
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authedUser = await getAuthedUser(req);
+    if (!authedUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const { supabaseUserId } = authedUser;
 
     const { serviceKey } = await req.json();
     if (!serviceKey) {
       return NextResponse.json({ error: "serviceKey is required" }, { status: 400 });
     }
 
-    const { FieldValue } = await import("firebase-admin/firestore");
-
-    await db
-      .collection("users")
-      .doc(user.id)
-      .set(
-        {
-          serviceUsage: {
-            [serviceKey]: FieldValue.increment(1),
-          },
-        },
-        { merge: true }
-      );
+    const { error } = await supabaseAdmin.rpc("increment_service_usage", {
+      p_user_id: supabaseUserId,
+      p_service_key: serviceKey,
+    });
+    if (error) throw error;
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -82,8 +77,8 @@ export async function PATCH(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const user = await getCurrentUser();
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authedUser = await getAuthedUser(req);
+    if (!authedUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
     const { serviceKey, rating, nps, tags, comment } = body;
@@ -92,19 +87,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid feedback data" }, { status: 400 });
     }
 
-    const { FieldValue } = await import("firebase-admin/firestore");
-    await db.collection("feedback").add({
-      type:      'feature-rating',
-      userId:    user.id,
-      userEmail: user.email ?? null,
-      userName:  user.name  ?? null,
-      serviceKey,
+    const { error } = await supabaseAdmin.from("feature_ratings").insert({
+      user_id: authedUser.supabaseUserId,
+      feature: serviceKey,
       rating,
-      nps:     nps     ?? null,
-      tags:    tags    ?? [],
+      nps: nps ?? null,
+      tags: tags ?? [],
       comment: comment ?? "",
-      createdAt: FieldValue.serverTimestamp(),
     });
+    if (error) throw error;
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -1,78 +1,56 @@
 // app/api/extension/track-job/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { db, auth } from '@/firebase/admin';
+import { getAuthedUser } from '@/lib/auth/verify-request';
+import { supabaseAdmin } from '@/supabase/admin';
 
 export const runtime = 'nodejs';
 
-// ── Shared auth helper ────────────────────────────────────────────────────────
-async function resolveUserId(request: NextRequest): Promise<string | null> {
-  const extensionToken = request.headers.get('x-extension-token');
-  const headerUserId   = request.headers.get('x-user-id');
-  const headerEmail    = request.headers.get('x-user-email');
-
-  if (extensionToken) {
-    try {
-      const decoded = await auth.verifyIdToken(extensionToken);
-      return decoded.uid;
-    } catch (e) {
-      console.log('[track-job] ID token verify failed:', (e as Error).message);
-    }
-  }
-  if (headerUserId && headerUserId.length >= 20) return headerUserId;
-  if (headerEmail) {
-    try { return (await auth.getUserByEmail(headerEmail)).uid; } catch {}
-  }
-  return null;
-}
-
 // ── GET /api/extension/track-job ─────────────────────────────────────────────
 // Returns { success: true, jobIds: { "linkedInJobId": "saved" | "applied" } }
-// Handles BOTH new records (linkedInJobId field) and legacy records (extract from jobUrl)
+// Handles BOTH new records (linkedin_job_id column) and legacy records (extract from job_url)
 export async function GET(request: NextRequest) {
   try {
-    const userId = await resolveUserId(request);
-    if (!userId) {
+    const authedUser = await getAuthedUser(request);
+    if (!authedUser) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fetch ALL jobs for this user (we need to handle legacy records too)
-    const snapshot = await db
-      .collection('jobApplications')
-      .where('userId', '==', userId)
-      .select('linkedInJobId', 'jobUrl', 'url', 'status')
-      .get();
+    const { data: rows, error } = await supabaseAdmin
+      .from('job_applications')
+      .select('linkedin_job_id, job_url, status')
+      .eq('user_id', authedUser.supabaseUserId);
+    if (error) throw error;
 
     const jobIds: Record<string, 'saved' | 'applied'> = {};
     const appliedStatuses = ['applied', 'interviewing', 'offer', 'rejected', 'withdrawn'];
 
-    snapshot.forEach(doc => {
-      const data = doc.data();
-      const label: 'saved' | 'applied' = appliedStatuses.includes(data.status) ? 'applied' : 'saved';
+    for (const row of rows ?? []) {
+      const label: 'saved' | 'applied' = appliedStatuses.includes(row.status ?? '') ? 'applied' : 'saved';
 
-      // Strategy 1: explicit linkedInJobId field (new records)
-      if (data.linkedInJobId) {
-        jobIds[String(data.linkedInJobId)] = label;
-        return;
+      // Strategy 1: explicit linkedin_job_id column (new records)
+      if (row.linkedin_job_id) {
+        jobIds[String(row.linkedin_job_id)] = label;
+        continue;
       }
 
-      // Strategy 2: extract from jobUrl / url (legacy records)
-      const rawUrl: string = data.jobUrl || data.url || '';
+      // Strategy 2: extract from job_url (legacy records)
+      const rawUrl: string = row.job_url || '';
       if (rawUrl) {
         const match = rawUrl.match(/\/jobs\/view\/(\d+)/);
         if (match) {
           jobIds[match[1]] = label;
-          return;
+          continue;
         }
         // Also try query param ?currentJobId=
         try {
           const u = new URL(rawUrl);
           const cj = u.searchParams.get('currentJobId') || u.searchParams.get('jobId');
-          if (cj) { jobIds[cj] = label; return; }
+          if (cj) { jobIds[cj] = label; continue; }
         } catch {}
       }
-    });
+    }
 
-    console.log(`[track-job GET] ✅ userId=${userId} found ${Object.keys(jobIds).length} LinkedIn jobs (${snapshot.size} total records)`);
+    console.log(`[track-job GET] ✅ uid=${authedUser.supabaseUserId} found ${Object.keys(jobIds).length} LinkedIn jobs (${rows?.length ?? 0} total records)`);
     return NextResponse.json({ success: true, jobIds });
 
   } catch (error) {
@@ -85,10 +63,11 @@ export async function GET(request: NextRequest) {
 // ── POST /api/extension/track-job ────────────────────────────────────────────
 export async function POST(request: NextRequest) {
   try {
-    const userId = await resolveUserId(request);
-    if (!userId) {
+    const authedUser = await getAuthedUser(request);
+    if (!authedUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const uid = authedUser.supabaseUserId;
 
     const body = await request.json() as Record<string, unknown>;
 
@@ -111,7 +90,7 @@ export async function POST(request: NextRequest) {
     const rawDate     = typeof body.appliedAt === 'string' ? body.appliedAt : new Date().toISOString();
     const appliedDate = rawDate.split('T')[0];
 
-    console.log('[track-job] Saving:', jobTitle, '@', company, '| linkedInJobId:', linkedInJobId, '| userId:', userId);
+    console.log('[track-job] Saving:', jobTitle, '@', company, '| linkedInJobId:', linkedInJobId, '| uid:', uid);
 
     if (!jobTitle || !company) {
       return NextResponse.json({ error: 'jobTitle and company are required' }, { status: 400 });
@@ -119,13 +98,14 @@ export async function POST(request: NextRequest) {
 
     // ── Deduplicate by LinkedIn job ID (permanent, no time window) ────────────
     if (linkedInJobId) {
-      const existing = await db
-        .collection('jobApplications')
-        .where('userId', '==', userId)
-        .where('linkedInJobId', '==', linkedInJobId)
+      const { data: existing } = await supabaseAdmin
+        .from('job_applications')
+        .select('id')
+        .eq('user_id', uid)
+        .eq('linkedin_job_id', linkedInJobId)
         .limit(1)
-        .get();
-      if (!existing.empty) {
+        .maybeSingle();
+      if (existing) {
         console.log('[track-job] ⚠️ Duplicate by linkedInJobId:', linkedInJobId);
         return NextResponse.json({ success: true, duplicate: true, message: 'Already tracked' });
       }
@@ -133,18 +113,16 @@ export async function POST(request: NextRequest) {
 
     // ── Fallback deduplicate by URL within 24h ────────────────────────────────
     if (!linkedInJobId && jobUrl) {
-      const recent = await db
-        .collection('jobApplications')
-        .where('userId', '==', userId)
-        .where('jobUrl', '==', jobUrl)
-        .orderBy('createdAt', 'desc')
+      const { data: recent } = await supabaseAdmin
+        .from('job_applications')
+        .select('created_at')
+        .eq('user_id', uid)
+        .eq('job_url', jobUrl)
+        .order('created_at', { ascending: false })
         .limit(1)
-        .get();
-      if (!recent.empty) {
-        const ts = recent.docs[0].data().createdAt as FirebaseFirestore.Timestamp | string;
-        const savedAt = ts && typeof ts === 'object' && 'toDate' in ts
-          ? (ts as FirebaseFirestore.Timestamp).toDate().getTime()
-          : new Date(ts as string).getTime();
+        .maybeSingle();
+      if (recent) {
+        const savedAt = new Date(recent.created_at).getTime();
         if (Date.now() - savedAt < 24 * 60 * 60 * 1000) {
           console.log('[track-job] ⚠️ Duplicate by URL within 24h:', jobUrl);
           return NextResponse.json({ success: true, duplicate: true, message: 'Already tracked' });
@@ -152,29 +130,28 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const now    = new Date();
-    const docRef = db.collection('jobApplications').doc();
+    const { data: created, error } = await supabaseAdmin
+      .from('job_applications')
+      .insert({
+        user_id:         uid,
+        company:         company.slice(0, 100),
+        job_title:       jobTitle.slice(0, 150),
+        job_url:         jobUrl ?? null,
+        linkedin_job_id: linkedInJobId ?? null,
+        location:        location ?? null,
+        salary:          null,
+        work_type:       'onsite',
+        source:          jobBoard !== 'Other' ? jobBoard : source,
+        notes:           null,
+        status:          'applied',
+        applied_date:    appliedDate,
+      })
+      .select('id')
+      .single();
+    if (error) throw error;
 
-    await docRef.set({
-      id:            docRef.id,
-      userId,
-      company:       company.slice(0, 100),
-      jobTitle:      jobTitle.slice(0, 150),
-      jobUrl:        jobUrl ?? null,
-      linkedInJobId: linkedInJobId ?? null,
-      location:      location ?? null,
-      salary:        null,
-      workType:      'onsite',
-      source:        jobBoard !== 'Other' ? jobBoard : source,
-      notes:         null,
-      status:        'applied',
-      appliedDate,
-      createdAt:     now,
-      updatedAt:     now,
-    });
-
-    console.log('[track-job] ✅ Saved:', docRef.id, '-', jobTitle, '@', company);
-    return NextResponse.json({ success: true, id: docRef.id });
+    console.log('[track-job] ✅ Saved:', created.id, '-', jobTitle, '@', company);
+    return NextResponse.json({ success: true, id: created.id });
 
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Failed to track job application';

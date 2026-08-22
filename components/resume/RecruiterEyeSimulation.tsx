@@ -99,13 +99,9 @@ export default function RecruiterEyeSimulation({
     setError(null);
     if (force) setSimulationData(null);
     try {
-      const { auth } = await import('@/firebase/client');
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) throw new Error('Not authenticated');
-
       const response = await fetch('/api/resume/recruiter-simulation', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ resumeId, jobTitle, companyName, jobDescription, force }),
       });
 

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/firebase/admin";
-import { Timestamp } from "firebase-admin/firestore";
+import { supabaseAdmin } from "@/supabase/admin";
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,36 +24,38 @@ export async function POST(request: NextRequest) {
     const normalizedEmail = email.toLowerCase().trim();
 
     // Check if email already exists
-    const existingSubscriber = await db
-      .collection("newsletter_subscribers")
-      .where("email", "==", normalizedEmail)
+    const { data: existingSubscriber } = await supabaseAdmin
+      .from("newsletter_subscribers")
+      .select("id")
+      .eq("email", normalizedEmail)
       .limit(1)
-      .get();
+      .maybeSingle();
 
-    if (!existingSubscriber.empty) {
+    if (existingSubscriber) {
       return NextResponse.json(
         { error: "This email is already subscribed" },
         { status: 409 }
       );
     }
 
-    // Add subscriber to Firestore
-    const subscriberData = {
+    const { error } = await supabaseAdmin.from("newsletter_subscribers").insert({
       email: normalizedEmail,
-      subscribedAt: Timestamp.now(),
-      status: "active",
+      subscribed: true,
       source: "subscription_page",
-    };
+    });
 
-    await db.collection("newsletter_subscribers").add(subscriberData);
+    if (error) {
+      console.error("Newsletter subscription insert error:", error);
+      throw error;
+    }
 
     // TODO: Optional - Send welcome email via SendGrid/Mailgun
     // await sendWelcomeEmail(normalizedEmail);
 
     return NextResponse.json(
-      { 
-        success: true, 
-        message: "Successfully subscribed to newsletter" 
+      {
+        success: true,
+        message: "Successfully subscribed to newsletter"
       },
       { status: 200 }
     );

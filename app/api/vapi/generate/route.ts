@@ -1,7 +1,8 @@
 // app/api/vapi/generate/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
-import { db } from "@/firebase/admin";
+import { supabaseAdmin } from "@/supabase/admin";
+import { toSupabaseUserId } from "@/lib/auth/verify-request";
 import { getRandomInterviewCover } from "@/lib/utils";
 import { getUserAIContext, buildUserContextPrompt } from "@/lib/ai/user-context";
 
@@ -156,6 +157,11 @@ export async function POST(req: NextRequest) {
 
         const allQuestions = [...behavioralQuestions, ...technicalQuestions];
 
+        if (!userid || userid === "anonymous") {
+          return NextResponse.json({ result: { success: false, message: "A signed-in user is required to save an interview." } }, { status: 400 });
+        }
+        const supabaseUserId = await toSupabaseUserId(userid);
+
         const interview = {
           role, type, level,
           techstack: Array.isArray(techstack) ? techstack : techstack.split(",").map((t: string) => t.trim()),
@@ -169,13 +175,33 @@ export async function POST(req: NextRequest) {
             estimatedDuration: allQuestions.length * 3,
             personalisedWithResume: !!userContextPrompt,
           },
-          userId: userid || "anonymous",
+          userId: userid,
           finalized: true,
           coverImage: getRandomInterviewCover(),
           createdAt: new Date().toISOString(),
         };
 
-        const docRef = await db.collection("interviews").add(interview);
+        const { data: row, error: insertError } = await supabaseAdmin
+          .from("interviews")
+          .insert({
+            user_id: supabaseUserId,
+            role: interview.role,
+            type: interview.type,
+            level: interview.level,
+            techstack: interview.techstack,
+            finalized: interview.finalized,
+            questions: interview.questions,
+            metadata: {
+              technicalQuestions: interview.technicalQuestions,
+              behavioralQuestions: interview.behavioralQuestions,
+              questionCounts: interview.questionCounts,
+              interviewMetadata: interview.interviewMetadata,
+              coverImage: interview.coverImage,
+            },
+          })
+          .select("id")
+          .single();
+        if (insertError) throw insertError;
 
         let successMessage = "";
         if (type === "technical") successMessage = `Generated ${technicalQuestions.length} technical questions for ${level} ${role} covering ${techstackString}.`;
@@ -187,17 +213,37 @@ export async function POST(req: NextRequest) {
           result: {
             success: true,
             message: `${successMessage} The interview has been created and saved.`,
-            interview: { ...interview, id: docRef.id },
+            interview: { ...interview, id: row.id },
           },
         });
       }
 
       case "save_interview": {
         const { interview_data } = parameters as SaveInterviewParams;
-        const saveDocRef = await db.collection("interviews").add({
-          ...interview_data, finalized: true, coverImage: getRandomInterviewCover(), createdAt: new Date().toISOString(),
-        });
-        return NextResponse.json({ result: { success: true, message: "Interview saved successfully.", interviewId: saveDocRef.id } });
+        if (!interview_data.userId) {
+          return NextResponse.json({ result: { success: false, message: "A signed-in user is required to save an interview." } }, { status: 400 });
+        }
+        const supabaseUserId = await toSupabaseUserId(interview_data.userId);
+        const { data: row, error: insertError } = await supabaseAdmin
+          .from("interviews")
+          .insert({
+            user_id: supabaseUserId,
+            role: interview_data.role,
+            type: interview_data.type,
+            level: interview_data.level,
+            techstack: interview_data.techstack,
+            finalized: true,
+            questions: interview_data.questions,
+            metadata: {
+              technicalQuestions: interview_data.technicalQuestions ?? [],
+              behavioralQuestions: interview_data.behavioralQuestions ?? [],
+              coverImage: getRandomInterviewCover(),
+            },
+          })
+          .select("id")
+          .single();
+        if (insertError) throw insertError;
+        return NextResponse.json({ result: { success: true, message: "Interview saved successfully.", interviewId: row.id } });
       }
 
       default:

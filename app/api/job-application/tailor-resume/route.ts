@@ -1,7 +1,7 @@
 // app/api/job-application/tailor-resume/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { auth, db } from '@/firebase/admin';
+import { getAuthedUser } from '@/lib/auth/verify-request';
+import { supabaseAdmin } from '@/supabase/admin';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { extractTextFromResume } from '@/lib/resume/pdf-text-extractor';
 
@@ -22,10 +22,10 @@ interface TailorResumeRequest {
   extractedData?: ExtractedData;
 }
 
-interface ResumeData {
-  userId: string;
-  resumeText?: string;
-  fileUrl?: string;
+interface ResumeRow {
+  user_id: string;
+  resume_text: string | null;
+  file_url: string | null;
 }
 
 export async function POST(request: NextRequest) {
@@ -33,18 +33,15 @@ export async function POST(request: NextRequest) {
     console.log('✏️ Resume Tailoring Started');
 
     // Authentication
-    const cookieStore = await cookies();
-    const session = cookieStore.get('session');
+    const authedUser = await getAuthedUser(request);
 
-    if (!session) {
+    if (!authedUser) {
       return NextResponse.json(
         { error: 'Unauthorized - Please log in' },
         { status: 401 }
       );
     }
-
-    const decodedClaims = await auth.verifySessionCookie(session.value, true);
-    const userId = decodedClaims.uid;
+    const { supabaseUserId } = authedUser;
 
     // Check API
     if (!genAI || !apiKey) {
@@ -68,20 +65,26 @@ export async function POST(request: NextRequest) {
     console.log('📄 Resume ID:', resumeId);
     console.log('🎯 Target role:', extractedData?.jobTitle);
 
-    // Fetch resume from Firestore
-    const resumeDoc = await db.collection('resumes').doc(resumeId).get();
-    
-    if (!resumeDoc.exists) {
+    // Fetch resume from Postgres
+    const { data: resumeData, error: fetchError } = await supabaseAdmin
+      .from('resumes')
+      .select('user_id, resume_text, file_url')
+      .eq('id', resumeId)
+      .maybeSingle();
+
+    if (fetchError) throw fetchError;
+
+    if (!resumeData) {
       return NextResponse.json(
         { error: 'Resume not found' },
         { status: 404 }
       );
     }
 
-    const resumeData = resumeDoc.data() as ResumeData;
+    const row = resumeData as ResumeRow;
 
     // Verify ownership
-    if (resumeData.userId !== userId) {
+    if (row.user_id !== supabaseUserId) {
       return NextResponse.json(
         { error: 'Unauthorized access' },
         { status: 403 }
@@ -89,12 +92,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Extract resume text if not already available
-    let resumeText = resumeData.resumeText;
-    
-    if (!resumeText && resumeData.fileUrl) {
+    let resumeText = row.resume_text ?? undefined;
+
+    if (!resumeText && row.file_url) {
       console.log('📖 Extracting text from resume...');
       try {
-        resumeText = await extractTextFromResume(resumeData.fileUrl);
+        resumeText = await extractTextFromResume(row.file_url);
       } catch (extractError) {
         console.error('❌ Text extraction failed:', extractError);
         return NextResponse.json(

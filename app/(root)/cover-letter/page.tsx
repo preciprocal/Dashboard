@@ -3,9 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth, db } from '@/firebase/client';
-import { collection, query, where, getDocs, deleteDoc, doc } from 'firebase/firestore';
+import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
 import ErrorPage from '@/components/Error';
 import { toast } from 'sonner';
@@ -556,7 +554,7 @@ function PreviewModal({
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function CoverLetterDashboard() {
-  const [user, loading] = useAuthState(auth);
+  const [user, loading] = useSupabaseUser();
   const router = useRouter();
 
   const [coverLetters,  setCoverLetters]  = useState<CoverLetter[]>([]);
@@ -618,10 +616,12 @@ export default function CoverLetterDashboard() {
       setLoadingStep(1);
       await new Promise(r => setTimeout(r, 150));
       setLoadingStep(2);
-      const snap = await getDocs(query(collection(db, 'coverLetters'), where('userId', '==', user.uid)));
-      const letters = snap.docs
-        .map(d => ({ id: d.id, ...d.data(), createdAt: d.data().createdAt?.toDate() || new Date() } as CoverLetter))
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      const res = await fetch('/api/cover-letter/list');
+      if (!res.ok) throw new Error(`Failed to fetch (${res.status})`);
+      const { coverLetters: raw } = await res.json() as { coverLetters: Array<Omit<CoverLetter, 'createdAt'> & { createdAt: string }> };
+      const letters = raw
+        .map(l => ({ ...l, createdAt: new Date(l.createdAt) }))
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
       setCoverLetters(letters);
       setLoadingStep(3);
       setStats(computeStats(letters));
@@ -630,9 +630,7 @@ export default function CoverLetterDashboard() {
       setLoadingStep(5);
     } catch (err: unknown) {
       const msg = (err as Error).message ?? '';
-      if (msg.includes('Firebase') || msg.includes('firestore')) {
-        setCriticalError({ code: 'DATABASE', title: 'Database Error', message: 'Unable to load your cover letters.', details: msg });
-      } else if (msg.includes('fetch') || msg.includes('network')) {
+      if (msg.includes('fetch') || msg.includes('network')) {
         setCriticalError({ code: 'NETWORK', title: 'Network Error', message: 'Check your internet connection and try again.', details: msg });
       } else {
         setLettersError('Failed to load cover letters. Please try again.');
@@ -647,7 +645,8 @@ export default function CoverLetterDashboard() {
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this cover letter?')) return;
     try {
-      await deleteDoc(doc(db, 'coverLetters', id));
+      const res = await fetch(`/api/cover-letter/delete?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Delete failed');
       const updated = coverLetters.filter(l => l.id !== id);
       setCoverLetters(updated);
       setStats(computeStats(updated));

@@ -9,9 +9,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth, db } from '@/firebase/client';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import { toast } from 'sonner';
 import { NotificationService } from '@/lib/services/notification-services';
@@ -157,12 +155,12 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function CoverLetterGeneratorPage() {
-  const [user, loading] = useAuthState(auth);
+  const [user, loading] = useSupabaseUser();
   const searchParams = useSearchParams();
 
   const {
     canUseFeature, getRemainingCount, getUsedCount,
-    getLimit, incrementUsage, usageData,
+    getLimit, refetch: refetchUsage, usageData,
   } = useUsageTracking();
   const isUnlimitedPlan = usageData?.plan === 'pro' || usageData?.plan === 'premium';
   const clUsed  = getUsedCount('coverLetters');
@@ -264,14 +262,14 @@ export default function CoverLetterGeneratorPage() {
       const res = await fetch('/api/profile');
       if (!res.ok) {
         setProfileStatus({ hasProfile: true, hasResume: false, loading: false,
-          userName: user.displayName || user.email?.split('@')[0] || 'User',
+          userName: (user.user_metadata?.name as string) || (user.user_metadata?.full_name as string) || user.email?.split('@')[0] || 'User',
           resumeCount: 0, missingFields: [] });
         return;
       }
       const data = await res.json();
       let resumeCount = 0;
       try {
-        const rRes = await fetch('/api/resumes');
+        const rRes = await fetch('/api/resume/list');
         if (rRes.ok) { const rData = await rRes.json(); resumeCount = rData.resumes?.length || 0; }
       } catch { /* ignore */ }
 
@@ -285,12 +283,12 @@ export default function CoverLetterGeneratorPage() {
       }
       setProfileStatus({
         hasProfile: !!data.user, hasResume: resumeCount > 0, loading: false,
-        userName: data.user?.name || user.displayName || 'User',
+        userName: data.user?.name || (user.user_metadata?.name as string) || (user.user_metadata?.full_name as string) || 'User',
         resumeCount, missingFields: missing,
       });
     } catch {
       setProfileStatus({ hasProfile: true, hasResume: false, loading: false,
-        userName: user.displayName || user.email?.split('@')[0] || 'User',
+        userName: (user.user_metadata?.name as string) || (user.user_metadata?.full_name as string) || user.email?.split('@')[0] || 'User',
         resumeCount: 0, missingFields: [] });
     }
   }, [user]);
@@ -316,12 +314,12 @@ export default function CoverLetterGeneratorPage() {
         setGeneratedLetter(data.coverLetter.content);
         setMetadata(data.metadata || null);
         toast.success('Cover letter generated!');
-        await incrementUsage('coverLetters');
+        await refetchUsage();
         setShowFeedback(true);
         setShowNextStep(true); // ← SHOW NEXT STEP
-        if (user?.uid) {
+        if (user?.id) {
           const target = companyName.trim() ? `${jobRole.trim()} at ${companyName.trim()}` : jobRole.trim();
-          await NotificationService.createNotification(user.uid, 'cover_letter', 'Cover Letter Ready 📝',
+          await NotificationService.createNotification(user.id, 'cover_letter', 'Cover Letter Ready 📝',
             `Your cover letter for ${target} has been generated.`,
             { actionUrl: '/cover-letter', actionLabel: 'View History' });
         }
@@ -337,23 +335,26 @@ export default function CoverLetterGeneratorPage() {
     setIsSaving(true);
     try {
       const wordCount = generatedLetter.split(/\s+/).filter(w => w.length > 0).length;
-      const docRef = await addDoc(collection(db, 'coverLetters'), {
-        userId: user.uid,
-        jobRole: jobRole.trim(), companyName: companyName.trim() || null,
-        jobDescription: jobDescription.trim() || null,
-        tone, content: generatedLetter, wordCount,
-        usedResume: metadata?.usedResume || false,
-        linkedInJobUrl: linkedInJobData?.url || null,
-        linkedInJobId:  linkedInJobData?.jobId || null,
-        createdAt: serverTimestamp(),
+      const res = await fetch('/api/cover-letter/save', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobRole: jobRole.trim(), companyName: companyName.trim() || undefined,
+          jobDescription: jobDescription.trim() || undefined,
+          tone, content: generatedLetter, wordCount,
+          usedResume: metadata?.usedResume || false,
+          linkedInJobUrl: linkedInJobData?.url || undefined,
+          linkedInJobId:  linkedInJobData?.jobId || undefined,
+        }),
       });
+      if (!res.ok) throw new Error('Save failed');
+      const { id } = await res.json();
       setIsSaved(true);
       toast.success('Saved to history!');
-      if (user?.uid) {
+      if (user?.id) {
         const target = companyName.trim() ? `${jobRole.trim()} at ${companyName.trim()}` : jobRole.trim();
-        await NotificationService.createNotification(user.uid, 'cover_letter', 'Cover Letter Saved ✅',
+        await NotificationService.createNotification(user.id, 'cover_letter', 'Cover Letter Saved ✅',
           `Your cover letter for ${target} has been saved.`,
-          { actionUrl: `/cover-letter/${docRef.id}`, actionLabel: 'View Letter' });
+          { actionUrl: `/cover-letter/${id}`, actionLabel: 'View Letter' });
       }
     } catch { toast.error('Failed to save cover letter'); }
     finally { setIsSaving(false); }

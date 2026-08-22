@@ -3,8 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth } from '@/firebase/client';
+import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
 import ErrorPage from '@/components/Error';
 import ProfileInterviewCard from '@/components/ProfileInterviewCard';
@@ -187,7 +186,7 @@ function EmptyDashboard() {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function InterviewsDashboard() {
-  const [user, loading] = useAuthState(auth);
+  const [user, loading] = useSupabaseUser();
   const router = useRouter();
 
   const [interviews,        setInterviews]        = useState<Interview[]>([]);
@@ -259,7 +258,7 @@ export default function InterviewsDashboard() {
       const batchRes = await fetch('/api/feedback/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ interviews: withDates, userId: user.uid }),
+        body: JSON.stringify({ interviews: withDates, userId: user.id }),
       });
 
       let withFeedback: Interview[] = withDates;

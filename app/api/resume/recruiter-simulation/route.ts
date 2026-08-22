@@ -1,7 +1,7 @@
 // app/api/resume/recruiter-simulation/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, db } from '@/firebase/admin';
-import { cookies } from 'next/headers';
+import { getAuthedUserId } from '@/lib/auth/verify-request';
+import { supabaseAdmin } from '@/supabase/admin';
 import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
@@ -165,10 +165,7 @@ interface RecruiterSimulation {
 
 export async function POST(request: NextRequest) {
   try {
-    let userId: string | null = null;
-    const session = (await cookies()).get('session');
-    if (session) try { userId = (await auth.verifySessionCookie(session.value, true)).uid; } catch {}
-    if (!userId) { const h = request.headers.get('authorization'); if (h?.startsWith('Bearer ')) try { userId = (await auth.verifyIdToken(h.slice(7))).uid; } catch {} }
+    const userId = await getAuthedUserId(request);
 
     const rateLimited = await applyRateLimit(request, userId ?? null, 'heavy');
     if (rateLimited) return rateLimited;
@@ -185,17 +182,23 @@ export async function POST(request: NextRequest) {
     if (!resumeId) return NextResponse.json({ error: 'Resume ID required' }, { status: 400 });
     if (!anthropic) return NextResponse.json({ error: 'AI not configured' }, { status: 500 });
 
-    const doc = await db.collection('resumes').doc(resumeId).get();
-    if (!doc.exists) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    const data = doc.data() as ResumeData & Record<string, unknown>;
+    const { data: row, error: fetchError } = await supabaseAdmin.from('resumes').select('*').eq('id', resumeId).maybeSingle();
+    if (fetchError) throw fetchError;
+    if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    const data: ResumeData & Record<string, unknown> = {
+      jobTitle: row.job_title ?? undefined,
+      companyName: row.company_name ?? undefined,
+      jobDescription: row.job_description ?? undefined,
+      feedback: row.feedback ?? undefined,
+    };
 
     // Use provided context OR fall back to stored resume metadata
     const jobTitle = body.jobTitle || data.jobTitle || '';
     const companyName = body.companyName || data.companyName || '';
     const jobDescription = body.jobDescription || data.jobDescription || '';
 
-    const cached = data.recruiterSimulation as RecruiterSimulation | undefined;
-    const cachedAt = data.recruiterSimulationGeneratedAt as number | undefined;
+    const cached = row.recruiter_simulation as RecruiterSimulation | undefined;
+    const cachedAt = row.recruiter_simulation_generated_at ? new Date(row.recruiter_simulation_generated_at as string).getTime() : undefined;
     if (!force && cached && cachedAt && Date.now() - cachedAt < 7 * 24 * 60 * 60 * 1000) return NextResponse.json({ success: true, simulation: cached, cached: true });
 
     const resumeContent = data.feedback?.resumeText?.substring(0, 3000) || 'Resume text not available.';
@@ -238,7 +241,7 @@ export async function POST(request: NextRequest) {
 
     if (userId) await checkAndIncrementUsage(userId, 'resumes');
 
-    try { await db.collection('resumes').doc(resumeId).update({ recruiterSimulation: simulation, recruiterSimulationGeneratedAt: Date.now() }); } catch {}
+    try { await supabaseAdmin.from('resumes').update({ recruiter_simulation: simulation, recruiter_simulation_generated_at: new Date().toISOString() }).eq('id', resumeId); } catch {}
     return NextResponse.json({ success: true, simulation, cached: false });
   } catch (error) {
     console.error('❌ Simulation error:', error);

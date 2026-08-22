@@ -1,7 +1,7 @@
 // app/api/templates/interview/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { auth, db } from '@/firebase/admin';
+import { getAuthedUser } from '@/lib/auth/verify-request';
+import { supabaseAdmin } from '@/supabase/admin';
 import { getRandomInterviewCover } from '@/lib/utils';
 
 // Define types for our template structure
@@ -53,18 +53,15 @@ export async function POST(request: NextRequest) {
     console.log('🎯 Starting interview from template');
 
     // Authentication
-    const cookieStore = await cookies();
-    const session = cookieStore.get('session');
+    const authedUser = await getAuthedUser(request);
 
-    if (!session) {
+    if (!authedUser) {
       return NextResponse.json(
         { error: 'Not authenticated' },
         { status: 401 }
       );
     }
-
-    const decodedClaims = await auth.verifySessionCookie(session.value, true);
-    const userId = decodedClaims.uid;
+    const { supabaseUserId } = authedUser;
 
     // Get template ID from request
     const body = await request.json();
@@ -142,7 +139,7 @@ export async function POST(request: NextRequest) {
         technical: technicalQuestions.length,
         behavioral: behavioralQuestions.length,
       },
-      userId: userId,
+      userId: authedUser.userId,
       finalized: true,
       coverImage: getRandomInterviewCover(),
       createdAt: new Date().toISOString(),
@@ -157,17 +154,46 @@ export async function POST(request: NextRequest) {
       fromTemplate: true,
     };
 
-    // Save to Firebase
-    const docRef = await db.collection('interviews').add(interview);
-    
-    console.log('✅ Interview created:', docRef.id);
+    // Save to Postgres - typed/filterable fields as columns, the rest
+    // (question splits, template bookkeeping) in metadata jsonb.
+    const { data: row, error: insertError } = await supabaseAdmin
+      .from('interviews')
+      .insert({
+        user_id: supabaseUserId,
+        role: interview.role,
+        type: interview.type,
+        level: interview.level,
+        techstack: interview.techstack,
+        duration: interview.duration,
+        finalized: interview.finalized,
+        questions: interview.questions,
+        metadata: {
+          technicalQuestions: interview.technicalQuestions,
+          behavioralQuestions: interview.behavioralQuestions,
+          questionCounts: interview.questionCounts,
+          coverImage: interview.coverImage,
+          templateId: interview.templateId,
+          templateName: interview.templateName,
+          category: interview.category,
+          difficulty: interview.difficulty,
+          rating: interview.rating,
+          completions: interview.completions,
+          tags: interview.tags,
+          fromTemplate: interview.fromTemplate,
+        },
+      })
+      .select('id')
+      .single();
+    if (insertError) throw insertError;
+
+    console.log('✅ Interview created:', row.id);
 
     return NextResponse.json({
       success: true,
-      interviewId: docRef.id,
+      interviewId: row.id,
       interview: {
         ...interview,
-        id: docRef.id
+        id: row.id
       },
       message: `Successfully created ${template.type} interview for ${template.role}`
     });

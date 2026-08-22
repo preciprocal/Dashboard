@@ -5,25 +5,14 @@
 // app always receives a real PDF regardless of what the user uploaded.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/firebase/admin';
+import { getAuthedUserId } from '@/lib/auth/verify-request';
 import puppeteer from 'puppeteer';
 
 export const runtime     = 'nodejs';
 export const maxDuration = 60;
 
-async function verifyToken(request: NextRequest): Promise<string | null> {
-  try {
-    const h = request.headers.get('authorization');
-    if (!h?.startsWith('Bearer ')) return null;
-    const decoded = await auth.verifyIdToken(h.split('Bearer ')[1]);
-    return decoded.uid;
-  } catch {
-    return null;
-  }
-}
-
 export async function POST(request: NextRequest) {
-  const userId = await verifyToken(request);
+  const userId = await getAuthedUserId(request);
   if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }

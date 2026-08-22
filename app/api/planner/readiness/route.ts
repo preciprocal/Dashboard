@@ -1,8 +1,8 @@
 // app/api/planner/readiness/route.ts
 // Computes a weighted readiness score from tasks, quiz, interviews, and consistency
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { auth, db } from '@/firebase/admin';
+import { getAuthedUser } from '@/lib/auth/verify-request';
+import { supabaseAdmin } from '@/supabase/admin';
 import { redis } from '@/lib/redis/redis-client';
 
 const READINESS_CACHE_TTL = 5 * 60; // 5 minutes
@@ -41,12 +41,9 @@ interface ReadinessBreakdown {
 
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const session = cookieStore.get('session');
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-    const decoded = await auth.verifySessionCookie(session.value, true);
-    const userId = decoded.uid;
+    const authedUser = await getAuthedUser(request);
+    if (!authedUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { supabaseUserId } = authedUser;
 
     const { planId } = await request.json() as { planId: string };
     if (!planId) return NextResponse.json({ error: 'planId required' }, { status: 400 });
@@ -64,10 +61,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch plan
-    const planDoc = await db.collection('interviewPlans').doc(planId).get();
-    if (!planDoc.exists) return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
-    const plan = planDoc.data() as PlanData;
-    if (plan.userId !== userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    const { data: planRow, error: planFetchError } = await supabaseAdmin.from('interview_plans').select('user_id, data').eq('id', planId).maybeSingle();
+    if (planFetchError) throw planFetchError;
+    if (!planRow) return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
+    if (planRow.user_id !== supabaseUserId) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    const plan = planRow.data as PlanData;
 
     // ── 1. Task completion score (40% weight) ──
     // Weight by priority: high tasks count 2x, medium 1.5x
@@ -92,36 +90,38 @@ export async function POST(request: NextRequest) {
         }
       } catch { /* ignore */ }
     }
-    // Check Firestore for quiz results - wrapped in try/catch since subcollection may not exist
+    // Check for a recorded quiz result - wrapped in try/catch defensively since
+    // nothing currently writes to quiz_results (no quiz-submission flow exists yet).
     try {
-      const quizRef = db.collection('interviewPlans').doc(planId).collection('quizResults');
-      const quizSnap = await quizRef.orderBy('completedAt', 'desc').limit(1).get();
-      if (!quizSnap.empty) {
-        const result = quizSnap.docs[0].data() as { score: number; total: number };
-        if (result.score !== undefined && result.total) {
-          quizScore = Math.round((result.score / result.total) * 100);
-          quizDetail = `${result.score}/${result.total} correct (${quizScore}%)`;
-        }
+      const { data: quizRows } = await supabaseAdmin
+        .from('quiz_results')
+        .select('score, answers')
+        .eq('interview_plan_id', planId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      const result = quizRows?.[0] as { score: number; answers: { total?: number } } | undefined;
+      const total = result?.answers?.total;
+      if (result?.score !== undefined && total) {
+        quizScore = Math.round((result.score / total) * 100);
+        quizDetail = `${result.score}/${total} correct (${quizScore}%)`;
       }
-    } catch { /* subcollection may not exist yet - that's fine */ }
+    } catch { /* no quiz result recorded yet - that's fine */ }
 
     // ── 3. Mock interview performance (20% weight) ──
     let interviewScore = 0;
     let interviewDetail = 'No mock interviews completed';
     try {
-      // Try without orderBy first (avoids composite index requirement)
-      const fbSnap = await db.collection('feedback')
-        .where('userId', '==', userId)
-        .limit(5)
-        .get();
-      if (!fbSnap.empty) {
-        const scores = fbSnap.docs
-          .map(d => (d.data() as { totalScore?: number }).totalScore)
-          .filter((s): s is number => typeof s === 'number');
-        if (scores.length > 0) {
-          interviewScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
-          interviewDetail = `Avg ${interviewScore}/100 across ${scores.length} session(s)`;
-        }
+      const { data: fbRows } = await supabaseAdmin
+        .from('interview_feedback')
+        .select('total_score')
+        .eq('user_id', supabaseUserId)
+        .limit(5);
+      const scores = (fbRows ?? [])
+        .map((r) => r.total_score)
+        .filter((s): s is number => typeof s === 'number');
+      if (scores.length > 0) {
+        interviewScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+        interviewDetail = `Avg ${interviewScore}/100 across ${scores.length} session(s)`;
       }
     } catch {
       // If feedback collection doesn't exist or query fails, just skip

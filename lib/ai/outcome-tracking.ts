@@ -3,7 +3,7 @@
 // Data flywheel: Collect real user outcomes, calibrate AI against reality.
 // Phase 1: Published baselines. Phase 2 (100+ outcomes): Your own data.
 
-import { db } from '@/firebase/admin';
+import { supabaseAdmin } from '@/supabase/admin';
 
 // ─── Published Hiring Baselines (cite-able, defensible) ───────────────────────
 
@@ -30,6 +30,8 @@ export const HIRING_BASELINES = {
 // ─── Outcome Collection ───────────────────────────────────────────────────────
 
 export interface OutcomeRecord {
+  // Must be the real Supabase auth UUID (getAuthedUser().supabaseUserId),
+  // not the legacy-resolved Firestore-compatible id.
   userId: string;
   resumeId: string;
   resumeScore: number;
@@ -45,7 +47,20 @@ export interface OutcomeRecord {
 
 export async function recordOutcome(outcome: OutcomeRecord): Promise<void> {
   try {
-    await db.collection('outcomeData').add({ ...outcome, reportedAt: new Date().toISOString(), _version: 1 });
+    const { error } = await supabaseAdmin.from('outcome_data').insert({
+      user_id: outcome.userId,
+      outcome: outcome.outcome,
+      resume_id: outcome.resumeId,
+      resume_score: outcome.resumeScore,
+      ats_score: outcome.atsScore,
+      job_title: outcome.jobTitle,
+      company_name: outcome.companyName ?? null,
+      days_after_application: outcome.daysAfterApplication,
+      benchmark_percentile: outcome.benchmarkPercentile ?? null,
+      actually_got_interview: outcome.actuallyGotInterview ?? null,
+      reported_at: new Date().toISOString(),
+    });
+    if (error) throw error;
     console.log(`📊 Outcome recorded: ${outcome.outcome} for resume ${outcome.resumeId}`);
   } catch (e) { console.error('Failed to record outcome:', e); }
 }
@@ -64,40 +79,48 @@ export interface AggregateStats {
 
 export async function getAggregateStats(): Promise<AggregateStats> {
   try {
-    const cacheDoc = await db.collection('platformStats').doc('outcomeAggregates').get();
-    if (cacheDoc.exists) {
-      const cached = cacheDoc.data() as AggregateStats;
+    const { data: cacheRow } = await supabaseAdmin
+      .from('platform_stats_cache')
+      .select('stats')
+      .eq('id', 'outcomeAggregates')
+      .maybeSingle();
+    if (cacheRow) {
+      const cached = cacheRow.stats as AggregateStats;
       if (Date.now() - new Date(cached.lastUpdated).getTime() < 24 * 60 * 60 * 1000) return cached;
     }
   } catch {}
 
-  const snap = await db.collection('outcomeData')
-    .where('outcome', 'in', ['interview', 'rejection', 'no_response', 'hired'])
-    .limit(5000).get();
+  const { data: rows } = await supabaseAdmin
+    .from('outcome_data')
+    .select('outcome, resume_score')
+    .in('outcome', ['interview', 'rejection', 'no_response', 'hired'])
+    .limit(5000);
 
-  if (snap.empty) return getFallbackStats();
+  if (!rows || rows.length === 0) return getFallbackStats();
 
-  const outcomes = snap.docs.map(d => d.data() as OutcomeRecord);
+  const outcomes = rows as { outcome: string; resume_score: number }[];
   const interviewed = outcomes.filter(o => o.outcome === 'interview' || o.outcome === 'hired');
   const rejected = outcomes.filter(o => o.outcome === 'rejection' || o.outcome === 'no_response');
-  const allScores = outcomes.map(o => o.resumeScore).sort((a, b) => a - b);
+  const allScores = outcomes.map(o => o.resume_score).sort((a, b) => a - b);
   const pct = (arr: number[], p: number) => arr[Math.max(0, Math.ceil((p / 100) * arr.length) - 1)] ?? 0;
 
   const stats: AggregateStats = {
     totalOutcomes: outcomes.length,
     interviewRate: interviewed.length / outcomes.length,
     avgScoreOfInterviewed: interviewed.length > 0
-      ? Math.round(interviewed.reduce((s, o) => s + o.resumeScore, 0) / interviewed.length)
+      ? Math.round(interviewed.reduce((s, o) => s + o.resume_score, 0) / interviewed.length)
       : HIRING_BASELINES.scoreDistribution.p75,
     avgScoreOfRejected: rejected.length > 0
-      ? Math.round(rejected.reduce((s, o) => s + o.resumeScore, 0) / rejected.length)
+      ? Math.round(rejected.reduce((s, o) => s + o.resume_score, 0) / rejected.length)
       : HIRING_BASELINES.scoreDistribution.p50,
     scorePercentiles: { p10: pct(allScores, 10), p25: pct(allScores, 25), p50: pct(allScores, 50), p75: pct(allScores, 75), p90: pct(allScores, 90) },
     lastUpdated: new Date().toISOString(),
     sampleSize: outcomes.length >= 100 ? `Based on ${outcomes.length} user-reported outcomes` : `Based on ${outcomes.length} outcomes + industry benchmarks`,
   };
 
-  try { await db.collection('platformStats').doc('outcomeAggregates').set(stats); } catch {}
+  try {
+    await supabaseAdmin.from('platform_stats_cache').upsert({ id: 'outcomeAggregates', stats, updated_at: new Date().toISOString() });
+  } catch {}
   return stats;
 }
 

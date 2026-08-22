@@ -1,7 +1,7 @@
 // app/api/career-tools/cold-outreach/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { auth, db } from '@/firebase/admin';
+import { getAuthedUser } from '@/lib/auth/verify-request';
+import { supabaseAdmin } from '@/supabase/admin';
 import { getUserAIContext } from '@/lib/ai/user-context';
 import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
@@ -21,10 +21,9 @@ export async function POST(request: NextRequest) {
   try {
     if (!anthropic) return NextResponse.json({ error: 'AI not configured', code: 'CLAUDE_NOT_CONFIGURED' }, { status: 503 });
 
-    const session = (await cookies()).get('session');
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    let userId: string;
-    try { userId = (await auth.verifySessionCookie(session.value, true)).uid; } catch { return NextResponse.json({ error: 'Invalid session' }, { status: 401 }); }
+    const authedUser = await getAuthedUser(request);
+    if (!authedUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { userId, supabaseUserId } = authedUser;
 
     // ── Rate limit ────────────────────────────────────────────────
     const rateLimited = await applyRateLimit(request, userId, 'medium');
@@ -89,7 +88,13 @@ Return JSON:
     // ── Increment usage ───────────────────────────────────────────
     await checkAndIncrementUsage(userId, 'coldOutreach');
 
-    try { await db.collection('outreachHistory').add({ userId, outreachType: outreachType || 'job-inquiry', recipientCompany, recipientRole, platform: plat, tone: tone || 'professional', result: data, createdAt: new Date() }); } catch {}
+    try {
+      await supabaseAdmin.from('outreach_history').insert({
+        user_id: supabaseUserId,
+        contact: { recipientCompany, recipientRole, platform: plat, outreachType: outreachType || 'job-inquiry', tone: tone || 'professional' },
+        message: data,
+      });
+    } catch {}
     return NextResponse.json({ success: true, data });
   } catch (err) {
     const e = err as Error & { status?: number };

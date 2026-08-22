@@ -3,8 +3,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth } from '@/firebase/client';
+import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import { 
   FileText, Briefcase, Sparkles, Download, 
@@ -43,7 +42,7 @@ interface CustomizationMessage {
 
 export default function JobApplicationPage() {
   const router = useRouter();
-  const [user, loading] = useAuthState(auth);
+  const [user, loading] = useSupabaseUser();
   const [step, setStep] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState('');
@@ -94,12 +93,9 @@ export default function JobApplicationPage() {
   // Load user's resumes on mount
   const loadUserResumes = useCallback(async () => {
     try {
-      const idToken = await user?.getIdToken();
-      const response = await fetch('/api/resume', {
-        headers: {
-          'Authorization': `Bearer ${idToken}`
-        }
-      });
+      // No Authorization header needed - the Supabase session cookie is
+      // sent automatically for this same-origin request.
+      const response = await fetch('/api/resume');
       const data = await response.json();
       
       if (data.success) {
@@ -111,7 +107,7 @@ export default function JobApplicationPage() {
     } catch (err) {
       console.error('Error loading resumes:', err);
     }
-  }, [user]);
+  }, []);
 
   // Redirect if not authenticated
   useEffect(() => {

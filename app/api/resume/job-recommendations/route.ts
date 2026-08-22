@@ -1,6 +1,7 @@
 // app/api/resume/job-recommendations/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, db, storage } from '@/firebase/admin';
+import { getAuthedUser } from '@/lib/auth/verify-request';
+import { supabaseAdmin } from '@/supabase/admin';
 import Anthropic from '@anthropic-ai/sdk';
 
 const anthropic = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY || '' });
@@ -49,16 +50,11 @@ interface ResumeFeedback {
 }
 
 interface ResumeData {
-  userId?: string;
   companyName?: string;
   jobTitle?: string;
   jobDescription?: string;
   feedback?: ResumeFeedback;
-  extractedText?: string;
-  parsedText?: string;
   resumeText?: string;
-  text?: string;
-  content?: string;
   fileName?: string;
   originalFileName?: string;
 }
@@ -101,65 +97,6 @@ interface ResumeAnalysis {
   careerLevel: string;
   certifications: string[];
   preferredJobTypes: string[];
-}
-
-async function verifyToken(request: NextRequest) {
-  try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
-    const token = authHeader.split('Bearer ')[1];
-    return await auth.verifyIdToken(token);
-  } catch (error) {
-    console.error('Token verification failed:', error);
-    return null;
-  }
-}
-
-async function extractTextFromImage(imageBuffer: Buffer): Promise<string> {
-  try {
-    const base64Image = imageBuffer.toString('base64');
-
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5',
-      max_tokens: 4096,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: { type: 'base64', media_type: 'image/png', data: base64Image },
-            },
-            {
-              type: 'text',
-              text: `Extract ALL readable text from this resume image with complete accuracy.
-
-CRITICAL INSTRUCTIONS:
-1. Capture EVERY word, number, date, email, phone number, URL exactly as shown
-2. Preserve ALL section headers (Education, Experience, Skills, Projects, etc.)
-3. Include ALL job titles, company names, dates, locations
-4. Extract ALL bullet points and descriptions completely
-5. Capture ALL technical skills, tools, frameworks, languages
-6. Include ALL education details (degrees, universities, GPAs, dates)
-7. Extract ALL project names, descriptions, and technologies used
-8. Maintain original structure and hierarchy
-9. Include contact information (name, email, phone, LinkedIn, GitHub, etc.)
-10. Preserve all formatting cues (bullets, dates, locations)
-
-Return only the extracted text, maintaining the original structure.`,
-            },
-          ],
-        },
-      ],
-    });
-
-    const text = response.content[0].type === 'text' ? response.content[0].text.trim() : '';
-    console.log('✅ Image text extraction successful. Length:', text.length);
-    return text;
-  } catch (error) {
-    console.error('Error extracting text from image:', error);
-    throw new Error('Failed to extract text from resume');
-  }
 }
 
 function constructResumeFromFeedback(resumeData: ResumeData): string {
@@ -533,45 +470,39 @@ async function fetchRealJobsFromJSearch(analysis: ResumeAnalysis, searchQuery?: 
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await verifyToken(request);
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authedUser = await getAuthedUser(request);
+    if (!authedUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { supabaseUserId } = authedUser;
 
     const body = await request.json();
     const { resumeId, filters, searchQuery }: { resumeId: string; filters?: Filters; searchQuery?: string } = body;
 
     if (!resumeId) return NextResponse.json({ error: 'Resume ID is required' }, { status: 400 });
 
-    console.log(`🔍 Fetching resume ${resumeId} for user ${user.uid}`);
+    console.log(`🔍 Fetching resume ${resumeId} for user ${supabaseUserId}`);
 
-    const resumeRef = db.collection('resumes').doc(resumeId);
-    const resumeDoc = await resumeRef.get();
+    const { data: row, error: fetchError } = await supabaseAdmin
+      .from('resumes')
+      .select('user_id, company_name, job_title, job_description, feedback, resume_text, file_name, original_file_name')
+      .eq('id', resumeId)
+      .maybeSingle();
 
-    if (!resumeDoc.exists) return NextResponse.json({ error: 'Resume not found' }, { status: 404 });
+    if (fetchError) throw fetchError;
+    if (!row) return NextResponse.json({ error: 'Resume not found' }, { status: 404 });
+    if (row.user_id !== supabaseUserId) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
 
-    const resumeData = resumeDoc.data() as ResumeData;
-    if (resumeData?.userId !== user.uid) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    const resumeData: ResumeData = {
+      companyName: row.company_name ?? undefined,
+      jobTitle: row.job_title ?? undefined,
+      jobDescription: row.job_description ?? undefined,
+      feedback: row.feedback ?? undefined,
+      resumeText: row.resume_text ?? undefined,
+      fileName: row.file_name ?? undefined,
+      originalFileName: row.original_file_name ?? undefined,
+    };
 
-    let resumeText = resumeData?.extractedText || '';
+    let resumeText = resumeData.resumeText || '';
     if (!resumeText || resumeText.length < 100) resumeText = resumeData?.feedback?.resumeText || '';
-    if (!resumeText || resumeText.length < 100) resumeText = resumeData?.resumeText || resumeData?.parsedText || '';
-
-    if (!resumeText || resumeText.length < 100) {
-      console.log(`🖼️ Attempting to extract text from image...`);
-      try {
-        const bucketName = process.env.FIREBASE_STORAGE_BUCKET || process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || `${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.appspot.com`;
-        const file = storage.bucket(bucketName).file(`resumes/${user.uid}/${resumeId}/image.png`);
-        const [exists] = await file.exists();
-        if (exists) {
-          const [imageBuffer] = await file.download();
-          resumeText = await extractTextFromImage(imageBuffer);
-          if (resumeText && resumeText.length >= 100) {
-            await resumeRef.update({ extractedText: resumeText });
-          }
-        }
-      } catch (error) {
-        console.error('❌ Error extracting text from storage:', error);
-      }
-    }
 
     if (!resumeText || resumeText.length < 100) {
       if (resumeData?.feedback) resumeText = constructResumeFromFeedback(resumeData);

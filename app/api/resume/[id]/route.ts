@@ -1,6 +1,7 @@
 // app/api/resume/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, db } from '@/firebase/admin';
+import { getAuthedUser } from '@/lib/auth/verify-request';
+import { supabaseAdmin } from '@/supabase/admin';
 import { revalidatePath } from 'next/cache';
 import { redis } from '@/lib/redis/redis-client';
 
@@ -19,8 +20,10 @@ export interface Resume {
   originalFileName?: string;
   fileSize: number;
 
-  // Storage - new records store a Firebase Storage HTTPS URL here.
-  // Legacy records may have a base64 data-URL; both are supported.
+  // Storage - new records store a bare Supabase Storage path here, resolved
+  // to a signed URL on read (see lib/resume/resolve-pdf-url.ts). Legacy
+  // records may have a Firebase download URL or a base64 data-URL; both
+  // are still supported by the reader.
   resumePath?: string;
   imagePath?:  string;   // no longer written for new records, kept for legacy reads
   filePath?:   string;   // Storage path (not the download URL)
@@ -33,6 +36,105 @@ export interface Resume {
   score?:      number;
   feedback?:   Record<string, unknown>;
   error?:      string;
+
+  resumeText?: string;
+  resumeHtml?: string;
+  cacheHash?:  string;
+
+  benchmarkResult?: Record<string, unknown>;
+  benchmarkGeneratedAt?: number;
+  recruiterSimulation?: Record<string, unknown>;
+  recruiterSimulationGeneratedAt?: number;
+  interviewIntel?: Record<string, unknown>;
+  interviewIntelGeneratedAt?: string;
+  interviewIntelCompany?: string;
+  interviewIntelRole?: string;
+  deepAnalysis?: Record<string, unknown>;
+  deepAnalysisGeneratedAt?: number;
+  tailorResult?: Record<string, unknown>;
+  tailorResultGeneratedAt?: number;
+  tailorJobTitle?: string;
+  tailorCompanyName?: string;
+}
+
+interface ResumeRow {
+  id: string;
+  user_id: string;
+  company_name: string | null;
+  job_title: string | null;
+  job_description: string | null;
+  file_name: string | null;
+  original_file_name: string | null;
+  file_size: number | null;
+  resume_path: string | null;
+  image_path: string | null;
+  file_path: string | null;
+  file_url: string | null;
+  created_at: string;
+  updated_at: string;
+  analyzed_at: string | null;
+  status: string;
+  score: number | null;
+  feedback: Record<string, unknown> | null;
+  error: string | null;
+  resume_text: string | null;
+  resume_html: string | null;
+  cache_hash: string | null;
+  benchmark_result: Record<string, unknown> | null;
+  benchmark_generated_at: string | null;
+  recruiter_simulation: Record<string, unknown> | null;
+  recruiter_simulation_generated_at: string | null;
+  interview_intel: Record<string, unknown> | null;
+  interview_intel_generated_at: string | null;
+  interview_intel_company: string | null;
+  interview_intel_role: string | null;
+  deep_analysis: Record<string, unknown> | null;
+  deep_analysis_generated_at: string | null;
+  tailor_result: Record<string, unknown> | null;
+  tailor_result_generated_at: string | null;
+  tailor_job_title: string | null;
+  tailor_company_name: string | null;
+}
+
+function toResume(row: ResumeRow): Resume {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    companyName: row.company_name ?? '',
+    jobTitle: row.job_title ?? '',
+    jobDescription: row.job_description ?? '',
+    fileName: row.file_name ?? '',
+    originalFileName: row.original_file_name ?? undefined,
+    fileSize: row.file_size ?? 0,
+    resumePath: row.resume_path ?? undefined,
+    imagePath: row.image_path ?? undefined,
+    filePath: row.file_path ?? undefined,
+    fileUrl: row.file_url ?? undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    analyzedAt: row.analyzed_at ?? undefined,
+    status: row.status as Resume['status'],
+    score: row.score ?? undefined,
+    feedback: row.feedback ?? undefined,
+    error: row.error ?? undefined,
+    resumeText: row.resume_text ?? undefined,
+    resumeHtml: row.resume_html ?? undefined,
+    cacheHash: row.cache_hash ?? undefined,
+    benchmarkResult: row.benchmark_result ?? undefined,
+    benchmarkGeneratedAt: row.benchmark_generated_at ? new Date(row.benchmark_generated_at).getTime() : undefined,
+    recruiterSimulation: row.recruiter_simulation ?? undefined,
+    recruiterSimulationGeneratedAt: row.recruiter_simulation_generated_at ? new Date(row.recruiter_simulation_generated_at).getTime() : undefined,
+    interviewIntel: row.interview_intel ?? undefined,
+    interviewIntelGeneratedAt: row.interview_intel_generated_at ?? undefined,
+    interviewIntelCompany: row.interview_intel_company ?? undefined,
+    interviewIntelRole: row.interview_intel_role ?? undefined,
+    deepAnalysis: row.deep_analysis ?? undefined,
+    deepAnalysisGeneratedAt: row.deep_analysis_generated_at ? new Date(row.deep_analysis_generated_at).getTime() : undefined,
+    tailorResult: row.tailor_result ?? undefined,
+    tailorResultGeneratedAt: row.tailor_result_generated_at ? new Date(row.tailor_result_generated_at).getTime() : undefined,
+    tailorJobTitle: row.tailor_job_title ?? undefined,
+    tailorCompanyName: row.tailor_company_name ?? undefined,
+  };
 }
 
 interface CachedResume {
@@ -80,19 +182,6 @@ async function invalidateResumeCache(resumeId: string, userId: string): Promise<
   }
 }
 
-// ─── Auth helper ──────────────────────────────────────────────────────────────
-
-async function verifyToken(request: NextRequest) {
-  try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) return null;
-    const token = authHeader.split('Bearer ')[1];
-    return await auth.verifyIdToken(token);
-  } catch {
-    return null;
-  }
-}
-
 // ─── GET /api/resume/[id] ────────────────────────────────────────────────────
 
 export async function GET(
@@ -105,13 +194,14 @@ export async function GET(
     const { id } = await params;
     console.log(`📄 GET resume ${id} | Redis: ${!!redis}`);
 
-    const user = await verifyToken(request);
-    if (!user) {
+    const authedUser = await getAuthedUser(request);
+    if (!authedUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const userId = authedUser.supabaseUserId;
 
     // ── Cache check ──────────────────────────────────────────────────────────
-    const cached = await getCachedResume(id, user.uid);
+    const cached = await getCachedResume(id, userId);
     if (cached) {
       return NextResponse.json({
         success: true,
@@ -120,23 +210,28 @@ export async function GET(
       });
     }
 
-    // ── Firestore fetch ──────────────────────────────────────────────────────
-    const doc = await db.collection('resumes').doc(id).get();
+    // ── Postgres fetch ───────────────────────────────────────────────────────
+    const { data: row, error } = await supabaseAdmin
+      .from('resumes')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
 
-    if (!doc.exists) {
+    if (error) throw error;
+    if (!row) {
       return NextResponse.json({ error: 'Resume not found' }, { status: 404 });
     }
 
-    const resume: Resume = { id: doc.id, ...(doc.data() as Omit<Resume, 'id'>) };
+    const resume = toResume(row as ResumeRow);
 
-    if (resume.userId !== user.uid) {
+    if (resume.userId !== userId) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    await cacheResume(id, user.uid, resume);
+    await cacheResume(id, userId, resume);
 
     const responseTime = Date.now() - startTime;
-    console.log(`✅ Resume fetched from Firestore in ${responseTime}ms`);
+    console.log(`✅ Resume fetched from Postgres in ${responseTime}ms`);
 
     return NextResponse.json({
       success: true,
@@ -159,49 +254,61 @@ export async function PUT(
     const { id } = await params;
     console.log(`📝 PUT resume ${id}`);
 
-    const user = await verifyToken(request);
-    if (!user) {
+    const authedUser = await getAuthedUser(request);
+    if (!authedUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const userId = authedUser.supabaseUserId;
 
     const body = await request.json() as {
-      status:      string;
+      status?:     string;
       score?:      number;
       feedback?:   Record<string, unknown>;
       error?:      string;
       resumePath?: string;
+      resumeHtml?: string;
+      resumeText?: string;
     };
-    const { status, score, feedback, error: analysisError, resumePath } = body;
+    const { status, score, feedback, error: analysisError, resumePath, resumeHtml, resumeText } = body;
 
-    const docRef = db.collection('resumes').doc(id);
-    const doc    = await docRef.get();
-
-    if (!doc.exists) {
+    const { data: existing, error: fetchError } = await supabaseAdmin
+      .from('resumes')
+      .select('user_id')
+      .eq('id', id)
+      .maybeSingle();
+    if (fetchError) throw fetchError;
+    if (!existing) {
       return NextResponse.json({ error: 'Resume not found' }, { status: 404 });
     }
-
-    const resume = doc.data() as Resume;
-    if (resume.userId !== user.uid) {
+    if (existing.user_id !== userId) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    const updateData: Partial<Resume> = {
-      status:    status as Resume['status'],
-      updatedAt: new Date().toISOString(),
+    const updateData: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
     };
 
+    if (status) updateData.status = status;
     if (status === 'complete') {
-      updateData.score      = score;
-      updateData.feedback   = feedback;
-      updateData.analyzedAt = new Date().toISOString();
-      // Persist Storage URL if provided (set after upload)
-      if (resumePath) updateData.resumePath = resumePath;
+      updateData.score = score;
+      updateData.feedback = feedback;
+      updateData.analyzed_at = new Date().toISOString();
+      // Persist Storage path if provided (set after upload)
+      if (resumePath) updateData.resume_path = resumePath;
     } else if (status === 'failed') {
       updateData.error = analysisError;
     }
+    // Editor auto-save: content edits independent of the status lifecycle above.
+    if (resumeHtml !== undefined) updateData.resume_html = resumeHtml;
+    if (resumeText !== undefined) updateData.resume_text = resumeText;
 
-    await docRef.update(updateData);
-    await invalidateResumeCache(id, user.uid);
+    const { error: updateError } = await supabaseAdmin
+      .from('resumes')
+      .update(updateData)
+      .eq('id', id);
+    if (updateError) throw updateError;
+
+    await invalidateResumeCache(id, userId);
 
     revalidatePath('/resume');
     revalidatePath(`/resume/${id}`);
@@ -223,25 +330,29 @@ export async function DELETE(
     const { id } = await params;
     console.log(`🗑️  DELETE resume ${id}`);
 
-    const user = await verifyToken(request);
-    if (!user) {
+    const authedUser = await getAuthedUser(request);
+    if (!authedUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const userId = authedUser.supabaseUserId;
 
-    const docRef = db.collection('resumes').doc(id);
-    const doc    = await docRef.get();
-
-    if (!doc.exists) {
+    const { data: existing, error: fetchError } = await supabaseAdmin
+      .from('resumes')
+      .select('user_id')
+      .eq('id', id)
+      .maybeSingle();
+    if (fetchError) throw fetchError;
+    if (!existing) {
       return NextResponse.json({ error: 'Resume not found' }, { status: 404 });
     }
-
-    const resume = doc.data() as Resume;
-    if (resume.userId !== user.uid) {
+    if (existing.user_id !== userId) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    await docRef.delete();
-    await invalidateResumeCache(id, user.uid);
+    const { error: deleteError } = await supabaseAdmin.from('resumes').delete().eq('id', id);
+    if (deleteError) throw deleteError;
+
+    await invalidateResumeCache(id, userId);
 
     revalidatePath('/resume');
 

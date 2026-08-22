@@ -1,6 +1,8 @@
 // app/api/student/send-verification/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { auth, db } from "@/firebase/admin";
+import { db } from "@/firebase/admin";
+import { getAuthedUser } from "@/lib/auth/verify-request";
+import { supabaseAdmin } from "@/supabase/admin";
 import { z } from "zod";
 import { Resend } from "resend";  // ← swap nodemailer for Resend
 
@@ -36,39 +38,41 @@ async function sendVerificationEmail(to: string, code: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
+    const authedUser = await getAuthedUser(req);
+    if (!authedUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const decoded = await auth.verifyIdToken(authHeader.split("Bearer ")[1]);
+    const { userId, supabaseUserId } = authedUser;
 
     const body   = await req.json();
     const parsed = schema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.errors[0].message }, { status: 400 });
     }
-    const { eduEmail } = parsed.data;
+    const eduEmail = parsed.data.eduEmail.trim().toLowerCase();
 
-    const userDoc = await db.collection("users").doc(decoded.uid).get();
-    if (userDoc.data()?.subscription?.studentVerified) {
-      return NextResponse.json({ error: "Student status already verified" }, { status: 409 });
+    const { data: sub } = await supabaseAdmin
+      .from("subscriptions")
+      .select("student_verified")
+      .eq("user_id", supabaseUserId)
+      .maybeSingle();
+    if (sub?.student_verified) {
+      return NextResponse.json({ error: "Student status already verified on this account" }, { status: 409 });
     }
 
-    const existing = await db.collection("studentVerifications")
-      .where("eduEmail", "==", eduEmail)
-      .where("used", "==", true)
-      .limit(1)
-      .get();
-    if (!existing.empty) {
-      return NextResponse.json({ error: "This .edu address has already been used for a student trial" }, { status: 409 });
+    // Doc ID is the normalised email itself, so this is a single point read -
+    // no race window between checking and claiming (claim happens atomically in verify-code).
+    const claimDoc = await db.collection("studentEmailClaims").doc(eduEmail).get();
+    if (claimDoc.exists) {
+      return NextResponse.json({ error: "This university email has already been used for a student trial" }, { status: 409 });
     }
 
     const code      = generateCode();
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
-    await db.collection("studentVerifications").doc(decoded.uid).set({
-      userId: decoded.uid, eduEmail, code, expiresAt,
-      used: false, createdAt: new Date().toISOString(),
+    await db.collection("studentVerifications").doc(userId).set({
+      userId, eduEmail, code, expiresAt,
+      used: false, attempts: 0, createdAt: new Date().toISOString(),
     });
 
     await sendVerificationEmail(eduEmail, code);

@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth } from '@/firebase/client';
+import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import {
   Plus, Loader2, Briefcase, Building2, MapPin, Calendar, ExternalLink,
   Edit3, Trash2, X, Save, ArrowLeft, Search, Filter, ChevronDown,
@@ -538,10 +537,10 @@ function CustomSelect<T extends string>({ value, onChange, options, icon: Icon }
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function JobTrackerPage() {
-  const [user, loading] = useAuthState(auth);
+  const [user, loading] = useSupabaseUser();
   const router = useRouter();
 
-  const { canUseFeature, getLimit, incrementUsage, usageData } = useUsageTracking();
+  const { canUseFeature, getLimit, refetch: refetchUsage, usageData } = useUsageTracking();
   const isUnlimitedPlan = usageData?.plan === 'pro' || usageData?.plan === 'premium';
 
   const [apps, setApps] = useState<Application[]>([]);
@@ -594,8 +593,8 @@ export default function JobTrackerPage() {
       const res = await fetch('/api/job-tracker', { method: isEdit ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(isEdit ? { id: editingId, ...form } : form) });
       if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Failed'); }
       toast.success(isEdit ? 'Application updated' : 'Application added');
-      if (!isEdit && user?.uid) {
-        await NotificationService.createNotification(user.uid, 'planner', 'Application Tracked 📋', `${form.jobTitle} at ${form.company} has been added to your job tracker.`, { actionUrl: '/job-tracker', actionLabel: 'View Tracker' });
+      if (!isEdit && user?.id) {
+        await NotificationService.createNotification(user.id, 'planner', 'Application Tracked 📋', `${form.jobTitle} at ${form.company} has been added to your job tracker.`, { actionUrl: '/job-tracker', actionLabel: 'View Tracker' });
         setShowFeedback(true);
         setNextStepCtx({ company: form.company.trim(), jobTitle: form.jobTitle.trim() }); // ← ADDED
       }
@@ -609,7 +608,7 @@ export default function JobTrackerPage() {
     try {
       const res = await fetch('/api/job-tracker', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status }) });
       if (!res.ok) throw new Error('Failed');
-      if (user?.uid && app) {
+      if (user?.id && app) {
         const milestones: Partial<Record<AppStatus, { title: string; message: string; type: 'interview' | 'achievement' | 'planner' }>> = {
           'phone-screen': { type: 'interview', title: 'Phone Screen Scheduled 📞', message: `You advanced to phone screen for ${app.jobTitle} at ${app.company}!` },
           'technical': { type: 'interview', title: 'Technical Round Incoming 💻', message: `You reached the technical round for ${app.jobTitle} at ${app.company}.` },
@@ -617,7 +616,7 @@ export default function JobTrackerPage() {
           'offer': { type: 'achievement', title: 'Offer Received! 🎉🏆', message: `Congratulations! You received an offer for ${app.jobTitle} at ${app.company}!` },
         };
         const m = milestones[status];
-        if (m) await NotificationService.createNotification(user.uid, m.type, m.title, m.message, { actionUrl: '/job-tracker', actionLabel: 'View Application' });
+        if (m) await NotificationService.createNotification(user.id, m.type, m.title, m.message, { actionUrl: '/job-tracker', actionLabel: 'View Application' });
       }
     } catch { setApps(p => p.map(a => a.id === id ? { ...a, status: app?.status ?? a.status } : a)); toast.error('Failed to update status'); }
   };
@@ -630,7 +629,7 @@ export default function JobTrackerPage() {
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || 'Failed to generate plan'); }
       const data = await res.json();
       toast.success(`${days}-day plan created for ${app.company}!`, { action: { label: 'Open Planner', onClick: () => window.open(`/planner/${data.planId}`, '_blank') } });
-      if (user?.uid) await NotificationService.createNotification(user.uid, 'planner', 'Prep Plan Created 📅', `Your ${days}-day preparation plan for ${app.jobTitle} at ${app.company} is ready.`, { actionUrl: `/planner/${data.planId}`, actionLabel: 'View Plan' });
+      if (user?.id) await NotificationService.createNotification(user.id, 'planner', 'Prep Plan Created 📅', `Your ${days}-day preparation plan for ${app.jobTitle} at ${app.company} is ready.`, { actionUrl: `/planner/${data.planId}`, actionLabel: 'View Plan' });
     } catch (e: unknown) { toast.error(e instanceof Error ? e.message : 'Failed to create plan'); } finally { setCreatingPlan(false); }
   };
 
@@ -666,7 +665,7 @@ export default function JobTrackerPage() {
   return (
     <>
       {showForm && <FormModal form={form} setForm={setForm} onSave={handleSave} onCancel={() => { setShowForm(false); setEditingId(null); setForm({ ...EMPTY_FORM }); }} saving={saving} isEdit={!!editingId} />}
-      {contactsModal && <ContactsModal app={contactsModal} onClose={() => setContactsModal(null)} onContactsFound={async () => { await incrementUsage('findContacts'); }} />}
+      {contactsModal && <ContactsModal app={contactsModal} onClose={() => setContactsModal(null)} onContactsFound={async () => { await refetchUsage(); }} />}
       {planModal && <CreatePlanModal app={planModal} onConfirm={days => handleCreatePlan(planModal, days)} onClose={() => setPlanModal(null)} />}
       {creatingPlan && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#090d1a]/70 backdrop-blur-sm">

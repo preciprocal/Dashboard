@@ -1,8 +1,8 @@
 // components/ExtensionConnection.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
-import { auth } from '@/firebase/client';
+import { useState } from 'react';
+import { supabase } from '@/supabase/client';
 import { Chrome, CheckCircle2, RefreshCw, Plug, PlugZap, Copy } from 'lucide-react';
 
 type Status = 'idle' | 'loading' | 'connected' | 'error';
@@ -20,24 +20,24 @@ export default function ExtensionConnection() {
     setManualToken(null);
 
     try {
-      const user = auth.currentUser;
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not signed in');
 
-      const token = await user.getIdToken(true);
+      const { data: { session } } = await supabase.auth.getSession();
 
       window.postMessage({
         type: 'PRECIPROCAL_AUTH_CHANGE',
         user: {
-          uid:         user.uid,
-          email:       user.email        ?? '',
-          displayName: user.displayName  ?? '',
-          photoURL:    user.photoURL      ?? '',
-          token,
+          uid:         user.id,
+          email:       user.email ?? '',
+          displayName: (user.user_metadata?.name as string) || (user.user_metadata?.full_name as string) || '',
+          photoURL:    (user.user_metadata?.avatar_url as string) || '',
+          token:       session?.access_token ?? null,
         },
       }, window.location.origin);
 
       setStatus('connected');
-      setEmail(user.email);
+      setEmail(user.email ?? null);
     } catch (err: unknown) {
       console.error('Extension connect error:', err);
       setError(err instanceof Error ? err.message : 'Failed to connect automatically.');
@@ -49,15 +49,15 @@ export default function ExtensionConnection() {
   // into the extension popup manually if the auto-connect fails.
   const generateManualToken = async () => {
     try {
-      const user = auth.currentUser;
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not signed in');
-      const token = await user.getIdToken(true);
+      const { data: { session } } = await supabase.auth.getSession();
       const payload = {
-        uid:         user.uid,
-        email:       user.email        ?? '',
-        displayName: user.displayName  ?? '',
-        photoURL:    user.photoURL      ?? '',
-        token,
+        uid:         user.id,
+        email:       user.email ?? '',
+        displayName: (user.user_metadata?.name as string) || (user.user_metadata?.full_name as string) || '',
+        photoURL:    (user.user_metadata?.avatar_url as string) || '',
+        token:       session?.access_token ?? null,
       };
       // Store as raw JSON — no encoding needed, clipboard preserves it exactly
       setManualToken(JSON.stringify(payload));

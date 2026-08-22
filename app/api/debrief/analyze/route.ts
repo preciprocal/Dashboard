@@ -1,7 +1,6 @@
 // app/api/interview-debrief/analyze/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { auth } from '@/firebase/admin';
+import { getAuthedUserId } from '@/lib/auth/verify-request';
 import { getUserAIContext, buildUserContextPrompt } from '@/lib/ai/user-context';
 import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
@@ -57,10 +56,8 @@ Return JSON:
 
 export async function POST(request: NextRequest) {
   try {
-    const session = (await cookies()).get('session');
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    let userId: string;
-    try { userId = (await auth.verifySessionCookie(session.value, true)).uid; } catch { return NextResponse.json({ error: 'Invalid session' }, { status: 401 }); }
+    const userId = await getAuthedUserId(request);
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     if (!anthropic) return NextResponse.json({ error: 'AI not configured' }, { status: 503 });
 
     // ── Rate limit ────────────────────────────────────────────────
@@ -68,7 +65,10 @@ export async function POST(request: NextRequest) {
     if (rateLimited) return rateLimited;
 
     // ── Usage gate ────────────────────────────────────────────────
-    const usageCheck = await checkUsage(userId, 'interviewDebriefs');
+    // Own quota, separate from logging a journal entry (see migration 0020) -
+    // otherwise a free-tier user's single monthly debrief entry would
+    // instantly exhaust the quota needed to analyze it.
+    const usageCheck = await checkUsage(userId, 'debriefAnalyses');
     if (!usageCheck.allowed) {
       return NextResponse.json(
         { error: usageCheck.message, code: 'USAGE_LIMIT', used: usageCheck.used, limit: usageCheck.limit },
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
     const data = JSON.parse(extractJsonString(extractText(response)));
 
     // ── Increment usage ───────────────────────────────────────────
-    await checkAndIncrementUsage(userId, 'interviewDebriefs');
+    await checkAndIncrementUsage(userId, 'debriefAnalyses');
 
     console.log('✅ Debrief complete');
     return NextResponse.json({ success: true, data });

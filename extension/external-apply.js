@@ -52,7 +52,7 @@ if (window._preciprocalLoaded) {
   console.log('🚀 Preciprocal external-apply.js on:', window.location.hostname);
 }
 
-const IS_DEV = false;
+const IS_DEV = true;
 const PRECIPROCAL_URL = IS_DEV ? 'http://localhost:3000' : 'https://app.preciprocal.com';
 
 // ─────────────────────────────────────────────────────────────────
@@ -660,16 +660,40 @@ function rangeToSingleNumber(value) {
   return str;
 }
 
+// Some ATS widgets (e.g. SmartRecruiters' "spl-dropzone" resume uploader) are
+// Web Components that keep their real <input type="file"> inside an open
+// Shadow DOM, invisible to document.querySelectorAll. Walk into every open
+// shadow root too so we can actually find and fill these.
+function deepQuerySelectorAll(selector, root = document) {
+  const out = [];
+  const scan = (node) => {
+    out.push(...node.querySelectorAll(selector));
+    for (const el of node.querySelectorAll('*')) {
+      if (el.shadowRoot) scan(el.shadowRoot);
+    }
+  };
+  scan(root);
+  return out;
+}
+
 function getLabel(el) {
-  if (el.id) { const lbl = document.querySelector(`label[for="${CSS.escape(el.id)}"]`); if (lbl) return (lbl.textContent||'').trim(); }
+  const root = el.getRootNode ? el.getRootNode() : document;
+  if (el.id) { const lbl = root.querySelector?.(`label[for="${CSS.escape(el.id)}"]`); if (lbl) return (lbl.textContent||'').trim(); }
   if (el.getAttribute('aria-label')) return el.getAttribute('aria-label');
   if (el.getAttribute('aria-labelledby')) {
     const ids = el.getAttribute('aria-labelledby').split(' ');
-    const texts = ids.map(id => document.getElementById(id)?.textContent?.trim()).filter(Boolean);
+    const texts = ids.map(id => (root.getElementById ? root.getElementById(id) : document.getElementById(id))?.textContent?.trim()).filter(Boolean);
     if (texts.length) return texts.join(' ');
   }
   if (el.placeholder) return el.placeholder;
-  const container = el.closest('[class*="field"],[class*="form-group"],[class*="input-wrapper"],[class*="question"],[class*="FormField"],fieldset,label,.sc-form-item');
+  let container = el.closest?.('[class*="field"],[class*="form-group"],[class*="input-wrapper"],[class*="question"],[class*="FormField"],fieldset,label,.sc-form-item');
+  // If nothing found and this element is shadow-encapsulated, its field label
+  // usually lives in the light DOM around the shadow host, not inside the
+  // shadow root itself - so re-search starting from the host element.
+  if (!container && typeof ShadowRoot !== 'undefined' && root instanceof ShadowRoot && root.host) {
+    const hostEl = root.host;
+    container = hostEl.closest('[class*="field"],[class*="form-group"],[class*="input-wrapper"],[class*="question"],[class*="FormField"],fieldset,label,.sc-form-item') || hostEl.parentElement;
+  }
   if (container) {
     const lbl = container.querySelector('label,[class*="label"],[class*="Label"],legend,p[class*="title"]');
     if (lbl && !lbl.contains(el)) return (lbl.textContent||'').trim();
@@ -1296,8 +1320,7 @@ class FileInjector {
     const ext = (fileName||'').split('.').pop()?.toLowerCase();
     return { pdf:'application/pdf', doc:'application/msword', docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document', txt:'text/plain' }[ext] || 'application/octet-stream';
   }
-  static async injectFromUrl(url, fileName, inputs) {
-    if (!url || !inputs?.length) return 0;
+  static async _resolveFile(url, fileName) {
     const mime = FileInjector._getMime(fileName);
     let file = null;
     if (url.startsWith('data:')) { const base64 = url.split(',')[1]; if (base64) file = FileInjector._base64ToFile(base64, fileName, mime); }
@@ -1313,7 +1336,71 @@ class FileInjector {
         if (res.ok) { const blob = await res.blob(); file = new File([blob], fileName, { type:mime }); console.log(`✅ Direct fetch success: ${fileName} (${Math.round(file.size/1024)}KB)`); }
       } catch (err) { console.warn('⚠️ Direct fetch failed:', err.message); }
     }
-    if (!file) { console.error('❌ All fetch strategies failed for:', fileName); return 0; }
+    if (!file) console.error('❌ All fetch strategies failed for:', fileName);
+    return file;
+  }
+
+  // Some ATS upload widgets (e.g. SmartRecruiters) don't mount a real
+  // <input type="file"> until the user interacts with them - they only
+  // listen for native HTML5 drag-and-drop events on a container div. For
+  // those, simulate a drop with a synthetic DataTransfer instead.
+  static async injectViaDrop(url, fileName, dropEl) {
+    if (!url || !dropEl) return false;
+    const file = await FileInjector._resolveFile(url, fileName);
+    if (!file) return false;
+    try {
+      const dt = new DataTransfer(); dt.items.add(file);
+      const opts = { bubbles: true, cancelable: true, dataTransfer: dt };
+      dropEl.dispatchEvent(new DragEvent('dragenter', opts));
+      dropEl.dispatchEvent(new DragEvent('dragover', opts));
+      dropEl.dispatchEvent(new DragEvent('drop', opts));
+      console.log(`✅ Simulated drop for ${fileName} onto dropzone`);
+      return true;
+    } catch (err) {
+      console.warn('⚠️ Drop simulation failed:', err.message);
+      return false;
+    }
+  }
+
+  static _findDropzoneCandidates() {
+    const rx = /drop (it|your file|files?)?\s*here|drag\s*(and|&)\s*drop/i;
+    const nodes = Array.from(document.querySelectorAll('div,section,label,button,span'))
+      .filter(el => {
+        if (el.children.length > 6) return false;
+        const text = (el.textContent || '').trim();
+        if (!text || text.length > 200) return false;
+        return rx.test(text);
+      });
+    // Keep only the deepest matching element in each match chain (drop the ancestors)
+    return nodes.filter(el => !nodes.some(other => other !== el && el.contains(other)));
+  }
+
+  static _labelForDropzone(el) {
+    const container = el.closest('[class*="field"],[class*="form-group"],[class*="input-wrapper"],[class*="question"],[class*="FormField"],fieldset,.sc-form-item') || el.parentElement;
+    if (container) {
+      const lbl = container.querySelector('label,[class*="label"],[class*="Label"],legend,h1,h2,h3,h4,p[class*="title"]');
+      if (lbl) return (lbl.textContent || '').trim();
+    }
+    return '';
+  }
+
+  static classifyDropzones() {
+    const candidates = FileInjector._findDropzoneCandidates();
+    let resume = null, transcript = null, coverLetter = null;
+    for (const el of candidates) {
+      const lbl = FileInjector._labelForDropzone(el).toLowerCase();
+      if (!resume && /resume|cv\b|curriculum vitae/i.test(lbl)) resume = el;
+      else if (!transcript && /transcript|academic record|grade|certificate/i.test(lbl)) transcript = el;
+      else if (!coverLetter && /cover.?letter/i.test(lbl)) coverLetter = el;
+    }
+    if (!resume && !transcript && !coverLetter && candidates.length === 1) resume = candidates[0];
+    return { resume, transcript, coverLetter };
+  }
+
+  static async injectFromUrl(url, fileName, inputs) {
+    if (!url || !inputs?.length) return 0;
+    const file = await FileInjector._resolveFile(url, fileName);
+    if (!file) return 0;
     let count = 0;
     for (const input of inputs) {
       if (input.disabled) continue;
@@ -1344,7 +1431,7 @@ class FileInjector {
     return count;
   }
   static classify() {
-    const all = Array.from(document.querySelectorAll('input[type="file"]:not([disabled])'));
+    const all = deepQuerySelectorAll('input[type="file"]:not([disabled])');
     const resume = [], transcript = [], coverLetter = [], other = [];
     for (const inp of all) {
       const lbl = getLabel(inp).toLowerCase();
@@ -1356,7 +1443,7 @@ class FileInjector {
     // Only assign the first unclassified file input to resume — never auto-assign transcript
     if (!resume.length && other.length) resume.push(other.shift());
     // Cover letter textareas count too
-    for (const ta of document.querySelectorAll('textarea:not([disabled])')) {
+    for (const ta of deepQuerySelectorAll('textarea:not([disabled])')) {
       if (/cover.?letter/i.test(getLabel(ta).toLowerCase())) coverLetter.push(ta);
     }
     return { resume, transcript, coverLetter };
@@ -1942,6 +2029,18 @@ async function fillSmartRecruiters(p) {
       }
     }
   }
+  // "Confirm/verify email" fields match the same email test above, but the
+  // loop above stops at the first match - explicitly fill any repeat-email
+  // input left empty so the confirmation-mismatch validation doesn't fire.
+  if (p.email) {
+    for (const input of allInputs) {
+      if ((input.value||'').trim()) continue;
+      const lbl = srGetLabel(input).toLowerCase();
+      if (/confirm|verify|repeat|re.?enter|re.?type/.test(lbl) && /email/.test(lbl)) {
+        if (srSetValue(input, p.email)) filled++;
+      }
+    }
+  }
   for (const sel of allSelects) {
     if (sel.value && sel.value !== '' && sel.value !== '0') continue;
     const lbl = srGetLabel(sel).toLowerCase();
@@ -1955,8 +2054,10 @@ async function fillSmartRecruiters(p) {
     if (/cover.?letter/i.test(lbl)) continue;
     if (/summary|about|message/i.test(lbl) && p.summary) { srSetValue(ta, p.summary); filled++; }
   }
-  // Fall back to smartScan for any fields the SR-specific logic missed
-  if (filled < 3) filled += await smartScan(p);
+  // Always run smartScan too - it covers EEO/demographic radio & checkbox
+  // groups (race, veteran, disability, gender) that the SR-specific field
+  // list above doesn't handle, and it skips anything already filled.
+  filled += await smartScan(p);
   return { filled };
 }
 
@@ -2054,7 +2155,7 @@ async function smartScan(p) {
   let filled = 0;
 
   // ── Text inputs ──
-  const inputs = document.querySelectorAll(
+  const inputs = deepQuerySelectorAll(
     'input:not([type="hidden"]):not([type="file"]):not([type="submit"])' +
     ':not([type="button"]):not([type="checkbox"]):not([type="radio"])' +
     ':not([disabled]):not([readonly])'
@@ -2079,7 +2180,7 @@ async function smartScan(p) {
   }
 
   // ── Native <select> elements (improved with bestMatch scoring) ──
-  const selects = document.querySelectorAll('select:not([disabled])');
+  const selects = deepQuerySelectorAll('select:not([disabled])');
   for (const sel of selects) {
     if (sel.value && sel.value !== '' && sel.value !== '0' && sel.value !== 'null') continue;
     const lbl = getLabel(sel);
@@ -2195,7 +2296,7 @@ async function smartScan(p) {
   }
 
   // ── Textareas ──
-  const textareas = document.querySelectorAll('textarea:not([disabled])');
+  const textareas = deepQuerySelectorAll('textarea:not([disabled])');
   for (const ta of textareas) {
     if (ta.value && ta.value.trim().length > 10) continue;
     const lbl = getLabel(ta).toLowerCase();
@@ -2205,7 +2306,7 @@ async function smartScan(p) {
   }
 
   // ── Radio groups ──
-  const groups = document.querySelectorAll('[role="radiogroup"],fieldset');
+  const groups = deepQuerySelectorAll('[role="radiogroup"],fieldset');
   for (const g of groups) {
     const legend = (g.querySelector('legend,[role="group"] label,p,h2,h3,h4,[class*="label" i]')?.textContent||'').toLowerCase();
     let desiredAnswer = null;
@@ -2246,7 +2347,7 @@ async function smartScan(p) {
   }
 
   // ── Checkboxes ──
-  const allCheckboxes = document.querySelectorAll('input[type="checkbox"]:not([disabled])');
+  const allCheckboxes = deepQuerySelectorAll('input[type="checkbox"]:not([disabled])');
   for (const cb of allCheckboxes) {
     if (cb.checked) continue;
     const cbLbl         = getCbLabel(cb).toLowerCase().trim();
@@ -2334,13 +2435,23 @@ async function smartScan(p) {
   return filled;
 }
 
+// Like el.parentElement, but continues from a shadow root's host element
+// instead of stopping dead at the shadow boundary - field labels for
+// shadow-encapsulated widgets usually live in the light DOM around the host.
+function parentAcrossShadow(node) {
+  if (node.parentElement) return node.parentElement;
+  const root = node.getRootNode ? node.getRootNode() : null;
+  if (root && typeof ShadowRoot !== 'undefined' && root instanceof ShadowRoot) return root.host;
+  return null;
+}
+
 function getCheckboxGroupLabel(cb) {
-  let node = cb.parentElement;
+  let node = parentAcrossShadow(cb);
   for (let i = 0; i < 7; i++) {
     if (!node || node === document.body) break;
     if (node.tagName === 'FIELDSET') { const legend = node.querySelector(':scope > legend'); if (legend) return legend.textContent||''; }
     if (node.getAttribute?.('role') === 'group') {
-      const lid = node.getAttribute('aria-labelledby'); if (lid) { const el = document.getElementById(lid); if (el) return el.textContent||''; }
+      const lid = node.getAttribute('aria-labelledby'); if (lid) { const el = node.getRootNode?.().getElementById?.(lid) || document.getElementById(lid); if (el) return el.textContent||''; }
       const al = node.getAttribute('aria-label'); if (al) return al;
     }
     let sib = node.previousElementSibling;
@@ -2350,18 +2461,19 @@ function getCheckboxGroupLabel(cb) {
       if (isLabel && !sib.querySelector('input,select,textarea')) { const text = (sib.textContent||'').trim(); if (text && text.length > 1 && text.length < 120) return text; }
       sib = sib.previousElementSibling;
     }
-    const parent = node.parentElement;
+    const parent = parentAcrossShadow(node);
     if (parent) { const candidate = parent.querySelector('label:not(:has(input)):not(:has(select)),legend,h2,h3,h4'); if (candidate && !candidate.contains(cb)) { const text = (candidate.textContent||'').trim(); if (text && text.length > 1 && text.length < 120) return text; } }
-    node = node.parentElement;
+    node = parentAcrossShadow(node);
   }
   return '';
 }
 
 function getCbLabel(cb) {
   const wrap = cb.closest('label'); if (wrap) return (wrap.textContent||'').replace(/\s+/g,' ').trim();
-  if (cb.id) { const lbl = document.querySelector(`label[for="${CSS.escape(cb.id)}"]`); if (lbl) return (lbl.textContent||'').trim(); }
+  const root = cb.getRootNode ? cb.getRootNode() : document;
+  if (cb.id) { const lbl = root.querySelector?.(`label[for="${CSS.escape(cb.id)}"]`); if (lbl) return (lbl.textContent||'').trim(); }
   if (cb.getAttribute('aria-label')) return cb.getAttribute('aria-label');
-  if (cb.getAttribute('aria-labelledby')) { const ids = cb.getAttribute('aria-labelledby').split(' '); return ids.map(id => document.getElementById(id)?.textContent?.trim()).filter(Boolean).join(' '); }
+  if (cb.getAttribute('aria-labelledby')) { const ids = cb.getAttribute('aria-labelledby').split(' '); return ids.map(id => (root.getElementById ? root.getElementById(id) : document.getElementById(id))?.textContent?.trim()).filter(Boolean).join(' '); }
   const next = cb.nextElementSibling; if (next && next.tagName !== 'INPUT') return (next.textContent||'').trim();
   return (cb.parentElement?.textContent||'').replace(/\s+/g,' ').trim().slice(0,80);
 }
@@ -3274,30 +3386,41 @@ class PreciprocalSidebar {
   async _injectFiles(fileEl) {
     const result = { resume:false, transcript:false, coverLetter:false };
     const { resume, transcript, coverLetter } = FileInjector.classify();
-    const hasAny = resume.length || transcript.length || coverLetter.length;
+    // Fallback: widgets like SmartRecruiters' dropzone don't mount a real
+    // <input type="file"> until interacted with - only match dropzones for
+    // whichever category found no real input, so we never double-handle.
+    const dz = (!resume.length || !transcript.length) ? FileInjector.classifyDropzones() : { resume:null, transcript:null, coverLetter:null };
+    const resumeDrop     = !resume.length     ? dz.resume     : null;
+    const transcriptDrop = !transcript.length ? dz.transcript : null;
+    const hasAny = resume.length || transcript.length || coverLetter.length || resumeDrop || transcriptDrop;
+    console.log(`📎 File targets found — inputs: resume=${resume.length} transcript=${transcript.length} coverLetter=${coverLetter.length} | dropzones: resume=${!!resumeDrop} transcript=${!!transcriptDrop} | this.files=${!!this.files}`);
     if (!hasAny || !this.files) { if (fileEl) fileEl.style.display = 'none'; return result; }
     if (fileEl) fileEl.style.display = 'block';
 
-    // Resume — only if form has a resume input
+    // Resume — only if form has a resume input or dropzone
     const resumeRow = document.getElementById('prc-resume-status');
-    if (resume.length) {
+    if (resume.length || resumeDrop) {
       if (this.files.resume?.available && this.files.resume.url) {
         this._setFileRow('prc-resume-status','Resume','uploading');
-        const n = await FileInjector.injectFromUrl(this.files.resume.url, this.files.resume.fileName, resume);
-        result.resume = n > 0;
+        let ok = false;
+        if (resume.length) ok = (await FileInjector.injectFromUrl(this.files.resume.url, this.files.resume.fileName, resume)) > 0;
+        if (!ok && resumeDrop) ok = await FileInjector.injectViaDrop(this.files.resume.url, this.files.resume.fileName, resumeDrop);
+        result.resume = ok;
         this._setFileRow('prc-resume-status','Resume', result.resume ? 'done' : 'manual');
       } else {
         this._setFileRow('prc-resume-status','Resume','missing');
       }
     } else if (resumeRow) { resumeRow.style.display = 'none'; }
 
-    // Transcript — only if form explicitly asks for it
+    // Transcript — only if form explicitly asks for it (input or dropzone)
     const transcriptRow = document.getElementById('prc-transcript-status');
-    if (transcript.length) {
+    if (transcript.length || transcriptDrop) {
       if (this.files.transcript?.available && this.files.transcript.url) {
         this._setFileRow('prc-transcript-status','Transcript','uploading');
-        const n = await FileInjector.injectFromUrl(this.files.transcript.url, this.files.transcript.fileName, transcript);
-        result.transcript = n > 0;
+        let ok = false;
+        if (transcript.length) ok = (await FileInjector.injectFromUrl(this.files.transcript.url, this.files.transcript.fileName, transcript)) > 0;
+        if (!ok && transcriptDrop) ok = await FileInjector.injectViaDrop(this.files.transcript.url, this.files.transcript.fileName, transcriptDrop);
+        result.transcript = ok;
         this._setFileRow('prc-transcript-status','Transcript', result.transcript ? 'done' : 'manual');
       } else {
         this._setFileRow('prc-transcript-status','Transcript','missing');
@@ -3544,4 +3667,4 @@ if (document.readyState === 'loading') { document.addEventListener('DOMContentLo
 else { setTimeout(boot, 800); }
 setTimeout(boot, 2500);
 
-console.log('✅ Preciprocal external-apply.js ready (auto-fill + job tracker + SPA navigation watcher)');
+console.log('✅ Preciprocal external-apply.js ready (auto-fill + job tracker + SPA navigation watcher) [build: eeo-smartscan-v3]');

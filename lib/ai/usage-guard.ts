@@ -1,8 +1,8 @@
 // lib/ai/usage-guard.ts
-// Server-side usage gate - checks and increments Firestore usage counters.
+// Server-side usage gate - checks and increments Postgres usage counters.
 // Shared across all API routes that consume AI credits.
-import { db } from '@/firebase/admin';
-import { FieldValue } from 'firebase-admin/firestore';
+import { supabaseAdmin } from '@/supabase/admin';
+import { toSupabaseUserId } from '@/lib/auth/verify-request';
 import { USAGE_LIMITS } from '@/lib/config/usage-limits';
 
 export type GatedFeature =
@@ -11,21 +11,24 @@ export type GatedFeature =
   | 'studyPlans'
   | 'interviews'
   | 'interviewDebriefs'
+  | 'debriefAnalyses'
   | 'linkedinOptimisations'
   | 'coldOutreach'
   | 'findContacts'
   | 'jobTracker';
 
+// GatedFeature -> usage_counters column name.
 const FEATURE_FIELD: Record<GatedFeature, string> = {
-  resumes:               'resumesUsed',
-  coverLetters:          'coverLettersUsed',
-  studyPlans:            'studyPlansUsed',
-  interviews:            'interviewsUsed',
-  interviewDebriefs:     'interviewDebriefsUsed',
-  linkedinOptimisations: 'linkedinOptimisationsUsed',
-  coldOutreach:          'coldOutreachUsed',
-  findContacts:          'findContactsUsed',
-  jobTracker:            'jobTrackerUsed',
+  resumes:               'resumes_used',
+  coverLetters:          'cover_letters_used',
+  studyPlans:            'study_plans_used',
+  interviews:            'interviews_used',
+  interviewDebriefs:     'interview_debriefs_used',
+  debriefAnalyses:       'debrief_analyses_used',
+  linkedinOptimisations: 'linkedin_optimisations_used',
+  coldOutreach:          'cold_outreach_used',
+  findContacts:          'find_contacts_used',
+  jobTracker:            'job_tracker_used',
 };
 
 const FEATURE_NAMES: Record<GatedFeature, string> = {
@@ -34,6 +37,7 @@ const FEATURE_NAMES: Record<GatedFeature, string> = {
   studyPlans:            'Study Plans',
   interviews:            'Mock Interviews',
   interviewDebriefs:     'Interview Debriefs',
+  debriefAnalyses:       'AI Debrief Insights',
   linkedinOptimisations: 'LinkedIn Optimisations',
   coldOutreach:          'Cold Outreach',
   findContacts:          'Find Contacts',
@@ -50,6 +54,38 @@ export interface UsageCheckResult {
   message?: string;
 }
 
+interface SubscriptionRow {
+  plan: string | null;
+  status: string | null;
+  trial_ends_at: string | null;
+}
+
+// Manually-granted trials (e.g. the student .edu offer) have no Stripe subscription
+// behind them, so nothing else in the app ever expires them - this is the check.
+function isTrialExpired(sub: SubscriptionRow | null): boolean {
+  if (!sub || sub.status !== 'trialing' || !sub.trial_ends_at) return false;
+  return new Date(sub.trial_ends_at).getTime() < Date.now();
+}
+
+// Calendar-month usage period, UTC. Real monthly resets - each new month
+// gets a fresh usage_counters row (see increment_usage_counter RPC), unlike
+// the old Firestore counters which never reset despite "monthly limit" copy.
+function getCurrentPeriod(): { periodStart: string; periodEnd: string } {
+  const now = new Date();
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0));
+  return { periodStart: start.toISOString().slice(0, 10), periodEnd: end.toISOString().slice(0, 10) };
+}
+
+async function getSubscription(supabaseUserId: string): Promise<SubscriptionRow | null> {
+  const { data } = await supabaseAdmin
+    .from('subscriptions')
+    .select('plan, status, trial_ends_at')
+    .eq('user_id', supabaseUserId)
+    .maybeSingle();
+  return data as SubscriptionRow | null;
+}
+
 // ─── Check usage (read-only, does NOT increment) ──────────────────────────────
 
 export async function checkUsage(
@@ -57,14 +93,22 @@ export async function checkUsage(
   feature: GatedFeature,
 ): Promise<UsageCheckResult> {
   try {
-    const userDoc = await db.collection('users').doc(userId).get();
-    const data = userDoc.exists ? userDoc.data() : null;
+    const supabaseUserId = await toSupabaseUserId(userId);
+    const sub = await getSubscription(supabaseUserId);
 
-    const plan   = normalisePlan(data?.subscription?.plan);
+    const plan   = isTrialExpired(sub) ? 'free' : normalisePlan(sub?.plan);
     const limits = USAGE_LIMITS[plan];
     const limit  = limits[feature as keyof typeof limits];
     const field  = FEATURE_FIELD[feature];
-    const used   = (data?.usage?.[field] as number) ?? 0;
+
+    const { periodStart } = getCurrentPeriod();
+    const { data: counterRow } = await supabaseAdmin
+      .from('usage_counters')
+      .select(field)
+      .eq('user_id', supabaseUserId)
+      .eq('period_start', periodStart)
+      .maybeSingle();
+    const used = (counterRow?.[field as keyof typeof counterRow] as number | undefined) ?? 0;
 
     if (limit === -1) {
       return { allowed: true, used, limit: -1, remaining: -1, plan, feature };
@@ -89,63 +133,65 @@ export async function checkUsage(
   }
 }
 
-// ─── Check AND increment atomically via Firestore transaction ─────────────────
+// ─── Check AND increment atomically via the increment_usage_counter RPC ───────
 //
-// The read + conditional write run inside a single Firestore transaction,
-// so only one request can win at the limit boundary - no race conditions.
+// The row-exists-or-create + conditional-increment run inside a single
+// Postgres function call, so only one request can win at the limit boundary
+// - no race conditions, replacing the old Firestore transaction.
 
 export async function checkAndIncrementUsage(
   userId: string,
   feature: GatedFeature,
 ): Promise<UsageCheckResult> {
-  const userRef = db.collection('users').doc(userId);
-  const field   = FEATURE_FIELD[feature];
+  const field = FEATURE_FIELD[feature];
 
   try {
-    const result = await db.runTransaction<UsageCheckResult>(async (txn) => {
-      const userDoc = await txn.get(userRef);
-      const data    = userDoc.exists ? userDoc.data() : null;
+    const supabaseUserId = await toSupabaseUserId(userId);
+    const sub = await getSubscription(supabaseUserId);
+    const trialExpired = isTrialExpired(sub);
 
-      const plan   = normalisePlan(data?.subscription?.plan);
-      const limits = USAGE_LIMITS[plan];
-      const limit  = limits[feature as keyof typeof limits];
-      const used   = (data?.usage?.[field] as number) ?? 0;
+    // Fold the trial-expiry downgrade in as a best-effort side write, same as
+    // the old Firestore transaction did - not part of the atomic increment
+    // itself, since it's idempotent and not limit-boundary-sensitive.
+    if (trialExpired) {
+      await supabaseAdmin.from('subscriptions').update({
+        plan: 'free',
+        status: 'expired',
+        updated_at: new Date().toISOString(),
+      }).eq('user_id', supabaseUserId);
+    }
 
-      // Unlimited - increment and allow immediately
-      if (limit === -1) {
-        txn.update(userRef, {
-          [`usage.${field}`]:  FieldValue.increment(1),
-          'usage.lastUpdated': FieldValue.serverTimestamp(),
-        });
-        return { allowed: true, used: used + 1, limit: -1, remaining: -1, plan, feature };
-      }
+    const plan   = trialExpired ? 'free' : normalisePlan(sub?.plan);
+    const limits = USAGE_LIMITS[plan];
+    const limit  = limits[feature as keyof typeof limits];
 
-      // Hard limit reached - abort without writing anything
-      if (used >= limit) {
-        return {
-          allowed: false, used, limit, remaining: 0, plan, feature,
-          message: `You've reached your monthly limit of ${limit} ${FEATURE_NAMES[feature]}. Upgrade to Pro for more.`,
-        };
-      }
-
-      // Within limit - increment atomically inside the same transaction
-      txn.update(userRef, {
-        [`usage.${field}`]:  FieldValue.increment(1),
-        'usage.lastUpdated': FieldValue.serverTimestamp(),
-      });
-
-      const newUsed   = used + 1;
-      const remaining = Math.max(0, limit - newUsed);
-      return { allowed: true, used: newUsed, limit, remaining, plan, feature };
+    const { periodStart, periodEnd } = getCurrentPeriod();
+    const { data, error } = await supabaseAdmin.rpc('increment_usage_counter', {
+      p_user_id: supabaseUserId,
+      p_period_start: periodStart,
+      p_period_end: periodEnd,
+      p_field: field,
+      p_limit: limit,
     });
+    if (error) throw error;
+
+    const row = (data as Array<{ used: number; allowed: boolean }>)[0];
+    const remaining = limit === -1 ? -1 : Math.max(0, limit - row.used);
+
+    const result: UsageCheckResult = {
+      allowed: row.allowed, used: row.used, limit, remaining, plan, feature,
+      message: row.allowed
+        ? undefined
+        : `You've reached your monthly limit of ${limit} ${FEATURE_NAMES[feature]}. Upgrade to Pro for more.`,
+    };
 
     console.log(
       `📊 Usage [${feature}] for ${userId}: ${result.used}/${result.limit} - ${result.allowed ? 'ALLOWED' : 'BLOCKED'}`,
     );
     return result;
   } catch (err) {
-    console.error(`❌ Usage transaction failed for ${userId}/${feature}:`, err);
-    // Fail CLOSED - if the transaction errors we cannot safely allow the request.
+    console.error(`❌ Usage increment failed for ${userId}/${feature}:`, err);
+    // Fail CLOSED - if the call errors we cannot safely allow the request.
     return {
       allowed: false, used: 0, limit: 0, remaining: 0, plan: 'unknown', feature,
       message: 'Unable to verify usage at this time. Please try again in a moment.',

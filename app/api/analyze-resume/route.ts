@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import crypto from 'crypto';
-import { auth } from '@/firebase/admin';
+import { getAuthedUserId } from '@/lib/auth/verify-request';
 import { redis } from '@/lib/redis/redis-client';
 import {
   getCachedResumeAnalysis, cacheResumeAnalysis,
@@ -24,16 +24,6 @@ const RATE_LIMIT_MAX = 10;
 const FUNCTION_TIME_BUDGET_S = 55;
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
-
-async function verifyToken(req: NextRequest): Promise<string | null> {
-  try {
-    const h = req.headers.get('authorization');
-    if (!h?.startsWith('Bearer ')) return null;
-    return (await auth.verifyIdToken(h.split('Bearer ')[1])).uid;
-  } catch {
-    return null;
-  }
-}
 
 async function checkRateLimit(userId: string): Promise<boolean> {
   if (!redis) return true;
@@ -248,7 +238,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   console.log('🚀 AI resume processing started');
-  const userId = await verifyToken(request);
+  const userId = await getAuthedUserId(request);
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   if (!(await checkRateLimit(userId)))
     return NextResponse.json({ error: 'Too many requests. Please wait.' }, { status: 429 });

@@ -1,6 +1,7 @@
 // app/api/resume/interview-intel/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, db } from '@/firebase/admin';
+import { getAuthedUser } from '@/lib/auth/verify-request';
+import { supabaseAdmin } from '@/supabase/admin';
 import { redis } from '@/lib/redis/redis-client';
 import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
@@ -24,14 +25,11 @@ RULES:
 
 CRITICAL: Return ONLY JSON. No markdown. Start with { end with }.`;
 
-async function verifyToken(req: NextRequest): Promise<string | null> {
-  try { const h = req.headers.get('authorization'); if (!h?.startsWith('Bearer ')) return null; return (await auth.verifyIdToken(h.split('Bearer ')[1])).uid; } catch { return null; }
-}
-
 export async function POST(request: NextRequest) {
   try {
-    const userId = await verifyToken(request);
-    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authedUser = await getAuthedUser(request);
+    if (!authedUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { userId, supabaseUserId } = authedUser;
     if (!anthropic) return NextResponse.json({ error: 'AI not configured' }, { status: 500 });
 
     const rateLimited = await applyRateLimit(request, userId, 'heavy');
@@ -41,16 +39,16 @@ export async function POST(request: NextRequest) {
     const { resumeId, force = false } = body;
     if (!resumeId) return NextResponse.json({ error: 'Resume ID required' }, { status: 400 });
 
-    const doc = await db.collection('resumes').doc(resumeId).get();
-    if (!doc.exists) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    const data = doc.data() as Record<string, unknown>;
-    if (data.userId !== userId) return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    const { data: row, error: fetchError } = await supabaseAdmin.from('resumes').select('*').eq('id', resumeId).maybeSingle();
+    if (fetchError) throw fetchError;
+    if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    if (row.user_id !== supabaseUserId) return NextResponse.json({ error: 'Access denied' }, { status: 403 });
 
-    const company = body.companyName || (data.companyName as string) || '';
-    const role = body.jobTitle || (data.jobTitle as string) || '';
-    const jd = body.jobDescription || (data.jobDescription as string) || '';
-    const feedback = data.feedback as Record<string, unknown> | undefined;
-    const resumeText = (data.resumeText as string) || (feedback?.resumeText as string) || (data.extractedText as string) || '';
+    const company = body.companyName || (row.company_name as string) || '';
+    const role = body.jobTitle || (row.job_title as string) || '';
+    const jd = body.jobDescription || (row.job_description as string) || '';
+    const feedback = row.feedback as Record<string, unknown> | undefined;
+    const resumeText = (row.resume_text as string) || (feedback?.resumeText as string) || '';
 
     if (!company && !role) return NextResponse.json({ error: 'Company or job title required' }, { status: 400 });
 
@@ -59,8 +57,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: usageCheck.message, code: 'USAGE_LIMIT', used: usageCheck.used, limit: usageCheck.limit }, { status: 403 });
     }
 
-    const cached = data.interviewIntel as Record<string, unknown> | undefined;
-    const cachedAt = data.interviewIntelGeneratedAt as string | undefined;
+    const cached = row.interview_intel as Record<string, unknown> | undefined;
+    const cachedAt = row.interview_intel_generated_at as string | undefined;
     if (!force && cached && cachedAt && Date.now() - new Date(cachedAt).getTime() < 7 * 24 * 60 * 60 * 1000) return NextResponse.json({ success: true, intel: cached, cached: true });
 
     const intelCacheKey = `intel:${company.toLowerCase().trim()}:${role.toLowerCase().trim()}`;
@@ -135,7 +133,14 @@ Return JSON:
     await checkAndIncrementUsage(userId, 'resumes');
 
     if (redis && company) try { await redis.setex(intelCacheKey, 7 * 24 * 60 * 60, JSON.stringify(intel)); } catch {}
-    try { await db.collection('resumes').doc(resumeId).update({ interviewIntel: intel, interviewIntelGeneratedAt: new Date().toISOString(), interviewIntelCompany: company, interviewIntelRole: role }); } catch {}
+    try {
+      await supabaseAdmin.from('resumes').update({
+        interview_intel: intel,
+        interview_intel_generated_at: new Date().toISOString(),
+        interview_intel_company: company,
+        interview_intel_role: role,
+      }).eq('id', resumeId);
+    } catch {}
 
     return NextResponse.json({ success: true, intel });
   } catch (error) { console.error('❌ Intel error:', error); return NextResponse.json({ error: error instanceof Error ? error.message : 'Failed' }, { status: 500 }); }

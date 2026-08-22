@@ -3,8 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth } from '@/firebase/client';
+import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import { FirebaseService } from '@/lib/services/firebase-service';
 import { Resume } from '@/types/resume';
 import RecruiterEyeSimulation from '@/components/resume/RecruiterEyeSimulation';
@@ -21,7 +20,7 @@ const loadingSteps: LoadingStep[] = [
 
 export default function RecruiterEyePage() {
   const router = useRouter();
-  const [user, authLoading] = useAuthState(auth);
+  const [user, authLoading] = useSupabaseUser();
   const [resume, setResume] = useState<Resume | null>(null);
   const [loadingStep, setLoadingStep] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,14 +42,14 @@ export default function RecruiterEyePage() {
         setLoadingStep(0);
 
         console.log('=== RECRUITER EYE PAGE DEBUG ===');
-        console.log('User ID:', user.uid);
+        console.log('User ID:', user.id);
 
         // Step 1: Get user profile
         setLoadingStep(1);
-        const idToken = await user.getIdToken();
+        // No Authorization header needed - the Supabase session cookie is
+        // sent automatically for this same-origin request.
         const profileResponse = await fetch('/api/profile', {
           headers: {
-            'Authorization': `Bearer ${idToken}`,
             'Content-Type': 'application/json'
           }
         });
@@ -80,7 +79,7 @@ export default function RecruiterEyePage() {
 
         if (!resumeData) {
           // Try to fetch all user resumes to debug
-          const allResumes = await FirebaseService.getUserResumes(user.uid);
+          const allResumes = await FirebaseService.getUserResumes(user.id);
           console.log('All user resumes:', allResumes);
           console.log('Total resumes found:', allResumes.length);
           

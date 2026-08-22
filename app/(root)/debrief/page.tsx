@@ -2,12 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth, db } from '@/firebase/client';
-import {
-  collection, addDoc, query, where, orderBy,
-  getDocs, doc, deleteDoc, updateDoc, serverTimestamp,
-} from 'firebase/firestore';
+import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import {
   BookOpen, Plus, Loader2, Trash2, ChevronDown, ChevronUp,
   Calendar, Building2, TrendingUp, AlertTriangle, CheckCircle2,
@@ -350,7 +345,7 @@ function AIInsightsPanel({ entries }: { entries: DebriefEntry[] }) {
     if (!entries.length) return;
     setLoading(true); setError(null);
     try {
-      const res = await fetch('/api/interview-debrief/analyze', {
+      const res = await fetch('/api/debrief/analyze', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ entries }),
       });
@@ -645,12 +640,12 @@ function AIInsightsPanel({ entries }: { entries: DebriefEntry[] }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function InterviewDebriefPage() {
-  const [user, loading] = useAuthState(auth);
+  const [user, loading] = useSupabaseUser();
   const router = useRouter();
 
   const {
     canUseFeature, getRemainingCount, getUsedCount,
-    getLimit, incrementUsage, usageData,
+    getLimit, refetch: refetchUsage, usageData,
   } = useUsageTracking();
   const isUnlimitedPlan = usageData?.plan === 'pro' || usageData?.plan === 'premium';
   const debriefUsed  = getUsedCount('interviewDebriefs');
@@ -680,11 +675,12 @@ export default function InterviewDebriefPage() {
     setLoadingEntries(true); setLoadingStep(0);
     try {
       setLoadingStep(1);
-      const q = query(collection(db, 'interviewDebrief'), where('userId', '==', user.uid), orderBy('createdAt', 'desc'));
       setLoadingStep(2);
-      const snap = await getDocs(q);
+      const res = await fetch('/api/debrief');
+      if (!res.ok) throw new Error(`Failed to fetch (${res.status})`);
+      const { entries: fetched } = await res.json();
       setLoadingStep(3);
-      setEntries(snap.docs.map(d => ({ id: d.id, ...d.data() } as DebriefEntry)));
+      setEntries(fetched as DebriefEntry[]);
       setLoadingStep(4);
     } catch (err) {
       console.error('Failed to fetch entries:', err);
@@ -707,21 +703,27 @@ export default function InterviewDebriefPage() {
       const payload = {
         ...formData,
         questionsAsked: formData.questionsAsked.filter(q => q.trim()),
-        userId: user.uid,
-        createdAt: serverTimestamp(),
       };
       if (editingId) {
-        await updateDoc(doc(db, 'interviewDebrief', editingId), { ...payload, updatedAt: serverTimestamp() });
+        const res = await fetch('/api/debrief', {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: editingId, ...payload }),
+        });
+        if (!res.ok) throw new Error('Update failed');
         toast.success('Entry updated');
         await NotificationService.createNotification(
-          user.uid, 'planner', 'Debrief Entry Updated 📝',
+          user.id, 'planner', 'Debrief Entry Updated 📝',
           `Your debrief for ${formData.jobTitle} at ${formData.companyName} has been updated.`,
           { actionUrl: '/debrief', actionLabel: 'View Journal' }
         );
       } else {
-        await addDoc(collection(db, 'interviewDebrief'), payload);
+        const res = await fetch('/api/debrief', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error('Save failed');
         toast.success('Debrief saved to your journal');
-        await incrementUsage('interviewDebriefs');
+        await refetchUsage();
 
         const msgs: Record<InterviewOutcome, string> = {
           offer:           `🎉 You got an offer for ${formData.jobTitle} at ${formData.companyName}!`,
@@ -732,7 +734,7 @@ export default function InterviewDebriefPage() {
           pending:         `Debrief logged for ${formData.jobTitle} at ${formData.companyName}. Awaiting outcome.`,
         };
         await NotificationService.createNotification(
-          user.uid,
+          user.id,
           formData.outcome === 'offer' ? 'achievement' : 'planner',
           formData.outcome === 'offer' ? 'Offer Received! 🏆' : 'Interview Debrief Logged 📓',
           msgs[formData.outcome],
@@ -760,7 +762,8 @@ export default function InterviewDebriefPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this entry?')) return;
     try {
-      await deleteDoc(doc(db, 'interviewDebrief', id));
+      const res = await fetch(`/api/debrief?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Delete failed');
       toast.success('Entry deleted');
       setEntries(prev => prev.filter(e => e.id !== id));
     } catch { toast.error('Failed to delete entry'); }

@@ -1,7 +1,6 @@
 // app/api/resume/download/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { auth } from '@/firebase/admin';
+import { getAuthedUserId } from '@/lib/auth/verify-request';
 import puppeteer from 'puppeteer-core';
 import chromium from '@sparticuz/chromium-min';
 import * as htmlDocx from 'html-docx-js';
@@ -87,12 +86,9 @@ export async function POST(request: NextRequest) {
     console.log('📥 Resume Download Request');
 
     // ── Auth ─────────────────────────────────────────────────────────────────
-    const cookieStore = await cookies();
-    const session = cookieStore.get('session');
-    if (!session)
+    const userId = await getAuthedUserId(request);
+    if (!userId)
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    try { await auth.verifySessionCookie(session.value, true); }
-    catch { return NextResponse.json({ success: false, error: 'Invalid session' }, { status: 401 }); }
 
     // ── Parse body ───────────────────────────────────────────────────────────
     const body = await request.json() as DownloadRequest;

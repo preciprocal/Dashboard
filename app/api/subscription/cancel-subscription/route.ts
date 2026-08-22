@@ -1,8 +1,8 @@
 // app/api/subscription/cancel-subscription/route.ts
 import Stripe from "stripe";
 import { NextRequest, NextResponse } from "next/server";
-// Adjust path to your auth file
-import { db } from "@/firebase/admin";
+import { supabaseAdmin } from "@/supabase/admin";
+import { toSupabaseUserId } from "@/lib/auth/verify-request";
 import { getCurrentUser } from "@/lib/actions/auth.action";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -31,12 +31,14 @@ export async function POST(request: NextRequest) {
       cancel_at_period_end: true,
     });
 
-    // Update user's subscription status in Firestore
-    await db.collection("users").doc(user.id).update({
-      "subscription.status": "canceled",
-      "subscription.canceledAt": new Date().toISOString(),
-      "subscription.updatedAt": new Date().toISOString(),
-    });
+    // Update user's subscription status in Postgres
+    const supabaseUserId = await toSupabaseUserId(user.id);
+    const { error: updateError } = await supabaseAdmin.from("subscriptions").update({
+      status: "canceled",
+      canceled_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }).eq("user_id", supabaseUserId);
+    if (updateError) throw updateError;
 
     return NextResponse.json({
       message: "Subscription will be canceled at the end of the current period",

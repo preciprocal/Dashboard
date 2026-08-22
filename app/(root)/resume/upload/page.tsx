@@ -2,8 +2,7 @@
 
 import { useState, useEffect, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth } from '@/firebase/client';
+import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import { FirebaseService } from '@/lib/services/firebase-service';
 import FileUploader from '@/components/resume/FileUploader';
 import { Resume, ResumeFeedback } from '@/types/resume';
@@ -180,10 +179,10 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function UploadResume() {
-  const [user, loading] = useAuthState(auth);
+  const [user, loading] = useSupabaseUser();
   const router = useRouter();
 
-  const { canUseFeature, getRemainingCount, getUsedCount, getLimit, incrementUsage, usageData } = useUsageTracking();
+  const { canUseFeature, getRemainingCount, getUsedCount, getLimit, refetch: refetchUsage, usageData } = useUsageTracking();
   const isUnlimitedPlan = usageData?.plan === 'pro' || usageData?.plan === 'premium';
   const resumesUsed     = getUsedCount('resumes');
   const resumesLimit    = getLimit('resumes');
@@ -200,11 +199,11 @@ export default function UploadResume() {
 
   const handleFileSelect = (f: File | null) => { setFile(f); setError(''); };
 
-  const convertWordToPdf = async (wordFile: File, token: string): Promise<File> => {
+  const convertWordToPdf = async (wordFile: File): Promise<File> => {
     const form = new window.FormData();
     form.append('file', wordFile);
     const res = await fetch('/api/resume/word-to-pdf', {
-      method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form,
+      method: 'POST', body: form,
     });
     if (!res.ok) {
       const e = await res.json().catch(() => ({ error: 'Conversion failed' }));
@@ -223,14 +222,6 @@ export default function UploadResume() {
       return;
     }
 
-    const token = await auth.currentUser?.getIdToken().catch(() => null);
-    if (!token) {
-      setError('Session expired - please sign in again');
-      toast.error('Session expired. Please sign in again.');
-      router.push('/sign-in');
-      return;
-    }
-
     setIsProcessing(true);
     setError('');
     setCurrentFactIndex(Math.floor(Math.random() * RESUME_FACTS.length));
@@ -244,7 +235,7 @@ export default function UploadResume() {
     try {
       setCurrentStep(0);
       fireNotification(
-        user.uid, 'resume', 'Resume Uploaded 📄',
+        user.id, 'resume', 'Resume Uploaded 📄',
         `"${file.name}" has been uploaded and is being analysed by AI.`,
         { actionUrl: `/resume/${resumeId}`, actionLabel: 'View Resume' },
       );
@@ -253,7 +244,7 @@ export default function UploadResume() {
       const kind = getFileKind(file);
       let pdfFile = file;
       if (kind === 'word') {
-        pdfFile = await convertWordToPdf(file, token);
+        pdfFile = await convertWordToPdf(file);
       }
 
       // Always send the ORIGINAL file for analysis (not the converted PDF).
@@ -268,12 +259,12 @@ export default function UploadResume() {
       apiForm.append('companyName',    formData.companyName);
 
       const res = await fetch('/api/analyze-resume', {
-        method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: apiForm,
+        method: 'POST', body: apiForm,
       });
 
       if (!res.ok) {
         const e = await res.json().catch(() => ({ error: 'Unknown error' }));
-        if (res.status === 401) { await auth.currentUser?.getIdToken(true).catch(() => null); throw new Error('Session expired. Please try again.'); }
+        if (res.status === 401) { throw new Error('Session expired. Please try again.'); }
         if (res.status === 429) throw new Error('Too many requests. Please wait a moment and try again.');
         if (res.status === 403 && e.code === 'USAGE_LIMIT') throw new Error(e.error || 'Usage limit reached. Upgrade for more.');
         if (res.status === 503) throw new Error('AI service is temporarily unavailable. Please try again shortly.');
@@ -287,7 +278,7 @@ export default function UploadResume() {
       setCurrentStep(2);
 
       const resumeToSave: Omit<Resume, 'imagePath' | 'resumePath'> & { resumeText?: string; cacheHash?: string } = {
-        id: resumeId, userId: user.uid, fileName: file.name, originalFileName: file.name,
+        id: resumeId, userId: user.id, fileName: file.name, originalFileName: file.name,
         fileSize: pdfFile.size, companyName: formData.companyName.trim(),
         jobTitle: formData.jobTitle.trim(), jobDescription: formData.jobDescription.trim(),
         status: 'complete', score: feedback.overallScore, feedback: feedback as ResumeFeedback,
@@ -298,7 +289,7 @@ export default function UploadResume() {
 
       await FirebaseService.saveResumeWithFiles(resumeToSave, pdfFile);
 
-      await incrementUsage('resumes');
+      await refetchUsage();
 
       const score      = feedback.overallScore as number;
       const scoreLabel = score >= 80 ? 'Excellent' : score >= 60 ? 'Good' : 'Needs Improvement';
@@ -307,7 +298,7 @@ export default function UploadResume() {
         : formData.jobTitle.trim() ? ` for ${formData.jobTitle.trim()}` : '';
 
       fireNotification(
-        user.uid, 'resume', 'Resume Analysis Complete ✅',
+        user.id, 'resume', 'Resume Analysis Complete ✅',
         `"${file.name}" scored ${score}/100 (${scoreLabel})${target}. Check your detailed feedback.`,
         { actionUrl: `/resume/${resumeId}`, actionLabel: 'View Analysis' },
       );

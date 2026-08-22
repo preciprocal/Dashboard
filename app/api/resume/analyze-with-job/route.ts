@@ -1,7 +1,7 @@
 // app/api/resume/analyze-with-job/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, db } from '@/firebase/admin';
-import { cookies } from 'next/headers';
+import { getAuthedUserId } from '@/lib/auth/verify-request';
+import { supabaseAdmin } from '@/supabase/admin';
 import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
@@ -15,13 +15,7 @@ const LEGACY_SYSTEM = 'You are a brutally honest senior recruiter. Return ONLY v
 export async function POST(request: NextRequest) {
   try {
     // ── Auth ──────────────────────────────────────────────────────
-    let userId: string | null = null;
-    const session = (await cookies()).get('session');
-    if (session) try { userId = (await auth.verifySessionCookie(session.value, true)).uid; } catch {}
-    if (!userId) {
-      const h = request.headers.get('authorization');
-      if (h?.startsWith('Bearer ')) try { userId = (await auth.verifyIdToken(h.slice(7))).uid; } catch {}
-    }
+    const userId = await getAuthedUserId(request);
 
     // ── Rate limit ────────────────────────────────────────────────
     const rateLimited = await applyRateLimit(request, userId ?? null, 'heavy');
@@ -52,11 +46,10 @@ async function handleDeepAnalysis(resumeText: string, jobDescription: string | n
 
   if (!force && resumeId) {
     try {
-      const snap = await db.collection('resumes').doc(resumeId).get();
-      if (snap.exists) {
-        const d = snap.data() as Record<string, unknown>;
-        const cached = d.deepAnalysis as Record<string, unknown> | undefined;
-        const cachedAt = d.deepAnalysisGeneratedAt as number | undefined;
+      const { data: row } = await supabaseAdmin.from('resumes').select('deep_analysis, deep_analysis_generated_at').eq('id', resumeId).maybeSingle();
+      if (row) {
+        const cached = row.deep_analysis as Record<string, unknown> | undefined;
+        const cachedAt = row.deep_analysis_generated_at ? new Date(row.deep_analysis_generated_at as string).getTime() : undefined;
         if (cached && cachedAt && Date.now() - cachedAt < 7 * 24 * 60 * 60 * 1000) return NextResponse.json({ deepAnalysis: cached, cached: true });
       }
     } catch {}
@@ -107,7 +100,7 @@ RULES: originalText MUST be EXACT verbatim. Only accomplishment bullets. Rewrite
 
     if (resumeId) {
       try {
-        await db.collection('resumes').doc(resumeId).update({ deepAnalysis, deepAnalysisGeneratedAt: Date.now() });
+        await supabaseAdmin.from('resumes').update({ deep_analysis: deepAnalysis, deep_analysis_generated_at: new Date().toISOString() }).eq('id', resumeId);
       } catch {}
     }
 

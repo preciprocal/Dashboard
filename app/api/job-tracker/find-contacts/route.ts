@@ -1,8 +1,9 @@
 // app/api/job-tracker/find-contacts/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import Anthropic from '@anthropic-ai/sdk';
-import { auth, db } from '@/firebase/admin';
+import { getAuthedUser } from '@/lib/auth/verify-request';
+import { supabaseAdmin } from '@/supabase/admin';
+import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 
 const apiKey       = process.env.CLAUDE_API_KEY;
 const hunterApiKey = process.env.HUNTER_API_KEY;
@@ -51,24 +52,9 @@ interface SenderContext {
   courses:          string[];
 }
 
-// ─── Auth ─────────────────────────────────────────────────────────
-
-async function getAuthUserId(): Promise<string | null> {
-  try {
-    const cookieStore = await cookies();
-    const session     = cookieStore.get('session');
-    if (!session) { log('❌', 'No session cookie'); return null; }
-    const claims = await auth.verifySessionCookie(session.value, true);
-    return claims.uid;
-  } catch (e) {
-    log('❌', 'Auth failed', { error: e instanceof Error ? e.message : String(e) });
-    return null;
-  }
-}
-
 // ─── Build rich sender context ────────────────────────────────────
 
-async function buildSenderContext(userId: string): Promise<SenderContext> {
+async function buildSenderContext(supabaseUserId: string): Promise<SenderContext> {
   const ctx: SenderContext = {
     name: '', email: '', phone: '', location: '',
     linkedin: '', github: '', website: '',
@@ -79,21 +65,24 @@ async function buildSenderContext(userId: string): Promise<SenderContext> {
 
   // ── User profile ──
   try {
-    const userDoc = await db.collection('users').doc(userId).get();
-    if (userDoc.exists) {
-      const u = userDoc.data() as Record<string, unknown>;
-      ctx.name            = (u.name            as string)   || '';
-      ctx.email           = (u.email           as string)   || '';
-      ctx.phone           = (u.phone           as string)   || '';
-      ctx.location        = (u.location        as string)   || '';
-      ctx.linkedin        = (u.linkedIn        as string)   || '';
-      ctx.github          = (u.github          as string)   || '';
-      ctx.website         = (u.website         as string)   || '';
-      ctx.bio             = (u.bio             as string)   || '';
-      ctx.targetRole      = (u.targetRole      as string)   || '';
-      ctx.experienceLevel = (u.experienceLevel as string)   || 'mid';
-      ctx.careerGoals     = (u.careerGoals     as string)   || '';
-      ctx.skills          = (u.preferredTech   as string[]) || [];
+    const { data: p } = await supabaseAdmin
+      .from('profiles')
+      .select('name, email, phone, city, state, linked_in, github, website, bio, target_role, experience_level, career_goals, preferred_tech')
+      .eq('user_id', supabaseUserId)
+      .maybeSingle();
+    if (p) {
+      ctx.name            = p.name             || '';
+      ctx.email           = p.email            || '';
+      ctx.phone           = p.phone            || '';
+      ctx.location        = [p.city, p.state].filter(Boolean).join(', ');
+      ctx.linkedin        = p.linked_in        || '';
+      ctx.github          = p.github           || '';
+      ctx.website         = p.website          || '';
+      ctx.bio             = p.bio              || '';
+      ctx.targetRole      = p.target_role      || '';
+      ctx.experienceLevel = p.experience_level || 'mid';
+      ctx.careerGoals     = p.career_goals     || '';
+      ctx.skills          = Array.isArray(p.preferred_tech) ? p.preferred_tech : [];
       log('✅', 'User profile loaded', {
         name: ctx.name, hasLinkedIn: !!ctx.linkedin,
         hasGitHub: !!ctx.github, skillCount: ctx.skills.length,
@@ -105,19 +94,19 @@ async function buildSenderContext(userId: string): Promise<SenderContext> {
 
   // ── Latest resume ──
   try {
-    const snap = await db.collection('resumes')
-      .where('userId', '==', userId)
-      .orderBy('createdAt', 'desc')
-      .limit(1)
-      .get();
+    const { data: rows } = await supabaseAdmin
+      .from('resumes')
+      .select('feedback, resume_text')
+      .eq('user_id', supabaseUserId)
+      .order('created_at', { ascending: false })
+      .limit(1);
 
-    if (!snap.empty) {
-      const r = snap.docs[0].data() as Record<string, unknown>;
+    if (rows && rows.length > 0) {
+      const r = rows[0];
       const feedback = r.feedback as Record<string, unknown> | undefined;
       const text = (
         (feedback?.resumeText as string) ||
-        (r.resumeText         as string) ||
-        (r.extractedText      as string) ||
+        (r.resume_text        as string) ||
         ''
       );
 
@@ -146,7 +135,7 @@ async function buildSenderContext(userId: string): Promise<SenderContext> {
 
         log('✅', 'Resume parsed', {
           textLen:      text.length,
-          source:       feedback?.resumeText ? 'feedback.resumeText' : r.resumeText ? 'resumeText' : 'extractedText',
+          source:       feedback?.resumeText ? 'feedback.resumeText' : 'resumeText',
           achievements: ctx.topAchievements.length,
           courses:      ctx.courses.length,
           education:    ctx.education,
@@ -683,8 +672,9 @@ export async function POST(request: NextRequest) {
   const start = Date.now();
   log('🔍', 'find-contacts request received');
 
-  const userId = await getAuthUserId();
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const authedUser = await getAuthedUser(request);
+  if (!authedUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { userId, supabaseUserId } = authedUser;
 
   let body: Record<string, string>;
   try { body = await request.json(); }
@@ -696,9 +686,18 @@ export async function POST(request: NextRequest) {
   if (!hunterApiKey) return NextResponse.json({ error: 'HUNTER_API_KEY not configured' }, { status: 503 });
   if (!anthropic)    return NextResponse.json({ error: 'CLAUDE_API_KEY not configured' }, { status: 503 });
 
+  // ── Usage gate ────────────────────────────────────────────────
+  const usageCheck = await checkUsage(userId, 'findContacts');
+  if (!usageCheck.allowed) {
+    return NextResponse.json(
+      { error: usageCheck.message, code: 'USAGE_LIMIT', used: usageCheck.used, limit: usageCheck.limit },
+      { status: 403 },
+    );
+  }
+
   log('📊', 'Request', { company, jobTitle, domainOverride, jobUrl: jobUrl ? jobUrl.slice(0, 80) : null });
 
-  const senderCtx = await buildSenderContext(userId);
+  const senderCtx = await buildSenderContext(supabaseUserId);
   log('📊', 'Sender context ready', {
     name: senderCtx.name, skills: senderCtx.skills.length,
     achievements: senderCtx.topAchievements.length,
@@ -769,12 +768,14 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  // ── Increment usage ───────────────────────────────────────────
+  await checkAndIncrementUsage(userId, 'findContacts');
+
   try {
-    await db.collection('contactSearches').add({
-      userId, company, domain, jobTitle,
-      contactCount: contacts.length,
-      emailsGenerated: succeeded,
-      createdAt: new Date(),
+    await supabaseAdmin.from('contact_searches').insert({
+      user_id: supabaseUserId,
+      query: { company, domain, jobTitle },
+      results: { contactCount: contacts.length, emailsGenerated: succeeded },
     });
   } catch { /* non-fatal */ }
 

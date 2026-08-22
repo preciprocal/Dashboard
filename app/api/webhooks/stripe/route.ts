@@ -1,9 +1,9 @@
 // app/api/webhooks/stripe/route.ts
 import Stripe from "stripe";
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/firebase/admin";
+import { supabaseAdmin } from "@/supabase/admin";
+import { toSupabaseUserId } from "@/lib/auth/verify-request";
 import { invalidateUserCache } from "@/lib/actions/auth.action";
-import { USAGE_LIMITS } from "@/lib/config/usage-limits";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-07-30.basil",
@@ -68,23 +68,6 @@ function safeTimestampToISO(timestamp: number | null | undefined): string | null
     console.warn(`⚠️ Error converting timestamp ${timestamp} to ISO:`, error);
     return null;
   }
-}
-
-function buildLimitsSnapshot(plan: "free" | "pro" | "premium") {
-  const l = USAGE_LIMITS[plan];
-  return {
-    coverLetters:          l.coverLetters,
-    resumes:               l.resumes,
-    studyPlans:            l.studyPlans,
-    interviews:            l.interviews,
-    interviewDebriefs:     l.interviewDebriefs,
-    linkedinOptimisations: l.linkedinOptimisations,
-    coldOutreach:          l.coldOutreach,
-    findContacts:          l.findContacts,
-    jobTracker:            l.jobTracker,
-    plan,
-    updatedAt:             new Date().toISOString(),
-  };
 }
 
 function getPlanFromPriceId(priceId: string): "free" | "pro" | "premium" {
@@ -163,9 +146,15 @@ async function handleSubscriptionCreated(subscription: SubscriptionWithPeriods) 
   const plan = getPlanFromPriceId(subscription.items.data[0].price.id);
 
   try {
-    const userDoc = await db.collection("users").doc(userId).get();
-    if (!userDoc.exists) {
-      console.error("❌ User document does not exist:", userId);
+    const supabaseUserId = await toSupabaseUserId(userId);
+    const { data: existing, error: fetchError } = await supabaseAdmin
+      .from("subscriptions")
+      .select("user_id")
+      .eq("user_id", supabaseUserId)
+      .maybeSingle();
+    if (fetchError) throw fetchError;
+    if (!existing) {
+      console.error("❌ Subscription row does not exist:", userId);
       return;
     }
 
@@ -177,17 +166,17 @@ async function handleSubscriptionCreated(subscription: SubscriptionWithPeriods) 
     const studentVerified = appliedCouponId !== null && STUDENT_COUPON_IDS.has(appliedCouponId);
     console.log(`🎓 studentVerified at creation: ${studentVerified} (coupon: ${appliedCouponId})`);
 
-    await db.collection("users").doc(userId).update({
-      "subscription.stripeSubscriptionId": subscription.id,
-      "subscription.status":               subscription.status,
-      "subscription.plan":                 plan,
-      "subscription.studentVerified":      studentVerified,
-      "subscription.currentPeriodStart":   currentPeriodStart,
-      "subscription.currentPeriodEnd":     currentPeriodEnd,
-      "subscription.subscriptionEndsAt":   currentPeriodEnd,
-      "subscription.updatedAt":            new Date().toISOString(),
-      limits:                              buildLimitsSnapshot(plan),
-    });
+    const { error: updateError } = await supabaseAdmin.from("subscriptions").update({
+      stripe_subscription_id: subscription.id,
+      status: subscription.status,
+      plan,
+      student_verified: studentVerified,
+      current_period_start: currentPeriodStart,
+      current_period_end: currentPeriodEnd,
+      subscription_ends_at: currentPeriodEnd,
+      updated_at: new Date().toISOString(),
+    }).eq("user_id", supabaseUserId);
+    if (updateError) throw updateError;
 
     await invalidateUserCache(userId);
 
@@ -209,9 +198,15 @@ async function handleSubscriptionUpdated(subscription: SubscriptionWithPeriods) 
   const plan = getPlanFromPriceId(subscription.items.data[0].price.id);
 
   try {
-    const userDoc = await db.collection("users").doc(userId).get();
-    if (!userDoc.exists) {
-      console.error("❌ User document does not exist:", userId);
+    const supabaseUserId = await toSupabaseUserId(userId);
+    const { data: existing, error: fetchError } = await supabaseAdmin
+      .from("subscriptions")
+      .select("student_verified")
+      .eq("user_id", supabaseUserId)
+      .maybeSingle();
+    if (fetchError) throw fetchError;
+    if (!existing) {
+      console.error("❌ Subscription row does not exist:", userId);
       return;
     }
 
@@ -219,8 +214,7 @@ async function handleSubscriptionUpdated(subscription: SubscriptionWithPeriods) 
 
     // Preserve existing studentVerified OR set true if a student coupon is now applied.
     // This means once verified, it's never accidentally wiped on a plan change.
-    const existingData    = userDoc.data();
-    const alreadyVerified = existingData?.subscription?.studentVerified === true;
+    const alreadyVerified = existing.student_verified === true;
     const appliedCouponId = getAppliedCouponId(subscription) ?? null;
     const isStudentCoupon = appliedCouponId !== null && STUDENT_COUPON_IDS.has(appliedCouponId);
     const studentVerified = alreadyVerified || isStudentCoupon;
@@ -230,15 +224,15 @@ async function handleSubscriptionUpdated(subscription: SubscriptionWithPeriods) 
       ` (existing: ${alreadyVerified}, coupon applied: ${appliedCouponId ?? "none"})`
     );
 
-    await db.collection("users").doc(userId).update({
-      "subscription.status":               subscription.status,
-      "subscription.plan":                 plan,
-      "subscription.studentVerified":      studentVerified,
-      "subscription.currentPeriodEnd":     currentPeriodEnd,
-      "subscription.subscriptionEndsAt":   currentPeriodEnd,
-      "subscription.updatedAt":            new Date().toISOString(),
-      limits:                              buildLimitsSnapshot(plan),
-    });
+    const { error: updateError } = await supabaseAdmin.from("subscriptions").update({
+      status: subscription.status,
+      plan,
+      student_verified: studentVerified,
+      current_period_end: currentPeriodEnd,
+      subscription_ends_at: currentPeriodEnd,
+      updated_at: new Date().toISOString(),
+    }).eq("user_id", supabaseUserId);
+    if (updateError) throw updateError;
 
     await invalidateUserCache(userId);
 
@@ -258,22 +252,29 @@ async function handleSubscriptionDeleted(subscription: SubscriptionWithPeriods) 
   }
 
   try {
-    const userDoc = await db.collection("users").doc(userId).get();
-    if (!userDoc.exists) {
-      console.error("❌ User document does not exist:", userId);
+    const supabaseUserId = await toSupabaseUserId(userId);
+    const { data: existing, error: fetchError } = await supabaseAdmin
+      .from("subscriptions")
+      .select("user_id")
+      .eq("user_id", supabaseUserId)
+      .maybeSingle();
+    if (fetchError) throw fetchError;
+    if (!existing) {
+      console.error("❌ Subscription row does not exist:", userId);
       return;
     }
 
     // Keep studentVerified on cancellation - they earned it.
-    // If you want to clear it on cancel, set studentVerified: false here instead.
-    await db.collection("users").doc(userId).update({
-      "subscription.status":               "canceled",
-      "subscription.plan":                 "free",
-      "subscription.stripeSubscriptionId": null,
-      "subscription.subscriptionEndsAt":   null,
-      "subscription.updatedAt":            new Date().toISOString(),
-      limits:                              buildLimitsSnapshot("free"),
-    });
+    // If you want to clear it on cancel, set student_verified: false here instead.
+    const { error: updateError } = await supabaseAdmin.from("subscriptions").update({
+      status: "canceled",
+      plan: "free",
+      stripe_subscription_id: null,
+      subscription_ends_at: null,
+      canceled_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }).eq("user_id", supabaseUserId);
+    if (updateError) throw updateError;
 
     await invalidateUserCache(userId);
 
@@ -298,28 +299,33 @@ async function handlePaymentSucceeded(invoice: InvoiceWithSubscription) {
   const plan = getPlanFromPriceId(subscription.items.data[0].price.id);
 
   try {
-    const userDoc = await db.collection("users").doc(userId).get();
-    if (!userDoc.exists) {
-      console.error("❌ User document does not exist:", userId);
+    const supabaseUserId = await toSupabaseUserId(userId);
+    const { data: existing, error: fetchError } = await supabaseAdmin
+      .from("subscriptions")
+      .select("student_verified")
+      .eq("user_id", supabaseUserId)
+      .maybeSingle();
+    if (fetchError) throw fetchError;
+    if (!existing) {
+      console.error("❌ Subscription row does not exist:", userId);
       return;
     }
 
     const currentPeriodEnd = safeTimestampToISO(subscription.current_period_end);
 
     // Preserve studentVerified on every renewal - never accidentally wipe it
-    const existingData    = userDoc.data();
-    const studentVerified = existingData?.subscription?.studentVerified === true;
+    const studentVerified = existing.student_verified === true;
 
-    await db.collection("users").doc(userId).update({
-      "subscription.status":             "active",
-      "subscription.plan":               plan,
-      "subscription.studentVerified":    studentVerified,
-      "subscription.currentPeriodEnd":   currentPeriodEnd,
-      "subscription.subscriptionEndsAt": currentPeriodEnd,
-      "subscription.lastPaymentAt":      new Date().toISOString(),
-      "subscription.updatedAt":          new Date().toISOString(),
-      limits:                            buildLimitsSnapshot(plan),
-    });
+    const { error: updateError } = await supabaseAdmin.from("subscriptions").update({
+      status: "active",
+      plan,
+      student_verified: studentVerified,
+      current_period_end: currentPeriodEnd,
+      subscription_ends_at: currentPeriodEnd,
+      last_payment_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }).eq("user_id", supabaseUserId);
+    if (updateError) throw updateError;
 
     await invalidateUserCache(userId);
 
@@ -342,16 +348,12 @@ async function handlePaymentFailed(invoice: InvoiceWithSubscription) {
   if (!userId) return;
 
   try {
-    const userDoc = await db.collection("users").doc(userId).get();
-    if (!userDoc.exists) {
-      console.error("❌ User document does not exist:", userId);
-      return;
-    }
-
-    await db.collection("users").doc(userId).update({
-      "subscription.status":    "past_due",
-      "subscription.updatedAt": new Date().toISOString(),
-    });
+    const supabaseUserId = await toSupabaseUserId(userId);
+    const { error: updateError } = await supabaseAdmin.from("subscriptions").update({
+      status: "past_due",
+      updated_at: new Date().toISOString(),
+    }).eq("user_id", supabaseUserId);
+    if (updateError) throw updateError;
 
     await invalidateUserCache(userId);
 

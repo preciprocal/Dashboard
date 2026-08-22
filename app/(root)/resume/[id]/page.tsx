@@ -3,10 +3,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth, db } from '@/firebase/client';
-import { doc, updateDoc } from 'firebase/firestore';
+import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import { FirebaseService } from '@/lib/services/firebase-service';
+import { openResumePdf } from '@/lib/resume/resolve-pdf-url';
 import { Resume } from '@/types/resume';
 import {
   ArrowLeft, Download, Eye, FileText, Building2, Briefcase,
@@ -26,6 +25,16 @@ import type { ResumeInitialTab } from '@/components/ServiceModal/types';
 import ServiceFeedback, { recordServiceUse } from '@/components/ServiceFeedback';
 import { toast } from 'sonner';
 import Image from 'next/image';
+
+async function saveResumeContent(resumeId: string, patch: { resumeHtml?: string; resumeText?: string }): Promise<void> {
+  const res = await fetch(`/api/resume/${resumeId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) throw new Error('Failed to save resume content');
+}
 
 // ─── Score helpers ────────────────────────────────────────────────────────────
 
@@ -197,7 +206,7 @@ function InlineResumeEditor({ resumeId, initialHtml, onContentChange, highlightT
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
       setIsSaving(true);
-      try { await updateDoc(doc(db, 'resumes', resumeId), { resumeHtml: html, resumeText: editorRef.current?.innerText ?? '', updatedAt: new Date().toISOString() }); setSaveStatus('saved'); setHasChanges(false); setTimeout(() => setSaveStatus('idle'), 2000); } catch { toast.error('Auto-save failed'); }
+      try { await saveResumeContent(resumeId, { resumeHtml: html, resumeText: editorRef.current?.innerText ?? '' }); setSaveStatus('saved'); setHasChanges(false); setTimeout(() => setSaveStatus('idle'), 2000); } catch { toast.error('Auto-save failed'); }
       finally { setIsSaving(false); }
     }, 1500);
   }, [initialHtml, resumeId, onContentChange]);
@@ -230,14 +239,14 @@ function InlineResumeEditor({ resumeId, initialHtml, onContentChange, highlightT
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
       setIsSaving(true);
-      try { await updateDoc(doc(db, 'resumes', resumeId), { resumeHtml: html, resumeText: editorRef.current?.innerText ?? '', updatedAt: new Date().toISOString() }); setSaveStatus('saved'); setHasChanges(false); setTimeout(() => setSaveStatus('idle'), 2000); } catch { toast.error('Auto-save failed'); }
+      try { await saveResumeContent(resumeId, { resumeHtml: html, resumeText: editorRef.current?.innerText ?? '' }); setSaveStatus('saved'); setHasChanges(false); setTimeout(() => setSaveStatus('idle'), 2000); } catch { toast.error('Auto-save failed'); }
       finally { setIsSaving(false); }
     }, 3000);
   }, [resumeId, onContentChange]);
 
   const handleSaveNow = async () => {
     if (!editorRef.current) return; setIsSaving(true);
-    try { const html = editorRef.current.innerHTML; await updateDoc(doc(db, 'resumes', resumeId), { resumeHtml: html, resumeText: editorRef.current.innerText, updatedAt: new Date().toISOString() }); setSaveStatus('saved'); setHasChanges(false); toast.success('Saved', { duration: 1500 }); setTimeout(() => setSaveStatus('idle'), 2000); }
+    try { const html = editorRef.current.innerHTML; await saveResumeContent(resumeId, { resumeHtml: html, resumeText: editorRef.current.innerText }); setSaveStatus('saved'); setHasChanges(false); toast.success('Saved', { duration: 1500 }); setTimeout(() => setSaveStatus('idle'), 2000); }
     catch { toast.error('Save failed'); } finally { setIsSaving(false); }
   };
 
@@ -354,7 +363,7 @@ type TabId = 'analysis' | 'benchmark' | 'recruiter' | 'intel' | 'writer';
 export default function ResumeDetailsPage() {
   const params = useParams();
   const router = useRouter();
-  const [user, loading] = useAuthState(auth);
+  const [user, loading] = useSupabaseUser();
 
   const [resume, setResume] = useState<Resume | null>(null);
   const [loadingResume, setLoadingResume] = useState(true);
@@ -393,14 +402,14 @@ export default function ResumeDetailsPage() {
         const data = await FirebaseService.getResume(params.id);
         setLoadingStep(2);
         if (!data) { setError('Resume not found'); setResume(null); }
-        else if (user && data.userId !== user.uid) { setError('Access denied'); setResume(null); }
+        else if (user && data.userId !== user.id) { setError('Access denied'); setResume(null); }
         else { setResume(data); if (data.imagePath) setImageUrl(data.imagePath); }
         setLoadingStep(4); await new Promise(r => setTimeout(r, 150));
       } catch { setError('Failed to load resume'); setResume(null); }
       finally { setLoadingResume(false); }
     };
     if (user) load(); else if (!loading) setLoadingResume(false);
-  }, [params.id, user, loading]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [params.id, user, loading]);
 
   // Load editor HTML on writer tab
   useEffect(() => {
@@ -413,11 +422,11 @@ export default function ResumeDetailsPage() {
         const rd = resume as Resume & { resumeHtml?: string; resumeText?: string; imagePath?: string; resumePath?: string };
         if (rd.resumeHtml && rd.resumeHtml.length > 500 && !rd.resumeHtml.includes('Paste your resume')) { setEditorHtml(rd.resumeHtml); setEditorReady(true); return; }
         if (rd.resumePath && rd.resumePath.startsWith('http')) {
-          try { const res = await fetch('/api/resume/pdf-to-html', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ pdfUrl: rd.resumePath, resumeId: resume.id }) }); const result = await res.json() as { html?: string }; if (res.ok && result.html && result.html.length > 100) { setEditorHtml(result.html); await updateDoc(doc(db, 'resumes', resume.id), { resumeHtml: result.html, updatedAt: new Date().toISOString() }); setEditorReady(true); return; } } catch {}
+          try { const res = await fetch('/api/resume/pdf-to-html', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ pdfUrl: rd.resumePath, resumeId: resume.id }) }); const result = await res.json() as { html?: string }; if (res.ok && result.html && result.html.length > 100) { setEditorHtml(result.html); await saveResumeContent(resume.id, { resumeHtml: result.html }); setEditorReady(true); return; } } catch {}
         }
         if (rd.resumeText && rd.resumeText.length > 100) { const escaped = rd.resumeText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); setEditorHtml(`<div style="font-family:Calibri,Arial,sans-serif;font-size:10pt;color:#000;white-space:pre-wrap;line-height:1.4;">${escaped}</div>`); setEditorReady(true); return; }
         if (rd.imagePath?.startsWith('data:image/')) {
-          try { const res = await fetch('/api/resume/format-from-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ resumeId: resume.id, imageBase64: rd.imagePath }) }); if (res.ok) { const result = await res.json() as { html?: string }; if (result.html && result.html.length > 100) { setEditorHtml(result.html); await updateDoc(doc(db, 'resumes', resume.id), { resumeHtml: result.html, updatedAt: new Date().toISOString() }); setEditorReady(true); return; } } } catch {}
+          try { const res = await fetch('/api/resume/format-from-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ resumeId: resume.id, imageBase64: rd.imagePath }) }); if (res.ok) { const result = await res.json() as { html?: string }; if (result.html && result.html.length > 100) { setEditorHtml(result.html); await saveResumeContent(resume.id, { resumeHtml: result.html }); setEditorReady(true); return; } } } catch {}
         }
         setEditorHtml('<p style="color:#6b7280;font-style:italic;">Could not extract content. Paste your resume here.</p>'); setEditorReady(true);
       } catch { setEditorHtml('<p>Could not load resume. Paste content here.</p>'); setEditorReady(true); }
@@ -428,14 +437,14 @@ export default function ResumeDetailsPage() {
 
   const handleDownloadPdf = () => {
     if (!resume?.resumePath) { alert('PDF not available'); return; }
-    try { if (resume.resumePath.startsWith('data:')) { const url = FirebaseService.createDownloadableUrl(resume.resumePath); const a = Object.assign(document.createElement('a'), { href: url, download: resume.originalFileName || `resume_${resume.id}.pdf` }); document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(() => URL.revokeObjectURL(url), 100); } else { window.open(resume.resumePath, '_blank'); } } catch { alert('Failed to download'); }
+    openResumePdf(resume.resumePath, 'download', resume.originalFileName || `resume_${resume.id}.pdf`).catch(() => alert('Failed to download'));
   };
 
   const handleApplySuggestion = useCallback((o: string, n: string) => { setEditorHtml(h => h.replace(o, n)); }, []);
 
   const handleViewPdf = () => {
     if (!resume?.resumePath) { alert('PDF not available'); return; }
-    try { window.open(resume.resumePath.startsWith('data:') ? FirebaseService.createDownloadableUrl(resume.resumePath) : resume.resumePath, '_blank'); } catch { alert('Failed'); }
+    openResumePdf(resume.resumePath, 'view').catch(() => alert('Failed'));
   };
 
   const handleReplaceFullContent = useCallback((html: string) => {
@@ -444,7 +453,7 @@ export default function ResumeDetailsPage() {
       try {
         const parser = new DOMParser();
         const d = parser.parseFromString(html, 'text/html');
-        await updateDoc(doc(db, 'resumes', resume!.id), { resumeHtml: html, resumeText: d.body.innerText || '', updatedAt: new Date().toISOString() });
+        await saveResumeContent(resume!.id, { resumeHtml: html, resumeText: d.body.innerText || '' });
         toast.success('Tailored resume saved');
       } catch { toast.error('Failed to save'); }
     };

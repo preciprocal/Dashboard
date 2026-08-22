@@ -675,7 +675,6 @@ export default function IntelligentAIPanel({
   const runAnalysis = useCallback(async () => {
     if (!resumeContent || resumeContent.length < 100) { toast.error('No resume content'); return; }
     setIsAnalyzing(true); setAnalysis(null);
-    try { const { db: cDb } = await import('@/firebase/client'); const { doc, updateDoc } = await import('firebase/firestore'); await updateDoc(doc(cDb, 'resumes', resumeId), { deepAnalysis: null, deepAnalysisGeneratedAt: null }); } catch {}
 
     try {
       const response = await fetch('/api/resume/analyze-with-job', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resumeId, userId, resumeHtml: resumeContent, jobDescription: jobDescription || null, jobTitle: initialJobTitle || null, companyName: initialCompanyName || null, mode: 'deep_analysis', analysisVersion: 'v2', force: true }) });

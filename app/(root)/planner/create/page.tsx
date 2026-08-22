@@ -3,8 +3,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth } from '@/firebase/client';
+import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import { SkillLevel } from '@/types/planner';
 import {
   ArrowLeft, Sparkles, Calendar, Briefcase, Target, TrendingUp,
@@ -91,10 +90,10 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
 }
 
 export default function CreatePlanPage() {
-  const [user, loading] = useAuthState(auth);
+  const [user, loading] = useSupabaseUser();
   const router = useRouter();
 
-  const { canUseFeature, getRemainingCount, getUsedCount, getLimit, incrementUsage, usageData } = useUsageTracking();
+  const { canUseFeature, getRemainingCount, getUsedCount, getLimit, refetch: refetchUsage, usageData } = useUsageTracking();
   const isUnlimitedPlan = usageData?.plan === 'pro' || usageData?.plan === 'premium';
   const plansUsed = getUsedCount('studyPlans');
   const plansLimit = getLimit('studyPlans');
@@ -190,14 +189,14 @@ export default function CreatePlanPage() {
         await new Promise(resolve => setTimeout(resolve, 800));
       }
 
-      await incrementUsage('studyPlans');
+      await refetchUsage();
 
-      if (user?.uid) {
+      if (user?.id) {
         const target = formData.company.trim()
           ? `${formData.role.trim()} at ${formData.company.trim()}`
           : formData.role.trim();
         await NotificationService.createNotification(
-          user.uid, 'planner', 'Study Plan Created 📅',
+          user.id, 'planner', 'Study Plan Created 📅',
           `Your ${daysUntilInterview}-day prep plan for ${target} is ready. Start preparing today!`,
           { actionUrl: `/planner/${data.planId}`, actionLabel: 'View Plan' }
         );

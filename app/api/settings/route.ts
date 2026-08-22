@@ -1,6 +1,7 @@
 // app/api/settings/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, db } from '@/firebase/admin';
+import { getAuthedUser } from '@/lib/auth/verify-request';
+import { supabaseAdmin } from '@/supabase/admin';
 
 interface AppSettings {
   notifications: {
@@ -61,27 +62,22 @@ const defaultSettings: AppSettings = {
 // GET - Fetch user settings
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    const authedUser = await getAuthedUser(request);
+    if (!authedUser) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const token = authHeader.split('Bearer ')[1];
-    const decodedToken = await auth.verifyIdToken(token);
-    const userId = decodedToken.uid;
+    const { data: row, error } = await supabaseAdmin
+      .from('user_settings')
+      .select('settings')
+      .eq('user_id', authedUser.supabaseUserId)
+      .maybeSingle();
+    if (error) throw error;
 
-    // Fetch settings from Firestore
-    const settingsDoc = await db
-      .collection('users')
-      .doc(userId)
-      .collection('settings')
-      .doc('app_settings')
-      .get();
-
-    if (!settingsDoc.exists) {
+    if (!row) {
       // Return default settings if none exist
       return NextResponse.json({
         success: true,
@@ -89,7 +85,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const settings = settingsDoc.data() as AppSettings;
+    const settings = row.settings as AppSettings;
 
     return NextResponse.json({
       success: true,
@@ -107,17 +103,13 @@ export async function GET(request: NextRequest) {
 // POST - Update user settings
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    const authedUser = await getAuthedUser(request);
+    if (!authedUser) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
-
-    const token = authHeader.split('Bearer ')[1];
-    const decodedToken = await auth.verifyIdToken(token);
-    const userId = decodedToken.uid;
 
     const body = await request.json();
     const { settings } = body;
@@ -158,16 +150,15 @@ export async function POST(request: NextRequest) {
       },
     };
 
-    // Save to Firestore with timestamp
-    await db
-      .collection('users')
-      .doc(userId)
-      .collection('settings')
-      .doc('app_settings')
-      .set({
-        ...validatedSettings,
-        updatedAt: new Date().toISOString(),
-      });
+    // Save to Postgres with timestamp
+    const { error: upsertError } = await supabaseAdmin
+      .from('user_settings')
+      .upsert({
+        user_id: authedUser.supabaseUserId,
+        settings: validatedSettings,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' });
+    if (upsertError) throw upsertError;
 
     return NextResponse.json({
       success: true,
@@ -186,25 +177,20 @@ export async function POST(request: NextRequest) {
 // DELETE - Reset settings to default
 export async function DELETE(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    const authedUser = await getAuthedUser(request);
+    if (!authedUser) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const token = authHeader.split('Bearer ')[1];
-    const decodedToken = await auth.verifyIdToken(token);
-    const userId = decodedToken.uid;
-
-    // Delete the settings document (will fall back to defaults on next GET)
-    await db
-      .collection('users')
-      .doc(userId)
-      .collection('settings')
-      .doc('app_settings')
-      .delete();
+    // Delete the settings row (will fall back to defaults on next GET)
+    const { error: deleteError } = await supabaseAdmin
+      .from('user_settings')
+      .delete()
+      .eq('user_id', authedUser.supabaseUserId);
+    if (deleteError) throw deleteError;
 
     return NextResponse.json({
       success: true,

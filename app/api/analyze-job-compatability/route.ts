@@ -19,7 +19,8 @@ interface ResumeData {
 }// app/api/analyze-job-compatibility/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, db } from '@/firebase/admin';
+import { getAuthedUser } from '@/lib/auth/verify-request';
+import { supabaseAdmin } from '@/supabase/admin';
 
 interface JobData {
   title: string;
@@ -46,28 +47,14 @@ interface CompatibilityMetrics {
 export async function POST(request: NextRequest) {
   try {
     // Verify authentication
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const authedUser = await getAuthedUser(request);
+    if (!authedUser) {
       return NextResponse.json(
         { error: 'Unauthorized - No token provided' },
         { status: 401 }
       );
     }
-
-    const token = authHeader.split('Bearer ')[1];
-    
-    let decodedToken;
-    try {
-      decodedToken = await auth.verifyIdToken(token);
-    } catch (error) {
-      console.error('Token verification failed:', error);
-      return NextResponse.json(
-        { error: 'Unauthorized - Invalid token' },
-        { status: 401 }
-      );
-    }
-
-    const userId = decodedToken.uid;
+    const { supabaseUserId } = authedUser;
 
     // Parse request body
     const body = await request.json();
@@ -81,19 +68,26 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch user's resume/profile data
-    const userDoc = await db.collection('users').doc(userId).get();
-    
-    if (!userDoc.exists) {
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('extended_data')
+      .eq('user_id', supabaseUserId)
+      .maybeSingle();
+    if (profileError) throw profileError;
+
+    if (!profile) {
       return NextResponse.json(
         { error: 'User profile not found' },
         { status: 404 }
       );
     }
 
-    const userData = userDoc.data();
-    const userResume = userData?.resumeData || null;
-    const userSkills = (userData?.skills || []) as string[];
-    const userExperience = (userData?.experience || []) as ExperienceItem[];
+    const ext = (profile.extended_data as Record<string, unknown>) || {};
+    const userResume = (ext.resumeData as ResumeData) || null;
+    const userSkills = typeof ext.skills === 'string'
+      ? ext.skills.split(',').map((s) => s.trim()).filter(Boolean)
+      : (ext.skills as string[]) || [];
+    const userExperience = (ext.experience as ExperienceItem[]) || [];
 
     // Calculate compatibility metrics
     const metrics = await calculateCompatibility(jobData, {
@@ -103,14 +97,15 @@ export async function POST(request: NextRequest) {
     });
 
     // Log the analysis for analytics
-    await db.collection('job_analyses').add({
-      userId,
-      jobTitle: jobData.title,
-      jobCompany: jobData.company,
-      overallScore: metrics.overallScore,
-      timestamp: new Date(),
-      source: 'extension'
-    });
+    try {
+      await supabaseAdmin.from('job_analyses').insert({
+        user_id: supabaseUserId,
+        job_description: `${jobData.title} @ ${jobData.company}`,
+        result: { jobTitle: jobData.title, jobCompany: jobData.company, overallScore: metrics.overallScore, source: 'extension' },
+      });
+    } catch (err) {
+      console.error('Failed to log job analysis:', err);
+    }
 
     return NextResponse.json(metrics, { status: 200 });
 

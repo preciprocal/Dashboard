@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import { auth } from "@/firebase/client";
-import { onAuthStateChanged, type User } from "firebase/auth";
+import { useSupabaseUser } from "@/lib/hooks/useSupabaseUser";
+import { supabase } from "@/supabase/client";
+import type { User } from "@supabase/supabase-js";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
@@ -16,6 +17,8 @@ import AnimatedLoader from "@/components/loader/AnimatedLoader";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
+// Kept for when billing comes back online - checkout is paused before these are used.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const PRICE_IDS = {
   pro:     { monthly: "price_1TFjwCQSkS83MGF9xH1bdc1o", annual: "price_1TFjykQSkS83MGF9oczwiyNo" },
   premium: { monthly: "price_1TFjzWQSkS83MGF9YCP7CBk3", annual: "price_1TFk0EQSkS83MGF9pPfRehCO" },
@@ -144,79 +147,14 @@ const stripeAppearance = {
   },
 };
 
-// ─── Testimonials ─────────────────────────────────────────────────────────────
-const TESTIMONIALS = [
-  { quote: "I'd been applying for 4 months with nothing. Two weeks on Preciprocal and I had 3 interviews lined up. It genuinely changed my trajectory.", name: "Arjun M.", role: "SWE @ Brex · Pro user", initial: "A", gradient: "linear-gradient(135deg,#6366f1,#a855f7)" },
-  { quote: "The resume feedback was harsh but so accurate. Rewrote my bullet points and went from no callbacks to a role at a Series B I actually love.", name: "Priya K.", role: "Product Manager @ Deel · Premium user", initial: "P", gradient: "linear-gradient(135deg,#ec4899,#f97316)" },
-  { quote: "Mock interviews made me realise how much I was rambling. After a week of practice I was so much more confident and concise in the real thing.", name: "James T.", role: "Backend Engineer @ Gusto · Pro user", initial: "J", gradient: "linear-gradient(135deg,#06b6d4,#6366f1)" },
-  { quote: "I was switching industries and felt totally lost. The AI coach helped me frame my experience in a way that actually landed - got the offer in 3 weeks.", name: "Sofia R.", role: "Ops Analyst @ Rippling · Premium user", initial: "S", gradient: "linear-gradient(135deg,#10b981,#06b6d4)" },
-  { quote: "Worth every penny. Used the cover letter tool and mock debrief together and walked into my final round feeling overprepared. Got the job.", name: "Marcus L.", role: "Growth @ Loom · Pro user", initial: "M", gradient: "linear-gradient(135deg,#f59e0b,#ef4444)" },
-  { quote: "I was skeptical at first but the mock interview feedback was so specific it was almost uncomfortable. Landed my first product role within a month.", name: "Rohan S.", role: "APM @ Razorpay · Pro user", initial: "R", gradient: "linear-gradient(135deg,#8b5cf6,#06b6d4)" },
-  { quote: "Applied to 30 companies and heard nothing. Revamped my resume with Preciprocal and got 4 calls in the same week. Joined Zepto last month.", name: "Ananya V.", role: "Data Analyst @ Zepto · Premium user", initial: "A", gradient: "linear-gradient(135deg,#f59e0b,#10b981)" },
-  { quote: "The AI caught things in my resume that even my senior colleagues missed. Super practical and actually helped me think like a hiring manager.", name: "Karan B.", role: "SWE @ Groww · Pro user", initial: "K", gradient: "linear-gradient(135deg,#ec4899,#8b5cf6)" },
-];
-
-function TestimonialCarousel() {
-  const [idx, setIdx]       = useState(0);
-  const [fading, setFading] = useState(false);
-
-  useEffect(() => {
-    const t = setInterval(() => {
-      setFading(true);
-      setTimeout(() => { setIdx(i => (i + 1) % TESTIMONIALS.length); setFading(false); }, 350);
-    }, 6500);
-    return () => clearInterval(t);
-  }, []);
-
-  const t = TESTIMONIALS[idx];
-  const accentColor = t.gradient.match(/#[a-f0-9]{6}/gi)?.[0] ?? "#6366f1";
-
-  return (
-    <div className="p-4 rounded-2xl relative overflow-hidden"
-      style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-      <div className="absolute inset-0 pointer-events-none"
-        style={{ background: `radial-gradient(ellipse at 20% 50%, ${accentColor}18 0%, transparent 70%)` }}/>
-      <div className="relative transition-all duration-350"
-        style={{ opacity: fading ? 0 : 1, transform: fading ? "translateY(6px)" : "translateY(0)" }}>
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-              style={{ background: t.gradient }}>{t.initial}</div>
-            <div>
-              <p className="text-xs text-white font-semibold leading-none">{t.name}</p>
-              <p className="text-[11px] text-slate-500 mt-0.5">{t.role}</p>
-            </div>
-          </div>
-          <div className="flex gap-0.5 flex-shrink-0">
-            {[...Array(5)].map((_, i) => (
-              <svg key={i} className="w-3 h-3 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-              </svg>
-            ))}
-          </div>
-        </div>
-        <p className="text-xs text-slate-300 leading-relaxed italic mb-3">&ldquo;{t.quote}&rdquo;</p>
-        <div className="flex items-center justify-center gap-1.5">
-          {TESTIMONIALS.map((_, i) => (
-            <button key={i} type="button"
-              onClick={() => { setFading(true); setTimeout(() => { setIdx(i); setFading(false); }, 350); }}
-              className="rounded-full transition-all cursor-pointer"
-              style={{ width: i === idx ? "16px" : "5px", height: "5px", background: i === idx ? "#6366f1" : "rgba(255,255,255,0.15)" }}/>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Checkout form inner ──────────────────────────────────────────────────────
 interface CheckoutFormInnerProps {
-  plan: Plan; cycle: Cycle; user: User; couponId?: string;
+  plan: Plan; cycle: Cycle; user: User;
   billedAmount: number; displayPrice: number;
-  onSuccess: () => void; onClose: () => void;
+  onSuccess: () => void; onClose: () => void; onVerifyStudent: () => void;
 }
 
-function CheckoutFormInner({ plan, cycle, user, couponId, billedAmount, displayPrice, onSuccess, onClose }: CheckoutFormInnerProps) {
+function CheckoutFormInner({ plan, cycle, user, billedAmount, onClose, onVerifyStudent }: CheckoutFormInnerProps) {
   const stripe   = useStripe();
   const elements = useElements();
   const [loading, setLoading]         = useState(false);
@@ -225,6 +163,7 @@ function CheckoutFormInner({ plan, cycle, user, couponId, billedAmount, displayP
   const [ready, setReady]             = useState(false);
   const [country, setCountry]         = useState("US");
   const [countryOpen, setCountryOpen] = useState(false);
+  const [showPaused, setShowPaused]   = useState(false);
 
   const COUNTRIES = [
     { code: "US", label: "United States" }, { code: "GB", label: "United Kingdom" },
@@ -244,51 +183,14 @@ function CheckoutFormInner({ plan, cycle, user, couponId, billedAmount, displayP
     if (!stripe || !elements || !agreed) return;
     setLoading(true); setError(null);
     try {
-      const token   = await user.getIdToken();
-      const priceId = PRICE_IDS[plan.id as "pro" | "premium"][cycle];
-
       const { error: submitErr } = await elements.submit();
       if (submitErr) throw new Error(submitErr.message || "Form validation failed");
 
-      const res = await fetch("/api/subscription/create-subscription", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ priceId, billingCycle: cycle, ...(couponId ? { couponId } : {}) }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Subscription creation failed");
-
-      const { error: stripeErr, setupIntent } = await stripe.confirmSetup({
-        elements,
-        clientSecret: data.clientSecret,
-        confirmParams: {
-          return_url: `${window.location.origin}/`,
-          payment_method_data: {
-            billing_details: {
-              name: user.displayName || "",
-              email: user.email || "",
-              address: { country },
-            },
-          },
-        },
-        redirect: "if_required",
-      });
-      if (stripeErr) throw new Error(stripeErr.message || "Payment setup failed");
-
-      const activateRes = await fetch("/api/subscription/activate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          setupIntentId:  setupIntent?.id,
-          subscriptionId: data.subscriptionId,
-        }),
-      });
-      const activateData = await activateRes.json();
-      if (!activateRes.ok) throw new Error(activateData.error || "Failed to activate subscription");
-
-      onSuccess();
+      // Billing is temporarily paused while we finish rolling out payments.
+      await new Promise(r => setTimeout(r, 900));
+      setShowPaused(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Payment failed. Please try again.");
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally { setLoading(false); }
   };
 
@@ -300,6 +202,13 @@ function CheckoutFormInner({ plan, cycle, user, couponId, billedAmount, displayP
         <div className="absolute inset-0 z-50">
           <AnimatedLoader isVisible={true} mode="auto" tone="focused" loadingText="Processing payment..." duration={15000} showNavigation={false}/>
         </div>
+      )}
+
+      {showPaused && (
+        <PaymentPausedModal user={user}
+          onVerifyStudent={onVerifyStudent}
+          onBack={() => setShowPaused(false)}
+          onClose={onClose}/>
       )}
 
       {/* Top bar */}
@@ -336,9 +245,7 @@ function CheckoutFormInner({ plan, cycle, user, couponId, billedAmount, displayP
           <div className="flex flex-col justify-between p-8 lg:p-10 h-full overflow-hidden">
             <div className="absolute inset-0 pointer-events-none">
               <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full"
-                style={{ background: "radial-gradient(circle, rgba(99,102,241,0.18) 0%, transparent 65%)", filter: "blur(40px)" }}/>
-              <div className="absolute -bottom-40 -right-20 w-[400px] h-[400px] rounded-full"
-                style={{ background: "radial-gradient(circle, rgba(168,85,247,0.12) 0%, transparent 65%)", filter: "blur(40px)" }}/>
+                style={{ background: "radial-gradient(circle, rgba(99,102,241,0.14) 0%, transparent 65%)", filter: "blur(40px)" }}/>
             </div>
             <div className="relative z-10">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-5 text-xs font-medium"
@@ -347,12 +254,12 @@ function CheckoutFormInner({ plan, cycle, user, couponId, billedAmount, displayP
                 Upgrading to {plan.name}
               </div>
               <h2 className="text-2xl font-bold text-white mb-2 leading-snug">
-                {couponId ? "Your first month is on us 🎓" : "Everything you need to land your next role"}
+                Everything you need to land your next role
               </h2>
               <p className="text-slate-400 text-sm mb-6 leading-relaxed max-w-sm">
-                {couponId ? `Verified student deal applied. Full access free for 30 days, then $${displayPrice.toFixed(2)}/mo.` : plan.description}
+                {plan.description}
               </p>
-              <div className="space-y-2.5 mb-6">
+              <div className="space-y-2.5">
                 {plan.features.filter(f => f.highlight).map((f, i) => (
                   <div key={i} className="flex items-center gap-3">
                     <div className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0"
@@ -366,24 +273,12 @@ function CheckoutFormInner({ plan, cycle, user, couponId, billedAmount, displayP
                 ))}
               </div>
             </div>
-            <div className="relative z-10 space-y-3">
-              <div className="grid grid-cols-3 gap-2">
-                {[{ value: "3.2×", label: "more interviews" }, { value: "89%", label: "satisfaction rate" }, { value: "14d", label: "avg. to first offer" }].map(s => (
-                  <div key={s.label} className="p-3 rounded-xl text-center"
-                    style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                    <p className="text-lg font-bold text-white">{s.value}</p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">{s.label}</p>
-                  </div>
-                ))}
-              </div>
-              <TestimonialCarousel />
-              <div className="flex items-center justify-between pt-1">
-                {[{ icon: "🔒", text: "SSL encrypted" }, { icon: "↩", text: "7-day refund" }, { icon: "✕", text: "Cancel anytime" }].map(t => (
-                  <span key={t.text} className="flex items-center gap-1.5 text-[11px] text-slate-600">
-                    <span>{t.icon}</span>{t.text}
-                  </span>
-                ))}
-              </div>
+            <div className="relative z-10 flex items-center justify-between pt-6">
+              {[{ icon: "🔒", text: "SSL encrypted" }, { icon: "↩", text: "7-day refund" }, { icon: "✕", text: "Cancel anytime" }].map(t => (
+                <span key={t.text} className="flex items-center gap-1.5 text-[11px] text-slate-600">
+                  <span>{t.icon}</span>{t.text}
+                </span>
+              ))}
             </div>
           </div>
         </div>
@@ -397,8 +292,8 @@ function CheckoutFormInner({ plan, cycle, user, couponId, billedAmount, displayP
                 <p className="text-slate-500 text-xs mt-0.5">{cycle === "annual" ? "Billed annually" : "Billed monthly"}</p>
               </div>
               <div className="text-right">
-                <p className="text-white font-bold text-xl">{couponId ? "$0.00" : `$${billedAmount.toFixed(2)}`}</p>
-                <p className="text-slate-500 text-xs mt-0.5">{couponId ? "free today" : cycle === "annual" ? "per year" : "per month"}</p>
+                <p className="text-white font-bold text-xl">${billedAmount.toFixed(2)}</p>
+                <p className="text-slate-500 text-xs mt-0.5">{cycle === "annual" ? "per year" : "per month"}</p>
               </div>
             </div>
             <div style={{ height: "1px", background: "rgba(255,255,255,0.06)", marginBottom: "28px" }}/>
@@ -408,7 +303,7 @@ function CheckoutFormInner({ plan, cycle, user, couponId, billedAmount, displayP
                 onReady={() => setReady(true)}
                 options={{
                   layout: { type: "tabs", defaultCollapsed: false },
-                  defaultValues: { billingDetails: { name: user.displayName || "", email: user.email || "" } },
+                  defaultValues: { billingDetails: { name: (user.user_metadata?.name as string) || (user.user_metadata?.full_name as string) || "", email: user.email || "" } },
                   fields: { billingDetails: { name: "auto", email: "never", address: { country: "never", postalCode: "auto" } } },
                 }}
               />
@@ -462,11 +357,8 @@ function CheckoutFormInner({ plan, cycle, user, couponId, billedAmount, displayP
                 </p>
               )}
 
-              {cycle === "annual" && !couponId && (
+              {cycle === "annual" && (
                 <p className="text-xs text-emerald-400">✓ Saving ${((plan.monthlyPrice - plan.annualPrice) * 12).toFixed(2)} vs monthly</p>
-              )}
-              {couponId && (
-                <p className="text-xs text-emerald-400">🎓 Student discount - first month free. Then ${displayPrice.toFixed(2)}/mo.</p>
               )}
 
               <div className="flex items-start gap-2.5">
@@ -493,7 +385,7 @@ function CheckoutFormInner({ plan, cycle, user, couponId, billedAmount, displayP
                   <span className="flex items-center justify-center gap-2">
                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Processing…
                   </span>
-                ) : couponId ? "Activate free month" : `Pay $${billedAmount.toFixed(2)} USD`}
+                ) : `Pay $${billedAmount.toFixed(2)} USD`}
               </button>
 
               <p className="text-center text-[11px] text-slate-600 flex items-center justify-center gap-1.5">
@@ -512,11 +404,11 @@ function CheckoutFormInner({ plan, cycle, user, couponId, billedAmount, displayP
 
 // ─── Checkout wrapper ─────────────────────────────────────────────────────────
 interface CheckoutFormProps {
-  plan: Plan; cycle: Cycle; user: User; couponId?: string;
-  onSuccess: () => void; onClose: () => void;
+  plan: Plan; cycle: Cycle; user: User;
+  onSuccess: () => void; onClose: () => void; onVerifyStudent: () => void;
 }
 
-function CheckoutForm({ plan, cycle, user, couponId, onSuccess, onClose }: CheckoutFormProps) {
+function CheckoutForm({ plan, cycle, user, onSuccess, onClose, onVerifyStudent }: CheckoutFormProps) {
   const displayPrice = cycle === "annual" ? plan.annualPrice : plan.monthlyPrice;
   const billedAmount = cycle === "annual" ? plan.annualTotal : plan.monthlyPrice;
   return (
@@ -525,17 +417,127 @@ function CheckoutForm({ plan, cycle, user, couponId, onSuccess, onClose }: Check
       appearance: stripeAppearance,
       fonts: [{ cssSrc: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" }],
     }}>
-      <CheckoutFormInner plan={plan} cycle={cycle} user={user} couponId={couponId}
+      <CheckoutFormInner plan={plan} cycle={cycle} user={user}
         billedAmount={billedAmount} displayPrice={displayPrice}
-        onSuccess={onSuccess} onClose={onClose}/>
+        onSuccess={onSuccess} onClose={onClose} onVerifyStudent={onVerifyStudent}/>
     </Elements>
   );
 }
 
-// ─── Student modal ────────────────────────────────────────────────────────────
-interface StudentModalProps { user: User; onVerified: (couponId: string) => void; onClose: () => void; }
+// ─── Payment paused modal ──────────────────────────────────────────────────────
+interface PaymentPausedModalProps { user: User; onVerifyStudent: () => void; onBack: () => void; onClose: () => void; }
 
-function StudentModal({ user, onVerified, onClose }: StudentModalProps) {
+function PaymentPausedModal({ user, onVerifyStudent, onBack, onClose }: PaymentPausedModalProps) {
+  const [email, setEmail]           = useState(user.email || "");
+  const [subState, setSubState]     = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [subError, setSubError]     = useState<string | null>(null);
+
+  const handleSubscribe = async () => {
+    if (!email.trim()) return;
+    setSubState("loading"); setSubError(null);
+    try {
+      const res = await fetch("/api/newsletter/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not subscribe");
+      setSubState("done");
+    } catch (err) {
+      setSubState("error");
+      setSubError(err instanceof Error ? err.message : "Could not subscribe. Please try again.");
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: "rgba(5,7,12,0.92)" }}>
+      <div className="relative w-full max-w-md rounded-2xl shadow-2xl"
+        style={{ background: "#0a0c12", border: "1px solid rgba(255,255,255,0.08)" }}>
+
+        <button onClick={onBack}
+          className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-300 transition-colors cursor-pointer"
+          style={{ background: "rgba(255,255,255,0.04)" }}>
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+
+        <div className="px-7 py-8 space-y-6">
+          <div>
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4"
+              style={{ background: "rgba(99,102,241,0.12)", border: "1px solid rgba(99,102,241,0.25)" }}>
+              <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-white leading-snug">Thanks for trying Preciprocal</h3>
+            <p className="text-sm text-slate-400 mt-2 leading-relaxed">
+              Your card details look good, but we&apos;re putting the finishing touches on billing right now, so checkout is paused for the moment. This isn&apos;t anything on your end - we&apos;ll have it back shortly.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-xl" style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.15)" }}>
+            <p className="text-sm text-white font-medium">Have a university (.edu) email?</p>
+            <p className="text-xs text-slate-400 mt-1 mb-3">Verify it and we&apos;ll unlock Pro for you free while billing comes back online.</p>
+            <button onClick={onVerifyStudent}
+              className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-all cursor-pointer"
+              style={{ background: "linear-gradient(135deg,#6366f1,#a855f7)" }}>
+              Verify university email
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <p className="text-xs text-slate-500 mb-2">Get notified the moment payments are back</p>
+              {subState === "done" ? (
+                <p className="text-xs text-emerald-400 flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/>
+                  </svg>
+                  You&apos;re on the list - we&apos;ll email you.
+                </p>
+              ) : (
+                <div className="flex gap-2">
+                  <input type="email" value={email}
+                    onChange={e => { setEmail(e.target.value); setSubState("idle"); setSubError(null); }}
+                    placeholder="you@email.com"
+                    className="flex-1 min-w-0 px-3 py-2.5 rounded-xl text-sm text-white placeholder-slate-700 focus:outline-none transition-all"
+                    style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}/>
+                  <button onClick={handleSubscribe} disabled={subState === "loading" || !email.trim()}
+                    className="px-4 py-2.5 rounded-xl text-xs font-semibold text-white whitespace-nowrap transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                    style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                    {subState === "loading" ? "Subscribing…" : "Notify me"}
+                  </button>
+                </div>
+              )}
+              {subError && <p className="text-xs text-red-400 mt-1.5">{subError}</p>}
+            </div>
+
+            <a href="/help"
+              className="flex items-center justify-between px-4 py-3 rounded-xl text-sm text-white transition-colors cursor-pointer hover:bg-white/[0.05]"
+              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              Contact support
+              <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/>
+              </svg>
+            </a>
+          </div>
+
+          <button onClick={onClose}
+            className="w-full text-center text-xs text-slate-500 hover:text-slate-300 transition-colors cursor-pointer">
+            Back to plans
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Student modal ────────────────────────────────────────────────────────────
+interface StudentModalProps { onVerified: () => void; onClose: () => void; }
+
+function StudentModal({ onVerified, onClose }: StudentModalProps) {
   const [eduEmail, setEduEmail]             = useState("");
   const [loading, setLoading]               = useState(false);
   const [sent, setSent]                     = useState(false);
@@ -556,10 +558,9 @@ function StudentModal({ user, onVerified, onClose }: StudentModalProps) {
     if (isResend) { setResending(true); } else { setLoading(true); }
     setError(null);
     try {
-      const token = await user.getIdToken();
       const res = await fetch("/api/student/send-verification", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ eduEmail: eduEmail.trim().toLowerCase() }),
       });
       const data = await res.json();
@@ -574,15 +575,14 @@ function StudentModal({ user, onVerified, onClose }: StudentModalProps) {
     if (code.trim().length < 6) { setError("Enter the 6-digit code from your email."); return; }
     setVerifying(true); setError(null);
     try {
-      const token = await user.getIdToken();
       const res = await fetch("/api/student/verify-code", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ eduEmail: eduEmail.trim().toLowerCase(), code: code.trim() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Invalid code");
-      onVerified(data.couponId);
+      onVerified();
     } catch (err) { setError(err instanceof Error ? err.message : "Verification failed."); }
     finally { setVerifying(false); }
   };
@@ -605,7 +605,7 @@ function StudentModal({ user, onVerified, onClose }: StudentModalProps) {
           <div>
             <p className="text-[11px] font-semibold text-indigo-400 uppercase tracking-widest mb-2">Student offer</p>
             <h3 className="text-lg font-bold text-white leading-snug">Get Pro free for 30 days</h3>
-            <p className="text-xs text-slate-500 mt-1">Verify your .edu email. No credit card until after the trial.</p>
+            <p className="text-xs text-slate-500 mt-1">Verify your .edu email and Pro unlocks instantly - no credit card required.</p>
           </div>
 
           {!sent ? (
@@ -728,42 +728,45 @@ function Check({ highlight }: { highlight?: boolean }) {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function PricingPage() {
-  const [user, setUser]                   = useState<User | null>(null);
-  const [authLoading, setAuthLoading]     = useState(true);
+  const [user, authLoading]               = useSupabaseUser();
   const [cycle, setCycle]                 = useState<Cycle>("monthly");
   const [selectedPlan, setSelectedPlan]   = useState<Plan | null>(null);
   const [currentPlan, setCurrentPlan]     = useState<PlanId>("free");
-  const [showStudent, setShowStudent]     = useState(false);
-  const [studentCoupon, setStudentCoupon] = useState<string | null>(null);
-  const [isStudent, setIsStudent]         = useState(false);
-  const [showSuccess, setShowSuccess]     = useState(false);
-  const [successPlan, setSuccessPlan]     = useState<Plan | null>(null);
+  const [showStudent, setShowStudent]           = useState(false);
+  const [isStudent, setIsStudent]               = useState(false);
+  const [showSuccess, setShowSuccess]           = useState(false);
+  const [successPlan, setSuccessPlan]           = useState<Plan | null>(null);
+  const [successIsStudent, setSuccessIsStudent] = useState(false);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (u) => {
-      setUser(u);
-      setAuthLoading(false);
-    });
-    return () => unsub();
-  }, []);
+    if (!user?.id) return;
 
-  useEffect(() => {
-    if (!user?.uid) return;
-    let firestoreUnsub: (() => void) | undefined;
-    (async () => {
-      const { db: clientDb } = await import("@/firebase/client");
-      const { doc, onSnapshot } = await import("firebase/firestore");
-      firestoreUnsub = onSnapshot(doc(clientDb, "users", user.uid), (snap) => {
-        const data = snap.data();
-        const plan = data?.subscription?.plan as PlanId | undefined;
-        if (plan && ["free","pro","premium","enterprise"].includes(plan)) {
-          setCurrentPlan(plan);
-        }
-        if (data?.subscription?.studentVerified) setIsStudent(true);
-      });
-    })();
-    return () => firestoreUnsub?.();
-  }, [user?.uid]);
+    const applyRow = (row: { plan?: string; student_verified?: boolean } | null) => {
+      const plan = row?.plan as PlanId | undefined;
+      if (plan && ["free","pro","premium","enterprise"].includes(plan)) {
+        setCurrentPlan(plan);
+      }
+      if (row?.student_verified) setIsStudent(true);
+    };
+
+    supabase
+      .from("subscriptions")
+      .select("plan, student_verified")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => applyRow(data));
+
+    const channel = supabase
+      .channel(`pricing-subscriptions-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "subscriptions", filter: `user_id=eq.${user.id}` },
+        (payload) => applyRow(payload.new as { plan?: string; student_verified?: boolean })
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id]);
 
   const handleSelectPlan = (plan: Plan) => {
     if (plan.id === "free" || plan.enterprise) return;
@@ -771,13 +774,17 @@ export default function PricingPage() {
     setSelectedPlan(plan);
   };
 
-  const handleStudentVerified = (couponId: string) => {
-    setStudentCoupon(couponId); setIsStudent(true); setShowStudent(false);
-    setSelectedPlan(PLANS.find(p => p.id === "pro")!);
+  const handleStudentVerified = () => {
+    setIsStudent(true); setShowStudent(false);
+    setSuccessPlan(PLANS.find(p => p.id === "pro")!);
+    setSuccessIsStudent(true);
+    setCurrentPlan("pro");
+    setShowSuccess(true);
   };
 
   const handleSuccess = () => {
     if (selectedPlan) { setSuccessPlan(selectedPlan); setCurrentPlan(selectedPlan.id); }
+    setSuccessIsStudent(false);
     setSelectedPlan(null);
     setShowSuccess(true);
   };
@@ -790,14 +797,14 @@ export default function PricingPage() {
     <>
       {selectedPlan && user && (
         <CheckoutForm plan={selectedPlan} cycle={cycle} user={user}
-          couponId={studentCoupon ?? undefined}
-          onSuccess={handleSuccess} onClose={() => setSelectedPlan(null)}/>
+          onSuccess={handleSuccess} onClose={() => setSelectedPlan(null)}
+          onVerifyStudent={() => { setSelectedPlan(null); setShowStudent(true); }}/>
       )}
       {showStudent && user && (
-        <StudentModal user={user} onVerified={handleStudentVerified} onClose={() => setShowStudent(false)}/>
+        <StudentModal onVerified={handleStudentVerified} onClose={() => setShowStudent(false)}/>
       )}
       {showSuccess && successPlan && (
-        <SuccessOverlay plan={successPlan} isStudent={!!studentCoupon}
+        <SuccessOverlay plan={successPlan} isStudent={successIsStudent}
           onDone={() => { setShowSuccess(false); window.location.href = "/"; }}/>
       )}
 
@@ -922,7 +929,7 @@ export default function PricingPage() {
                           ? "text-white"
                           : "bg-white/5 text-white border border-white/10 hover:bg-white/10"}`}
                     style={!isCurrent && plan.popular ? { background: "linear-gradient(135deg,#6366f1,#a855f7)" } : {}}>
-                    {isCurrent ? "Current plan" : plan.id === "pro" && isStudent && studentCoupon ? "Start free month →" : plan.cta}
+                    {isCurrent ? "Current plan" : plan.cta}
                   </button>
                 )}
 

@@ -3,12 +3,8 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthState } from 'react-firebase-hooks/auth';
-import {
-  updateEmail, updatePassword,
-  EmailAuthProvider, reauthenticateWithCredential,
-} from 'firebase/auth';
-import { auth } from '@/firebase/client';
+import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
+import { supabase } from '@/supabase/client';
 import { toast } from 'sonner';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import ExtensionConnection from '@/components/ExtensionConnection';
@@ -112,7 +108,7 @@ function Input({ ...props }: React.InputHTMLAttributes<HTMLInputElement> & { cla
 // ─── Billing newsletter block ─────────────────────────────────────────────────
 
 function BillingNewsletterBlock() {
-  const [user] = useAuthState(auth);
+  const [user] = useSupabaseUser();
   const [email,        setEmail]        = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -217,7 +213,7 @@ function BillingNewsletterBlock() {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
-  const [user, loading] = useAuthState(auth);
+  const [user, loading] = useSupabaseUser();
   const router = useRouter();
 
   const [activeSection,   setActiveSection]   = useState('account');
@@ -266,11 +262,12 @@ export default function SettingsPage() {
     setStatsLoading(true);
     try {
       const { FirebaseService } = await import('@/lib/services/firebase-service');
-      const token = await user.getIdToken();
+      // No Authorization header needed - the Supabase session cookie is
+      // sent automatically for these same-origin requests.
       const [resumes, interviewsRes, userRes] = await Promise.all([
-        FirebaseService.getUserResumes(user.uid).catch(() => []),
-        fetch('/api/interviews', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/user',       { headers: { Authorization: `Bearer ${token}` } }),
+        FirebaseService.getUserResumes(user.id).catch(() => []),
+        fetch('/api/interviews'),
+        fetch('/api/user'),
       ]);
       const interviews = interviewsRes.ok ? await interviewsRes.json() : [];
       const userData   = userRes.ok       ? await userRes.json()       : null;
@@ -298,8 +295,7 @@ export default function SettingsPage() {
     if (!user) return;
     setPageLoading(true);
     try {
-      const token = await user.getIdToken();
-      const res   = await fetch('/api/settings', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch('/api/settings');
       if (res.ok) {
         const data = await res.json();
         if (data.settings) setSettings(data.settings);
@@ -314,16 +310,20 @@ export default function SettingsPage() {
     if (!emailPassword) { toast.error('Enter your current password to confirm'); return; }
     setSavingEmail(true);
     try {
-      const credential = EmailAuthProvider.credential(user.email, emailPassword);
-      await reauthenticateWithCredential(user, credential);
-      await updateEmail(user, newEmail.trim());
-      toast.success('Email updated - please verify your new address');
+      // Re-verify the current password before allowing an email change.
+      const { error: reauthError } = await supabase.auth.signInWithPassword({ email: user.email, password: emailPassword });
+      if (reauthError) { toast.error('Incorrect password'); return; }
+
+      const { error } = await supabase.auth.updateUser({ email: newEmail.trim() });
+      if (error) {
+        if (error.message.toLowerCase().includes('already')) toast.error('Email already in use');
+        else toast.error(error.message || 'Failed to update email');
+        return;
+      }
+      toast.success('Confirmation link sent to your new email - click it to finish the change');
       setEmailPassword('');
-    } catch (err: unknown) {
-      const code = (err as { code?: string }).code;
-      if (code === 'auth/wrong-password')      toast.error('Incorrect password');
-      else if (code === 'auth/email-already-in-use') toast.error('Email already in use');
-      else toast.error('Failed to update email');
+    } catch {
+      toast.error('Failed to update email');
     } finally { setSavingEmail(false); }
   };
 
@@ -333,15 +333,16 @@ export default function SettingsPage() {
     if (newPassword !== confirmPassword) { toast.error('Passwords do not match'); return; }
     setSavingPassword(true);
     try {
-      const credential = EmailAuthProvider.credential(user.email, currentPassword);
-      await reauthenticateWithCredential(user, credential);
-      await updatePassword(user, newPassword);
+      // Re-verify the current password before allowing a password change.
+      const { error: reauthError } = await supabase.auth.signInWithPassword({ email: user.email, password: currentPassword });
+      if (reauthError) { toast.error('Current password is incorrect'); return; }
+
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) { toast.error(error.message || 'Failed to update password'); return; }
       toast.success('Password updated successfully');
       setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
-    } catch (err: unknown) {
-      const code = (err as { code?: string }).code;
-      if (code === 'auth/wrong-password') toast.error('Current password is incorrect');
-      else toast.error('Failed to update password');
+    } catch {
+      toast.error('Failed to update password');
     } finally { setSavingPassword(false); }
   };
 
@@ -355,13 +356,12 @@ export default function SettingsPage() {
     setSavingNotifKey(key);
     notifTimer.current = setTimeout(async () => {
       try {
-        const token = await user.getIdToken();
         setSettings(prev => {
           const next = applyUpdate(prev);
           (async () => {
             const res = await fetch('/api/settings', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ settings: next }),
             });
             if (res.ok) toast.success('Saved', { duration: 1200 });
@@ -385,14 +385,14 @@ export default function SettingsPage() {
     if (!user) return;
     const subject = encodeURIComponent('Account Closure Request');
     const body    = encodeURIComponent(
-      `Hi Preciprocal Support,\n\nI would like to request the closure of my account and deletion of all associated data.\n\nAccount details:\n- Name: ${user.displayName ?? 'N/A'}\n- Email: ${user.email}\n- Account ID: ${user.uid}\n- Sign-in method: ${isGoogleUser ? 'Google OAuth' : 'Email & Password'}\n- Member since: ${user.metadata.creationTime ?? 'N/A'}\n\nReason for closing:\n${deletionReason.trim() || 'Not provided'}\n\nPlease confirm once my account and all associated data have been fully removed.\n\nThank you.`
+      `Hi Preciprocal Support,\n\nI would like to request the closure of my account and deletion of all associated data.\n\nAccount details:\n- Name: ${(user.user_metadata?.name as string) ?? (user.user_metadata?.full_name as string) ?? 'N/A'}\n- Email: ${user.email}\n- Account ID: ${user.id}\n- Sign-in method: ${isGoogleUser ? 'Google OAuth' : 'Email & Password'}\n- Member since: ${user.created_at ?? 'N/A'}\n\nReason for closing:\n${deletionReason.trim() || 'Not provided'}\n\nPlease confirm once my account and all associated data have been fully removed.\n\nThank you.`
     );
     window.open(`mailto:support@preciprocal.com?subject=${subject}&body=${body}`, '_blank');
   };
 
-  const isGoogleUser  = user?.providerData?.some(p => p.providerId === 'google.com') ?? false;
-  const avatarUrl     = user?.photoURL;
-  const userInitials  = (user?.displayName ?? user?.email ?? 'U').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  const isGoogleUser  = (user?.app_metadata?.providers as string[] | undefined)?.includes('google') ?? false;
+  const avatarUrl     = user?.user_metadata?.avatar_url as string | undefined;
+  const userInitials  = ((user?.user_metadata?.name as string) || (user?.user_metadata?.full_name as string) || user?.email || 'U').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
   const usagePct      = (used: number, limit: number) => Math.min(100, Math.round((used / limit) * 100));
 
   if (loading || pageLoading) return <AnimatedLoader isVisible loadingText="Loading settings…" showNavigation />;
@@ -429,7 +429,7 @@ export default function SettingsPage() {
           </div>
 
           <div className="flex-1 min-w-0">
-            <h1 className="text-base font-semibold text-white truncate">{user.displayName || 'Your Account'}</h1>
+            <h1 className="text-base font-semibold text-white truncate">{(user.user_metadata?.name as string) || (user.user_metadata?.full_name as string) || 'Your Account'}</h1>
             <p className="text-slate-500 text-xs truncate mt-0.5">{user.email}</p>
             <div className="flex items-center flex-wrap gap-1.5 mt-2">
               <span className={`inline-flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full font-medium border ${
@@ -495,7 +495,7 @@ export default function SettingsPage() {
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <p className="text-white font-semibold text-sm truncate">{user.displayName || 'No name set'}</p>
+                  <p className="text-white font-semibold text-sm truncate">{(user.user_metadata?.name as string) || (user.user_metadata?.full_name as string) || 'No name set'}</p>
                   <p className="text-slate-400 text-xs mt-0.5 truncate">{user.email}</p>
                   <div className="flex items-center gap-2 mt-2">
                     <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium border ${
@@ -517,7 +517,7 @@ export default function SettingsPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {[
-                  { label: 'Account ID',    value: user.uid.slice(0, 20) + '…', mono: true },
+                  { label: 'Account ID',    value: user.id.slice(0, 20) + '…', mono: true },
                   {
                     label: 'Sign-in method', value: isGoogleUser ? 'Google' : 'Email & Password',
                     badge: isGoogleUser
@@ -525,18 +525,18 @@ export default function SettingsPage() {
                       : { text: 'Email',  color: 'bg-slate-700/50 border-slate-600/40 text-slate-300' },
                   },
                   {
-                    label: 'Email verified', value: user.emailVerified ? 'Verified' : 'Not verified',
-                    badge: user.emailVerified
+                    label: 'Email verified', value: user.email_confirmed_at ? 'Verified' : 'Not verified',
+                    badge: user.email_confirmed_at
                       ? { text: 'Verified',   color: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' }
                       : { text: 'Unverified', color: 'bg-orange-500/10 border-orange-500/20 text-orange-400'   },
                   },
                   {
-                    label: 'Member since', value: user.metadata.creationTime
-                      ? new Date(user.metadata.creationTime).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '-',
+                    label: 'Member since', value: user.created_at
+                      ? new Date(user.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '-',
                   },
                   {
-                    label: 'Last sign-in', value: user.metadata.lastSignInTime
-                      ? new Date(user.metadata.lastSignInTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-',
+                    label: 'Last sign-in', value: user.last_sign_in_at
+                      ? new Date(user.last_sign_in_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-',
                   },
                 ].map(({ label, value, mono, badge }) => (
                   <div key={label} className="flex flex-col gap-1.5 p-3.5 rounded-xl bg-slate-800/30 border border-white/[0.05] hover:border-white/[0.08] transition-colors">
@@ -878,8 +878,7 @@ export default function SettingsPage() {
                     onClick={async () => {
                       if (!user) return;
                       try {
-                        const token = await user.getIdToken();
-                        const res = await fetch('/api/settings/export-data', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+                        const res = await fetch('/api/settings/export-data', { method: 'POST' });
                         if (res.ok) toast.success('Export requested - check your email within 24 hours.', { duration: 5000 });
                         else throw new Error();
                       } catch {

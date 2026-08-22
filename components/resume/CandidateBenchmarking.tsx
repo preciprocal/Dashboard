@@ -148,10 +148,7 @@ export default function CandidateBenchmarking({ resumeId, jobTitle, preloadedDat
     setLoading(true); setError(null);
     if (force) setData(null);
     try {
-      const { auth } = await import('@/firebase/client');
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) throw new Error('Not authenticated');
-      const res = await fetch('/api/resume/benchmark', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ resumeId, force }) });
+      const res = await fetch('/api/resume/benchmark', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resumeId, force }) });
       if (!res.ok) { const err = await res.json().catch(() => ({ error: 'Request failed' })); throw new Error(err.error || `HTTP ${res.status}`); }
       const json = await res.json();
       const result = json.data as BenchmarkResult;

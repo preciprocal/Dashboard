@@ -4,12 +4,11 @@ import { z } from "zod";
 import Link from "next/link";
 import Image from "next/image";
 import { toast } from "sonner";
-import { auth } from "@/firebase/client";
+import { supabase } from "@/supabase/client";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { confirmPasswordReset, verifyPasswordResetCode } from "firebase/auth";
+import { useRouter } from "next/navigation";
 
 import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
@@ -25,15 +24,13 @@ const resetPasswordSchema = z.object({
 
 const ResetPasswordPage = () => {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [email, setEmail] = useState<string>("");
-  const [isValidCode, setIsValidCode] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(true);
-
-  const oobCode = searchParams.get("oobCode");
+  // null = still checking; the recovery session is established by
+  // app/auth/confirm/route.ts before the user ever reaches this page.
+  const [hasSession, setHasSession] = useState<boolean | null>(null);
 
   const form = useForm<z.infer<typeof resetPasswordSchema>>({
     resolver: zodResolver(resetPasswordSchema),
@@ -44,76 +41,33 @@ const ResetPasswordPage = () => {
   });
 
   useEffect(() => {
-    const verifyCode = async () => {
-      if (!oobCode) {
-        toast.error("Invalid or missing reset code");
-        setIsVerifying(false);
+    supabase.auth.getUser().then(({ data }) => {
+      setHasSession(!!data.user);
+      setEmail(data.user?.email ?? "");
+    });
+  }, []);
+
+  const onSubmit = async (data: z.infer<typeof resetPasswordSchema>) => {
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: data.password });
+
+      if (error) {
+        toast.error(error.message || "Failed to reset password");
         return;
       }
 
-      try {
-        // Verify the password reset code is valid
-        const userEmail = await verifyPasswordResetCode(auth, oobCode);
-        setEmail(userEmail);
-        setIsValidCode(true);
-      } catch (error) {
-        console.error("Error verifying reset code:", error);
-        const err = error as { code?: string };
-        
-        let errorMessage = "Invalid or expired reset link";
-        if (err.code === "auth/expired-action-code") {
-          errorMessage = "This reset link has expired. Please request a new one.";
-        } else if (err.code === "auth/invalid-action-code") {
-          errorMessage = "This reset link is invalid or has already been used.";
-        }
-        
-        toast.error(errorMessage);
-        setIsValidCode(false);
-      } finally {
-        setIsVerifying(false);
-      }
-    };
-
-    verifyCode();
-  }, [oobCode]);
-
-  const onSubmit = async (data: z.infer<typeof resetPasswordSchema>) => {
-    if (!oobCode) {
-      toast.error("Invalid reset code");
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      // Reset the password
-      await confirmPasswordReset(auth, oobCode, data.password);
-      
       toast.success("Password reset successfully! You can now sign in with your new password.");
-      
-      // Redirect to sign in page after 2 seconds
-      setTimeout(() => {
-        router.push("/sign-in");
-      }, 2000);
+      setTimeout(() => router.push("/sign-in"), 2000);
     } catch (error) {
       console.error("Password reset error:", error);
-      const err = error as { code?: string };
-      
-      let errorMessage = "Failed to reset password";
-      if (err.code === "auth/expired-action-code") {
-        errorMessage = "This reset link has expired. Please request a new one.";
-      } else if (err.code === "auth/invalid-action-code") {
-        errorMessage = "This reset link is invalid or has already been used.";
-      } else if (err.code === "auth/weak-password") {
-        errorMessage = "Password is too weak. Please choose a stronger password.";
-      }
-      
-      toast.error(errorMessage);
+      toast.error("Failed to reset password");
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (isVerifying) {
+  if (hasSession === null) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950">
         <div className="text-center">
@@ -124,7 +78,7 @@ const ResetPasswordPage = () => {
     );
   }
 
-  if (!isValidCode) {
+  if (!hasSession) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 p-8">
         <div className="max-w-md w-full text-center">

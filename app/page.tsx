@@ -374,14 +374,11 @@ export default function Dashboard() {
     const fetchUserData = async () => {
       try {
         setIsLoading(true);
-        const { auth }                                          = await import('@/firebase/client');
-        const { onAuthStateChanged }                            = await import('firebase/auth');
+        const { supabase }                                       = await import('@/supabase/client');
         const { FirebaseService }                               = await import('@/lib/services/firebase-service');
         const { getInterviewsByUserId, getFeedbackByInterviewId } = await import('@/lib/actions/general.action');
 
-        const currentUser = await new Promise<{ uid: string; displayName: string | null; email: string | null; photoURL: string | null } | null>(
-          resolve => { const u = onAuthStateChanged(auth, user => { u(); resolve(user as never); }); }
-        );
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
 
         if (!currentUser) {
           toast.error('Please sign in to view your dashboard');
@@ -390,31 +387,31 @@ export default function Dashboard() {
         }
 
         setUserProfile({
-          id: currentUser.uid,
-          name: currentUser.displayName || 'User',
+          id: currentUser.id,
+          name: (currentUser.user_metadata?.name as string) || (currentUser.user_metadata?.full_name as string) || 'User',
           email: currentUser.email || '',
           createdAt: new Date(),
           lastLogin: new Date(),
           targetRole: 'Software Engineer',
           experienceLevel: 'mid',
           preferredTech: ['JavaScript', 'React', 'Node.js'],
-          avatar: currentUser.photoURL || undefined,
+          avatar: (currentUser.user_metadata?.avatar_url as string) || undefined,
           bio: '',
           location: '',
         });
 
         let userResumes: Resume[] = [];
         try {
-          userResumes = await FirebaseService.getUserResumes(currentUser.uid) as unknown as Resume[];
+          userResumes = await FirebaseService.getUserResumes(currentUser.id) as unknown as Resume[];
           setResumes(userResumes);
         } catch { /* non-fatal */ }
 
         let plannerStats: PlannerStats | undefined;
         try {
-          plannerStats = await fetchPlannerStats(currentUser.uid);
+          plannerStats = await fetchPlannerStats(currentUser.id);
         } catch { /* non-fatal */ }
 
-        const userInterviews = await getInterviewsByUserId(currentUser.uid) as unknown[];
+        const userInterviews = await getInterviewsByUserId(currentUser.id) as unknown[];
         if (!userInterviews?.length) {
           setStats(calculateStats([], userResumes, plannerStats));
           setIsLoading(false);
@@ -437,7 +434,7 @@ export default function Dashboard() {
         const withFeedback = await Promise.all(
           withDates.map(async i => {
             try {
-              const fb = await getFeedbackByInterviewId({ interviewId: i.id, userId: currentUser.uid });
+              const fb = await getFeedbackByInterviewId({ interviewId: i.id, userId: currentUser.id });
               return fb ? { ...i, feedback: fb, score: (fb as { totalScore?: number }).totalScore || 0 } : i;
             } catch { return i; }
           })

@@ -6,6 +6,7 @@ export interface UsageLimits {
   studyPlans: number;
   interviews: number;
   interviewDebriefs: number;
+  debriefAnalyses: number;
   linkedinOptimisations: number;
   coldOutreach: number;
   findContacts: number;
@@ -25,6 +26,7 @@ export const USAGE_LIMITS: PlanLimits = {
     studyPlans: 1,
     interviews: 1,
     interviewDebriefs: 1,
+    debriefAnalyses: 1,
     linkedinOptimisations: 1,
     coldOutreach: 1,
     findContacts: 1,
@@ -36,6 +38,7 @@ export const USAGE_LIMITS: PlanLimits = {
     studyPlans: 3,
     interviews: 5,
     interviewDebriefs: 3,
+    debriefAnalyses: 3,
     linkedinOptimisations: 3,
     coldOutreach: 5,
     findContacts: 10,
@@ -47,6 +50,7 @@ export const USAGE_LIMITS: PlanLimits = {
     studyPlans: 15,
     interviews: 30,
     interviewDebriefs: 20,
+    debriefAnalyses: 20,
     linkedinOptimisations: 15,
     coldOutreach: -1,     // unlimited
     findContacts: 30,
@@ -60,6 +64,7 @@ export type FeatureType =
   | 'studyPlans'
   | 'interviews'
   | 'interviewDebriefs'
+  | 'debriefAnalyses'
   | 'linkedinOptimisations'
   | 'coldOutreach'
   | 'findContacts'
@@ -71,6 +76,7 @@ export const FEATURE_NAMES: Record<FeatureType, string> = {
   studyPlans: 'Study Plans',
   interviews: 'Interview Sessions',
   interviewDebriefs: 'Interview Debriefs',
+  debriefAnalyses: 'AI Debrief Insights',
   linkedinOptimisations: 'LinkedIn Optimisations',
   coldOutreach: 'Outreach Messages',
   findContacts: 'Find Contacts',

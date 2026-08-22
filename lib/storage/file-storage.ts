@@ -1,8 +1,11 @@
 // lib/storage/file-storage.ts
+// Profile-page resume/transcript storage (one fixed file per user).
+// Ported from Firebase Storage to Supabase Storage — see the migration plan
+// at C:\Users\yashv\.claude\plans\lovely-exploring-turing.md, Phase 1.
 
-import { storage } from '@/firebase/admin';
+import { supabaseAdmin } from '@/supabase/admin';
 
-const bucket = storage.bucket();
+const BUCKET = 'user-files';
 
 export type FileType = 'resume' | 'transcript';
 
@@ -14,8 +17,8 @@ function getFilePath(userId: string, fileType: FileType): string {
 }
 
 /**
- * Upload a PDF file to Firebase Storage
- * Accepts either a base64 data URL or a raw Buffer
+ * Upload a PDF file to Supabase Storage.
+ * Accepts either a base64 data URL or a raw Buffer.
  */
 export async function uploadUserFile(
   userId: string,
@@ -24,7 +27,6 @@ export async function uploadUserFile(
   fileName: string
 ): Promise<string> {
   const filePath = getFilePath(userId, fileType);
-  const file = bucket.file(filePath);
 
   let buffer: Buffer;
 
@@ -38,21 +40,25 @@ export async function uploadUserFile(
     buffer = fileData;
   }
 
-  await file.save(buffer, {
+  const { error } = await supabaseAdmin.storage.from(BUCKET).upload(filePath, buffer, {
+    contentType: 'application/pdf',
+    upsert: true,
     metadata: {
-      contentType: 'application/pdf',
-      metadata: {
-        originalFileName: fileName,
-        uploadedAt: new Date().toISOString(),
-        userId,
-        fileType,
-      },
+      originalFileName: fileName,
+      uploadedAt: new Date().toISOString(),
+      userId,
+      fileType,
     },
   });
 
+  if (error) {
+    console.error(`❌ Failed to upload ${fileType} for user ${userId}:`, error);
+    throw error;
+  }
+
   console.log(`✅ Uploaded ${fileType} for user ${userId} (${buffer.length} bytes)`);
 
-  // Return the storage path (not a public URL - we read via admin SDK)
+  // Return the storage path (not a public URL - we read via the admin client)
   return filePath;
 }
 
@@ -65,15 +71,14 @@ export async function downloadUserFile(
 ): Promise<Buffer | null> {
   try {
     const filePath = getFilePath(userId, fileType);
-    const file = bucket.file(filePath);
+    const { data, error } = await supabaseAdmin.storage.from(BUCKET).download(filePath);
 
-    const [exists] = await file.exists();
-    if (!exists) {
+    if (error || !data) {
       console.log(`📭 No ${fileType} found for user ${userId}`);
       return null;
     }
 
-    const [buffer] = await file.download();
+    const buffer = Buffer.from(await data.arrayBuffer());
     console.log(`✅ Downloaded ${fileType} for user ${userId} (${buffer.length} bytes)`);
     return buffer;
   } catch (error) {
@@ -91,12 +96,13 @@ export async function deleteUserFile(
 ): Promise<boolean> {
   try {
     const filePath = getFilePath(userId, fileType);
-    const file = bucket.file(filePath);
+    const { error } = await supabaseAdmin.storage.from(BUCKET).remove([filePath]);
 
-    const [exists] = await file.exists();
-    if (!exists) return true;
+    if (error) {
+      console.error(`❌ Failed to delete ${fileType} for user ${userId}:`, error);
+      return false;
+    }
 
-    await file.delete();
     console.log(`✅ Deleted ${fileType} for user ${userId}`);
     return true;
   } catch (error) {
@@ -113,10 +119,12 @@ export async function userFileExists(
   fileType: FileType
 ): Promise<boolean> {
   try {
-    const filePath = getFilePath(userId, fileType);
-    const file = bucket.file(filePath);
-    const [exists] = await file.exists();
-    return exists;
+    const dir = `users/${userId}`;
+    const { data, error } = await supabaseAdmin.storage.from(BUCKET).list(dir, {
+      search: `${fileType}.pdf`,
+    });
+    if (error) return false;
+    return !!data?.some((f) => f.name === `${fileType}.pdf`);
   } catch {
     return false;
   }
@@ -133,17 +141,20 @@ export async function getSignedUrl(
 ): Promise<string | null> {
   try {
     const filePath = getFilePath(userId, fileType);
-    const file = bucket.file(filePath);
 
-    const [exists] = await file.exists();
+    const exists = await userFileExists(userId, fileType);
     if (!exists) return null;
 
-    const [url] = await file.getSignedUrl({
-      action: 'read',
-      expires: Date.now() + expiresInMinutes * 60 * 1000,
-    });
+    const { data, error } = await supabaseAdmin.storage
+      .from(BUCKET)
+      .createSignedUrl(filePath, expiresInMinutes * 60);
 
-    return url;
+    if (error || !data) {
+      console.error(`❌ Failed to get signed URL for ${fileType}:`, error);
+      return null;
+    }
+
+    return data.signedUrl;
   } catch (error) {
     console.error(`❌ Failed to get signed URL for ${fileType}:`, error);
     return null;

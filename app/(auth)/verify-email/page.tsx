@@ -1,25 +1,20 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { toast } from "sonner";
-import { sendEmailVerification, reload } from "firebase/auth";
-import { auth } from "@/firebase/client";
-import { signUp } from "@/lib/actions/auth.action";
+import { supabase } from "@/supabase/client";
 import logo from "@/public/logo.png";
 
 function VerifyEmailContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   const email = searchParams.get("email") || "";
 
   const [isResending, setIsResending]       = useState(false);
-  const [isChecking, setIsChecking]         = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
-  const [checkAttempts, setCheckAttempts]   = useState(0);
 
   // Countdown timer for resend cooldown
   useEffect(() => {
@@ -28,117 +23,30 @@ function VerifyEmailContent() {
     return () => clearTimeout(timer);
   }, [resendCooldown]);
 
-  // Complete Firestore registration after email is verified
-  const completeRegistration = async () => {
-    try {
-      const pendingName  = sessionStorage.getItem("pending_signup_name");
-      const pendingUid   = sessionStorage.getItem("pending_signup_uid");
-      const pendingEmail = sessionStorage.getItem("pending_signup_email");
-
-      if (pendingName && pendingUid && pendingEmail) {
-        const result = await signUp({
-          uid: pendingUid,
-          name: pendingName,
-          email: pendingEmail,
-        });
-
-        if (result.success) {
-          sessionStorage.removeItem("pending_signup_name");
-          sessionStorage.removeItem("pending_signup_uid");
-          sessionStorage.removeItem("pending_signup_email");
-          console.log("✅ Firestore registration completed after email verification");
-        } else {
-          console.error("Firestore registration failed:", result.message);
-          // Non-fatal - sign-in guard will handle incomplete profiles
-        }
-      }
-    } catch (err) {
-      console.error("completeRegistration error:", err);
-      // Non-fatal - proceed with redirect regardless
-    }
-  };
-
-  const handleVerified = async () => {
-    await completeRegistration();
-    // Sign out to clear any stale session state, then redirect to sign-in
-    auth.signOut().finally(() => {
-      window.location.replace("/sign-in?verified=true");
-    });
-  };
-
-  // Poll for verification every 4 seconds (up to 30 polls ≈ 2 min)
-  useEffect(() => {
-    if (checkAttempts >= 30) return;
-
-    const interval = setInterval(async () => {
-      const currentUser = auth.currentUser;
-      if (!currentUser) return;
-
-      try {
-        await reload(currentUser);
-        if (currentUser.emailVerified) {
-          clearInterval(interval);
-          toast.success("Email verified! Setting up your account...");
-          await handleVerified();
-        }
-      } catch {
-        // ignore transient reload errors
-      }
-
-      setCheckAttempts((n) => n + 1);
-    }, 4000);
-
-    return () => clearInterval(interval);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checkAttempts]);
+  // Note: unlike the old Firebase flow, there's nothing to poll here -
+  // clicking the emailed link takes the user straight to
+  // app/auth/confirm/route.ts, which establishes their session and
+  // redirects them into the app directly, bypassing this page entirely.
 
   const handleResend = async () => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      toast.error("Session expired. Please sign up again.");
-      router.push("/sign-up");
+    if (!email) {
+      toast.error("Missing email address. Please sign up again.");
       return;
     }
 
     setIsResending(true);
     try {
-      await sendEmailVerification(currentUser);
-      toast.success("Verification email sent!");
-      setResendCooldown(60);
-    } catch (error) {
-      const err = error as { code?: string };
-      if (err.code === "auth/too-many-requests") {
-        toast.error("Too many requests. Please wait a few minutes before trying again.");
-        setResendCooldown(120);
+      const { error } = await supabase.auth.resend({ type: "signup", email });
+      if (error) {
+        toast.error(error.message || "Failed to resend email. Please try again.");
       } else {
-        toast.error("Failed to resend email. Please try again.");
-      }
-    } finally {
-      setIsResending(false);
-    }
-  };
-
-  const handleCheckVerification = async () => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      toast.error("Session expired. Please sign up again.");
-      router.push("/sign-up");
-      return;
-    }
-
-    setIsChecking(true);
-    try {
-      await reload(currentUser);
-      if (currentUser.emailVerified) {
-        toast.success("Email verified! Setting up your account...");
-        await handleVerified();
-      } else {
-        toast.error("Email not verified yet. Please check your inbox and click the link.");
+        toast.success("Verification email sent!");
+        setResendCooldown(60);
       }
     } catch {
-      toast.error("Failed to check verification status. Please try again.");
+      toast.error("Failed to resend email. Please try again.");
     } finally {
-      setIsChecking(false);
+      setIsResending(false);
     }
   };
 
@@ -181,29 +89,8 @@ function VerifyEmailContent() {
             </p>
           )}
           <p className="text-slate-500 text-center text-xs mb-8">
-            Click the link in that email to verify your address and finish setting up your account. This page redirects automatically once confirmed.
+            Click the link in that email to verify your address - it will sign you in and take you straight into the app.
           </p>
-
-          {/* Primary CTA */}
-          <button
-            onClick={handleCheckVerification}
-            disabled={isChecking}
-            className="w-full flex items-center justify-center space-x-2 py-3 px-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg mb-3"
-          >
-            {isChecking ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span>Setting up your account...</span>
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                <span>I&apos;ve verified my email</span>
-              </>
-            )}
-          </button>
 
           {/* Resend */}
           <button

@@ -3,7 +3,8 @@
 // Shared helper that fetches a user's resume text, transcript text, and profile
 // metadata so any AI route can inject personalised context into its prompts.
 
-import { db } from '@/firebase/admin';
+import { supabaseAdmin } from '@/supabase/admin';
+import { toSupabaseUserId } from '@/lib/auth/verify-request';
 import { downloadUserFile } from '@/lib/storage/file-storage';
 import { redis } from '@/lib/redis/redis-client';
 
@@ -86,37 +87,21 @@ export async function invalidateUserTextCache(userId: string, fileType?: 'resume
 
 /**
  * Extract text from a user's uploaded PDF file.
- * Checks Redis cache first, then Storage, then falls back to old base64 in Firestore.
+ * Checks Redis cache first, then Storage.
  */
 async function extractFileText(
   userId: string,
   fileType: 'resume' | 'transcript',
-  firestoreData?: Record<string, unknown>
 ): Promise<string | null> {
   // 1. Check cache
   const cached = await getCachedText(userId, fileType);
   if (cached) return cached;
 
-  // 2. Try downloading from Firebase Storage (new path)
-  let buffer = await downloadUserFile(userId, fileType);
-
-  // 3. Fallback: check if old base64 data exists in Firestore
-  if (!buffer && firestoreData) {
-    const base64Field = firestoreData[fileType] as string | undefined;
-    if (base64Field && typeof base64Field === 'string' && base64Field.startsWith('data:')) {
-      try {
-        const base64Content = base64Field.includes(',') ? base64Field.split(',')[1] : base64Field;
-        buffer = Buffer.from(base64Content, 'base64');
-        console.log(`📦 Using legacy base64 ${fileType} from Firestore for ${userId} (${buffer.length} bytes)`);
-      } catch (err) {
-        console.warn(`⚠️ Failed to decode legacy base64 ${fileType}:`, err);
-      }
-    }
-  }
-
+  // 2. Try downloading from Storage
+  const buffer = await downloadUserFile(userId, fileType);
   if (!buffer) return null;
 
-  // 4. Extract text with pdf-parse
+  // 3. Extract text with pdf-parse
   try {
     const text = await parsePdf(buffer);
     if (!text || text.length < 10) {
@@ -124,7 +109,7 @@ async function extractFileText(
       return null;
     }
 
-    // 5. Cache for future requests
+    // 4. Cache for future requests
     await cacheText(userId, fileType, text);
     console.log(`✅ Extracted ${text.length} chars from ${fileType} for ${userId}`);
     return text;
@@ -143,27 +128,30 @@ async function extractFileText(
  *   // then inject ctx.resumeText, ctx.transcriptText, ctx.profile into your prompt
  */
 export async function getUserAIContext(userId: string): Promise<UserAIContext> {
-  // Fetch profile first so we can pass it to extractFileText for base64 fallback
-  const userDoc = await db.collection('users').doc(userId).get();
-  const data = userDoc.data() || {};
+  const supabaseUserId = await toSupabaseUserId(userId);
+  const { data } = await supabaseAdmin
+    .from('profiles')
+    .select('name, email, target_role, experience_level, preferred_tech, career_goals, bio')
+    .eq('user_id', supabaseUserId)
+    .maybeSingle();
 
-  // Fetch file texts in parallel, with Firestore fallback for legacy base64
+  // Fetch file texts in parallel
   const [resumeText, transcriptText] = await Promise.all([
-    extractFileText(userId, 'resume', data),
-    extractFileText(userId, 'transcript', data),
+    extractFileText(userId, 'resume'),
+    extractFileText(userId, 'transcript'),
   ]);
 
   return {
     resumeText,
     transcriptText,
     profile: {
-      name: data.name || '',
-      email: data.email || '',
-      targetRole: data.targetRole || '',
-      experienceLevel: data.experienceLevel || 'mid',
-      preferredTech: Array.isArray(data.preferredTech) ? data.preferredTech : [],
-      careerGoals: data.careerGoals || '',
-      bio: data.bio || '',
+      name: data?.name || '',
+      email: data?.email || '',
+      targetRole: data?.target_role || '',
+      experienceLevel: data?.experience_level || 'mid',
+      preferredTech: Array.isArray(data?.preferred_tech) ? data.preferred_tech : [],
+      careerGoals: data?.career_goals || '',
+      bio: data?.bio || '',
     },
   };
 }

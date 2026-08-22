@@ -1,8 +1,7 @@
 // app/api/resume/rewrite/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
-import { auth } from '@/firebase/admin';
-import { cookies } from 'next/headers';
+import { getAuthedUserId } from '@/lib/auth/verify-request';
 import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
@@ -22,13 +21,7 @@ interface RewriteResponse { suggestions: Suggestion[]; }
 export async function POST(request: NextRequest) {
   try {
     // ── Auth ──────────────────────────────────────────────────────
-    let userId: string | null = null;
-    const session = (await cookies()).get('session');
-    if (session) try { userId = (await auth.verifySessionCookie(session.value, true)).uid; } catch {}
-    if (!userId) {
-      const h = request.headers.get('authorization');
-      if (h?.startsWith('Bearer ')) try { userId = (await auth.verifyIdToken(h.slice(7))).uid; } catch {}
-    }
+    const userId = await getAuthedUserId(request);
 
     // ── Rate limit ────────────────────────────────────────────────
     const rateLimited = await applyRateLimit(request, userId ?? null, 'medium');

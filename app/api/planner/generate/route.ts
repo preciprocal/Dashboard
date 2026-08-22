@@ -1,7 +1,8 @@
 // app/api/planner/generate/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { auth, db } from '@/firebase/admin';
+import crypto from 'crypto';
+import { getAuthedUser } from '@/lib/auth/verify-request';
+import { supabaseAdmin } from '@/supabase/admin';
 import { anthropic, CLAUDE_MODEL, extractText, extractJsonString } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
@@ -158,17 +159,9 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Auth ──────────────────────────────────────────────────────
-    const cookieStore = await cookies();
-    const session = cookieStore.get('session');
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-    let userId: string;
-    try {
-      const decodedClaims = await auth.verifySessionCookie(session.value, true);
-      userId = decodedClaims.uid;
-    } catch {
-      return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
-    }
+    const authedUser = await getAuthedUser(request);
+    if (!authedUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { userId, supabaseUserId } = authedUser;
 
     // ── Rate limit ────────────────────────────────────────────────
     const rateLimited = await applyRateLimit(request, userId, 'heavy');
@@ -247,7 +240,7 @@ Create a detailed, day-by-day plan with specific resources, practice problems, a
     console.log('   Daily plans:', generatedPlan.dailyPlans.length);
 
     // ── Post-process: add IDs, dates, ensure structure ───────────
-    const planId = db.collection('interviewPlans').doc().id;
+    const planId = crypto.randomUUID();
     const currentDate = new Date();
 
     generatedPlan.dailyPlans = generatedPlan.dailyPlans.map((dailyPlan: DailyPlan, dayIndex: number) => {
@@ -273,10 +266,10 @@ Create a detailed, day-by-day plan with specific resources, practice problems, a
       0,
     );
 
-    // ── Save to Firestore ────────────────────────────────────────
+    // ── Save to Postgres ──────────────────────────────────────────
     const completePlan = {
       id: planId,
-      userId,
+      userId: supabaseUserId,
       role,
       company: company || null,
       interviewDate,
@@ -302,8 +295,14 @@ Create a detailed, day-by-day plan with specific resources, practice problems, a
       lastAIUpdate: new Date().toISOString(),
     };
 
-    console.log('   Saving plan to Firestore...');
-    await db.collection('interviewPlans').doc(planId).set(completePlan);
+    console.log('   Saving plan to Postgres...');
+    const { error: insertError } = await supabaseAdmin.from('interview_plans').insert({
+      id: planId,
+      user_id: supabaseUserId,
+      archived: false,
+      data: completePlan,
+    });
+    if (insertError) throw insertError;
 
     // ── Increment usage ───────────────────────────────────────────
     await checkAndIncrementUsage(userId, 'studyPlans');

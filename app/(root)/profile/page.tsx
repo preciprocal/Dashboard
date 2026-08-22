@@ -4,8 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth } from '@/firebase/client';
+import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
 import ErrorPage from '@/components/Error';
 import {
@@ -174,7 +173,7 @@ function FileRow({
 
 const ProfilePage = () => {
   const router = useRouter();
-  const [user, authLoading] = useAuthState(auth);
+  const [user, authLoading] = useSupabaseUser();
   const [activeTab, setActiveTab] = useState<'profile' | 'saved' | 'auto-apply'>('profile');
 
   const transcriptFileInputRef = useRef<HTMLInputElement>(null);
@@ -336,7 +335,7 @@ const ProfilePage = () => {
     inputRef: React.RefObject<HTMLInputElement | null>,
   ) => {
     const file = e.target.files?.[0];
-    if (!file || !user?.uid) return;
+    if (!file || !user?.id) return;
     const err = validatePDF(file);
     if (err) { toast.error(err); return; }
     setUploading(true);
@@ -355,7 +354,7 @@ const ProfilePage = () => {
   };
 
   const handleUpdateProfile = async (updatedProfile: Partial<UserProfile>) => {
-    if (!user?.uid) return;
+    if (!user?.id) return;
     setIsSaving(true);
     try {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -373,9 +372,9 @@ const ProfilePage = () => {
         setUserProfile(p => p ? { ...p, ...updatedProfile } : null);
         setIsEditing(false);
         toast.success('Profile updated!');
-        await NotificationService.createNotification(user.uid, 'system', 'Profile Updated ✅', 'Your profile has been saved.', { actionUrl: '/profile', actionLabel: 'View Profile' });
+        await NotificationService.createNotification(user.id, 'system', 'Profile Updated ✅', 'Your profile has been saved.', { actionUrl: '/profile', actionLabel: 'View Profile' });
         if (!wasComplete && nowComplete) {
-          await NotificationService.createNotification(user.uid, 'achievement', 'Profile Complete! 🏆', 'AI features will now be fully personalised to you.', { actionUrl: '/cover-letter', actionLabel: 'Try Cover Letter' });
+          await NotificationService.createNotification(user.id, 'achievement', 'Profile Complete! 🏆', 'AI features will now be fully personalised to you.', { actionUrl: '/cover-letter', actionLabel: 'Try Cover Letter' });
         }
       } else {
         toast.error(result.message || 'Failed to update profile');

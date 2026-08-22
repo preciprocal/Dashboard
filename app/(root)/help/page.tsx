@@ -2,16 +2,11 @@
 'use client';
 
 import { useState, useEffect, useRef, Suspense } from 'react';
-import { useAuthState } from 'react-firebase-hooks/auth';
+import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { auth, db, storage } from '@/firebase/client';
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
-import {
-  collection, addDoc, updateDoc, doc as fsDoc,
-  query, where, orderBy, getDocs,
-  serverTimestamp, Timestamp, increment,
-} from 'firebase/firestore';
+import { supabase } from '@/supabase/client';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import {
   Search, MessageSquare, BookOpen, Video, FileText, Send, Mail, Clock,
   CheckCircle2, AlertCircle, HelpCircle, Target, Award, ChevronRight,
@@ -33,16 +28,61 @@ interface AttachmentMeta { name: string; url: string; size: number; type: string
 interface SupportTicket {
   id: string; userId: string; userEmail?: string; userName?: string;
   subject: string; message: string; category: string;
-  status: 'open' | 'in-progress' | 'resolved';
+  status: 'open' | 'in-progress' | 'closed';
   priority: 'low' | 'medium' | 'high';
-  createdAt: Timestamp | null; updatedAt: Timestamp | null;
-  lastReplyBy?: 'user' | 'support'; lastReplyAt?: Timestamp | null;
+  createdAt: string | null; updatedAt: string | null;
+  lastReplyBy?: 'user' | 'support'; lastReplyAt?: string | null;
   attachments?: AttachmentMeta[];
 }
 
 interface TicketReply {
   id: string; ticketId: string; message: string; from: 'user' | 'support';
-  fromEmail?: string; createdAt: Timestamp; isStaff: boolean;
+  fromEmail?: string; createdAt: string; isStaff: boolean;
+}
+
+interface SupportTicketRow {
+  id: string; user_id: string; user_email: string | null; user_name: string | null;
+  subject: string | null; message: string | null; category: string | null;
+  status: string; priority: string | null;
+  created_at: string; updated_at: string;
+  last_reply_by: string | null; last_reply_at: string | null;
+  attachments: AttachmentMeta[] | null;
+}
+
+function toSupportTicket(row: SupportTicketRow): SupportTicket {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    userEmail: row.user_email ?? undefined,
+    userName: row.user_name ?? undefined,
+    subject: row.subject ?? '',
+    message: row.message ?? '',
+    category: row.category ?? 'general',
+    status: (row.status as SupportTicket['status']) ?? 'open',
+    priority: (row.priority as SupportTicket['priority']) ?? 'medium',
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    lastReplyBy: (row.last_reply_by as SupportTicket['lastReplyBy']) ?? undefined,
+    lastReplyAt: row.last_reply_at,
+    attachments: row.attachments ?? undefined,
+  };
+}
+
+interface TicketReplyRow {
+  id: string; ticket_id: string; body: string; author_user_id: string | null;
+  from_email: string | null; is_staff: boolean; created_at: string;
+}
+
+function toTicketReply(row: TicketReplyRow): TicketReply {
+  return {
+    id: row.id,
+    ticketId: row.ticket_id,
+    message: row.body,
+    from: row.is_staff ? 'support' : 'user',
+    fromEmail: row.from_email ?? undefined,
+    createdAt: row.created_at,
+    isStaff: row.is_staff,
+  };
 }
 
 interface CriticalError { code: string; title: string; message: string; details?: string; }
@@ -77,7 +117,7 @@ function FileTypeIcon({ type }: { type: string }) {
 // ─── Inner component ──────────────────────────────────────────────────────────
 
 function HelpSupportContent() {
-  const [user, loading] = useAuthState(auth);
+  const [user, loading] = useSupabaseUser();
   const searchParams    = useSearchParams();
 
   const [searchQuery,      setSearchQuery]      = useState('');
@@ -149,16 +189,45 @@ function HelpSupportContent() {
     setAttachmentError('');
   };
 
-  // ── Upload to Firebase Storage ──────────────────────────────────────────────
-  const uploadAttachments = async (ticketId: string, userId: string): Promise<AttachmentMeta[]> => {
+  // ── Open an attachment (resolves a signed URL for bare Supabase paths) ─────
+  const openAttachment = async (att: AttachmentMeta) => {
+    if (/^https?:\/\//i.test(att.url)) { window.open(att.url, '_blank'); return; }
+    try {
+      // No Authorization header needed - the Supabase session cookie is
+      // sent automatically for this same-origin request.
+      const res = await fetch('/api/storage/signed-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: att.url }),
+      });
+      if (!res.ok) throw new Error('Failed to resolve attachment URL');
+      const { url } = await res.json() as { url: string };
+      window.open(url, '_blank');
+    } catch {
+      toast.error('Failed to open attachment');
+    }
+  };
+
+  // ── Upload to Supabase Storage (proxied through an authenticated API route -
+  //    the bucket is private and client uploads aren't RLS-scoped yet) ──────
+  const uploadAttachments = async (ticketId: string): Promise<AttachmentMeta[]> => {
     const results: AttachmentMeta[] = [];
+
     for (const file of attachments) {
-      const sanitized = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const path      = `support-attachments/${userId}/${ticketId}/${Date.now()}_${sanitized}`;
-      const sRef      = storageRef(storage, path);
-      await uploadBytes(sRef, file, { contentType: file.type });
-      const url = await getDownloadURL(sRef);
-      results.push({ name: file.name, url, size: file.size, type: file.type });
+      const form = new FormData();
+      form.append('file', file);
+      form.append('kind', 'support-attachment');
+      form.append('ticketId', ticketId);
+      form.append('fileName', file.name);
+
+      const res = await fetch('/api/storage/upload', {
+        method: 'POST',
+        body: form,
+      });
+      if (!res.ok) throw new Error('Failed to upload attachment');
+      // Bare Supabase Storage path - resolved to a signed URL on click.
+      const { path } = await res.json() as { path: string };
+      results.push({ name: file.name, url: path, size: file.size, type: file.type });
     }
     return results;
   };
@@ -232,50 +301,74 @@ function HelpSupportContent() {
     { value: 'bug',       label: 'Bug Report'       },
   ];
 
-  const openTicketsCount = userTickets.filter(t => t.status !== 'resolved').length;
+  const openTicketsCount = userTickets.filter(t => t.status !== 'closed').length;
   const tabs: TabItem[] = [
     { id: 'faq',     label: 'FAQs',    icon: BookOpen                                              },
     { id: 'contact', label: 'Contact', icon: MessageSquare                                         },
     { id: 'tickets', label: 'Tickets', icon: FileText, badge: openTicketsCount },
   ];
 
-  // ── Load tickets ────────────────────────────────────────────────────────────
+  // ── Live tickets ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    const loadTickets = async () => {
-      if (!user) return;
-      try {
-        setLoadingTickets(true);
-        const ticketsRef = collection(db, 'supportTickets');
-        const q          = query(ticketsRef, where('userId', '==', user.uid), orderBy('createdAt', 'desc'));
-        const snapshot   = await getDocs(q);
-        setUserTickets(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as SupportTicket[]);
-      } catch (error) {
-        console.error('Error loading tickets:', error);
-        const msg = error instanceof Error ? error.message : 'Unknown error';
-        if (msg.includes('Firebase') || msg.includes('permission')) {
-          setCriticalError({ code: 'DATABASE', title: 'Database Connection Error', message: 'Unable to load support tickets', details: msg });
-        }
-      } finally {
-        setLoadingTickets(false);
-      }
-    };
-    if (activeSection === 'tickets' && user) loadTickets();
-  }, [user, activeSection]);
+    if (!user) { setUserTickets([]); return; }
+    setLoadingTickets(true);
 
-  const loadTicketReplies = async (ticketId: string) => {
+    const fetchTickets = async () => {
+      const { data, error } = await supabase
+        .from('support_tickets')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (error) {
+        console.error('Error loading tickets:', error);
+        setLoadingTickets(false);
+        setCriticalError({ code: 'DATABASE', title: 'Database Connection Error', message: 'Unable to load support tickets', details: error.message });
+        return;
+      }
+      setUserTickets((data as SupportTicketRow[]).map(toSupportTicket));
+      setLoadingTickets(false);
+    };
+
+    fetchTickets();
+
+    const channel: RealtimeChannel = supabase
+      .channel(`support_tickets:${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets', filter: `user_id=eq.${user.id}` }, fetchTickets)
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
+
+  // ── Live replies for the selected ticket ────────────────────────────────────
+  useEffect(() => {
+    if (!selectedTicket) { setTicketReplies([]); return; }
     setLoadingReplies(true);
-    try {
-      const repliesRef = collection(db, 'supportTickets', ticketId, 'replies');
-      const q          = query(repliesRef, orderBy('createdAt', 'asc'));
-      const snapshot   = await getDocs(q);
-      setTicketReplies(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as TicketReply[]);
-    } catch (error) {
-      console.error('Error loading replies:', error);
-      toast.error('Failed to load conversation');
-    } finally {
+
+    const fetchReplies = async () => {
+      const { data, error } = await supabase
+        .from('support_ticket_replies')
+        .select('*')
+        .eq('ticket_id', selectedTicket)
+        .order('created_at', { ascending: true });
+      if (error) {
+        console.error('Error loading replies:', error);
+        setLoadingReplies(false);
+        toast.error('Failed to load conversation');
+        return;
+      }
+      setTicketReplies((data as TicketReplyRow[]).map(toTicketReply));
       setLoadingReplies(false);
-    }
-  };
+    };
+
+    fetchReplies();
+
+    const channel: RealtimeChannel = supabase
+      .channel(`support_ticket_replies:${selectedTicket}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'support_ticket_replies', filter: `ticket_id=eq.${selectedTicket}` }, fetchReplies)
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [selectedTicket]);
 
   // ── User reply from app ─────────────────────────────────────────────────────
   const handleUserReply = async () => {
@@ -285,21 +378,24 @@ function HelpSupportContent() {
       const ticket = userTickets.find(t => t.id === selectedTicket);
       if (!ticket) return;
 
-      await addDoc(collection(db, 'supportTickets', selectedTicket, 'replies'), {
-        ticketId:  selectedTicket,
-        message:   replyText.trim(),
-        from:      'user',
-        fromEmail: user.email,
-        isStaff:   false,
-        createdAt: serverTimestamp(),
-      });
+      const nowIso = new Date().toISOString();
 
-      await updateDoc(fsDoc(db, 'supportTickets', selectedTicket), {
-        updatedAt:   serverTimestamp(),
-        lastReplyBy: 'user',
-        lastReplyAt: serverTimestamp(),
-        replyCount:  increment(1),
+      const { error: replyError } = await supabase.from('support_ticket_replies').insert({
+        ticket_id: selectedTicket,
+        body: replyText.trim(),
+        author_user_id: user.id,
+        from_email: user.email,
+        is_staff: false,
       });
+      if (replyError) throw replyError;
+
+      const { error: updateError } = await supabase.from('support_tickets').update({
+        updated_at: nowIso,
+        last_reply_by: 'user',
+        last_reply_at: nowIso,
+        reply_count: ticketReplies.length + 1,
+      }).eq('id', selectedTicket);
+      if (updateError) throw updateError;
 
       fetch('/api/support/notify-admin', {
         method:  'POST',
@@ -307,17 +403,13 @@ function HelpSupportContent() {
         body: JSON.stringify({
           ticketId:      selectedTicket,
           ticketSubject: ticket.subject,
-          userName:      user.displayName || 'User',
+          userName:      (user.user_metadata?.name as string) || (user.user_metadata?.full_name as string) || 'User',
           userEmail:     user.email,
           message:       replyText.trim(),
         }),
       }).catch(err => console.error('Failed to notify admin:', err));
 
       setReplyText('');
-      setUserTickets(prev => prev.map(t =>
-        t.id === selectedTicket ? { ...t, lastReplyBy: 'user' as const } : t
-      ));
-      await loadTicketReplies(selectedTicket);
       toast.success('Reply sent');
     } catch (error) {
       console.error('Error sending reply:', error);
@@ -337,10 +429,11 @@ function HelpSupportContent() {
     setSubmitError('');
 
     try {
+      const userName = (user.user_metadata?.name as string) || (user.user_metadata?.full_name as string) || 'User';
       const ticketData = {
-        userId:      user.uid,
+        userId:      user.id,
         userEmail:   user.email,
-        userName:    user.displayName || 'User',
+        userName,
         subject:     subject.trim(),
         message:     message.trim(),
         category,
@@ -349,20 +442,30 @@ function HelpSupportContent() {
         replyCount:  0,
         lastReplyBy: null,
         lastReplyAt: null,
-        createdAt:   serverTimestamp(),
-        updatedAt:   serverTimestamp(),
       };
 
-      const docRef = await addDoc(collection(db, 'supportTickets'), ticketData);
+      const { data: created, error: insertError } = await supabase.from('support_tickets').insert({
+        user_id: user.id,
+        user_email: user.email,
+        user_name: userName,
+        subject: ticketData.subject,
+        message: ticketData.message,
+        category: ticketData.category,
+        priority: ticketData.priority,
+        status: 'open',
+      }).select('id').single();
+      if (insertError) throw insertError;
+      const ticketId = created.id as string;
 
       // Upload attachments after we have the ticket ID
       let uploadedAttachments: AttachmentMeta[] = [];
       if (attachments.length > 0) {
         try {
-          uploadedAttachments = await uploadAttachments(docRef.id, user.uid);
-          await updateDoc(fsDoc(db, 'supportTickets', docRef.id), {
+          uploadedAttachments = await uploadAttachments(ticketId);
+          const { error: attachError } = await supabase.from('support_tickets').update({
             attachments: uploadedAttachments,
-          });
+          }).eq('id', ticketId);
+          if (attachError) throw attachError;
         } catch (uploadErr) {
           console.error('Attachment upload error:', uploadErr);
           toast.error('Ticket submitted, but some attachments failed to upload.');
@@ -374,8 +477,8 @@ function HelpSupportContent() {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
-          ticketId: docRef.id,
-          ticket:   { ...ticketData, userEmail: user.email, userName: user.displayName || 'User', attachments: uploadedAttachments },
+          ticketId,
+          ticket:   { ...ticketData, userEmail: user.email, userName, attachments: uploadedAttachments },
         }),
       })
         .then(r => r.json().then(d => {
@@ -387,7 +490,7 @@ function HelpSupportContent() {
       // Non-critical in-app notification
       try {
         await NotificationService.createNotification(
-          user.uid, 'system', 'Support Ticket Submitted 🎫',
+          user.id, 'system', 'Support Ticket Submitted 🎫',
           `Your ticket "${subject.trim()}" has been received. We'll respond within 24 hours. Track it in Help & Support > Tickets.`,
           { actionUrl: '/help?section=tickets', actionLabel: 'View Ticket' }
         );
@@ -428,7 +531,7 @@ function HelpSupportContent() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'resolved':    return 'bg-green-500/20 text-green-400';
+      case 'closed':      return 'bg-green-500/20 text-green-400';
       case 'in-progress': return 'bg-blue-500/20 text-blue-400';
       default:            return 'bg-yellow-500/20 text-yellow-400';
     }
@@ -768,7 +871,7 @@ function HelpSupportContent() {
                             </div>
                             <div className="flex items-center gap-2 text-xs text-slate-400 mb-3">
                               <span>Ticket #{ticket.id.slice(0, 8)}</span><span>•</span>
-                              <span>{ticket.createdAt?.toDate?.().toLocaleDateString()}</span>
+                              <span>{ticket.createdAt ? new Date(ticket.createdAt).toLocaleDateString() : ''}</span>
                             </div>
                           </div>
                         </div>
@@ -779,7 +882,7 @@ function HelpSupportContent() {
                             </div>
                             <div>
                               <p className="text-white font-medium text-sm">{ticket.userName || 'You'}</p>
-                              <p className="text-slate-500 text-xs">{ticket.createdAt?.toDate?.().toLocaleString()}</p>
+                              <p className="text-slate-500 text-xs">{ticket.createdAt ? new Date(ticket.createdAt).toLocaleString() : ''}</p>
                             </div>
                           </div>
                           <p className="text-slate-300 text-sm leading-relaxed mt-2 whitespace-pre-wrap">{ticket.message}</p>
@@ -792,12 +895,12 @@ function HelpSupportContent() {
                               </p>
                               <div className="flex flex-wrap gap-2">
                                 {ticket.attachments.map((att, i) => (
-                                  <a key={i} href={att.url} target="_blank" rel="noopener noreferrer"
+                                  <button key={i} type="button" onClick={() => openAttachment(att)}
                                     className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg glass-morphism border border-white/10 hover:border-white/20 text-xs text-slate-300 hover:text-white transition-all">
                                     <FileTypeIcon type={att.type} />
                                     <span className="truncate max-w-[140px]">{att.name}</span>
                                     <span className="text-slate-600">{formatBytes(att.size)}</span>
-                                  </a>
+                                  </button>
                                 ))}
                               </div>
                             </div>
@@ -819,7 +922,7 @@ function HelpSupportContent() {
                                   </div>
                                   <div>
                                     <p className="text-white font-medium text-sm">{reply.isStaff ? 'Support Team' : 'You'}</p>
-                                    <p className="text-slate-500 text-xs">{reply.createdAt?.toDate?.().toLocaleString()}</p>
+                                    <p className="text-slate-500 text-xs">{reply.createdAt ? new Date(reply.createdAt).toLocaleString() : ''}</p>
                                   </div>
                                 </div>
                                 <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{reply.message}</p>
@@ -829,10 +932,10 @@ function HelpSupportContent() {
                         ) : (
                           <p className="text-center text-slate-500 text-sm py-4">No replies yet. We&apos;ll respond via email within 24 hours.</p>
                         )}
-                        {ticket.status === 'resolved' ? (
+                        {ticket.status === 'closed' ? (
                           <div className="mt-4 glass-morphism p-4 rounded-lg border border-white/10 text-center">
                             <CheckCircle2 className="w-5 h-5 text-green-400 mx-auto mb-1.5" />
-                            <p className="text-sm font-medium text-white mb-0.5">Ticket Resolved</p>
+                            <p className="text-sm font-medium text-white mb-0.5">Ticket Closed</p>
                             <p className="text-xs text-slate-400">If you need further assistance, please create a new ticket.</p>
                           </div>
                         ) : ticketReplies.some(r => r.isStaff) ? (
@@ -871,7 +974,7 @@ function HelpSupportContent() {
               <div className="space-y-2.5 sm:space-y-3">
                 {userTickets.map(ticket => (
                   <div key={ticket.id}
-                    onClick={() => { setSelectedTicket(ticket.id); loadTicketReplies(ticket.id); }}
+                    onClick={() => setSelectedTicket(ticket.id)}
                     className="glass-card hover-lift cursor-pointer">
                     <div className="p-4 sm:p-5">
                       <div className="flex items-start justify-between mb-2 sm:mb-3 gap-2">
@@ -889,12 +992,12 @@ function HelpSupportContent() {
                           <p className="text-slate-400 text-xs sm:text-sm mb-1.5 sm:mb-2 line-clamp-2">{ticket.message}</p>
                           <div className="flex items-center gap-2 sm:gap-3 text-xs text-slate-500 flex-wrap">
                             <span className="capitalize">{ticket.category}</span><span>•</span>
-                            <span>{ticket.createdAt?.toDate?.().toLocaleDateString() || 'Recently'}</span>
+                            <span>{ticket.createdAt ? new Date(ticket.createdAt).toLocaleDateString() : 'Recently'}</span>
                             {ticket.attachments && ticket.attachments.length > 0 && (
                               <><span>•</span><span className="flex items-center gap-1"><Paperclip className="w-3 h-3" />{ticket.attachments.length}</span></>
                             )}
                             {ticket.lastReplyAt && (
-                              <><span>•</span><span className="text-green-400">Last reply: {ticket.lastReplyAt.toDate?.().toLocaleDateString()}</span></>
+                              <><span>•</span><span className="text-green-400">Last reply: {ticket.lastReplyAt ? new Date(ticket.lastReplyAt).toLocaleDateString() : ''}</span></>
                             )}
                           </div>
                         </div>

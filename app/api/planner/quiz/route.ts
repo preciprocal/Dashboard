@@ -1,7 +1,7 @@
 // app/api/planner/quiz/generate/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { auth, db } from '@/firebase/admin';
+import { getAuthedUser } from '@/lib/auth/verify-request';
+import { supabaseAdmin } from '@/supabase/admin';
 import { redis } from '@/lib/redis/redis-client';
 import { getUserAIContext, buildUserContextPrompt } from '@/lib/ai/user-context';
 import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage } from '@/lib/ai/claude';
@@ -44,10 +44,9 @@ export async function POST(request: NextRequest) {
   try {
     if (!anthropic) return NextResponse.json({ error: 'AI not configured' }, { status: 503 });
 
-    const session = (await cookies()).get('session');
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    let userId: string;
-    try { userId = (await auth.verifySessionCookie(session.value, true)).uid; } catch { return NextResponse.json({ error: 'Invalid session' }, { status: 401 }); }
+    const authedUser = await getAuthedUser(request);
+    if (!authedUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { userId, supabaseUserId } = authedUser;
 
     // ── Rate limit ────────────────────────────────────────────────
     const rateLimited = await applyRateLimit(request, userId, 'light');
@@ -65,10 +64,11 @@ export async function POST(request: NextRequest) {
     const { planId, forceRegenerate } = await request.json() as { planId: string; forceRegenerate?: boolean };
     if (!planId) return NextResponse.json({ error: 'planId required' }, { status: 400 });
 
-    const planDoc = await db.collection('interviewPlans').doc(planId).get();
-    if (!planDoc.exists) return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
-    const plan = planDoc.data() as PlanData;
-    if (plan.userId !== userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    const { data: row, error: fetchError } = await supabaseAdmin.from('interview_plans').select('user_id, data').eq('id', planId).maybeSingle();
+    if (fetchError) throw fetchError;
+    if (!row) return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
+    if (row.user_id !== supabaseUserId) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    const plan = row.data as PlanData;
 
     if (!forceRegenerate) {
       const cached = await getCachedQuiz(planId);

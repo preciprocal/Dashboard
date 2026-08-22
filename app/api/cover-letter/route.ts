@@ -1,7 +1,7 @@
 // app/api/cover-letter/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { auth } from '@/firebase/admin';
+import { getAuthedUser } from '@/lib/auth/verify-request';
+import { supabaseAdmin } from '@/supabase/admin';
 import { hashResumeContent } from '@/lib/redis/resume-cache';
 import { redis, RedisKeys } from '@/lib/redis/redis-client';
 import { getUserAIContext } from '@/lib/ai/user-context';
@@ -100,13 +100,9 @@ export async function POST(request: NextRequest) {
   try {
     if (!anthropic) return NextResponse.json({ success: false, error: 'AI service not configured' }, { status: 503 });
 
-    const cookieStore = await cookies();
-    const session = cookieStore.get('session');
-    if (!session) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-
-    let userId: string;
-    try { userId = (await auth.verifySessionCookie(session.value, true)).uid; }
-    catch { return NextResponse.json({ success: false, error: 'Invalid session' }, { status: 401 }); }
+    const authedUser = await getAuthedUser(request);
+    if (!authedUser) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    const { userId, supabaseUserId } = authedUser;
 
     // Rate limit
     const rateLimited = await applyRateLimit(request, userId, 'medium');
@@ -155,13 +151,18 @@ export async function POST(request: NextRequest) {
 
     const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     const contactLines = [ctx.profile.name];
-    const userDoc = (await (await import('@/firebase/admin')).db.collection('users').doc(userId).get()).data() || {};
-    if (userDoc.streetAddress) contactLines.push(userDoc.streetAddress as string);
+    const { data: profileRow } = await supabaseAdmin
+      .from('profiles')
+      .select('street_address, city, state, phone, linked_in, github, website')
+      .eq('user_id', supabaseUserId)
+      .maybeSingle();
+    const userDoc = profileRow ?? { street_address: null, city: null, state: null, phone: null, linked_in: null, github: null, website: null };
+    if (userDoc.street_address) contactLines.push(userDoc.street_address);
     const loc = [userDoc.city, userDoc.state].filter(Boolean).join(', ');
     if (loc) contactLines.push(loc);
     contactLines.push(ctx.profile.email);
-    if (userDoc.phone) contactLines.push(userDoc.phone as string);
-    const socialLinks = [userDoc.linkedIn, userDoc.github, userDoc.website].filter(Boolean) as string[];
+    if (userDoc.phone) contactLines.push(userDoc.phone);
+    const socialLinks = [userDoc.linked_in, userDoc.github, userDoc.website].filter(Boolean) as string[];
     if (socialLinks.length) contactLines.push(socialLinks.join(' | '));
 
     const toneMap: Record<string, string> = {

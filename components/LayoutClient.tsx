@@ -12,8 +12,8 @@ import {
   ChevronRight, NotebookPen, Sparkles, Briefcase, Zap,
 } from 'lucide-react';
 import { signOut } from "@/lib/actions/auth.action";
-import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth } from '@/firebase/client';
+import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
+import { supabase } from '@/supabase/client';
 import { FirebaseService } from '@/lib/services/firebase-service';
 import { useNotifications } from '@/lib/hooks/useNotifications';
 import NotificationCenter from '@/components/Notifications';
@@ -156,7 +156,7 @@ const PUBLIC_ROUTES = [
 // ─── Resume count hook ────────────────────────────────────────────────────────
 
 const useResumeCount = () => {
-  const [user] = useAuthState(auth);
+  const [user] = useSupabaseUser();
   const [resumeCount,  setResumeCount]  = useState(0);
   const [latestResume, setLatestResume] = useState<ResumeData | null>(null);
   const [loading,      setLoading]      = useState(true);
@@ -165,7 +165,7 @@ const useResumeCount = () => {
     const fetchResumeData = async () => {
       if (!user) { setLoading(false); return; }
       try {
-        const resumes = await FirebaseService.getUserResumes(user.uid);
+        const resumes = await FirebaseService.getUserResumes(user.id);
         setResumeCount(resumes.length);
         if (resumes.length > 0) {
           const sorted = [...resumes].sort((a, b) => {
@@ -458,27 +458,29 @@ function LayoutContent({ children, user }: LayoutClientProps) {
   const pathname = usePathname();
   const [recentPages, setRecentPages] = React.useState<NavItem[]>([]);
   const router = useRouter();
-  const [currentUser, loading] = useAuthState(auth);
+  const [currentUser, loading] = useSupabaseUser();
   const [authResolved, setAuthResolved] = useState(false);
 
-  // ── Live subscription from Firestore (bypasses Redis cache) ───────────────
+  // ── Live subscription via Supabase Realtime (bypasses Redis cache) ────────
   const [liveSubscription, setLiveSubscription] = useState(user?.subscription);
 
   useEffect(() => {
-    if (!currentUser?.uid) return;
-    let unsub: (() => void) | undefined;
-    (async () => {
-      const { db: clientDb } = await import("@/firebase/client");
-      const { doc, onSnapshot } = await import("firebase/firestore");
-      unsub = onSnapshot(doc(clientDb, "users", currentUser.uid), (snap) => {
-        const data = snap.data();
-        if (data?.subscription) {
-          setLiveSubscription(data.subscription);
+    if (!currentUser?.id) return;
+    const channel = supabase
+      .channel(`subscriptions-${currentUser.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'subscriptions', filter: `user_id=eq.${currentUser.id}` },
+        (payload) => {
+          const row = payload.new as { plan?: string; status?: string };
+          if (row?.plan || row?.status) {
+            setLiveSubscription({ plan: row.plan, status: row.status });
+          }
         }
-      });
-    })();
-    return () => unsub?.();
-  }, [currentUser?.uid]);
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [currentUser?.id]);
 
   const { latestResume } = useResumeCount();
 
@@ -486,9 +488,9 @@ function LayoutContent({ children, user }: LayoutClientProps) {
     notifications, unreadCount,
     loading: notificationsLoading,
     markAsRead, markAllAsRead, deleteNotification,
-  } = useNotifications(currentUser?.uid);
+  } = useNotifications(currentUser?.id);
 
-  const photoURL = currentUser?.photoURL ?? null;
+  const photoURL = (currentUser?.user_metadata?.avatar_url as string | undefined) ?? null;
 
   // ── Derive plan info from live Firestore subscription ─────────────────────
   const planInfo = getPlanInfo(liveSubscription);
@@ -496,22 +498,26 @@ function LayoutContent({ children, user }: LayoutClientProps) {
 
   useEffect(() => { if (!loading) setAuthResolved(true); }, [loading]);
 
-  // ── Sync Firebase auth state to the Preciprocal Chrome extension ─────────────
+  // ── Sync Supabase auth state to the Preciprocal Chrome extension ─────────────
   // Fires on every login, logout, or account switch — no polling needed.
+  // The postMessage shape is unchanged from the Firebase-era bridge (the
+  // extension just relays whatever `token` it's given as `x-extension-token`),
+  // so the already-installed extension keeps working once the backend
+  // accepts a Supabase access token there too (see lib/auth/verify-request.ts).
   useEffect(() => {
     if (loading) return;
     const sync = async () => {
       try {
         if (currentUser) {
-          const token = await currentUser.getIdToken(false).catch(() => currentUser.getIdToken(true));
+          const { data: { session } } = await supabase.auth.getSession();
           window.postMessage({
             type: 'PRECIPROCAL_AUTH_CHANGE',
             user: {
-              uid:         currentUser.uid,
-              email:       currentUser.email        || '',
-              displayName: currentUser.displayName  || '',
-              photoURL:    currentUser.photoURL      || '',
-              token,
+              uid:         currentUser.id,
+              email:       currentUser.email || '',
+              displayName: (currentUser.user_metadata?.name as string) || (currentUser.user_metadata?.full_name as string) || '',
+              photoURL:    (currentUser.user_metadata?.avatar_url as string) || '',
+              token:       session?.access_token ?? null,
             },
           }, window.location.origin);
         } else {

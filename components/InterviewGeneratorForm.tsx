@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ChevronDown } from "lucide-react";
 import { useUsageTracking } from "@/lib/hooks/useUsageTracking";
+import { useSupabaseUser } from "@/lib/hooks/useSupabaseUser";
 import { toast } from "sonner";
 import { NotificationService } from "@/lib/services/notification-services";
 
@@ -48,6 +49,11 @@ const inp = [
 export default function InterviewGeneratorForm({ userId }: InterviewGeneratorFormProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // `userId` above is the legacy-resolved id (server-passed, correct for the
+  // Vapi `userid` param). Notifications write directly to Postgres from the
+  // browser under RLS (auth.uid() = user_id), so they need the real
+  // Supabase auth uuid instead - never the legacy id.
+  const [supabaseUser] = useSupabaseUser();
 
   const [isGenerating,     setIsGenerating]     = useState(false);
   const [uploadedFile,     setUploadedFile]     = useState<File | null>(null);
@@ -186,7 +192,7 @@ export default function InterviewGeneratorForm({ userId }: InterviewGeneratorFor
         toast.success('Interview sessions generated!');
 
         // Fire-and-forget notification - never blocks navigation
-        NotificationService.createNotification(userId, 'interview', 'Interview Session Ready 🎤',
+        if (supabaseUser?.id) NotificationService.createNotification(supabaseUser.id, 'interview', 'Interview Session Ready 🎤',
           `Your mixed ${formData.role} interview (${Math.ceil(formData.amount / 2)} technical + ${Math.floor(formData.amount / 2)} behavioral) is ready.`,
           { actionUrl: `/interview/${interviewId}`, actionLabel: 'Start Interview' }
         ).catch(err => console.error('Notification failed:', err));
@@ -210,7 +216,7 @@ export default function InterviewGeneratorForm({ userId }: InterviewGeneratorFor
         toast.success('Interview session generated!');
 
         // Fire-and-forget notification - never blocks navigation
-        NotificationService.createNotification(userId, 'interview', 'Interview Session Ready 🎤',
+        if (supabaseUser?.id) NotificationService.createNotification(supabaseUser.id, 'interview', 'Interview Session Ready 🎤',
           `Your ${formData.type === 'technical' ? 'Technical' : 'Behavioral'} ${formData.role} interview (${formData.amount} questions) is ready.`,
           { actionUrl: `/interview/${interviewId}`, actionLabel: 'Start Interview' }
         ).catch(err => console.error('Notification failed:', err));

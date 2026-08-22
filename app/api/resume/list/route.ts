@@ -1,13 +1,7 @@
 // app/api/resume/list/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, db } from '@/firebase/admin';
-
-interface ResumeDocument {
-  fileName?: string;
-  uploadDate?: string | Date | FirebaseFirestore.Timestamp;
-  createdAt?: string | Date | FirebaseFirestore.Timestamp;
-  [key: string]: unknown;
-}
+import { getAuthedUser } from '@/lib/auth/verify-request';
+import { supabaseAdmin } from '@/supabase/admin';
 
 interface ResumeListItem {
   id: string;
@@ -15,64 +9,27 @@ interface ResumeListItem {
   uploadDate: string;
 }
 
-// Verify Firebase Auth token
-async function verifyToken(request: NextRequest) {
-  try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return null;
-    }
-
-    const token = authHeader.split('Bearer ')[1];
-    const decodedToken = await auth.verifyIdToken(token);
-    return decodedToken;
-  } catch (error) {
-    console.error('Token verification failed:', error);
-    return null;
-  }
-}
-
 export async function GET(request: NextRequest) {
   try {
-    const user = await verifyToken(request);
-    if (!user) {
+    const authedUser = await getAuthedUser(request);
+    if (!authedUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const resumesRef = db.collection('resumes');
-    const snapshot = await resumesRef
-      .where('userId', '==', user.uid)
-      .orderBy('createdAt', 'desc')
-      .get();
+    const { data, error } = await supabaseAdmin
+      .from('resumes')
+      .select('id, file_name, created_at')
+      .eq('user_id', authedUser.supabaseUserId)
+      .eq('deleted', false)
+      .order('created_at', { ascending: false });
 
-    const resumes: ResumeListItem[] = snapshot.docs.map((doc: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>) => {
-      const data = doc.data() as ResumeDocument;
-      
-      // Handle date conversion
-      let uploadDate = new Date().toISOString();
-      const dateField = data.uploadDate || data.createdAt;
-      
-      if (dateField) {
-        try {
-          if (typeof dateField === 'string') {
-            uploadDate = dateField;
-          } else if (dateField instanceof Date) {
-            uploadDate = dateField.toISOString();
-          } else if (dateField && typeof dateField === 'object' && 'toDate' in dateField) {
-            // Firestore Timestamp
-            uploadDate = (dateField as FirebaseFirestore.Timestamp).toDate().toISOString();
-          }
-        } catch (error) {
-          console.error('Error parsing date:', error);
-        }
-      }
+    if (error) throw error;
 
-      return {
-        id: doc.id,
-        fileName: data.fileName || 'Unnamed Resume',
-        uploadDate,
-      };
-    });
+    const resumes: ResumeListItem[] = (data ?? []).map((row) => ({
+      id: row.id,
+      fileName: row.file_name || 'Unnamed Resume',
+      uploadDate: row.created_at,
+    }));
 
     return NextResponse.json({ resumes });
 
