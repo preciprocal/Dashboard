@@ -19,12 +19,15 @@ export async function GET(request: NextRequest) {
     if (!authedUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const { supabaseUserId } = authedUser;
 
-    const [{ data: sub }, { data: usageRow }] = await Promise.all([
+    const [{ data: sub }, { data: usageRow }, { data: profile }] = await Promise.all([
       supabaseAdmin.from('subscriptions').select('plan').eq('user_id', supabaseUserId).maybeSingle(),
       supabaseAdmin.from('usage_counters').select('*').eq('user_id', supabaseUserId).eq('period_start', getCurrentPeriod()).maybeSingle(),
+      supabaseAdmin.from('profiles').select('is_admin').eq('user_id', supabaseUserId).maybeSingle(),
     ]);
 
-    const plan = normalisePlan(sub?.plan || 'free');
+    // Admin accounts always see unlimited, regardless of subscriptions.plan -
+    // mirrors the override in lib/ai/usage-guard.ts.
+    const plan = profile?.is_admin === true ? 'admin' : normalisePlan(sub?.plan || 'free');
 
     return NextResponse.json({
       plan,

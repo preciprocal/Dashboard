@@ -448,9 +448,11 @@ export async function getCurrentUser(): Promise<User | null> {
       .eq("period_start", periodStart)
       .maybeSingle();
 
-    // Resolve plan and limits dynamically from usage-limits.ts
+    // Resolve plan and limits dynamically from usage-limits.ts. Admin
+    // accounts always resolve to unlimited, regardless of subscriptions.plan
+    // - mirrors the override in lib/ai/usage-guard.ts.
     const rawPlan  = sub?.plan || "free";
-    const planKey  = normalisePlan(rawPlan);
+    const planKey  = profile.is_admin === true ? "admin" : normalisePlan(rawPlan);
     const limits   = USAGE_LIMITS[planKey];
     const ivLimit  = limits.interviews === -1 ? 999999 : limits.interviews;
 

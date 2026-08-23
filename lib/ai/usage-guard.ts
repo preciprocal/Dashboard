@@ -86,6 +86,18 @@ async function getSubscription(supabaseUserId: string): Promise<SubscriptionRow 
   return data as SubscriptionRow | null;
 }
 
+// Admin accounts (profiles.is_admin) get unlimited access regardless of
+// whatever is in the subscriptions table - this is granted separately from
+// billing, so it can't be clobbered by a Stripe webhook or trial-expiry sync.
+async function isAdminUser(supabaseUserId: string): Promise<boolean> {
+  const { data } = await supabaseAdmin
+    .from('profiles')
+    .select('is_admin')
+    .eq('user_id', supabaseUserId)
+    .maybeSingle();
+  return data?.is_admin === true;
+}
+
 // ─── Check usage (read-only, does NOT increment) ──────────────────────────────
 
 export async function checkUsage(
@@ -94,9 +106,9 @@ export async function checkUsage(
 ): Promise<UsageCheckResult> {
   try {
     const supabaseUserId = await toSupabaseUserId(userId);
-    const sub = await getSubscription(supabaseUserId);
+    const [sub, admin] = await Promise.all([getSubscription(supabaseUserId), isAdminUser(supabaseUserId)]);
 
-    const plan   = isTrialExpired(sub) ? 'free' : normalisePlan(sub?.plan);
+    const plan   = admin ? 'admin' : isTrialExpired(sub) ? 'free' : normalisePlan(sub?.plan);
     const limits = USAGE_LIMITS[plan];
     const limit  = limits[feature as keyof typeof limits];
     const field  = FEATURE_FIELD[feature];
@@ -147,8 +159,8 @@ export async function checkAndIncrementUsage(
 
   try {
     const supabaseUserId = await toSupabaseUserId(userId);
-    const sub = await getSubscription(supabaseUserId);
-    const trialExpired = isTrialExpired(sub);
+    const [sub, admin] = await Promise.all([getSubscription(supabaseUserId), isAdminUser(supabaseUserId)]);
+    const trialExpired = !admin && isTrialExpired(sub);
 
     // Fold the trial-expiry downgrade in as a best-effort side write, same as
     // the old Firestore transaction did - not part of the atomic increment
@@ -161,7 +173,7 @@ export async function checkAndIncrementUsage(
       }).eq('user_id', supabaseUserId);
     }
 
-    const plan   = trialExpired ? 'free' : normalisePlan(sub?.plan);
+    const plan   = admin ? 'admin' : trialExpired ? 'free' : normalisePlan(sub?.plan);
     const limits = USAGE_LIMITS[plan];
     const limit  = limits[feature as keyof typeof limits];
 

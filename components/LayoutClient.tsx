@@ -86,6 +86,15 @@ function getPlanInfo(subscription?: UserData['subscription']): PlanInfo {
   const plan   = subscription?.plan ?? 'free';
   const status = subscription?.status ?? 'active';
 
+  if (plan === 'admin') {
+    return {
+      text: 'Admin', displayName: 'Admin Access', icon: Shield,
+      style: 'text-rose-400',
+      badgeClass: 'bg-rose-500/10 border-rose-500/20 text-rose-400',
+      showUpgrade: false,
+    };
+  }
+
   if (plan === 'premium' && status === 'active') {
     return {
       text: 'Premium', displayName: 'Premium Plan', icon: Zap,

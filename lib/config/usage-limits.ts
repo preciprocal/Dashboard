@@ -17,9 +17,27 @@ export interface PlanLimits {
   free: UsageLimits;
   pro: UsageLimits;
   premium: UsageLimits;
+  admin: UsageLimits;
 }
 
+const UNLIMITED: UsageLimits = {
+  coverLetters: -1,
+  resumes: -1,
+  studyPlans: -1,
+  interviews: -1,
+  interviewDebriefs: -1,
+  debriefAnalyses: -1,
+  linkedinOptimisations: -1,
+  coldOutreach: -1,
+  findContacts: -1,
+  jobTracker: -1,
+};
+
 export const USAGE_LIMITS: PlanLimits = {
+  // Granted via profiles.is_admin, not a purchasable plan - see
+  // lib/ai/usage-guard.ts, which forces this plan for admin accounts
+  // regardless of what's in the subscriptions table.
+  admin: UNLIMITED,
   free: {
     coverLetters: 3,
     resumes: 2,
@@ -90,6 +108,7 @@ export function getFeatureLimit(plan: string, feature: FeatureType): number {
 
 export function normalisePlan(plan: string): keyof PlanLimits {
   const p = plan.toLowerCase();
+  if (p === 'admin')   return 'admin';
   if (p === 'pro')     return 'pro';
   if (p === 'premium') return 'premium';
   return 'free'; // covers "free", "starter", unknown
