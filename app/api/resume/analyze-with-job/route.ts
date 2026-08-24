@@ -2,15 +2,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUserId } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
-import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage } from '@/lib/ai/claude';
+import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 
 const MAX_TOKENS_DEEP   = 8192;
 const MAX_TOKENS_LEGACY = 2500;
 
-const DEEP_SYSTEM = 'You are a brutally honest senior technical recruiter at a FAANG company with 15+ years of experience. You have reviewed 50,000+ resumes. You DO NOT sugarcoat feedback. Return ONLY valid JSON - no markdown, no preamble. Start with { end with }.';
-const LEGACY_SYSTEM = 'You are a brutally honest senior recruiter. Return ONLY valid JSON - no markdown, no preamble. Start with { end with }.';
+const DEEP_SYSTEM = `You are a brutally honest senior technical recruiter at a FAANG company with 15+ years of experience. You have reviewed 50,000+ resumes. You DO NOT sugarcoat feedback. Return ONLY valid JSON - no markdown, no preamble. Start with { end with }.${LANGUAGE_MATCH_INSTRUCTION}`;
+const LEGACY_SYSTEM = `You are a brutally honest senior recruiter. Return ONLY valid JSON - no markdown, no preamble. Start with { end with }.${LANGUAGE_MATCH_INSTRUCTION}`;
 
 export async function POST(request: NextRequest) {
   try {

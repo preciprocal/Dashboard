@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
 import { redis } from '@/lib/redis/redis-client';
-import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage } from '@/lib/ai/claude';
+import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 import { calibrateSalary } from '@/lib/ai/outcome-tracking';
@@ -23,7 +23,9 @@ RULES:
 4. Keep string values SHORT (under 150 chars). No newlines inside strings.
 5. For Reddit reviews, construct a search URL: https://www.reddit.com/r/{subreddit}/search/?q={company}+{topic}&restrict_sr=1&sort=relevance
 
-CRITICAL: Return ONLY JSON. No markdown. Start with { end with }.`;
+CRITICAL: Return ONLY JSON. No markdown. Start with { end with }.
+
+Keep company/factual data (names, sources, URLs) as-is regardless of language.${LANGUAGE_MATCH_INSTRUCTION}`;
 
 export async function POST(request: NextRequest) {
   try {

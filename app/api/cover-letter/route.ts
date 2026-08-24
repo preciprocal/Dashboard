@@ -5,7 +5,7 @@ import { supabaseAdmin } from '@/supabase/admin';
 import { hashResumeContent } from '@/lib/redis/resume-cache';
 import { redis, RedisKeys } from '@/lib/redis/redis-client';
 import { getUserAIContext } from '@/lib/ai/user-context';
-import { anthropic, CLAUDE_MODEL, extractText, cachedSystem, logUsage } from '@/lib/ai/claude';
+import { anthropic, CLAUDE_MODEL, extractText, cachedSystem, logUsage, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 
@@ -19,7 +19,7 @@ const MAX_TOKENS_RESEARCH = 250;
 const MAX_TOKENS_COURSES  = 500;
 const MAX_TOKENS_PROJECTS = 400;
 
-const SYSTEM_PROMPT = `You are an expert cover letter writer. You create compelling, personalized cover letters that get interviews. You incorporate specific company research, real projects, and academic coursework to create authentic, non-generic letters. Generate the complete cover letter directly. No preamble, no commentary, no em dashes.`;
+const SYSTEM_PROMPT = `You are an expert cover letter writer. You create compelling, personalized cover letters that get interviews. You incorporate specific company research, real projects, and academic coursework to create authentic, non-generic letters. Generate the complete cover letter directly. No preamble, no commentary, no em dashes.${LANGUAGE_MATCH_INSTRUCTION}`;
 
 interface CoverLetterRequest { jobRole: string; jobDescription?: string; companyName?: string; tone?: string; }
 interface CoverLetterCache { content: string; wordCount: number; tokensUsed: number; createdAt: string; }

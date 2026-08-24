@@ -4,6 +4,7 @@ import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { extractTextFromResume } from '@/lib/resume/pdf-text-extractor';
+import { LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
 
 const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
@@ -194,7 +195,8 @@ QUALITY CHECKS:
 - Resume should be same length (±10%) as original
 - All sections from original should be present
 - Format should look identical to original
-- Content should naturally incorporate target keywords`;
+- Content should naturally incorporate target keywords
+${LANGUAGE_MATCH_INSTRUCTION}`;
 
     console.log('🤖 Generating tailored resume...');
     const result = await model.generateContent(prompt);

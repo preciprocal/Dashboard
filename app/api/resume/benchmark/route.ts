@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
-import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage } from '@/lib/ai/claude';
+import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 import { calibratePercentile } from '@/lib/ai/outcome-tracking';
@@ -34,7 +34,7 @@ RULES:
 7. Missing user context (no JD, no target role) is NOT a resume flaw.
 8. "whatHiredCandidatesHaveThatYouDont" must reference SPECIFIC skills, experience patterns, or credentials that real hired people at this company/role typically have - not generic advice.
 
-Return ONLY valid JSON. No markdown. Start with { end with }.`;
+Return ONLY valid JSON. No markdown. Start with { end with }.${LANGUAGE_MATCH_INSTRUCTION}`;
 
 const buildPrompt = (d: Record<string, unknown>): string => {
   const s = d.feedback as Record<string, unknown> | undefined;

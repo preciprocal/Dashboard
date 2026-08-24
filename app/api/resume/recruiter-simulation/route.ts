@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUserId } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
-import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage } from '@/lib/ai/claude';
+import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 import { calibrateRecruiterAttention, HIRING_BASELINES } from '@/lib/ai/outcome-tracking';
@@ -15,7 +15,7 @@ const MAX_TOKENS = 1800; // bumped slightly to accommodate companyProfile + hiri
 function buildSystemPrompt(hasCompany: boolean, hasJD: boolean): string {
   const base = `You are a brutal, no-nonsense senior recruiter. Resume #187 of your day. You do not care about feelings.
 Your response MUST reference ACTUAL TEXT from the resume - quote specific job titles, company names, bullet points. Nothing generic.
-Most resumes score 40-65. passScreening = true ONLY if you'd forward to the hiring manager right now.`;
+Most resumes score 40-65. passScreening = true ONLY if you'd forward to the hiring manager right now.${LANGUAGE_MATCH_INSTRUCTION}`;
 
   if (hasJD && hasCompany) {
     return `${base}

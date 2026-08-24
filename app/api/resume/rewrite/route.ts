@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { getAuthedUserId } from '@/lib/auth/verify-request';
-import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage } from '@/lib/ai/claude';
+import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 
@@ -12,7 +12,7 @@ import { applyRateLimit } from '@/lib/ai/rate-limit';
 const MAX_TOKENS_TEXT = 2500;
 const MAX_TOKENS_FILE = 3500;
 
-const REWRITE_SYSTEM = `You are an elite resume writer with 15+ years crafting resumes for Fortune 500 candidates. Create multiple distinct rewrite suggestions, progressively more optimised. Return ONLY valid JSON. No markdown. Start with { end with }.`;
+const REWRITE_SYSTEM = `You are an elite resume writer with 15+ years crafting resumes for Fortune 500 candidates. Create multiple distinct rewrite suggestions, progressively more optimised. Return ONLY valid JSON. No markdown. Start with { end with }.${LANGUAGE_MATCH_INSTRUCTION}`;
 
 interface RewriteContext { jobTitle?: string; companyName?: string; jobDescription?: string; missingKeywords?: string[]; missingSkills?: string[]; }
 interface Suggestion { id: string; original?: string; rewritten: string; improvements: string[]; tone: string; score: number; keywordsAdded?: string[]; atsOptimizations?: string[]; confidenceScore: number; optimizationMode: string; }

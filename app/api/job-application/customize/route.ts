@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUserId } from '@/lib/auth/verify-request';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
 
 const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
@@ -110,7 +111,8 @@ IMPORTANT FORMATTING RULES:
 - Keep contact information unchanged unless specifically requested
 
 Return the complete customized ${documentType} with the requested changes applied.
-Do NOT add explanations or commentary - just return the updated document.`;
+Do NOT add explanations or commentary - just return the updated document.
+${LANGUAGE_MATCH_INSTRUCTION}`;
 
     console.log('🤖 Generating customization...');
     const result = await model.generateContent(prompt);

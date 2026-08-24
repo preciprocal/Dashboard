@@ -5,7 +5,7 @@ import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
 import { redis } from '@/lib/redis/redis-client';
 import { getUserAIContext } from '@/lib/ai/user-context';
-import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, cleanResumeText } from '@/lib/ai/claude';
+import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, cleanResumeText, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 
@@ -49,7 +49,7 @@ CRITICAL FORMAT RULES FOR "changes" ARRAY:
   "Python, SQL → Python, SQL, Tableau, Power BI, Apache Spark"
   "(none) → Detail-oriented Junior Data Analyst with expertise in collecting, cleaning, and analyzing data"
 
-CRITICAL: Return ONLY valid JSON. No markdown fences, no preamble. Start with { end with }.`;
+CRITICAL: Return ONLY valid JSON. No markdown fences, no preamble. Start with { end with }.${LANGUAGE_MATCH_INSTRUCTION}`;
 
 interface TailorRequest { resumeId?: string; jobTitle: string; companyName?: string; jobDescription: string; }
 

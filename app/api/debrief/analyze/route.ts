@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUserId } from '@/lib/auth/verify-request';
 import { getUserAIContext, buildUserContextPrompt } from '@/lib/ai/user-context';
-import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage } from '@/lib/ai/claude';
+import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 
@@ -21,7 +21,7 @@ Rules:
 - If only 1-2 entries, acknowledge but still give useful observations.
 - Cross-reference resume/transcript with interview performance when available.
 
-CRITICAL: Return ONLY valid JSON. No markdown. Start with { end with }.`;
+CRITICAL: Return ONLY valid JSON. No markdown. Start with { end with }.${LANGUAGE_MATCH_INSTRUCTION}`;
 
 interface DebriefEntry { companyName: string; jobTitle: string; stage: string; outcome: string; selfScore: number; difficultyRating: number; emotionalStateBefore: string; emotionalStateAfter: string; whatWentWell: string; whatWentPoorly: string; surprises: string; followUpActions: string; questionsAsked: string[]; durationMinutes: number; interviewDate: string; }
 

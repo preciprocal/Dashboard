@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
 import { getUserAIContext } from '@/lib/ai/user-context';
-import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage } from '@/lib/ai/claude';
+import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 
@@ -15,7 +15,7 @@ const OUTREACH_SYSTEM = `You are a master of professional outreach - sales psych
 
 Rules: Lead with a hook about THEM. Be concise. Small ask. Never "My name is..." or "I hope this finds you well". Sound human. Use sender's resume achievements when available.
 
-CRITICAL: Return ONLY valid JSON. No markdown. Start with { end with }.`;
+CRITICAL: Return ONLY valid JSON. No markdown. Start with { end with }.${LANGUAGE_MATCH_INSTRUCTION}`;
 
 export async function POST(request: NextRequest) {
   try {

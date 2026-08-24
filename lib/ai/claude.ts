@@ -235,6 +235,19 @@ export function cleanResumeText(text: string): string {
     .replace(/\r\n/g, '\n')                       // normalize line endings
     .replace(/[ \t]+/g, ' ')                      // collapse horizontal whitespace
     .replace(/\n{3,}/g, '\n\n')                   // collapse triple+ newlines
-    .replace(/[^\x20-\x7E\n\u00C0-\u024F]/g, '') // strip non-printable chars (keep accented)
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // strip control chars only - keeps every language's characters
     .trim();
 }
+
+// ─── Multilingual Output ─────────────────────────────────────────────────────
+
+/**
+ * Appended to system prompts for every feature that reads a resume, job
+ * description, or job title and produces candidate-facing text (feedback,
+ * rewrites, tailored content). Ensures non-English candidates get the whole
+ * response - including rewritten "edit" text - in their own language,
+ * instead of English feedback on a non-English resume.
+ */
+export const LANGUAGE_MATCH_INSTRUCTION = `
+
+LANGUAGE: Detect the language the candidate's resume, job description, and/or job title are written in. If it is not English, respond ENTIRELY in that language - every piece of narrative text: feedback, explanations, quotes, tips, verdicts, AND any rewritten/tailored/"improved" text you generate. The candidate must be able to use your output directly, so a rewritten bullet point must be written in their language, not translated-then-English. Keep JSON field names exactly as specified in the schema (always English) - only the string VALUES change language. If the resume and job description are in different languages, prefer the resume's language for anything the candidate will reuse (rewrites, edits), since that is the language of the document they will submit. If everything is in English, respond in English as normal.`;

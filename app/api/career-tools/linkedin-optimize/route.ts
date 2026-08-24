@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
 import { getUserAIContext, buildUserContextPrompt } from '@/lib/ai/user-context';
-import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage } from '@/lib/ai/claude';
+import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 
@@ -13,7 +13,7 @@ const MAX_TOKENS = 2500;
 
 const LI_SYSTEM = `You are a LinkedIn optimization expert who has helped 10,000+ professionals land jobs. You understand LinkedIn's search algorithm and recruiter behavior. Brutally honest, every suggestion immediately actionable. Use resume/academic data when available.
 
-CRITICAL: Return ONLY valid JSON. No markdown. Start with { end with }.`;
+CRITICAL: Return ONLY valid JSON. No markdown. Start with { end with }.${LANGUAGE_MATCH_INSTRUCTION}`;
 
 export async function POST(request: NextRequest) {
   const start = Date.now();

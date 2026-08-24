@@ -10,7 +10,7 @@ import {
   getCachedResumeFixes, cacheResumeFixes,
   type ResumeFeedback, type ResumeFix,
 } from '@/lib/redis/resume-cache';
-import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, cleanResumeText } from '@/lib/ai/claude';
+import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, cleanResumeText, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 
 export const runtime = 'nodejs';
@@ -200,7 +200,7 @@ CRITICAL: Return ONLY a valid JSON object. No markdown fences, no preamble. Star
   "skills": { "score": <0-100>, "tips": [...] }
 }
 
-Each section: 4–6 tips, mix of good/improve. At least 2 improve tips per section must have a "solution".`;
+Each section: 4–6 tips, mix of good/improve. At least 2 improve tips per section must have a "solution".${LANGUAGE_MATCH_INSTRUCTION}`;
 
 const FIX_SYSTEM = `You are an expert resume editor. Give specific, copy-pasteable improvements - not encouragement.
 
@@ -212,12 +212,12 @@ RULES:
 CRITICAL: Return ONLY valid JSON. No markdown, no preamble. Start with { end with }.
 { "fixes": [{ "id": "fix-1", "category": "...", "issue": "...", "originalText": "...", "improvedText": "...", "explanation": "...", "priority": "high"|"medium"|"low", "impact": "...", "location": "..." }] }
 
-Provide 10–15 fixes. Prioritise high-impact content and ATS fixes first.`;
+Provide 10–15 fixes. Prioritise high-impact content and ATS fixes first.${LANGUAGE_MATCH_INSTRUCTION}`;
 
 const JOB_ANALYSIS_SYSTEM = `You are a career coach. Analyse job postings and identify what a candidate must emphasise to be competitive. Be specific, no generic advice.
 
 CRITICAL: Return ONLY valid JSON. No markdown, no preamble. Start with { end with }.
-{ "atsScore": <0-100>, "keywordMatch": <0-100>, "suggestions": ["..."], "missingSkills": ["..."], "topKeywords": ["..."], "strengthenSections": ["..."] }`;
+{ "atsScore": <0-100>, "keywordMatch": <0-100>, "suggestions": ["..."], "missingSkills": ["..."], "topKeywords": ["..."], "strengthenSections": ["..."] }${LANGUAGE_MATCH_INSTRUCTION}`;
 
 // ─── GET ──────────────────────────────────────────────────────────────────────
 
@@ -552,7 +552,7 @@ Return ONLY JSON: { "improvedText": "...", "explanation": "...", "impact": "..."
       anthropic!.messages.create({
         model: CLAUDE_MODEL,
         max_tokens: 400,
-        system: cachedSystem('You are an expert resume editor. Provide alternative rewrites. Return ONLY valid JSON.'),
+        system: cachedSystem(`You are an expert resume editor. Provide alternative rewrites. Return ONLY valid JSON.${LANGUAGE_MATCH_INSTRUCTION}`),
         messages: [{ role: 'user', content: prompt }],
       }),
     );
