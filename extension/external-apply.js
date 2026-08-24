@@ -52,7 +52,12 @@ if (window._preciprocalLoaded) {
   console.log('🚀 Preciprocal external-apply.js on:', window.location.hostname);
 }
 
-const IS_DEV = true;
+// NEVER ship this as true - it points every API call this content script
+// makes (job match scoring, profile data, apply tracking) at localhost
+// instead of production, so it silently fails for every real user. Only
+// flip it for local testing against `npm run dev`, and flip it back before
+// packaging.
+const IS_DEV = false;
 const PRECIPROCAL_URL = IS_DEV ? 'http://localhost:3000' : 'https://app.preciprocal.com';
 
 // ─────────────────────────────────────────────────────────────────
@@ -759,7 +764,7 @@ function matchByLabel(label, p) {
 
 function matchSelectByLabel(label, p) {
   const L = label.replace(/[\s*✱✳†‡★•·]+$/, '').trim().toLowerCase();
-  if (/country/i.test(L))                                    return p.country || 'United States';
+  if (/country/i.test(L))                                    return p.country || '';
   if (/\bstate\b|\bprovince\b/i.test(L))                     return p.state || '';
   if (/\bcity\b/i.test(L))                                    return p.city  || '';
   if (/zip|postal.?code|post.?code/i.test(L))                return p.zipCode || '';
@@ -813,7 +818,13 @@ function matchSelectByLabel(label, p) {
   if (/former employee|previously.*employed.*at|ex.?employee/i.test(L))      return 'No';
   if (/non.?compete|restrictive.*covenant|agreement.*prohibit/i.test(L))     return 'No';
   if (/security clearance/i.test(L))                                          return 'No';
-  if (/us citizen|american citizen|citizenship/i.test(L))                     return 'Yes';
+  // Only claim US citizenship when the candidate's country is actually the US
+  // (or unset) - this used to unconditionally answer "Yes" to ANY citizenship
+  // question, which misrepresented every international applicant.
+  if (/us citizen|american citizen|citizenship/i.test(L)) {
+    const c = (p.country || '').trim().toLowerCase();
+    return (!c || /^(united states|usa|u\.s\.a?\.?|us)$/.test(c)) ? 'Yes' : 'No';
+  }
   if (/willing.*overtime|open.*overtime|overtime.*requir/i.test(L))           return 'Yes';
   if (/within.*miles|within.*distance|near.*office|commute.*distance|office.*proximity/i.test(L)) return 'None';
   if (/willing.*travel|open.*travel|travel.*requir/i.test(L))                 return p.openToTravel || 'No';
@@ -1027,6 +1038,17 @@ async function fillCustomDropdown(trigger, desiredValue) {
                         trigger.getAttribute('role') === 'combobox' ||
                         !!trigger.querySelector('[class*="select__input"],[class*="__input"]');
   if (isReactSelect) return fillReactSelect(trigger, desiredValue);
+
+  // Already has the correct value? Bail out before touching it again. Unlike
+  // fillReactSelect, this path (Radix/MUI/Ant/generic listbox) had no such
+  // check, so a second scan of the page (e.g. smartScan running after a
+  // platform handler already filled this same trigger) would blindly
+  // reopen and reselect an already-correct field, flickering it 2-3 times.
+  const currentText = (trigger.querySelector('[class*="single-value"],[class*="singleValue"],[class*="selected-value"]')?.textContent
+    || trigger.textContent || '').trim();
+  if (currentText && !/^(select|choose|--|please select)/i.test(currentText) && scoreMatch(desiredValue.toLowerCase(), currentText.toLowerCase()) > 0.8) {
+    return true;
+  }
 
   // Find search/filter input inside trigger (for filterable dropdowns)
   const searchInput =
@@ -1487,16 +1509,19 @@ async function fillGreenhouse(p) {
   }
 
   // ── Phone country React Select (Greenhouse phone-input fieldset) ──
-  // Greenhouse renders a React Select for the country code inside .phone-input__country
-  const phoneCountryContainers = document.querySelectorAll('.phone-input__country [class*="-container"],.phone-input [class*="-container"]');
-  for (const cont of phoneCountryContainers) {
-    const sv = cont.querySelector('[class*="single-value"],[class*="singleValue"]');
-    if (sv && sv.textContent?.trim() && !/^(select|choose|--)/i.test(sv.textContent)) continue;
-    const countryVal = p.country || 'United States';
-    const control    = cont.querySelector('[class*="-control"]') || cont;
-    console.log(`🎯 Phone country React Select → "${countryVal}"`);
-    const ok = await fillReactSelect(control, countryVal);
-    if (ok) { filled++; await delay(600); }
+  // Greenhouse renders a React Select for the country code inside .phone-input__country.
+  // Only fill it when we actually know the candidate's country - guessing "United
+  // States" here silently mis-tags every non-US applicant's phone country code.
+  if (p.country) {
+    const phoneCountryContainers = document.querySelectorAll('.phone-input__country [class*="-container"],.phone-input [class*="-container"]');
+    for (const cont of phoneCountryContainers) {
+      const sv = cont.querySelector('[class*="single-value"],[class*="singleValue"]');
+      if (sv && sv.textContent?.trim() && !/^(select|choose|--)/i.test(sv.textContent)) continue;
+      const control = cont.querySelector('[class*="-control"]') || cont;
+      console.log(`🎯 Phone country React Select → "${p.country}"`);
+      const ok = await fillReactSelect(control, p.country);
+      if (ok) { filled++; await delay(600); }
+    }
   }
 
   filled += await smartScan(p);
@@ -1673,11 +1698,15 @@ async function fillWorkdayStep(p) {
     }
   }
 
-  const targetCountry = p.country || 'United States';
-  const countrySelect = document.querySelector('select[data-automation-id="addressSection_countryRegion"],select[data-automation-id*="country" i]');
-  if (countrySelect) setSelectValue(countrySelect, targetCountry);
-  else await wdPickListbox('addressSection_countryRegion', targetCountry);
-  await delay(1200);
+  // Only fill Workday's country field when the candidate's actual country is
+  // known - defaulting to "United States" silently mis-locates every
+  // non-US applicant.
+  if (p.country) {
+    const countrySelect = document.querySelector('select[data-automation-id="addressSection_countryRegion"],select[data-automation-id*="country" i]');
+    if (countrySelect) setSelectValue(countrySelect, p.country);
+    else await wdPickListbox('addressSection_countryRegion', p.country);
+    await delay(1200);
+  }
 
   if (p.state) {
     let stateFilled = false;
@@ -2044,7 +2073,7 @@ async function fillSmartRecruiters(p) {
   for (const sel of allSelects) {
     if (sel.value && sel.value !== '' && sel.value !== '0') continue;
     const lbl = srGetLabel(sel).toLowerCase();
-    if (/country/i.test(lbl))             setSelectValue(sel, p.country||'United States');
+    if (/country/i.test(lbl))             setSelectValue(sel, p.country||'');
     else if (/state|province/i.test(lbl)) setSelectValue(sel, p.state||'');
   }
   const allTextareas = srQueryAll('textarea:not([disabled])');
@@ -3594,6 +3623,55 @@ async function boot() {
   await _instance.init();
 }
 
+// Runs the actual "auto-fill this page" logic - shared by real navigation
+// (onNavigation, URL changed) and same-URL step transitions inside
+// multi-step SPAs like Workday (My Information -> My Experience ->
+// Application Questions -> ... all on ONE url, just swapping the form in
+// place). Previously only onNavigation ever ran this, and onNavigation
+// bails out immediately whenever the URL hasn't changed - so the
+// dedicated same-URL detector further below (_domObserver) was calling
+// onNavigation to re-trigger the fill, which did nothing, every time.
+async function triggerAutoFill() {
+  if (_autoFilling || !_instance) return;
+  try {
+    const stored = await chrome.storage.local.get(['preciprocal_auto_apply_profile','preciprocal_auto_apply_timestamp','preciprocal_auto_apply_files']);
+    const age    = Date.now() - (stored.preciprocal_auto_apply_timestamp || 0);
+    if (!stored.preciprocal_auto_apply_profile || age >= 10 * 60 * 1000) return;
+
+    console.log('⚡ Preciprocal: auto-triggering fill on new page');
+    _autoFilling = true;
+    await delay(3000);
+    const platform = detectPlatform();
+    const profile  = stored.preciprocal_auto_apply_profile;
+    const label    = document.getElementById('prc-fill-label');
+    const icon     = document.getElementById('prc-fill-icon');
+    if (label) label.textContent = 'Auto-filling…';
+    if (icon)  icon.innerHTML    = '<span class="prc-spinner"></span>';
+    document.getElementById('prc-autofill-btn')?.classList.add('loading');
+    const statusEl = document.getElementById('prc-fill-status');
+    const onDetail = isJobDetailPage();
+    if (onDetail) { await clickApplyAndWaitForForm(statusEl); await delay(800); }
+    const { filled } = await fillForm(profile, platform);
+    const btn = document.getElementById('prc-autofill-btn');
+    btn?.classList.remove('loading'); btn?.classList.add('done');
+    if (icon)  icon.innerHTML = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
+    if (label) label.textContent = `${filled} fields filled`;
+    if (_instance) {
+      const totalOnPage = _instance._countPageFields();
+      const pct = totalOnPage > 0 ? Math.min(100, Math.round((filled / totalOnPage) * 100)) : 100;
+      _instance._updateCompletion(pct);
+      _instance._updateFieldChecks();
+      // Same end-of-fill error check the manual "Autofill" button gets
+      // (see the button handler further down).
+      setTimeout(() => _instance?._analyzeAndShowResults(), 700);
+    }
+  } catch (err) {
+    console.warn('⚠️ Auto-fill failed:', err.message);
+  } finally {
+    _autoFilling = false;
+  }
+}
+
 async function onNavigation() {
   const currentUrl = window.location.href;
   if (currentUrl === _lastUrl) return;
@@ -3606,40 +3684,7 @@ async function onNavigation() {
   if (!isApplicationPage()) return;
   _instance = new PreciprocalSidebar();
   await _instance.init();
-
-  if (!_autoFilling) {
-    try {
-      const stored = await chrome.storage.local.get(['preciprocal_auto_apply_profile','preciprocal_auto_apply_timestamp','preciprocal_auto_apply_files']);
-      const age    = Date.now() - (stored.preciprocal_auto_apply_timestamp || 0);
-      if (stored.preciprocal_auto_apply_profile && age < 10 * 60 * 1000) {
-        console.log('⚡ Preciprocal: auto-triggering fill on new page');
-        _autoFilling = true;
-        await delay(3000);
-        const platform = detectPlatform();
-        const profile  = stored.preciprocal_auto_apply_profile;
-        const label    = document.getElementById('prc-fill-label');
-        const icon     = document.getElementById('prc-fill-icon');
-        if (label) label.textContent = 'Auto-filling…';
-        if (icon)  icon.innerHTML    = '<span class="prc-spinner"></span>';
-        document.getElementById('prc-autofill-btn')?.classList.add('loading');
-        const statusEl = document.getElementById('prc-fill-status');
-        const onDetail = isJobDetailPage();
-        if (onDetail) { await clickApplyAndWaitForForm(statusEl); await delay(800); }
-        const { filled } = await fillForm(profile, platform);
-        const btn = document.getElementById('prc-autofill-btn');
-        btn?.classList.remove('loading'); btn?.classList.add('done');
-        if (icon)  icon.innerHTML = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
-        if (label) label.textContent = `${filled} fields filled`;
-        if (_instance) {
-          const totalOnPage = _instance._countPageFields();
-          const pct = totalOnPage > 0 ? Math.min(100, Math.round((filled / totalOnPage) * 100)) : 100;
-          _instance._updateCompletion(pct);
-          _instance._updateFieldChecks();
-        }
-        _autoFilling = false;
-      }
-    } catch (err) { console.warn('⚠️ Auto-fill on navigation failed:', err.message); _autoFilling = false; }
-  }
+  await triggerAutoFill();
 }
 
 (function patchHistory() {
@@ -3653,12 +3698,12 @@ async function onNavigation() {
 let _domChangeTimer = null;
 const _domObserver  = new MutationObserver(() => {
   const currentUrl = window.location.href;
-  if (currentUrl !== _lastUrl) return;
+  if (currentUrl !== _lastUrl) return; // real navigation - onNavigation's listeners handle that
   clearTimeout(_domChangeTimer);
   _domChangeTimer = setTimeout(async () => {
     if (_autoFilling || !_instance) return;
     const emptyRequired = document.querySelectorAll('[data-automation-id*="firstName"] input:placeholder-shown,[data-automation-id*="lastName"] input:placeholder-shown,[data-automation-id*="email"] input:placeholder-shown');
-    if (emptyRequired.length > 0) { console.log('🔵 Preciprocal: detected new empty fields, re-triggering fill'); await onNavigation(); }
+    if (emptyRequired.length > 0) { console.log('🔵 Preciprocal: same-page step change detected (e.g. Workday), re-triggering fill'); await triggerAutoFill(); }
   }, 1500);
 });
 _domObserver.observe(document.body, { childList:true, subtree:false });

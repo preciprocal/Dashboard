@@ -15,7 +15,12 @@
 
 console.log('🎯 Preciprocal banner.js loaded on:', window.location.href);
 
-const IS_DEV = true;
+// NEVER ship this as true - it points every API call this content script
+// makes (job match scoring, profile data, apply tracking) at localhost
+// instead of production, so it silently fails for every real user. Only
+// flip it for local testing against `npm run dev`, and flip it back before
+// packaging.
+const IS_DEV = false;
 const PRECIPROCAL_URL = IS_DEV ? 'http://localhost:3000' : 'https://app.preciprocal.com';
 
 // ─────────────────────────────────────────────────────────────────
@@ -381,8 +386,9 @@ class EasyApplyEngine {
     if (/sponsor/i.test(hint)) { this._selectByText(select, p.requireSponsorship ? 'Yes' : 'No'); return; }
     if (/relocat/i.test(hint)) { this._selectByText(select, p.willingToRelocate ? 'Yes' : 'No'); return; }
     if (/country/i.test(hint)) {
-      const variants = [p.country, 'United States', 'United States of America', 'USA', 'US'].filter(Boolean);
-      for (const v of variants) { this._selectByText(select, v); if (!this._selectIsEmpty(select)) break; }
+      // Only fill when we actually know the candidate's country - guessing
+      // "United States" silently mis-locates every non-US applicant.
+      if (p.country) this._selectByText(select, p.country);
       return;
     }
     if (/\bstate\b|current.*state|state.*address/i.test(hint)) { if (p.state) this._selectByText(select, p.state); return; }

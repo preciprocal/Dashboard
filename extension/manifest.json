@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Preciprocal",
-  "version": "1.5.0",
+  "version": "1.5.2",
   "description": "Apply to 50+ jobs with one click. AI cover letters in 10 seconds. Track every application. 60-day money-back guarantee.",
   "permissions": [
     "storage",
