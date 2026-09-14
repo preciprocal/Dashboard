@@ -46,3 +46,6 @@ next-env.d.ts
 
 # Supabase CLI local cache (contains connection details, machine-specific)
 supabase/.temp/
+
+# Rendered output of scripts/preview-welcome-email.ts
+welcome-email-preview.html
