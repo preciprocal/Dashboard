@@ -7,16 +7,56 @@
 //   2. Create a catch-all route for "support@preciprocal.com"
 //   3. Set webhook URL to: https://your-domain.com/api/support/inbound-email
 //   4. Set INBOUND_WEBHOOK_SECRET in .env.local to the Resend signing secret
+//      (the `whsec_...` value from the webhook's settings). REQUIRED - this
+//      route rejects every request until it is set, because it writes into
+//      customer support threads.
 //   5. Ensure NEXT_PUBLIC_APP_URL is set to your production domain
 //
 // FLOW: Admin replies to ticket email → email hits support@preciprocal.com →
 //       Resend fires this webhook → reply saved to Firestore → user notified.
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { supabaseAdmin } from '@/supabase/admin';
 import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+
+const WEBHOOK_SECRET = process.env.INBOUND_WEBHOOK_SECRET;
+
+/**
+ * Verify the Svix signature Resend sends on inbound webhooks.
+ *
+ * Resend uses Svix, so the signed payload is `${id}.${timestamp}.${body}` and
+ * the `svix-signature` header carries one or more space-separated
+ * `v1,<base64>` values (more than one during a secret rotation). The secret
+ * itself is `whsec_<base64>`; the bytes after that prefix are the HMAC key.
+ */
+function verifySignature(raw: string, headers: Headers): boolean {
+  const id        = headers.get('svix-id');
+  const timestamp = headers.get('svix-timestamp');
+  const signature = headers.get('svix-signature');
+  if (!id || !timestamp || !signature || !WEBHOOK_SECRET) return false;
+
+  // Reject anything older than 5 minutes so a captured request cannot be
+  // replayed indefinitely.
+  const age = Math.abs(Date.now() / 1000 - Number(timestamp));
+  if (!Number.isFinite(age) || age > 300) return false;
+
+  const key = Buffer.from(WEBHOOK_SECRET.replace(/^whsec_/, ''), 'base64');
+  const expected = createHmac('sha256', key)
+    .update(`${id}.${timestamp}.${raw}`)
+    .digest('base64');
+  const expectedBuf = Buffer.from(expected);
+
+  // Constant-time compare against every offered signature; a plain === would
+  // leak position-of-first-difference via timing.
+  return signature.split(' ').some(part => {
+    const provided = part.startsWith('v1,') ? part.slice(3) : part;
+    const buf = Buffer.from(provided);
+    return buf.length === expectedBuf.length && timingSafeEqual(buf, expectedBuf);
+  });
+}
 
 // ─── Resend inbound payload ───────────────────────────────────────────────────
 // Resend sends the from field as a plain string "Name <email>" or just "email"
@@ -30,14 +70,27 @@ interface ResendInboundPayload {
 
 export async function POST(request: NextRequest) {
   try {
-    // Optional: verify Resend webhook signature
-    // const sig = request.headers.get('resend-signature');
-    // const secret = process.env.INBOUND_WEBHOOK_SECRET;
-    // if (secret && !verifyResendSignature(sig, secret, rawBody)) {
-    //   return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
-    // }
+    // ── Authenticate the webhook ─────────────────────────────────────────────
+    // This endpoint writes directly into support ticket threads, so without a
+    // signature check anyone who found the URL could inject forged replies
+    // that look like they came from the support team.
+    //
+    // Fails CLOSED when the secret is unset. An unauthenticated writer into
+    // customer conversations is worse than a support inbox that stops
+    // ingesting until INBOUND_WEBHOOK_SECRET is configured - and the loud 503
+    // is what makes a missing secret noticeable at all.
+    const raw = await request.text();
 
-    const body = await request.json() as ResendInboundPayload;
+    if (!WEBHOOK_SECRET) {
+      console.error('❌ INBOUND_WEBHOOK_SECRET is not set - rejecting inbound email webhook');
+      return NextResponse.json({ error: 'Webhook not configured' }, { status: 503 });
+    }
+    if (!verifySignature(raw, request.headers)) {
+      console.warn('⚠️ Rejected inbound email webhook: bad or missing signature');
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+    }
+
+    const body = JSON.parse(raw) as ResendInboundPayload;
     const { from, subject, text, html } = body;
 
     if (!subject) {
@@ -228,7 +281,7 @@ function cleanEmailReply(rawText: string): string {
   while (clean.length > 0 && clean[clean.length - 1].trim() === '') clean.pop();
 
   // Strip common email signatures
-  let result = clean.join('\n')
+  const result = clean.join('\n')
     .replace(/\n--\s*\n[\s\S]*$/, '')
     .replace(/\nSent from my (iPhone|iPad|Android|Galaxy|Pixel)[\s\S]*$/i, '')
     .replace(/\nGet Outlook for [\s\S]*$/i, '')

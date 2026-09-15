@@ -378,7 +378,12 @@ const Agent = ({
 
     try {
       if (type === "generate") {
-        await vapi.start(process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!, {
+        // Guarded rather than asserted with `!`: the env var is not always
+        // set, and passing undefined into vapi.start throws an opaque SDK
+        // error. FullScreenInterviewpanel already checks this the same way.
+        const workflowId = process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID;
+        if (!workflowId) throw new Error("Interview generation is not configured. Please contact support.");
+        await vapi.start(workflowId, {
           variableValues: { username: userName, userid: userId },
         });
       } else {

@@ -156,7 +156,7 @@ function JobToolsContent() {
 
   useEffect(() => {
     if (fromExtension || loading) return;
-    if (!user) router.push('/auth?redirect=job-tools');
+    if (!user) router.push('/sign-in?redirect=/job-tools');
   }, [user, loading, fromExtension, router]);
 
   useEffect(() => {
@@ -333,7 +333,7 @@ function JobToolsContent() {
               Please extract job data using the Preciprocal Chrome extension first.
             </p>
             <div className="space-y-3">
-              <Link href="/dashboard" className="glass-button-primary hover-lift inline-flex items-center px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-medium text-sm sm:text-base w-full justify-center">
+              <Link href="/" className="glass-button-primary hover-lift inline-flex items-center px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-medium text-sm sm:text-base w-full justify-center">
                 Go to Dashboard
               </Link>
               <a href="https://chrome.google.com/webstore" target="_blank" rel="noopener noreferrer"
@@ -350,7 +350,7 @@ function JobToolsContent() {
   return (
     <div className="min-h-screen px-4 py-6 sm:py-8">
       <div className="max-w-7xl mx-auto">
-        <Link href="/dashboard" className="inline-flex items-center text-sm text-slate-400 hover:text-white transition-colors mb-4 sm:mb-6">
+        <Link href="/" className="inline-flex items-center text-sm text-slate-400 hover:text-white transition-colors mb-4 sm:mb-6">
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Dashboard
         </Link>
@@ -642,7 +642,7 @@ function JobToolsContent() {
                     ))}
                   </div>
                   <div className="mt-6">
-                    <Link href="/interviews" className="glass-button-primary hover-lift px-4 py-3 rounded-xl font-medium text-sm inline-flex items-center gap-2">
+                    <Link href="/interview" className="glass-button-primary hover-lift px-4 py-3 rounded-xl font-medium text-sm inline-flex items-center gap-2">
                       <Video className="w-4 h-4" />Start Mock Interview
                     </Link>
                   </div>

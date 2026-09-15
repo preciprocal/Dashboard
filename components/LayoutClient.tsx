@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { signOut } from "@/lib/actions/auth.action";
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
+import SessionHeartbeat from '@/components/SessionHeartbeat';
 import { supabase } from '@/supabase/client';
 import { FirebaseService } from '@/lib/services/firebase-service';
 import { useNotifications } from '@/lib/hooks/useNotifications';
@@ -508,14 +509,18 @@ function LayoutContent({ children, user }: LayoutClientProps) {
   useEffect(() => { if (!loading) setAuthResolved(true); }, [loading]);
 
   // ── Sync Supabase auth state to the Preciprocal Chrome extension ─────────────
-  // Fires on every login, logout, or account switch — no polling needed.
-  // The postMessage shape is unchanged from the Firebase-era bridge (the
-  // extension just relays whatever `token` it's given as `x-extension-token`),
-  // so the already-installed extension keeps working once the backend
-  // accepts a Supabase access token there too (see lib/auth/verify-request.ts).
+  // The extension is a "dumb bearer token holder" agnostic to which backend
+  // minted the token (see the migration plan's Phase 2b) - it never reads
+  // Supabase's session storage directly, it only relays whatever this
+  // postMessage broadcasts. Fires on every login, logout, account switch, and
+  // silent token refresh (onAuthStateChange fires on TOKEN_REFRESHED too, so
+  // the extension's copy stays fresh for as long as this tab stays open) -
+  // plus once on demand whenever a freshly-injected content script asks via
+  // PRECIPROCAL_REQUEST_AUTH, so a new tab doesn't have to wait for a change.
   useEffect(() => {
     if (loading) return;
-    const sync = async () => {
+
+    const broadcastAuth = async () => {
       try {
         if (currentUser) {
           const { data: { session } } = await supabase.auth.getSession();
@@ -534,7 +539,15 @@ function LayoutContent({ children, user }: LayoutClientProps) {
         }
       } catch { /* extension may not be installed — silent */ }
     };
-    sync();
+
+    broadcastAuth();
+
+    const handleAuthRequest = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === 'PRECIPROCAL_REQUEST_AUTH') broadcastAuth();
+    };
+    window.addEventListener('message', handleAuthRequest);
+    return () => window.removeEventListener('message', handleAuthRequest);
   }, [currentUser, loading]);
 
   // ── Auth guard: redirect to sign-in if session is missing or empty ─────────
@@ -990,6 +1003,7 @@ export default function LayoutClient({ children, user, userStats }: LayoutClient
           },
         }}
       />
+      <SessionHeartbeat />
       <LayoutContent user={user} userStats={userStats}>
         {children}
       </LayoutContent>

@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { supabaseAdmin } from "@/supabase/admin";
 import { getAuthedUser } from "@/lib/auth/verify-request";
 import { redis } from "@/lib/redis/redis-client";
+import { recordReactivation } from "@/lib/subscription/reactivation";
 
 export const runtime = "nodejs";
 
@@ -115,6 +116,10 @@ export async function POST(req: NextRequest) {
     }).eq("user_id", supabaseUserId);
     if (updateError) throw updateError;
     console.log("✅ Postgres updated - plan:", plan, "userId:", userId);
+
+    // Internal analytics only: records how quickly this account came back
+    // after cancelling. Never gates or penalises anything for the user.
+    await recordReactivation(supabaseUserId);
 
     // ── Bust Redis so next server request reads fresh data ─────────────────
     await invalidateAllUserCache(userId);

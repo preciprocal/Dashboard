@@ -6,12 +6,39 @@ import { resolveDataUserId, toSupabaseUserId } from "@/lib/auth/verify-request";
 import { tryMigrateLegacyPassword } from "@/lib/auth/legacy-password";
 import { redis, RedisKeys } from "@/lib/redis/redis-client";
 import { USAGE_LIMITS, normalisePlan } from "@/lib/config/usage-limits";
+import { sendWelcomeEmail } from "@/lib/email/welcome";
+import { checkSignupAllowed, recordSignup } from "@/lib/redis/signup-limiter";
+import { SIGNUP_BLOCKED_MESSAGE } from "@/lib/config/abuse-guard";
+import { computeUsagePeriod, pickAnchor } from "@/lib/usage/period";
+import { PHONE_VERIFICATION_ENABLED, REQUIRES_PHONE_CLAIM } from "@/lib/config/phone-verification";
+import { headers } from "next/headers";
 
-// Calendar-month usage period, UTC - matches lib/ai/usage-guard.ts.
-function getCurrentPeriod(): string {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString().slice(0, 10);
+/**
+ * Stamp a brand-new account as needing phone verification.
+ *
+ * Written into app_metadata (admin-only, so the user cannot clear it) rather
+ * than a database column, because the middleware gate reads it straight off the
+ * JWT - gating on a Postgres column would mean a database round trip on every
+ * page navigation.
+ *
+ * Applied ONLY at creation, which is what grandfathers every existing account:
+ * they carry no such claim and are never gated.
+ *
+ * Non-fatal. A failure here means one account slips through unverified, which
+ * is far better than failing a signup the user has already completed.
+ */
+async function markPhoneVerificationRequired(userId: string) {
+  if (!PHONE_VERIFICATION_ENABLED) return;
+  try {
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+      app_metadata: { [REQUIRES_PHONE_CLAIM]: true },
+    });
+    if (error) throw error;
+  } catch (err) {
+    console.error("⚠️ Could not flag account for phone verification (non-fatal):", err);
+  }
 }
+
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -23,6 +50,10 @@ interface SignUpParams {
   name: string;
   email: string;
   password: string;
+  /** Device fingerprint from lib/fingerprint.ts. Absent when the browser
+   *  blocks the APIs it's built from - treated as "no signal", never as a
+   *  reason to reject. */
+  fingerprint?: string;
 }
 
 interface SignInParams {
@@ -242,9 +273,28 @@ async function validateAndFixUserDocument(firebaseUser: {
 // ─── Sign Up (email/password) ─────────────────────────────────────────────────
 
 export async function signUp(params: SignUpParams) {
-  const { name, email, password } = params;
+  const { name, email, password, fingerprint } = params;
 
   try {
+    // ── Free-account farming guard ──────────────────────────────────────────
+    // Checked before Supabase creates anything, so a blocked attempt leaves no
+    // orphaned auth user behind. Quota is consumed only after the account
+    // actually exists (recordSignup below) - an abandoned or failed attempt
+    // must not lock the visitor out for 30 days.
+    const headerList = await headers();
+    const signupIp =
+      headerList.get("x-forwarded-for")?.split(",")[0].trim()
+      ?? headerList.get("x-real-ip")
+      ?? null;
+
+    const guard = await checkSignupAllowed(signupIp, fingerprint ?? null);
+    if (!guard.allowed) {
+      console.log(
+        `🚫 Signup blocked=${guard.blockedBy} email=${email} ip=${signupIp ?? "unknown"}`,
+      );
+      return { success: false, message: SIGNUP_BLOCKED_MESSAGE };
+    }
+
     const supabase = await createServerSupabaseClient();
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -274,6 +324,11 @@ export async function signUp(params: SignUpParams) {
     });
     if (createError) throw createError;
 
+    // Consume the IP/device quota now that the account genuinely exists.
+    await recordSignup(signupIp, fingerprint ?? null);
+
+    await markPhoneVerificationRequired(userId);
+
     console.log(
       `✅ New user created - UID: ${userId} | Email: ${email} | Plan: free`,
       `| Limits: resumes=${USAGE_LIMITS.free.resumes} coverLetters=${USAGE_LIMITS.free.coverLetters}`,
@@ -297,7 +352,7 @@ export async function ensureOAuthUserDocument(
   email: string,
   name: string | null,
   provider: string
-) {
+): Promise<{ blocked: boolean }> {
   try {
     const { data: existing, error: fetchError } = await supabaseAdmin
       .from("profiles")
@@ -309,7 +364,34 @@ export async function ensureOAuthUserDocument(
     if (existing) {
       await validateAndFixUserDocument({ uid: userId, email, displayName: name });
       await invalidateUserCache(userId);
-      return;
+      return { blocked: false };
+    }
+
+    // ── Free-account farming guard, OAuth path ──────────────────────────────
+    // Without this, the guard in signUp() is trivially bypassed: block on
+    // email, sign up with Google instead, repeat. OAuth signups were also
+    // invisible to the counters, so they didn't even consume quota.
+    //
+    // Only the IP signal is available here. The device fingerprint is
+    // collected client-side, and this runs in a server-side redirect from the
+    // provider with no client JS in the loop.
+    const headerList = await headers();
+    const signupIp =
+      headerList.get("x-forwarded-for")?.split(",")[0].trim()
+      ?? headerList.get("x-real-ip")
+      ?? null;
+
+    const guard = await checkSignupAllowed(signupIp, null);
+    if (!guard.allowed) {
+      // exchangeCodeForSession has already created the auth user, so rejecting
+      // means removing it - otherwise the account exists with no profile or
+      // subscription row and every authed read fails for them.
+      //
+      // Only reachable on the create branch: a pre-existing account returned
+      // above and is never touched by this.
+      console.log(`🚫 OAuth signup blocked=${guard.blockedBy} email=${email} ip=${signupIp ?? "unknown"}`);
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+      return { blocked: true };
     }
 
     const { error: createError } = await supabaseAdmin.rpc("create_user_account", {
@@ -321,8 +403,25 @@ export async function ensureOAuthUserDocument(
     if (createError) throw createError;
 
     console.log(`✅ OAuth user created - UID: ${userId} | Provider: ${provider}`);
+
+    // OAuth addresses arrive already verified, so there's no confirmation step
+    // to wait for - this is the equivalent moment to app/auth/confirm/route.ts.
+    // Only reached on the create branch above, so returning users don't get it.
+    await sendWelcomeEmail({ userId, email, name });
+
+    await recordSignup(signupIp, null);
+
+    // OAuth accounts are gated too: a verified Google address proves an email
+    // is real, not that the person behind it hasn't already got five accounts.
+    await markPhoneVerificationRequired(userId);
+
+    return { blocked: false };
   } catch (error) {
     console.error("Error ensuring OAuth user document:", error);
+    // Fail open, matching the guard's stance everywhere else: an error in
+    // provisioning must not be reported to the caller as "blocked", which
+    // would bounce a legitimate user off a working account.
+    return { blocked: false };
   }
 }
 
@@ -440,7 +539,10 @@ export async function getCurrentUser(): Promise<User | null> {
       .eq("user_id", supabaseUser.id)
       .maybeSingle();
 
-    const periodStart = getCurrentPeriod();
+    // Both rows are select("*"), so the anchor fields are already present.
+    const { periodStart } = computeUsagePeriod(
+      pickAnchor(sub?.current_period_start, profile.created_at),
+    );
     const { data: usageRow } = await supabaseAdmin
       .from("usage_counters")
       .select("*")

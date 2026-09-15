@@ -175,6 +175,7 @@ export default function InterviewGeneratorForm({ userId }: InterviewGeneratorFor
               role: formData.role, level: formData.level, type: 'behavioural',
               amount: Math.floor(formData.amount / 2), techstack: formData.techstack,
               jobDescription: formData.jobDescription, userid: userId,
+              skipUsageIncrement: true,
             }}}}) }),
         ]);
         if (!techRes.ok)  { const e = await techRes.json()  as APIResponse; throw new Error(e.error || 'Failed to generate technical interview'); }

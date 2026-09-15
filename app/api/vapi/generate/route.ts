@@ -2,18 +2,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { supabaseAdmin } from "@/supabase/admin";
-import { toSupabaseUserId } from "@/lib/auth/verify-request";
+import { getAuthedUser } from "@/lib/auth/verify-request";
+import { checkUsage, checkAndIncrementUsage } from "@/lib/ai/usage-guard";
 import { getRandomInterviewCover } from "@/lib/utils";
 import { getUserAIContext, buildUserContextPrompt } from "@/lib/ai/user-context";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-interface FunctionCall { name: string; parameters: GenerateInterviewParams | SaveInterviewParams; }
+interface FunctionCall { name: string; parameters: GenerateInterviewParams; }
 interface Message { function_call?: FunctionCall; }
 interface VapiRequest { message: Message; }
-interface GenerateInterviewParams { role: string; level: string; type: 'technical' | 'behavioural' | 'mixed' | 'system-design'; techstack: string | string[]; amount: number; userid?: string; jobDescription?: string; }
-interface SaveInterviewParams { interview_data: InterviewData; }
-interface InterviewData { role: string; type: string; level: string; techstack: string[]; questions: string[]; technicalQuestions?: string[]; behavioralQuestions?: string[]; userId?: string; }
+interface GenerateInterviewParams { role: string; level: string; type: 'technical' | 'behavioural' | 'mixed' | 'system-design'; techstack: string | string[]; amount: number; jobDescription?: string; skipUsageIncrement?: boolean; }
 
 function parseQuestionsFromResponse(response: string): string[] {
   try {
@@ -80,6 +79,23 @@ async function generateQuestions(prompt: string, temperature = 0.7): Promise<str
 
 export async function POST(req: NextRequest) {
   try {
+    // Called directly by the client (components/InterviewGeneratorForm.tsx),
+    // not by Vapi's own servers - the "Vapi function_call" request shape is
+    // just this route's historical wire format. A real signed-in session is
+    // required; the identity used for saving/rate-limiting always comes from
+    // the verified session, never from a client-supplied field.
+    const authedUser = await getAuthedUser(req);
+    if (!authedUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const { userId, supabaseUserId } = authedUser;
+
+    const usageCheck = await checkUsage(userId, 'interviews');
+    if (!usageCheck.allowed) {
+      return NextResponse.json(
+        { result: { success: false, message: usageCheck.message } },
+        { status: 403 },
+      );
+    }
+
     const body = await req.json() as VapiRequest;
     const { message } = body;
     const { function_call } = message;
@@ -89,19 +105,17 @@ export async function POST(req: NextRequest) {
 
     switch (name) {
       case "generate_interview": {
-        const { role, level, type, techstack, amount, userid, jobDescription } = parameters as GenerateInterviewParams;
+        const { role, level, type, techstack, amount, jobDescription, skipUsageIncrement } = parameters;
         const techstackString = Array.isArray(techstack) ? techstack.join(", ") : techstack;
 
         // ── Fetch user context for personalised questions ──
         let userContextPrompt = '';
-        if (userid && userid !== 'anonymous') {
-          try {
-            const ctx = await getUserAIContext(userid);
-            userContextPrompt = buildUserContextPrompt(ctx);
-            if (userContextPrompt) console.log(`✅ User context loaded for ${userid} (resume: ${!!ctx.resumeText}, transcript: ${!!ctx.transcriptText})`);
-          } catch (err) {
-            console.warn('⚠️ Failed to load user context (non-blocking):', err);
-          }
+        try {
+          const ctx = await getUserAIContext(userId);
+          userContextPrompt = buildUserContextPrompt(ctx);
+          if (userContextPrompt) console.log(`✅ User context loaded for ${userId} (resume: ${!!ctx.resumeText}, transcript: ${!!ctx.transcriptText})`);
+        } catch (err) {
+          console.warn('⚠️ Failed to load user context (non-blocking):', err);
         }
 
         // Add job description to context if provided
@@ -157,11 +171,6 @@ export async function POST(req: NextRequest) {
 
         const allQuestions = [...behavioralQuestions, ...technicalQuestions];
 
-        if (!userid || userid === "anonymous") {
-          return NextResponse.json({ result: { success: false, message: "A signed-in user is required to save an interview." } }, { status: 400 });
-        }
-        const supabaseUserId = await toSupabaseUserId(userid);
-
         const interview = {
           role, type, level,
           techstack: Array.isArray(techstack) ? techstack : techstack.split(",").map((t: string) => t.trim()),
@@ -175,7 +184,7 @@ export async function POST(req: NextRequest) {
             estimatedDuration: allQuestions.length * 3,
             personalisedWithResume: !!userContextPrompt,
           },
-          userId: userid,
+          userId,
           finalized: true,
           coverImage: getRandomInterviewCover(),
           createdAt: new Date().toISOString(),
@@ -203,6 +212,11 @@ export async function POST(req: NextRequest) {
           .single();
         if (insertError) throw insertError;
 
+        // "mixed" interviews make two separate calls to this route (technical
+        // + behavioral companion) that together represent one logical
+        // interview session - only the primary call should draw down quota.
+        if (!skipUsageIncrement) await checkAndIncrementUsage(userId, 'interviews');
+
         let successMessage = "";
         if (type === "technical") successMessage = `Generated ${technicalQuestions.length} technical questions for ${level} ${role} covering ${techstackString}.`;
         else if (type === "behavioural") successMessage = `Generated ${behavioralQuestions.length} behavioral questions for ${level} ${role}.`;
@@ -216,34 +230,6 @@ export async function POST(req: NextRequest) {
             interview: { ...interview, id: row.id },
           },
         });
-      }
-
-      case "save_interview": {
-        const { interview_data } = parameters as SaveInterviewParams;
-        if (!interview_data.userId) {
-          return NextResponse.json({ result: { success: false, message: "A signed-in user is required to save an interview." } }, { status: 400 });
-        }
-        const supabaseUserId = await toSupabaseUserId(interview_data.userId);
-        const { data: row, error: insertError } = await supabaseAdmin
-          .from("interviews")
-          .insert({
-            user_id: supabaseUserId,
-            role: interview_data.role,
-            type: interview_data.type,
-            level: interview_data.level,
-            techstack: interview_data.techstack,
-            finalized: true,
-            questions: interview_data.questions,
-            metadata: {
-              technicalQuestions: interview_data.technicalQuestions ?? [],
-              behavioralQuestions: interview_data.behavioralQuestions ?? [],
-              coverImage: getRandomInterviewCover(),
-            },
-          })
-          .select("id")
-          .single();
-        if (insertError) throw insertError;
-        return NextResponse.json({ result: { success: true, message: "Interview saved successfully.", interviewId: row.id } });
       }
 
       default:

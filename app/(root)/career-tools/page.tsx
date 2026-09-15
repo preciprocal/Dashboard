@@ -754,7 +754,7 @@ export default function CareerToolsPage() {
       {/* MOBILE */}
       <div className="lg:hidden py-4 space-y-5">
         <div>
-          <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors mb-4"><ArrowLeft className="w-3.5 h-3.5" /> Dashboard</Link>
+          <Link href="/" className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors mb-4"><ArrowLeft className="w-3.5 h-3.5" /> Dashboard</Link>
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-[0_4px_16px_rgba(59,130,246,0.3)]"><Sparkles className="w-4 h-4 text-white" /></div>
@@ -775,7 +775,7 @@ export default function CareerToolsPage() {
       <div className="hidden lg:flex" style={{ height: 'calc(100vh - 62px)' }}>
         <div className="w-[30%] flex-shrink-0 flex flex-col border-r border-white/[0.05] overflow-hidden">
           <div className="flex-shrink-0 px-5 py-4 border-b border-white/[0.05]">
-            <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-[11px] text-slate-600 hover:text-slate-400 transition-colors mb-3"><ArrowLeft className="w-3 h-3" /> Dashboard</Link>
+            <Link href="/" className="inline-flex items-center gap-1.5 text-[11px] text-slate-600 hover:text-slate-400 transition-colors mb-3"><ArrowLeft className="w-3 h-3" /> Dashboard</Link>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-[0_4px_12px_rgba(59,130,246,0.25)] flex-shrink-0"><Sparkles className="w-3.5 h-3.5 text-white" /></div>
               <div>

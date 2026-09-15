@@ -158,7 +158,7 @@ function EmptyDashboard() {
         ))}
       </div>
 
-      <div className="flex items-center justify-center gap-3">
+      <div className="flex flex-wrap items-center justify-center gap-3">
         <Link
           href="/interview/create"
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
@@ -380,12 +380,12 @@ export default function InterviewsDashboard() {
 
       {/* Page header */}
       <div className="glass-card p-5 animate-fade-in-up">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-[18px] font-bold text-white leading-tight">Interview Practice</h1>
             <p className="text-[12px] text-slate-500 mt-0.5">AI-powered interview preparation</p>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex flex-wrap items-center gap-2">
             <SeeExampleButton
               serviceId="interview"
               className="!px-4 !py-2.5 !text-[13px] !font-semibold"

@@ -17,6 +17,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
+import { toast } from "sonner";
 import { vapi } from "@/lib/vapi.sdk";
 import { interviewer, technicalInterviewer, behavioralInterviewer } from "@/constants";
 import { createFeedback } from "@/lib/actions/general.action";
@@ -172,6 +173,7 @@ const FullScreenInterviewPanel = ({
   const [messages,               setMessages]               = useState<SavedMessage[]>([]);
   const [lastMessage,            setLastMessage]            = useState<string>("");
   const [isGeneratingFeedback,   setIsGeneratingFeedback]   = useState(false);
+  const [feedbackError,          setFeedbackError]          = useState<string | null>(null);
   const [currentQuestionIndex,   setCurrentQuestionIndex]   = useState(0);
   const [totalQuestions,         setTotalQuestions]         = useState(10);
   const [speakingPersonId,       setSpeakingPersonId]       = useState<string | null>(null);
@@ -184,6 +186,40 @@ const FullScreenInterviewPanel = ({
   const mixedPhase       = useRef<1 | 2>(1);
   // Accumulates messages across both mixed phases so the final transcript is complete
   const allMessagesRef   = useRef<SavedMessage[]>([]);
+  // Last transcript we tried to save feedback for, kept so the "Retry" button can resubmit it
+  const lastTranscriptRef = useRef<SavedMessage[]>([]);
+  // Set when the candidate ends the call themselves. Without it, hanging up
+  // during phase 1 of a mixed interview looks identical to phase 1 finishing
+  // naturally, and the handoff below immediately dials phase 2 - so pressing
+  // "End interview" started another call instead of ending the session.
+  const userEndedRef     = useRef(false);
+  // createFeedback is not idempotent, and the completion effect below also
+  // depends on `messages` - without this, a late transcript event after the
+  // call ended would submit the same interview twice.
+  const feedbackStartedRef = useRef(false);
+  // Held so an unmount during the 1.5s pause between phases cancels the
+  // pending phase-2 dial instead of starting a call into a dead component.
+  const handoffTimer     = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Question split, resolved once ─────────────────────────────────────────
+  // InterviewPageClient passes only `questions` - technicalQuestions and
+  // behavioralQuestions are always undefined in practice, so a mixed interview
+  // always falls back to splitting the single list down the middle.
+  //
+  // Computed here rather than inline in startInterview because the progress
+  // counter needs the same numbers. They used to be derived separately, and
+  // the counter read `(technicalQuestions?.length || 0) + (behavioralQuestions
+  // ?.length || 0)`, which is 0 + 0 - every mixed interview displayed "1 / 0".
+  const phaseQuestions = useMemo(() => {
+    const all = questions ?? [];
+    const behavioral = behavioralQuestions?.length
+      ? behavioralQuestions
+      : all.slice(0, Math.ceil(all.length / 2));
+    const technical = technicalQuestions?.length
+      ? technicalQuestions
+      : all.slice(Math.ceil(all.length / 2));
+    return { all, technical, behavioral };
+  }, [questions, technicalQuestions, behavioralQuestions]);
 
   const videoSources = useMemo(() => ({
     hr:            "/videos/hr-female-avatar.mp4",
@@ -284,46 +320,36 @@ const FullScreenInterviewPanel = ({
       let selectedAgent;
       let questionsToUse: string[] = [];
 
-      if (interviewType === "technical") {
-        // Lead (tech_recruiter) asks all technical questions
+      if (interviewType === "technical" || interviewType === "system-design") {
+        // Lead (tech_recruiter) asks every question
         resolvedPhase  = "technical";
         selectedAgent  = technicalInterviewer;
-        questionsToUse = technicalQuestions || questions;
-
-      } else if (interviewType === "system-design") {
-        // Lead (tech_recruiter) asks all system design questions
-        resolvedPhase  = "technical";
-        selectedAgent  = technicalInterviewer;
-        questionsToUse = technicalQuestions || questions;
+        questionsToUse = technicalQuestions?.length ? technicalQuestions : phaseQuestions.all;
 
       } else if (interviewType === "behavioral") {
-        // HR asks all behavioral questions
+        // HR asks every question
         resolvedPhase  = "behavioral";
         selectedAgent  = behavioralInterviewer;
-        questionsToUse = behavioralQuestions || questions;
+        questionsToUse = behavioralQuestions?.length ? behavioralQuestions : phaseQuestions.all;
 
       } else if (interviewType === "mixed") {
         if (explicitPhase === "technical") {
-          // Phase 2: Lead (tech_recruiter) asks technical questions
+          // Phase 2: Lead (tech_recruiter) asks the technical half
           resolvedPhase  = "technical";
           selectedAgent  = technicalInterviewer;
-          questionsToUse = technicalQuestions || [];
-          if (questionsToUse.length === 0 && questions.length > 0)
-            questionsToUse = questions.slice(Math.ceil(questions.length / 2));
+          questionsToUse = phaseQuestions.technical;
           mixedPhase.current = 2;
         } else {
-          // Phase 1: HR asks behavioral questions first
+          // Phase 1: HR asks the behavioral half first
           resolvedPhase  = "behavioral";
           selectedAgent  = behavioralInterviewer;
-          questionsToUse = behavioralQuestions || [];
-          if (questionsToUse.length === 0 && questions.length > 0)
-            questionsToUse = questions.slice(0, Math.ceil(questions.length / 2));
+          questionsToUse = phaseQuestions.behavioral;
           mixedPhase.current = 1;
         }
 
       } else {
         selectedAgent  = interviewer || technicalInterviewer;
-        questionsToUse = questions;
+        questionsToUse = phaseQuestions.all;
       }
 
       setCurrentInterviewPhase(resolvedPhase);
@@ -334,10 +360,31 @@ const FullScreenInterviewPanel = ({
 
       const isBehavioral = resolvedPhase === "behavioral";
 
+      // Phase 2 of a mixed interview is a handoff, not a fresh start. Without
+      // this override the second agent opens with the shared greeting
+      // ("Hello, how's it going today?"), which reads as the interview
+      // restarting from scratch right after the candidate finished a whole
+      // behavioral round. Overriding only here leaves single-phase interviews
+      // using the agent's normal opener.
+      const isMixedHandoff = interviewType === "mixed" && explicitPhase === "technical";
+
       await vapi.start(selectedAgent, {
+        ...(isMixedHandoff
+          ? {
+              firstMessage:
+                `Thanks {{user}}, that was really helpful. I'm {{interviewer_name}}, ` +
+                `{{interviewer_role}} here at {{company_name}} - I'll be taking over for ` +
+                `the technical part of the conversation. Ready when you are.`,
+            }
+          : {}),
         variableValues: {
           questions:              formattedQuestions,
-          interviewer_name:       isBehavioral ? "Priya Sharma"                  : "Marcus Rivera",
+          // Names track the voices: the technical agent speaks with Neha
+          // (Indian-English) and the behavioral agent with Sarah (11labs, US).
+          // Both prompts have the interviewer say this name out loud during
+          // their introduction, so a mismatched name and accent is immediately
+          // audible and breaks the illusion.
+          interviewer_name:       isBehavioral ? "Sarah Mitchell"                 : "Priya Sharma",
           interviewer_role:       isBehavioral ? "Director of People Operations"  : "Senior Software Architect",
           company_name:           "TechCorp",
           department:             isBehavioral ? "talent acquisition and employee development" : "engineering and infrastructure",
@@ -353,10 +400,28 @@ const FullScreenInterviewPanel = ({
       });
     } catch (error) {
       console.error("Interview start error:", error);
+      const isMicDenied = error instanceof DOMException && error.name === "NotAllowedError";
+
+      // A failure on the phase-2 dial would otherwise drop the candidate back
+      // to the start screen with a completed behavioral round stranded in
+      // allMessagesRef and no way to submit it. Score what they did finish
+      // rather than throwing the round away.
+      const hasCompletedPhase = allMessagesRef.current.length > 0;
+      if (hasCompletedPhase) {
+        toast.error("Couldn't start the technical round. Scoring the part you completed.");
+        setCallStatus(CallStatus.FINISHED);
+        return;
+      }
+
+      toast.error(
+        isMicDenied
+          ? "Microphone access is required. Please allow it in your browser and try again."
+          : error instanceof Error ? error.message : "Couldn't start the interview. Please try again.",
+      );
       setCallStatus(CallStatus.INACTIVE);
     }
   }, [
-    interviewId, userId, questions, technicalQuestions, behavioralQuestions,
+    interviewId, userId, questions, phaseQuestions, technicalQuestions, behavioralQuestions,
     interviewType, currentInterviewPhase, type, userName, interviewRole,
   ]);
 
@@ -373,14 +438,16 @@ const FullScreenInterviewPanel = ({
 
   // ── VAPI events ────────────────────────────────────────────────────────────
   useEffect(() => {
+    // Derived from the same split startInterview uses, so the counter and the
+    // questions actually asked can no longer disagree.
     if (interviewType === "mixed") {
-      setTotalQuestions((technicalQuestions?.length || 0) + (behavioralQuestions?.length || 0));
-    } else if ((interviewType === "technical" || interviewType === "system-design") && technicalQuestions) {
+      setTotalQuestions(phaseQuestions.technical.length + phaseQuestions.behavioral.length);
+    } else if ((interviewType === "technical" || interviewType === "system-design") && technicalQuestions?.length) {
       setTotalQuestions(technicalQuestions.length);
-    } else if (interviewType === "behavioral" && behavioralQuestions) {
+    } else if (interviewType === "behavioral" && behavioralQuestions?.length) {
       setTotalQuestions(behavioralQuestions.length);
-    } else if (questions?.length) {
-      setTotalQuestions(questions.length);
+    } else if (phaseQuestions.all.length) {
+      setTotalQuestions(phaseQuestions.all.length);
     }
 
     const onCallStart = () => {
@@ -406,7 +473,7 @@ const FullScreenInterviewPanel = ({
       vapi.off("speech-start",handleSpeechStart);
       vapi.off("speech-end",  handleSpeechEnd);
     };
-  }, [questions, technicalQuestions, behavioralQuestions, interviewType, handleMessage, handleSpeechStart, handleSpeechEnd]);
+  }, [phaseQuestions, technicalQuestions, behavioralQuestions, interviewType, handleMessage, handleSpeechStart, handleSpeechEnd]);
 
   // ── Duration timer ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -442,57 +509,111 @@ const FullScreenInterviewPanel = ({
   }, [messages]);
 
   // ── Feedback on completion ─────────────────────────────────────────────────
-  useEffect(() => {
-    const generateFeedbackAndRedirect = async (msgs: SavedMessage[]) => {
-      setIsGeneratingFeedback(true);
-      try {
-        const { success, feedbackId: id } = await createFeedback({
-          interviewId: interviewId!,
-          userId: userId!,
-          transcript: msgs,
-          feedbackId,
-        });
+  // A failure here means the user's completed interview transcript couldn't
+  // be saved - never silently redirect away from it. Show a retryable error
+  // instead so the user (and their answers) aren't just lost.
+  const generateFeedbackAndRedirect = useCallback(async (msgs: SavedMessage[]) => {
+    lastTranscriptRef.current = msgs;
+    setIsGeneratingFeedback(true);
+    setFeedbackError(null);
+    try {
+      const { success, feedbackId: id } = await createFeedback({
+        interviewId: interviewId!,
+        userId: userId!,
+        transcript: msgs,
+        feedbackId,
+      });
 
-        if (success && (id || feedbackId)) {
-          setTimeout(() => {
-            setIsGeneratingFeedback(false);
-            router.push(`/interview/${interviewId}/feedback`);
-          }, 2000);
-        } else {
+      if (success && (id || feedbackId)) {
+        setTimeout(() => {
           setIsGeneratingFeedback(false);
-          setTimeout(() => router.push("/"), 1000);
-        }
-      } catch (error) {
-        console.error("Error during feedback generation:", error);
-        setIsGeneratingFeedback(false);
-        setTimeout(() => router.push("/"), 1000);
-      }
-    };
-
-    if (callStatus === CallStatus.FINISHED) {
-      if (type === "generate") {
-        router.push("/");
-      } else if (interviewType === "mixed" && mixedPhase.current === 1) {
-        // Phase 1 (behavioral/HR) ended — start Phase 2 (technical/Lead)
-        setMessages([]);
-        setCurrentQuestionIndex(1);
-        setCallStatus(CallStatus.INACTIVE);
-        setTimeout(() => startInterview("technical"), 1500);
+          router.push(`/interview/${interviewId}/feedback`);
+        }, 2000);
       } else {
-        // Use allMessagesRef to get the full transcript across both phases (or the single phase)
-        const transcript = allMessagesRef.current.length > 0 ? allMessagesRef.current : messages;
-        if (transcript.length > 0) {
-          generateFeedbackAndRedirect(transcript);
-        } else {
-          router.push("/");
-        }
+        setIsGeneratingFeedback(false);
+        setFeedbackError("We couldn't save your interview feedback. Your answers are safe - please try again.");
       }
+    } catch (error) {
+      console.error("Error during feedback generation:", error);
+      setIsGeneratingFeedback(false);
+      setFeedbackError("We couldn't save your interview feedback. Your answers are safe - please try again.");
     }
-  }, [callStatus, messages, feedbackId, interviewId, router, type, userId, interviewType, startInterview]);
+  }, [interviewId, userId, feedbackId, router]);
+
+  const handleRetryFeedback = () => generateFeedbackAndRedirect(lastTranscriptRef.current);
+
+  useEffect(() => {
+    if (callStatus !== CallStatus.FINISHED) return;
+
+    if (type === "generate") {
+      router.push("/");
+      return;
+    }
+
+    // Phase 1 (behavioral/HR) ended on its own - hand off to Phase 2
+    // (technical/Lead). Skipped when the candidate hung up: they asked to stop,
+    // so dialling the next agent would override that and start a second call
+    // they never agreed to. Also skipped when the technical half is empty,
+    // which happens on a mixed interview with a single question - the slice
+    // leaves nothing for phase 2, and starting it would throw "No questions
+    // available" and strand the phase 1 transcript.
+    const canHandOff =
+      interviewType === "mixed" &&
+      mixedPhase.current === 1 &&
+      !userEndedRef.current &&
+      phaseQuestions.technical.length > 0;
+
+    if (canHandOff) {
+      setMessages([]);
+      setCurrentQuestionIndex(1);
+      setCallStatus(CallStatus.INACTIVE);
+      handoffTimer.current = setTimeout(() => startInterview("technical"), 1500);
+      return;
+    }
+
+    // Guard against re-entry: this effect also depends on `messages`, so a
+    // transcript event arriving after the call ended would otherwise fire a
+    // second createFeedback for the same interview.
+    if (feedbackStartedRef.current) return;
+    feedbackStartedRef.current = true;
+
+    // allMessagesRef spans both phases; `messages` is reset at the handoff.
+    const transcript = allMessagesRef.current.length > 0 ? allMessagesRef.current : messages;
+    if (transcript.length > 0) {
+      generateFeedbackAndRedirect(transcript);
+    } else {
+      router.push("/");
+    }
+  }, [callStatus, messages, interviewId, router, type, interviewType, phaseQuestions,
+      startInterview, generateFeedbackAndRedirect]);
+
+  // Cancel a pending phase-2 dial if the candidate navigates away during the
+  // pause between phases, and make sure the call itself is torn down.
+  useEffect(() => () => {
+    if (handoffTimer.current) clearTimeout(handoffTimer.current);
+    try { vapi?.stop(); } catch { /* already stopped */ }
+  }, []);
 
   // ── Controls ───────────────────────────────────────────────────────────────
-  const handleDisconnect = () => { setCallStatus(CallStatus.FINISHED); vapi.stop(); };
-  const handleManualStart = () => { setAutoStartAttempted(true); startInterview(); };
+  // Marked before the status change so the handoff effect above can tell a
+  // deliberate hang-up apart from a phase ending naturally. Whatever was said
+  // up to this point still goes to feedback via allMessagesRef.
+  const handleDisconnect = () => { userEndedRef.current = true; setCallStatus(CallStatus.FINISHED); vapi.stop(); };
+  const handleManualStart = () => {
+    // Cleared so a restart after hanging up gets the full two-phase flow again,
+    // and so the completion effect will submit feedback for the new attempt.
+    // allMessagesRef is emptied too: it survives across phases by design, so
+    // without this a restart after an aborted attempt would fold the previous
+    // transcript into the new interview's feedback.
+    userEndedRef.current = false;
+    feedbackStartedRef.current = false;
+    mixedPhase.current = 1;
+    allMessagesRef.current = [];
+    setMessages([]);
+    setCurrentQuestionIndex(0);
+    setAutoStartAttempted(true);
+    startInterview();
+  };
 
   // Exit: require confirmation while the interview is live
   const handleExitRequest = () => {
@@ -771,6 +892,29 @@ const FullScreenInterviewPanel = ({
                 </div>
                 <div className="mt-2 sm:mt-3 bg-blue-500/20 rounded-full h-1.5 sm:h-2 overflow-hidden">
                   <div className="bg-blue-400 h-full rounded-full animate-pulse w-3/4"></div>
+                </div>
+              </div>
+            )}
+
+            {/* Feedback save failed - never silently redirect away from a completed interview */}
+            {feedbackError && (
+              <div className="bg-red-500/10 backdrop-blur-xl rounded-xl p-3 sm:p-4 border border-red-500/30">
+                <div className="flex items-start gap-2 sm:gap-3">
+                  <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-red-300 font-medium text-xs sm:text-sm">Couldn&apos;t save feedback</h4>
+                    <p className="text-red-400/70 text-xs">{feedbackError}</p>
+                    <div className="flex gap-2 mt-2 sm:mt-3">
+                      <button onClick={handleRetryFeedback}
+                        className="px-3 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 text-xs font-medium transition-colors">
+                        Try again
+                      </button>
+                      <button onClick={() => router.push("/")}
+                        className="px-3 py-1.5 rounded-lg bg-slate-700/50 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors">
+                        Go home
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

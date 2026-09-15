@@ -17,7 +17,15 @@ export async function GET(request: Request) {
     if (!error && data.user) {
       const provider = data.user.app_metadata?.provider ?? "google";
       const name = (data.user.user_metadata?.full_name ?? data.user.user_metadata?.name ?? null) as string | null;
-      await ensureOAuthUserDocument(data.user.id, data.user.email ?? "", name, provider);
+      const { blocked } = await ensureOAuthUserDocument(data.user.id, data.user.email ?? "", name, provider);
+
+      // The signup guard rejected this account and the auth user has been
+      // removed, so there is no session to return to. Sign out locally too,
+      // otherwise the browser keeps cookies pointing at a deleted user.
+      if (blocked) {
+        await supabase.auth.signOut();
+        return NextResponse.redirect(`${origin}/sign-in?error=signup_limit`);
+      }
     }
     if (!error) {
       const forwardedHost = request.headers.get("x-forwarded-host");

@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/supabase/admin";
 import { toSupabaseUserId } from "@/lib/auth/verify-request";
 import { getCurrentUser } from "@/lib/actions/auth.action";
+import { recordCancellation } from "@/lib/subscription/reactivation";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-07-30.basil", // FIXED: Updated to latest Stripe API version
@@ -39,6 +40,11 @@ export async function POST(request: NextRequest) {
       updated_at: new Date().toISOString(),
     }).eq("user_id", supabaseUserId);
     if (updateError) throw updateError;
+
+    // canceled_at above gets cleared again on reactivation, so it can't answer
+    // "has this account cancelled before". last_cancelled_at is write-only and
+    // is what the resubscribe-cycle detection reads.
+    await recordCancellation(supabaseUserId);
 
     return NextResponse.json({
       message: "Subscription will be canceled at the end of the current period",

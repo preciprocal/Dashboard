@@ -27,6 +27,13 @@ const nextConfig: NextConfig = {
   },
 
   reactStrictMode: true,
+
+  // Dev-only build-activity indicator defaults to bottom-left, where it
+  // overlaps the sidebar's nav/plan badge - move it out of the way. Never
+  // shown in production builds.
+  devIndicators: {
+    position: "bottom-right",
+  },
 };
 
 export default nextConfig;

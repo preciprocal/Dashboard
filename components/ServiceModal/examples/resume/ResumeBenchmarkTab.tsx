@@ -4,7 +4,7 @@
 import {
   Users, Eye, AlertTriangle, BarChart3, Star, Zap, Target, ChevronRight,
 } from 'lucide-react';
-import { AnimatedBar, PercentileGauge } from '../../primitives';
+import { PercentileGauge } from '../../primitives';
 
 export function ResumeBenchmarkTab() {
   return (

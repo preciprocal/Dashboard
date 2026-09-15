@@ -8,6 +8,7 @@
 // client and confirming the from-address is verified on the domain).
 import { writeFileSync } from "fs";
 import { resolve } from "path";
+import { createHash } from "crypto";
 import { buildWelcomeEmail } from "../lib/email/welcome";
 
 async function main() {
@@ -49,8 +50,14 @@ async function main() {
   // Test sends carry a unique subject prefix so they never thread with each
   // other - or with a real welcome email - in the recipient's inbox. Gmail
   // groups by subject, and successive tests are otherwise indistinguishable.
+  // Subject carries a short hash of the rendered HTML as well as the time. Two
+  // sends of the same build share a hash; any change to the markup produces a
+  // new one. Without it every test looks identical in an inbox list and it is
+  // very easy to review a stale build and think a fix did not land.
   const stamp = new Date().toISOString().slice(11, 16);
-  const testSubject = `[test ${stamp}] ${subject}`;
+  const build = createHash("sha1").update(html).digest("hex").slice(0, 6);
+  const testSubject = `[${stamp} build ${build}] ${subject}`;
+  console.log(`\nbuild hash: ${build}`);
 
   const { data, error } = await resend.emails.send({
     from,

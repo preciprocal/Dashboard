@@ -14,6 +14,7 @@ import {
 } from "@stripe/react-stripe-js";
 import logo from "@/public/logo.png";
 import AnimatedLoader from "@/components/loader/AnimatedLoader";
+import { getDeviceFingerprint } from "@/lib/fingerprint";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
@@ -52,7 +53,10 @@ const PLANS: Plan[] = [
       { text: "1 cold outreach message / month" },
       { text: "1 find contacts / month" },
       { text: "Job tracker (5 jobs)" },
-      { text: "Chrome extension (limited)" },
+      // The extension is deliberately NOT gated by plan (see extension/upsell.js),
+      // so advertising it as "limited" on Free promised a restriction that does
+      // not exist in the code.
+      { text: "Chrome extension (autofill + job tracker)" },
       { text: "Basic analytics" },
     ],
   },
@@ -274,7 +278,7 @@ function CheckoutFormInner({ plan, cycle, user, billedAmount, onClose, onVerifyS
               </div>
             </div>
             <div className="relative z-10 flex items-center justify-between pt-6">
-              {[{ icon: "🔒", text: "SSL encrypted" }, { icon: "↩", text: "7-day refund" }, { icon: "✕", text: "Cancel anytime" }].map(t => (
+              {[{ icon: "🔒", text: "SSL encrypted" }, { icon: "↩", text: "30-day guarantee" }, { icon: "✕", text: "Cancel anytime" }].map(t => (
                 <span key={t.text} className="flex items-center gap-1.5 text-[11px] text-slate-600">
                   <span>{t.icon}</span>{t.text}
                 </span>
@@ -408,6 +412,10 @@ interface CheckoutFormProps {
   onSuccess: () => void; onClose: () => void; onVerifyStudent: () => void;
 }
 
+// Not currently rendered - billing is paused, so plan selection shows
+// PaymentPausedModal directly instead of this Stripe form (see the main
+// component below). Kept intact, not deleted, for when billing resumes.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function CheckoutForm({ plan, cycle, user, onSuccess, onClose, onVerifyStudent }: CheckoutFormProps) {
   const displayPrice = cycle === "annual" ? plan.annualPrice : plan.monthlyPrice;
   const billedAmount = cycle === "annual" ? plan.annualTotal : plan.monthlyPrice;
@@ -535,6 +543,83 @@ function PaymentPausedModal({ user, onVerifyStudent, onBack, onClose }: PaymentP
 }
 
 // ─── Student modal ────────────────────────────────────────────────────────────
+// ─── Student card step ────────────────────────────────────────────────────────
+// Only rendered when the server returned `requiresCard` from verify-code, i.e.
+// STUDENT_PERK_REQUIRE_CARD=true. Collects a card at $0 against the SetupIntent
+// opened server-side; activate-perk then creates the trialing subscription so
+// Stripe auto-bills Pro on day 31.
+interface StudentCardStepProps { clientSecret: string; onDone: () => void; }
+
+function StudentCardStep({ clientSecret, onDone }: StudentCardStepProps) {
+  return (
+    <Elements stripe={stripePromise} options={{ clientSecret, appearance: stripeAppearance }}>
+      <StudentCardStepInner clientSecret={clientSecret} onDone={onDone}/>
+    </Elements>
+  );
+}
+
+function StudentCardStepInner({ clientSecret, onDone }: StudentCardStepProps) {
+  const stripe   = useStripe();
+  const elements = useElements();
+  const [saving, setSaving] = useState(false);
+  const [error, setError]   = useState<string | null>(null);
+
+  const submit = async () => {
+    if (!stripe || !elements) return;
+    setSaving(true); setError(null);
+    try {
+      // redirect: "if_required" keeps 3DS-free cards inline; cards that do
+      // need a redirect come back to the pricing page and re-enter this step.
+      const { error: stripeError, setupIntent } = await stripe.confirmSetup({
+        elements,
+        confirmParams: { return_url: `${window.location.origin}/pricing` },
+        redirect: "if_required",
+      });
+      if (stripeError) throw new Error(stripeError.message || "Could not save your card.");
+      if (!setupIntent?.id) throw new Error("Card setup did not complete. Please try again.");
+
+      const res = await fetch("/api/student/activate-perk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          setupIntentId: setupIntent.id,
+          fingerprint: (await getDeviceFingerprint()) ?? undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not start your free month.");
+      onDone();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="px-4 py-3 rounded-xl" style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.15)" }}>
+        <p className="text-xs text-slate-400">
+          $0 today. We&apos;ll charge <span className="text-white font-medium">$9.99/mo</span> after your
+          free 30 days - cancel any time before then and you pay nothing.
+        </p>
+      </div>
+
+      <PaymentElement key={clientSecret} options={{ layout: "tabs" }}/>
+
+      {error && <p className="text-xs text-red-400">{error}</p>}
+
+      <button onClick={submit} disabled={saving || !stripe}
+        className="w-full py-3 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+        style={{ background: "linear-gradient(135deg,#6366f1,#a855f7)" }}>
+        {saving
+          ? <span className="flex items-center justify-center gap-2"><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Starting…</span>
+          : "Start free month"}
+      </button>
+    </div>
+  );
+}
+
 interface StudentModalProps { onVerified: () => void; onClose: () => void; }
 
 function StudentModal({ onVerified, onClose }: StudentModalProps) {
@@ -546,6 +631,10 @@ function StudentModal({ onVerified, onClose }: StudentModalProps) {
   const [verifying, setVerifying]           = useState(false);
   const [resending, setResending]           = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+  // Set only when the server asks for a card (STUDENT_PERK_REQUIRE_CARD).
+  // The flag is server-side, so the client never reads it directly - it just
+  // reacts to `requiresCard` on the verify-code response.
+  const [cardSecret, setCardSecret]         = useState<string | null>(null);
 
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -561,7 +650,12 @@ function StudentModal({ onVerified, onClose }: StudentModalProps) {
       const res = await fetch("/api/student/send-verification", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eduEmail: eduEmail.trim().toLowerCase() }),
+        body: JSON.stringify({
+          eduEmail: eduEmail.trim().toLowerCase(),
+          // null when the browser blocks the APIs it is built from; the
+          // server treats that as "no signal" rather than a failure.
+          fingerprint: (await getDeviceFingerprint()) ?? undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to send code");
@@ -578,10 +672,17 @@ function StudentModal({ onVerified, onClose }: StudentModalProps) {
       const res = await fetch("/api/student/verify-code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eduEmail: eduEmail.trim().toLowerCase(), code: code.trim() }),
+        body: JSON.stringify({
+          eduEmail: eduEmail.trim().toLowerCase(),
+          code: code.trim(),
+          fingerprint: (await getDeviceFingerprint()) ?? undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Invalid code");
+      // Card required: the address is verified but the perk is not redeemed
+      // until activate-perk confirms a saved card.
+      if (data.requiresCard && data.clientSecret) { setCardSecret(data.clientSecret); return; }
       onVerified();
     } catch (err) { setError(err instanceof Error ? err.message : "Verification failed."); }
     finally { setVerifying(false); }
@@ -605,10 +706,16 @@ function StudentModal({ onVerified, onClose }: StudentModalProps) {
           <div>
             <p className="text-[11px] font-semibold text-indigo-400 uppercase tracking-widest mb-2">Student offer</p>
             <h3 className="text-lg font-bold text-white leading-snug">Get Pro free for 30 days</h3>
-            <p className="text-xs text-slate-500 mt-1">Verify your .edu email and Pro unlocks instantly - no credit card required.</p>
+            <p className="text-xs text-slate-500 mt-1">
+              {cardSecret
+                ? "Email verified. Add a card to start your free month - you won't be charged today."
+                : "Verify your .edu email and Pro unlocks instantly - no credit card required."}
+            </p>
           </div>
 
-          {!sent ? (
+          {cardSecret ? (
+            <StudentCardStep clientSecret={cardSecret} onDone={onVerified}/>
+          ) : !sent ? (
             <div className="space-y-3">
               <div>
                 <label className="block text-[11px] text-slate-500 uppercase tracking-widest mb-2">University email</label>
@@ -782,6 +889,9 @@ export default function PricingPage() {
     setShowSuccess(true);
   };
 
+  // Not currently called - wire this back up to CheckoutForm's onSuccess
+  // when billing resumes.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleSuccess = () => {
     if (selectedPlan) { setSuccessPlan(selectedPlan); setCurrentPlan(selectedPlan.id); }
     setSuccessIsStudent(false);
@@ -795,10 +905,15 @@ export default function PricingPage() {
 
   return (
     <>
+      {/* Billing is paused (see PaymentPausedModal) - show that immediately on
+          plan selection instead of letting the user fill out a full Stripe
+          card form (including passing Stripe's own field validation) only to
+          hit a guaranteed dead end after submitting. */}
       {selectedPlan && user && (
-        <CheckoutForm plan={selectedPlan} cycle={cycle} user={user}
-          onSuccess={handleSuccess} onClose={() => setSelectedPlan(null)}
-          onVerifyStudent={() => { setSelectedPlan(null); setShowStudent(true); }}/>
+        <PaymentPausedModal user={user}
+          onVerifyStudent={() => { setSelectedPlan(null); setShowStudent(true); }}
+          onBack={() => setSelectedPlan(null)}
+          onClose={() => setSelectedPlan(null)}/>
       )}
       {showStudent && user && (
         <StudentModal onVerified={handleStudentVerified} onClose={() => setShowStudent(false)}/>
@@ -811,12 +926,12 @@ export default function PricingPage() {
       <div className="w-full px-4 py-12">
 
         {/* Header */}
+        {/* The "Trusted by 10,000+ job seekers" badge that used to sit above
+            the headline was removed: the real number is nowhere near that, and
+            an invented figure in the hero is the first thing that gets checked
+            when a pricing page starts getting traffic. The headline carries
+            this section on its own. */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-6 text-xs font-semibold uppercase tracking-widest"
-            style={{ background: "rgba(99,102,241,0.12)", border: "1px solid rgba(99,102,241,0.25)", color: "#a5b4fc" }}>
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"/>
-            Trusted by 10,000+ job seekers
-          </div>
           <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4 leading-tight">
             We only win when <span style={{ background: "linear-gradient(135deg,#6366f1,#a855f7)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>you do.</span>
           </h1>
@@ -966,10 +1081,16 @@ export default function PricingPage() {
         {/* Trust signals */}
         <div className="mt-12 pt-8 border-t border-white/[0.06]">
           <div className="flex flex-wrap justify-center gap-8 text-sm text-slate-400">
+            {/* Every claim here has to be one we can actually stand behind.
+                The guarantee is enforced in code (lib/config/refund.ts) and the
+                data promise matches the Enterprise column. The invented
+                satisfaction stat that used to sit in the third slot was
+                replaced because it was unverifiable, and an unsubstantiated
+                number on a pricing page is a liability rather than an asset. */}
             {[
               { icon: "🔒", text: "30-day money-back guarantee" },
-              { icon: "⚡", text: "Results in your first week" },
-              { icon: "❤️", text: "96% of users recommend us" },
+              { icon: "⚡", text: "Free plan, no card required" },
+              { icon: "🛡️", text: "Your data is never sold" },
             ].map(t => (
               <span key={t.text} className="flex items-center gap-2">
                 <span>{t.icon}</span>{t.text}

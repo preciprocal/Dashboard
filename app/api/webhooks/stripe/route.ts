@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/supabase/admin";
 import { toSupabaseUserId } from "@/lib/auth/verify-request";
 import { invalidateUserCache } from "@/lib/actions/auth.action";
+import { recordCancellation, recordReactivation } from "@/lib/subscription/reactivation";
+import { recordCouponStudentPerk } from "@/lib/subscription/student-coupon";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-07-30.basil",
@@ -101,8 +103,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
-  console.log("🎉 Webhook received:", event.type);
-  console.log("📦 Event data:", JSON.stringify(event.data.object, null, 2));
+  // Identifiers only. This used to dump the entire event object, which for
+  // customer and subscription events means names, emails, addresses and card
+  // metadata landing in the platform log on every single webhook.
+  const obj = event.data.object as { id?: string; customer?: unknown; status?: string };
+  console.log(
+    `🎉 Webhook ${event.type} | id=${obj.id ?? "n/a"}` +
+    ` customer=${typeof obj.customer === "string" ? obj.customer : "n/a"}` +
+    ` status=${obj.status ?? "n/a"}`,
+  );
 
   try {
     switch (event.type) {
@@ -178,6 +187,22 @@ async function handleSubscriptionCreated(subscription: SubscriptionWithPeriods) 
     }).eq("user_id", supabaseUserId);
     if (updateError) throw updateError;
 
+    // A coupon grant bypasses every control on the .edu flow, so put it
+    // through the verification ledger and flag it if nothing backs it up.
+    // Deliberately after the subscription write: Stripe has already accepted
+    // this subscription, and our records must match it either way.
+    if (studentVerified && appliedCouponId) {
+      await recordCouponStudentPerk({
+        supabaseUserId,
+        couponId: appliedCouponId,
+        stripeSubscriptionId: subscription.id,
+      });
+    }
+
+    // Catches resubscribes that never touch /api/subscription/activate, e.g.
+    // a new subscription started from the Stripe billing portal.
+    await recordReactivation(supabaseUserId);
+
     await invalidateUserCache(userId);
 
     console.log(`✅ Subscription created | plan: ${plan} | studentVerified: ${studentVerified}`);
@@ -234,6 +259,17 @@ async function handleSubscriptionUpdated(subscription: SubscriptionWithPeriods) 
     }).eq("user_id", supabaseUserId);
     if (updateError) throw updateError;
 
+    // Only when the coupon is newly applied on this update - alreadyVerified
+    // accounts have a ledger row from whichever path granted them the perk,
+    // and re-recording on every subscription.updated would churn it.
+    if (isStudentCoupon && !alreadyVerified && appliedCouponId) {
+      await recordCouponStudentPerk({
+        supabaseUserId,
+        couponId: appliedCouponId,
+        stripeSubscriptionId: subscription.id,
+      });
+    }
+
     await invalidateUserCache(userId);
 
     console.log(`✅ Subscription updated | plan: ${plan} | studentVerified: ${studentVerified}`);
@@ -275,6 +311,12 @@ async function handleSubscriptionDeleted(subscription: SubscriptionWithPeriods) 
       updated_at: new Date().toISOString(),
     }).eq("user_id", supabaseUserId);
     if (updateError) throw updateError;
+
+    // Write-only cancellation history. Set here as well as in
+    // app/api/subscription/cancel-subscription because Stripe can cancel
+    // without the app ever seeing the request - dunning failures, or a
+    // cancellation made from the billing portal.
+    await recordCancellation(supabaseUserId);
 
     await invalidateUserCache(userId);
 

@@ -1,110 +1,36 @@
 // localhost-bridge.js
-// Injected into app.preciprocal.com pages.
-// Two jobs:
-//   1. On load — read Firebase auth from IndexedDB and push to background.
-//      This handles the "just logged in and page loaded" case without relying
-//      on postMessage timing between React useEffect and script injection.
+// Injected into app.preciprocal.com pages. The extension is a "dumb bearer
+// token holder" agnostic to which backend minted the token (Firebase or
+// Supabase) — it never reads the page's session storage directly, it only
+// relays whatever LayoutClient.tsx broadcasts via postMessage. Two jobs:
+//   1. On load — ask the page for its current auth (PRECIPROCAL_REQUEST_AUTH)
+//      so a freshly-injected content script doesn't have to wait for an auth
+//      *change* event to learn the current state.
 //   2. Runtime — relay PRECIPROCAL_AUTH_CHANGE postMessages from the app
-//      (fired by LayoutClient on every onAuthStateChanged) to the background.
+//      (fired by LayoutClient on every login/logout/token refresh) to the
+//      background service worker.
 
-const EXT_STORAGE_KEY = 'preciprocal_auth';
-
-// ── 1. Read Firebase auth from IndexedDB ─────────────────────────────────────
-function readFirebaseAuthFromIDB() {
-  return new Promise((resolve) => {
-    try {
-      const req = indexedDB.open('firebaseLocalStorageDb');
-      req.onerror = () => resolve(null);
-      req.onupgradeneeded = (e) => { e.target.transaction.abort(); resolve(null); };
-      req.onsuccess = (e) => {
-        const db = e.target.result;
-        if (!db.objectStoreNames.contains('firebaseLocalStorage')) {
-          db.close(); resolve(null); return;
-        }
-        try {
-          const tx    = db.transaction('firebaseLocalStorage', 'readonly');
-          const store = tx.objectStore('firebaseLocalStorage');
-          const all   = store.getAll();
-          all.onsuccess = () => {
-            db.close();
-            for (const record of (all.result || [])) {
-              const key = record.fbase_key || '';
-              if (key.startsWith('firebase:authUser:')) {
-                const u = record.value;
-                if (u?.uid && u?.stsTokenManager?.accessToken) {
-                  resolve({
-                    uid:         u.uid,
-                    email:       u.email        || '',
-                    displayName: u.displayName  || '',
-                    photoURL:    u.photoURL      || '',
-                    token:       u.stsTokenManager.accessToken,
-                  });
-                  return;
-                }
-              }
-            }
-            resolve(null);
-          };
-          all.onerror = () => { db.close(); resolve(null); };
-        } catch { db.close(); resolve(null); }
-      };
-    } catch { resolve(null); }
-  });
+// ── 1. Ask the page for its current auth state ───────────────────────────────
+function requestAuthFromPage() {
+  window.postMessage({ type: 'PRECIPROCAL_REQUEST_AUTH' }, window.location.origin);
 }
 
-// Also check localStorage (some Firebase configs use it instead of IDB)
-function readFirebaseAuthFromLocalStorage() {
-  try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i) || '';
-      if (key.startsWith('firebase:authUser:')) {
-        const raw = localStorage.getItem(key);
-        if (!raw) continue;
-        const u = JSON.parse(raw);
-        if (u?.uid && u?.stsTokenManager?.accessToken) {
-          return {
-            uid:         u.uid,
-            email:       u.email        || '',
-            displayName: u.displayName  || '',
-            photoURL:    u.photoURL      || '',
-            token:       u.stsTokenManager.accessToken,
-          };
-        }
-      }
-    }
-  } catch {}
-  return null;
-}
+// Run immediately on injection + again after the page fully settles, in case
+// the content script loads before the app's listener is mounted.
+requestAuthFromPage();
+window.addEventListener('load', () => setTimeout(requestAuthFromPage, 1500));
 
-async function syncAuthToBackground() {
-  let user = await readFirebaseAuthFromIDB();
-  if (!user) user = readFirebaseAuthFromLocalStorage();
+// Let the background service worker force a fresh check (e.g. the popup's
+// "refresh" action, or the on-page banner checking auth on a job site tab)
+// without needing to re-inject anything - just re-run the same request.
+chrome.runtime.onMessage.addListener((message) => {
+  if (message?.type === 'PING_REQUEST_AUTH') requestAuthFromPage();
+});
 
-  try {
-    if (user) {
-      await chrome.runtime.sendMessage({ type: 'SAVE_AUTH', ...user });
-      console.log('[Bridge] ✅ Auth synced on load:', user.email);
-    } else {
-      // No Firebase user found — page is logged out.
-      // Only clear if we currently have stale auth stored.
-      const stored = await chrome.runtime.sendMessage({ type: 'GET_USER' });
-      if (stored?.uid) {
-        await chrome.runtime.sendMessage({ type: 'CLEAR_AUTH' });
-        console.log('[Bridge] 🗑️ Auth cleared — no Firebase user in page');
-      }
-    }
-  } catch (e) {
-    console.debug('[Bridge] sendMessage failed (extension inactive?):', e?.message);
-  }
-}
-
-// Run immediately on injection + again after the page fully settles
-syncAuthToBackground();
-window.addEventListener('load', () => setTimeout(syncAuthToBackground, 1500));
-
-// ── 2. Relay real-time auth changes from LayoutClient ────────────────────────
-// LayoutClient fires PRECIPROCAL_AUTH_CHANGE on every Firebase onAuthStateChanged.
-// This covers login/logout/account-switch that happen without a full page reload.
+// ── 2. Relay auth state (and changes) from LayoutClient ──────────────────────
+// LayoutClient fires PRECIPROCAL_AUTH_CHANGE on every Supabase auth state
+// change (login/logout/account-switch/silent token refresh) and once
+// immediately in response to PRECIPROCAL_REQUEST_AUTH above.
 window.addEventListener('message', async (event) => {
   if (event.origin !== window.location.origin) return;
 
@@ -113,13 +39,13 @@ window.addEventListener('message', async (event) => {
     try {
       if (user?.uid && user?.token) {
         await chrome.runtime.sendMessage({ type: 'SAVE_AUTH', ...user });
-        console.log('[Bridge] ✅ Auth updated (postMessage):', user.email);
+        console.log('[Bridge] ✅ Auth synced:', user.email);
       } else {
         await chrome.runtime.sendMessage({ type: 'CLEAR_AUTH' });
-        console.log('[Bridge] 🗑️ Auth cleared (postMessage logout)');
+        console.log('[Bridge] 🗑️ Auth cleared');
       }
     } catch (e) {
-      console.debug('[Bridge] postMessage relay failed:', e?.message);
+      console.debug('[Bridge] sendMessage failed (extension inactive?):', e?.message);
     }
     return;
   }

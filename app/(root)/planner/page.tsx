@@ -191,12 +191,12 @@ export default function PlannerPage() {
 
       {/* Header */}
       <div className="glass-card p-5">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-xl font-bold text-white leading-tight">Preparation Planner</h1>
             <p className="text-xs text-slate-500 mt-0.5">Manage your study & preparation plans</p>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex flex-wrap items-center gap-2">
             <SeeExampleButton
               serviceId="planner"
               className="!px-4 !py-2.5 !text-sm !font-semibold"
@@ -325,7 +325,7 @@ export default function PlannerPage() {
             {searchQuery ? 'Try adjusting your search criteria' : filter === 'all' ? 'Create your first preparation plan to get started' : `You have no ${filter} plans at the moment`}
           </p>
           {filter === 'all' && !searchQuery && (
-            <div className="flex items-center justify-center gap-3">
+            <div className="flex flex-wrap items-center justify-center gap-3">
               <Link href="/planner/create"
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-400 hover:to-purple-400 text-white text-sm font-semibold transition-all duration-150">
                 <Plus className="w-4 h-4" /> Create Plan

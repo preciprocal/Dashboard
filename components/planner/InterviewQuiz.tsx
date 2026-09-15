@@ -88,7 +88,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
       setLoading(true);
       setError(null);
 
-      const response = await fetch('/api/planner/quiz/generate', {
+      const response = await fetch('/api/planner/quiz', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ planId }),

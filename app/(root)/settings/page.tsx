@@ -261,28 +261,38 @@ export default function SettingsPage() {
     if (!user) return;
     setStatsLoading(true);
     try {
-      const { FirebaseService } = await import('@/lib/services/firebase-service');
-      // No Authorization header needed - the Supabase session cookie is
-      // sent automatically for these same-origin requests.
-      const [resumes, interviewsRes, userRes] = await Promise.all([
-        FirebaseService.getUserResumes(user.id).catch(() => []),
-        fetch('/api/interviews'),
-        fetch('/api/user'),
-      ]);
-      const interviews = interviewsRes.ok ? await interviewsRes.json() : [];
-      const userData   = userRes.ok       ? await userRes.json()       : null;
-      const sub        = userData?.subscription;
-      const planKey    = sub?.plan ?? 'free';
-      // FIXED: added "free" as primary key, kept "starter" as legacy fallback
-      const tierMap: Record<string, PlanInfo['tier']> = { free: 'free', pro: 'pro', premium: 'enterprise', starter: 'free' };
-      const tier       = tierMap[planKey] ?? 'free';
-      const tierNames: Record<PlanInfo['tier'], string> = { free: 'Free Plan', pro: 'Pro Plan', enterprise: 'Premium Plan' };
+      // /api/usage is the single source of truth for plan + limits + usage,
+      // backed by the same USAGE_LIMITS table lib/ai/usage-guard.ts gates on.
+      //
+      // This previously called /api/user and /api/interviews, neither of which
+      // exists. Both 404'd, so userData was always null and every account -
+      // including paying ones - rendered as "Free Plan" with hardcoded
+      // fallback limits that did not match the real quotas either.
+      // No Authorization header needed: the Supabase session cookie is sent
+      // automatically for this same-origin request.
+      const usageRes = await fetch('/api/usage');
+      if (!usageRes.ok) throw new Error(`usage ${usageRes.status}`);
+      const usage = await usageRes.json() as {
+        plan: string;
+        limits: Record<string, number>;
+        usage: Record<string, number>;
+      };
+
+      const tierMap: Record<string, PlanInfo['tier']> = {
+        free: 'free', pro: 'pro', premium: 'enterprise',
+        admin: 'enterprise', starter: 'free',
+      };
+      const tier = tierMap[usage.plan] ?? 'free';
+      const tierNames: Record<PlanInfo['tier'], string> = {
+        free: 'Free Plan', pro: 'Pro Plan', enterprise: 'Premium Plan',
+      };
+
       setPlan({
         name: tierNames[tier], tier,
-        interviewsUsed:  Array.isArray(interviews) ? interviews.length : (interviews?.data?.length ?? 0),
-        interviewsLimit: userData?.interviewsLimit ?? (tier === 'free' ? 5 : 999),
-        resumesUsed:     resumes.length,
-        resumesLimit:    userData?.resumesLimit    ?? (tier === 'free' ? 2 : 999),
+        interviewsUsed:  usage.usage.interviewsUsed ?? 0,
+        interviewsLimit: usage.limits.interviews    ?? 0,
+        resumesUsed:     usage.usage.resumesUsed    ?? 0,
+        resumesLimit:    usage.limits.resumes       ?? 0,
       });
     } catch (err) {
       console.error('Failed to load stats:', err);
@@ -870,7 +880,7 @@ export default function SettingsPage() {
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-slate-300 text-sm leading-relaxed">
-                      Request a full data export including your interview history, resume analyses, session transcripts, and account metadata. You will receive a download link via email within 24 hours.
+                      Request a full data export including your interview history, resume analyses, session transcripts, and account metadata. We&apos;ll email it to you as a JSON file, usually within a minute.
                     </p>
                     <p className="text-slate-500 text-xs mt-2">Your right under GDPR / CCPA.</p>
                   </div>
@@ -878,11 +888,20 @@ export default function SettingsPage() {
                     onClick={async () => {
                       if (!user) return;
                       try {
-                        const res = await fetch('/api/settings/export-data', { method: 'POST' });
-                        if (res.ok) toast.success('Export requested - check your email within 24 hours.', { duration: 5000 });
-                        else throw new Error();
-                      } catch {
-                        toast.error('Failed to request export. Please try again.');
+                        const res  = await fetch('/api/settings/export-data', { method: 'POST' });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) throw new Error(data.error);
+                        toast.success('Export sent - check your email.', { duration: 5000 });
+                      } catch (err) {
+                        // Surface the server's message: it distinguishes a
+                        // too-large export (which needs support) from a
+                        // transient failure (which is worth retrying).
+                        toast.error(
+                          err instanceof Error && err.message
+                            ? err.message
+                            : 'Failed to request export. Please try again.',
+                          { duration: 6000 },
+                        );
                       }
                     }}
                     className="flex-shrink-0 inline-flex items-center gap-1.5 bg-slate-800/60 hover:bg-slate-700/60 border border-white/[0.06] hover:border-white/10 text-slate-300 text-xs px-3 py-2 rounded-xl transition-all cursor-pointer">

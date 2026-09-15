@@ -4,6 +4,7 @@ import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
 import { revalidatePath } from 'next/cache';
 import { redis } from '@/lib/redis/redis-client';
+import { hashResumeText, checkDuplicateResume } from '@/lib/abuse/resume-hash';
 
 // Cache TTL for resume data (30 days - resumes don't change often after creation)
 const RESUME_CACHE_TTL = 30 * 24 * 60 * 60;
@@ -302,11 +303,24 @@ export async function PUT(
     if (resumeHtml !== undefined) updateData.resume_html = resumeHtml;
     if (resumeText !== undefined) updateData.resume_text = resumeText;
 
+    // Keep content_hash in step with resume_text. Hashing only on create
+    // (app/api/resume POST) would miss every resume whose text arrives on this
+    // path instead - analysis completing after the record exists, or an editor
+    // save - and those rows would silently never be checked for duplicates.
+    const contentHash = resumeText !== undefined ? hashResumeText(resumeText) : null;
+    if (resumeText !== undefined) updateData.content_hash = contentHash;
+
     const { error: updateError } = await supabaseAdmin
       .from('resumes')
       .update(updateData)
       .eq('id', id);
     if (updateError) throw updateError;
+
+    // Awaited, not fire-and-forget: serverless freezes the process once the
+    // response returns. Only ever writes to the review queue, never blocks.
+    if (contentHash) {
+      await checkDuplicateResume(userId, contentHash, id);
+    }
 
     await invalidateResumeCache(id, userId);
 

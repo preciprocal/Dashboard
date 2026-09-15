@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "migrate:firebase-users": "tsx --env-file=.env.local scripts/migrate-firebase-users.ts"
+    "migrate:firebase-users": "tsx --env-file=.env.local scripts/migrate-firebase-users.ts",
+    "verify:abuse-guards": "tsx --env-file=.env.local scripts/verify-abuse-guards.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^1.1.25",

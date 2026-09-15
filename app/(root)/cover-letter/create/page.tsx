@@ -411,7 +411,7 @@ export default function CoverLetterGeneratorPage() {
 
       {/* Header */}
       <div className="p-5 animate-fade-in-up">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <div className="inline-flex items-center gap-1.5 bg-blue-500/[0.08] border border-blue-500/20
                             rounded-full px-3 py-1 mb-2">
@@ -421,7 +421,7 @@ export default function CoverLetterGeneratorPage() {
             <h1 className="text-xl font-bold text-white leading-tight">Cover Letter Generator</h1>
             <p className="text-xs text-slate-500 mt-0.5">Generate personalised, professional cover letters</p>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-500/[0.07] border border-indigo-500/20">
               <Shield className="w-4 h-4 text-indigo-400" />
               <span className="text-[13px] font-semibold text-indigo-400">

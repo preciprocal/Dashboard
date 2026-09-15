@@ -166,28 +166,42 @@ export default function CreatePlanPage() {
       setIsGenerating(true);
       setCurrentStep(0);
 
-      const response = await fetch('/api/planner/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          role: formData.role.trim(),
-          company: formData.company.trim() || undefined,
-          interviewDate: formData.interviewDate,
-          daysUntilInterview,
-          skillLevel: formData.skillLevel,
-          focusAreas: formData.focusAreas.length > 0 ? formData.focusAreas : undefined,
-          existingSkills: formData.existingSkills.trim() ? formData.existingSkills.split(',').map(s => s.trim()) : undefined,
-          weakAreas: formData.weakAreas.trim() ? formData.weakAreas.split(',').map(s => s.trim()) : undefined,
-        }),
-      });
+      // The step labels reflect real generation phases, but there's no
+      // incremental progress signal from the API for a single-request call -
+      // advance through them while the real request is in flight instead of
+      // playing a fixed animation after the response has already arrived.
+      // Capped one step before "Complete!" so that step only ever appears
+      // once real data is back.
+      const stepInterval = setInterval(() => {
+        setCurrentStep(s => Math.min(s + 1, PROCESSING_STEPS.length - 2));
+      }, 1200);
+
+      let response: Response;
+      try {
+        response = await fetch('/api/planner/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            role: formData.role.trim(),
+            company: formData.company.trim() || undefined,
+            interviewDate: formData.interviewDate,
+            daysUntilInterview,
+            skillLevel: formData.skillLevel,
+            focusAreas: formData.focusAreas.length > 0 ? formData.focusAreas : undefined,
+            existingSkills: formData.existingSkills.trim() ? formData.existingSkills.split(',').map(s => s.trim()) : undefined,
+            weakAreas: formData.weakAreas.trim() ? formData.weakAreas.split(',').map(s => s.trim()) : undefined,
+          }),
+        });
+      } finally {
+        clearInterval(stepInterval);
+      }
 
       if (!response.ok) throw new Error('Failed to generate plan');
       const data = await response.json();
 
-      for (let i = 0; i <= 4; i++) {
-        setCurrentStep(i);
-        await new Promise(resolve => setTimeout(resolve, 800));
-      }
+      // Real completion - jump straight to "Complete!" rather than replaying
+      // the earlier steps again.
+      setCurrentStep(PROCESSING_STEPS.length - 1);
 
       await refetchUsage();
 

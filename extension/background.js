@@ -4,7 +4,10 @@ console.log('🚀 Preciprocal background.js loaded');
 
 const STORAGE_KEY  = 'preciprocal_auth';
 const JOB_QUEUE_KEY = 'preciprocal_job_queue';
-const IS_DEV_BG    = true;
+// NEVER ship this as true - it points every network call (job tracking,
+// auto-apply queue flush) at localhost instead of production. Only flip it
+// for local testing against `npm run dev`, and flip it back before packaging.
+const IS_DEV_BG    = false;
 const BASE_URL     = IS_DEV_BG ? 'http://localhost:3000' : 'https://app.preciprocal.com';
 
 // ─────────────────────────────────────────────────────────────────
@@ -134,140 +137,44 @@ async function _dynamicInject(tabId, url) {
 chrome.tabs.onRemoved.addListener(tabId => _injectedTabs.delete(tabId));
 
 // ─────────────────────────────────────────────────────────────────
-// Read Firebase auth from a preciprocal.com tab via scripting API
+// Auth sync — the extension never reads Supabase's (or any backend's)
+// session storage directly. It only relays whatever localhost-bridge.js
+// forwards from the page via postMessage (see SAVE_AUTH/CLEAR_AUTH below).
+// This just pings any open preciprocal tab to re-broadcast its current auth
+// on demand (e.g. from the popup's refresh action or the on-page banner),
+// then waits briefly for the resulting SAVE_AUTH to land in storage.
 // ─────────────────────────────────────────────────────────────────
-async function readAuthFromTab(tabId) {
-  try {
-    const results = await chrome.scripting.executeScript({
-      target: { tabId },
-      func: () => {
-        return new Promise((resolve) => {
-          try {
-            const req = indexedDB.open('firebaseLocalStorageDb');
-            req.onerror = () => resolve(null);
-            req.onsuccess = (e) => {
-              const db = e.target.result;
-              if (!db.objectStoreNames.contains('firebaseLocalStorage')) {
-                db.close();
-                resolve(null);
-                return;
-              }
-              try {
-                const tx    = db.transaction('firebaseLocalStorage', 'readonly');
-                const store = tx.objectStore('firebaseLocalStorage');
-                const all   = store.getAll();
-                all.onsuccess = () => {
-                  db.close();
-                  const records = all.result || [];
-                  for (const record of records) {
-                    const key = record.fbase_key || '';
-                    if (key.startsWith('firebase:authUser:')) {
-                      const user = record.value;
-                      if (user?.uid && user?.stsTokenManager?.accessToken) {
-                        resolve({
-                          uid:         user.uid,
-                          email:       user.email       || '',
-                          displayName: user.displayName || '',
-                          photoURL:    user.photoURL    || '',
-                          token:       user.stsTokenManager.accessToken,
-                        });
-                        return;
-                      }
-                    }
-                  }
-                  resolve(null);
-                };
-                all.onerror = () => { db.close(); resolve(null); };
-              } catch { db.close(); resolve(null); }
-            };
-            req.onupgradeneeded = (e) => { e.target.transaction.abort(); resolve(null); };
-          } catch { resolve(null); }
-        });
-      },
-    });
-    return results?.[0]?.result || null;
-  } catch {
-    return null;
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────
-// Find any open preciprocal tab and sync auth from it
-// ─────────────────────────────────────────────────────────────────
-async function syncAuthFromPreciprocal() {
+async function requestFreshAuthFromOpenTabs() {
   const tabs = await chrome.tabs.query({
     url: ['https://app.preciprocal.com/*', 'https://preciprocal.com/*', 'http://localhost:3000/*']
   });
+  if (tabs.length === 0) return false;
+
+  const before = (await chrome.storage.local.get([STORAGE_KEY]))[STORAGE_KEY]?.savedAt || 0;
 
   for (const tab of tabs) {
     if (!tab.id) continue;
-    const user = await readAuthFromTab(tab.id);
-    if (user) {
-      await chrome.storage.local.set({
-        [STORAGE_KEY]: {
-          uid:         user.uid,
-          email:       user.email        || '',
-          displayName: user.displayName  || '',
-          photoURL:    user.photoURL     || '',
-          token:       user.token,
-          savedAt:     Date.now(),
-        }
-      });
-      // auth synced
-      return user;
-    }
+    try { await chrome.tabs.sendMessage(tab.id, { type: 'PING_REQUEST_AUTH' }); } catch { /* content script not injected here */ }
   }
 
-  console.warn('[BG] No authenticated preciprocal tab found');
-  return null;
+  // Poll briefly for the round-trip (background -> content script -> page ->
+  // content script -> SAVE_AUTH) to land, rather than blocking indefinitely.
+  for (let i = 0; i < 8; i++) {
+    await new Promise((r) => setTimeout(r, 200));
+    const current = (await chrome.storage.local.get([STORAGE_KEY]))[STORAGE_KEY];
+    if (current?.savedAt && current.savedAt > before) return true;
+  }
+  return false;
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Sync whenever a preciprocal tab finishes loading
+// Dynamic injection for custom-domain job portals whenever a tab finishes loading
 // ─────────────────────────────────────────────────────────────────
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status !== 'complete') return;
   const url = tab.url || '';
   if (!url) return;
-
-  // 1. Auth sync for preciprocal app tabs
-  if (url.includes('preciprocal.com')) {
-    readAuthFromTab(tabId).then(async (user) => {
-      if (user) {
-        await chrome.storage.local.set({
-          [STORAGE_KEY]: {
-            uid:         user.uid,
-            email:       user.email,
-            displayName: user.displayName || '',
-            photoURL:    user.photoURL    || '',
-            token:       user.token,
-            savedAt:     Date.now(),
-          }
-        });
-        flushJobQueue(user.token, user.uid, user.email);
-      } else {
-        const current = await chrome.storage.local.get([STORAGE_KEY]);
-        if (current[STORAGE_KEY]?.uid) {
-          await chrome.storage.local.remove([STORAGE_KEY]);
-        }
-      }
-    }).catch(() => {});
-  }
-
-  // 2. Dynamic injection for custom-domain job portals (e.g. fanduel.careers, custom Greenhouse)
   _dynamicInject(tabId, url);
-});
-
-// ─────────────────────────────────────────────────────────────────
-// Sync auth whenever ANY tab becomes active
-// ─────────────────────────────────────────────────────────────────
-chrome.tabs.onActivated.addListener(async () => {
-  const result = await chrome.storage.local.get([STORAGE_KEY]);
-  const stored = result[STORAGE_KEY];
-  if (stored?.uid && stored?.savedAt && (Date.now() - stored.savedAt) < 50 * 60 * 1000) {
-    return;
-  }
-  await syncAuthFromPreciprocal();
 });
 
 // ─────────────────────────────────────────────────────────────────
@@ -376,8 +283,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message.type === 'SYNC_AUTH') {
-    syncAuthFromPreciprocal().then((user) => {
-      sendResponse(user ? { success: true, user } : { success: false });
+    requestFreshAuthFromOpenTabs().then(async (found) => {
+      if (found) {
+        const auth = (await chrome.storage.local.get([STORAGE_KEY]))[STORAGE_KEY];
+        sendResponse({ success: true, user: auth });
+      } else {
+        sendResponse({ success: false });
+      }
     });
     return true;
   }
@@ -402,7 +314,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           token,
           savedAt: Date.now(),
         }
-      }, () => sendResponse({ success: true }));
+      }, () => {
+        sendResponse({ success: true });
+        flushJobQueue(token, uid, email || '');
+      });
     } else {
       sendResponse({ success: false });
     }
@@ -421,6 +336,27 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         'x-user-id':         userId  || '',
         'x-user-email':      email   || '',
       },
+    })
+      .then(r => r.json())
+      .then(data => sendResponse({ success: true, data }))
+      .catch(err => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  // Analytics for the in-extension Pro prompt. Gates nothing - see
+  // extension/upsell.js. Failures resolve rather than reject so a content
+  // script never has to handle them.
+  if (message.type === 'API_POST_UPSELL_EVENT') {
+    const { token, userId, email, baseUrl, payload } = message;
+    fetch(`${baseUrl}/api/extension/upsell-event`, {
+      method: 'POST',
+      headers: {
+        'Content-Type':      'application/json',
+        'x-extension-token': token   || '',
+        'x-user-id':         userId  || '',
+        'x-user-email':      email   || '',
+      },
+      body: JSON.stringify(payload || {}),
     })
       .then(r => r.json())
       .then(data => sendResponse({ success: true, data }))
@@ -534,42 +470,4 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
-});
-
-// ─────────────────────────────────────────────────────────────────
-// External messages from preciprocal.com
-// ─────────────────────────────────────────────────────────────────
-chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
-  const allowed = ['https://app.preciprocal.com', 'https://preciprocal.com'];
-  if (!allowed.includes(sender.origin)) {
-    sendResponse({ success: false, error: 'Unauthorized' });
-    return;
-  }
-
-  if (message.type === 'SAVE_AUTH') {
-    const { uid, email, token, displayName, photoURL } = message;
-    if (uid && token) {
-      chrome.storage.local.set({
-        [STORAGE_KEY]: {
-          uid,
-          email:       email       || '',
-          displayName: displayName || '',
-          photoURL:    photoURL    || '',
-          token,
-          savedAt: Date.now(),
-        }
-      }, () => {
-        console.log('[BG] ✅ Auth saved via external message:', email);
-        sendResponse({ success: true });
-      });
-    } else {
-      sendResponse({ success: false });
-    }
-    return true;
-  }
-
-  if (message.type === 'CLEAR_AUTH') {
-    chrome.storage.local.remove([STORAGE_KEY], () => sendResponse({ success: true }));
-    return true;
-  }
 });

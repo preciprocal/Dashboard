@@ -13,6 +13,7 @@ import {
 import Link from 'next/link';
 import { toast } from 'sonner';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { NotificationService } from '@/lib/services/notification-services';
 import UsersFeedback from '@/components/UserFeedback';
 import { useUsageTracking } from '@/lib/hooks/useUsageTracking';
@@ -539,6 +540,7 @@ function CustomSelect<T extends string>({ value, onChange, options, icon: Icon }
 export default function JobTrackerPage() {
   const [user, loading] = useSupabaseUser();
   const router = useRouter();
+  const { confirm, ConfirmDialog } = useConfirm();
 
   const { canUseFeature, getLimit, refetch: refetchUsage, usageData } = useUsageTracking();
   const isUnlimitedPlan = usageData?.plan === 'pro' || usageData?.plan === 'premium';
@@ -634,7 +636,7 @@ export default function JobTrackerPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this application?')) return;
+    if (!(await confirm({ message: 'Delete this application? This cannot be undone.', danger: true, confirmLabel: 'Delete' }))) return;
     setApps(p => p.filter(a => a.id !== id));
     try { const res = await fetch(`/api/job-tracker?id=${id}`, { method: 'DELETE' }); if (!res.ok) throw new Error(); toast.success('Deleted'); }
     catch { toast.error('Failed to delete'); await fetchApps(); }
@@ -664,6 +666,7 @@ export default function JobTrackerPage() {
 
   return (
     <>
+      <ConfirmDialog />
       {showForm && <FormModal form={form} setForm={setForm} onSave={handleSave} onCancel={() => { setShowForm(false); setEditingId(null); setForm({ ...EMPTY_FORM }); }} saving={saving} isEdit={!!editingId} />}
       {contactsModal && <ContactsModal app={contactsModal} onClose={() => setContactsModal(null)} onContactsFound={async () => { await refetchUsage(); }} />}
       {planModal && <CreatePlanModal app={planModal} onConfirm={days => handleCreatePlan(planModal, days)} onClose={() => setPlanModal(null)} />}
@@ -681,13 +684,13 @@ export default function JobTrackerPage() {
         <div className="glass-card p-5 animate-fade-in-up">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors mb-3"><ArrowLeft className="w-3.5 h-3.5" /> Dashboard</Link>
+              <Link href="/" className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors mb-3"><ArrowLeft className="w-3.5 h-3.5" /> Dashboard</Link>
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 gradient-primary rounded-xl flex items-center justify-center shadow-[0_4px_14px_rgba(102,126,234,0.3)]"><Briefcase className="w-4 h-4 text-white" /></div>
                 <div><h1 className="text-xl font-bold text-white leading-tight">Job Tracker</h1><p className="text-xs text-slate-500">Track every application from wishlist to offer</p></div>
               </div>
             </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex flex-wrap items-center gap-2">
               <SeeExampleButton serviceId="job-tracker" className="!px-4 !py-2.5 !text-sm !font-semibold" />
               <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-500/[0.07] border border-purple-500/20">
                 <Shield className="w-4 h-4 text-purple-400" />
@@ -739,7 +742,7 @@ export default function JobTrackerPage() {
                 <h3 className="text-sm font-bold text-slate-400 mb-2">{apps.length === 0 ? 'No applications yet' : 'No results match your filters'}</h3>
                 <p className="text-xs text-slate-600 mb-6 max-w-xs mx-auto leading-relaxed">{apps.length === 0 ? 'Start tracking your job search. Add your first application to see it here.' : 'Try adjusting your search or filters.'}</p>
                 {apps.length === 0 && canAddJob && (
-                  <div className="flex items-center justify-center gap-3">
+                  <div className="flex flex-wrap items-center justify-center gap-3">
                     <button onClick={() => { setForm({ ...EMPTY_FORM }); setShowForm(true); }} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-semibold transition-all duration-150"><Plus className="w-4 h-4" /> Add First Application</button>
                     <SeeExampleButton serviceId="job-tracker" className="!px-5 !py-2.5 !text-sm !font-semibold" />
                   </div>

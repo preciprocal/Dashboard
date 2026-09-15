@@ -4,6 +4,7 @@
 import { supabaseAdmin } from '@/supabase/admin';
 import { toSupabaseUserId } from '@/lib/auth/verify-request';
 import { USAGE_LIMITS } from '@/lib/config/usage-limits';
+import { computeUsagePeriod, pickAnchor } from '@/lib/usage/period';
 
 export type GatedFeature =
   | 'resumes'
@@ -18,7 +19,10 @@ export type GatedFeature =
   | 'jobTracker';
 
 // GatedFeature -> usage_counters column name.
-const FEATURE_FIELD: Record<GatedFeature, string> = {
+// Exported so the refund usage snapshot (lib/refund/eligibility.ts) reads the
+// same mapping rather than keeping a second copy that could drift when a new
+// gated feature is added.
+export const FEATURE_FIELD: Record<GatedFeature, string> = {
   resumes:               'resumes_used',
   coverLetters:          'cover_letters_used',
   studyPlans:            'study_plans_used',
@@ -58,6 +62,7 @@ interface SubscriptionRow {
   plan: string | null;
   status: string | null;
   trial_ends_at: string | null;
+  current_period_start: string | null;
 }
 
 // Manually-granted trials (e.g. the student .edu offer) have no Stripe subscription
@@ -67,23 +72,25 @@ function isTrialExpired(sub: SubscriptionRow | null): boolean {
   return new Date(sub.trial_ends_at).getTime() < Date.now();
 }
 
-// Calendar-month usage period, UTC. Real monthly resets - each new month
-// gets a fresh usage_counters row (see increment_usage_counter RPC), unlike
-// the old Firestore counters which never reset despite "monthly limit" copy.
-function getCurrentPeriod(): { periodStart: string; periodEnd: string } {
-  const now = new Date();
-  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0));
-  return { periodStart: start.toISOString().slice(0, 10), periodEnd: end.toISOString().slice(0, 10) };
-}
-
 async function getSubscription(supabaseUserId: string): Promise<SubscriptionRow | null> {
   const { data } = await supabaseAdmin
     .from('subscriptions')
-    .select('plan, status, trial_ends_at')
+    .select('plan, status, trial_ends_at, current_period_start')
     .eq('user_id', supabaseUserId)
     .maybeSingle();
   return data as SubscriptionRow | null;
+}
+
+// Anchor for free accounts, which have no Stripe billing period to key off.
+// Read separately rather than folded into getSubscription because it lives on
+// profiles, and only matters when current_period_start is null.
+async function getProfileCreatedAt(supabaseUserId: string): Promise<string | null> {
+  const { data } = await supabaseAdmin
+    .from('profiles')
+    .select('created_at')
+    .eq('user_id', supabaseUserId)
+    .maybeSingle();
+  return (data?.created_at as string | undefined) ?? null;
 }
 
 // Admin accounts (profiles.is_admin) get unlimited access regardless of
@@ -106,14 +113,20 @@ export async function checkUsage(
 ): Promise<UsageCheckResult> {
   try {
     const supabaseUserId = await toSupabaseUserId(userId);
-    const [sub, admin] = await Promise.all([getSubscription(supabaseUserId), isAdminUser(supabaseUserId)]);
+    const [sub, admin, profileCreatedAt] = await Promise.all([
+      getSubscription(supabaseUserId),
+      isAdminUser(supabaseUserId),
+      getProfileCreatedAt(supabaseUserId),
+    ]);
 
     const plan   = admin ? 'admin' : isTrialExpired(sub) ? 'free' : normalisePlan(sub?.plan);
     const limits = USAGE_LIMITS[plan];
     const limit  = limits[feature as keyof typeof limits];
     const field  = FEATURE_FIELD[feature];
 
-    const { periodStart } = getCurrentPeriod();
+    const { periodStart } = computeUsagePeriod(
+      pickAnchor(sub?.current_period_start, profileCreatedAt),
+    );
     const { data: counterRow } = await supabaseAdmin
       .from('usage_counters')
       .select(field)
@@ -159,7 +172,11 @@ export async function checkAndIncrementUsage(
 
   try {
     const supabaseUserId = await toSupabaseUserId(userId);
-    const [sub, admin] = await Promise.all([getSubscription(supabaseUserId), isAdminUser(supabaseUserId)]);
+    const [sub, admin, profileCreatedAt] = await Promise.all([
+      getSubscription(supabaseUserId),
+      isAdminUser(supabaseUserId),
+      getProfileCreatedAt(supabaseUserId),
+    ]);
     const trialExpired = !admin && isTrialExpired(sub);
 
     // Fold the trial-expiry downgrade in as a best-effort side write, same as
@@ -177,7 +194,9 @@ export async function checkAndIncrementUsage(
     const limits = USAGE_LIMITS[plan];
     const limit  = limits[feature as keyof typeof limits];
 
-    const { periodStart, periodEnd } = getCurrentPeriod();
+    const { periodStart, periodEnd } = computeUsagePeriod(
+      pickAnchor(sub?.current_period_start, profileCreatedAt),
+    );
     const { data, error } = await supabaseAdmin.rpc('increment_usage_counter', {
       p_user_id: supabaseUserId,
       p_period_start: periodStart,

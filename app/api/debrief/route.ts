@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
-import { checkAndIncrementUsage } from '@/lib/ai/usage-guard';
+import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 
 interface DebriefRow {
   id: string;
@@ -117,6 +117,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'companyName and jobTitle are required' }, { status: 400 });
     }
 
+    // Matches the original combined counter this replaces - both a manual
+    // journal entry and the separate AI-insights analysis (app/api/debrief/analyze)
+    // draw down the same interviewDebriefs limit.
+    const usageCheck = await checkUsage(userId, 'interviewDebriefs');
+    if (!usageCheck.allowed) {
+      return NextResponse.json(
+        { error: usageCheck.message, code: 'USAGE_LIMIT', used: usageCheck.used, limit: usageCheck.limit },
+        { status: 403 },
+      );
+    }
+
     const { data: created, error } = await supabaseAdmin
       .from('interview_debriefs')
       .insert({ user_id: supabaseUserId, ...toColumns(body) })
@@ -124,9 +135,6 @@ export async function POST(request: NextRequest) {
       .single();
     if (error) throw error;
 
-    // Matches the original combined counter this replaces - both a manual
-    // journal entry and the separate AI-insights analysis (app/api/debrief/analyze)
-    // draw down the same interviewDebriefs limit.
     await checkAndIncrementUsage(userId, 'interviewDebriefs');
 
     return NextResponse.json({ success: true, id: created.id }, { status: 201 });

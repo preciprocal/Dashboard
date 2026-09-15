@@ -3,8 +3,7 @@
 
 import {
   Briefcase, FileText, Loader2, Wand2, Save, Copy, Download,
-  ChevronRight, Clock, CheckCircle2, Sparkles,
-} from 'lucide-react';
+  ChevronRight, } from 'lucide-react';
 import { FadeIn, TypingText } from '../../primitives';
 
 // ─── Component ────────────────────────────────────────────────────────────────

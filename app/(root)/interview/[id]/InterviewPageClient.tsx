@@ -66,7 +66,7 @@ const TechStackDisplay = ({ techStack }: { techStack: string[] }) => {
       {techStack.map((tech, index) => (
         <span
           key={index}
-          className="px-2 py-0.5 sm:py-1 bg-blue-500/10 text-blue-400 rounded text-xs border border-blue-500/20"
+          className="px-2 py-0.5 sm:py-1 bg-blue-500/10 text-blue-400 rounded text-xs border border-blue-500/20 break-words max-w-full"
         >
           {tech}
         </span>
@@ -107,7 +107,6 @@ const InterviewDetailsClient = ({
   const [deviceStatus, setDeviceStatus]             = useState({
     camera: "checking", microphone: "checking", speaker: "checking",
   });
-  const [isJoining, setIsJoining]                   = useState(false);
   const [showDeviceSettings, setShowDeviceSettings] = useState(false);
   const [showCameraDropdown, setShowCameraDropdown] = useState(false);
   const [showMicDropdown, setShowMicDropdown]       = useState(false);
@@ -324,13 +323,12 @@ const InterviewDetailsClient = ({
   };
 
   // ── Join handler ───────────────────────────────────────────────────────────
-  const handleJoinInterview = async () => {
+  const handleJoinInterview = () => {
     if (!isDeviceReady) return;
-    setIsJoining(true);
-    setTimeout(() => {
-      setCurrentView("interview");
-      setIsJoining(false);
-    }, 4000);
+    // The real connection (mic permission + vapi.start) happens once
+    // FullScreenInterviewPanel mounts and has its own honest loading/error
+    // states - no need to simulate a wait here first.
+    setCurrentView("interview");
   };
 
   const handleExitInterview = () => {
@@ -363,8 +361,6 @@ const InterviewDetailsClient = ({
     ? deviceStatus.camera === "denied" || deviceStatus.microphone === "denied"
       ? "Camera/microphone access was denied. Please allow access in your browser and refresh."
       : "Waiting for devices to be ready…"
-    : isJoining
-    ? "Connecting…"
     : null;
 
   return (
@@ -386,9 +382,9 @@ const InterviewDetailsClient = ({
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6 md:py-8">
-        <div className="grid lg:grid-cols-3 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 min-w-0">
           {/* Main Panel */}
-          <div className="lg:col-span-2 space-y-4 sm:space-y-6">
+          <div className="lg:col-span-2 space-y-4 sm:space-y-6 min-w-0">
             {/* Header */}
             <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800 hover:border-slate-700 transition-all duration-300">
               <div className="p-4 sm:p-6">
@@ -424,9 +420,11 @@ const InterviewDetailsClient = ({
                 </div>
 
                 <div className="mt-3 sm:mt-4 bg-slate-800/60 backdrop-blur-xl rounded-xl p-3 sm:p-4 border border-slate-700">
-                  <div className="flex flex-col xs:flex-row items-start xs:items-center gap-2 xs:gap-3">
+                  <div className="flex flex-col xs:flex-row items-start xs:items-center gap-2 xs:gap-3 min-w-0">
                     <span className="text-slate-500 text-xs sm:text-sm flex-shrink-0">Technologies:</span>
-                    <TechStackDisplay techStack={interview.techstack} />
+                    <div className="min-w-0 w-full xs:flex-1">
+                      <TechStackDisplay techStack={interview.techstack} />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -537,14 +535,10 @@ const InterviewDetailsClient = ({
                           : 'bg-slate-800 text-slate-500 cursor-not-allowed'
                       }`}
                     >
-                      {isJoining ? (
-                        <><Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" /><span>Connecting…</span></>
-                      ) : (
-                        <><ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" /><span>Join Interview</span></>
-                      )}
+                      <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" /><span>Join Interview</span>
                     </button>
                     {/* Show reason tooltip when disabled */}
-                    {joinDisabledReason && !isJoining && (
+                    {joinDisabledReason && (
                       <p className="mt-2 text-xs text-center text-slate-500 leading-relaxed">
                         {joinDisabledReason}
                       </p>

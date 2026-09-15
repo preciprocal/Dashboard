@@ -7,11 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
 import { USAGE_LIMITS, normalisePlan } from '@/lib/config/usage-limits';
-
-function getCurrentPeriod(): string {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString().slice(0, 10);
-}
+import { computeUsagePeriod, pickAnchor } from '@/lib/usage/period';
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,11 +15,24 @@ export async function GET(request: NextRequest) {
     if (!authedUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const { supabaseUserId } = authedUser;
 
-    const [{ data: sub }, { data: usageRow }, { data: profile }] = await Promise.all([
-      supabaseAdmin.from('subscriptions').select('plan').eq('user_id', supabaseUserId).maybeSingle(),
-      supabaseAdmin.from('usage_counters').select('*').eq('user_id', supabaseUserId).eq('period_start', getCurrentPeriod()).maybeSingle(),
-      supabaseAdmin.from('profiles').select('is_admin').eq('user_id', supabaseUserId).maybeSingle(),
+    // The counter row can no longer be fetched in the same batch: its
+    // period_start is derived from the subscription's billing anchor, so the
+    // subscription and profile have to resolve first.
+    const [{ data: sub }, { data: profile }] = await Promise.all([
+      supabaseAdmin.from('subscriptions').select('plan, current_period_start').eq('user_id', supabaseUserId).maybeSingle(),
+      supabaseAdmin.from('profiles').select('is_admin, created_at').eq('user_id', supabaseUserId).maybeSingle(),
     ]);
+
+    const { periodStart } = computeUsagePeriod(
+      pickAnchor(sub?.current_period_start, profile?.created_at),
+    );
+
+    const { data: usageRow } = await supabaseAdmin
+      .from('usage_counters')
+      .select('*')
+      .eq('user_id', supabaseUserId)
+      .eq('period_start', periodStart)
+      .maybeSingle();
 
     // Admin accounts always see unlimited, regardless of subscriptions.plan -
     // mirrors the override in lib/ai/usage-guard.ts.

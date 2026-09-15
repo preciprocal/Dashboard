@@ -267,12 +267,12 @@ export default function ResumeDashboard() {
 
       {/* Header */}
       <div className="glass-card p-5">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-xl font-bold text-white leading-tight">Resume Analysis</h1>
             <p className="text-xs text-slate-500 mt-0.5">AI-powered resume optimization</p>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex flex-wrap items-center gap-2">
             <SeeExampleButton serviceId="resume" className="!px-4 !py-2.5 !text-sm !font-semibold" />
             <Link href="/resume/upload" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-400 hover:to-purple-400 text-white text-sm font-semibold shadow-[0_4px_14px_rgba(139,92,246,0.35)] hover:shadow-[0_6px_18px_rgba(139,92,246,0.45)] transition-all duration-200">
               <Upload className="w-4 h-4" /><span>Upload Resume</span>
@@ -399,7 +399,7 @@ export default function ResumeDashboard() {
               </div>
             ))}
           </div>
-          <div className="flex items-center justify-center gap-3">
+          <div className="flex flex-wrap items-center justify-center gap-3">
             <Link href="/resume/upload" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-400 hover:to-purple-400 text-white text-sm font-semibold shadow-[0_4px_14px_rgba(139,92,246,0.35)] hover:shadow-[0_6px_18px_rgba(139,92,246,0.45)] transition-all duration-200">
               <Upload className="w-4 h-4" /><span>Upload Resume</span>
             </Link>

@@ -14,6 +14,7 @@ import {
 import Link from 'next/link';
 import { toast } from 'sonner';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { NotificationService } from '@/lib/services/notification-services';
 import UsersFeedback from '@/components/UserFeedback';
 import { useUsageTracking } from '@/lib/hooks/useUsageTracking';
@@ -642,6 +643,7 @@ function AIInsightsPanel({ entries }: { entries: DebriefEntry[] }) {
 export default function InterviewDebriefPage() {
   const [user, loading] = useSupabaseUser();
   const router = useRouter();
+  const { confirm, ConfirmDialog } = useConfirm();
 
   const {
     canUseFeature, getRemainingCount, getUsedCount,
@@ -669,6 +671,13 @@ export default function InterviewDebriefPage() {
   const [debriefNextStep, setDebriefNextStep] = useState<{
     company: string; outcome: string; stage: string;
   } | null>(null);
+
+  // The AI/Insights tabs (and the tab bar itself) only render when there are
+  // entries - if the last entry is deleted while on one of those tabs, fall
+  // back to Log so the page doesn't go blank with no way to navigate back.
+  useEffect(() => {
+    if (entries.length === 0 && activeView !== 'log') setActiveView('log');
+  }, [entries.length, activeView]);
 
   const fetchEntries = useCallback(async () => {
     if (!user) return;
@@ -760,7 +769,7 @@ export default function InterviewDebriefPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this entry?')) return;
+    if (!(await confirm({ message: 'Delete this journal entry? This cannot be undone.', danger: true, confirmLabel: 'Delete' }))) return;
     try {
       const res = await fetch(`/api/debrief?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Delete failed');
@@ -825,12 +834,13 @@ export default function InterviewDebriefPage() {
 
   return (
     <div className="space-y-4 pt-4">
+      <ConfirmDialog />
 
       {/* Page header */}
       <div className="glass-card p-5 animate-fade-in-up">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-[12px] text-slate-500 hover:text-slate-300 transition-colors mb-3">
+            <Link href="/" className="inline-flex items-center gap-1.5 text-[12px] text-slate-500 hover:text-slate-300 transition-colors mb-3">
               <ArrowLeft className="w-3.5 h-3.5" /> Dashboard
             </Link>
             <div className="flex items-center gap-3 mb-1">
@@ -841,7 +851,7 @@ export default function InterviewDebriefPage() {
             </div>
             <p className="text-[12px] text-slate-500 ml-12">Log real interviews, let AI find your patterns, turn losses into learning.</p>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex flex-wrap items-center gap-2">
             <SeeExampleButton serviceId="debrief" />
             <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-500/[0.07] border border-violet-500/20">
               <Shield className="w-4 h-4 text-violet-400" />
@@ -1176,7 +1186,7 @@ export default function InterviewDebriefPage() {
                               </div>
                               <div className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center gap-2 mb-1">
-                                  <h3 className="text-[14px] font-bold text-white">{entry.companyName}</h3>
+                                  <h3 className="text-[14px] font-bold text-white break-words min-w-0">{entry.companyName}</h3>
                                   <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${OUTCOME_COLORS[entry.outcome]}`}>
                                     {OUTCOME_LABELS[entry.outcome]}
                                   </span>

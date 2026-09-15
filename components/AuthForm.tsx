@@ -14,6 +14,7 @@ import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 
 import { signIn, signUp } from "@/lib/actions/auth.action";
+import { getDeviceFingerprint } from "@/lib/fingerprint";
 import logo from "@/public/logo.png";
 
 type FormType = "sign-in" | "sign-up";
@@ -36,6 +37,25 @@ const AuthForm = ({ type }: { type: FormType }) => {
   const [showPassword, setShowPassword] = useState(false);
 
   const redirectUrl = searchParams.get("redirect") || "/";
+
+  // Redirects into /sign-in carry a reason, and without this the user is
+  // bounced here with no explanation at all - which for the signup guard would
+  // be exactly the silent block it's meant not to be. `oauth_failed` predates
+  // these and was silent too.
+  useEffect(() => {
+    const messages: Record<string, string> = {
+      signup_limit:
+        "We've already got an account from this network in the last 30 days. " +
+        "Preciprocal allows one free account per person - email support@preciprocal.com if you share a connection with other users.",
+      session_limit:
+        "You were signed out because your account reached its device limit. Sign in again to continue on this device.",
+      oauth_failed:
+        "We couldn't complete that sign-in. Please try again, or use your email and password.",
+    };
+
+    const key = searchParams.get("error") ?? searchParams.get("reason");
+    if (key && messages[key]) toast.error(messages[key], { duration: 8000 });
+  }, [searchParams]);
 
   const formSchema = authFormSchema(type);
   const form = useForm<z.infer<typeof formSchema>>({
@@ -91,7 +111,12 @@ const AuthForm = ({ type }: { type: FormType }) => {
       if (type === "sign-up") {
         const { name, email, password } = data;
 
-        const result = await signUp({ name: name!, email, password });
+        // undefined when the browser blocks the APIs the fingerprint is built
+        // from; the server treats that as "no device signal" and falls back to
+        // the IP limit alone rather than rejecting.
+        const fingerprint = (await getDeviceFingerprint()) ?? undefined;
+
+        const result = await signUp({ name: name!, email, password, fingerprint });
         if (!result.success) {
           toast.error(result.message);
           return;

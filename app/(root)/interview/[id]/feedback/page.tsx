@@ -162,6 +162,10 @@ export default async function InterviewFeedbackPage({ params }: Props) {
   // ── Map category scores to ShareScoreCard's named slots ───────────────────
   // Tries to match by name (case-insensitive); falls back to undefined so the
   // card simply omits any category it can't find rather than showing 0.
+  // Only consumed by the ShareScoreCard block below, which is currently
+  // commented out. Kept rather than deleted so re-enabling that card is a
+  // one-line change instead of a rewrite.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const findCategoryScore = (keywords: string[]): number | undefined => {
     const match = categoryScores.find((c) =>
       keywords.some((kw) => c.name.toLowerCase().includes(kw))
@@ -566,7 +570,7 @@ export default async function InterviewFeedbackPage({ params }: Props) {
           </p>
           <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-3 sm:gap-4">
             <Button asChild className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base">
-              <Link href="/createinterview" className="flex items-center gap-2">
+              <Link href="/interview/create" className="flex items-center gap-2">
                 <Target className="w-4 h-4 sm:w-5 sm:h-5" />
                 Practice More
               </Link>

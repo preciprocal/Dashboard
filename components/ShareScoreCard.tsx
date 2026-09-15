@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState, useCallback } from "react";
-import Image from "next/image";
 import {
   Share2, Twitter, Link2, Download, CheckCheck,
   Flame, Zap, Trophy, TrendingUp, Target, Brain,

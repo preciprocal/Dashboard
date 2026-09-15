@@ -133,7 +133,7 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
           </p>
           <div className="flex items-center gap-4 bg-white/[0.03] border border-white/[0.06]
                           rounded-xl px-5 py-4 mb-6 min-h-[64px]">
-            <span className="text-3xl font-black text-indigo-400 flex-shrink-0 w-16 text-center">
+            <span className="text-3xl font-black text-indigo-400 flex-shrink-0 min-w-16 text-center">
               {STATS[activeStat].num}
             </span>
             <span className="text-sm text-slate-400 leading-snug">
@@ -383,7 +383,7 @@ export default function UploadResume() {
 
         {/* Header */}
         <div className="p-5 animate-fade-in-up">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <div className="inline-flex items-center gap-1.5 bg-blue-500/[0.08] border border-blue-500/20 rounded-full px-3 py-1 mb-2">
                 <Sparkles className="w-3 h-3 text-blue-400" />
@@ -392,7 +392,7 @@ export default function UploadResume() {
               <h1 className="text-[18px] font-bold text-white leading-tight">Resume Analyser</h1>
               <p className="text-[12px] text-slate-500 mt-0.5">Get instant AI feedback on your PDF or Word resume</p>
             </div>
-            <div className="flex items-center gap-3 flex-shrink-0">
+            <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-500/[0.07] border border-indigo-500/20">
                 <Shield className="w-4 h-4 text-indigo-400" />
                 <span className="text-[13px] font-semibold text-indigo-400">

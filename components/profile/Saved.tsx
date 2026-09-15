@@ -488,16 +488,6 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
                     {bookmarkedBlogs.length} articles saved for learning
                   </p>
                 </div>
-                <Button
-                  asChild
-                  size="sm"
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                >
-                  <Link href="/blog">
-                    <BookOpen className="w-4 h-4 mr-2" />
-                    Browse Articles
-                  </Link>
-                </Button>
               </div>
 
               {bookmarkedBlogs.length > 0 ? (
@@ -559,7 +549,7 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
                             size="sm"
                             className="bg-green-600 hover:bg-green-700 text-white"
                           >
-                            <Link href={`/blog/${blog.id}`}>
+                            <Link href={`/help?article=${blog.id}`}>
                               <span>Read</span>
                             </Link>
                           </Button>
@@ -579,15 +569,6 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
                   <p className="text-gray-600 dark:text-gray-400 text-sm mb-6 max-w-sm mx-auto">
                     Save insightful articles to create your personal knowledge library.
                   </p>
-                  <Button
-                    asChild
-                    className="bg-green-600 hover:bg-green-700 text-white"
-                  >
-                    <Link href="/blog">
-                      <BookOpen className="w-4 h-4 mr-2" />
-                      Discover Articles
-                    </Link>
-                  </Button>
                 </div>
               )}
             </div>
@@ -602,16 +583,6 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                     My Articles
                   </h3>
-                  <Button
-                    asChild
-                    size="sm"
-                    className="bg-purple-600 hover:bg-purple-700 text-white"
-                  >
-                    <Link href="/blog/create">
-                      <Edit className="w-4 h-4 mr-2" />
-                      Write Article
-                    </Link>
-                  </Button>
                 </div>
 
                 {userCreatedContent.blogs.length > 0 ? (
@@ -679,16 +650,6 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
                     <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
                       Share your knowledge with the community
                     </p>
-                    <Button
-                      asChild
-                      size="sm"
-                      className="bg-purple-600 hover:bg-purple-700 text-white"
-                    >
-                      <Link href="/blog/create">
-                        <Edit className="w-4 h-4 mr-2" />
-                        Write First Article
-                      </Link>
-                    </Button>
                   </div>
                 )}
               </div>
@@ -704,9 +665,9 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
                     size="sm"
                     className="bg-orange-600 hover:bg-orange-700 text-white"
                   >
-                    <Link href="/templates/create">
+                    <Link href="/templates">
                       <FileText className="w-4 h-4 mr-2" />
-                      Create Template
+                      Browse Templates
                     </Link>
                   </Button>
                 </div>
@@ -773,9 +734,9 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
                       size="sm"
                       className="bg-orange-600 hover:bg-orange-700 text-white"
                     >
-                      <Link href="/templates/create">
+                      <Link href="/templates">
                         <FileText className="w-4 h-4 mr-2" />
-                        Create First Template
+                        Browse Templates
                       </Link>
                     </Button>
                   </div>
@@ -808,18 +769,9 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
             </Button>
             <Button
               asChild
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              <Link href="/blog">
-                <BookOpen className="w-4 h-4 mr-2" />
-                Read Articles
-              </Link>
-            </Button>
-            <Button
-              asChild
               className="bg-purple-600 hover:bg-purple-700 text-white"
             >
-              <Link href="/createinterview">
+              <Link href="/interview/create">
                 <Users className="w-4 h-4 mr-2" />
                 Practice Interview
               </Link>

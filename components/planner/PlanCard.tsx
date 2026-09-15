@@ -2,8 +2,10 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import { InterviewPlan } from '@/types/planner';
 import { PlannerService } from '@/lib/services/planner-services';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import {
   Calendar,
   Clock,
@@ -23,6 +25,7 @@ interface PlanCardProps {
 export default function PlanCard({ plan, onUpdate }: PlanCardProps) {
   const [showMenu, setShowMenu] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const { confirm, ConfirmDialog } = useConfirm();
 
   const interviewDate = new Date(plan.interviewDate);
   const today = new Date();
@@ -85,13 +88,13 @@ export default function PlanCard({ plan, onUpdate }: PlanCardProps) {
   const cfg = gradientConfig();
 
   const handleDelete = async () => {
-    if (!confirm('Delete this plan? This cannot be undone.')) return;
+    if (!(await confirm({ message: 'Delete this plan? This cannot be undone.', danger: true, confirmLabel: 'Delete' }))) return;
     try {
       setIsDeleting(true);
       await PlannerService.deletePlan(plan.id);
       onUpdate();
     } catch {
-      alert('Failed to delete plan. Please try again.');
+      toast.error('Failed to delete plan. Please try again.');
     } finally {
       setIsDeleting(false);
       setShowMenu(false);
@@ -99,7 +102,9 @@ export default function PlanCard({ plan, onUpdate }: PlanCardProps) {
   };
 
   return (
-    <div
+    <>
+      <ConfirmDialog />
+      <div
       className="relative flex flex-col rounded-2xl border border-white/8 overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:border-white/15 group"
       style={{
         background: 'rgba(15, 23, 42, 0.7)',
@@ -254,5 +259,6 @@ export default function PlanCard({ plan, onUpdate }: PlanCardProps) {
         </Link>
       </div>
     </div>
+    </>
   );
 }

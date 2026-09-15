@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Preciprocal",
   "version": "1.5.2",
-  "description": "Apply to 50+ jobs with one click. AI cover letters in 10 seconds. Track every application. 60-day money-back guarantee.",
+  "description": "Apply to 50+ jobs with one click. AI cover letters in 10 seconds. Track every application. 30-day money-back guarantee.",
   "permissions": [
     "storage",
     "activeTab",
@@ -12,12 +12,6 @@
   "host_permissions": [
     "<all_urls>"
   ],
-  "externally_connectable": {
-    "matches": [
-      "https://app.preciprocal.com/*",
-      "https://www.app.preciprocal.com/*"
-    ]
-  },
   "background": {
     "service_worker": "background.js"
   },
@@ -35,6 +29,7 @@
         "https://www.linkedin.com/*"
       ],
       "js": [
+        "upsell.js",
         "banner.js"
       ],
       "css": [

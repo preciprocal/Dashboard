@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import {
   Shield, FileText, TrendingUp, Star, AlertTriangle,
-  CheckCircle2, Zap, ChevronRight,
+  CheckCircle2, ChevronRight,
 } from 'lucide-react';
 import { ScoreRing, AnimatedBar } from '../../primitives';
 

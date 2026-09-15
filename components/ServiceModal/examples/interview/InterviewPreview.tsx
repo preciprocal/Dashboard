@@ -3,12 +3,12 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Video, VideoOff, Mic, MicOff, Volume2, Settings, PhoneOff,
+  Video, VideoOff, Mic, Volume2, Settings, PhoneOff,
   Users, Clock, CheckCircle2, Crown, Camera, ArrowRight,
-  Loader2, Headphones, Target, AlertCircle, BarChart3,
+  Headphones, Target, BarChart3,
   MessageSquare, Star, TrendingUp, Zap,
 } from 'lucide-react';
-import { FadeIn, ScoreRing, AnimatedBar, TypingText } from '../../primitives';
+import { FadeIn, ScoreRing, AnimatedBar } from '../../primitives';
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -213,7 +213,7 @@ function WaitingRoom({ step }: { step: number }) {
 
 // ─── Phase 2: Live Interview (2×2 Grid) ───────────────────────────────────────
 
-function LiveInterview({ step }: { step: number }) {
+function LiveInterview() {
   const [speakerId, setSpeakerId] = useState<string | null>(null);
   const [question, setQuestion] = useState(1);
   const [elapsed, setElapsed] = useState(0);
@@ -606,7 +606,7 @@ export function InterviewExamplePreview({ step }: { step: number }) {
   return (
     <div className="h-full" style={{ minHeight: 520 }}>
       {step <= 1 && <WaitingRoom step={step} />}
-      {step >= 2 && step <= 4 && <LiveInterview step={step} />}
+      {step >= 2 && step <= 4 && <LiveInterview />}
       {step >= 5 && <FeedbackReport />}
     </div>
   );

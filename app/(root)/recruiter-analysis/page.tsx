@@ -149,7 +149,7 @@ export default function RecruiterEyePage() {
             <AlertCircle className="w-12 h-12 sm:w-16 sm:h-16 text-amber-400 mx-auto mb-4" />
             <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">Resume Not Found</h2>
             <p className="text-sm sm:text-base text-slate-400 mb-4">{error}</p>
-            {debugInfo && (
+            {debugInfo && process.env.NODE_ENV === 'development' && (
               <details className="text-left mb-6">
                 <summary className="text-xs text-slate-500 cursor-pointer mb-2">Debug Info</summary>
                 <pre className="text-xs text-slate-500 bg-slate-900/50 p-3 rounded overflow-auto max-h-32">

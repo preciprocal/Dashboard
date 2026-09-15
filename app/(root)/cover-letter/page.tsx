@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
 import ErrorPage from '@/components/Error';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { toast } from 'sonner';
 
 import {
@@ -555,6 +556,7 @@ function PreviewModal({
 
 export default function CoverLetterDashboard() {
   const [user, loading] = useSupabaseUser();
+  const { confirm, ConfirmDialog } = useConfirm();
   const router = useRouter();
 
   const [coverLetters,  setCoverLetters]  = useState<CoverLetter[]>([]);
@@ -643,7 +645,7 @@ export default function CoverLetterDashboard() {
   useEffect(() => { if (user) loadCoverLetters(); }, [user, loadCoverLetters]);
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this cover letter?')) return;
+    if (!(await confirm({ message: 'Delete this cover letter? This cannot be undone.', danger: true, confirmLabel: 'Delete' }))) return;
     try {
       const res = await fetch(`/api/cover-letter/delete?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Delete failed');
@@ -750,15 +752,16 @@ export default function CoverLetterDashboard() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4 pt-4">
+      <ConfirmDialog />
 
       {/* Page header */}
       <div className="glass-card p-5 animate-fade-in-up">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-xl font-bold text-white leading-tight">Cover Letters</h1>
             <p className="text-xs text-slate-500 mt-0.5">AI-powered professional cover letters</p>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex flex-wrap items-center gap-2">
             <SeeExampleButton
               serviceId="cover-letter"
               className="!px-4 !py-2.5 !text-sm !font-semibold"

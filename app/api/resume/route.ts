@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
 import { revalidatePath } from 'next/cache';
+import { hashResumeText, checkDuplicateResume } from '@/lib/abuse/resume-hash';
 
 export interface Resume {
   id: string;
@@ -136,6 +137,9 @@ export async function POST(request: NextRequest) {
       file_path: filePath ?? null,
       resume_text: resumeText ?? null,
       cache_hash: cacheHash ?? null,
+      // Populates the content_hash column added in 0009 but never written
+      // until now. Null for short/failed extractions - see resume-hash.ts.
+      content_hash: hashResumeText(resumeText),
       status: status ?? 'analyzing',
     };
     if (id) insertData.id = id;
@@ -152,6 +156,19 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) throw error;
+
+    // Duplicate-content detection. Awaited rather than fire-and-forget because
+    // serverless freezes the process once the response is returned, which
+    // would leave the check half-run. It only ever writes to the review queue,
+    // never blocks the upload, and swallows its own errors.
+    const contentHash = insertData.content_hash as string | null;
+    if (contentHash) {
+      await checkDuplicateResume(
+        authedUser.supabaseUserId,
+        contentHash,
+        (created as ResumeRow).id,
+      );
+    }
 
     revalidatePath('/resume');
 

@@ -215,7 +215,7 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
           </Link>
 
           <Link
-            href="/subscription"
+            href="/pricing"
             onClick={closeDropdown}
             className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-800 transition-colors group/item"
           >
@@ -285,7 +285,7 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
           <div className="border-t border-gray-700 my-2"></div>
 
           <Link
-            href="/contact"
+            href="/help"
             onClick={closeDropdown}
             className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-800 transition-colors group/item"
           >

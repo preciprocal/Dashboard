@@ -472,7 +472,7 @@ function JobRecommendationsPage() {
         <div className="glass-card hover-lift">
           <div className="p-4 sm:p-6">
             <div className="flex items-center justify-between">
-              <Link href="/dashboard">
+              <Link href="/">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -524,7 +524,7 @@ function JobRecommendationsPage() {
       <div className="glass-card hover-lift">
         <div className="p-4 sm:p-6">
           <div className="flex items-center justify-between">
-            <Link href="/dashboard">
+            <Link href="/">
               <Button
                 variant="ghost"
                 size="sm"

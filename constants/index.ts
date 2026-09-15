@@ -108,9 +108,13 @@ export const technicalInterviewer: CreateAssistantDTO = {
     language: "en",
     endpointing: 300,
   },
+  // Neha (VAPI's own Indian-English voice) for the technical phase. Distinct
+  // from the behavioral interviewer's voice on purpose: in a mixed interview
+  // the two agents hand off mid-session, and hearing the voice change is the
+  // clearest signal to the candidate that a different person is now asking.
   voice: {
     provider: "vapi",
-    voiceId: "Cole",
+    voiceId: "Neha",
     speed: 0.7,
   },
   model: {
@@ -255,9 +259,22 @@ export const behavioralInterviewer: CreateAssistantDTO = {
     language: "en",
     endpointing: 300,
   },
+  // Paige for the behavioral phase. VAPI-native, same provider as the
+  // technical interviewer's Neha, so there is no external voice vendor to keep
+  // provisioned - 11labs (which has an actual "sarah") is not enabled on the
+  // account, and an unavailable provider makes the assistant fail to connect
+  // outright rather than degrading.
+  //
+  // Paige over the other VAPI female voices because it reads warmer and lower,
+  // which suits a Director of People Operations, and because it contrasts
+  // clearly with Neha's Indian-English. That contrast is the point: in a mixed
+  // interview the two agents hand off mid-session, and hearing the voice change
+  // is the clearest signal to the candidate that a different person is asking.
+  //
+  // Alternatives, all provider "vapi": Kylie, Lily, Savannah, Hana.
   voice: {
     provider: "vapi",
-    voiceId: "Neha",
+    voiceId: "Paige",
     speed: 0.7,
   },
   model: {

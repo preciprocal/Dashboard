@@ -938,11 +938,44 @@ class PreciprocalBanner {
           // Do NOT mark applied yet — will confirm when user returns to LinkedIn
         } else throw new Error('Could not find the Apply button');
       } else throw new Error('No Apply button found');
+      this._maybeShowUpsell();
     } catch (err) {
       this.applyState = 'idle'; if (btn) { btn.classList.remove('loading'); btn.classList.add('error'); } if (labelEl) labelEl.textContent = 'Retry';
       this.showNotification(err.message || 'Auto-apply failed', 'error');
       setTimeout(() => { if (btn) btn.classList.remove('error'); if (labelEl) labelEl.textContent = this._getApplyButtonLabel().label; this.applyState = 'idle'; }, 3000);
     }
+  }
+
+  // Counts this auto-apply and, once the user has been applying steadily,
+  // offers Pro once. Never gates anything and never blocks the apply flow:
+  // it is deliberately fire-and-forget, not awaited by handleAutoApply.
+  //
+  // Counting always happens; SHOWING is delayed so the prompt doesn't land on
+  // top of the Easy Apply modal that just opened. For external applies the tab
+  // often navigates to the company site inside that delay, so the prompt is
+  // simply skipped that time - the count still stands, and it surfaces on a
+  // later apply.
+  _maybeShowUpsell() {
+    if (!window.PreciprocalUpsell) return;
+    window.PreciprocalUpsell.recordAutoApply()
+      .then((result) => {
+        if (!result?.shouldShow) return;
+        setTimeout(() => {
+          if (!document.body) return;
+          window.PreciprocalUpsell.show({
+            auth: {
+              token:   this.authToken,
+              userId:  this.authUserId || '',
+              email:   this.authEmail || '',
+              baseUrl: PRECIPROCAL_URL,
+            },
+            applyCount: result.applyCount,
+            config:     result.config,
+            onOpen: () => window.open(`${PRECIPROCAL_URL}/pricing?source=extension_upsell`, '_blank'),
+          });
+        }, 2500);
+      })
+      .catch(() => {});
   }
 
   async handleAction(action) {
@@ -1133,6 +1166,23 @@ class PreciprocalBanner {
     if (document.getElementById('preciprocal-banner-styles')) return;
     const s = document.createElement('style'); s.id = 'preciprocal-banner-styles';
     s.textContent = `
+      /* ── Pro upsell prompt (extension/upsell.js) ──
+         Bottom-left, so it never overlaps the toasts top-right or LinkedIn's
+         own bottom-right messaging widget. Non-blocking by construction:
+         fixed, narrow, and it never covers the apply controls. */
+      .preciprocal-upsell { position:fixed; left:20px; bottom:20px; z-index:9998; width:300px; opacity:0; transform:translateY(12px); transition:opacity .25s ease, transform .25s ease; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif; }
+      .preciprocal-upsell.show { opacity:1; transform:translateY(0); }
+      .prc-upsell-inner { position:relative; display:flex; gap:8px; background:linear-gradient(135deg,#1e1b4b 0%,#1e293b 100%); border:1px solid rgba(99,102,241,0.28); border-radius:12px; padding:14px 14px 12px; box-shadow:0 8px 28px rgba(0,0,0,0.35); }
+      .prc-upsell-title { font-size:13px; font-weight:700; color:#f5f5f5; margin-bottom:4px; }
+      .prc-upsell-msg { font-size:12px; line-height:1.5; color:#94a3b8; margin-bottom:10px; }
+      .prc-upsell-actions { display:flex; gap:8px; }
+      .prc-upsell-cta { padding:7px 12px; border:none; border-radius:8px; background:linear-gradient(135deg,#6366f1,#a855f7); color:#fff; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit; }
+      .prc-upsell-cta:hover { opacity:.9; }
+      .prc-upsell-dismiss { padding:7px 12px; border:1px solid rgba(255,255,255,0.12); border-radius:8px; background:transparent; color:#94a3b8; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit; }
+      .prc-upsell-dismiss:hover { background:rgba(255,255,255,0.06); color:#e2e8f0; }
+      .prc-upsell-close { position:absolute; top:8px; right:8px; width:20px; height:20px; padding:0; border:none; background:transparent; color:#475569; font-size:17px; line-height:1; cursor:pointer; font-family:inherit; }
+      .prc-upsell-close:hover { color:#cbd5e1; }
+
       /* ── Banner container ── */
       .preciprocal-inline-container { margin:16px 0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif; }
 
