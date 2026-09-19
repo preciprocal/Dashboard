@@ -1,6 +1,37 @@
 // lib/config/student-perk.ts
 // Tunables for the .edu student perk. Domain eligibility rules live next door
 // in student-domains.ts; this file is about the shape of the offer itself.
+//
+// ─── Uniqueness rule: DEVICE ALONE, confirmed final ─────────────────────────
+//
+// The original written spec called for "one redemption per verified domain +
+// device fingerprint combo". What shipped enforces device ALONE, and that
+// difference is deliberate and now confirmed as the intended behaviour - the
+// spec was wrong, not the code.
+//
+// A (domain, device) composite key is trivially defeated: one laptop claims
+// against mit.edu, then harvard.edu, then stanford.edu, and every pair is
+// unique so every claim succeeds. The composite would have enforced almost
+// nothing, which is the opposite of what the rule is for.
+//
+// Enforced by two partial unique indexes in 0022_student_verifications.sql,
+// armed only on redemption so an abandoned verification never burns a slot:
+//   student_verifications_edu_email_key  on (edu_email)          where redeemed
+//   student_verifications_device_key     on (device_fingerprint) where redeemed
+//
+// Known and accepted cost: shared machines. A university library or lab
+// desktop lets exactly one student claim, and the next sees a rejection they
+// cannot act on. Judged the right trade against one device farming unlimited
+// free months across institutions. If it becomes a real support burden, the
+// answer is the enrolment-vendor path at the bottom of this file, not a weaker
+// key - fingerprints are a heuristic and should not carry more weight than
+// they can bear.
+//
+// Fingerprint absence is NOT treated as failure. lib/fingerprint.ts returns
+// null on SSR, on insecure origins, and whenever the browser blocks the APIs
+// it is built from, and the device index is partial on
+// `device_fingerprint is not null` precisely so those users are let through
+// rather than blocked by a signal that was never collected.
 
 export const TRIAL_DAYS = 30;
 
