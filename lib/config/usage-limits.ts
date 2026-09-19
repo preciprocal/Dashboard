@@ -17,6 +17,18 @@ export interface PlanLimits {
   free: UsageLimits;
   pro: UsageLimits;
   premium: UsageLimits;
+  /**
+   * Premium subscribers who were on the pre-resize quotas, which had unlimited
+   * coverLetters and coldOutreach. Not purchasable and not stored in
+   * subscriptions.plan - those rows still say 'premium'. The distinction is
+   * the subscriptions.legacy_quotas boolean, resolved by resolvePlanKey().
+   *
+   * Time-boxed on purpose: the renewal path in the Stripe webhook clears
+   * legacy_quotas, so a legacy subscriber moves to the capped premium table at
+   * their next renewal rather than keeping unlimited forever. Indefinite
+   * unlimited would reopen the abuse vector the resize exists to close.
+   */
+  premium_legacy: UsageLimits;
   admin: UsageLimits;
 }
 
@@ -39,40 +51,55 @@ export const USAGE_LIMITS: PlanLimits = {
   // regardless of what's in the subscriptions table.
   admin: UNLIMITED,
   free: {
-    coverLetters: 3,
-    resumes: 2,
-    studyPlans: 1,
-    interviews: 1,
-    interviewDebriefs: 1,
+    coverLetters: 5,
+    resumes: 3,
+    studyPlans: 2,
+    interviews: 1,        // 8-minute hard cap per session
+    interviewDebriefs: 10, // DB insert, no model call - see feature-costs.ts
     debriefAnalyses: 1,
-    linkedinOptimisations: 1,
-    coldOutreach: 1,
-    findContacts: 1,
-    jobTracker: 5,
+    linkedinOptimisations: 2,
+    coldOutreach: 3,
+    findContacts: 3,
+    jobTracker: 8,
   },
   pro: {
-    coverLetters: 20,
-    resumes: 10,
-    studyPlans: 3,
-    interviews: 5,
-    interviewDebriefs: 3,
-    debriefAnalyses: 3,
-    linkedinOptimisations: 3,
-    coldOutreach: 5,
-    findContacts: 10,
+    coverLetters: 30,
+    resumes: 20,
+    studyPlans: 10,
+    interviews: 2,        // 8-minute hard cap per session
+    interviewDebriefs: 60,
+    debriefAnalyses: 4,
+    linkedinOptimisations: 5,
+    coldOutreach: 20,
+    findContacts: 15,
     jobTracker: -1,       // unlimited
   },
   premium: {
-    coverLetters: -1,     // unlimited
-    resumes: 30,
-    studyPlans: 15,
-    interviews: 30,
-    interviewDebriefs: 20,
-    debriefAnalyses: 20,
+    coverLetters: 80,
+    resumes: 50,
+    studyPlans: 25,
+    interviews: 5,        // 8-minute hard cap per session
+    interviewDebriefs: 150,
+    debriefAnalyses: 12,
     linkedinOptimisations: 15,
-    coldOutreach: -1,     // unlimited
-    findContacts: 30,
+    coldOutreach: 60,
+    findContacts: 50,
     jobTracker: -1,       // unlimited
+  },
+  // Identical to `premium` except the two categories that were unlimited
+  // before the resize. Everything else takes the new, higher caps, so a legacy
+  // subscriber is never worse off than a new one mid-transition.
+  premium_legacy: {
+    coverLetters: -1,     // unlimited (pre-resize)
+    resumes: 50,
+    studyPlans: 25,
+    interviews: 5,
+    interviewDebriefs: 150,
+    debriefAnalyses: 12,
+    linkedinOptimisations: 15,
+    coldOutreach: -1,     // unlimited (pre-resize)
+    findContacts: 50,
+    jobTracker: -1,
   },
 };
 
@@ -107,11 +134,34 @@ export function getFeatureLimit(plan: string, feature: FeatureType): number {
 }
 
 export function normalisePlan(plan: string): keyof PlanLimits {
-  const p = plan.toLowerCase();
+  const p = plan.toLowerCase().trim();
   if (p === 'admin')   return 'admin';
   if (p === 'pro')     return 'pro';
   if (p === 'premium') return 'premium';
   return 'free'; // covers "free", "starter", unknown
+}
+
+/**
+ * The plan key a user's quotas should actually be read from.
+ *
+ * normalisePlan() alone cannot answer this: a grandfathered Premium subscriber
+ * still has plan = 'premium' in the database, and admin status lives on
+ * profiles.is_admin rather than on the subscription at all. Anything that gates
+ * or displays quota should call this rather than normalisePlan() directly.
+ */
+export function resolvePlanKey(
+  plan: string | null | undefined,
+  opts: { isAdmin?: boolean; legacyQuotas?: boolean } = {},
+): keyof PlanLimits {
+  if (opts.isAdmin) return 'admin';
+  const key = normalisePlan(plan ?? 'free');
+  if (key === 'premium' && opts.legacyQuotas) return 'premium_legacy';
+  return key;
+}
+
+/** True for plan keys that are grandfathered rather than purchasable. */
+export function isLegacyPlanKey(key: keyof PlanLimits): boolean {
+  return key === 'premium_legacy';
 }
 
 export function isUnlimited(limit: number): boolean {

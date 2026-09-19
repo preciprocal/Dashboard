@@ -249,10 +249,18 @@ async function handleSubscriptionUpdated(subscription: SubscriptionWithPeriods) 
       ` (existing: ${alreadyVerified}, coupon applied: ${appliedCouponId ?? "none"})`
     );
 
+    // current_period_start was previously written ONLY on subscription.created.
+    // It is the anchor for the rolling 30-day quota window (lib/usage/period.ts
+    // pickAnchor) and for the refund window (lib/refund/eligibility.ts
+    // isWithinRefundWindow), so leaving it frozen at the original signup date
+    // meant a long-lived subscriber's quota window never advanced with billing.
+    const currentPeriodStart = safeTimestampToISO(subscription.current_period_start);
+
     const { error: updateError } = await supabaseAdmin.from("subscriptions").update({
       status: subscription.status,
       plan,
       student_verified: studentVerified,
+      ...(currentPeriodStart ? { current_period_start: currentPeriodStart } : {}),
       current_period_end: currentPeriodEnd,
       subscription_ends_at: currentPeriodEnd,
       updated_at: new Date().toISOString(),
@@ -358,13 +366,24 @@ async function handlePaymentSucceeded(invoice: InvoiceWithSubscription) {
     // Preserve studentVerified on every renewal - never accidentally wipe it
     const studentVerified = existing.student_verified === true;
 
+    // See the note in handleSubscriptionUpdated: this column anchors both the
+    // rolling quota window and the refund window, and was never advanced on
+    // renewal before.
+    const currentPeriodStart = safeTimestampToISO(subscription.current_period_start);
+
     const { error: updateError } = await supabaseAdmin.from("subscriptions").update({
       status: "active",
       plan,
       student_verified: studentVerified,
+      ...(currentPeriodStart ? { current_period_start: currentPeriodStart } : {}),
       current_period_end: currentPeriodEnd,
       subscription_ends_at: currentPeriodEnd,
       last_payment_at: new Date().toISOString(),
+      // A successful renewal is the end of the grandfathering window. Legacy
+      // Premium subscribers keep their pre-resize unlimited categories until
+      // here, then move to the capped premium table - time-boxed rather than
+      // permanent, so unlimited monthly usage cannot persist indefinitely.
+      legacy_quotas: false,
       updated_at: new Date().toISOString(),
     }).eq("user_id", supabaseUserId);
     if (updateError) throw updateError;

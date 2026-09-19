@@ -3,8 +3,9 @@
 // Shared across all API routes that consume AI credits.
 import { supabaseAdmin } from '@/supabase/admin';
 import { toSupabaseUserId } from '@/lib/auth/verify-request';
-import { USAGE_LIMITS } from '@/lib/config/usage-limits';
+import { USAGE_LIMITS, resolvePlanKey } from '@/lib/config/usage-limits';
 import { computeUsagePeriod, pickAnchor } from '@/lib/usage/period';
+import { consumeHourlyQuota, HOURLY_LIMITED_FEATURES } from '@/lib/ai/hourly-quota-limit';
 
 export type GatedFeature =
   | 'resumes'
@@ -49,6 +50,8 @@ const FEATURE_NAMES: Record<GatedFeature, string> = {
 };
 
 export interface UsageCheckResult {
+  /** Which bucket satisfied the request. Absent on failures. */
+  source?: 'subscription' | 'pack';
   allowed: boolean;
   used: number;
   limit: number;        // -1 = unlimited
@@ -63,6 +66,7 @@ interface SubscriptionRow {
   status: string | null;
   trial_ends_at: string | null;
   current_period_start: string | null;
+  legacy_quotas: boolean | null;
 }
 
 // Manually-granted trials (e.g. the student .edu offer) have no Stripe subscription
@@ -75,7 +79,7 @@ function isTrialExpired(sub: SubscriptionRow | null): boolean {
 async function getSubscription(supabaseUserId: string): Promise<SubscriptionRow | null> {
   const { data } = await supabaseAdmin
     .from('subscriptions')
-    .select('plan, status, trial_ends_at, current_period_start')
+    .select('plan, status, trial_ends_at, current_period_start, legacy_quotas')
     .eq('user_id', supabaseUserId)
     .maybeSingle();
   return data as SubscriptionRow | null;
@@ -105,6 +109,53 @@ async function isAdminUser(supabaseUserId: string): Promise<boolean> {
   return data?.is_admin === true;
 }
 
+// ─── One-time credit packs ────────────────────────────────────────────────────
+//
+// Packs stack on top of the subscription allowance and never reset, so they are
+// drawn from only once the monthly counter has refused. consume_pack_credit()
+// picks the OLDEST pack with credit left in that category and takes exactly one,
+// under FOR UPDATE SKIP LOCKED so two concurrent requests cannot spend the same
+// last credit.
+//
+// Returns the pack id drawn from, or null when the user has none. A failure
+// here is swallowed to null rather than thrown: the monthly guard has already
+// refused, so the worst case is the user is told they are out of quota, which
+// is what would have happened without packs at all.
+
+async function consumePackCredit(
+  supabaseUserId: string,
+  field: string,
+): Promise<string | null> {
+  try {
+    const { data, error } = await supabaseAdmin.rpc('consume_pack_credit', {
+      p_user_id: supabaseUserId,
+      p_field: field,
+    });
+    if (error) throw error;
+    return (data as string | null) ?? null;
+  } catch (err) {
+    console.error(`⚠️ Pack credit lookup failed for ${supabaseUserId}/${field}:`, err);
+    return null;
+  }
+}
+
+/** Remaining pack credit per usage_counters column, for display. */
+export async function getPackBalances(
+  supabaseUserId: string,
+): Promise<Record<string, number>> {
+  try {
+    const { data, error } = await supabaseAdmin.rpc('pack_credit_balance', {
+      p_user_id: supabaseUserId,
+    });
+    if (error) throw error;
+    const rows = (data as Array<{ field: string; remaining: number }>) ?? [];
+    return Object.fromEntries(rows.map((r) => [r.field, Number(r.remaining)]));
+  } catch (err) {
+    console.error(`⚠️ Pack balance lookup failed for ${supabaseUserId}:`, err);
+    return {};
+  }
+}
+
 // ─── Check usage (read-only, does NOT increment) ──────────────────────────────
 
 export async function checkUsage(
@@ -119,10 +170,33 @@ export async function checkUsage(
       getProfileCreatedAt(supabaseUserId),
     ]);
 
-    const plan   = admin ? 'admin' : isTrialExpired(sub) ? 'free' : normalisePlan(sub?.plan);
+    const plan   = isTrialExpired(sub) ? 'free' : resolvePlanKey(sub?.plan, {
+      isAdmin: admin,
+      legacyQuotas: sub?.legacy_quotas === true,
+    });
     const limits = USAGE_LIMITS[plan];
     const limit  = limits[feature as keyof typeof limits];
     const field  = FEATURE_FIELD[feature];
+
+    // Hourly ceiling on resumes + coverLetters combined. Enforced here rather
+    // than per-route because those two features are spread across eight routes
+    // (seven resume endpoints alone), and a per-route limiter gives each its
+    // own bucket - which is exactly the hole this closes. Putting it in the
+    // shared gate means a new resume route is covered the day it ships.
+    //
+    // Consumes a token on check, not on success: the point is to throttle
+    // attempt rate, and a failed generation has already cost the upstream call.
+    if ((HOURLY_LIMITED_FEATURES as readonly string[]).includes(feature)) {
+      const hourly = await consumeHourlyQuota(supabaseUserId, plan);
+      if (!hourly.allowed) {
+        const mins = Math.ceil(hourly.retryAfterSeconds / 60);
+        return {
+          allowed: false, used: hourly.used, limit: hourly.limit, remaining: 0,
+          plan, feature,
+          message: `You've hit the hourly limit of ${hourly.limit} resume and cover letter actions. Try again in ${mins} minute${mins === 1 ? '' : 's'}.`,
+        };
+      }
+    }
 
     const { periodStart } = computeUsagePeriod(
       pickAnchor(sub?.current_period_start, profileCreatedAt),
@@ -136,14 +210,25 @@ export async function checkUsage(
     const used = (counterRow?.[field as keyof typeof counterRow] as number | undefined) ?? 0;
 
     if (limit === -1) {
-      return { allowed: true, used, limit: -1, remaining: -1, plan, feature };
+      return { allowed: true, used, limit: -1, remaining: -1, plan, feature, source: 'subscription' };
     }
 
-    const remaining = Math.max(0, limit - used);
-    const allowed   = used < limit;
+    const monthlyRemaining = Math.max(0, limit - used);
+
+    // Only pay for the pack lookup when the monthly allowance is spent. This
+    // runs on every gated request, so an extra round trip for the common case
+    // would be a real cost.
+    let packRemaining = 0;
+    if (monthlyRemaining === 0) {
+      packRemaining = (await getPackBalances(supabaseUserId))[field] ?? 0;
+    }
+
+    const remaining = monthlyRemaining + packRemaining;
+    const allowed   = remaining > 0;
 
     return {
       allowed, used, limit, remaining, plan, feature,
+      source: monthlyRemaining > 0 ? 'subscription' : allowed ? 'pack' : undefined,
       message: allowed
         ? undefined
         : `You've reached your monthly limit of ${limit} ${FEATURE_NAMES[feature]}. Upgrade to Pro for more.`,
@@ -190,7 +275,10 @@ export async function checkAndIncrementUsage(
       }).eq('user_id', supabaseUserId);
     }
 
-    const plan   = admin ? 'admin' : trialExpired ? 'free' : normalisePlan(sub?.plan);
+    const plan   = trialExpired ? 'free' : resolvePlanKey(sub?.plan, {
+      isAdmin: admin,
+      legacyQuotas: sub?.legacy_quotas === true,
+    });
     const limits = USAGE_LIMITS[plan];
     const limit  = limits[feature as keyof typeof limits];
 
@@ -207,10 +295,27 @@ export async function checkAndIncrementUsage(
     if (error) throw error;
 
     const row = (data as Array<{ used: number; allowed: boolean }>)[0];
+
+    // Monthly allowance exhausted: fall through to one-time pack credits before
+    // refusing. Packs are checked second, never first, so a user's non-expiring
+    // purchased credits are not silently spent while their resetting monthly
+    // allowance still has room.
+    if (!row.allowed) {
+      const packId = await consumePackCredit(supabaseUserId, field);
+      if (packId) {
+        console.log(`🎟️ Pack credit [${feature}] for ${userId} from pack ${packId}`);
+        return {
+          allowed: true, used: row.used, limit, remaining: 0, plan, feature,
+          source: 'pack',
+        };
+      }
+    }
+
     const remaining = limit === -1 ? -1 : Math.max(0, limit - row.used);
 
     const result: UsageCheckResult = {
       allowed: row.allowed, used: row.used, limit, remaining, plan, feature,
+      source: 'subscription',
       message: row.allowed
         ? undefined
         : `You've reached your monthly limit of ${limit} ${FEATURE_NAMES[feature]}. Upgrade to Pro for more.`,
@@ -230,11 +335,3 @@ export async function checkAndIncrementUsage(
   }
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function normalisePlan(raw: unknown): keyof typeof USAGE_LIMITS {
-  const plan = (typeof raw === 'string' ? raw : 'free').toLowerCase().trim();
-  if (plan === 'pro')     return 'pro';
-  if (plan === 'premium') return 'premium';
-  return 'free';
-}
