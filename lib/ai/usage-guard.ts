@@ -124,22 +124,30 @@ async function isAdminUser(supabaseUserId: string): Promise<boolean> {
 
 async function consumePackCredit(
   supabaseUserId: string,
-  field: string,
+  feature: GatedFeature,
 ): Promise<string | null> {
   try {
     const { data, error } = await supabaseAdmin.rpc('consume_pack_credit', {
       p_user_id: supabaseUserId,
-      p_field: field,
+      p_field: feature,
     });
     if (error) throw error;
     return (data as string | null) ?? null;
   } catch (err) {
-    console.error(`⚠️ Pack credit lookup failed for ${supabaseUserId}/${field}:`, err);
+    console.error(`⚠️ Pack credit lookup failed for ${supabaseUserId}/${feature}:`, err);
     return null;
   }
 }
 
-/** Remaining pack credit per usage_counters column, for display. */
+/**
+ * Remaining pack credit, keyed by GatedFeature.
+ *
+ * NOTE the vocabulary: the credit_packs ledger speaks FeatureType/GatedFeature
+ * ("resumes"), NOT usage_counters column names ("resumes_used"). The SQL
+ * parameter is still called p_field for historical reasons, but it takes a
+ * feature key. Passing a column name silently returns no credit - a user would
+ * buy a pack and get nothing, with no error anywhere.
+ */
 export async function getPackBalances(
   supabaseUserId: string,
 ): Promise<Record<string, number>> {
@@ -220,7 +228,7 @@ export async function checkUsage(
     // would be a real cost.
     let packRemaining = 0;
     if (monthlyRemaining === 0) {
-      packRemaining = (await getPackBalances(supabaseUserId))[field] ?? 0;
+      packRemaining = (await getPackBalances(supabaseUserId))[feature] ?? 0;
     }
 
     const remaining = monthlyRemaining + packRemaining;
@@ -301,7 +309,7 @@ export async function checkAndIncrementUsage(
     // purchased credits are not silently spent while their resetting monthly
     // allowance still has room.
     if (!row.allowed) {
-      const packId = await consumePackCredit(supabaseUserId, field);
+      const packId = await consumePackCredit(supabaseUserId, feature);
       if (packId) {
         console.log(`🎟️ Pack credit [${feature}] for ${userId} from pack ${packId}`);
         return {
