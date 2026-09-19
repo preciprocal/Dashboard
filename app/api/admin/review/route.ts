@@ -50,9 +50,14 @@ export async function GET(req: NextRequest) {
         .limit(200),
       supabaseAdmin
         .from('refund_requests')
+        // quoted_refund_cents is the figure the user was shown and agreed to.
+        // The reviewer approves THAT number - recomputing at approval time
+        // would produce a different one, because usage keeps moving after
+        // submit.
         .select(
           'id, user_id, status, max_usage_pct, usage_snapshot, user_reason, ' +
-          'billing_period_start, billing_period_end, stripe_subscription_id, created_at',
+          'billing_period_start, billing_period_end, stripe_subscription_id, created_at, ' +
+          'quoted_refund_cents, quoted_gross_cents, quoted_fee_cents, amount_paid_cents, proration_lines',
         )
         .in('status', [REFUND_STATUSES.pending, REFUND_STATUSES.flagged])
         .order('created_at', { ascending: false })
@@ -167,14 +172,19 @@ export async function PATCH(req: NextRequest) {
       .eq('id', body.id);
     if (updateError) throw updateError;
 
-    // A denied request hands the guarantee back: asking and being told no has
-    // not consumed the user's one shot at it. The claim happens at submit time
-    // to close a concurrency window, so this is the matching release.
-    if (body.action === 'deny') {
-      const { error: releaseError } = await supabaseAdmin
-        .rpc('release_refund_guarantee', { p_user_id: request.user_id });
-      if (releaseError) throw releaseError;
-    }
+    // No release on deny any more.
+    //
+    // Under 0024 the guarantee was a lifetime boolean, so a denial had to hand
+    // it back or the user lost their one shot by asking. 0031 made the gate
+    // per-billing-period and enforced it with a unique index on
+    // (user_id, billing_period_start), so there is no boolean to release, and
+    // the denied row itself is what consumes the period.
+    //
+    // That is intentional: allowing a re-request after a denial would turn the
+    // queue into a retry loop against a decision a human already made on those
+    // facts. The user's next billing period is claimable as normal, and a
+    // genuine reconsideration is a support conversation rather than a second
+    // row. release_refund_guarantee no longer exists.
 
     // Close any linked review flag so a decided refund stops appearing twice.
     await supabaseAdmin

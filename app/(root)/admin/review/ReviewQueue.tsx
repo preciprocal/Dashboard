@@ -23,7 +23,15 @@ interface RefundRow {
   billing_period_start: string | null;
   stripe_subscription_id: string | null;
   created_at: string;
+  /** Frozen at submit. This is the figure to refund, NOT a recomputation. */
+  quoted_refund_cents: number | null;
+  quoted_gross_cents: number | null;
+  quoted_fee_cents: number | null;
+  amount_paid_cents: number | null;
 }
+
+const money = (cents: number | null) =>
+  cents === null ? "-" : `$${(cents / 100).toFixed(2)}`;
 
 const REASON_LABELS: Record<string, string> = {
   duplicate_resume:          "Duplicate resume content",
@@ -110,16 +118,32 @@ export default function ReviewQueue() {
                         ` · period started ${new Date(r.billing_period_start).toLocaleDateString()}`}
                     </p>
                   </div>
+                  {/* Peak usage is a TRIAGE SORT SIGNAL here, not a suspicion
+                      marker. The usage-gated policy requires heavy interview
+                      use to qualify at all, so most eligible requests sit high
+                      by construction. Rendered neutrally for that reason - a
+                      red badge would read as an accusation the policy does not
+                      support. */}
                   {r.max_usage_pct !== null && (
-                    <span
-                      className="px-2.5 py-1 rounded-full text-xs font-semibold"
-                      style={{
-                        background: r.max_usage_pct >= 80 ? "rgba(239,68,68,0.12)" : "rgba(16,185,129,0.12)",
-                        color:      r.max_usage_pct >= 80 ? "#f87171" : "#34d399",
-                      }}>
+                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold text-slate-300 bg-white/[0.06]">
                       {r.max_usage_pct}% peak usage
                     </span>
                   )}
+                </div>
+
+                {/* The amount the user was shown and agreed to. Refund exactly
+                    this - do not recompute, usage has moved since. */}
+                <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 mb-3">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-xs text-slate-400">Quoted refund</span>
+                    <span className="text-lg font-semibold text-white">
+                      {money(r.quoted_refund_cents)}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    {money(r.amount_paid_cents)} paid · {money(r.quoted_gross_cents)} prorated
+                    · less {money(r.quoted_fee_cents)} processing fee
+                  </p>
                 </div>
 
                 {r.user_reason && (
