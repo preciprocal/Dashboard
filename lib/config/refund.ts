@@ -27,6 +27,42 @@ export const REFUND_WINDOW_DAYS = 30;
 export const HIGH_USAGE_THRESHOLD_PCT = 80;
 
 /**
+ * Mock-interview usage share a period must EXCEED for a refund to be available
+ * at all. Below this the request is ineligible regardless of how little of
+ * every other category was consumed.
+ *
+ * This is deliberately not a satisfaction guarantee. The rule is "prove you
+ * engaged with the core feature before claiming it did not work for you", so a
+ * zero-usage account is denied by design rather than by oversight. Note the
+ * consequence: interviews carry the largest per-unit cost in
+ * lib/config/feature-costs.ts and dominate the allowance value, so any request
+ * that clears this gate has already consumed most of what the subscription is
+ * worth. Refunds therefore cap out around 40% of the period price. Intended.
+ *
+ * Strictly greater than, not >=: "above 50%" in the policy means 51% and up.
+ */
+export const INTERVIEW_ELIGIBILITY_THRESHOLD_PCT = 50;
+
+/** Feature the eligibility gate keys on. */
+export const ELIGIBILITY_GATE_FEATURE = 'interviews' as const;
+
+/**
+ * Fallback Stripe fee model, used only when the real figure cannot be read off
+ * the charge's balance transaction. Standard US card pricing.
+ *
+ * Prefer the real number: promotional rates, international cards and disputes
+ * all move it, and this refund is calculated to the cent.
+ */
+export const STRIPE_FEE_PERCENT = 0.029;
+export const STRIPE_FEE_FIXED_CENTS = 30;
+
+/** Stripe's fee on a charge, in cents, from the standard model. */
+export function estimateStripeFeeCents(amountCents: number): number {
+  if (amountCents <= 0) return 0;
+  return Math.round(amountCents * STRIPE_FEE_PERCENT) + STRIPE_FEE_FIXED_CENTS;
+}
+
+/**
  * Unlimited categories (limit = -1) can't produce a percentage, so they are
  * excluded from the threshold check entirely rather than counted as 0% - a
  * Premium user with unlimited cover letters shouldn't have that category
