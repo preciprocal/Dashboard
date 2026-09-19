@@ -42,7 +42,22 @@ export const PACKS: Record<PackKey, PackDefinition> = {
     key: "application_boost",
     name: "Application Boost",
     priceUsd: 4.99,
-    grants: { resumes: 10, coverLetters: 15, jobTracker: 20 },
+    // Originally specced as +10 resumes, +15 cover letters, +20 tracked jobs.
+    // The tracked-jobs grant was dropped, for two independent reasons:
+    //
+    //   1. It is worthless to the people most likely to buy. Pro and Premium
+    //      are already jobTracker: -1, so the grant only does anything for Free
+    //      users.
+    //   2. jobTracker has no server-side metering at all -
+    //      checkAndIncrementUsage(_, 'jobTracker') is called nowhere and
+    //      job_tracker_used is always 0 - so the credits would have been
+    //      unspendable regardless.
+    //
+    // Before adding it back, settle what the number means. usage_counters is
+    // per-period and resets every 30 days, but "8 tracked jobs" in the UI and
+    // "+20 tracked jobs" here both read as a total capacity cap. Those are
+    // different products.
+    grants: { resumes: 10, coverLetters: 15 },
     description: "For a heavy application week.",
   },
   networking_pack: {
@@ -86,6 +101,7 @@ export function packPriceId(key: PackKey): string {
 
 /** Packs safe to display. Excludes any whose Stripe Price is unconfigured. */
 export function purchasablePacks(): PackDefinition[] {
+  assertGrantsAreEnforceable();
   return Object.values(PACKS).filter((p) => {
     try {
       packPriceId(p.key);
@@ -97,11 +113,37 @@ export function purchasablePacks(): PackDefinition[] {
 }
 
 /**
- * Note on `jobTracker` grants: there is currently NO server-side enforcement of
- * the jobTracker quota anywhere in the app. checkAndIncrementUsage(_, 'jobTracker')
- * is never called, so job_tracker_used is always 0 and the limit is display-only
- * in app/(root)/job-tracker/page.tsx. Application Boost therefore sells 20
- * tracked jobs that nothing currently meters. Enforcement has to land before
- * that pack goes on sale.
+ * Quota categories with no server-side metering. A pack must never grant credit
+ * in one of these: the credits would be unspendable, because nothing decrements
+ * them, and the buyer would have no way to tell.
+ *
+ * jobTracker is here because checkAndIncrementUsage(_, 'jobTracker') is called
+ * nowhere in the app. Its limit is enforced only by display logic in
+ * app/(root)/job-tracker/page.tsx, and job_tracker_used is permanently 0.
+ *
+ * assertGrantsAreEnforceable() below turns this into a startup failure rather
+ * than a silent one.
  */
 export const UNENFORCED_GRANT_CATEGORIES: readonly FeatureType[] = ["jobTracker"] as const;
+
+/**
+ * Throws if any pack grants credit in an unmetered category.
+ *
+ * This exists because the failure it prevents is invisible: a pack granting
+ * unmetered credit takes real money and delivers nothing, with no error at
+ * purchase, no error at use, and no log line. Called from purchasablePacks() so
+ * a mistake surfaces the first time the pricing page renders rather than in a
+ * support email.
+ */
+export function assertGrantsAreEnforceable(): void {
+  for (const pack of Object.values(PACKS)) {
+    for (const category of Object.keys(pack.grants) as FeatureType[]) {
+      if (UNENFORCED_GRANT_CATEGORIES.includes(category)) {
+        throw new Error(
+          `Pack "${pack.key}" grants "${category}", which has no server-side metering. ` +
+            `Those credits would be unspendable. Meter it or remove the grant.`,
+        );
+      }
+    }
+  }
+}
