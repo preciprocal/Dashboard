@@ -63,7 +63,11 @@ export const PACKS: Record<PackKey, PackDefinition> = {
   networking_pack: {
     key: "networking_pack",
     name: "Networking Pack",
-    priceUsd: 5.99,
+    // Dropped from $5.99. Its cost is $0.12, so it was priced well above what
+    // it needed to be - $4.99 still returns 88.8% and matches Application
+    // Boost, which makes the cheap packs read as one tier rather than two
+    // arbitrary numbers.
+    priceUsd: 4.99,
     grants: { findContacts: 15, linkedinOptimisations: 3 },
     description: "Find and reach the people who decide.",
   },
@@ -83,23 +87,30 @@ export const PACKS: Record<PackKey, PackDefinition> = {
   // affordable. Interviews are ~99% of the cost of both packs; the debrief
   // grants are effectively free padding (an interviewDebrief is a database
   // insert with no model call at all).
+  // Both interview packs are padded with cheap text credits rather than priced
+  // to the bone. Interviews are 98% of their cost; cover letters are $0.010
+  // and resumes $0.014, so adding them costs almost nothing and makes each
+  // pack visibly worth more than "two phone calls". Margin lands near 60%
+  // rather than at the ~51% floor, which is deliberate: the interview rate is
+  // measured from ONE call, and at 50% a bad estimate puts these underwater
+  // immediately. See the stress table in the commit that set these.
   interview_boost: {
     key: "interview_boost",
     name: "Interview Boost",
-    priceUsd: 6.99,
-    grants: { interviews: 2, interviewDebriefs: 2 },
-    description: "Two more mock interviews at your plan's session length.",
+    priceUsd: 7.99,
+    grants: { interviews: 2, interviewDebriefs: 3, coverLetters: 5 },
+    description: "Two more mock interviews, plus debriefs and cover letters to prep with.",
   },
   final_round: {
     key: "final_round",
     name: "Final Round",
-    priceUsd: 13.99,
+    priceUsd: 15.99,
     // prioritySpeedDays removed. It was never implemented - no code read it -
-    // so the pack was advertising a benefit that did not exist. It also cost
-    // nothing, which is why dropping it does not fund a price cut: the price
-    // is set almost entirely by the interview credits.
-    grants: { interviews: 4, debriefAnalyses: 5 },
-    description: "Everything you need for the last stretch.",
+    // so the pack advertised a benefit that did not exist. It also cost
+    // nothing, which is why dropping it did not fund a price cut: the price is
+    // set almost entirely by the interview credits.
+    grants: { interviews: 4, debriefAnalyses: 5, coverLetters: 10, resumes: 5 },
+    description: "Everything for the last stretch: interviews, AI insights, and applications.",
   },
 };
 
