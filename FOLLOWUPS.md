@@ -104,15 +104,20 @@ because it changes a route's behaviour outside the approved scope at the time.
 
 Phone verification is fully built but dormant: `PHONE_VERIFICATION_ENABLED` is
 derived from Twilio credential presence, and no Twilio vars are set, so
-`markPhoneVerificationRequired()` returns early and the middleware gate never
-fires.
+`requirePhoneVerification()` in `lib/ai/usage-guard.ts` returns early and
+nothing is gated.
 
 **Ordering matters when Twilio is added.** Apply `0029` FIRST, then set the
-credentials. Setting credentials first flips the flag on, starts stamping new
-signups with the `phone_verification_required` claim, and sends them to a
+credentials. Setting credentials first turns the gate on and sends users to a
 verify flow whose success path writes `profiles.verified_phone` - a column that
-does not exist until `0029` runs. Every account created in that window is
-locked out.
+does not exist until `0029` runs. Since the write fails, `phone_verified` never
+becomes true either, so every Free account created in that window is blocked
+from consuming any quota with no way to clear it.
+
+Note the blast radius is now smaller than it was. The gate used to live in
+`middleware.ts` and blocked the entire app including `/pricing` and checkout;
+since `1b854f0` it blocks only quota consumption on Free accounts, so an
+affected user can still browse, pay, and manage their account.
 
 ---
 
@@ -140,3 +145,133 @@ migration next touches that function for another reason.**
 Task 0 item 4 calls for serving quota data from one place, coordinated with the
 landing-page codebase. `app/api/refund/policy` establishes the pattern for that
 kind of cross-repo contract.
+
+---
+
+## 8. Session eviction has no backstop if Redis fails (Task 7.1)
+
+**Severity: high for the control it is meant to provide.**
+
+The concurrent-session cap is enforced in exactly one place, and that place has
+a single point of failure with nothing behind it.
+
+`middleware.ts` gates the revocation check on `sessionId && redis && !onSignIn
+&& isDocumentNavigation(request)`. If Redis is unconfigured or down, **the
+`redis &&` short-circuits and revocation is never enforced at all** - silently,
+with no error path. `lib/session/registry.ts` only logs a publish failure.
+
+There is a second, independent check that would have covered this, and it is
+thrown away. `lib/session/registry.ts:60` computes `{ revoked: true }` from the
+database, and `app/api/session/heartbeat/route.ts:64` returns it to the client:
+
+```ts
+return NextResponse.json({ ok: true, tracked: true, revoked: result.revoked });
+```
+
+But `components/SessionHeartbeat.tsx:24-30` awaits the `fetch` and never reads
+the body. The DB-backed signal is computed, transmitted, and discarded.
+
+**So eviction depends entirely on Redis, despite a working database check
+already existing and being one `.json()` call away from being usable.** This is
+not a cosmetic bug: it is the difference between the device cap having a
+backstop and having none.
+
+Two further limits on enforcement, both by design and documented in
+`0026_user_sessions.sql:10-15`:
+
+- Revocation is **advisory**. It cannot kill the GoTrue session; middleware
+  signs the user out on their next page load.
+- Only **document navigations** are checked (`Accept: text/html`). API calls
+  and server-action fetches from an evicted session keep working indefinitely,
+  so a session that never does a full navigation is never signed out.
+
+Fixing the discarded flag is small: read the response in `SessionHeartbeat.tsx`
+and sign out when `revoked` is true. That alone gives the cap a path that works
+when Redis does not.
+
+---
+
+## 9. Signup rate limiting is weaker than specified (Task 4.2)
+
+**Severity: medium. Audited, not fixed.**
+
+| Control | Spec | Actual |
+| --- | --- | --- |
+| Per device | max 1 / 30d | 1 ✓ (`abuse-guard.ts:14`) |
+| Per IP | max 1 / 30d | **3** (`abuse-guard.ts:38`) |
+| OAuth fingerprint | required | **not passed** (`auth.action.ts:384,412`) |
+| Window | last 30 days | fixed from first signup, not sliding |
+
+The IP limit was knowingly raised from 1 to 3, with a documented reason: on the
+OAuth path `exchangeCodeForSession` has already created the auth user by the
+time the guard runs, so a block *deletes* that account. At 1, a second genuine
+student on campus wifi would have their Google account created and destroyed.
+
+The compounding problem is that OAuth passes `null` for the fingerprint both
+when checking and when recording, so a Google signup is invisible to the device
+limit entirely. **Net effect on the Google path: 3 accounts per IP per 30 days,
+with no per-device limit at all.**
+
+The error copy still says "Preciprocal allows one free account per person",
+which is shown after the fourth IP attempt and misstates the enforced rule.
+
+Also note `signup-limiter.ts:41` fails open when Redis is absent.
+
+---
+
+## 10. Resume duplicate detection misses its main case (Task 4.3)
+
+**Severity: medium. Audited, not fixed.**
+
+Two gaps against the spec:
+
+**It flags nobody when the counterpart is a paying account.**
+`lib/abuse/resume-hash.ts:94-103` filters matches down to Free accounts, then
+requires `involved.length >= 2`. If a Free account uploads a resume a Pro or
+Premium account already holds, `involved` has length 1 and the function returns
+**without flagging either account** - including the Free uploader, which is the
+account the rule exists to catch.
+
+**It is exact-match, not near-duplicate.** The spec asks for near-duplicate
+detection. After normalisation it is a plain SHA-256 equality test, so one
+changed character anywhere defeats it. The author documents this at
+`resume-hash.ts:12-17`: real near-duplicate matching needs simhash/minhash and
+a similarity threshold.
+
+Minor: `.limit(25)` at `resume-hash.ts:80` silently truncates a large ring, and
+uploads with no extracted text or under 400 characters are skipped with no
+hash stored.
+
+Correctly log-only with no blocking, and both write paths are covered.
+
+---
+
+## 11. Device-spread check only runs on new-session creation (Task 7.2)
+
+**Severity: low.**
+
+`lib/session/registry.ts:85-86` - both `enforceSessionCap` and
+`checkDeviceSpread` run only on the new-session branch. The existing-session
+path returns at `registry.ts:69` first. An account that crosses the 3-device or
+3-location threshold through activity on already-registered sessions is not
+re-evaluated until the next fresh login.
+
+---
+
+## 12. Stored session geolocation is nulled by headerless heartbeats (Task 7.2)
+
+**Severity: low.**
+
+`lib/session/registry.ts:67` updates `geo_country` and `geo_city`
+unconditionally on every heartbeat:
+
+```ts
+.update({ last_seen_at: now, ip: ctx.ip, geo_country: ctx.geoCountry, geo_city: ctx.geoCity })
+```
+
+The values come from Vercel edge headers (`x-vercel-ip-country`,
+`x-vercel-ip-city`), which are absent off-Vercel and on local requests. A
+session that recorded good geolocation at creation loses it on the first
+heartbeat that arrives without those headers, so `checkDeviceSpread`'s location
+set degrades toward empty and the geography half of the rule quietly stops
+firing. Fix is to only overwrite when the incoming value is non-null.
