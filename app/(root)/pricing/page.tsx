@@ -16,6 +16,7 @@ import logo from "@/public/logo.png";
 import AnimatedLoader from "@/components/loader/AnimatedLoader";
 import { getDeviceFingerprint } from "@/lib/fingerprint";
 import { priceIdFor } from "@/lib/config/stripe-prices";
+import { planFeatureLines } from "@/lib/config/plan-features";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
@@ -49,14 +50,13 @@ const PLANS: Plan[] = [
     gradient: "from-slate-700/40 to-slate-800/40",
     border: "border-white/[0.08]",
     features: [
-      { text: "2 resume analyses / month" },
-      { text: "3 cover letters / month" },
-      { text: "1 mock interview / month" },
-      { text: "1 LinkedIn optimisation / month" },
-      { text: "1 interview debrief / month" },
-      { text: "1 cold outreach message / month" },
-      { text: "1 find contacts / month" },
-      { text: "Job tracker (5 jobs)" },
+      // Quota lines are GENERATED from USAGE_LIMITS. They used to be hardcoded
+      // here and drifted badly - this list advertised 2 resume analyses against
+      // an enforced 3, and Pro below promised 5 mock interviews against an
+      // enforced 2. Advertising more than the code grants is the bad direction
+      // to drift in, so the numbers now come from the same constant the guard
+      // reads. See lib/config/plan-features.ts.
+      ...planFeatureLines("free"),
       // The extension is deliberately NOT gated by plan (see extension/upsell.js),
       // so advertising it as "limited" on Free promised a restriction that does
       // not exist in the code.
@@ -73,15 +73,7 @@ const PLANS: Plan[] = [
     border: "border-indigo-500/40",
     popular: true,
     features: [
-      { text: "10 resume analyses / month",        highlight: true },
-      { text: "20 cover letters / month",           highlight: true },
-      { text: "5 mock interviews / month",          highlight: true },
-      { text: "3 LinkedIn optimisations / month",   highlight: true },
-      { text: "3 interview debriefs / month",       highlight: true },
-      { text: "5 cold outreach messages / month",   highlight: true },
-      { text: "10 find contacts / month",           highlight: true },
-      { text: "3 active study plans",               highlight: true },
-      { text: "Unlimited job tracker",              highlight: true },
+      ...planFeatureLines("pro"),
       { text: "Chrome extension (full)" },
       { text: "Resume editor + PDF & Word export",  highlight: true },
       { text: "Recruiter eye simulation",           highlight: true },
@@ -98,14 +90,7 @@ const PLANS: Plan[] = [
     gradient: "from-purple-600/20 to-pink-600/20",
     border: "border-purple-500/30",
     features: [
-      { text: "30 resume analyses / month",         highlight: true },
-      { text: "30 mock interviews / month",         highlight: true },
-      { text: "Unlimited cover letters",            highlight: true },
-      { text: "15 LinkedIn optimisations / month",  highlight: true },
-      { text: "20 interview debriefs / month",      highlight: true },
-      { text: "30 find contacts / month",           highlight: true },
-      { text: "15 active study plans",              highlight: true },
-      { text: "Unlimited job tracker",              highlight: true },
+      ...planFeatureLines("premium"),
       { text: "Chrome extension (full)" },
       { text: "Resume editor + PDF & Word export",  highlight: true },
       { text: "Priority AI responses",              highlight: true },
