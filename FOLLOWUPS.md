@@ -135,16 +135,17 @@ migration next touches that function for another reason.**
 
 ---
 
-## 7. Pricing page quota numbers are a parallel copy
+## 7. PARTLY RESOLVED - quota numbers on the pricing page
 
-**Severity: medium. Currently stale.**
+The in-app half is done. `app/(root)/pricing/page.tsx` no longer hardcodes quota
+strings; it calls `planFeatureLines()` from `lib/config/plan-features.ts`, which
+derives them from `USAGE_LIMITS`. The credit pack cards use `featureLabel()`
+from the same file.
 
-`app/(root)/pricing/page.tsx` hardcodes every quota string and does not import
-`lib/config/usage-limits.ts`, so it still displays the pre-resize numbers.
-
-Task 0 item 4 calls for serving quota data from one place, coordinated with the
-landing-page codebase. `app/api/refund/policy` establishes the pattern for that
-kind of cross-repo contract.
+**Still open: the landing page is a separate codebase and still has its own
+copy.** Task 0 item 4 calls for serving quota data from one place across both.
+`app/api/refund/policy` establishes the pattern for that kind of cross-repo
+contract.
 
 ---
 
@@ -278,13 +279,10 @@ firing. Fix is to only overwrite when the incoming value is non-null.
 
 ---
 
-## 13. Task 6 is OPEN: mock interview caps and cost logging are built but not live
+## 13. MOSTLY RESOLVED - mock interview caps and cost logging are live
 
-**Severity: blocking. Not deployable until the steps below are done.**
-
-The code chain is complete and statically verified - typecheck and lint clean,
-12 saved Vapi assistants provisioned and confirmed server-side. **No audio has
-ever passed through it.** Do not treat it as working.
+**Was: built but never deployed, no audio ever through it. Now deployed and
+confirmed by real calls.** Two items remain, at the end of this entry.
 
 ### Done
 
@@ -302,49 +300,34 @@ confirming it is write-only rather than unset. The readable signal is a
 separate boolean, `isServerUrlSecretSet`, which reads true on all 12. Use that
 flag, not the absence of `secret`, when checking this in future.
 
+### Also done
+
+**4. Env vars pushed to Vercel and deployed.** `/api/interview/session` and
+`/api/vapi/webhook` both serve in production.
+
+**5. Confirmed live by real calls.** `interview_call_costs` holds 3 rows with
+real durations and costs, which is only possible if the assistant resolution,
+the webhook secret and the report handler all work. The cost table was rebuilt
+from that data: `VAPI_COST_PER_MINUTE` is now 0.107, measured, replacing the
+0.15 back-solved from an estimate.
+
 ### STILL OPEN
 
-**4. Push env vars to Vercel.** Two sets, both required:
+**6. Rotate `VAPI_WEBHOOK_SECRET`.** The value was pasted into a chat transcript
+during setup.
 
-- the 12 `VAPI_ASSISTANT_*` ids. Without them `assistantIdFor()` throws and
-  `/api/interview/session` returns 503. That refusal is deliberate: falling
-  back to an inline assistant would silently remove the duration cap.
-- `VAPI_WEBHOOK_SECRET`, matching the Vapi copy byte-for-byte.
+**7. A mixed interview has still never been checked for TWO cost rows summing
+to the tier budget.** Seven interviews now exist with `type = 'mixed'`, so they
+are being created - the claim in entry 16 that none were is out of date - but
+nobody has confirmed that phase two stays inside its 40% share. If it overruns,
+a mixed interview costs more than a solo one on the same quota unit. This is the
+real test of the pre-split design and the only part of Task 6 still unproven.
 
-**The second fails quietly and is the dangerous one.** Without it in Vercel,
-calls connect, caps hold, the wrap-up fires and interviews work perfectly while
-the webhook 401s every report and `interview_call_costs` stays empty. Nothing
-visibly breaks; you only find out when you go looking for cost data.
-
-**5. Deploy.** Both `/api/interview/session` and `/api/vapi/webhook` currently
-404 in production.
-
-**6. Consider rotating the secret** once the pipeline is confirmed working. The
-value was pasted into a chat transcript during setup.
-
-### Verification still owed, by a real end-to-end call
-
-A browser, a microphone, and 8 to 12 minutes of actual speech. Five things to
-confirm:
-
-1. `/api/interview/session` returns the assistant matching the caller's plan
-2. The wrap-up fires at T-75s and the interviewer winds down in its own voice
-3. A call left to run terminates on `endCallMessage`, not silence
-4. A row lands in `interview_call_costs` with real duration and cost
-5. **A mixed interview produces TWO rows summing to the tier budget**
-
-Point 5 is the real test of the pre-split design. If phase two runs past its
-share, the split is wrong and the combined budget does not hold.
-
-### The number to report back
-
-`INTERVIEW_COST_BY_PLAN` in `lib/config/feature-costs.ts` is derived from
-`VAPI_COST_PER_MINUTE = 0.15`, back-solved from an unverified "$1.20 for 8
-minutes" estimate. It inherits whatever that estimate got wrong.
-
-The first rows in the `interview_cost_summary` view are the first real data.
-Compare `avg_cost_usd` against the estimate. If actual cost runs higher, that
-is a pricing and quota conversation, not a reason to quietly tighten limits.
+**8. Re-check the cost estimate once there is a spread.** 0.107 is measured from
+a single call, and Interview Boost is priced at a 52.9% margin on it with almost
+no headroom. Compare `avg_cost_usd` in `interview_cost_summary` once more rows
+land. If actual cost runs higher, that is a pricing conversation, not a reason
+to quietly tighten limits.
 
 ### Known weaknesses, accepted
 
@@ -425,50 +408,63 @@ dead since the switch to Resend.
 
 ---
 
-## 16. Mixed interviews unverified: no interview is ever created with type "mixed"
+## 16. CONFIRMED BUG: every behavioural interview gets the technical interviewer
 
-**Severity: medium. The pre-split duration design is UNTESTED.**
+**Severity: medium. Live, affecting real interviews now.**
 
-Task 6's combined-budget design splits a mixed interview across two calls with
-fixed caps (432s + 288s = 720s on premium). That path has never executed.
-
-An attempt to test it produced one call, technical only:
+This entry previously said no interview was ever created with `type = 'mixed'`
+and that the spelling mismatch below was a suspicion worth checking. Both parts
+were out of date. The current `interviews` table:
 
 ```
-3af318ae   type=technical     techQ=2  behQ=0   <- intended as mixed
-2b045828   type=behavioural   techQ=0  behQ=1
-a1a93591   type=technical     techQ=5  behQ=0
+technical     14
+mixed          7      <- they ARE being created
+behavioural    5      <- every one of these ran with the wrong interviewer
 ```
 
-No row in `interviews` has `type = 'mixed'`. The panel resolved
-`sessionPhase = "technical"`, requested the premium technical assistant, and
-asked technical questions - correct behaviour for the input it received. The
-bug is upstream, in whatever creates the interview record.
+### The confirmed half
 
-**What is verified:** the cap, the wrap-up, cost logging, metadata attribution
-and assistant resolution all work, proven on real solo calls.
+`interviews.type` stores **`behavioural`** (British). The panel prop type is
+`"technical" | "behavioral" | "mixed" | "system-design"` (American), and
+`InterviewPageClient.tsx:342` bridges them with a **cast, not a map**:
 
-**What is not:** that two calls against one interview sum to the tier budget.
-Until a genuine mixed interview runs, treat the combined budget as a design
-that compiles rather than one that holds. If phase two overruns its 288s share,
-a mixed interview costs more than a solo one on the same quota unit.
+```ts
+const normalizedType = interview.type.toLowerCase() as "technical" | "behavioral" | "mixed";
+```
 
-### Second, separate issue found alongside it
+`toLowerCase()` leaves `"behavioural"` unchanged, and the cast silences the
+compiler. In `startInterview()` it then matches none of the branches and falls
+to the `else` at line 357, which assigns the generic/technical interviewer and
+leaves `resolvedPhase` null. Two lines later:
 
-`interviews.type` stores **`behavioural`** (British), while the panel prop type
-is `"technical" | "behavioral" | "mixed" | "system-design"` (American). If
-`normalizedType` in `InterviewPageClient.tsx` does not map between them, a
-behavioural interview falls through `startInterview()`'s branches to the
-default case and gets the technical interviewer.
+```ts
+: resolvedPhase === "behavioral" ? "behavioural" : "technical"
+```
 
-That would affect solo behavioural interviews too, not only mixed ones, and
-would be invisible in the cost data - the call still runs, still gets capped,
-still records cost. It just uses the wrong interviewer. Worth checking before
-trusting any behavioural interview.
+so `sessionPhase` resolves to `"technical"` and the server hands back the
+technical assistant.
 
-Note the same split exists in the Vapi env var names, which use BEHAVIOURAL
-deliberately to match `InterviewPhase`. Any fix should pick one spelling per
-layer and document which, rather than adding a third convention.
+**Net effect:** a user who books a behavioural interview is interviewed by the
+technical persona, using the technical assistant, with the behavioural question
+list. The duration cap still applies at the correct tier, so there is no cost or
+safety impact - it is purely the wrong interview. It is invisible in the cost
+data, which is why it went unnoticed across 5 sessions.
+
+**Fix:** map rather than cast in `InterviewPageClient.tsx`. Note the Vapi env
+var names use `BEHAVIOURAL` deliberately to match `InterviewPhase`, so pick one
+spelling per layer and document which, rather than adding a third convention.
+
+### The unverified half
+
+Mixed interviews now exist, so the pre-split design does execute. What is still
+unconfirmed is that two calls against one interview sum to the tier budget
+(432s + 288s = 720s on premium). See entry 13, item 7.
+
+Separately, the split is **positional, not semantic**: `phaseQuestions` halves
+the single `questions` array, since `behavioralQuestions` is always undefined in
+practice. If a mixed interview's questions are all technical, phase one asks
+technical questions in the HR voice. That matches the symptom reported after the
+first mixed run and is a second, independent bug from the spelling one.
 
 ---
 
