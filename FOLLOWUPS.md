@@ -490,16 +490,14 @@ Worth keeping in mind that this only fires at purchase time. A divergence
 introduced after a pack goes on sale is caught on the next attempted purchase,
 not proactively - running the verify script in CI would close that gap.
 
-## 18. Nothing in the UI can buy a pack yet
+## 18. RESOLVED - the UI can now buy a pack
 
-`app/api/packs/purchase` returns a Checkout URL, and the webhook grants credits
-on `checkout.session.completed`. No component calls either. `purchasablePacks()`
-is surfaced only through the GET on `app/api/packs/quote`.
+`components/pricing/CreditPacks.tsx` renders the four packs on the pricing page,
+POSTs the pack key to `app/api/packs/purchase` and follows the returned Checkout
+URL. The page handles the `?pack=&status=` return from Stripe.
 
-So the path is complete server-side and unreachable from the product. A pricing
-page section that POSTs `{ packKey }` and redirects to `url` is all that is
-missing, and it should be built in the same pass that unpauses subscription
-checkout so the two flows are tested together.
+Still gated: `PACKS_CHECKOUT_ENABLED` is unset, so the route answers 503 and the
+section shows a notice. See 21 for what else has to be true before flipping it.
 
 ## 19. Packs have no refund path
 
@@ -530,3 +528,54 @@ be naturally idempotent - read, then write the same fields - which holds for
 redelivery of the SAME event but not for out-of-order delivery of two different
 ones. Stripe does not guarantee ordering. A `stripe_events` table keyed on
 `event.id` would close it properly.
+
+## 21. The Stripe webhook endpoint is not subscribed to the checkout events
+
+This is the one thing that would break a real purchase in production, and it is
+configuration rather than code.
+
+The only endpoint on the account is:
+
+```
+https://app.preciprocal.com/api/webhooks/stripe   (enabled)
+  customer.subscription.created
+  customer.subscription.deleted
+  customer.subscription.updated
+  invoice.payment_failed
+  invoice.payment_succeeded
+```
+
+`checkout.session.completed` and `checkout.session.async_payment_succeeded` are
+both absent. The handler for them exists and is tested, but Stripe would never
+deliver them, so a customer would pay and receive nothing, with no error on
+either side. Nothing in the app can detect this: from our side a purchase that
+is never reported is indistinguishable from one that never happened.
+
+Add both events to the endpoint before setting `PACKS_CHECKOUT_ENABLED=true`.
+The checked list at the time of writing is test mode; live mode needs its own
+endpoint, its own `STRIPE_WEBHOOK_SECRET`, and its own Products and Prices,
+since none of the ids in `.env.local` exist in live mode.
+
+## 22. No pack purchase has ever been paid for with a real card
+
+Three suites cover this path and all pass:
+
+```
+npm run verify:pack-purchase    31/31   config, grant, idempotency, consume
+npm run verify:pack-webhook     22/22   signed events at the real route
+npm run verify:pack-checkout    35/35   authenticated route, both switch states
+```
+
+`verify:pack-webhook` signs its events with the real `STRIPE_WEBHOOK_SECRET` via
+`stripe.webhooks.generateTestHeaderString`, so `constructEvent` validates them
+exactly as it would a genuine delivery. Nothing is stubbed.
+
+What that still does not prove: that Stripe's hosted Checkout page, an actual
+card charge, and Stripe's own delivery infrastructure produce an event shaped
+the way the harness assumes. The event bodies are hand-built from the API
+documentation, so a field that differs in practice would pass here and fail in
+production.
+
+Closing it needs one test-mode purchase with card 4242 4242 4242 4242 against a
+publicly reachable webhook URL, then confirming a `credit_packs` row appears.
+That is the last unverified link.

@@ -9,7 +9,9 @@
     "lint": "next lint",
     "migrate:firebase-users": "tsx --env-file=.env.local scripts/migrate-firebase-users.ts",
     "verify:abuse-guards": "tsx --env-file=.env.local scripts/verify-abuse-guards.ts",
-    "verify:pack-purchase": "tsx --env-file=.env.local scripts/verify-pack-purchase.ts"
+    "verify:pack-purchase": "tsx --env-file=.env.local scripts/verify-pack-purchase.ts",
+    "verify:pack-webhook": "tsx --env-file=.env.local scripts/verify-pack-webhook.ts",
+    "verify:pack-checkout": "tsx --env-file=.env.local scripts/verify-pack-checkout.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^1.1.25",
