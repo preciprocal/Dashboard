@@ -83,34 +83,41 @@ export const PACKS: Record<PackKey, PackDefinition> = {
   // buy more interviews. At the old prices these returned 45.2% and 42.6%,
   // both under target.
   //
-  // Credit counts were reduced rather than prices raised, so the packs stay
-  // affordable. Interviews are ~99% of the cost of both packs; the debrief
-  // grants are effectively free padding (an interviewDebrief is a database
-  // insert with no model call at all).
-  // Both interview packs are padded with cheap text credits rather than priced
-  // to the bone. Interviews are 98% of their cost; cover letters are $0.010
-  // and resumes $0.014, so adding them costs almost nothing and makes each
-  // pack visibly worth more than "two phone calls". Margin lands near 60%
-  // rather than at the ~51% floor, which is deliberate: the interview rate is
-  // measured from ONE call, and at 50% a bad estimate puts these underwater
-  // immediately. See the stress table in the commit that set these.
+  // Both are priced AT the 50% floor rather than above it, deliberately, to
+  // keep them affordable. That is a conscious trade and worth stating plainly:
+  //
+  // The interview rate ($0.107/min) is measured from ONE call. If the true
+  // average turns out to be $0.15 - the figure originally estimated - these
+  // two drop to roughly 42% and 41%, below target. Sitting at ~52% leaves no
+  // absorption for that. Re-check both against interview_cost_summary once
+  // there is a spread of real sessions, and raise them if the average moved.
+  //
+  // Interviews are ~98% of the cost of both packs. The journal entries and
+  // cover letters are effectively free padding: an interviewDebrief is a
+  // database insert with no model call, and a cover letter costs $0.010.
   interview_boost: {
     key: "interview_boost",
     name: "Interview Boost",
-    priceUsd: 7.99,
+    priceUsd: 6.49,
     grants: { interviews: 2, interviewDebriefs: 3, coverLetters: 5 },
     description: "Two more practice interviews, room to log three real ones, and cover letters to apply with.",
   },
   final_round: {
     key: "final_round",
     name: "Final Round",
-    priceUsd: 15.99,
-    // prioritySpeedDays removed. It was never implemented - no code read it -
-    // so the pack advertised a benefit that did not exist. It also cost
-    // nothing, which is why dropping it did not fund a price cut: the price is
-    // set almost entirely by the interview credits.
-    grants: { interviews: 4, debriefAnalyses: 5, coverLetters: 10, resumes: 5 },
-    description: "Four practice interviews, five AI analyses of the real interviews you have already sat, and applications to keep moving.",
+    // $15.99 -> $14.99 when the AI analyses, cover letters and resume
+    // analyses were removed, then -> $11.99 to sit at the 50% floor.
+    //
+    // prioritySpeedDays was removed earlier: it was never implemented, so the
+    // pack advertised a benefit that did not exist.
+    priceUsd: 11.99,
+    // Worth knowing before adding more interviewDebriefs here: the monthly
+    // allowance is already 10 on Free, 60 on Pro and 150 on Premium, and a
+    // journal entry is a database insert costing nothing to serve. Granting 5
+    // more is close to meaningless for anyone on a paid plan, so this pack is
+    // effectively four mock interviews with a token extra. Price it as such.
+    grants: { interviews: 4, interviewDebriefs: 5 },
+    description: "Four more practice interviews for the last stretch, plus room to log the real ones.",
   },
 };
 
