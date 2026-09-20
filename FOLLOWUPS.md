@@ -358,3 +358,67 @@ is a pricing and quota conversation, not a reason to quietly tighten limits.
   would be strictly better, but there is an open report that squad calls ignore
   `max_duration_seconds`, and proving otherwise needs a real call running past
   the cap. Worth revisiting if Vapi confirms a fix.
+
+---
+
+## 14. Dead `type: "generate"` workflow branch in the interview panel
+
+**Severity: none today. Unreachable. Logged so it is not capped by mistake, and
+not reintroduced by accident.**
+
+`startInterview()` in `app/(root)/interview/[id]/FullScreenInterviewpanel.tsx`
+has a branch for `type === "generate"` that calls
+`vapi.start(NEXT_PUBLIC_VAPI_WORKFLOW_ID, ...)`. That path does NOT go through
+`/api/interview/session`, so it would bypass the tiered duration cap entirely
+and run to Vapi's 600s default.
+
+**It cannot be triggered.** Three independent reasons, any one sufficient:
+
+1. `NEXT_PUBLIC_VAPI_ASSISTANT_ID` has **zero code references** anywhere in
+   `app/`, `lib/`, `components/` or `constants/`. It exists only in the env
+   file.
+2. The only render site of `FullScreenInterviewPanel` is
+   `app/(root)/interview/[id]/InterviewPageClient.tsx`, and it hardcodes
+   `type="interview"`. No caller passes `"generate"`.
+3. `NEXT_PUBLIC_VAPI_WORKFLOW_ID` is not set, so the branch would throw before
+   dialling anything.
+
+**If that branch is ever revived, it needs a cap before it ships.** Either
+route it through `/api/interview/session` like every other call, or provision a
+capped assistant for it. Do not simply set `NEXT_PUBLIC_VAPI_WORKFLOW_ID` and
+pass `type="generate"` - that produces uncapped calls with no error.
+
+Cleanest resolution is deleting the branch and the two unused env vars, but
+that is a behaviour-adjacent edit to a file that was just rewired, so it was
+left alone rather than folded into the Vapi work.
+
+---
+
+## 15. 222 dependency vulnerabilities on `main`
+
+**Severity: unknown until triaged. Needs its own pass.**
+
+Reported by GitHub when `main` was pushed at `5f466b0`:
+
+```
+222 vulnerabilities: 8 critical, 106 high, 93 moderate, 15 low
+```
+
+https://github.com/preciprocal/Dashboard/security/dependabot
+
+Entirely pre-existing and unrelated to the quota, refund or Vapi work - it
+became visible because that push was the first change to the default branch in
+a while.
+
+Worth knowing before triage: this repo still carries `firebase`,
+`firebase-admin`, `firebase-functions`, `firebase-scrypt` and
+`react-firebase-hooks` despite the Supabase migration. Exactly one runtime
+import of `@/firebase/*` remains (`lib/auth/verify-request.ts`, for the Chrome
+extension's legacy Firebase token during the dual-auth grace window), plus
+`firebase-scrypt` for legacy password migration. Retiring those once extension
+token telemetry shows the Firebase path at zero would likely remove a
+meaningful share of the tree in one step, which is a better first move than
+bumping individual packages.
+
+Also `nodemailer` and `@types/nodemailer` are installed with zero imports -
+dead since the switch to Resend.
