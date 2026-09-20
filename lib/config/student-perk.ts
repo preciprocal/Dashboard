@@ -33,6 +33,8 @@
 // `device_fingerprint is not null` precisely so those users are let through
 // rather than blocked by a signal that was never collected.
 
+import { priceIdFor } from '@/lib/config/stripe-prices';
+
 export const TRIAL_DAYS = 30;
 
 export const OTP_TTL_MINUTES = 15;
@@ -76,7 +78,7 @@ export const REQUIRE_CARD = process.env.STUDENT_PERK_REQUIRE_CARD !== 'false';
  * env-overridable so staging can point at a test price without a code change.
  */
 export const STUDENT_CONVERSION_PRICE_ID =
-  process.env.STRIPE_PRO_MONTHLY_PRICE_ID ?? 'price_1TFjwCQSkS83MGF9xH1bdc1o';
+  priceIdFor('pro', 'monthly') ?? 'price_1TFjwCQSkS83MGF9xH1bdc1o';
 
 // ─── Future upgrade path ─────────────────────────────────────────────────────
 // TODO: If abuse persists past the domain denylist + device fingerprinting in

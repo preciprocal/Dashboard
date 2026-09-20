@@ -15,14 +15,18 @@ import {
 import logo from "@/public/logo.png";
 import AnimatedLoader from "@/components/loader/AnimatedLoader";
 import { getDeviceFingerprint } from "@/lib/fingerprint";
+import { priceIdFor } from "@/lib/config/stripe-prices";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
-// Kept for when billing comes back online - checkout is paused before these are used.
+// Kept for when billing comes back online - checkout is paused before these
+// are used. Resolved from lib/config/stripe-prices.ts rather than hardcoded:
+// this was a fourth copy of the catalog, and copies are how the webhook and
+// subscription/activate ended up disagreeing about what an unknown price meant.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const PRICE_IDS = {
-  pro:     { monthly: "price_1TFjwCQSkS83MGF9xH1bdc1o", annual: "price_1TFjykQSkS83MGF9oczwiyNo" },
-  premium: { monthly: "price_1TFjzWQSkS83MGF9YCP7CBk3", annual: "price_1TFk0EQSkS83MGF9pPfRehCO" },
+  pro:     { monthly: priceIdFor("pro", "monthly"),     annual: priceIdFor("pro", "annual") },
+  premium: { monthly: priceIdFor("premium", "monthly"), annual: priceIdFor("premium", "annual") },
 } as const;
 
 type PlanId = "free" | "pro" | "premium" | "enterprise";

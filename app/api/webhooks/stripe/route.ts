@@ -6,6 +6,7 @@ import { toSupabaseUserId } from "@/lib/auth/verify-request";
 import { invalidateUserCache } from "@/lib/actions/auth.action";
 import { recordCancellation, recordReactivation } from "@/lib/subscription/reactivation";
 import { recordCouponStudentPerk } from "@/lib/subscription/student-coupon";
+import { planFromPriceId, warnUnknownPrice } from "@/lib/config/stripe-prices";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-07-30.basil",
@@ -73,17 +74,18 @@ function safeTimestampToISO(timestamp: number | null | undefined): string | null
 }
 
 function getPlanFromPriceId(priceId: string): "free" | "pro" | "premium" {
-  const priceIdMap: Record<string, "free" | "pro" | "premium"> = {
-    "price_1TFjvAQSkS83MGF9XlLXgu5H": "free",
-    "price_1TFjwCQSkS83MGF9xH1bdc1o": "pro",     // Pro monthly $9.99
-    "price_1TFjykQSkS83MGF9oczwiyNo": "pro",     // Pro annual $95.88
-    "price_1TFjzWQSkS83MGF9YCP7CBk3": "premium", // Premium monthly $24.99
-    "price_1TFk0EQSkS83MGF9pPfRehCO": "premium", // Premium annual $239.88
-  };
-
-  const plan = priceIdMap[priceId];
+  // Single source of truth: lib/config/stripe-prices.ts. This used to be a
+  // local copy that defaulted unknown prices to "free", while
+  // subscription/activate kept a different copy defaulting to "pro" - so the
+  // same unmapped price produced opposite outcomes depending on which path
+  // ran. Both now read the same catalog and state their fallback explicitly.
+  const plan = planFromPriceId(priceId);
   if (!plan) {
-    console.warn(`⚠️ Unknown price ID: ${priceId}, defaulting to free`);
+    // "free" is the right fallback HERE specifically: this runs on webhook
+    // events that set a subscriber's plan, and granting a paid tier off an
+    // unrecognised price would hand out access nobody paid for. Under-granting
+    // is recoverable by support; over-granting is revenue quietly leaking.
+    warnUnknownPrice(priceId, "stripe webhook handler", "free");
     return "free";
   }
   console.log(`✅ Mapped price ID ${priceId} to plan: ${plan}`);

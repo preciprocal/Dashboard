@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/supabase/admin";
 import { getAuthedUser } from "@/lib/auth/verify-request";
 import { redis } from "@/lib/redis/redis-client";
 import { recordReactivation } from "@/lib/subscription/reactivation";
+import { planFromPriceId, warnUnknownPrice } from "@/lib/config/stripe-prices";
 
 export const runtime = "nodejs";
 
@@ -11,12 +12,11 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-07-30.basil",
 });
 
-const PRICE_TO_PLAN: Record<string, "pro" | "premium"> = {
-  "price_1TFjwCQSkS83MGF9xH1bdc1o": "pro",
-  "price_1TFjykQSkS83MGF9oczwiyNo": "pro",
-  "price_1TFjzWQSkS83MGF9YCP7CBk3": "premium",
-  "price_1TFk0EQSkS83MGF9pPfRehCO": "premium",
-};
+// The local PRICE_TO_PLAN map that used to live here is gone. It was a second
+// copy of the catalog in lib/config/stripe-prices.ts, and it defaulted unknown
+// prices to "pro" while the Stripe webhook's copy defaulted to "free" - the
+// same unmapped price id resolved to a different plan depending on which path
+// ran first. See lib/config/stripe-prices.ts for the full account.
 
 // Bust every Redis key that could cache stale user/plan data
 async function invalidateAllUserCache(userId: string) {
@@ -95,7 +95,19 @@ export async function POST(req: NextRequest) {
 
     // ── Determine plan ─────────────────────────────────────────────────────
     const priceId = sub.items.data[0]?.price?.id ?? "";
-    const plan    = PRICE_TO_PLAN[priceId] ?? "pro";
+    const resolved = planFromPriceId(priceId);
+
+    // This path runs immediately after a customer's card has been charged, so
+    // an unrecognised price must NOT drop them to free - they paid. "pro" is
+    // the conservative paid floor: the cheaper of the two tiers, so a wrong
+    // guess under-grants rather than handing out Premium for a Pro payment.
+    // Deliberately different from the webhook's "free" fallback, and the
+    // reasoning is stated in both places because the divergence used to be
+    // accidental.
+    if (!resolved || resolved === "free") {
+      warnUnknownPrice(priceId, "subscription/activate (post-payment)", "pro");
+    }
+    const plan = resolved && resolved !== "free" ? resolved : "pro";
 
     // ── Build updated subscription fields ──────────────────────────────────
     const periodEnd    = (sub as unknown as { current_period_end: number }).current_period_end;
