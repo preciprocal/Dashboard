@@ -35,6 +35,10 @@
         "endpointing": 300
       },
       "firstMessage": "Hello {{user}}, how's it going today?",
+      "serverUrl": "https://app.preciprocal.com/api/vapi/webhook",
+      "serverMessages": [
+        "end-of-call-report"
+      ],
       "systemPromptSha256": "3b72c69e843a3206cd013ee7d45a1daff1be7cdc4a713ddbebdd31334984294c",
       "systemPromptChars": 8068
     },
@@ -61,6 +65,10 @@
         "endpointing": 300
       },
       "firstMessage": "Hello {{user}}, how's it going today?",
+      "serverUrl": "https://app.preciprocal.com/api/vapi/webhook",
+      "serverMessages": [
+        "end-of-call-report"
+      ],
       "systemPromptSha256": "3b72c69e843a3206cd013ee7d45a1daff1be7cdc4a713ddbebdd31334984294c",
       "systemPromptChars": 8068
     },
@@ -87,6 +95,10 @@
         "endpointing": 300
       },
       "firstMessage": "Hello {{user}}, how's it going today?",
+      "serverUrl": "https://app.preciprocal.com/api/vapi/webhook",
+      "serverMessages": [
+        "end-of-call-report"
+      ],
       "systemPromptSha256": "d147959c4b2930e7eb67902a1428b79a5489aeb69729ec865ed0860ce39b4da6",
       "systemPromptChars": 7825
     },
@@ -113,6 +125,10 @@
         "endpointing": 300
       },
       "firstMessage": "Hello {{user}}, how's it going today?",
+      "serverUrl": "https://app.preciprocal.com/api/vapi/webhook",
+      "serverMessages": [
+        "end-of-call-report"
+      ],
       "systemPromptSha256": "d147959c4b2930e7eb67902a1428b79a5489aeb69729ec865ed0860ce39b4da6",
       "systemPromptChars": 7825
     },
@@ -139,6 +155,10 @@
         "endpointing": 300
       },
       "firstMessage": "Hello {{user}}, how's it going today?",
+      "serverUrl": "https://app.preciprocal.com/api/vapi/webhook",
+      "serverMessages": [
+        "end-of-call-report"
+      ],
       "systemPromptSha256": "3b72c69e843a3206cd013ee7d45a1daff1be7cdc4a713ddbebdd31334984294c",
       "systemPromptChars": 8068
     },
@@ -165,6 +185,10 @@
         "endpointing": 300
       },
       "firstMessage": "Hello {{user}}, how's it going today?",
+      "serverUrl": "https://app.preciprocal.com/api/vapi/webhook",
+      "serverMessages": [
+        "end-of-call-report"
+      ],
       "systemPromptSha256": "3b72c69e843a3206cd013ee7d45a1daff1be7cdc4a713ddbebdd31334984294c",
       "systemPromptChars": 8068
     },
@@ -191,6 +215,10 @@
         "endpointing": 300
       },
       "firstMessage": "Hello {{user}}, how's it going today?",
+      "serverUrl": "https://app.preciprocal.com/api/vapi/webhook",
+      "serverMessages": [
+        "end-of-call-report"
+      ],
       "systemPromptSha256": "d147959c4b2930e7eb67902a1428b79a5489aeb69729ec865ed0860ce39b4da6",
       "systemPromptChars": 7825
     },
@@ -217,6 +245,10 @@
         "endpointing": 300
       },
       "firstMessage": "Hello {{user}}, how's it going today?",
+      "serverUrl": "https://app.preciprocal.com/api/vapi/webhook",
+      "serverMessages": [
+        "end-of-call-report"
+      ],
       "systemPromptSha256": "d147959c4b2930e7eb67902a1428b79a5489aeb69729ec865ed0860ce39b4da6",
       "systemPromptChars": 7825
     },
@@ -243,6 +275,10 @@
         "endpointing": 300
       },
       "firstMessage": "Hello {{user}}, how's it going today?",
+      "serverUrl": "https://app.preciprocal.com/api/vapi/webhook",
+      "serverMessages": [
+        "end-of-call-report"
+      ],
       "systemPromptSha256": "3b72c69e843a3206cd013ee7d45a1daff1be7cdc4a713ddbebdd31334984294c",
       "systemPromptChars": 8068
     },
@@ -269,6 +305,10 @@
         "endpointing": 300
       },
       "firstMessage": "Hello {{user}}, how's it going today?",
+      "serverUrl": "https://app.preciprocal.com/api/vapi/webhook",
+      "serverMessages": [
+        "end-of-call-report"
+      ],
       "systemPromptSha256": "3b72c69e843a3206cd013ee7d45a1daff1be7cdc4a713ddbebdd31334984294c",
       "systemPromptChars": 8068
     },
@@ -295,6 +335,10 @@
         "endpointing": 300
       },
       "firstMessage": "Hello {{user}}, how's it going today?",
+      "serverUrl": "https://app.preciprocal.com/api/vapi/webhook",
+      "serverMessages": [
+        "end-of-call-report"
+      ],
       "systemPromptSha256": "d147959c4b2930e7eb67902a1428b79a5489aeb69729ec865ed0860ce39b4da6",
       "systemPromptChars": 7825
     },
@@ -321,6 +365,10 @@
         "endpointing": 300
       },
       "firstMessage": "Hello {{user}}, how's it going today?",
+      "serverUrl": "https://app.preciprocal.com/api/vapi/webhook",
+      "serverMessages": [
+        "end-of-call-report"
+      ],
       "systemPromptSha256": "d147959c4b2930e7eb67902a1428b79a5489aeb69729ec865ed0860ce39b4da6",
       "systemPromptChars": 7825
     }
