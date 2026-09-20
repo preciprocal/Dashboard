@@ -51,13 +51,29 @@ export const FEATURE_COSTS: Record<FeatureType, number> = {
 /**
  * Blended Vapi cost per minute: Deepgram STT + gpt-4o-mini + Vapi-native TTS.
  *
- * PROVISIONAL AND UNVERIFIED. Nothing in the app records real per-call cost
- * yet - that is Task 6 items 4 and 5. Derived by working backwards from the
- * original "$1.20 for an 8 minute call" estimate, so it inherits whatever that
- * estimate got wrong. Replace with a measured figure, do not tune quotas
- * around it.
+ * MEASURED from a real call: 723.652s costing $1.2907, which is $0.1070/min.
+ * The previous $0.15 was back-solved from an unverified estimate and ran
+ * roughly 40% high.
+ *
+ * Caveat worth keeping: this is ONE call. A session where the candidate talks
+ * more shifts the STT and TTS shares, so treat it as a first measurement
+ * rather than a settled figure, and re-derive from the interview_cost_summary
+ * view once there is a spread of real sessions.
+ *
+ * Observed breakdown on that call:
+ *
+ *   vapi platform   $0.603   47%    roughly $0.05/min, flat
+ *   tts             $0.533   41%
+ *   stt             $0.119    9%
+ *   llm             $0.022    2%    gpt-4o-mini is close to free here
+ *   transport       $0.014    1%
+ *
+ * Note what that implies for optimisation: the LLM is already negligible, so
+ * switching models saves nothing worth having. Platform fee and TTS are 88% of
+ * the bill, and the only real lever on either is shorter calls - which is what
+ * the tiered caps and the wrap-up are for.
  */
-export const VAPI_COST_PER_MINUTE = 0.15;
+export const VAPI_COST_PER_MINUTE = 0.107;
 
 /**
  * Cost of one mock interview, by plan.

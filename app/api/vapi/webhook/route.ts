@@ -72,11 +72,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ received: true });
     }
 
-    // Our own identifiers ride along in assistantOverrides.metadata, set when
-    // the call is started. Without them a cost row is still recorded - an
-    // unattributed cost is better than no cost - but it cannot be broken down
-    // by tier.
-    const metadata = ((call.metadata ?? artifact.metadata ?? {}) as Record<string, unknown>);
+    // Our own identifiers, set as `metadata` in the assistantOverrides passed
+    // to vapi.start().
+    //
+    // Vapi does NOT surface them at call.metadata, which is what this read
+    // originally assumed - the first real call recorded plan_key, phase,
+    // interview_id and user_id all null as a result. Confirmed against an
+    // actual end-of-call-report, they appear at BOTH of the first two paths
+    // below. Reading several is cheap insurance: the shape is Vapi's to change
+    // and the failure is silent, producing a cost row that cannot be attributed
+    // to a tier rather than an error anyone would notice.
+    const assistant = (report.assistant ?? {}) as Record<string, unknown>;
+    const overrides = (call.assistantOverrides ?? {}) as Record<string, unknown>;
+    const metadata = ((overrides.metadata
+      ?? assistant.metadata
+      ?? call.metadata
+      ?? artifact.metadata
+      ?? {}) as Record<string, unknown>);
 
     const startedAt = report.startedAt as string | undefined;
     const endedAt = report.endedAt as string | undefined;

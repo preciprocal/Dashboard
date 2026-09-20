@@ -61,11 +61,21 @@ export const MIXED_SPLIT = { technical: 0.6, behavioural: 0.4 } as const;
 /**
  * How long before the hard cap the assistant is told to wrap up.
  *
- * 75s sits in the middle of the 60-90s band: long enough to thank the
- * candidate, flag the time, invite a closing remark and respond to it, short
- * enough that it does not eat a meaningful slice of the interview.
+ * MEASURED, not guessed. The first real 12-minute call fired the wrap-up at
+ * 648.9s against a 720s cap, and the interviewer completed a full wind-down:
+ * thanked the candidate, invited a closing remark, responded to it, and said
+ * goodbye at 720s.
+ *
+ * It worked, but it finished exactly as the cap fired, so
+ * exceeded-max-duration still triggered and END_CALL_MESSAGE was clipped.
+ * 72 of the 75 seconds were consumed.
+ *
+ * Raised to 90 so a normal wind-down has headroom to finish and the call ends
+ * on its own. That is also cheaper: a call that ends early is billed for what
+ * it used, while one that runs into the cap is billed for the whole session
+ * and ends mid-sentence.
  */
-export const WRAP_UP_LEAD_SECONDS = 75;
+export const WRAP_UP_LEAD_SECONDS = 90;
 
 /**
  * Injected as a system message at T-minus WRAP_UP_LEAD_SECONDS.
