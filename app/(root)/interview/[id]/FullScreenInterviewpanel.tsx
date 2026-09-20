@@ -200,6 +200,13 @@ const FullScreenInterviewPanel = ({
   // Held so an unmount during the 1.5s pause between phases cancels the
   // pending phase-2 dial instead of starting a call into a dead component.
   const handoffTimer     = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Graceful wrap-up, scheduled on call-start and cleared on call-end.
+  // Deliberately a COURTESY, not the cap: the real limit is
+  // maxDurationSeconds on the saved assistant, enforced by Vapi. A user who
+  // strips this out gets a call that terminates on endCallMessage instead of
+  // winding down, which is worse for them and costs us nothing extra.
+  const wrapUpTimer      = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingWrapUp    = useRef<{ atSeconds: number; instruction: string } | null>(null);
 
   // ── Question split, resolved once ─────────────────────────────────────────
   // InterviewPageClient passes only `questions` - technicalQuestions and
@@ -354,6 +361,42 @@ const FullScreenInterviewPanel = ({
 
       setCurrentInterviewPhase(resolvedPhase);
 
+      // ── Resolve the saved assistant server-side ──────────────────────────
+      //
+      // The duration cap lives on a saved Vapi assistant, not in the payload
+      // sent from here. This call trades a phase for an assistant id, and the
+      // tier-to-assistant mapping stays on the server: the browser never learns
+      // the Premium assistant's id, so it cannot ask for its longer cap.
+      //
+      // selectedAgent above is now only used to decide WHICH phase we are in.
+      // The config that actually runs the call comes from Vapi.
+      const sessionPhase =
+        interviewType === "mixed"
+          ? resolvedPhase === "technical" ? "mixed_technical" : "mixed_behavioural"
+          : resolvedPhase === "behavioral" ? "behavioural" : "technical";
+
+      const sessionRes = await fetch("/api/interview/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phase: sessionPhase }),
+      });
+      if (!sessionRes.ok) {
+        const { error } = await sessionRes.json().catch(() => ({ error: null }));
+        throw new Error(error || "Could not start the interview session");
+      }
+      const session = (await sessionRes.json()) as {
+        assistantId: string;
+        plan: string;
+        maxDurationSeconds: number;
+        wrapUpAtSeconds: number;
+        wrapUpInstruction: string;
+      };
+
+      pendingWrapUp.current = {
+        atSeconds: session.wrapUpAtSeconds,
+        instruction: session.wrapUpInstruction,
+      };
+
       if (!selectedAgent) throw new Error("Interviewer configuration not available");
       const formattedQuestions = questionsToUse.map(q => `- ${q}`).join("\n");
       if (!formattedQuestions) throw new Error("No questions available for this session");
@@ -368,7 +411,18 @@ const FullScreenInterviewPanel = ({
       // using the agent's normal opener.
       const isMixedHandoff = interviewType === "mixed" && explicitPhase === "technical";
 
-      await vapi.start(selectedAgent, {
+      // Saved assistant by id, not the inline DTO. The DTO's prompts and voice
+      // were pushed to these assistants by scripts/provision-vapi-assistants.ts;
+      // what cannot travel from here is maxDurationSeconds, which is the point.
+      await vapi.start(session.assistantId, {
+        // Rides through to the end-of-call-report webhook so each call's cost
+        // can be attributed to a tier and phase. Without it a cost row is still
+        // written, but it cannot be broken down.
+        metadata: {
+          interviewId,
+          planKey: session.plan,
+          phase: sessionPhase,
+        },
         ...(isMixedHandoff
           ? {
               firstMessage:
@@ -384,7 +438,7 @@ const FullScreenInterviewPanel = ({
           // Both prompts have the interviewer say this name out loud during
           // their introduction, so a mismatched name and accent is immediately
           // audible and breaks the illusion.
-          interviewer_name:       isBehavioral ? "Sarah Mitchell"                 : "Rohan Sharma",
+          interviewer_name:       isBehavioral ? "Savannah Mitchell"              : "Rohan Sharma",
           interviewer_role:       isBehavioral ? "Director of People Operations"  : "Senior Software Architect",
           company_name:           "TechCorp",
           department:             isBehavioral ? "talent acquisition and employee development" : "engineering and infrastructure",
@@ -454,10 +508,42 @@ const FullScreenInterviewPanel = ({
       setCallStatus(CallStatus.ACTIVE);
       setCurrentQuestionIndex(1);
       callStartTime.current = new Date();
+
+      // Armed from call-start rather than from vapi.start() so the countdown
+      // measures CONNECTED time. Mic permission prompts and WebRTC setup can
+      // add several seconds, and Vapi bills from connection - counting from the
+      // click would fire the wrap-up early and cut the interview short.
+      const plan = pendingWrapUp.current;
+      if (plan) {
+        if (wrapUpTimer.current) clearTimeout(wrapUpTimer.current);
+        wrapUpTimer.current = setTimeout(() => {
+          try {
+            // A system message, not a line to read aloud: the model folds the
+            // instruction into its own voice. Injecting spoken words would
+            // sound like an announcement spliced over the interviewer.
+            vapi.send({
+              type: "add-message",
+              message: { role: "system", content: plan.instruction },
+            });
+          } catch (err) {
+            // Never surfaced. The hard cap on the saved assistant still ends
+            // the call on endCallMessage, so a failed wrap-up degrades the
+            // ending rather than breaking the session.
+            console.warn("Wrap-up prompt failed (hard cap still applies):", err);
+          }
+        }, plan.atSeconds * 1000);
+      }
     };
     const onCallEnd = () => {
       setCallStatus(CallStatus.FINISHED);
       setSpeakingPersonId(null);
+      if (wrapUpTimer.current) {
+        clearTimeout(wrapUpTimer.current);
+        wrapUpTimer.current = null;
+      }
+      // Cleared so phase two of a mixed interview cannot inherit phase one's
+      // schedule. Its budget is shorter and it re-arms from its own session.
+      pendingWrapUp.current = null;
     };
 
     vapi.on("call-start",  onCallStart);

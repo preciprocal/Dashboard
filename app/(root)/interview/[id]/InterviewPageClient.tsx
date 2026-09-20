@@ -32,7 +32,7 @@ export function generatePanelNames(id: string) {
     return a & a;
   }, 0);
   const hrNames = [
-    { name: "Sarah Mitchell",   initials: "SM" },
+    { name: "Savannah Mitchell", initials: "SM" },
     { name: "Jennifer Davis",   initials: "JD" },
     { name: "Lisa Rodriguez",   initials: "LR" },
     { name: "Amanda Wilson",    initials: "AW" },
