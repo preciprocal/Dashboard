@@ -99,7 +99,7 @@ export const PACKS: Record<PackKey, PackDefinition> = {
     name: "Interview Boost",
     priceUsd: 7.99,
     grants: { interviews: 2, interviewDebriefs: 3, coverLetters: 5 },
-    description: "Two more mock interviews, plus debriefs and cover letters to prep with.",
+    description: "Two more practice interviews, room to log three real ones, and cover letters to apply with.",
   },
   final_round: {
     key: "final_round",
@@ -110,7 +110,7 @@ export const PACKS: Record<PackKey, PackDefinition> = {
     // nothing, which is why dropping it did not fund a price cut: the price is
     // set almost entirely by the interview credits.
     grants: { interviews: 4, debriefAnalyses: 5, coverLetters: 10, resumes: 5 },
-    description: "Everything for the last stretch: interviews, AI insights, and applications.",
+    description: "Four practice interviews, five AI analyses of the real interviews you have already sat, and applications to keep moving.",
   },
 };
 

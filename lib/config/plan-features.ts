@@ -38,6 +38,18 @@ const DISPLAY_ORDER: FeatureType[] = [
  * Singular and plural, because "1 cover letters" reads as a bug to a customer
  * even though it is only a missing branch.
  */
+/**
+ * Three of these describe things that sound identical and are not:
+ *
+ *   interviews        - practice sessions with our AI interviewer
+ *   interviewDebriefs - the user's own notes on REAL interviews they sat
+ *                       somewhere else
+ *   debriefAnalyses   - one AI analysis across that whole real-interview
+ *                       journal, not a single tip
+ *
+ * The wording below says which is which, because "interview debriefs" next to
+ * "mock interviews" on a pricing page tells a prospective customer nothing.
+ */
 const LABELS: Record<FeatureType, { one: string; many: string }> = {
   resumes:               { one: "resume analysis",      many: "resume analyses" },
   coverLetters:          { one: "cover letter",         many: "cover letters" },
@@ -46,8 +58,8 @@ const LABELS: Record<FeatureType, { one: string; many: string }> = {
   linkedinOptimisations: { one: "LinkedIn optimisation", many: "LinkedIn optimisations" },
   coldOutreach:          { one: "outreach message",     many: "outreach messages" },
   findContacts:          { one: "contact search",       many: "contact searches" },
-  debriefAnalyses:       { one: "AI debrief insight",   many: "AI debrief insights" },
-  interviewDebriefs:     { one: "interview debrief",    many: "interview debriefs" },
+  debriefAnalyses:       { one: "AI analysis of your real interviews", many: "AI analyses of your real interviews" },
+  interviewDebriefs:     { one: "real interview logged", many: "real interviews logged" },
   jobTracker:            { one: "tracked job",          many: "tracked jobs" },
 };
 

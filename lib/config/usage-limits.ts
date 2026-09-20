@@ -115,16 +115,32 @@ export type FeatureType =
   | 'findContacts'
   | 'jobTracker';
 
+/**
+ * User-facing names. These appear in quota-limit messages, so they have to
+ * distinguish three things that all sound alike and are genuinely different:
+ *
+ *   interviews         - MOCK interviews we host, voice sessions with the AI
+ *   interviewDebriefs  - journal entries for REAL interviews the user sat
+ *                        elsewhere (company, role, stage, outcome, how it felt)
+ *   debriefAnalyses    - AI analysis ACROSS that real-interview journal:
+ *                        readiness score, recurring patterns, blind spots,
+ *                        a 4-week plan
+ *
+ * The previous labels were "Interview Sessions", "Interview Debriefs" and
+ * "AI Debrief Insights", which read as three names for one feature. A user
+ * told they had run out of "Interview Sessions" had no way to know whether
+ * that meant practice or their own journal.
+ */
 export const FEATURE_NAMES: Record<FeatureType, string> = {
   coverLetters: 'Cover Letters',
   resumes: 'Resume Analyses',
   studyPlans: 'Study Plans',
-  interviews: 'Interview Sessions',
-  interviewDebriefs: 'Interview Debriefs',
-  debriefAnalyses: 'AI Debrief Insights',
+  interviews: 'Mock Interviews',
+  interviewDebriefs: 'Interview Journal Entries',
+  debriefAnalyses: 'AI Interview Analyses',
   linkedinOptimisations: 'LinkedIn Optimisations',
   coldOutreach: 'Outreach Messages',
-  findContacts: 'Find Contacts',
+  findContacts: 'Contact Searches',
   jobTracker: 'Job Tracker',
 };
 
