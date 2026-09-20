@@ -175,12 +175,27 @@ async function handleSubscriptionCreated(subscription: SubscriptionWithPeriods) 
     const studentVerified = appliedCouponId !== null && STUDENT_COUPON_IDS.has(appliedCouponId);
     console.log(`🎓 studentVerified at creation: ${studentVerified} (coupon: ${appliedCouponId})`);
 
+    // subscription_started_at is written HERE and only here (plus the student
+    // activate-perk path). It must never be advanced on renewal: it anchors
+    // the rolling quota window in lib/usage/period.ts, and re-anchoring is
+    // what handed subscribers a bonus zero-usage allowance on the last day of
+    // every 31-day billing month. See 0032 for the full account.
+    //
+    // Stripe's own start_date is preferred over current_period_start: on a
+    // plan change Stripe can create a new subscription object whose first
+    // period starts today, while start_date still reflects when the customer
+    // relationship actually began.
+    const subscriptionStartedAt =
+      safeTimestampToISO((subscription as unknown as { start_date?: number }).start_date)
+      ?? currentPeriodStart;
+
     const { error: updateError } = await supabaseAdmin.from("subscriptions").update({
       stripe_subscription_id: subscription.id,
       status: subscription.status,
       plan,
       student_verified: studentVerified,
       current_period_start: currentPeriodStart,
+      ...(subscriptionStartedAt ? { subscription_started_at: subscriptionStartedAt } : {}),
       current_period_end: currentPeriodEnd,
       subscription_ends_at: currentPeriodEnd,
       updated_at: new Date().toISOString(),

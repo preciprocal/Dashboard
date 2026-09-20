@@ -89,6 +89,7 @@
         "https://*.oracle.com/*"
       ],
       "js": [
+        "upsell.js",
         "external-apply.js"
       ],
       "css": [

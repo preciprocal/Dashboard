@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/supabase/admin';
 import { toSupabaseUserId } from '@/lib/auth/verify-request';
 import { USAGE_LIMITS, resolvePlanKey } from '@/lib/config/usage-limits';
 import { computeUsagePeriod, pickAnchor } from '@/lib/usage/period';
+import { PHONE_VERIFICATION_ENABLED } from '@/lib/config/phone-verification';
 import { consumeHourlyQuota, HOURLY_LIMITED_FEATURES } from '@/lib/ai/hourly-quota-limit';
 
 export type GatedFeature =
@@ -52,6 +53,8 @@ const FEATURE_NAMES: Record<GatedFeature, string> = {
 export interface UsageCheckResult {
   /** Which bucket satisfied the request. Absent on failures. */
   source?: 'subscription' | 'pack';
+  /** Blocked pending phone verification rather than by quota. */
+  requiresPhoneVerification?: boolean;
   allowed: boolean;
   used: number;
   limit: number;        // -1 = unlimited
@@ -66,6 +69,7 @@ interface SubscriptionRow {
   status: string | null;
   trial_ends_at: string | null;
   current_period_start: string | null;
+  subscription_started_at: string | null;
   legacy_quotas: boolean | null;
 }
 
@@ -79,34 +83,74 @@ function isTrialExpired(sub: SubscriptionRow | null): boolean {
 async function getSubscription(supabaseUserId: string): Promise<SubscriptionRow | null> {
   const { data } = await supabaseAdmin
     .from('subscriptions')
-    .select('plan, status, trial_ends_at, current_period_start, legacy_quotas')
+    .select('plan, status, trial_ends_at, current_period_start, subscription_started_at, legacy_quotas')
     .eq('user_id', supabaseUserId)
     .maybeSingle();
   return data as SubscriptionRow | null;
 }
 
-// Anchor for free accounts, which have no Stripe billing period to key off.
-// Read separately rather than folded into getSubscription because it lives on
-// profiles, and only matters when current_period_start is null.
-async function getProfileCreatedAt(supabaseUserId: string): Promise<string | null> {
-  const { data } = await supabaseAdmin
-    .from('profiles')
-    .select('created_at')
-    .eq('user_id', supabaseUserId)
-    .maybeSingle();
-  return (data?.created_at as string | undefined) ?? null;
+interface ProfileRow {
+  /** Anchor for free accounts, which have no Stripe billing period to key off. */
+  created_at: string | null;
+  /**
+   * Admin accounts get unlimited access regardless of the subscriptions table.
+   * Granted separately from billing so a Stripe webhook or trial-expiry sync
+   * cannot clobber it.
+   */
+  is_admin: boolean | null;
+  /** Written only by app/api/phone/verify-code. See requirePhoneVerification. */
+  phone_verified: boolean | null;
 }
 
-// Admin accounts (profiles.is_admin) get unlimited access regardless of
-// whatever is in the subscriptions table - this is granted separately from
-// billing, so it can't be clobbered by a Stripe webhook or trial-expiry sync.
-async function isAdminUser(supabaseUserId: string): Promise<boolean> {
+// One read, three fields. These were previously three separate round trips to
+// the same row (created_at, is_admin, and nothing for phone) on every single
+// gated request.
+async function getProfile(supabaseUserId: string): Promise<ProfileRow | null> {
   const { data } = await supabaseAdmin
     .from('profiles')
-    .select('is_admin')
+    .select('created_at, is_admin, phone_verified')
     .eq('user_id', supabaseUserId)
     .maybeSingle();
-  return data?.is_admin === true;
+  return data as ProfileRow | null;
+}
+
+/**
+ * Phone verification gate, scoped to quota consumption on Free accounts.
+ *
+ * Placement is deliberate and was previously wrong. The gate used to live in
+ * middleware.ts across the entire app, which blocked `/`, `/pricing` and every
+ * Stripe route - so an unverified user could not upgrade off the free tier.
+ * An anti-free-farming measure that blocks the exit from the free tier defeats
+ * itself. The spec's wording is "required to activate a Free account's usage
+ * quotas", and this function is that boundary: every gated route calls
+ * checkUsage before doing any work.
+ *
+ * Free only. A paid account has a card on file, which is a stronger identity
+ * signal than an SMS, and admins are exempt by virtue of not being 'free'.
+ *
+ * Reads profiles.phone_verified rather than the app_metadata JWT claim. The
+ * claim existed so middleware could check at zero cost; this path is already
+ * reading the profile row, and profiles.phone_verified ships in 0023 whereas
+ * the claim path also needs 0029.
+ *
+ * Returns null when allowed, or a blocking result when not.
+ */
+function requirePhoneVerification(
+  plan: keyof typeof USAGE_LIMITS,
+  profile: ProfileRow | null,
+  feature: GatedFeature,
+): UsageCheckResult | null {
+  if (!PHONE_VERIFICATION_ENABLED) return null;
+  if (plan !== 'free') return null;
+  if (profile?.phone_verified === true) return null;
+
+  return {
+    allowed: false, used: 0, limit: 0, remaining: 0, plan, feature,
+    message:
+      'Verify your phone number to start using Preciprocal. It takes a few seconds ' +
+      'and keeps free accounts genuine.',
+    requiresPhoneVerification: true,
+  };
 }
 
 // ─── One-time credit packs ────────────────────────────────────────────────────
@@ -172,16 +216,20 @@ export async function checkUsage(
 ): Promise<UsageCheckResult> {
   try {
     const supabaseUserId = await toSupabaseUserId(userId);
-    const [sub, admin, profileCreatedAt] = await Promise.all([
+    const [sub, profile] = await Promise.all([
       getSubscription(supabaseUserId),
-      isAdminUser(supabaseUserId),
-      getProfileCreatedAt(supabaseUserId),
+      getProfile(supabaseUserId),
     ]);
+    const admin = profile?.is_admin === true;
+    const profileCreatedAt = profile?.created_at ?? null;
 
     const plan   = isTrialExpired(sub) ? 'free' : resolvePlanKey(sub?.plan, {
       isAdmin: admin,
       legacyQuotas: sub?.legacy_quotas === true,
     });
+    const blocked = requirePhoneVerification(plan, profile, feature);
+    if (blocked) return blocked;
+
     const limits = USAGE_LIMITS[plan];
     const limit  = limits[feature as keyof typeof limits];
     const field  = FEATURE_FIELD[feature];
@@ -207,7 +255,7 @@ export async function checkUsage(
     }
 
     const { periodStart } = computeUsagePeriod(
-      pickAnchor(sub?.current_period_start, profileCreatedAt),
+      pickAnchor(sub?.subscription_started_at, sub?.current_period_start, profileCreatedAt),
     );
     const { data: counterRow } = await supabaseAdmin
       .from('usage_counters')
@@ -265,11 +313,12 @@ export async function checkAndIncrementUsage(
 
   try {
     const supabaseUserId = await toSupabaseUserId(userId);
-    const [sub, admin, profileCreatedAt] = await Promise.all([
+    const [sub, profile] = await Promise.all([
       getSubscription(supabaseUserId),
-      isAdminUser(supabaseUserId),
-      getProfileCreatedAt(supabaseUserId),
+      getProfile(supabaseUserId),
     ]);
+    const admin = profile?.is_admin === true;
+    const profileCreatedAt = profile?.created_at ?? null;
     const trialExpired = !admin && isTrialExpired(sub);
 
     // Fold the trial-expiry downgrade in as a best-effort side write, same as
@@ -287,11 +336,14 @@ export async function checkAndIncrementUsage(
       isAdmin: admin,
       legacyQuotas: sub?.legacy_quotas === true,
     });
+    const blocked = requirePhoneVerification(plan, profile, feature);
+    if (blocked) return blocked;
+
     const limits = USAGE_LIMITS[plan];
     const limit  = limits[feature as keyof typeof limits];
 
     const { periodStart, periodEnd } = computeUsagePeriod(
-      pickAnchor(sub?.current_period_start, profileCreatedAt),
+      pickAnchor(sub?.subscription_started_at, sub?.current_period_start, profileCreatedAt),
     );
     const { data, error } = await supabaseAdmin.rpc('increment_usage_counter', {
       p_user_id: supabaseUserId,

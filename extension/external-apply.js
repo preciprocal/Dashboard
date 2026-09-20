@@ -353,6 +353,63 @@ async function trackJobApplication(platform) {
       }
     });
   } catch (err) { console.warn('⚠️ Job tracker error:', err.message); }
+
+  maybeShowUpsell();
+}
+
+/**
+ * Count this apply toward the Pro upsell threshold, and show the prompt if it
+ * has been crossed.
+ *
+ * Previously this file did not participate at all. upsell.js was only loaded
+ * by the LinkedIn content script, so window.PreciprocalUpsell was undefined
+ * across all ~45 ATS domains here (Greenhouse, Lever, Workday, Ashby, iCIMS
+ * and the rest) and applies made on them counted for nothing. A user applying
+ * mostly through external portals could never reach the threshold no matter
+ * how many jobs they applied to, and the conversion telemetry was skewed
+ * toward LinkedIn-heavy users. upsell.js is now listed ahead of this file in
+ * the ATS content script.
+ *
+ * Fire-and-forget and fully guarded: instrumentation must never be able to
+ * break an application that has already been submitted.
+ */
+async function maybeShowUpsell() {
+  try {
+    if (!window.PreciprocalUpsell) return;
+
+    const res = await window.PreciprocalUpsell.recordAutoApply();
+    if (!res || !res.shouldShow) return;
+
+    // Auth is read from storage rather than from the injector instance: this
+    // runs at module scope with no `this`, and the same values are what
+    // banner.js passes on the LinkedIn path. Without a token the upsell event
+    // cannot be attributed to an account, so the prompt is skipped entirely
+    // rather than shown and recorded as anonymous.
+    const stored = (await chrome.storage.local.get(['preciprocal_auth']))?.preciprocal_auth;
+    if (!stored?.token) return;
+
+    // Delay so the prompt never lands over a confirmation screen the user is
+    // still reading. Matches the LinkedIn path.
+    setTimeout(() => {
+      if (!document.body) return;
+      try {
+        window.PreciprocalUpsell.show({
+          auth: {
+            token:   stored.token,
+            userId:  stored.uid   || '',
+            email:   stored.email || '',
+            baseUrl: PRECIPROCAL_URL,
+          },
+          applyCount: res.applyCount,
+          config:     res.config,
+          onOpen: () =>
+            window.open(`${PRECIPROCAL_URL}/pricing?source=extension_upsell`, '_blank'),
+        });
+      } catch (err) {
+        console.warn('⚠️ Upsell render:', err.message);
+      }
+    }, 2500);
+  } catch { /* never let telemetry break an apply */ }
 }
 
 function showTrackingToast(jobTitle, company) {

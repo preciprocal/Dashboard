@@ -9,22 +9,12 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { redis } from "@/lib/redis/redis-client";
 import { revokedKey } from "@/lib/session/keys";
-import { REQUIRES_PHONE_CLAIM, VERIFY_PHONE_PATH } from "@/lib/config/phone-verification";
-
-// Paths an unverified account may still reach: the verification page itself and
-// the endpoints it calls, plus auth routes so signing out always works. Without
-// these the gate would redirect the verification page to itself.
-const PHONE_GATE_EXEMPT = [
-  VERIFY_PHONE_PATH,
-  "/api/phone/",
-  "/api/auth/",
-  "/auth/",
-  "/sign-in",
-  "/sign-up",
-  "/verify-email",
-  "/forgot-password",
-  "/reset-password",
-];
+// PHONE_GATE_EXEMPT and the phone-verification imports were removed with the
+// app-wide gate. See the note near the end of middleware() for why the gate
+// moved to lib/ai/usage-guard.ts, and note that an exempt-list is no longer
+// needed at all: gating at the quota boundary means every page, every auth
+// route and every billing route is reachable by default, rather than reachable
+// only if someone remembered to add it to a list.
 
 // Only document navigations are checked for revocation. Enforcing on every
 // request would add a Redis round trip to prefetches, API calls and data
@@ -96,34 +86,29 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // ── One-time phone verification gate ─────────────────────────────────────
-  // Read straight off the JWT, so this costs nothing: no database call, no
-  // Redis call. The claim is set at account creation and cleared by
-  // app/api/phone/verify-code, which is why accounts that predate the feature
-  // are never gated - they simply have no claim.
-  const claims = claimsData?.claims as
-    | { app_metadata?: Record<string, unknown> }
-    | undefined;
-  const needsPhone = claims?.app_metadata?.[REQUIRES_PHONE_CLAIM] === true;
-
-  if (needsPhone) {
-    const path = request.nextUrl.pathname;
-    const exempt = PHONE_GATE_EXEMPT.some(p => path === p || path.startsWith(p));
-
-    if (!exempt) {
-      // Page loads are redirected so the user lands somewhere actionable.
-      // Everything else (fetches, server actions) gets a 403 rather than a
-      // redirect, because an API caller following a 302 to an HTML page just
-      // fails confusingly further down.
-      if (isDocumentNavigation(request)) {
-        return NextResponse.redirect(new URL(VERIFY_PHONE_PATH, request.url));
-      }
-      return NextResponse.json(
-        { error: "Verify your phone number to finish setting up your account." },
-        { status: 403 },
-      );
-    }
-  }
+  // ── Phone verification is NOT gated here ─────────────────────────────────
+  //
+  // It used to be, reading the app_metadata claim off the JWT at zero cost and
+  // redirecting every non-exempt navigation to /verify-phone. That was removed
+  // because it gated the entire application surface, not quota consumption:
+  //
+  //   - `/` and `/pricing` were blocked, as were the Stripe subscription
+  //     routes. An unverified user could not upgrade off the free tier, so an
+  //     anti-free-farming measure blocked the exit from the free tier.
+  //   - Non-quota APIs were blocked too - /api/usage, /api/profile, resume
+  //     download and delete - none of which consume anything.
+  //   - Server actions got a 403 JSON body no server-action client can render.
+  //
+  // The gate now lives in lib/ai/usage-guard.ts requirePhoneVerification(),
+  // which is the quota-consumption boundary the spec actually names, and is
+  // scoped to Free accounts. An unverified user can browse, pay, and manage
+  // their account; they cannot spend free quota.
+  //
+  // REQUIRES_PHONE_CLAIM is still stamped at signup and cleared on
+  // verification. Nothing reads it now that this gate is gone - the guard
+  // reads profiles.phone_verified instead - so it is vestigial rather than
+  // load-bearing. Left in place because removing it needs a backfill pass over
+  // existing auth users.
 
   return response;
 }

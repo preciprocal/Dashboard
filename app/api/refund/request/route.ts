@@ -52,6 +52,7 @@ interface SubscriptionRow {
   stripe_subscription_id: string | null;
   stripe_customer_id: string | null;
   current_period_start: string | null;
+  subscription_started_at: string | null;
   current_period_end: string | null;
   last_payment_at: string | null;
   legacy_quotas: boolean | null;
@@ -83,7 +84,7 @@ async function assess(supabaseUserId: string): Promise<Assessment> {
     .from('subscriptions')
     .select(
       'plan, status, stripe_subscription_id, stripe_customer_id, ' +
-      'current_period_start, current_period_end, last_payment_at, legacy_quotas',
+      'current_period_start, subscription_started_at, current_period_end, last_payment_at, legacy_quotas',
     )
     .eq('user_id', supabaseUserId)
     .maybeSingle();
@@ -124,7 +125,7 @@ async function assess(supabaseUserId: string): Promise<Assessment> {
   }
 
   const { periodStart } = computeUsagePeriod(
-    pickAnchor(sub.current_period_start, profile?.created_at as string | undefined),
+    pickAnchor(sub.subscription_started_at, sub.current_period_start, profile?.created_at as string | undefined),
   );
 
   const { snapshot, maxUsagePct, maxUsageFeature } = await buildUsageSnapshot(

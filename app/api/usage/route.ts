@@ -19,12 +19,12 @@ export async function GET(request: NextRequest) {
     // period_start is derived from the subscription's billing anchor, so the
     // subscription and profile have to resolve first.
     const [{ data: sub }, { data: profile }] = await Promise.all([
-      supabaseAdmin.from('subscriptions').select('plan, current_period_start').eq('user_id', supabaseUserId).maybeSingle(),
+      supabaseAdmin.from('subscriptions').select('plan, current_period_start, subscription_started_at').eq('user_id', supabaseUserId).maybeSingle(),
       supabaseAdmin.from('profiles').select('is_admin, created_at').eq('user_id', supabaseUserId).maybeSingle(),
     ]);
 
     const { periodStart } = computeUsagePeriod(
-      pickAnchor(sub?.current_period_start, profile?.created_at),
+      pickAnchor(sub?.subscription_started_at, sub?.current_period_start, profile?.created_at),
     );
 
     const { data: usageRow } = await supabaseAdmin

@@ -14,18 +14,35 @@
 // the window on the billing date removes that, and is also what makes
 // cancel-and-resubscribe stop handing out a fresh allowance on demand.
 //
-// ─── Why anchoring on current_period_start has no drift ────────────────────
-// A fixed 30-day cadence would slowly desync from monthly billing, since most
-// months are 31 days. It doesn't here, because for paying accounts the anchor
-// is Stripe's own current_period_start, which Stripe advances on every
-// successful renewal. Each new billing cycle re-anchors the window, so the
-// reset lands exactly on the billing date rather than accumulating error.
+// ─── Why the anchor is subscription START, not current period ──────────────
 //
-// Annual plans get the useful behaviour for free: current_period_start moves
-// once a year, so the index below walks 0..12 across that year and the
-// allowance resets every 30 days rather than once for the whole year. The
-// final window of an annual term is short (about 5 days) before renewal
-// re-anchors it, which is a deliberate rounding-down in the user's favour.
+// This file previously anchored on subscriptions.current_period_start and
+// argued that re-anchoring each cycle meant "no drift". That was wrong, and
+// wrong in the expensive direction.
+//
+// usage_counters is keyed (user_id, period_start). Re-anchoring MOVES that
+// key. With a 30-day window and a 31-day billing month - anchor Jan 1,
+// renewal Feb 1 - the index rolls over on Jan 31, periodStart moves, and
+// increment_usage_counter inserts a brand new row with ZERO USAGE. The
+// subscriber collects a second full allowance for the last day of a period
+// they paid for once. Seven months a year have 31 days.
+//
+// So the old anchor did not remove the "two allowances for one payment" bug
+// described above; it shrank it and made it recur on a schedule.
+//
+// A fixed anchor cannot do that. The window walks forward in 30-day steps from
+// one immutable point, so a boundary is never re-created mid-cycle.
+//
+// ─── The trade this accepts, stated plainly ────────────────────────────────
+// 30 days is not a month. Against a fixed anchor the quota reset drifts away
+// from the billing date by about half a day per month, roughly 5 days a year,
+// and a subscriber sees 12.17 windows a year rather than 12. That over-grant
+// is small, constant and predictable. Seven discontinuous double-allowances
+// are none of those things.
+//
+// Annual plans behave the same way by construction: the anchor never moves, so
+// the index simply keeps walking and the allowance resets every 30 days rather
+// than once a year.
 
 const PERIOD_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -93,14 +110,28 @@ export function computeUsagePeriod(anchor: string | null | undefined): UsagePeri
  * computeUsagePeriod so the choice of anchor is documented in one place and
  * every call site makes it identically.
  *
- * Free accounts anchor on signup rather than the calendar, which is what stops
- * "sign up on the 30th, get two months of quota in 48 hours".
+ * Order matters, and each fallback is a deliberate step down:
+ *
+ *   1. subscription_started_at - set once when the subscription begins and
+ *      never advanced (0032). The correct anchor.
+ *   2. current_period_start - the old anchor. Only reached for rows the 0032
+ *      backfill could not fill, which means a paid row with no period start at
+ *      all. Keeps those accounts working rather than silently dropping them to
+ *      a signup-date window that would hand out a fresh allowance.
+ *   3. profiles.created_at - free accounts, which have no subscription to
+ *      anchor to. Immutable, which is what stops "sign up on the 30th, get two
+ *      months of quota in 48 hours" and what makes cancel-and-resubscribe
+ *      stop handing out a fresh allowance on demand.
+ *
+ * Callers pass whatever they have; passing undefined for the first argument is
+ * fine and simply falls through.
  */
 export function pickAnchor(
+  subscriptionStartedAt: string | null | undefined,
   currentPeriodStart: string | null | undefined,
   profileCreatedAt: string | null | undefined,
 ): string | null {
-  return currentPeriodStart ?? profileCreatedAt ?? null;
+  return subscriptionStartedAt ?? currentPeriodStart ?? profileCreatedAt ?? null;
 }
 
 /**
@@ -112,13 +143,17 @@ export async function resolveUsagePeriod(
   // Injected rather than imported to keep this module free of a hard
   // dependency on the admin client, which makes it unit-testable.
   fetcher: (userId: string) => Promise<{
+    subscriptionStartedAt?: string | null;
     currentPeriodStart: string | null;
     profileCreatedAt: string | null;
   }>,
 ): Promise<UsagePeriod> {
   try {
-    const { currentPeriodStart, profileCreatedAt } = await fetcher(supabaseUserId);
-    return computeUsagePeriod(pickAnchor(currentPeriodStart, profileCreatedAt));
+    const { subscriptionStartedAt, currentPeriodStart, profileCreatedAt } =
+      await fetcher(supabaseUserId);
+    return computeUsagePeriod(
+      pickAnchor(subscriptionStartedAt, currentPeriodStart, profileCreatedAt),
+    );
   } catch {
     return calendarMonthPeriod();
   }

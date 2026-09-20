@@ -541,7 +541,7 @@ export async function getCurrentUser(): Promise<User | null> {
 
     // Both rows are select("*"), so the anchor fields are already present.
     const { periodStart } = computeUsagePeriod(
-      pickAnchor(sub?.current_period_start, profile.created_at),
+      pickAnchor(sub?.subscription_started_at, sub?.current_period_start, profile.created_at),
     );
     const { data: usageRow } = await supabaseAdmin
       .from("usage_counters")

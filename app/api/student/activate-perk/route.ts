@@ -161,9 +161,13 @@ export async function POST(req: NextRequest) {
     const { error: linkError } = await supabaseAdmin
       .from("subscriptions")
       .update({
-        stripe_subscription_id: subscription.id,
-        current_period_start:   new Date().toISOString(),
-        updated_at:             new Date().toISOString(),
+        stripe_subscription_id:  subscription.id,
+        current_period_start:    new Date().toISOString(),
+        // Anchors the rolling quota window. Set once here, never advanced on
+        // renewal - the Stripe webhook deliberately omits it on every path
+        // except subscription.created. See 0032.
+        subscription_started_at: new Date().toISOString(),
+        updated_at:              new Date().toISOString(),
       })
       .eq("user_id", supabaseUserId);
     if (linkError) throw linkError;
