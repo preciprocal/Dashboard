@@ -42,20 +42,33 @@ export const OTP_MAX_ATTEMPTS = 8;
  * When true, the free month requires a card on file: the user verifies their
  * .edu address, saves a card via a Stripe SetupIntent ($0 now), and Stripe
  * auto-bills the Pro price on day 31. When false, the perk is granted outright
- * with no card, which is the behaviour that shipped originally.
+ * with no card, which is the behaviour that originally shipped.
  *
- * DEFAULTS TO FALSE, deliberately. Paid checkout is currently paused
- * (see PaymentPausedModal in app/(root)/pricing/page.tsx), which makes the
- * .edu perk the only route to Pro right now - and the pricing page copy sells
- * it as "no credit card needed ... free while billing comes back online".
- * Turning this on before billing resumes would contradict that copy and gate
- * the only working upgrade path behind a card.
+ * DEFAULTS TO TRUE as of the Task 3 pass. The default is inverted rather than
+ * env-gated so the decision travels with the code: an env-gated flag has to be
+ * remembered separately in every environment, and being silently off in one of
+ * them is the failure this is meant to prevent.
  *
- * To enable: set STUDENT_PERK_REQUIRE_CARD=true, and update the two "no credit
- * card" strings in app/(root)/pricing/page.tsx (the student banner and the
- * StudentModal subtitle) in the same deploy.
+ * Set STUDENT_PERK_REQUIRE_CARD=false to opt back out. If you do, the three
+ * strings listed below become true again and should be reverted with it.
+ *
+ * Why on: the .edu perk is the only working route to Pro while paid checkout
+ * is paused, which makes it the only path abuse can take. The no-card branch
+ * also converts nobody - it sets trial_ends_at and leans on usage-guard's
+ * isTrialExpired to downgrade, so a free month simply ends. The card branch
+ * hands the trial to Stripe via trial_period_days, and Stripe bills day 31
+ * with no cron on our side.
+ *
+ * Verified end to end against test-mode Stripe before flipping: SetupIntent
+ * confirms, subscription lands `trialing` for 30 days, $0.00 is charged at
+ * signup, and a $9.99 invoice is scheduled for day 31.
+ *
+ * Copy that depends on this flag, all in app/(root)/pricing/page.tsx:
+ *   - the Pro feature bullet ("Students: 1 month free")
+ *   - the student banner subtitle
+ *   - the StudentModal pre-verification subtitle
  */
-export const REQUIRE_CARD = process.env.STUDENT_PERK_REQUIRE_CARD === 'true';
+export const REQUIRE_CARD = process.env.STUDENT_PERK_REQUIRE_CARD !== 'false';
 
 /**
  * Price the student trial converts onto at day 31. Matches the Pro monthly

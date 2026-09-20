@@ -83,7 +83,7 @@ const PLANS: Plan[] = [
       { text: "Recruiter eye simulation",           highlight: true },
       { text: "Full analytics dashboard" },
       { text: "Priority AI responses" },
-      { text: "Students: 1 month free - no card needed", highlight: true },
+      { text: "Students: 1 month free with a .edu email", highlight: true },
     ],
   },
   {
@@ -709,7 +709,7 @@ function StudentModal({ onVerified, onClose }: StudentModalProps) {
             <p className="text-xs text-slate-500 mt-1">
               {cardSecret
                 ? "Email verified. Add a card to start your free month - you won't be charged today."
-                : "Verify your .edu email and Pro unlocks instantly - no credit card required."}
+                : "Verify your .edu email, then add a card to start. Nothing is charged for 30 days."}
             </p>
           </div>
 
@@ -951,7 +951,7 @@ export default function PricingPage() {
               </div>
               <div>
                 <p className="text-sm font-semibold text-white">University student? Get Pro free for 1 month 🎓</p>
-                <p className="text-xs text-slate-400">Verify your .edu email - no credit card needed for the trial.</p>
+                <p className="text-xs text-slate-400">Verify your .edu email. Nothing is charged for 30 days.</p>
               </div>
             </div>
             <button onClick={() => user ? setShowStudent(true) : (window.location.href = "/sign-in?redirect=/pricing")}
