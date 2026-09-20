@@ -67,21 +67,38 @@ export const PACKS: Record<PackKey, PackDefinition> = {
     grants: { findContacts: 15, linkedinOptimisations: 3 },
     description: "Find and reach the people who decide.",
   },
+  // ── Interview packs: repriced against MEASURED Vapi cost ─────────────────
+  //
+  // These were $7.99 and $12.99, back-solved from an estimate of $1.20 per
+  // interview that assumed 8 minutes for everyone. Two things were wrong:
+  // the real blended rate is $0.107/min rather than $0.15, but Premium
+  // sessions run 12 minutes, so a pack interview actually costs $1.284.
+  //
+  // Pack credits are consumed at the BUYER's tier duration, so Premium is the
+  // worst case - and Premium subscribers are exactly the people most likely to
+  // buy more interviews. At the old prices these returned 45.2% and 42.6%,
+  // both under target.
+  //
+  // Credit counts were reduced rather than prices raised, so the packs stay
+  // affordable. Interviews are ~99% of the cost of both packs; the debrief
+  // grants are effectively free padding (an interviewDebrief is a database
+  // insert with no model call at all).
   interview_boost: {
     key: "interview_boost",
     name: "Interview Boost",
-    priceUsd: 7.99,
-    grants: { interviews: 3, interviewDebriefs: 2 },
-    provisionalPricing: true,
-    description: "Three more mock interviews at your plan's session length.",
+    priceUsd: 6.99,
+    grants: { interviews: 2, interviewDebriefs: 2 },
+    description: "Two more mock interviews at your plan's session length.",
   },
   final_round: {
     key: "final_round",
     name: "Final Round",
-    priceUsd: 12.99,
-    grants: { interviews: 5, debriefAnalyses: 5 },
-    prioritySpeedDays: 7,
-    provisionalPricing: true,
+    priceUsd: 13.99,
+    // prioritySpeedDays removed. It was never implemented - no code read it -
+    // so the pack was advertising a benefit that did not exist. It also cost
+    // nothing, which is why dropping it does not fund a price cut: the price
+    // is set almost entirely by the interview credits.
+    grants: { interviews: 4, debriefAnalyses: 5 },
     description: "Everything you need for the last stretch.",
   },
 };
