@@ -64,6 +64,24 @@ const LABELS: Record<FeatureType, { one: string; many: string }> = {
 };
 
 /**
+ * "10 cover letters", "1 mock interview".
+ *
+ * Exported so the credit-pack cards on the pricing page can label their grants
+ * without restating the nouns. Those grants are quantities of the same
+ * categories the plan rows describe, and a second copy of the wording is how
+ * the page ended up advertising "interview debriefs" next to "mock interviews"
+ * with nothing to tell a reader which was which.
+ *
+ * Takes the quantity rather than returning a pair, because the singular form
+ * is the whole reason this exists: "1 cover letters" reads as a bug to a
+ * customer even though it is only a missing branch.
+ */
+export function featureLabel(feature: FeatureType, qty: number): string {
+  const label = LABELS[feature];
+  return `${qty} ${qty === 1 ? label.one : label.many}`;
+}
+
+/**
  * Features whose per-month framing would mislead.
  *
  * jobTracker has no server-side metering at all, so "8 tracked jobs / month"

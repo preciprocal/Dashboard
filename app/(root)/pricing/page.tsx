@@ -17,6 +17,8 @@ import AnimatedLoader from "@/components/loader/AnimatedLoader";
 import { getDeviceFingerprint } from "@/lib/fingerprint";
 import { priceIdFor } from "@/lib/config/stripe-prices";
 import { planFeatureLines } from "@/lib/config/plan-features";
+import CreditPacks from "@/components/pricing/CreditPacks";
+import { PACKS, type PackKey } from "@/lib/config/packs";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
@@ -833,6 +835,25 @@ export default function PricingPage() {
   const [showSuccess, setShowSuccess]           = useState(false);
   const [successPlan, setSuccessPlan]           = useState<Plan | null>(null);
   const [successIsStudent, setSuccessIsStudent] = useState(false);
+  const [packResult, setPackResult]             = useState<{ status: "success" | "cancelled"; name: string } | null>(null);
+
+  // Stripe returns the buyer to /pricing?pack=...&status=... after checkout.
+  //
+  // Read from window.location rather than useSearchParams: the latter forces
+  // this component under a Suspense boundary during prerender, and a banner
+  // that only matters post-redirect is not worth restructuring the page for.
+  useEffect(() => {
+    const params  = new URLSearchParams(window.location.search);
+    const status  = params.get("status");
+    const packKey = params.get("pack") as PackKey | null;
+
+    if ((status === "success" || status === "cancelled") && packKey && PACKS[packKey]) {
+      setPackResult({ status, name: PACKS[packKey].name });
+      // Drop the query string so a refresh, or a link someone shares, does not
+      // replay a purchase confirmation for something that is not happening again.
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -928,6 +949,49 @@ export default function PricingPage() {
             Most tools charge you and disappear. We offer a <span className="text-white font-semibold">30 day money back guarantee</span> because we&apos;ve seen what Preciprocal does for real people - and we stand behind it completely.
           </p>
         </div>
+
+        {/* Pack checkout result */}
+        {packResult && (
+          <div className={`mb-8 p-4 rounded-2xl border flex items-start gap-3 ${
+            packResult.status === "success"
+              ? "border-emerald-500/20 bg-emerald-500/5"
+              : "border-white/[0.08] bg-white/[0.02]"
+          }`}>
+            <svg className={`w-5 h-5 flex-shrink-0 mt-0.5 ${packResult.status === "success" ? "text-emerald-400" : "text-slate-400"}`}
+              fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {packResult.status === "success"
+                ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/>
+                : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>}
+            </svg>
+            <div className="min-w-0">
+              {packResult.status === "success" ? (
+                <>
+                  <p className="text-sm font-semibold text-emerald-300">{packResult.name} purchased</p>
+                  {/* Credits are granted by the Stripe webhook, which can land a
+                      moment after this redirect. Promising they are ready right
+                      now would be wrong often enough to generate support mail. */}
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Your credits are being added and will appear within a minute. Nothing else to do.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-semibold text-white">Checkout cancelled</p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    No payment was taken and nothing changed on your account.
+                  </p>
+                </>
+              )}
+            </div>
+            <button onClick={() => setPackResult(null)}
+              className="ml-auto text-slate-500 hover:text-slate-300 transition-colors cursor-pointer flex-shrink-0"
+              aria-label="Dismiss">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+        )}
 
         {/* Student banner */}
         {!isStudent && (
@@ -1066,6 +1130,9 @@ export default function PricingPage() {
             );
           })}
         </div>
+
+        {/* One-time credit packs */}
+        <CreditPacks user={user}/>
 
         {/* Trust signals */}
         <div className="mt-12 pt-8 border-t border-white/[0.06]">
