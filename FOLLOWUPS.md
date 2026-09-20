@@ -275,3 +275,75 @@ session that recorded good geolocation at creation loses it on the first
 heartbeat that arrives without those headers, so `checkDeviceSpread`'s location
 set degrades toward empty and the geography half of the rule quietly stops
 firing. Fix is to only overwrite when the incoming value is non-null.
+
+---
+
+## 13. Task 6 is OPEN: mock interview caps and cost logging are built but not live
+
+**Severity: blocking. Nothing in this entry is deployable until the four steps
+below are done, in order.**
+
+The code chain is complete and statically verified - typecheck and lint clean,
+12 saved Vapi assistants provisioned and confirmed server-side. **No audio has
+ever passed through it.** Do not treat it as working.
+
+### Blocking manual steps, in order
+
+**1. Apply `0033_interview_call_costs.sql`.** Verified missing. Until it runs
+the webhook's upsert fails and every cost row is silently lost.
+
+**2. Set `VAPI_WEBHOOK_SECRET`.** Verified unset. The webhook rejects every
+request with 401 without it, including real Vapi traffic.
+
+**3. Re-run the provisioning script** so the assistants get a `serverUrl`:
+
+```
+npx tsx --env-file=.env.local scripts/provision-vapi-assistants.ts
+```
+
+It deliberately omits `serverUrl` when the secret is unset, because a
+serverUrl without a matching secret means Vapi posts reports the webhook
+rejects - cost logging would look configured while recording nothing.
+
+**4. Push the 12 `VAPI_ASSISTANT_*` ids to the hosting environment.** They are
+in `.env.local` only. Without them `assistantIdFor()` throws and
+`/api/interview/session` returns 503. That refusal is deliberate: falling back
+to an inline assistant would silently remove the duration cap, and nothing
+would look wrong until the Vapi invoice arrived.
+
+### Verification still owed, by a real end-to-end call
+
+A browser, a microphone, and 8 to 12 minutes of actual speech. Five things to
+confirm:
+
+1. `/api/interview/session` returns the assistant matching the caller's plan
+2. The wrap-up fires at T-75s and the interviewer winds down in its own voice
+3. A call left to run terminates on `endCallMessage`, not silence
+4. A row lands in `interview_call_costs` with real duration and cost
+5. **A mixed interview produces TWO rows summing to the tier budget**
+
+Point 5 is the real test of the pre-split design. If phase two runs past its
+share, the split is wrong and the combined budget does not hold.
+
+### The number to report back
+
+`INTERVIEW_COST_BY_PLAN` in `lib/config/feature-costs.ts` is derived from
+`VAPI_COST_PER_MINUTE = 0.15`, back-solved from an unverified "$1.20 for 8
+minutes" estimate. It inherits whatever that estimate got wrong.
+
+The first rows in the `interview_cost_summary` view are the first real data.
+Compare `avg_cost_usd` against the estimate. If actual cost runs higher, that
+is a pricing and quota conversation, not a reason to quietly tighten limits.
+
+### Known weaknesses, accepted
+
+- **The wrap-up is client-side and bypassable.** It is a courtesy, not the cap.
+  Stripping it out gets a call that terminates on `endCallMessage` instead of
+  winding down gracefully - a worse interview, not a longer one.
+- **A Free user who learns a Premium assistant id could use it.** The ids never
+  reach the browser (`/api/interview/session` resolves them server-side), so
+  this needs the id from somewhere else. Bounded overage: 4 extra minutes.
+- **Squads were not used.** One call with two voices and one shared budget
+  would be strictly better, but there is an open report that squad calls ignore
+  `max_duration_seconds`, and proving otherwise needs a real call running past
+  the cap. Worth revisiting if Vapi confirms a fix.

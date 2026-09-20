@@ -41,6 +41,8 @@ interface AssistantSnapshot {
   model?: { provider?: string; model?: string };
   transcriber?: { provider?: string; model?: string };
   firstMessage?: string;
+  serverUrl?: string;
+  serverMessages?: string[];
   systemPromptSha256?: string;
   systemPromptChars?: number;
 }
@@ -115,6 +117,12 @@ async function main() {
           `expected ${e.expectedMaxDurationSeconds} per lib/config/interview-limits.ts`,
       );
     }
+    const serverUrl = (a.server as { url?: string } | undefined)?.url ?? a.serverUrl;
+    if (!serverUrl) {
+      problems.push(
+        `${e.tier}/${e.phase}: no serverUrl - calls will be capped correctly but no cost is recorded`,
+      );
+    }
     if (a.endCallMessage !== END_CALL_MESSAGE) {
       problems.push(
         `${e.tier}/${e.phase}: endCallMessage does not match END_CALL_MESSAGE - ` +
@@ -136,6 +144,9 @@ async function main() {
       },
       transcriber: a.transcriber as AssistantSnapshot["transcriber"],
       firstMessage: a.firstMessage as string | undefined,
+      // Secret deliberately NOT snapshotted - this file is checked in.
+      serverUrl: (a.server as { url?: string } | undefined)?.url ?? (a.serverUrl as string | undefined),
+      serverMessages: a.serverMessages as string[] | undefined,
       systemPromptSha256: prompt ? await sha256(prompt) : undefined,
       systemPromptChars: prompt.length || undefined,
     });

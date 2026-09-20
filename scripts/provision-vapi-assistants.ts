@@ -63,12 +63,47 @@ async function vapi(key: string, path: string, init?: RequestInit) {
   return body;
 }
 
+/**
+ * Events we want delivered. Narrow on purpose.
+ *
+ * Vapi defaults to sending a lot, including every status-update and every
+ * transcript fragment. app/api/vapi/webhook ignores anything that is not an
+ * end-of-call-report, so subscribing to the rest would be pure noise: real
+ * traffic volume, real log volume, and a larger surface for a handler bug to
+ * turn into a retry storm.
+ */
+const SERVER_MESSAGES = ["end-of-call-report"];
+
 async function main() {
   const dryRun = process.argv.includes("--dry-run");
   const key = process.env.VAPI_PRIVATE_KEY;
   if (!key) {
     console.error("VAPI_PRIVATE_KEY is not set.");
     process.exit(1);
+  }
+
+  // Where Vapi posts the end-of-call report. Defaults to the production app
+  // because that is the only deployment Vapi can reach - a localhost URL here
+  // would be accepted by the API and then silently fail on every call.
+  const webhookBase = process.env.VAPI_WEBHOOK_URL ?? "https://app.preciprocal.com";
+  const webhookSecret = process.env.VAPI_WEBHOOK_SECRET;
+
+  // Configured together or not at all. A serverUrl without a secret means Vapi
+  // posts reports that the webhook rejects with 401 - cost logging would look
+  // configured while recording nothing, which is worse than being obviously
+  // unconfigured.
+  const server = webhookSecret
+    ? { url: `${webhookBase}/api/vapi/webhook`, secret: webhookSecret }
+    : null;
+
+  if (!server) {
+    console.warn(
+      "\n⚠️  VAPI_WEBHOOK_SECRET is not set, so serverUrl is being LEFT OFF these assistants.\n" +
+        "   Calls will run and be capped correctly, but no cost will be recorded.\n" +
+        "   Set the secret and re-run this script to attach the webhook.\n",
+    );
+  } else {
+    console.log(`\nWebhook: ${server.url}`);
   }
 
   const existing: Array<{ id: string; name?: string }> = await vapi(key, "/assistant");
@@ -91,6 +126,7 @@ async function main() {
       // dead air with nothing ending it. 30s is generous for a candidate
       // thinking through a hard question and still bounds the damage.
       silenceTimeoutSeconds: 30,
+      ...(server ? { server, serverMessages: SERVER_MESSAGES } : {}),
     };
 
     const id = byName.get(name);
