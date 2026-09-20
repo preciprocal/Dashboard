@@ -27,8 +27,8 @@
 //     nothing either way; refunding for unused free actions would be
 //     arbitrary. They fall out naturally rather than being special-cased.
 
-import { FEATURE_COSTS } from "@/lib/config/feature-costs";
-import type { FeatureType, UsageLimits } from "@/lib/config/usage-limits";
+import { FEATURE_COSTS, costForPlan } from "@/lib/config/feature-costs";
+import type { FeatureType, UsageLimits, PlanLimits } from "@/lib/config/usage-limits";
 import type { UsageSnapshot } from "@/lib/refund/eligibility";
 
 export interface ProrationLine {
@@ -65,12 +65,17 @@ export function prorateRefund(
   limits: UsageLimits,
   amountPaidCents: number,
   stripeFeeCents: number,
+  planKey: keyof PlanLimits,
 ): ProrationResult {
   const lines: ProrationLine[] = [];
   let totalAllowanceValueUsd = 0;
   let totalUnusedValueUsd = 0;
 
-  for (const [feature, cost] of Object.entries(FEATURE_COSTS) as [FeatureType, number][]) {
+  for (const feature of Object.keys(FEATURE_COSTS) as FeatureType[]) {
+    // Interviews are priced at the plan's own session length - Free 8min,
+    // Pro 10, Premium 12 - not at one flat figure. They dominate allowance
+    // value, so a flat number would skew every refund quote.
+    const cost  = costForPlan(feature, planKey);
     const limit = limits[feature];
     const used = snapshot[feature]?.used ?? 0;
 

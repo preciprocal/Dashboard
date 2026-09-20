@@ -73,7 +73,7 @@ export const PACKS: Record<PackKey, PackDefinition> = {
     priceUsd: 7.99,
     grants: { interviews: 3, interviewDebriefs: 2 },
     provisionalPricing: true,
-    description: "Three more mock interviews, 8 minutes each.",
+    description: "Three more mock interviews at your plan's session length.",
   },
   final_round: {
     key: "final_round",

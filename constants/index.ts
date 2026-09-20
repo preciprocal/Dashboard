@@ -114,7 +114,7 @@ export const technicalInterviewer: CreateAssistantDTO = {
   // clearest signal to the candidate that a different person is now asking.
   voice: {
     provider: "vapi",
-    voiceId: "Neha",
+    voiceId: "Rohan",
     speed: 0.7,
   },
   model: {
@@ -274,7 +274,7 @@ export const behavioralInterviewer: CreateAssistantDTO = {
   // Alternatives, all provider "vapi": Kylie, Lily, Savannah, Hana.
   voice: {
     provider: "vapi",
-    voiceId: "Paige",
+    voiceId: "Savannah",
     speed: 0.7,
   },
   model: {

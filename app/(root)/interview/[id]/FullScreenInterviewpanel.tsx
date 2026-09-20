@@ -384,7 +384,7 @@ const FullScreenInterviewPanel = ({
           // Both prompts have the interviewer say this name out loud during
           // their introduction, so a mismatched name and accent is immediately
           // audible and breaks the illusion.
-          interviewer_name:       isBehavioral ? "Sarah Mitchell"                 : "Priya Sharma",
+          interviewer_name:       isBehavioral ? "Sarah Mitchell"                 : "Rohan Sharma",
           interviewer_role:       isBehavioral ? "Director of People Operations"  : "Senior Software Architect",
           company_name:           "TechCorp",
           department:             isBehavioral ? "talent acquisition and employee development" : "engineering and infrastructure",

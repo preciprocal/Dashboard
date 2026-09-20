@@ -143,6 +143,7 @@ async function assess(supabaseUserId: string): Promise<Assessment> {
     USAGE_LIMITS[planKey],
     amountPaidCents,
     estimateStripeFeeCents(amountPaidCents),
+    planKey,
   );
 
   return {

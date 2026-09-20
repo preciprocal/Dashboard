@@ -54,7 +54,7 @@ export const USAGE_LIMITS: PlanLimits = {
     coverLetters: 5,
     resumes: 3,
     studyPlans: 2,
-    interviews: 1,        // 8-minute hard cap per session
+    interviews: 1,        // 8 min per session, capped server-side - interview-limits.ts
     interviewDebriefs: 10, // DB insert, no model call - see feature-costs.ts
     debriefAnalyses: 1,
     linkedinOptimisations: 2,
@@ -66,7 +66,7 @@ export const USAGE_LIMITS: PlanLimits = {
     coverLetters: 30,
     resumes: 20,
     studyPlans: 10,
-    interviews: 2,        // 8-minute hard cap per session
+    interviews: 2,        // 10 min per session, capped server-side - interview-limits.ts
     interviewDebriefs: 60,
     debriefAnalyses: 4,
     linkedinOptimisations: 5,
@@ -78,7 +78,7 @@ export const USAGE_LIMITS: PlanLimits = {
     coverLetters: 80,
     resumes: 50,
     studyPlans: 25,
-    interviews: 5,        // 8-minute hard cap per session
+    interviews: 5,        // 12 min per session, capped server-side - interview-limits.ts
     interviewDebriefs: 150,
     debriefAnalyses: 12,
     linkedinOptimisations: 15,
