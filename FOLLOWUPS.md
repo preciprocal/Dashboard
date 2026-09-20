@@ -422,3 +422,50 @@ bumping individual packages.
 
 Also `nodemailer` and `@types/nodemailer` are installed with zero imports -
 dead since the switch to Resend.
+
+---
+
+## 16. Mixed interviews unverified: no interview is ever created with type "mixed"
+
+**Severity: medium. The pre-split duration design is UNTESTED.**
+
+Task 6's combined-budget design splits a mixed interview across two calls with
+fixed caps (432s + 288s = 720s on premium). That path has never executed.
+
+An attempt to test it produced one call, technical only:
+
+```
+3af318ae   type=technical     techQ=2  behQ=0   <- intended as mixed
+2b045828   type=behavioural   techQ=0  behQ=1
+a1a93591   type=technical     techQ=5  behQ=0
+```
+
+No row in `interviews` has `type = 'mixed'`. The panel resolved
+`sessionPhase = "technical"`, requested the premium technical assistant, and
+asked technical questions - correct behaviour for the input it received. The
+bug is upstream, in whatever creates the interview record.
+
+**What is verified:** the cap, the wrap-up, cost logging, metadata attribution
+and assistant resolution all work, proven on real solo calls.
+
+**What is not:** that two calls against one interview sum to the tier budget.
+Until a genuine mixed interview runs, treat the combined budget as a design
+that compiles rather than one that holds. If phase two overruns its 288s share,
+a mixed interview costs more than a solo one on the same quota unit.
+
+### Second, separate issue found alongside it
+
+`interviews.type` stores **`behavioural`** (British), while the panel prop type
+is `"technical" | "behavioral" | "mixed" | "system-design"` (American). If
+`normalizedType` in `InterviewPageClient.tsx` does not map between them, a
+behavioural interview falls through `startInterview()`'s branches to the
+default case and gets the technical interviewer.
+
+That would affect solo behavioural interviews too, not only mixed ones, and
+would be invisible in the cost data - the call still runs, still gets capped,
+still records cost. It just uses the wrong interviewer. Worth checking before
+trusting any behavioural interview.
+
+Note the same split exists in the Vapi env var names, which use BEHAVIOURAL
+deliberately to match `InterviewPhase`. Any fix should pick one spelling per
+layer and document which, rather than adding a third convention.
