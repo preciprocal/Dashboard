@@ -472,27 +472,23 @@ layer and document which, rather than adding a third convention.
 
 ---
 
-## 17. Networking Pack: Stripe says $5.99, the catalog says $4.99
+## 17. RESOLVED - Networking Pack price divergence
 
-`npm run verify:pack-purchase` fails on exactly one assertion:
+Kept as a record of what the guard is for, since it is the only time it has
+fired on a real mismatch.
 
-```
-[2] Stripe price matches the catalog
-  FAIL  networking_pack  -> stripe 599c vs catalog 499c
-```
+The Networking Pack Stripe Price was $5.99 while `lib/config/packs.ts` said
+$4.99. The purchase route's price check caught it before anything shipped and
+refused to sell with 503 `PRICE_MISMATCH`, so no one could have been charged
+the advertised price plus a dollar.
 
-`lib/config/packs.ts` was dropped to $4.99 so the three cheap packs read as one
-price point rather than three arbitrary numbers. The Stripe Price object
-(`price_1UHs6MQSkS83MGF9w7xmyW0T`) was created at the older $5.99.
+Resolved by updating the amount in Stripe. The Price id
+(`price_1UHs6MQSkS83MGF9w7xmyW0T`) did not change, so no env var moved.
+`npm run verify:pack-purchase` is now 31/31.
 
-The purchase route refuses to sell on a mismatch (503 `PRICE_MISMATCH`), so
-nobody can be charged the wrong amount. The cost is that Networking Pack is
-currently unsellable. Margin is ~85% either way, so this is positioning, not
-economics.
-
-Resolving it means either editing one line in `packs.ts` or adding a new $4.99
-Price in Stripe and repointing `STRIPE_PACK_NETWORKING_PACK_PRICE_ID`. Stripe
-Prices are immutable, so the second option is a create-and-repoint, not an edit.
+Worth keeping in mind that this only fires at purchase time. A divergence
+introduced after a pack goes on sale is caught on the next attempted purchase,
+not proactively - running the verify script in CI would close that gap.
 
 ## 18. Nothing in the UI can buy a pack yet
 
