@@ -118,33 +118,40 @@ export const PACKS: Record<PackKey, PackDefinition> = {
   //
   // Everything else here is priced against what it would cannibalise: their
   // ingredients cost cents, so margin never binds. This one is the opposite.
-  // Five Premium interviews cost $6.42 - roughly 23x the entire Starter Pack -
-  // and that number alone sets the price.
+  // A single Premium interview costs $1.284, which is more than the entire
+  // Starter Pack costs to serve, and that number alone sets the price.
   //
-  // Why $1.284 per interview: pack credits are consumed at the BUYER's tier
-  // duration, and Premium sessions run 12 minutes. Premium subscribers are
-  // also exactly the people most likely to buy more interviews, so pricing
-  // against the cheaper 8-minute Free session would lose money on the most
-  // likely buyer.
+  // Why $1.284 rather than the cheaper Free rate: pack credits are consumed at
+  // the BUYER's tier duration, and Premium sessions run 12 minutes. Premium
+  // subscribers are also exactly the people most likely to buy more
+  // interviews, so costing this against an 8-minute Free session would lose
+  // money on the most likely buyer.
   //
-  // Priced AT the 50% floor rather than above it, deliberately, to keep it
-  // affordable. That is a conscious trade worth stating plainly: the
-  // $0.107/min rate is measured from ONE call. If the true average is $0.15 -
-  // the figure originally estimated - this drops to about 41%. Sitting at
-  // 50.7% leaves nothing to absorb that. Re-check against
-  // interview_cost_summary once there is a spread of real sessions.
+  // ── The count is pinned to the price, not the other way round ────────────
+  //
+  // At $6.49 the grant CANNOT go above two. Five interviews cost $6.42 to
+  // serve, so at this price the pack would take $6.49, pay $0.49 in Stripe
+  // fees, and lose $0.42 on every single sale. Three is 15.5%, four is
+  // -14.6%. Two returns 52.9%.
+  //
+  // So: if this count ever changes, the price has to move with it in the same
+  // edit. Five interviews needs $14.49 to clear the floor.
+  //
+  // Even at two, the margin rests on a $0.107/min rate measured from ONE call.
+  // At the originally estimated $0.15 this drops to about 34%. Re-check
+  // against interview_cost_summary once there is a spread of real sessions.
   //
   // The 3 journal entries are free padding: an interviewDebrief is a database
   // insert with no model call at all.
   interview_boost: {
     key: "interview_boost",
     name: "Interview Boost",
-    priceUsd: 14.49,
+    priceUsd: 6.49,
     // Interviews and the journal only. The cover letters were removed: they
     // belong to the application phase, and a pack that spans phases makes it
     // harder for a user to tell which one they actually need.
-    grants: { interviews: 5, interviewDebriefs: 3 },
-    description: "Five more practice interviews, plus room to log the real ones.",
+    grants: { interviews: 2, interviewDebriefs: 3 },
+    description: "Two more practice interviews, plus room to log the real ones.",
   },
 };
 
@@ -159,6 +166,33 @@ export function packPriceId(key: PackKey): string {
   const id = process.env[envVar];
   if (!id) throw new Error(`${envVar} is not set - pack "${key}" cannot be sold`);
   return id;
+}
+
+/**
+ * The pack price in cents, which is what Stripe speaks.
+ *
+ * Exists so no call site writes `priceUsd * 100` inline. That expression is a
+ * floating-point trap: 6.49 * 100 is 649.0000000000001, and a bare Math.round
+ * at one call site with a truncation at another is how a pack ends up charging
+ * a cent less than the ledger records.
+ */
+export function packAmountCents(key: PackKey): number {
+  return Math.round(PACKS[key].priceUsd * 100);
+}
+
+/**
+ * Master switch for pack checkout.
+ *
+ * Defaults to OFF, and deliberately requires the literal string "true" rather
+ * than testing for absence. The Stripe account is not live yet; the failure
+ * this prevents is a half-configured environment quietly accepting real money
+ * for credits before the grant path has been verified end to end.
+ *
+ * Off is not the same as unconfigured: the purchase route returns 503 with an
+ * explicit reason, rather than 404 or a Stripe error that reads like a bug.
+ */
+export function packCheckoutEnabled(): boolean {
+  return process.env.PACKS_CHECKOUT_ENABLED === "true";
 }
 
 /** Packs safe to display. Excludes any whose Stripe Price is unconfigured. */
