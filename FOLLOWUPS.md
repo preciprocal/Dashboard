@@ -280,36 +280,47 @@ firing. Fix is to only overwrite when the incoming value is non-null.
 
 ## 13. Task 6 is OPEN: mock interview caps and cost logging are built but not live
 
-**Severity: blocking. Nothing in this entry is deployable until the four steps
-below are done, in order.**
+**Severity: blocking. Not deployable until the steps below are done.**
 
 The code chain is complete and statically verified - typecheck and lint clean,
 12 saved Vapi assistants provisioned and confirmed server-side. **No audio has
 ever passed through it.** Do not treat it as working.
 
-### Blocking manual steps, in order
+### Done
 
-**1. Apply `0033_interview_call_costs.sql`.** Verified missing. Until it runs
-the webhook's upsert fails and every cost row is silently lost.
+**1. `0033_interview_call_costs.sql` applied.** Table and the
+`interview_cost_summary` view both verified present.
 
-**2. Set `VAPI_WEBHOOK_SECRET`.** Verified unset. The webhook rejects every
-request with 401 without it, including real Vapi traffic.
+**2. `VAPI_WEBHOOK_SECRET` set locally.**
 
-**3. Re-run the provisioning script** so the assistants get a `serverUrl`:
+**3. `serverUrl` attached to all 12 assistants.** Verified 12/12, scoped to
+`end-of-call-report` only.
 
-```
-npx tsx --env-file=.env.local scripts/provision-vapi-assistants.ts
-```
+Note on verifying the secret: Vapi's `GET /assistant` never returns
+`server.secret`. A probe value written and read back came back absent,
+confirming it is write-only rather than unset. The readable signal is a
+separate boolean, `isServerUrlSecretSet`, which reads true on all 12. Use that
+flag, not the absence of `secret`, when checking this in future.
 
-It deliberately omits `serverUrl` when the secret is unset, because a
-serverUrl without a matching secret means Vapi posts reports the webhook
-rejects - cost logging would look configured while recording nothing.
+### STILL OPEN
 
-**4. Push the 12 `VAPI_ASSISTANT_*` ids to the hosting environment.** They are
-in `.env.local` only. Without them `assistantIdFor()` throws and
-`/api/interview/session` returns 503. That refusal is deliberate: falling back
-to an inline assistant would silently remove the duration cap, and nothing
-would look wrong until the Vapi invoice arrived.
+**4. Push env vars to Vercel.** Two sets, both required:
+
+- the 12 `VAPI_ASSISTANT_*` ids. Without them `assistantIdFor()` throws and
+  `/api/interview/session` returns 503. That refusal is deliberate: falling
+  back to an inline assistant would silently remove the duration cap.
+- `VAPI_WEBHOOK_SECRET`, matching the Vapi copy byte-for-byte.
+
+**The second fails quietly and is the dangerous one.** Without it in Vercel,
+calls connect, caps hold, the wrap-up fires and interviews work perfectly while
+the webhook 401s every report and `interview_call_costs` stays empty. Nothing
+visibly breaks; you only find out when you go looking for cost data.
+
+**5. Deploy.** Both `/api/interview/session` and `/api/vapi/webhook` currently
+404 in production.
+
+**6. Consider rotating the secret** once the pipeline is confirmed working. The
+value was pasted into a chat transcript during setup.
 
 ### Verification still owed, by a real end-to-end call
 
