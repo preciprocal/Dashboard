@@ -17,11 +17,22 @@
 
 import type { FeatureType } from "@/lib/config/usage-limits";
 
+// Each pack owns ONE phase of the job search, so a user picking between them
+// is answering "where am I stuck?" rather than comparing credit tables:
+//
+//   starter_pack      a little of everything, for people not sure yet
+//   application_boost applying   - resumes and cover letters
+//   networking_pack   networking - contacts, LinkedIn, outreach
+//   interview_boost   interviewing - mock interviews and the journal
+//
+// A pack that spans phases makes that choice harder, which is why cover
+// letters were removed from interview_boost and cold outreach was added to
+// networking_pack.
 export type PackKey =
+  | "starter_pack"
   | "application_boost"
   | "networking_pack"
-  | "interview_boost"
-  | "final_round";
+  | "interview_boost";
 
 export interface PackDefinition {
   key: PackKey;
@@ -38,6 +49,34 @@ export interface PackDefinition {
 }
 
 export const PACKS: Record<PackKey, PackDefinition> = {
+  starter_pack: {
+    key: "starter_pack",
+    name: "Starter Pack",
+    // Replaces the old "Final Round", which was 4 interviews + 5 journal
+    // entries at $11.99. That pack sat directly above Interview Boost with the
+    // same contents in bigger numbers, so the two competed rather than serving
+    // different people. This one serves someone who does not yet know which
+    // phase they are stuck in.
+    //
+    // $4.99 matches the two single-phase packs, so the whole range reads as
+    // one price point with a premium option, rather than four unrelated
+    // numbers. Margin is 59.9% because the single interview dominates the
+    // cost; everything else here is pennies.
+    priceUsd: 4.99,
+    // One mock interview rather than none. An "all in one" that omits the
+    // flagship feature is not one, and a buyer would notice the gap
+    // immediately.
+    grants: {
+      interviews: 1,
+      resumes: 5,
+      coverLetters: 15,
+      findContacts: 2,
+      linkedinOptimisations: 2,
+      coldOutreach: 2,
+      interviewDebriefs: 2,
+    },
+    description: "A bit of everything: one mock interview, applications, and career tools.",
+  },
   application_boost: {
     key: "application_boost",
     name: "Application Boost",
@@ -68,8 +107,12 @@ export const PACKS: Record<PackKey, PackDefinition> = {
     // Boost, which makes the cheap packs read as one tier rather than two
     // arbitrary numbers.
     priceUsd: 4.99,
-    grants: { findContacts: 15, linkedinOptimisations: 3 },
-    description: "Find and reach the people who decide.",
+    // The full career-tools set: find people, polish the profile they will
+    // look at, and write to them. coldOutreach was missing, which left the
+    // pack able to find contacts it could not then reach - the one step that
+    // makes the other two useful.
+    grants: { findContacts: 15, linkedinOptimisations: 3, coldOutreach: 15 },
+    description: "Find the right people, polish your profile, and reach out.",
   },
   // ── Interview packs: repriced against MEASURED Vapi cost ─────────────────
   //
@@ -99,25 +142,11 @@ export const PACKS: Record<PackKey, PackDefinition> = {
     key: "interview_boost",
     name: "Interview Boost",
     priceUsd: 6.49,
-    grants: { interviews: 2, interviewDebriefs: 3, coverLetters: 5 },
-    description: "Two more practice interviews, room to log three real ones, and cover letters to apply with.",
-  },
-  final_round: {
-    key: "final_round",
-    name: "Final Round",
-    // $15.99 -> $14.99 when the AI analyses, cover letters and resume
-    // analyses were removed, then -> $11.99 to sit at the 50% floor.
-    //
-    // prioritySpeedDays was removed earlier: it was never implemented, so the
-    // pack advertised a benefit that did not exist.
-    priceUsd: 11.99,
-    // Worth knowing before adding more interviewDebriefs here: the monthly
-    // allowance is already 10 on Free, 60 on Pro and 150 on Premium, and a
-    // journal entry is a database insert costing nothing to serve. Granting 5
-    // more is close to meaningless for anyone on a paid plan, so this pack is
-    // effectively four mock interviews with a token extra. Price it as such.
-    grants: { interviews: 4, interviewDebriefs: 5 },
-    description: "Four more practice interviews for the last stretch, plus room to log the real ones.",
+    // Interviews and the journal only. The cover letters were removed: they
+    // belong to the application phase, and a pack that spans phases makes it
+    // harder for a user to tell which one they actually need.
+    grants: { interviews: 2, interviewDebriefs: 3 },
+    description: "Two more practice interviews, plus room to log the real ones.",
   },
 };
 
