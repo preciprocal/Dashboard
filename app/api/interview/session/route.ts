@@ -67,9 +67,31 @@ export async function POST(req: NextRequest) {
     try {
       assistantId = assistantIdFor(planKey, phase);
     } catch (err) {
-      console.error('🚨 Interview assistant not configured:', (err as Error).message);
+      // Name the missing variable in the response, not just the server log.
+      //
+      // "We have been notified" is true but useless to whoever hits it, and
+      // this failure is always a deployment misconfiguration rather than
+      // anything a user did - so the actionable detail belongs where the
+      // person debugging will actually see it. Env var NAMES are not secrets
+      // (they are in the repo), values are never included, and the caller is
+      // already authenticated by this point.
+      const missing = `VAPI_ASSISTANT_${
+        (planKey === 'premium_legacy' || planKey === 'admin' ? 'premium' : planKey).toUpperCase()
+      }_${phase.toUpperCase()}`;
+
+      console.error(
+        `🚨 Interview assistant not configured | plan=${planKey} phase=${phase} ` +
+        `missing=${missing} | ${(err as Error).message}`,
+      );
+
       return NextResponse.json(
-        { error: 'Mock interviews are temporarily unavailable. We have been notified.' },
+        {
+          error: 'Mock interviews are temporarily unavailable.',
+          code: 'assistant_not_configured',
+          missingEnvVar: missing,
+          resolvedPlan: planKey,
+          phase,
+        },
         { status: 503 },
       );
     }
