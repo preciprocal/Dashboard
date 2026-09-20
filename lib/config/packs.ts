@@ -3,10 +3,10 @@
 // only after the subscription's monthly allowance is exhausted.
 //
 // Price and grant are both configurable here rather than hardcoded at the call
-// site, because the two interview packs are priced against an UNVERIFIED Vapi
-// cost estimate (lib/config/feature-costs.ts, `interviews`). Nothing in the app
-// records real call cost yet. When Task 6's logging lands, these become a
-// one-line change each.
+// site, because Interview Boost is priced against a Vapi rate measured from a
+// SINGLE call (lib/config/feature-costs.ts, `interviews`). Call costs are now
+// recorded, so when interview_cost_summary has a real spread the price becomes
+// a one-line change.
 //
 // stripePriceId is intentionally read from the environment and NOT defaulted to
 // a literal. Four separate copies of the subscription price map already exist
@@ -114,39 +114,37 @@ export const PACKS: Record<PackKey, PackDefinition> = {
     grants: { findContacts: 15, linkedinOptimisations: 3, coldOutreach: 15 },
     description: "Find the right people, polish your profile, and reach out.",
   },
-  // ── Interview packs: repriced against MEASURED Vapi cost ─────────────────
+  // ── The only pack whose price is set by cost rather than positioning ─────
   //
-  // These were $7.99 and $12.99, back-solved from an estimate of $1.20 per
-  // interview that assumed 8 minutes for everyone. Two things were wrong:
-  // the real blended rate is $0.107/min rather than $0.15, but Premium
-  // sessions run 12 minutes, so a pack interview actually costs $1.284.
+  // Everything else here is priced against what it would cannibalise: their
+  // ingredients cost cents, so margin never binds. This one is the opposite.
+  // Five Premium interviews cost $6.42 - roughly 23x the entire Starter Pack -
+  // and that number alone sets the price.
   //
-  // Pack credits are consumed at the BUYER's tier duration, so Premium is the
-  // worst case - and Premium subscribers are exactly the people most likely to
-  // buy more interviews. At the old prices these returned 45.2% and 42.6%,
-  // both under target.
+  // Why $1.284 per interview: pack credits are consumed at the BUYER's tier
+  // duration, and Premium sessions run 12 minutes. Premium subscribers are
+  // also exactly the people most likely to buy more interviews, so pricing
+  // against the cheaper 8-minute Free session would lose money on the most
+  // likely buyer.
   //
-  // Both are priced AT the 50% floor rather than above it, deliberately, to
-  // keep them affordable. That is a conscious trade and worth stating plainly:
+  // Priced AT the 50% floor rather than above it, deliberately, to keep it
+  // affordable. That is a conscious trade worth stating plainly: the
+  // $0.107/min rate is measured from ONE call. If the true average is $0.15 -
+  // the figure originally estimated - this drops to about 41%. Sitting at
+  // 50.7% leaves nothing to absorb that. Re-check against
+  // interview_cost_summary once there is a spread of real sessions.
   //
-  // The interview rate ($0.107/min) is measured from ONE call. If the true
-  // average turns out to be $0.15 - the figure originally estimated - these
-  // two drop to roughly 42% and 41%, below target. Sitting at ~52% leaves no
-  // absorption for that. Re-check both against interview_cost_summary once
-  // there is a spread of real sessions, and raise them if the average moved.
-  //
-  // Interviews are ~98% of the cost of both packs. The journal entries and
-  // cover letters are effectively free padding: an interviewDebrief is a
-  // database insert with no model call, and a cover letter costs $0.010.
+  // The 3 journal entries are free padding: an interviewDebrief is a database
+  // insert with no model call at all.
   interview_boost: {
     key: "interview_boost",
     name: "Interview Boost",
-    priceUsd: 6.49,
+    priceUsd: 14.49,
     // Interviews and the journal only. The cover letters were removed: they
     // belong to the application phase, and a pack that spans phases makes it
     // harder for a user to tell which one they actually need.
-    grants: { interviews: 2, interviewDebriefs: 3 },
-    description: "Two more practice interviews, plus room to log the real ones.",
+    grants: { interviews: 5, interviewDebriefs: 3 },
+    description: "Five more practice interviews, plus room to log the real ones.",
   },
 };
 
