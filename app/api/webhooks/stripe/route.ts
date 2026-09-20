@@ -7,6 +7,7 @@ import { invalidateUserCache } from "@/lib/actions/auth.action";
 import { recordCancellation, recordReactivation } from "@/lib/subscription/reactivation";
 import { recordCouponStudentPerk } from "@/lib/subscription/student-coupon";
 import { planFromPriceId, warnUnknownPrice } from "@/lib/config/stripe-prices";
+import { grantPack } from "@/lib/packs/grant";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-07-30.basil",
@@ -132,6 +133,13 @@ export async function POST(request: NextRequest) {
       case "invoice.payment_failed":
         await handlePaymentFailed(event.data.object as InvoiceWithSubscription);
         break;
+      // One-time credit packs. Both events carry the same session shape; the
+      // async variant fires for payment methods that settle after the redirect
+      // rather than during it, where completed arrives unpaid.
+      case "checkout.session.completed":
+      case "checkout.session.async_payment_succeeded":
+        await handleCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session);
+        break;
       default:
         console.log(`Unhandled event type: ${event.type}`);
     }
@@ -144,6 +152,89 @@ export async function POST(request: NextRequest) {
 }
 
 // ─── Handlers ─────────────────────────────────────────────────────────────────
+
+/**
+ * Credit pack purchased. The only path that grants pack credits.
+ *
+ * Unlike the subscription handlers, this one does NOT call invalidateUserCache.
+ * Those keys cover profile, interviews and resume lists; pack balances are read
+ * live through pack_credit_balance() every time a quota check runs out of
+ * monthly allowance, so there is nothing cached to bust.
+ */
+async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
+  // Subscriptions in this app are created through the PaymentIntent flow, not
+  // Checkout, so a subscription-mode session here is something else entirely.
+  if (session.mode !== "payment") {
+    console.log(`ℹ️ Ignoring ${session.mode} checkout session ${session.id}`);
+    return;
+  }
+
+  // "completed" fires when the customer finishes the flow, which for delayed
+  // payment methods is before the money arrives. Granting on unpaid would hand
+  // out credits for a payment that can still fail.
+  if (session.payment_status !== "paid") {
+    console.log(
+      `⏳ Checkout ${session.id} not paid yet (${session.payment_status}) - waiting for async success`,
+    );
+    return;
+  }
+
+  const packKey = session.metadata?.packKey;
+  const metadataUserId = session.metadata?.userId;
+
+  if (!packKey || !metadataUserId) {
+    console.error(`❌ Checkout ${session.id} has no packKey/userId metadata - cannot grant`);
+    return;
+  }
+
+  const paymentIntentId =
+    typeof session.payment_intent === "string"
+      ? session.payment_intent
+      : session.payment_intent?.id;
+
+  if (!paymentIntentId) {
+    // grantPack refuses without this anyway; failing here says why in the log.
+    console.error(`❌ Checkout ${session.id} has no payment_intent - cannot dedupe, not granting`);
+    return;
+  }
+
+  // The purchase route writes the Supabase UUID into metadata, but the
+  // subscription flow's metadata can hold a legacy Firebase uid. Converting
+  // unconditionally matches every other handler in this file and is a no-op
+  // for a value that is already a UUID.
+  const supabaseUserId = await toSupabaseUserId(metadataUserId);
+  if (!supabaseUserId) {
+    console.error(`❌ Could not resolve user ${metadataUserId} for checkout ${session.id}`);
+    return;
+  }
+
+  // amount_total is what was actually captured, including any discount.
+  const amountCents = session.amount_total ?? 0;
+
+  const outcome = await grantPack({
+    supabaseUserId,
+    packKey,
+    stripePaymentIntentId: paymentIntentId,
+    amountCents,
+  });
+
+  switch (outcome.status) {
+    case "granted":
+      console.log(`🎟️ Granted pack [${packKey}] to ${supabaseUserId} as ${outcome.packId}`);
+      break;
+    case "duplicate":
+      // Stripe redelivered an event it had already delivered. Expected.
+      console.log(`↩️ Pack for ${paymentIntentId} already granted - ignoring redelivery`);
+      break;
+    case "rejected":
+      // Money was taken and no credits exist. Retrying will not change the
+      // outcome, so this needs a human rather than a 500.
+      console.error(
+        `🚨 PAID BUT NOT GRANTED [${packKey}] user=${supabaseUserId} pi=${paymentIntentId}: ${outcome.reason}`,
+      );
+      break;
+  }
+}
 
 async function handleSubscriptionCreated(subscription: SubscriptionWithPeriods) {
   console.log("🆕 Subscription created:", subscription.id);

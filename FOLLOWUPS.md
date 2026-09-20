@@ -469,3 +469,68 @@ trusting any behavioural interview.
 Note the same split exists in the Vapi env var names, which use BEHAVIOURAL
 deliberately to match `InterviewPhase`. Any fix should pick one spelling per
 layer and document which, rather than adding a third convention.
+
+---
+
+## 17. Networking Pack: Stripe says $5.99, the catalog says $4.99
+
+`npm run verify:pack-purchase` fails on exactly one assertion:
+
+```
+[2] Stripe price matches the catalog
+  FAIL  networking_pack  -> stripe 599c vs catalog 499c
+```
+
+`lib/config/packs.ts` was dropped to $4.99 so the three cheap packs read as one
+price point rather than three arbitrary numbers. The Stripe Price object
+(`price_1UHs6MQSkS83MGF9w7xmyW0T`) was created at the older $5.99.
+
+The purchase route refuses to sell on a mismatch (503 `PRICE_MISMATCH`), so
+nobody can be charged the wrong amount. The cost is that Networking Pack is
+currently unsellable. Margin is ~85% either way, so this is positioning, not
+economics.
+
+Resolving it means either editing one line in `packs.ts` or adding a new $4.99
+Price in Stripe and repointing `STRIPE_PACK_NETWORKING_PACK_PRICE_ID`. Stripe
+Prices are immutable, so the second option is a create-and-repoint, not an edit.
+
+## 18. Nothing in the UI can buy a pack yet
+
+`app/api/packs/purchase` returns a Checkout URL, and the webhook grants credits
+on `checkout.session.completed`. No component calls either. `purchasablePacks()`
+is surfaced only through the GET on `app/api/packs/quote`.
+
+So the path is complete server-side and unreachable from the product. A pricing
+page section that POSTs `{ packKey }` and redirects to `url` is all that is
+missing, and it should be built in the same pass that unpauses subscription
+checkout so the two flows are tested together.
+
+## 19. Packs have no refund path
+
+`pack_refund_eligible(p_pack_id, p_window_days)` exists in migration 0030 and
+has zero callers. `app/api/refund/request` is subscription-only and never looks
+at `credit_packs`.
+
+The ledger is already shaped for it - `first_used_at` stays null until the first
+credit is drawn, and FIFO consumption is oldest-first specifically to preserve
+refund eligibility on the newest purchase. What is missing is the route that
+reads that, calls `stripe.refunds.create`, and stamps `refunded_at`.
+
+Until then a pack refund is a manual Stripe dashboard action, and whoever does
+it must also set `refunded_at` by hand, or the credits stay spendable after the
+money is returned.
+
+## 20. The Stripe webhook still has no event-level idempotency
+
+Adding `checkout.session.completed` did not change this, but it is worth
+recording where the protection actually comes from.
+
+Pack grants are safe: `credit_packs_payment_intent_key` is a unique index, so a
+redelivered event hits a 23505 and returns `duplicate`. That is enforced by the
+database.
+
+The five subscription handlers are not protected that way. They are written to
+be naturally idempotent - read, then write the same fields - which holds for
+redelivery of the SAME event but not for out-of-order delivery of two different
+ones. Stripe does not guarantee ordering. A `stripe_events` table keyed on
+`event.id` would close it properly.
