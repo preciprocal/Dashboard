@@ -337,9 +337,36 @@ const InterviewDetailsClient = ({
     setIsVideoOn(true);
   };
 
+  /**
+   * `interviews.type` to the panel's prop type.
+   *
+   * These two vocabularies do not match and never did. The database stores
+   * British "behavioural" (that is what InterviewGeneratorForm writes, and what
+   * the Vapi env var names use), while the panel's union is American
+   * "behavioral".
+   *
+   * This used to be `interview.type.toLowerCase() as ...`, which is a cast, not
+   * a conversion. toLowerCase() leaves "behavioural" unchanged and the cast
+   * silenced the compiler, so every behavioural interview fell through
+   * startInterview()'s branches to its default case: the candidate got the
+   * technical interviewer and the technical assistant. Five real sessions ran
+   * that way before anyone noticed, because the call still connects, still gets
+   * capped, and still records cost - only the interviewer is wrong.
+   *
+   * Mapping explicitly rather than casting means a future spelling that is not
+   * handled here falls to "technical" by an visible decision rather than by a
+   * silent type assertion.
+   */
+  function toPanelType(raw: string): "technical" | "behavioral" | "mixed" {
+    const t = raw.trim().toLowerCase();
+    if (t === "behavioural" || t === "behavioral") return "behavioral";
+    if (t === "mixed") return "mixed";
+    return "technical";
+  }
+
   // ── Interview view ─────────────────────────────────────────────────────────
   if (currentView === "interview") {
-    const normalizedType = interview.type.toLowerCase() as "technical" | "behavioral" | "mixed";
+    const normalizedType = toPanelType(interview.type);
     return (
       <FullScreenInterviewPanel
         interviewId={interviewId}

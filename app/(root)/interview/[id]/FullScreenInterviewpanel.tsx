@@ -433,12 +433,15 @@ const FullScreenInterviewPanel = ({
           : {}),
         variableValues: {
           questions:              formattedQuestions,
-          // Names track the voices: the technical agent speaks with Neha
-          // (Indian-English) and the behavioral agent with Sarah (11labs, US).
-          // Both prompts have the interviewer say this name out loud during
-          // their introduction, so a mismatched name and accent is immediately
-          // audible and breaks the illusion.
-          interviewer_name:       isBehavioral ? "Savannah Mitchell"              : "Rohan Sharma",
+          // Names track the voices. Both prompts have the interviewer say this
+          // name out loud during their introduction, so a mismatched name and
+          // accent is immediately audible and breaks the illusion.
+          //
+          // Both voices are now Azure en-IN (constants/index.ts), so both names
+          // are Indian. This was "Savannah Mitchell" against an American voice
+          // for the behavioural agent, which is the voice most candidates heard
+          // first because a mixed interview opens on that phase.
+          interviewer_name:       isBehavioral ? "Priya Menon"                    : "Rohan Sharma",
           interviewer_role:       isBehavioral ? "Director of People Operations"  : "Senior Software Architect",
           company_name:           "TechCorp",
           department:             isBehavioral ? "talent acquisition and employee development" : "engineering and infrastructure",

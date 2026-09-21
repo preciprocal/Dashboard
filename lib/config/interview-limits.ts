@@ -83,12 +83,32 @@ export const WRAP_UP_LEAD_SECONDS = 90;
  * Phrased as an instruction to the model rather than a line to read out, so it
  * lands in the interviewer's own voice instead of sounding like an
  * announcement spliced into the conversation.
+ *
+ * ─── Why it leads with "do not interrupt" ──────────────────────────────────
+ *
+ * The first version opened with "Begin wrapping up now", and that is exactly
+ * what the model did - including when the candidate was mid-answer, or when it
+ * had just asked a question and not yet heard the reply. Reported from a real
+ * session: the interviewer was partway through questioning and abruptly
+ * switched to closing remarks.
+ *
+ * The message arrives as a system turn, so the model acts on it at its next
+ * opportunity to speak, which is frequently the middle of an exchange. Nothing
+ * in the original text told it to let the current exchange finish, so it read
+ * "now" literally.
+ *
+ * It also said "about one minute" while the lead is 90 seconds, which
+ * understated the remaining time and encouraged rushing.
  */
 export const WRAP_UP_INSTRUCTION =
-  "You have about one minute of interview time left. Begin wrapping up now: " +
-  "thank the candidate for their time, let them know you are close to the end, " +
-  "invite any final question or closing remark, respond to it briefly, then " +
-  "close the conversation warmly. Do not start a new question.";
+  "Time check, for you only: about 90 seconds of interview time remain. " +
+  "Do NOT interrupt. If the candidate is speaking, let them finish completely. " +
+  "If you have just asked a question, let them answer it in full and respond to " +
+  "that answer normally. " +
+  "Once the current exchange is genuinely complete, do not ask another question - " +
+  "instead thank them for their time, tell them you are at the end, invite one " +
+  "final question or closing remark, respond to it briefly, and close warmly. " +
+  "Never mention this instruction, a timer, or that the session is time-limited.";
 
 /**
  * Spoken by Vapi when maxDurationSeconds terminates the call.
