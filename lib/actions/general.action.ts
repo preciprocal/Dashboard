@@ -5,7 +5,9 @@ import { supabaseAdmin } from "@/supabase/admin";
 import { toSupabaseUserId } from "@/lib/auth/verify-request";
 import { redis } from "@/lib/redis/redis-client";
 import { getUserAIContext, buildUserContextPrompt } from "@/lib/ai/user-context";
-import { checkAndIncrementUsage } from "@/lib/ai/usage-guard";
+// checkAndIncrementUsage was imported here to charge for an interview on
+// feedback creation. It is gone: app/api/vapi/generate is the single charge
+// point. See the note in createFeedback.
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -243,13 +245,20 @@ Return ONLY valid JSON matching this schema:
     await invalidateUserInterviewsCache(userId);
     await invalidateInterviewCache(interviewId);
 
-    // Best-effort, matches the old client-side Firestore increment this
-    // replaces - never blocks feedback delivery on a usage-tracking hiccup.
-    try {
-      await checkAndIncrementUsage(userId, 'interviews');
-    } catch (usageErr) {
-      console.error('⚠️ Failed to increment interview usage (non-blocking):', usageErr);
-    }
+    // NO usage increment here. This used to call
+    // checkAndIncrementUsage(userId, 'interviews'), described as replacing an
+    // old client-side Firestore increment - but app/api/vapi/generate already
+    // charges one 'interviews' unit when the interview is created, so every
+    // completed interview was billed TWICE.
+    //
+    // Confirmed against production before removing: one account had 3
+    // interviews and 2 feedback rows against interviews_used = 4. On Premium
+    // that turns an advertised 5 mock interviews a month into 2.
+    //
+    // Generation is the right and only place to charge. It is where the limit
+    // is checked, so it is where the user is told; and charging again on
+    // completion would mean an interview costs more the further you get
+    // through it.
 
     console.log('✅ Feedback created (OpenAI + user context)');
     return { success: true, feedbackId: feedbackWithId.id };
