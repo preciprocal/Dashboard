@@ -287,13 +287,66 @@ const InterviewDetailsClient = ({
     }
   };
 
-  const getDeviceStatusIcon = (status: string) => {
-    switch (status) {
-      case "ready":    return <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" />;
-      case "checking": return <Loader2     className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400 animate-spin" />;
-      case "denied":   case "error": return <AlertCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-400" />;
-      default:         return <AlertCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-600" />;
+  // getDeviceStatusIcon was here. It mapped a permission state to an icon and
+  // knew nothing about whether the user had switched the device off, which is
+  // the bug deviceTile below exists to fix. Removed rather than left in place:
+  // two functions answering the same question differently is how the tiles and
+  // the toggle buttons disagreed in the first place.
+
+  /**
+   * What a device tile should actually say.
+   *
+   * The tiles used to read `deviceStatus` alone, which answers a different
+   * question: "is this device present and permitted?". Turning the camera or
+   * mic off changes isVideoOn / isAudioOn and leaves deviceStatus at "ready",
+   * so a muted microphone still showed a green tick and the word Ready. The
+   * one place in the product whose entire job is telling you your devices are
+   * fine was confidently wrong about the most important case.
+   *
+   * Permission problems still outrank the toggle: a blocked camera is a
+   * blocked camera whether or not you also switched it off, and that is the
+   * thing you have to fix before joining.
+   *
+   * The speaker has no toggle here, so it never reaches the "off" branch.
+   */
+  const deviceTile = (
+    key: "camera" | "microphone" | "speaker",
+    status: string,
+    enabled: boolean,
+  ) => {
+    if (status === "checking") {
+      return {
+        icon: <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400 animate-spin" />,
+        text: "Checking", tone: "text-slate-400", border: "border-slate-700",
+      };
     }
+    if (status === "denied") {
+      return {
+        icon: <AlertCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-400" />,
+        text: "Blocked", tone: "text-red-400", border: "border-red-500/30",
+      };
+    }
+    if (status === "error") {
+      return {
+        icon: <AlertCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-400" />,
+        text: "Unavailable", tone: "text-red-400", border: "border-red-500/30",
+      };
+    }
+    if (!enabled) {
+      // Amber, not red: this is a choice the user made and can undo, not a
+      // fault they have to go and fix in browser settings.
+      return {
+        icon: key === "camera"
+          ? <VideoOff className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
+          : <MicOff   className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />,
+        text: key === "camera" ? "Off" : "Muted",
+        tone: "text-amber-400", border: "border-amber-500/30",
+      };
+    }
+    return {
+      icon: <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" />,
+      text: "Ready", tone: "text-emerald-400", border: "border-slate-700",
+    };
   };
 
   // ── Join handler ───────────────────────────────────────────────────────────
@@ -532,21 +585,32 @@ const InterviewDetailsClient = ({
                   </div>
                 </div>
 
-                {/* Device Status */}
+                {/* Device Status.
+                    `enabled` is what makes these live: without it the tiles
+                    reported the permission state only, so a muted mic still
+                    read "Ready" with a green tick. */}
                 <div className="mt-3 sm:mt-4 grid grid-cols-3 gap-2 sm:gap-3 md:gap-4">
                   {([
-                    { key: "camera",     label: "Camera",  status: deviceStatus.camera },
-                    { key: "microphone", label: "Mic",     status: deviceStatus.microphone },
-                    { key: "speaker",    label: "Speaker", status: deviceStatus.speaker },
-                  ] as const).map(device => (
-                    <div key={device.key} className="bg-slate-800/60 backdrop-blur-xl rounded-xl p-2.5 sm:p-3 border border-slate-700">
-                      <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
-                        {getDeviceStatusIcon(device.status)}
-                        <span className="text-xs sm:text-sm text-white">{device.label}</span>
+                    { key: "camera",     label: "Camera",  status: deviceStatus.camera,     enabled: isVideoOn },
+                    { key: "microphone", label: "Mic",     status: deviceStatus.microphone, enabled: isAudioOn },
+                    // No speaker toggle in the waiting room, so it is always
+                    // "enabled" and falls through to the permission state.
+                    { key: "speaker",    label: "Speaker", status: deviceStatus.speaker,    enabled: true },
+                  ] as const).map(device => {
+                    const tile = deviceTile(device.key, device.status, device.enabled);
+                    return (
+                      <div
+                        key={device.key}
+                        className={`bg-slate-800/60 backdrop-blur-xl rounded-xl p-2.5 sm:p-3 border transition-colors duration-200 ${tile.border}`}
+                      >
+                        <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2 min-w-0">
+                          <span className="flex-shrink-0">{tile.icon}</span>
+                          <span className="text-xs sm:text-sm text-white truncate">{device.label}</span>
+                        </div>
+                        <p className={`text-xs ${tile.tone}`}>{tile.text}</p>
                       </div>
-                      <p className="text-xs text-slate-500 capitalize">{device.status}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Join Button */}
