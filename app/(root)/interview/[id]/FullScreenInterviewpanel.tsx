@@ -64,6 +64,17 @@ interface FullScreenInterviewPanelProps {
   behavioralQuestions?: string[];
   feedbackId?: string;
   type?: "generate" | "interview";
+  /**
+   * Device choices carried over from the waiting room.
+   *
+   * Optional so the component still works standalone, but the waiting room
+   * always passes them. Without these the panel started every call with all
+   * three on, silently undoing whatever the candidate set up on the screen
+   * whose entire job was letting them set it up.
+   */
+  initialVideoOn?: boolean;
+  initialAudioOn?: boolean;
+  initialSpeakerOn?: boolean;
   onExit: () => void;
 }
 
@@ -167,13 +178,17 @@ const ExitConfirmDialog = ({
 const FullScreenInterviewPanel = ({
   interviewId, userName, userId, interviewRole, interviewType,
   questions, technicalQuestions, behavioralQuestions, feedbackId,
-  type = "interview", onExit,
+  type = "interview",
+  initialVideoOn = true, initialAudioOn = true, initialSpeakerOn = true,
+  onExit,
 }: FullScreenInterviewPanelProps) => {
   const router = useRouter();
 
-  const [isVideoOn,              setIsVideoOn]              = useState(true);
-  const [isAudioOn,              setIsAudioOn]              = useState(true);
-  const [isSpeakerOn,            setIsSpeakerOn]            = useState(true);
+  // Seeded from the waiting room. These were hardcoded to true, which threw
+  // away the choices made on the screen that exists to make them.
+  const [isVideoOn,              setIsVideoOn]              = useState(initialVideoOn);
+  const [isAudioOn,              setIsAudioOn]              = useState(initialAudioOn);
+  const [isSpeakerOn,            setIsSpeakerOn]            = useState(initialSpeakerOn);
   const [callDuration,           setCallDuration]           = useState(0);
   const [connectionQuality,      setConnectionQuality]      = useState<'excellent' | 'good' | 'poor'>('excellent');
   const [callStatus,             setCallStatus]             = useState<CallStatus>(CallStatus.INACTIVE);

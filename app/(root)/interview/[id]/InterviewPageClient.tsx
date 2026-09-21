@@ -23,6 +23,10 @@ import {
 } from "lucide-react";
 import FullScreenInterviewPanel from "./FullScreenInterviewpanel";
 import { panelFor } from "@/lib/config/interview-personas";
+import { muteRemoteAudio } from "@/lib/interview/media-controls";
+import {
+  deviceTileState, DEVICE_TONE_CLASSES, type DeviceTileState,
+} from "@/lib/interview/device-status";
 
 // Re-exported so existing importers keep working. The names themselves, and
 // the guarantee that no two panelists share a first name, live in
@@ -81,6 +85,7 @@ const InterviewDetailsClient = ({
   const [deviceStatus, setDeviceStatus]             = useState({
     camera: "checking", microphone: "checking", speaker: "checking",
   });
+  const speakerObserver = useRef<MutationObserver | null>(null);
   const [showDeviceSettings, setShowDeviceSettings] = useState(false);
   const [showCameraDropdown, setShowCameraDropdown] = useState(false);
   const [showMicDropdown, setShowMicDropdown]       = useState(false);
@@ -204,7 +209,22 @@ const InterviewDetailsClient = ({
     }
   };
 
-  const toggleSpeaker = () => setIsSpeakerOn(!isSpeakerOn);
+  // Flips the state AND silences audio output, rather than only changing the
+  // icon. It was cosmetic, like the in-call buttons were before
+  // lib/interview/media-controls.ts existed.
+  //
+  // There is usually nothing playing in the waiting room, so this looks like a
+  // no-op here. It is not: the preference is carried into the call below, and
+  // applying it now means a device-settings test sound respects it too.
+  const toggleSpeaker = () => {
+    const next = !isSpeakerOn;
+    setIsSpeakerOn(next);
+    speakerObserver.current?.disconnect();
+    speakerObserver.current = muteRemoteAudio(!next);
+  };
+
+  // Released on unmount so a muted-speaker observer does not outlive the page.
+  useEffect(() => () => { speakerObserver.current?.disconnect(); }, []);
 
   // ── Dropdown positioning with viewport boundary check ──────────────────────
   // If the dropdown would render below the viewport, flip it above the trigger.
@@ -294,59 +314,20 @@ const InterviewDetailsClient = ({
   // the toggle buttons disagreed in the first place.
 
   /**
-   * What a device tile should actually say.
-   *
-   * The tiles used to read `deviceStatus` alone, which answers a different
-   * question: "is this device present and permitted?". Turning the camera or
-   * mic off changes isVideoOn / isAudioOn and leaves deviceStatus at "ready",
-   * so a muted microphone still showed a green tick and the word Ready. The
-   * one place in the product whose entire job is telling you your devices are
-   * fine was confidently wrong about the most important case.
-   *
-   * Permission problems still outrank the toggle: a blocked camera is a
-   * blocked camera whether or not you also switched it off, and that is the
-   * thing you have to fix before joining.
-   *
-   * The speaker has no toggle here, so it never reaches the "off" branch.
+   * Icon for a resolved tile. The wording and tone live in
+   * lib/interview/device-status.ts; only the SVG choice is here, because that
+   * is the part that needs React.
    */
-  const deviceTile = (
-    key: "camera" | "microphone" | "speaker",
-    status: string,
-    enabled: boolean,
-  ) => {
-    if (status === "checking") {
-      return {
-        icon: <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400 animate-spin" />,
-        text: "Checking", tone: "text-slate-400", border: "border-slate-700",
-      };
+  const deviceIcon = (icon: DeviceTileState["icon"]) => {
+    const cls = "w-3.5 h-3.5 sm:w-4 sm:h-4";
+    switch (icon) {
+      case "spinner":     return <Loader2      className={`${cls} text-blue-400 animate-spin`} />;
+      case "alert":       return <AlertCircle  className={`${cls} text-red-400`} />;
+      case "camera-off":  return <VideoOff     className={`${cls} text-amber-400`} />;
+      case "mic-off":     return <MicOff       className={`${cls} text-amber-400`} />;
+      case "speaker-off": return <VolumeX      className={`${cls} text-amber-400`} />;
+      case "check":       return <CheckCircle2 className={`${cls} text-emerald-400`} />;
     }
-    if (status === "denied") {
-      return {
-        icon: <AlertCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-400" />,
-        text: "Blocked", tone: "text-red-400", border: "border-red-500/30",
-      };
-    }
-    if (status === "error") {
-      return {
-        icon: <AlertCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-400" />,
-        text: "Unavailable", tone: "text-red-400", border: "border-red-500/30",
-      };
-    }
-    if (!enabled) {
-      // Amber, not red: this is a choice the user made and can undo, not a
-      // fault they have to go and fix in browser settings.
-      return {
-        icon: key === "camera"
-          ? <VideoOff className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
-          : <MicOff   className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />,
-        text: key === "camera" ? "Off" : "Muted",
-        tone: "text-amber-400", border: "border-amber-500/30",
-      };
-    }
-    return {
-      icon: <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" />,
-      text: "Ready", tone: "text-emerald-400", border: "border-slate-700",
-    };
   };
 
   // ── Join handler ───────────────────────────────────────────────────────────
@@ -395,6 +376,11 @@ const InterviewDetailsClient = ({
   if (currentView === "interview") {
     const normalizedType = toPanelType(interview.type);
     return (
+      // The waiting room's whole purpose is setting these up before the
+      // interview starts. They used to be dropped at this boundary: the panel
+      // kept its own three states, all defaulting to on, so someone who muted
+      // here walked into a live microphone, and someone who silenced the
+      // speaker heard the interviewer anyway.
       <FullScreenInterviewPanel
         interviewId={interviewId}
         userName={userName}
@@ -404,6 +390,9 @@ const InterviewDetailsClient = ({
         questions={interview.questions}
         feedbackId={feedbackId}
         type="interview"
+        initialVideoOn={isVideoOn}
+        initialAudioOn={isAudioOn}
+        initialSpeakerOn={isSpeakerOn}
         onExit={handleExitInterview}
       />
     );
@@ -593,21 +582,20 @@ const InterviewDetailsClient = ({
                   {([
                     { key: "camera",     label: "Camera",  status: deviceStatus.camera,     enabled: isVideoOn },
                     { key: "microphone", label: "Mic",     status: deviceStatus.microphone, enabled: isAudioOn },
-                    // No speaker toggle in the waiting room, so it is always
-                    // "enabled" and falls through to the permission state.
-                    { key: "speaker",    label: "Speaker", status: deviceStatus.speaker,    enabled: true },
+                    { key: "speaker",    label: "Speaker", status: deviceStatus.speaker,    enabled: isSpeakerOn },
                   ] as const).map(device => {
-                    const tile = deviceTile(device.key, device.status, device.enabled);
+                    const tile  = deviceTileState(device.key, device.status, device.enabled);
+                    const tone  = DEVICE_TONE_CLASSES[tile.tone];
                     return (
                       <div
                         key={device.key}
-                        className={`bg-slate-800/60 backdrop-blur-xl rounded-xl p-2.5 sm:p-3 border transition-colors duration-200 ${tile.border}`}
+                        className={`bg-slate-800/60 backdrop-blur-xl rounded-xl p-2.5 sm:p-3 border transition-colors duration-200 ${tone.border}`}
                       >
                         <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2 min-w-0">
-                          <span className="flex-shrink-0">{tile.icon}</span>
+                          <span className="flex-shrink-0">{deviceIcon(tile.icon)}</span>
                           <span className="text-xs sm:text-sm text-white truncate">{device.label}</span>
                         </div>
-                        <p className={`text-xs ${tile.tone}`}>{tile.text}</p>
+                        <p className={`text-xs ${tone.text}`}>{tile.text}</p>
                       </div>
                     );
                   })}
