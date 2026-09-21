@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { vapi } from "@/lib/vapi.sdk";
 import { interviewer } from "@/constants";
 import { createFeedback } from "@/lib/actions/general.action";
+import { panelFor } from "@/lib/config/interview-personas";
 
 enum CallStatus {
   INACTIVE = "INACTIVE",
@@ -178,41 +179,13 @@ const Agent = ({
   );
 
   const interviewPanel: PanelistData[] = useMemo(() => {
-    const generateNames = (id: string) => {
-      const hash = (id || "default").split("").reduce((a, b) => {
-        a = (a << 5) - a + b.charCodeAt(0);
-        return a & a;
-      }, 0);
-
-      const hrNames = [
-        { name: "Sarah Mitchell", initials: "SM" },
-        { name: "Jennifer Davis", initials: "JD" },
-        { name: "Lisa Rodriguez", initials: "LR" },
-        { name: "Amanda Wilson", initials: "AW" },
-      ];
-
-      const leadNames = [
-        { name: "Alexandra Chen", initials: "AC" },
-        { name: "Diana Kumar", initials: "DK" },
-        { name: "Jennifer Anderson", initials: "JA" },
-        { name: "Rebecca Singh", initials: "RS" },
-      ];
-
-      const juniorNames = [
-        { name: "Alex Rodriguez", initials: "AR" },
-        { name: "Emma Thompson", initials: "ET" },
-        { name: "David Park", initials: "DP" },
-        { name: "Jordan Kim", initials: "JK" },
-      ];
-
-      return {
-        hr: hrNames[Math.abs(hash) % hrNames.length],
-        lead: leadNames[Math.abs(hash + 1) % leadNames.length],
-        junior: juniorNames[Math.abs(hash + 2) % juniorNames.length],
-      };
-    };
-
-    const names = generateNames(interviewId);
+    // This file is not imported anywhere - the live interview UI is
+    // app/(root)/interview/[id]/FullScreenInterviewpanel.tsx. It held a third
+    // copy of the panel-name logic, already drifted ("Sarah Mitchell" where the
+    // other two said "Savannah Mitchell") and carrying the same two-Jennifers
+    // collision. Pointed at the shared source so it cannot drift further or be
+    // revived with the bug still in it. See FOLLOWUPS on deleting this file.
+    const names = panelFor(interviewId);
     const roleNormalized = interviewRole.toLowerCase();
 
     return [

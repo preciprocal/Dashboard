@@ -22,39 +22,13 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import FullScreenInterviewPanel from "./FullScreenInterviewpanel";
+import { panelFor } from "@/lib/config/interview-personas";
 
-// ─── Shared panel-name generator (same logic used in FullScreenInterviewPanel) ─
-// Keeping it here avoids the two components generating different names for the
-// same interviewId, which caused the waiting-room panel to mismatch the in-call panel.
-export function generatePanelNames(id: string) {
-  const hash = (id || "default").split("").reduce((a, b) => {
-    a = (a << 5) - a + b.charCodeAt(0);
-    return a & a;
-  }, 0);
-  const hrNames = [
-    { name: "Savannah Mitchell", initials: "SM" },
-    { name: "Jennifer Davis",   initials: "JD" },
-    { name: "Lisa Rodriguez",   initials: "LR" },
-    { name: "Amanda Wilson",    initials: "AW" },
-  ];
-  const leadNames = [
-    { name: "Alexandra Chen",   initials: "AC" },
-    { name: "Diana Kumar",      initials: "DK" },
-    { name: "Jennifer Anderson",initials: "JA" },
-    { name: "Rebecca Singh",    initials: "RS" },
-  ];
-  const juniorNames = [
-    { name: "Alex Rodriguez",   initials: "AR" },
-    { name: "Emma Thompson",    initials: "ET" },
-    { name: "David Park",       initials: "DP" },
-    { name: "Jordan Kim",       initials: "JK" },
-  ];
-  return {
-    hr:     hrNames[Math.abs(hash)     % hrNames.length],
-    lead:   leadNames[Math.abs(hash + 1) % leadNames.length],
-    junior: juniorNames[Math.abs(hash + 2) % juniorNames.length],
-  };
-}
+// Re-exported so existing importers keep working. The names themselves, and
+// the guarantee that no two panelists share a first name, live in
+// lib/config/interview-personas.ts - which is also what supplies the name the
+// interviewer says out loud, so the tile and the voice cannot disagree.
+export { panelFor as generatePanelNames };
 
 // ─── Tech stack badges ────────────────────────────────────────────────────────
 const TechStackDisplay = ({ techStack }: { techStack: string[] }) => {
@@ -264,7 +238,7 @@ const InterviewDetailsClient = ({
 
   // ── Panel (uses shared generator so names match the in-call panel) ─────────
   const getInterviewPanel = () => {
-    const names = generatePanelNames(interviewId);
+    const names = panelFor(interviewId);
     const roleNormalized = interview.role.toLowerCase();
 
     return [

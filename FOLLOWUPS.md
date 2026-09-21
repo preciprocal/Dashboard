@@ -575,3 +575,33 @@ production.
 Closing it needs one test-mode purchase with card 4242 4242 4242 4242 against a
 publicly reachable webhook URL, then confirming a `credit_packs` row appears.
 That is the last unverified link.
+## 23. `components/Agent.tsx` is dead code
+
+Nothing imports it. The live interview UI is
+`app/(root)/interview/[id]/FullScreenInterviewpanel.tsx`.
+
+It mattered because it held a third copy of the interview panel-name logic, and
+that copy had already drifted ("Sarah Mitchell" where the other two said
+"Savannah Mitchell") while still carrying the two-Jennifers collision. It now
+reads `panelFor()` from `lib/config/interview-personas.ts` like the other two,
+so it cannot drift further or be revived with the bug in it.
+
+That is a holding action. It should be deleted, which needs a check that no
+route renders it dynamically and that nothing in the feedback flow
+(`createFeedback`) depends on it being the caller. Left alone because deleting a
+file is not something to fold into an unrelated fix.
+
+## 24. The avatar videos referenced by the interview panel do not exist
+
+`videoSources` in the panel points at `/videos/hr-female-avatar.mp4`,
+`/videos/junior-<role>-avatar.mp4` and similar. `public/` contains no video
+files at all, so every one of those is a 404 and the tiles fall back to initials
+on a gradient.
+
+Harmless today, and arguably better than a looping stock video. Worth knowing
+because the fallback is what every candidate actually sees, so the initials in
+`interview-personas.ts` are the real avatar and not a rarely-used backup.
+
+If videos are ever added, they have to match the personas: the names are Indian
+and gendered to match the Azure en-IN voices, so a generic stock face would
+reintroduce the mismatch that entry was written to fix.

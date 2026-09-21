@@ -23,7 +23,7 @@ import { interviewer, technicalInterviewer, behavioralInterviewer } from "@/cons
 import { createFeedback } from "@/lib/actions/general.action";
 
 // Import the shared panel-name generator so the names match the waiting room.
-import { generatePanelNames } from "./InterviewPageClient";
+import { panelFor } from "@/lib/config/interview-personas";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -234,9 +234,17 @@ const FullScreenInterviewPanel = ({
     junior:        `/videos/junior-${interviewRole.toLowerCase().replace(/\s+/g, "-")}-avatar.mp4`,
   }), [interviewRole]);
 
+  // The panel for this interview, resolved once.
+  //
+  // Hoisted out of the memo below because startInterview() needs the same
+  // object: the name it sends to Vapi as {{interviewer_name}} has to be the
+  // name rendered on the tile. Deriving it separately in each place is exactly
+  // how the screen ended up showing one person while the voice introduced
+  // itself as another.
+  const names = useMemo(() => panelFor(interviewId), [interviewId]);
+
   // ── Panel - uses the shared generator so names match the waiting room ──────
   const interviewPanel = useMemo(() => {
-    const names = generatePanelNames(interviewId);
     const roleNormalized = interviewRole.toLowerCase();
     return [
       {
@@ -274,7 +282,7 @@ const FullScreenInterviewPanel = ({
         experience: `Applying for: ${interviewRole}`, isCurrentUser: true, isSpeaking: false,
       },
     ];
-  }, [interviewId, interviewRole, callStatus, speakingPersonId, videoSources, userName]);
+  }, [names, interviewRole, callStatus, speakingPersonId, videoSources, userName]);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
@@ -433,15 +441,18 @@ const FullScreenInterviewPanel = ({
           : {}),
         variableValues: {
           questions:              formattedQuestions,
-          // Names track the voices. Both prompts have the interviewer say this
-          // name out loud during their introduction, so a mismatched name and
-          // accent is immediately audible and breaks the illusion.
+          // THE NAME ON THE TILE. Not a second, parallel name.
           //
-          // Both voices are now Azure en-IN (constants/index.ts), so both names
-          // are Indian. This was "Savannah Mitchell" against an American voice
-          // for the behavioural agent, which is the voice most candidates heard
-          // first because a mixed interview opens on that phase.
-          interviewer_name:       isBehavioral ? "Priya Menon"                    : "Rohan Sharma",
+          // This used to be a hardcoded pair of strings while the panel tiles
+          // were named from a separate hashed list, so the screen showed one
+          // person and the voice introduced itself as another. Both now read
+          // the same panel, so whoever the candidate is looking at is who is
+          // speaking.
+          //
+          // The voices are Azure en-IN and the prompts say this name aloud
+          // during the introduction, so the panel list is Indian names with
+          // gender matching the voice. See lib/config/interview-personas.ts.
+          interviewer_name:       isBehavioral ? names.hr.name : names.lead.name,
           interviewer_role:       isBehavioral ? "Director of People Operations"  : "Senior Software Architect",
           company_name:           "TechCorp",
           department:             isBehavioral ? "talent acquisition and employee development" : "engineering and infrastructure",
@@ -479,7 +490,7 @@ const FullScreenInterviewPanel = ({
     }
   }, [
     interviewId, userId, questions, phaseQuestions, technicalQuestions, behavioralQuestions,
-    interviewType, currentInterviewPhase, type, userName, interviewRole,
+    interviewType, currentInterviewPhase, type, userName, interviewRole, names,
   ]);
 
   // ── Auto-start ─────────────────────────────────────────────────────────────
