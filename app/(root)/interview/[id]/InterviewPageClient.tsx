@@ -378,7 +378,24 @@ const InterviewDetailsClient = ({
     // Now a plain flow container like every other page under (root) - compare
     // job-tracker, debrief, interview - so the background, width and padding
     // all come from one place.
-    <div className="space-y-4 sm:space-y-6 animate-fade-in-up min-w-0">
+    // NO entrance animation on this wrapper, deliberately.
+    //
+    // .animate-fade-in-up is `animation: fadeInUp .22s ease-out both`, and the
+    // `both` fill mode means the element keeps the keyframe's end state after
+    // the animation finishes - transform: translateY(0). A transform other
+    // than `none` makes an element the containing block for every
+    // position: fixed descendant, permanently.
+    //
+    // This page renders a device-settings modal and three dropdowns that are
+    // all position: fixed and positioned from getBoundingClientRect(), which
+    // returns VIEWPORT coordinates. With a transformed ancestor those
+    // coordinates get re-based against this div, so the dropdowns landed
+    // offset from their triggers and the modal's inset-0 backdrop stopped
+    // covering the whole screen.
+    //
+    // Pages without fixed descendants can use the class safely, which is why
+    // job-tracker does. This one cannot.
+    <div className="space-y-4 sm:space-y-6 min-w-0">
       {/* Breadcrumb. Kept, but as ordinary content rather than a bar spanning
           a width this component does not own. */}
       <div className="flex items-center justify-between gap-3 min-w-0">

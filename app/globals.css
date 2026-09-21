@@ -434,6 +434,20 @@ html {
   to   { opacity: 1; transform: scale(1); }
 }
 
+/* WARNING: do not put this on an element that contains position:fixed children.
+ *
+ * `both` keeps the final keyframe after the animation ends, and fadeInUp ends
+ * on transform: translateY(0). A transform other than `none` makes the element
+ * the containing block for every fixed descendant, permanently - so an overlay
+ * with inset-0 stops covering the viewport and anything positioned from
+ * getBoundingClientRect() lands offset by this element's own origin.
+ *
+ * Measured, not theorised: a fixed child at top:0/left:0 inside this class
+ * rendered at x=240,y=76 where a plain div put it at x=0,y=0. That is what
+ * broke the interview device-settings dropdowns.
+ *
+ * .animate-fade-in below is safe, because it only animates opacity.
+ */
 .animate-fade-in-up {
   animation: fadeInUp 0.22s ease-out both;
 }

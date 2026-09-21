@@ -605,3 +605,43 @@ because the fallback is what every candidate actually sees, so the initials in
 If videos are ever added, they have to match the personas: the names are Indian
 and gendered to match the Azure en-IN voices, so a generic stock face would
 reintroduce the mismatch that entry was written to fix.
+
+## 25. `.animate-fade-in-up` breaks position:fixed, and 8 other files use both
+
+Fixed on the interview waiting room, where it was a live bug: the device
+settings dropdowns rendered offset from their triggers and the modal backdrop
+stopped covering the viewport.
+
+Cause: `.animate-fade-in-up` is `animation: fadeInUp .22s ease-out both`. The
+`both` fill mode keeps the final keyframe after the animation ends, and
+fadeInUp ends on `transform: translateY(0)`. A transform other than `none`
+makes an element the containing block for every `position: fixed` descendant,
+permanently. Anything positioned from `getBoundingClientRect()` - which returns
+viewport coordinates - then lands offset by that element's own origin.
+
+Measured rather than assumed: a fixed child at `top:0,left:0` rendered at
+`x=240,y=76` inside the class, against `x=0,y=0` in a plain div.
+
+`globals.css` now carries the warning next to the class.
+
+**Not yet checked:** eight other files use both `animate-fade-in-up` and a
+`fixed inset-0` overlay:
+
+```
+app/(root)/cover-letter/page.tsx
+app/(root)/job-tracker/page.tsx
+app/(root)/resume/upload/page.tsx
+components/LayoutClient.tsx
+components/resume/ResumeCard.tsx
+components/ServiceModal/index.tsx
+components/ui/confirm-dialog.tsx
+```
+
+Co-occurrence is NOT the bug. It only bites when the animated element is an
+ANCESTOR of the fixed one, and in most of these the animation is likely on a
+sibling card. Each needs a look at the actual nesting before being called
+broken. The symptom to look for is an overlay that does not cover the whole
+screen, or a popover landing away from its trigger.
+
+The durable fix, if this recurs, is rendering overlays through a portal to
+`document.body` so no ancestor transform can reach them.
