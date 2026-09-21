@@ -1,22 +1,32 @@
 // lib/ai/usage-refund.ts
 // Give a quota credit back when we failed to deliver the thing it paid for.
 //
-// ─── Why this exists ────────────────────────────────────────────────────────
+// ─── Why this exists, and why it is not used everywhere ─────────────────────
 //
-// Quota is drawn BEFORE the work happens, which is the only safe order: an
-// expensive call that charges afterwards can be abandoned mid-flight and cost
-// nothing. The price of that ordering is that every failure after the draw
-// leaves the user paying for something they did not receive.
+// An earlier version of this comment claimed quota is drawn BEFORE the work
+// happens, so every feature needed a refund path. That is wrong, and checking
+// before writing more code would have saved the trouble: all sixteen
+// checkAndIncrementUsage calls in app/api charge AFTER their AI call returns.
+// A cover letter that fails to generate is never billed, because the charge
+// line is not reached. scripts/verify-quota-ordering.ts now enforces that.
 //
-// For a cover letter that is annoying. For a mock interview it is the whole
-// session: the candidate's microphone was muted, or their network dropped, so
-// the transcript came back empty, there is no feedback to read, and one of the
-// five interviews they get this month is gone. They did nothing wrong and the
-// product took something from them.
+// Interviews are the exception, and the reason is structural rather than an
+// oversight. Every other feature charges and delivers inside one request: the
+// model returns, the user is billed, the response is sent. An interview is
+// billed when its questions are generated, and delivered later, in a separate
+// voice call the candidate starts by hand. Everything that can go wrong in
+// between - a muted microphone, a dropped network, a call nobody speaks in -
+// happens after the charge and outside the request that made it.
 //
-// So: whenever a feature fails in a way that is not the user's doing, refund.
-// The rule is deliberately generous. Over-refunding costs a fraction of a cent
-// on text features and one Vapi call at worst; under-refunding costs trust.
+// So this is not "the refund helper we forgot to wire up". It is the repair
+// for a gap that only exists where charging and delivering are separated. If a
+// future feature has that shape - anything paid for up front and delivered by
+// a later action - it needs this too, and verify-quota-ordering will not catch
+// it, because the ordering inside each individual request is still correct.
+//
+// The rule when it does apply is deliberately generous: over-refunding costs a
+// fraction of a cent on text features and one Vapi call at worst, while
+// under-refunding costs trust.
 //
 // ─── Refund order is the reverse of consumption order ───────────────────────
 //
