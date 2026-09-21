@@ -24,6 +24,13 @@ import { createFeedback } from "@/lib/actions/general.action";
 
 // Import the shared panel-name generator so the names match the waiting room.
 import { panelFor } from "@/lib/config/interview-personas";
+import {
+  setMicMuted, muteRemoteAudio, startCamera, setCameraEnabled, type CameraHandle,
+} from "@/lib/interview/media-controls";
+import {
+  MIC_NUDGE_AFTER_MS, MIC_NUDGE_REPEAT_MS, MIC_NUDGE_MAX,
+  CAMERA_NUDGE_AFTER_MS, CAMERA_NUDGE_LINE, micNudgeLine,
+} from "@/lib/interview/device-nudges";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -180,6 +187,24 @@ const FullScreenInterviewPanel = ({
   const [autoStartAttempted,     setAutoStartAttempted]     = useState(false);
   const [currentInterviewPhase,  setCurrentInterviewPhase]  = useState<"technical" | "behavioral" | null>(null);
   const [showExitConfirm,        setShowExitConfirm]        = useState(false);
+  // Set when a session ends with nothing the candidate said. Drives the
+  // recovery screen that replaced a silent router.push("/").
+  const [wastedReason,           setWastedReason]           = useState<"no_transcript" | "too_short" | null>(null);
+  const [refundState,            setRefundState]            = useState<"pending" | "refunded" | "not_needed">("pending");
+
+  // The candidate's own camera, for the self-view tile. Held in a ref rather
+  // than state because nothing renders from the handle itself - the <video>
+  // element gets the stream imperatively - and putting a MediaStream in state
+  // would re-render the whole panel every time a track is toggled.
+  const cameraRef        = useRef<CameraHandle | null>(null);
+  const selfViewRef      = useRef<HTMLVideoElement>(null);
+  const speakerObserver  = useRef<MutationObserver | null>(null);
+  // Nudge bookkeeping. Refs, not state: these are read inside a timer and
+  // changing them must never trigger a render.
+  const micNudgeCount    = useRef(0);
+  const micNudgeTimer    = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cameraNudgeDone  = useRef(false);
+  const cameraNudgeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const callStartTime    = useRef<Date | null>(null);
   // Tracks which phase of a mixed interview we are in (1 = behavioral/HR, 2 = technical/Lead)
@@ -679,10 +704,19 @@ const FullScreenInterviewPanel = ({
 
     // allMessagesRef spans both phases; `messages` is reset at the handoff.
     const transcript = allMessagesRef.current.length > 0 ? allMessagesRef.current : messages;
-    if (transcript.length > 0) {
+
+    // An empty transcript means the candidate was never heard: muted mic,
+    // dropped network, or a call that never really connected.
+    //
+    // This used to be `router.push("/")` - dumped to the dashboard with no
+    // explanation and the interview credit already spent. Both halves of that
+    // were wrong. They now get told what happened and the credit comes back.
+    const candidateSpoke = transcript.some((m) => m.role === "user" && m.content.trim().length > 0);
+
+    if (transcript.length > 0 && candidateSpoke) {
       generateFeedbackAndRedirect(transcript);
     } else {
-      router.push("/");
+      setWastedReason(transcript.length === 0 ? "no_transcript" : "too_short");
     }
   }, [callStatus, messages, interviewId, router, type, interviewType, phaseQuestions,
       startInterview, generateFeedbackAndRedirect]);
@@ -693,6 +727,130 @@ const FullScreenInterviewPanel = ({
     if (handoffTimer.current) clearTimeout(handoffTimer.current);
     try { vapi?.stop(); } catch { /* already stopped */ }
   }, []);
+
+  // Claim the refund as soon as we know the session was wasted, rather than
+  // waiting for the candidate to press anything. If they close the tab in
+  // frustration - the likely reaction - the credit is already back.
+  useEffect(() => {
+    if (!wastedReason) return;
+    let cancelled = false;
+
+    fetch("/api/interview/abandoned", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ interviewId, reason: wastedReason }),
+    })
+      .then((r) => r.json())
+      .then((d) => { if (!cancelled) setRefundState(d?.refunded ? "refunded" : "not_needed"); })
+      // The screen still tells them it does not count. If the call failed the
+      // credit is recoverable by support, and showing an error here would make
+      // a bad moment worse for something they cannot act on.
+      .catch(() => { if (!cancelled) setRefundState("not_needed"); });
+
+    return () => { cancelled = true; };
+  }, [wastedReason, interviewId]);
+
+  // ── Device controls: make the three buttons actually do something ─────────
+  //
+  // All three used to be decorative. Each of these effects connects one button
+  // to the thing it claims to control, and each re-runs on call status too, so
+  // a preference set before the call is reapplied once the call exists.
+
+  // Microphone. Vapi owns the published track, so the SDK is the only correct
+  // place to mute it.
+  useEffect(() => {
+    if (callStatus !== CallStatus.ACTIVE) return;
+    setMicMuted(vapi, !isAudioOn);
+  }, [isAudioOn, callStatus]);
+
+  // Speaker. Muting the rendered audio elements is what actually silences the
+  // interviewer; the observer catches elements attached after the button press.
+  useEffect(() => {
+    speakerObserver.current?.disconnect();
+    speakerObserver.current = muteRemoteAudio(!isSpeakerOn);
+    return () => { speakerObserver.current?.disconnect(); };
+  }, [isSpeakerOn, callStatus]);
+
+  // Camera. Acquired once when the call goes live, then enabled and disabled
+  // on the track so toggling is instant and does not re-prompt.
+  useEffect(() => {
+    let cancelled = false;
+
+    if (callStatus === CallStatus.ACTIVE && !cameraRef.current) {
+      startCamera().then((handle) => {
+        if (cancelled) { handle?.stop(); return; }
+        cameraRef.current = handle;
+        setCameraEnabled(handle, isVideoOn);
+        if (selfViewRef.current && handle) {
+          selfViewRef.current.srcObject = handle.stream;
+          selfViewRef.current.play().catch(() => { /* autoplay blocked, muted so unlikely */ });
+        }
+      });
+    }
+
+    return () => { cancelled = true; };
+  }, [callStatus, isVideoOn]);
+
+  useEffect(() => {
+    setCameraEnabled(cameraRef.current, isVideoOn);
+  }, [isVideoOn]);
+
+  // Release the device when the panel goes away. Without this the camera light
+  // stays on after the interview ends, which users reasonably read as spying.
+  useEffect(() => () => {
+    cameraRef.current?.stop();
+    cameraRef.current = null;
+  }, []);
+
+  // ── The interviewer notices a muted mic ───────────────────────────────────
+  //
+  // This is the expensive failure: silence runs the call to its cap, the
+  // transcript comes back empty, and the session is spent for nothing. Rather
+  // than a toast the candidate is not looking at, the interviewer says it.
+  useEffect(() => {
+    if (micNudgeTimer.current) { clearTimeout(micNudgeTimer.current); micNudgeTimer.current = null; }
+
+    // Unmuted, or no live call: nothing to say. Leaving the counter alone means
+    // someone who mutes repeatedly still gets a decreasing number of reminders
+    // rather than a fresh three each time.
+    if (isAudioOn || callStatus !== CallStatus.ACTIVE) return;
+    if (micNudgeCount.current >= MIC_NUDGE_MAX) return;
+
+    const delay = micNudgeCount.current === 0 ? MIC_NUDGE_AFTER_MS : MIC_NUDGE_REPEAT_MS;
+
+    const schedule = () => {
+      micNudgeTimer.current = setTimeout(() => {
+        // Re-checked at fire time: the effect's closure was captured when the
+        // mute began, and the candidate may have unmuted since.
+        if (micNudgeCount.current >= MIC_NUDGE_MAX) return;
+        try {
+          vapi.say(micNudgeLine(micNudgeCount.current));
+          micNudgeCount.current += 1;
+        } catch { /* call ended between scheduling and firing */ }
+        schedule();
+      }, delay);
+    };
+    schedule();
+
+    return () => {
+      if (micNudgeTimer.current) { clearTimeout(micNudgeTimer.current); micNudgeTimer.current = null; }
+    };
+  }, [isAudioOn, callStatus]);
+
+  // Camera, mentioned once and late. It does not affect scoring, so pressing
+  // the point would be nagging about something that does not matter.
+  useEffect(() => {
+    if (cameraNudgeTimer.current) { clearTimeout(cameraNudgeTimer.current); cameraNudgeTimer.current = null; }
+    if (isVideoOn || callStatus !== CallStatus.ACTIVE || cameraNudgeDone.current) return;
+
+    cameraNudgeTimer.current = setTimeout(() => {
+      try { vapi.say(CAMERA_NUDGE_LINE); cameraNudgeDone.current = true; } catch { /* call ended */ }
+    }, CAMERA_NUDGE_AFTER_MS);
+
+    return () => {
+      if (cameraNudgeTimer.current) { clearTimeout(cameraNudgeTimer.current); cameraNudgeTimer.current = null; }
+    };
+  }, [isVideoOn, callStatus]);
 
   // ── Controls ───────────────────────────────────────────────────────────────
   // Marked before the status change so the handoff effect above can tell a
@@ -770,6 +928,67 @@ const FullScreenInterviewPanel = ({
         />
       )}
 
+      {/* Nothing was recorded.
+          Replaces a silent router.push("/") that dumped the candidate on the
+          dashboard with no explanation and their credit already spent. The
+          most common cause by far is a muted microphone, so that is named
+          first rather than buried in a list of possibilities. */}
+      {wastedReason && (
+        <div className="absolute inset-0 z-50 bg-slate-950/95 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 sm:p-8">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-5">
+              <MicOff className="w-6 h-6 text-amber-400" />
+            </div>
+
+            <h2 className="text-lg sm:text-xl font-bold text-white mb-2">
+              We didn&apos;t catch any of your answers
+            </h2>
+            <p className="text-sm text-slate-400 leading-relaxed mb-5">
+              {wastedReason === "no_transcript"
+                ? "The session ran, but no audio came through from your side. The usual cause is a muted microphone, or the browser using the wrong input device."
+                : "The session ended before you had a chance to answer anything, so there is nothing to give feedback on."}
+            </p>
+
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 mb-6">
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-emerald-300">
+                    {refundState === "pending" ? "Returning your credit…" : "This one is on us"}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
+                    This interview has not been counted against your monthly allowance.
+                    Technical problems should not cost you a session.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Before trying again: check that your microphone is unmuted here and in your
+                operating system, and that the browser has permission to use it.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  onClick={() => { setWastedReason(null); setRefundState("pending"); handleManualStart(); }}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90 cursor-pointer"
+                  style={{ background: "linear-gradient(135deg,#6366f1,#a855f7)" }}
+                >
+                  Try this interview again
+                </button>
+                <button
+                  onClick={onExit}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-white/5 text-white border border-white/10 hover:bg-white/10 transition-colors cursor-pointer"
+                >
+                  Back to interviews
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-slate-900/95 backdrop-blur-xl border-b border-slate-800 px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 flex-shrink-0">
         <div className="flex items-center justify-between gap-2 sm:gap-4">
@@ -816,6 +1035,36 @@ const FullScreenInterviewPanel = ({
           )}
         </div>
       </div>
+
+      {/* Self view.
+          The camera button controlled nothing before this, because the call
+          never acquired a camera - there was no picture anywhere for it to
+          turn off. Floating rather than a grid cell so it does not reflow the
+          panel, and sized down on mobile where the grid is single-column. */}
+      {callStatus === CallStatus.ACTIVE && (
+        <div className="absolute bottom-28 right-3 sm:bottom-32 sm:right-4 md:right-6 z-20
+                        w-28 h-20 sm:w-36 sm:h-26 md:w-44 md:h-32
+                        rounded-xl overflow-hidden border border-slate-700
+                        bg-slate-900 shadow-xl shadow-black/40">
+          <video
+            ref={selfViewRef}
+            autoPlay playsInline muted
+            className={`w-full h-full object-cover scale-x-[-1] transition-opacity duration-200 ${
+              isVideoOn ? "opacity-100" : "opacity-0"
+            }`}
+          />
+          {!isVideoOn && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-slate-500">
+              <VideoOff className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="text-[10px] sm:text-xs">Camera off</span>
+            </div>
+          )}
+          <div className="absolute bottom-1 left-1.5 flex items-center gap-1">
+            <span className="text-[10px] sm:text-xs text-white/90 drop-shadow">You</span>
+            {!isAudioOn && <MicOff className="w-3 h-3 text-red-400 drop-shadow" />}
+          </div>
+        </div>
+      )}
 
       {/* Video Grid */}
       <div className="flex-1 flex flex-col min-h-0">
@@ -906,6 +1155,25 @@ const FullScreenInterviewPanel = ({
                   </span>
                 </div>
               )}
+
+              {/* A muted mic produces an empty transcript and a wasted session,
+                  so it is stated plainly rather than left to the icon colour.
+                  The interviewer also says it aloud after a grace period. */}
+              {callStatus === CallStatus.ACTIVE && !isAudioOn && (
+                <div className="flex items-center gap-1.5 sm:gap-2 bg-red-500/15 border border-red-500/30 px-2 sm:px-3 py-1 rounded-full">
+                  <MicOff className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-red-400 flex-shrink-0" />
+                  <span className="text-red-300 text-xs sm:text-sm">
+                    You&apos;re muted <span className="hidden sm:inline text-red-400/70">- nobody can hear you</span>
+                  </span>
+                </div>
+              )}
+
+              {callStatus === CallStatus.ACTIVE && !isSpeakerOn && (
+                <div className="flex items-center gap-1.5 sm:gap-2 bg-amber-500/15 border border-amber-500/30 px-2 sm:px-3 py-1 rounded-full">
+                  <VolumeX className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-400 flex-shrink-0" />
+                  <span className="text-amber-300 text-xs sm:text-sm">Speaker off</span>
+                </div>
+              )}
             </div>
 
             {/* Controls */}
@@ -967,12 +1235,15 @@ const FullScreenInterviewPanel = ({
                   <div className="min-w-0 flex-1">
                     <h4 className="text-blue-300 font-medium text-xs sm:text-sm">Preparing Interview</h4>
                     <p className="text-blue-400/70 text-xs">
+                      {/* Names come from the panel, not from literals. These
+                          said "Marcus" and "Priya", neither of whom is on the
+                          panel the candidate is looking at. */}
                       {interviewType === "mixed"
                         ? mixedPhase.current === 2
-                          ? "Starting technical round with Marcus (Part 2 of 2)…"
-                          : "Starting behavioral round with Priya (Part 1 of 2)…"
+                          ? `Starting technical round with ${names.lead.name.split(" ")[0]} (Part 2 of 2)…`
+                          : `Starting behavioral round with ${names.hr.name.split(" ")[0]} (Part 1 of 2)…`
                         : interviewType === "system-design"
-                          ? "Setting up your system design session with Marcus…"
+                          ? `Setting up your system design session with ${names.lead.name.split(" ")[0]}…`
                           : "Setting up your session…"}
                     </p>
                   </div>

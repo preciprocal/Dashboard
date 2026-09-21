@@ -365,29 +365,39 @@ const InterviewDetailsClient = ({
     : null;
 
   return (
-    <div className="min-h-screen bg-slate-950">
-      {/* Navigation */}
-      <div className="bg-slate-900/95 backdrop-blur-xl border-b border-slate-800">
-        <div className="px-4 sm:px-6 py-2.5 sm:py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-500">
-              <Link href="/" className="hover:text-slate-300 transition-colors">Dashboard</Link>
-              <span>/</span>
-              <span className="text-slate-300 truncate">Waiting Room</span>
-            </div>
-            <div className="text-xs sm:text-sm text-slate-500 hidden sm:block">
-              {currentTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-            </div>
-          </div>
+    // ── Sits INSIDE the app shell, so it must not behave like a page ─────────
+    //
+    // This was `min-h-screen bg-slate-950` wrapping a full-width nav bar and a
+    // `max-w-7xl mx-auto` container. All three fight the layout it actually
+    // renders into: the shell already supplies the background, the sidebar
+    // already takes horizontal space, and the shell already pads its content.
+    // The result was a second background colour that did not match any other
+    // page, a duplicate chrome bar, and content running off the right edge
+    // because two max-widths and two sets of padding were stacked.
+    //
+    // Now a plain flow container like every other page under (root) - compare
+    // job-tracker, debrief, interview - so the background, width and padding
+    // all come from one place.
+    <div className="space-y-4 sm:space-y-6 animate-fade-in-up min-w-0">
+      {/* Breadcrumb. Kept, but as ordinary content rather than a bar spanning
+          a width this component does not own. */}
+      <div className="flex items-center justify-between gap-3 min-w-0">
+        <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-500 min-w-0">
+          <Link href="/" className="hover:text-slate-300 transition-colors flex-shrink-0">Dashboard</Link>
+          <span className="flex-shrink-0">/</span>
+          <span className="text-slate-300 truncate">Waiting Room</span>
+        </div>
+        <div className="text-xs sm:text-sm text-slate-500 hidden sm:block flex-shrink-0">
+          {currentTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6 md:py-8">
+      <div className="min-w-0">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 min-w-0">
           {/* Main Panel */}
           <div className="lg:col-span-2 space-y-4 sm:space-y-6 min-w-0">
             {/* Header */}
-            <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800 hover:border-slate-700 transition-all duration-300">
+            <div className="bg-gradient-to-br from-[#0d1526] via-[#111c35] to-[#0d1526] rounded-2xl border border-white/[0.08] hover:border-slate-700 transition-all duration-300">
               <div className="p-4 sm:p-6">
                 <Link
                   href="/interview"
@@ -432,7 +442,7 @@ const InterviewDetailsClient = ({
             </div>
 
             {/* Video Preview */}
-            <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800">
+            <div className="bg-gradient-to-br from-[#0d1526] via-[#111c35] to-[#0d1526] rounded-2xl border border-white/[0.08]">
               <div className="p-4 sm:p-6">
                 <h3 className="text-white font-medium mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
                   <Camera className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
@@ -553,7 +563,7 @@ const InterviewDetailsClient = ({
           {/* Sidebar */}
           <div className="space-y-4 sm:space-y-6">
             {/* Interview Panel */}
-            <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800">
+            <div className="bg-gradient-to-br from-[#0d1526] via-[#111c35] to-[#0d1526] rounded-2xl border border-white/[0.08]">
               <div className="p-4 sm:p-6">
                 <h3 className="text-white font-medium mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
                   <Users className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
@@ -583,7 +593,7 @@ const InterviewDetailsClient = ({
             </div>
 
             {/* Tips */}
-            <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800">
+            <div className="bg-gradient-to-br from-[#0d1526] via-[#111c35] to-[#0d1526] rounded-2xl border border-white/[0.08]">
               <div className="p-4 sm:p-6">
                 <h3 className="text-white font-medium mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
                   <Headphones className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
@@ -607,7 +617,7 @@ const InterviewDetailsClient = ({
             </div>
 
             {/* Session Info */}
-            <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800">
+            <div className="bg-gradient-to-br from-[#0d1526] via-[#111c35] to-[#0d1526] rounded-2xl border border-white/[0.08]">
               <div className="p-4 sm:p-6">
                 <h3 className="text-white font-medium mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
                   <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
