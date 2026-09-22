@@ -28,7 +28,20 @@
 
 export type PaidPlan = "pro" | "premium";
 export type CatalogPlan = "free" | PaidPlan;
-export type BillingCycle = "monthly" | "annual";
+
+/**
+ * Monthly only. Annual was removed as a product.
+ *
+ * Kept as a named type with one member rather than deleted outright, because
+ * `cycle` is written into Stripe subscription metadata and read back by the
+ * webhook. A union of one keeps those call sites honest and makes re-adding a
+ * cycle a type change rather than a search for every string literal.
+ *
+ * The two annual Price objects did not exist in the test-mode account at all -
+ * verify:price-catalog flagged both as unresolvable - so annual checkout would
+ * have failed outright had anyone reached it.
+ */
+export type BillingCycle = "monthly";
 
 interface PriceEntry {
   plan: CatalogPlan;
@@ -47,15 +60,17 @@ export const PRICE_CATALOG: Record<string, PriceEntry> = {
   [id("STRIPE_PRO_MONTHLY_PRICE_ID", "price_1TFjwCQSkS83MGF9xH1bdc1o")]: {
     plan: "pro", cycle: "monthly", amountCents: 999,
   },
-  [id("STRIPE_PRO_ANNUAL_PRICE_ID", "price_1TFjykQSkS83MGF9oczwiyNo")]: {
-    plan: "pro", cycle: "annual", amountCents: 9588,
-  },
   [id("STRIPE_PREMIUM_MONTHLY_PRICE_ID", "price_1TFjzWQSkS83MGF9YCP7CBk3")]: {
     plan: "premium", cycle: "monthly", amountCents: 2499,
   },
-  [id("STRIPE_PREMIUM_ANNUAL_PRICE_ID", "price_1TFk0EQSkS83MGF9pPfRehCO")]: {
-    plan: "premium", cycle: "annual", amountCents: 23988,
-  },
+  // The pro and premium ANNUAL entries were removed with the annual product.
+  // Their price ids did not resolve in the test-mode Stripe account anyway.
+  //
+  // If an old subscription is still on one of them, planFromPriceId returns
+  // null and the two callers diverge on purpose - activate keeps them paid,
+  // the webhook does not grant. Check for live annual subscriptions before
+  // assuming that is theoretical: at the time of removal the account had one
+  // subscription total, cancelled, on pro monthly.
 };
 
 /**

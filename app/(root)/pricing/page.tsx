@@ -28,17 +28,16 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 // subscription/activate ended up disagreeing about what an unknown price meant.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const PRICE_IDS = {
-  pro:     { monthly: priceIdFor("pro", "monthly"),     annual: priceIdFor("pro", "annual") },
-  premium: { monthly: priceIdFor("premium", "monthly"), annual: priceIdFor("premium", "annual") },
+  pro:     { monthly: priceIdFor("pro", "monthly") },
+  premium: { monthly: priceIdFor("premium", "monthly") },
 } as const;
 
 type PlanId = "free" | "pro" | "premium" | "enterprise";
-type Cycle  = "monthly" | "annual";
 
 interface Feature { text: string; highlight?: boolean }
 interface Plan {
   id: PlanId; name: string; badge?: string;
-  monthlyPrice: number; annualPrice: number; annualTotal: number;
+  monthlyPrice: number;
   description: string; features: Feature[]; cta: string;
   gradient: string; border: string; popular?: boolean; enterprise?: boolean;
 }
@@ -46,7 +45,7 @@ interface Plan {
 const PLANS: Plan[] = [
   {
     id: "free", name: "Free",
-    monthlyPrice: 0, annualPrice: 0, annualTotal: 0,
+    monthlyPrice: 0,
     description: "Get started and feel the value.",
     cta: "Get started free",
     gradient: "from-slate-700/40 to-slate-800/40",
@@ -68,7 +67,7 @@ const PLANS: Plan[] = [
   },
   {
     id: "pro", name: "Pro", badge: "Most popular",
-    monthlyPrice: 9.99, annualPrice: 7.99, annualTotal: 95.88,
+    monthlyPrice: 9.99,
     description: "Everything an active job seeker needs.",
     cta: "Start Pro",
     gradient: "from-indigo-600/20 to-purple-600/20",
@@ -86,7 +85,7 @@ const PLANS: Plan[] = [
   },
   {
     id: "premium", name: "Premium",
-    monthlyPrice: 24.99, annualPrice: 19.99, annualTotal: 239.88,
+    monthlyPrice: 24.99,
     description: "Maximum power for serious candidates.",
     cta: "Start Premium",
     gradient: "from-purple-600/20 to-pink-600/20",
@@ -102,7 +101,7 @@ const PLANS: Plan[] = [
   },
   {
     id: "enterprise", name: "Enterprise",
-    monthlyPrice: 0, annualPrice: 0, annualTotal: 0,
+    monthlyPrice: 0,
     description: "For teams, hiring pipelines & organisations.",
     cta: "Contact us",
     gradient: "from-slate-600/20 to-slate-700/20",
@@ -144,12 +143,12 @@ const stripeAppearance = {
 
 // ─── Checkout form inner ──────────────────────────────────────────────────────
 interface CheckoutFormInnerProps {
-  plan: Plan; cycle: Cycle; user: User;
+  plan: Plan; user: User;
   billedAmount: number; displayPrice: number;
   onSuccess: () => void; onClose: () => void; onVerifyStudent: () => void;
 }
 
-function CheckoutFormInner({ plan, cycle, user, billedAmount, onClose, onVerifyStudent }: CheckoutFormInnerProps) {
+function CheckoutFormInner({ plan, user, billedAmount, onClose, onVerifyStudent }: CheckoutFormInnerProps) {
   const stripe   = useStripe();
   const elements = useElements();
   const [loading, setLoading]         = useState(false);
@@ -284,11 +283,11 @@ function CheckoutFormInner({ plan, cycle, user, billedAmount, onClose, onVerifyS
             <div className="flex items-center justify-between mb-8">
               <div>
                 <p className="text-white font-semibold text-base">{plan.name} plan</p>
-                <p className="text-slate-500 text-xs mt-0.5">{cycle === "annual" ? "Billed annually" : "Billed monthly"}</p>
+                <p className="text-slate-500 text-xs mt-0.5">Billed monthly</p>
               </div>
               <div className="text-right">
                 <p className="text-white font-bold text-xl">${billedAmount.toFixed(2)}</p>
-                <p className="text-slate-500 text-xs mt-0.5">{cycle === "annual" ? "per year" : "per month"}</p>
+                <p className="text-slate-500 text-xs mt-0.5">per month</p>
               </div>
             </div>
             <div style={{ height: "1px", background: "rgba(255,255,255,0.06)", marginBottom: "28px" }}/>
@@ -352,9 +351,6 @@ function CheckoutFormInner({ plan, cycle, user, billedAmount, onClose, onVerifyS
                 </p>
               )}
 
-              {cycle === "annual" && (
-                <p className="text-xs text-emerald-400">✓ Saving ${((plan.monthlyPrice - plan.annualPrice) * 12).toFixed(2)} vs monthly</p>
-              )}
 
               <div className="flex items-start gap-2.5">
                 <button type="button" onClick={() => setAgreed(v => !v)}
@@ -399,7 +395,7 @@ function CheckoutFormInner({ plan, cycle, user, billedAmount, onClose, onVerifyS
 
 // ─── Checkout wrapper ─────────────────────────────────────────────────────────
 interface CheckoutFormProps {
-  plan: Plan; cycle: Cycle; user: User;
+  plan: Plan; user: User;
   onSuccess: () => void; onClose: () => void; onVerifyStudent: () => void;
 }
 
@@ -407,16 +403,16 @@ interface CheckoutFormProps {
 // PaymentPausedModal directly instead of this Stripe form (see the main
 // component below). Kept intact, not deleted, for when billing resumes.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-function CheckoutForm({ plan, cycle, user, onSuccess, onClose, onVerifyStudent }: CheckoutFormProps) {
-  const displayPrice = cycle === "annual" ? plan.annualPrice : plan.monthlyPrice;
-  const billedAmount = cycle === "annual" ? plan.annualTotal : plan.monthlyPrice;
+function CheckoutForm({ plan, user, onSuccess, onClose, onVerifyStudent }: CheckoutFormProps) {
+  const displayPrice = plan.monthlyPrice;
+  const billedAmount = plan.monthlyPrice;
   return (
     <Elements stripe={stripePromise} options={{
       mode: "setup" as const, currency: "usd",
       appearance: stripeAppearance,
       fonts: [{ cssSrc: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" }],
     }}>
-      <CheckoutFormInner plan={plan} cycle={cycle} user={user}
+      <CheckoutFormInner plan={plan} user={user}
         billedAmount={billedAmount} displayPrice={displayPrice}
         onSuccess={onSuccess} onClose={onClose} onVerifyStudent={onVerifyStudent}/>
     </Elements>
@@ -827,7 +823,6 @@ function Check({ highlight }: { highlight?: boolean }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function PricingPage() {
   const [user, authLoading]               = useSupabaseUser();
-  const [cycle, setCycle]                 = useState<Cycle>("monthly");
   const [selectedPlan, setSelectedPlan]   = useState<Plan | null>(null);
   const [currentPlan, setCurrentPlan]     = useState<PlanId>("free");
   const [showStudent, setShowStudent]           = useState(false);
@@ -1024,28 +1019,12 @@ export default function PricingPage() {
           </div>
         )}
 
-        {/* Billing toggle */}
-        <div className="flex items-center justify-center gap-3 mb-10">
-          <span className={`text-sm font-medium transition-colors ${cycle === "monthly" ? "text-white" : "text-slate-500"}`}>Monthly</span>
-          <button onClick={() => setCycle(c => c === "monthly" ? "annual" : "monthly")}
-            className="relative w-12 h-6 rounded-full transition-colors cursor-pointer"
-            style={{ background: cycle === "annual" ? "linear-gradient(135deg,#6366f1,#a855f7)" : "rgba(255,255,255,0.1)" }}>
-            <span className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
-              style={{ transform: cycle === "annual" ? "translateX(24px)" : "translateX(0)" }}/>
-          </button>
-          <span className={`text-sm font-medium transition-colors ${cycle === "annual" ? "text-white" : "text-slate-500"}`}>Annual</span>
-          {cycle === "annual" && (
-            <span className="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs rounded-full font-medium">2 months free</span>
-          )}
-        </div>
 
         {/* Plan cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 w-full">
           {PLANS.map((plan) => {
             const isCurrent    = plan.id === currentPlan;
-            const displayPrice = cycle === "annual" ? plan.annualPrice : plan.monthlyPrice;
-            const saving       = cycle === "annual" && plan.id !== "free" && !plan.enterprise
-              ? `Save $${((plan.monthlyPrice - plan.annualPrice) * 12).toFixed(2)}/yr` : null;
+            const displayPrice = plan.monthlyPrice;
             return (
               <div key={plan.id}
                 className={`relative flex flex-col rounded-2xl border bg-gradient-to-b ${plan.gradient} ${plan.border} p-6 transition-all duration-200 ${plan.popular ? "ring-1 ring-indigo-500/30" : ""}`}>
@@ -1073,8 +1052,6 @@ export default function PricingPage() {
                         <span className="text-4xl font-bold text-white">{plan.id === "free" ? "Free" : `$${displayPrice}`}</span>
                         {plan.id !== "free" && <span className="text-slate-400 text-sm mb-1.5">/mo</span>}
                       </div>
-                      {cycle === "annual" && plan.id !== "free" && <p className="text-xs text-slate-500 mt-0.5">${plan.annualTotal} billed annually</p>}
-                      {saving && <p className="text-xs text-emerald-400 mt-1 font-medium">{saving}</p>}
                     </>
                   )}
                 </div>
