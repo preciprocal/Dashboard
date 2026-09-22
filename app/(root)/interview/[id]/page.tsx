@@ -39,6 +39,11 @@ export default async function InterviewDetailsPage({ params }: RouteParams) {
           level: interview.level ?? "mid",
           techstack: interview.techstack,
           questions: interview.questions ?? [],
+          // The generator's own technical/behavioural split, for mixed
+          // interviews. Omitting these is what made the panel fall back to
+          // slicing the flat question list in half by position.
+          technicalQuestions: interview.technicalQuestions,
+          behavioralQuestions: interview.behavioralQuestions,
         }}
         feedbackId={feedback?.id}
       />

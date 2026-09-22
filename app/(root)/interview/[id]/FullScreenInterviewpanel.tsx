@@ -249,9 +249,15 @@ const FullScreenInterviewPanel = ({
   const pendingWrapUp    = useRef<{ atSeconds: number; instruction: string } | null>(null);
 
   // ── Question split, resolved once ─────────────────────────────────────────
-  // InterviewPageClient passes only `questions` - technicalQuestions and
-  // behavioralQuestions are always undefined in practice, so a mixed interview
-  // always falls back to splitting the single list down the middle.
+  // These arrive populated for mixed interviews now. They used to be undefined
+  // in practice: the generator wrote a real technical/behavioural split into
+  // interviews.metadata, and toInterview() dropped metadata, so every mixed
+  // interview fell through to slicing the flat list down the middle. That is
+  // positional rather than semantic - phase one asked whatever happened to sit
+  // in the first half, in the HR interviewer's voice.
+  //
+  // The halving fallback is kept for interviews created before the split was
+  // carried through, and for any generator path that does not produce one.
   //
   // Computed here rather than inline in startInterview because the progress
   // counter needs the same numbers. They used to be derived separately, and

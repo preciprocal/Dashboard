@@ -34,6 +34,18 @@ interface Interview {
   duration: number; status: "completed" | "in-progress" | "scheduled";
   finalized?: boolean; questions?: string[]; level?: string;
   feedback?: Record<string, unknown>; score?: number;
+  /**
+   * The real technical/behavioural split for a mixed interview.
+   *
+   * app/api/vapi/generate writes these into interviews.metadata when it
+   * generates the two halves, and toInterview() used to drop metadata on the
+   * floor. With them missing the panel fell back to slicing the flat
+   * `questions` array down the middle, which is positional rather than
+   * semantic: a mixed interview whose first half happened to be technical
+   * asked technical questions in the HR interviewer's voice.
+   */
+  technicalQuestions?: string[];
+  behavioralQuestions?: string[];
 }
 
 interface Feedback {
@@ -69,7 +81,19 @@ function toInterview(row: InterviewRow): Interview {
     finalized: row.finalized,
     questions: (row.questions as string[]) ?? [],
     level: row.level ?? undefined,
+    // Carried out of metadata so a mixed interview can be split by MEANING
+    // rather than by array position. Only present on interviews the generator
+    // produced as mixed; everything else falls back as before.
+    technicalQuestions: asStringArray(row.metadata?.technicalQuestions),
+    behavioralQuestions: asStringArray(row.metadata?.behavioralQuestions),
   };
+}
+
+/** metadata is untyped jsonb, so anything in it has to be checked, not cast. */
+function asStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const strings = value.filter((v): v is string => typeof v === "string" && v.trim().length > 0);
+  return strings.length ? strings : undefined;
 }
 
 interface FeedbackRow {
@@ -95,15 +119,23 @@ function toFeedback(row: FeedbackRow): Feedback {
 
 // ============ CACHE HELPERS ============
 
+// Bumped to v2 when technicalQuestions/behavioralQuestions were added to
+// Interview. Entries cached under the old key lack those fields, and a mixed
+// interview read from one would silently fall back to splitting its question
+// list by position - the exact bug the new fields fix, reappearing for anyone
+// whose interview happened to be cached. Changing the key retires them
+// immediately instead of waiting out the TTL.
+const INTERVIEW_KEY = (id: string) => `interview:v2:${id}`;
+
 async function getCachedInterview(interviewId: string): Promise<Interview | null> {
   if (!redis) return null;
-  try { const c = await redis.get(`interview:${interviewId}`); if (c) { const d = typeof c === 'string' ? JSON.parse(c) : c; return (d as CachedData<Interview>).data; } return null; }
+  try { const c = await redis.get(INTERVIEW_KEY(interviewId)); if (c) { const d = typeof c === 'string' ? JSON.parse(c) : c; return (d as CachedData<Interview>).data; } return null; }
   catch { return null; }
 }
 
 async function cacheInterview(interview: Interview): Promise<void> {
   if (!redis) return;
-  try { await redis.setex(`interview:${interview.id}`, INTERVIEW_CACHE_TTL, JSON.stringify({ data: interview, cachedAt: new Date().toISOString() })); }
+  try { await redis.setex(INTERVIEW_KEY(interview.id), INTERVIEW_CACHE_TTL, JSON.stringify({ data: interview, cachedAt: new Date().toISOString() })); }
   catch { /* ignore */ }
 }
 
@@ -150,7 +182,9 @@ async function invalidateUserInterviewsCache(userId: string): Promise<void> {
 
 async function invalidateInterviewCache(interviewId: string): Promise<void> {
   if (!redis) return;
-  try { await redis.del(`interview:${interviewId}`); } catch { /* ignore */ }
+  // Both keys: the v1 entry may still exist and, while it does, nothing else
+  // would ever clear it.
+  try { await redis.del(INTERVIEW_KEY(interviewId), `interview:${interviewId}`); } catch { /* ignore */ }
 }
 
 // ============ MAIN FUNCTIONS ============

@@ -14,7 +14,8 @@
     "verify:pack-checkout": "tsx --env-file=.env.local scripts/verify-pack-checkout.ts",
     "verify:interview-refund": "tsx --env-file=.env.local scripts/verify-interview-refund.ts",
     "verify:quota-ordering": "tsx scripts/verify-quota-ordering.ts",
-    "verify:device-tiles": "tsx --tsconfig tsconfig.json scripts/verify-device-tiles.ts"
+    "verify:device-tiles": "tsx --tsconfig tsconfig.json scripts/verify-device-tiles.ts",
+    "verify:mixed-split": "tsx --env-file=.env.local scripts/verify-mixed-split.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^1.1.25",

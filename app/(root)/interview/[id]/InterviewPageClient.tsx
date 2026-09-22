@@ -64,6 +64,9 @@ interface InterviewDetailsClientProps {
     level: string;
     techstack: string[];
     questions: string[];
+    /** Present on mixed interviews the generator split. See toInterview(). */
+    technicalQuestions?: string[];
+    behavioralQuestions?: string[];
   };
   feedbackId?: string;
 }
@@ -388,6 +391,11 @@ const InterviewDetailsClient = ({
         interviewRole={interview.role}
         interviewType={normalizedType}
         questions={interview.questions}
+        // The semantic split, when the generator produced one. Without these
+        // the panel halves `questions` by position, so a mixed interview's
+        // "behavioural" phase asks whatever happened to be in the first half.
+        technicalQuestions={interview.technicalQuestions}
+        behavioralQuestions={interview.behavioralQuestions}
         feedbackId={feedbackId}
         type="interview"
         initialVideoOn={isVideoOn}
