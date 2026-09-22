@@ -43,11 +43,18 @@ const check = (n: string, ok: boolean, d = "") => {
 (async () => {
   console.log("mode: " + (process.env.STRIPE_SECRET_KEY!.startsWith("sk_live") ? "LIVE" : "TEST") + "\n");
 
+  // Paginated explicitly rather than via autoPagingEach: the account has few
+  // prices, and a plain loop is easier to reason about than an async iterator
+  // whose typing depends on the SDK version.
   const all: Stripe.Price[] = [];
-  for await (const price of stripe.prices.list({ limit: 100, active: true }).autoPagingEach
-    ? (stripe.prices.list({ limit: 100, active: true }) as unknown as AsyncIterable<Stripe.Price>)
-    : []) {
-    all.push(price);
+  let startingAfter: string | undefined;
+  for (;;) {
+    const page: Stripe.ApiList<Stripe.Price> = await stripe.prices.list({
+      limit: 100, active: true, ...(startingAfter ? { starting_after: startingAfter } : {}),
+    });
+    all.push(...page.data);
+    if (!page.has_more || !page.data.length) break;
+    startingAfter = page.data[page.data.length - 1].id;
   }
 
   const recurring = all.filter((p) => p.recurring);
