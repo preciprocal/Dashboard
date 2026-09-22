@@ -85,7 +85,20 @@ queue needs handling for a quota rejection rather than retrying forever.
 
 ---
 
-## 4. `app/api/analyze-resume` has no burst rate limiter
+## 4. RESOLVED - analyze-resume uses the shared rate limiter
+
+The premise was half wrong. The route was not unprotected: it had its own
+`checkRateLimit`, a Redis fixed-window counter at 10 per 60s that failed open -
+functionally the same as `applyRateLimit`. So this was a duplicated idea, not a
+missing guard.
+
+Now calls `applyRateLimit(request, userId, 'heavy')`. The caller gets
+`Retry-After` and `X-RateLimit-*` headers instead of a bare 429, and the limit
+moves with every other heavy route rather than needing its own edit. 'heavy' is
+10 per 120s, so slightly stricter than before - the right direction for the most
+expensive endpoint in the product.
+
+Original note below.
 
 **Severity: low.**
 
@@ -149,7 +162,16 @@ contract.
 
 ---
 
-## 8. Session eviction has no backstop if Redis fails (Task 7.1)
+## 8. RESOLVED - session eviction now has a database backstop
+
+`components/SessionHeartbeat.tsx` reads the response body it was already
+receiving and signs the user out when `revoked` is true, so the cap no longer
+depends solely on Redis. Two guards came with it: no redirect when already on
+`/sign-in`, matching middleware's own loop guard, and `keepalive` removed from
+the fetch, since a browser may discard a keepalive response body and the body
+now matters.
+
+Original diagnosis below.
 
 **Severity: high for the control it is meant to provide.**
 
@@ -592,7 +614,12 @@ production.
 Closing it needs one test-mode purchase with card 4242 4242 4242 4242 against a
 publicly reachable webhook URL, then confirming a `credit_packs` row appears.
 That is the last unverified link.
-## 23. `components/Agent.tsx` is dead code
+## 23. RESOLVED - components/Agent.tsx deleted
+
+Deleted, 680 lines. Confirmed unreferenced first: no static import, no dynamic
+import by string, and typecheck clean afterwards.
+
+Original note below.
 
 Nothing imports it. The live interview UI is
 `app/(root)/interview/[id]/FullScreenInterviewpanel.tsx`.
@@ -623,7 +650,31 @@ If videos are ever added, they have to match the personas: the names are Indian
 and gendered to match the Azure en-IN voices, so a generic stock face would
 reintroduce the mismatch that entry was written to fix.
 
-## 25. `.animate-fade-in-up` breaks position:fixed, and 8 other files use both
+## 25. RESOLVED - .animate-fade-in-up breaks position:fixed; no other file affected
+
+The eight files flagged below were checked individually. **None of them has the
+bug.** In every case the `fixed inset-0` overlay is a sibling of the animated
+element or lives in a different component, never a descendant - the animations
+sit on cards, exactly as suspected. The interview waiting room was the only real
+instance, because the class was on the page root wrapping everything including
+the modals.
+
+Also tried and rejected a stylesheet-level fix: ending the keyframes on
+`transform: none` rather than `translateY(0)`. It looks like it should work,
+since `none` does not create a containing block. Measured in Chrome, it does
+not - an element with a transform animation keeps the containing block even
+after filling to none:
+
+```
+inside .animate-fade-in-up  ->  x=240, y=40     (expected 0,0)
+inside .animate-scale-in    ->  x=240, y=118
+inside a plain div          ->  x=0,   y=0
+```
+
+The keyframes are therefore unchanged and `globals.css` carries the warning plus
+those numbers, so nobody repeats the attempt.
+
+Original note below.
 
 Fixed on the interview waiting room, where it was a live bug: the device
 settings dropdowns rendered offset from their triggers and the modal backdrop

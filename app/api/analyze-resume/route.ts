@@ -4,6 +4,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import crypto from 'crypto';
 import { getAuthedUserId } from '@/lib/auth/verify-request';
+import { applyRateLimit } from '@/lib/ai/rate-limit';
 import { redis } from '@/lib/redis/redis-client';
 import {
   getCachedResumeAnalysis, cacheResumeAnalysis,
@@ -19,23 +20,25 @@ export const maxDuration = 120;
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const MAX_RESUME_CHARS = 12_000;
 const MAX_JOB_DESC_CHARS = 3_000;
-const RATE_LIMIT_WINDOW = 60;
-const RATE_LIMIT_MAX = 10;
 const FUNCTION_TIME_BUDGET_S = 55;
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
-async function checkRateLimit(userId: string): Promise<boolean> {
-  if (!redis) return true;
-  try {
-    const key = `ratelimit:analyze-resume:${userId}`;
-    const count = await redis.incr(key);
-    if (count === 1) await redis.expire(key, RATE_LIMIT_WINDOW);
-    return count <= RATE_LIMIT_MAX;
-  } catch {
-    return true;
-  }
-}
+// checkRateLimit was here: a local Redis fixed-window counter, 10 per 60s,
+// failing open. Functionally the same as lib/ai/rate-limit.ts, which every
+// other quota-consuming route already used, so this was a second copy of one
+// idea rather than a missing guard.
+//
+// Replaced by applyRateLimit at the call site. Two things improve: the caller
+// gets Retry-After and X-RateLimit-* headers instead of a bare 429 with no
+// indication of when to try again, and the limit for this route now moves with
+// every other heavy route rather than needing a separate edit nobody would
+// remember to make.
+//
+// The 'heavy' tier is 10 per 120s against the old 10 per 60s, so this is
+// slightly stricter. That is the correct direction for the most expensive
+// endpoint in the product, and it matches resume/tailor, resume/rewrite and
+// the rest of the multi-call Claude flows.
 
 function secureHash(...parts: string[]): string {
   return crypto.createHash('sha256').update(parts.join('|')).digest('hex');
@@ -240,8 +243,9 @@ export async function POST(request: NextRequest) {
   console.log('🚀 AI resume processing started');
   const userId = await getAuthedUserId(request);
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (!(await checkRateLimit(userId)))
-    return NextResponse.json({ error: 'Too many requests. Please wait.' }, { status: 429 });
+
+  const rateLimited = await applyRateLimit(request, userId, 'heavy');
+  if (rateLimited) return rateLimited;
 
   try {
     const ct = request.headers.get('content-type') ?? '';

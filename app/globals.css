@@ -434,19 +434,27 @@ html {
   to   { opacity: 1; transform: scale(1); }
 }
 
-/* WARNING: do not put this on an element that contains position:fixed children.
+/* WARNING: never put this on an ancestor of a position:fixed element.
  *
- * `both` keeps the final keyframe after the animation ends, and fadeInUp ends
- * on transform: translateY(0). A transform other than `none` makes the element
- * the containing block for every fixed descendant, permanently - so an overlay
- * with inset-0 stops covering the viewport and anything positioned from
- * getBoundingClientRect() lands offset by this element's own origin.
+ * An element with a transform animation is a containing block for its fixed
+ * descendants, so `inset-0` stops meaning the viewport and anything positioned
+ * from getBoundingClientRect() lands offset by this element's own origin. That
+ * is what broke the interview device-settings dropdowns.
  *
- * Measured, not theorised: a fixed child at top:0/left:0 inside this class
- * rendered at x=240,y=76 where a plain div put it at x=0,y=0. That is what
- * broke the interview device-settings dropdowns.
+ * Measured in Chrome, with a fixed child at top:0/left:0:
  *
- * .animate-fade-in below is safe, because it only animates opacity.
+ *   inside .animate-fade-in-up  ->  x=240, y=40
+ *   inside .animate-scale-in    ->  x=240, y=118
+ *   inside a plain div          ->  x=0,   y=0
+ *
+ * Ending the keyframes on `transform: none` instead of translateY(0) does NOT
+ * help - also measured, same numbers. Chrome keeps the containing block for an
+ * animated element even once the animation has filled to none, so this cannot
+ * be fixed in the stylesheet. Keep the class off ancestors of overlays, or
+ * render the overlay through a portal to document.body.
+ *
+ * .animate-fade-in is safe: it animates opacity only, and opacity does not
+ * create a containing block.
  */
 .animate-fade-in-up {
   animation: fadeInUp 0.22s ease-out both;
