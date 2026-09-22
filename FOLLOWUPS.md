@@ -408,9 +408,19 @@ dead since the switch to Resend.
 
 ---
 
-## 16. CONFIRMED BUG: every behavioural interview gets the technical interviewer
+## 16. PARTLY FIXED: behavioural routing done, mixed question split still wrong
 
-**Severity: medium. Live, affecting real interviews now.**
+**The spelling half is fixed and deployed.** `toPanelType()` in
+`InterviewPageClient.tsx` now maps British `behavioural` to the panel's
+American `behavioral` instead of casting, so a behavioural interview gets the
+behavioural interviewer. The 5 sessions described below ran before that.
+
+**Still open: the mixed question split**, described under "The unverified half"
+at the end of this entry. It is positional rather than semantic, and no mixed
+interview has been checked for two cost rows summing to the tier budget.
+
+Original diagnosis kept below, since it is the record of how the routing bug
+was found.
 
 This entry previously said no interview was ever created with `type = 'mixed'`
 and that the spelling mismatch below was a suspicion worth checking. Both parts
@@ -525,12 +535,19 @@ redelivery of the SAME event but not for out-of-order delivery of two different
 ones. Stripe does not guarantee ordering. A `stripe_events` table keyed on
 `event.id` would close it properly.
 
-## 21. The Stripe webhook endpoint is not subscribed to the checkout events
+## 21. RESOLVED - Stripe webhook now receives the checkout events
 
-This is the one thing that would break a real purchase in production, and it is
-configuration rather than code.
+Both `checkout.session.completed` and
+`checkout.session.async_payment_succeeded` are subscribed on the enabled
+endpoint, and `npm run verify:pack-webhook` passes 22/22 against production
+with genuinely signed events.
 
-The only endpoint on the account is:
+Kept as a record because it was the single thing that would have taken money
+and granted nothing, and because nothing in the app can detect it: a purchase
+that is never reported is indistinguishable from one that never happened. If
+pack grants ever go quiet, check this list first.
+
+The endpoint as it was:
 
 ```
 https://app.preciprocal.com/api/webhooks/stripe   (enabled)
