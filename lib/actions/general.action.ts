@@ -193,6 +193,26 @@ export async function createFeedback(params: CreateFeedbackParams) {
   const { interviewId, userId, transcript, feedbackId } = params;
 
   try {
+    // Persist the raw transcript BEFORE the model call, not after. Everything
+    // below here can fail - OpenAI can error or time out, the JSON can come
+    // back unparseable, the upsert can reject - and until this column existed
+    // any of those lost the transcript with it, because it only ever lived in
+    // the caller's memory. Saving first means the analysis is always
+    // reproducible from stored state, so a failure is a retry rather than a
+    // permanently analysis-less interview. Best-effort: a failure to save the
+    // transcript must not stop us from generating the analysis we can still
+    // generate right now, while we hold it.
+    try {
+      const supabaseUserIdForTranscript = await toSupabaseUserId(userId);
+      await supabaseAdmin
+        .from("interviews")
+        .update({ transcript })
+        .eq("id", interviewId)
+        .eq("user_id", supabaseUserIdForTranscript);
+    } catch (err) {
+      console.warn("⚠️ Failed to persist interview transcript:", err);
+    }
+
     const formattedTranscript = transcript
       .map((s: TranscriptMessage) => `- ${s.role}: ${s.content}\n`)
       .join("");
@@ -299,6 +319,55 @@ Return ONLY valid JSON matching this schema:
   } catch (error) {
     console.error("Error saving feedback:", error);
     return { success: false };
+  }
+}
+
+/**
+ * Produce the analysis for an interview that does not have one yet, using the
+ * transcript saved at the end of the call.
+ *
+ * The analysis is part of the interview rather than something the user asks
+ * for separately, so the feedback page calls this on load instead of showing
+ * an "in progress" spinner for work nobody had started. Generation normally
+ * happens once, inline, when the call ends; this is the recovery path for
+ * when that attempt did not land - the model errored, the tab was closed
+ * mid-generation, the network dropped.
+ *
+ * Returns a reason rather than throwing so the page can tell "we are still
+ * working on it" apart from "there is nothing here to analyse", which is the
+ * distinction the old permanent spinner erased.
+ */
+export async function ensureInterviewFeedback(
+  interviewId: string,
+  userId: string,
+): Promise<{ status: "created" | "exists" | "no_transcript" | "failed" }> {
+  try {
+    const existing = await getFeedbackByInterviewId({ interviewId, userId });
+    if (existing) return { status: "exists" };
+
+    const supabaseUserId = await toSupabaseUserId(userId);
+    const { data: row, error } = await supabaseAdmin
+      .from("interviews")
+      .select("transcript")
+      .eq("id", interviewId)
+      .eq("user_id", supabaseUserId)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    const transcript = (row?.transcript ?? []) as TranscriptMessage[];
+    // Interviews taken before 0038 have no stored transcript, and abandoned
+    // sessions never had a usable one. Neither can be analysed after the
+    // fact, and saying so beats spinning forever.
+    if (!Array.isArray(transcript) || transcript.length === 0) {
+      return { status: "no_transcript" };
+    }
+
+    const result = await createFeedback({ interviewId, userId, transcript });
+    return { status: result.success ? "created" : "failed" };
+  } catch (err) {
+    console.error("Error ensuring interview feedback:", err);
+    return { status: "failed" };
   }
 }
 

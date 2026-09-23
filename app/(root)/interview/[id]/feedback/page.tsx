@@ -1,6 +1,7 @@
 import {
   getFeedbackByInterviewId,
   getInterviewById,
+  ensureInterviewFeedback,
 } from "@/lib/actions/general.action";
 import { getCurrentUser } from "@/lib/actions/auth.action";
 import { redirect, notFound } from "next/navigation";
@@ -69,34 +70,55 @@ export default async function InterviewFeedbackPage({ params }: Props) {
     redirect("/");
   }
 
-  const feedback = await getFeedbackByInterviewId({
+  let feedback = await getFeedbackByInterviewId({
     interviewId: id,
     userId: user.id,
   }) as Feedback | null;
+
+  // The analysis is part of the interview, not a separate thing to request.
+  // It is normally generated inline when the call ends; if that attempt did
+  // not land, produce it here from the stored transcript rather than showing
+  // the user a progress spinner for work nobody had started.
+  if (!feedback) {
+    const outcome = await ensureInterviewFeedback(id, user.id);
+    if (outcome.status === "created" || outcome.status === "exists") {
+      feedback = await getFeedbackByInterviewId({
+        interviewId: id,
+        userId: user.id,
+      }) as Feedback | null;
+    }
+  }
 
   if (!feedback) {
     return (
       <div className="space-y-6 px-4 sm:px-0">
         <div className="glass-card">
+          {/* Reached only when the analysis could not be produced: there is no
+              stored transcript (an abandoned session, or an interview taken
+              before transcripts were saved), or generation failed. This used
+              to claim "AI Analysis in Progress" behind a spinner, on a server
+              component with no polling and nothing running - it never
+              resolved. Say what happened and offer the one thing that works. */}
           <div className="text-center py-12 sm:py-16 px-4 sm:px-6">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-blue-500/10 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-6">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-amber-500/10 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-6">
+              <HelpCircle className="w-8 h-8 sm:w-10 sm:h-10 text-amber-400" />
             </div>
-            <div className="inline-flex items-center px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-500/10 border border-blue-500/20 rounded-full text-blue-400 text-xs sm:text-sm font-medium mb-4 sm:mb-6">
-              <div className="w-2 h-2 bg-blue-500 rounded-full mr-2 animate-pulse"></div>
-              AI Analysis in Progress
+            <div className="inline-flex items-center px-3 sm:px-4 py-1.5 sm:py-2 bg-amber-500/10 border border-amber-500/20 rounded-full text-amber-400 text-xs sm:text-sm font-medium mb-4 sm:mb-6">
+              No analysis available
             </div>
             <h1 className="text-xl sm:text-2xl font-semibold text-white mb-2 sm:mb-3">
-              Analyzing Your Performance
+              We couldn&apos;t analyse this session
             </h1>
             <p className="text-slate-400 mb-6 sm:mb-8 max-w-2xl mx-auto text-sm sm:text-base">
-              Our AI is conducting a comprehensive analysis of your interview
+              This interview has no saved answers to analyse - the session may have ended
+              before you spoke, or it was taken before we started keeping transcripts.
+              Retaking it will produce a full analysis.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
               <Button asChild className="glass-button-primary hover-lift px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base">
                 <Link href={`/interview/${id}`}>
                   <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Interview
+                  Retake this interview
                 </Link>
               </Button>
               <Button asChild className="glass-button hover-lift text-white px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base">
