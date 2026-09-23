@@ -18,6 +18,7 @@ import { useConfirm } from '@/components/ui/confirm-dialog';
 import { NotificationService } from '@/lib/services/notification-services';
 import UsersFeedback from '@/components/UserFeedback';
 import { useUsageTracking } from '@/lib/hooks/useUsageTracking';
+import { isUnlimited } from '@/lib/config/usage-limits';
 import { SeeExampleButton } from '@/components/ServiceModal';
 import NextStepPrompt from '@/components/NextStepPrompt'; // ← NEW
 
@@ -647,12 +648,15 @@ export default function InterviewDebriefPage() {
 
   const {
     canUseFeature, getRemainingCount, getUsedCount,
-    getLimit, refetch: refetchUsage, usageData,
+    getLimit, refetch: refetchUsage,
   } = useUsageTracking();
-  const isUnlimitedPlan = usageData?.plan === 'pro' || usageData?.plan === 'premium';
   const debriefUsed  = getUsedCount('interviewDebriefs');
   const debriefLimit = getLimit('interviewDebriefs');
   const debriefLeft  = getRemainingCount('interviewDebriefs');
+  // Read "unlimited" off the quota table rather than off the plan name: only
+  // some features are uncapped on paid plans, and admin is uncapped on all of
+  // them without being called 'pro' or 'premium'.
+  const debriefUnlimited = isUnlimited(debriefLimit);
 
   const [entries,        setEntries]        = useState<DebriefEntry[]>([]);
   const [loadingEntries, setLoadingEntries] = useState(true);
@@ -856,7 +860,7 @@ export default function InterviewDebriefPage() {
             <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-500/[0.07] border border-violet-500/20">
               <Shield className="w-4 h-4 text-violet-400" />
               <span className="text-[13px] font-semibold text-violet-400">
-                {isUnlimitedPlan ? 'Unlimited' : `${debriefLeft} left`}
+                {debriefUnlimited ? 'Unlimited' : `${debriefLeft} left`}
               </span>
             </div>
             <button onClick={handleLogInterview}

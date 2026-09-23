@@ -17,6 +17,7 @@ import { useConfirm } from '@/components/ui/confirm-dialog';
 import { NotificationService } from '@/lib/services/notification-services';
 import UsersFeedback from '@/components/UserFeedback';
 import { useUsageTracking } from '@/lib/hooks/useUsageTracking';
+import { isUnlimited } from '@/lib/config/usage-limits';
 import { SeeExampleButton } from '@/components/ServiceModal';
 import NextStepPrompt from '@/components/NextStepPrompt'; // ← ADDED
 
@@ -542,8 +543,7 @@ export default function JobTrackerPage() {
   const router = useRouter();
   const { confirm, ConfirmDialog } = useConfirm();
 
-  const { canUseFeature, getLimit, refetch: refetchUsage, usageData } = useUsageTracking();
-  const isUnlimitedPlan = usageData?.plan === 'pro' || usageData?.plan === 'premium';
+  const { canUseFeature, getLimit, refetch: refetchUsage, loading: loadingUsage } = useUsageTracking();
 
   const [apps, setApps] = useState<Application[]>([]);
   const [loadingApps, setLoadingApps] = useState(true);
@@ -562,9 +562,14 @@ export default function JobTrackerPage() {
   const [showFeedback, setShowFeedback] = useState(false);
   const [nextStepCtx, setNextStepCtx] = useState<{ company: string; jobTitle: string } | null>(null); // ← ADDED
 
-  const jobsLimit = getLimit('jobTracker');
-  const canAddJob = isUnlimitedPlan || apps.length < jobsLimit;
-  const jobsLeft  = isUnlimitedPlan ? -1 : Math.max(0, jobsLimit - apps.length);
+  // Read "unlimited" off the quota table rather than off the plan name. The
+  // plan-name check missed 'admin', whose jobTracker limit is -1: that made
+  // `apps.length < -1` false for every admin and locked them out of adding
+  // jobs at all, while the badge read "0 jobs left".
+  const jobsLimit     = getLimit('jobTracker');
+  const jobsUnlimited = isUnlimited(jobsLimit);
+  const canAddJob = jobsUnlimited || apps.length < jobsLimit;
+  const jobsLeft  = jobsUnlimited ? -1 : Math.max(0, jobsLimit - apps.length);
   const canFindContacts = canUseFeature('findContacts');
   const contactsLimit   = getLimit('findContacts');
 
@@ -660,7 +665,10 @@ export default function JobTrackerPage() {
     })
     .sort((a, b) => { if (sortBy === 'company') return a.company.localeCompare(b.company); if (sortBy === 'status') return a.status.localeCompare(b.status); return new Date(b.appliedDate).getTime() - new Date(a.appliedDate).getTime(); });
 
-  if (loading || loadingApps) {
+  // loadingUsage is part of the guard because canAddJob is derived from the
+  // quota: before it resolves getLimit() returns 0, so a user with 0 jobs
+  // would briefly render the "limit reached" upgrade gate instead of the list.
+  if (loading || loadingApps || loadingUsage) {
     return <AnimatedLoader isVisible={true} mode="steps" steps={[{ name: 'Authenticating…', weight: 1 }, { name: 'Connecting…', weight: 1 }, { name: 'Loading applications…', weight: 3 }, { name: 'Calculating stats…', weight: 2 }, { name: 'Ready!', weight: 1 }]} currentStep={loadingStep} loadingText="Loading your job tracker…" showNavigation={true} />;
   }
 
@@ -694,7 +702,7 @@ export default function JobTrackerPage() {
               <SeeExampleButton serviceId="job-tracker" className="!px-4 !py-2.5 !text-sm !font-semibold" />
               <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-500/[0.07] border border-purple-500/20">
                 <Shield className="w-4 h-4 text-purple-400" />
-                <span className="text-[13px] font-semibold text-purple-400">{isUnlimitedPlan ? 'Unlimited' : `${jobsLeft} jobs left`}</span>
+                <span className="text-[13px] font-semibold text-purple-400">{jobsUnlimited ? 'Unlimited' : `${jobsLeft} jobs left`}</span>
               </div>
               <button onClick={handleAddApp} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-sm font-semibold shadow-[0_4px_14px_rgba(102,126,234,0.28)] transition-all duration-200">
                 <Plus className="w-4 h-4" /> Add Application

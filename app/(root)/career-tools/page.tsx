@@ -14,6 +14,7 @@ import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import { NotificationService } from '@/lib/services/notification-services';
 import UsersFeedback from '@/components/UserFeedback';
 import { useUsageTracking } from '@/lib/hooks/useUsageTracking';
+import { isUnlimited } from '@/lib/config/usage-limits';
 import { SeeExampleButton } from '@/components/ServiceModal';
 import NextStepPrompt from '@/components/NextStepPrompt'; // ← NEW
 
@@ -596,15 +597,18 @@ export default function CareerToolsPage() {
 
   const {
     canUseFeature, getRemainingCount, getUsedCount,
-    getLimit, refetch: refetchUsage, usageData,
+    getLimit, refetch: refetchUsage,
   } = useUsageTracking();
-  const isUnlimitedPlan = usageData?.plan === 'pro' || usageData?.plan === 'premium';
   const liUsed  = getUsedCount('linkedinOptimisations');
   const liLimit = getLimit('linkedinOptimisations');
   const liLeft  = getRemainingCount('linkedinOptimisations');
   const orUsed  = getUsedCount('coldOutreach');
   const orLimit = getLimit('coldOutreach');
   const orLeft  = getRemainingCount('coldOutreach');
+  // Read "unlimited" off the quota table rather than off the plan name, and do
+  // it per feature: these two are capped independently.
+  const liUnlimited = isUnlimited(liLimit);
+  const orUnlimited = isUnlimited(orLimit);
 
   const [activeTool, setActiveTool] = useState<'linkedin' | 'outreach'>('linkedin');
 
@@ -787,7 +791,9 @@ export default function CareerToolsPage() {
               <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-500/[0.07] border border-blue-500/20">
                 <Shield className="w-3.5 h-3.5 text-blue-400" />
                 <span className="text-[12px] font-semibold text-blue-400">
-                  {isUnlimitedPlan ? 'Unlimited' : isLI ? `${liLeft} optimisations left` : `${orLeft} messages left`}
+                  {isLI
+                    ? (liUnlimited ? 'Unlimited' : `${liLeft} optimisations left`)
+                    : (orUnlimited ? 'Unlimited' : `${orLeft} messages left`)}
                 </span>
               </div>
               <SeeExampleButton serviceId="career-tools" className="!px-3 !py-2 !text-[12px] !font-semibold flex-shrink-0" />

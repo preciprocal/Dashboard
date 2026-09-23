@@ -14,6 +14,7 @@ import UsersFeedback from '@/components/UserFeedback';
 import { toast } from 'sonner';
 import { NotificationService } from '@/lib/services/notification-services';
 import { useUsageTracking } from '@/lib/hooks/useUsageTracking';
+import { isUnlimited } from '@/lib/config/usage-limits';
 
 const PROCESSING_STEPS = [
   { step: 0, message: 'Analyzing requirements...', progress: 20 },
@@ -93,11 +94,14 @@ export default function CreatePlanPage() {
   const [user, loading] = useSupabaseUser();
   const router = useRouter();
 
-  const { canUseFeature, getRemainingCount, getUsedCount, getLimit, refetch: refetchUsage, usageData } = useUsageTracking();
-  const isUnlimitedPlan = usageData?.plan === 'pro' || usageData?.plan === 'premium';
+  const { canUseFeature, getRemainingCount, getUsedCount, getLimit, refetch: refetchUsage } = useUsageTracking();
   const plansUsed = getUsedCount('studyPlans');
   const plansLimit = getLimit('studyPlans');
   const plansLeft = getRemainingCount('studyPlans');
+  // Read "unlimited" off the quota table rather than off the plan name: only
+  // some features are uncapped on paid plans, and admin is uncapped on all of
+  // them without being called 'pro' or 'premium'.
+  const plansUnlimited = isUnlimited(plansLimit);
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
@@ -295,7 +299,7 @@ export default function CreatePlanPage() {
             <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-500/[0.07] border border-indigo-500/20">
               <Shield className="w-4 h-4 text-indigo-400" />
               <span className="text-[13px] font-semibold text-indigo-400">
-                {isUnlimitedPlan ? 'Unlimited' : `${plansLeft} left`}
+                {plansUnlimited ? 'Unlimited' : `${plansLeft} left`}
               </span>
             </div>
             <Link href="/planner"

@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { NotificationService } from '@/lib/services/notification-services';
 import UsersFeedback from '@/components/UserFeedback';
 import { useUsageTracking } from '@/lib/hooks/useUsageTracking';
+import { isUnlimited } from '@/lib/config/usage-limits';
 import { SeeExampleButton } from '@/components/ServiceModal';
 import NextStepPrompt from '@/components/NextStepPrompt';
 
@@ -160,12 +161,15 @@ export default function CoverLetterGeneratorPage() {
 
   const {
     canUseFeature, getRemainingCount, getUsedCount,
-    getLimit, refetch: refetchUsage, usageData,
+    getLimit, refetch: refetchUsage,
   } = useUsageTracking();
-  const isUnlimitedPlan = usageData?.plan === 'pro' || usageData?.plan === 'premium';
   const clUsed  = getUsedCount('coverLetters');
   const clLimit = getLimit('coverLetters');
   const clLeft  = getRemainingCount('coverLetters');
+  // Read "unlimited" off the quota table rather than off the plan name: only
+  // some features are uncapped on paid plans, and admin is uncapped on all of
+  // them without being called 'pro' or 'premium'.
+  const clUnlimited = isUnlimited(clLimit);
 
   const [jobRole,        setJobRole]        = useState('');
   const [jobDescription, setJobDescription] = useState('');
@@ -425,7 +429,7 @@ export default function CoverLetterGeneratorPage() {
             <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-500/[0.07] border border-indigo-500/20">
               <Shield className="w-4 h-4 text-indigo-400" />
               <span className="text-[13px] font-semibold text-indigo-400">
-                {isUnlimitedPlan ? 'Unlimited' : `${clLeft} left`}
+                {clUnlimited ? 'Unlimited' : `${clLeft} left`}
               </span>
             </div>
             <SeeExampleButton serviceId="cover-letter" className="!px-4 !py-2.5 !text-sm !font-semibold" />

@@ -13,6 +13,7 @@ import {
 import { toast } from 'sonner';
 import { NotificationService } from '@/lib/services/notification-services';
 import { useUsageTracking } from '@/lib/hooks/useUsageTracking';
+import { isUnlimited } from '@/lib/config/usage-limits';
 import Link from 'next/link';
 import { SeeExampleButton } from '@/components/ServiceModal';
 
@@ -182,11 +183,14 @@ export default function UploadResume() {
   const [user, loading] = useSupabaseUser();
   const router = useRouter();
 
-  const { canUseFeature, getRemainingCount, getUsedCount, getLimit, refetch: refetchUsage, usageData } = useUsageTracking();
-  const isUnlimitedPlan = usageData?.plan === 'pro' || usageData?.plan === 'premium';
+  const { canUseFeature, getRemainingCount, getUsedCount, getLimit, refetch: refetchUsage } = useUsageTracking();
   const resumesUsed     = getUsedCount('resumes');
   const resumesLimit    = getLimit('resumes');
   const resumesLeft     = getRemainingCount('resumes');
+  // Read "unlimited" off the quota table rather than off the plan name: only
+  // some features are uncapped on paid plans, and admin is uncapped on all of
+  // them without being called 'pro' or 'premium'.
+  const resumesUnlimited = isUnlimited(resumesLimit);
 
   const [isProcessing,     setIsProcessing]     = useState(false);
   const [currentStep,      setCurrentStep]      = useState(0);
@@ -218,7 +222,7 @@ export default function UploadResume() {
     if (!user || !file) { setError('User or file is missing'); return; }
 
     if (!canUseFeature('resumes')) {
-      setError(`You've used all ${resumesLimit} free resume analyses this month. Upgrade to Pro for unlimited access.`);
+      setError(`You've used all ${resumesLimit} resume analyses in your plan this month. Upgrade for a higher limit.`);
       return;
     }
 
@@ -396,7 +400,7 @@ export default function UploadResume() {
               <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-500/[0.07] border border-indigo-500/20">
                 <Shield className="w-4 h-4 text-indigo-400" />
                 <span className="text-[13px] font-semibold text-indigo-400">
-                  {isUnlimitedPlan ? 'Unlimited' : `${resumesLeft} left`}
+                  {resumesUnlimited ? 'Unlimited' : `${resumesLeft} left`}
                 </span>
               </div>
               <SeeExampleButton serviceId="resume" />
