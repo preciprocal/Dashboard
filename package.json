@@ -16,7 +16,8 @@
     "verify:quota-ordering": "tsx scripts/verify-quota-ordering.ts",
     "verify:device-tiles": "tsx --tsconfig tsconfig.json scripts/verify-device-tiles.ts",
     "verify:mixed-split": "tsx --env-file=.env.local scripts/verify-mixed-split.ts",
-    "verify:price-catalog": "tsx --env-file=.env.local scripts/verify-price-catalog.ts"
+    "verify:price-catalog": "tsx --env-file=.env.local scripts/verify-price-catalog.ts",
+    "verify:pack-refund": "tsx --env-file=.env.local scripts/verify-pack-refund.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
