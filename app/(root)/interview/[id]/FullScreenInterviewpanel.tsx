@@ -63,7 +63,15 @@ interface FullScreenInterviewPanelProps {
   technicalQuestions?: string[];
   behavioralQuestions?: string[];
   feedbackId?: string;
-  type?: "generate" | "interview";
+  // The `type` prop is gone. It was "generate" | "interview", and the
+  // "generate" half drove a separate Vapi WORKFLOW (NEXT_PUBLIC_VAPI_WORKFLOW_ID)
+  // that built an interview by voice. Nothing has passed "generate" since
+  // interview creation moved to a form; the only call site passed "interview".
+  //
+  // It is removed rather than left behind because it was not inert: one branch
+  // dialled a workflow id that is no longer configured, and the other pushed
+  // the user to "/" on call end - the same silent redirect that was removed
+  // from the real path for losing people's sessions.
   /**
    * Device choices carried over from the waiting room.
    *
@@ -178,7 +186,6 @@ const ExitConfirmDialog = ({
 const FullScreenInterviewPanel = ({
   interviewId, userName, userId, interviewRole, interviewType,
   questions, technicalQuestions, behavioralQuestions, feedbackId,
-  type = "interview",
   initialVideoOn = true, initialAudioOn = true, initialSpeakerOn = true,
   onExit,
 }: FullScreenInterviewPanelProps) => {
@@ -370,13 +377,6 @@ const FullScreenInterviewPanel = ({
       if (!vapi)
         throw new Error("VAPI SDK is not initialized");
 
-      if (type === "generate") {
-        const workflowId = process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID;
-        if (!workflowId) throw new Error("VAPI workflow ID not configured");
-        await vapi.start(workflowId, { variableValues: { username: userName, userid: userId } });
-        return;
-      }
-
       let resolvedPhase: "technical" | "behavioral" | null = explicitPhase ?? currentInterviewPhase;
       let selectedAgent;
       let questionsToUse: string[] = [];
@@ -536,7 +536,7 @@ const FullScreenInterviewPanel = ({
     }
   }, [
     interviewId, userId, questions, phaseQuestions, technicalQuestions, behavioralQuestions,
-    interviewType, currentInterviewPhase, type, userName, interviewRole, names,
+    interviewType, currentInterviewPhase, userName, interviewRole, names,
   ]);
 
   // ── Auto-start ─────────────────────────────────────────────────────────────
@@ -691,11 +691,6 @@ const FullScreenInterviewPanel = ({
   useEffect(() => {
     if (callStatus !== CallStatus.FINISHED) return;
 
-    if (type === "generate") {
-      router.push("/");
-      return;
-    }
-
     // Phase 1 (behavioral/HR) ended on its own - hand off to Phase 2
     // (technical/Lead). Skipped when the candidate hung up: they asked to stop,
     // so dialling the next agent would override that and start a second call
@@ -739,7 +734,7 @@ const FullScreenInterviewPanel = ({
     } else {
       setWastedReason(transcript.length === 0 ? "no_transcript" : "too_short");
     }
-  }, [callStatus, messages, interviewId, router, type, interviewType, phaseQuestions,
+  }, [callStatus, messages, interviewId, interviewType, phaseQuestions,
       startInterview, generateFeedbackAndRedirect]);
 
   // Cancel a pending phase-2 dial if the candidate navigates away during the

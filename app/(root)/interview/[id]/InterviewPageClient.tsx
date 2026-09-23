@@ -397,7 +397,6 @@ const InterviewDetailsClient = ({
         technicalQuestions={interview.technicalQuestions}
         behavioralQuestions={interview.behavioralQuestions}
         feedbackId={feedbackId}
-        type="interview"
         initialVideoOn={isVideoOn}
         initialAudioOn={isAudioOn}
         initialSpeakerOn={isSpeakerOn}

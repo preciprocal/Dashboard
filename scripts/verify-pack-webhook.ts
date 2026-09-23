@@ -184,6 +184,42 @@ async function main() {
   const noPi = await post(buildEvent({ packKey: pk, userId, paymentIntent: null }));
   check("missing payment_intent returns 200", noPi.status === 200);
 
+  // ── 4b. Event-level idempotency ──────────────────────────────────────────
+  //
+  // Everything above re-sends the same PAYMENT INTENT under a NEW event id,
+  // which is caught by the unique index on credit_packs. This checks the other
+  // axis: the identical EVENT arriving twice, which is what Stripe's retries
+  // actually look like and what the five subscription handlers had no
+  // protection against.
+  //
+  // Skipped rather than failed when migration 0035 has not been applied, since
+  // the route deliberately still works without the table.
+  console.log("\n[4b] the same event id twice");
+  const { error: tableProbe } = await supabaseAdmin
+    .from("stripe_events").select("event_id").limit(1);
+
+  if (tableProbe) {
+    console.log("  SKIP  stripe_events table absent - apply migration 0035 to cover this");
+  } else {
+    const dupPi    = PI_PREFIX + "evtdupe" + Date.now();
+    const dupEvent = buildEvent({ packKey: pk, userId, paymentIntent: dupPi, amountTotal: packAmountCents(pk) });
+
+    const first  = await post(dupEvent);
+    const second = await post(dupEvent);   // byte-identical, same evt_ id
+
+    check("first delivery accepted", first.status === 200);
+    check("second delivery accepted", second.status === 200);
+    check("second is reported as a duplicate",
+      JSON.parse(second.body || "{}")?.duplicate === true, second.body);
+    check("only one pack granted", !!(await rowFor(dupPi)));
+
+    const { data: evt } = await supabaseAdmin
+      .from("stripe_events").select("handled_at").eq("event_id", dupEvent.id).maybeSingle();
+    check("event recorded as handled", !!evt?.handled_at, JSON.stringify(evt));
+
+    await supabaseAdmin.from("stripe_events").delete().eq("event_id", dupEvent.id);
+  }
+
   // ── 5. Price drift still grants, on the charged amount ───────────────────
   // If Stripe and the catalog disagree the customer has already paid, so the
   // credits must still be issued; the mismatch is a logged warning, not a

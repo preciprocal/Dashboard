@@ -8,6 +8,7 @@ import { recordCancellation, recordReactivation } from "@/lib/subscription/react
 import { recordCouponStudentPerk } from "@/lib/subscription/student-coupon";
 import { planFromPriceId, warnUnknownPrice } from "@/lib/config/stripe-prices";
 import { grantPack } from "@/lib/packs/grant";
+import { claimEvent, confirmEvent, releaseEvent } from "@/lib/stripe/event-ledger";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-07-30.basil",
@@ -116,6 +117,23 @@ export async function POST(request: NextRequest) {
     ` status=${obj.status ?? "n/a"}`,
   );
 
+  // ── Exactly-once ────────────────────────────────────────────────────────
+  //
+  // Claimed BEFORE the switch and confirmed after. Pack grants were already
+  // safe, because credit_packs has a unique index on the payment intent, but
+  // the five subscription handlers had nothing: they rely on being written
+  // idempotently, which holds for a redelivery and not for two deliveries
+  // racing each other.
+  //
+  // "unavailable" means the ledger could not be reached, and the event is
+  // processed anyway. See lib/stripe/event-ledger.ts - a bookkeeping table
+  // being down must not stop a real subscription change from being applied.
+  const claim = await claimEvent(event.id, event.type);
+  if (claim === "duplicate") {
+    console.log(`↩️ Duplicate webhook ${event.type} (${event.id}) - already handled`);
+    return NextResponse.json({ received: true, duplicate: true });
+  }
+
   try {
     switch (event.type) {
       case "customer.subscription.created":
@@ -144,9 +162,16 @@ export async function POST(request: NextRequest) {
         console.log(`Unhandled event type: ${event.type}`);
     }
 
+    if (claim === "claimed") await confirmEvent(event.id);
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error("Webhook handler error:", error);
+
+    // Give the claim back so Stripe's retry is not treated as a duplicate and
+    // skipped. Without this a transient failure mid-handler would be recorded
+    // as accepted and the event lost for good.
+    if (claim === "claimed") await releaseEvent(event.id);
+
     return NextResponse.json({ error: "Webhook handler failed" }, { status: 500 });
   }
 }
