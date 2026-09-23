@@ -9,7 +9,19 @@ and consciously left alone, rather than being forgotten.
 
 ---
 
-## 1. Live billing bug: unknown Stripe price id resolves to two different plans
+## 1. RESOLVED - one price catalog, and a check that it stays complete
+
+The duplicated maps are gone; both callers read lib/config/stripe-prices.ts and
+their differing fallbacks are deliberate and documented (activate keeps a payer
+paid, the webhook does not grant off an unaccountable price).
+
+`npm run verify:price-catalog` enforces completeness, which is what makes the
+divergence safe: 9/9. It also confirms no live subscription sits on a price the
+catalog cannot resolve.
+
+Annual was removed as a product. Four prices belonging to already-archived
+products are listed as tidy-up, not failures - an archived product cannot be
+sold. Original note below.
 
 **Severity: high. Predates the quota work, surfaced by it.**
 
@@ -214,7 +226,16 @@ when Redis does not.
 
 ---
 
-## 9. Signup rate limiting is weaker than specified (Task 4.2)
+## 9. PARTLY FIXED - signup copy corrected, OAuth fingerprint gap remains
+
+The error copy no longer claims "one free account per person", a rule the code
+does not enforce (the IP limit is 3, so that sentence appeared on the fourth
+attempt). Both copies reworded.
+
+**Still open:** OAuth passes null for the fingerprint when checking and when
+recording, so a Google signup is invisible to the device limit. Needs the
+fingerprint at a point in the OAuth flow where it is not currently available.
+Original audit below.
 
 **Severity: medium. Audited, not fixed.**
 
@@ -242,7 +263,16 @@ Also note `signup-limiter.ts:41` fails open when Redis is absent.
 
 ---
 
-## 10. Resume duplicate detection misses its main case (Task 4.3)
+## 10. PARTLY FIXED - main case now flagged, still exact-match
+
+The `involved.length >= 2` threshold is gone. A Free account uploading a CV a
+paid account already holds is now flagged, which is the common shape and was
+the case the rule was written for. `paidCounterparts` is recorded so a reviewer
+can tell a free ring from a shared template.
+
+**Still open:** it is exact SHA-256 equality, not near-duplicate. One changed
+character defeats it. Needs simhash/minhash and a threshold. Original audit
+below.
 
 **Severity: medium. Audited, not fixed.**
 
@@ -269,7 +299,15 @@ Correctly log-only with no blocking, and both write paths are covered.
 
 ---
 
-## 11. Device-spread check only runs on new-session creation (Task 7.2)
+## 11. RESOLVED - device spread is re-checked on heartbeats
+
+`checkDeviceSpread` now runs on the existing-session path too, so an account
+that crosses the threshold through activity on already-registered sessions is
+re-evaluated without needing a fresh login.
+
+`enforceSessionCap` deliberately still runs only on new sessions: it evicts the
+oldest, and running it per heartbeat would let two tabs take turns evicting
+each other. Original note below.
 
 **Severity: low.**
 
@@ -281,7 +319,11 @@ re-evaluated until the next fresh login.
 
 ---
 
-## 12. Stored session geolocation is nulled by headerless heartbeats (Task 7.2)
+## 12. RESOLVED - geolocation is only overwritten when present
+
+`ip`, `geo_country` and `geo_city` are now written only when the incoming value
+is non-null, so a headerless heartbeat no longer erases a location recorded at
+session creation. Original note below.
 
 **Severity: low.**
 
@@ -366,7 +408,12 @@ to quietly tighten limits.
 
 ---
 
-## 14. Dead `type: "generate"` workflow branch in the interview panel
+## 14. RESOLVED - the generate branch is gone
+
+The `type` prop and both branches are removed. It was not inert: one dialled a
+Vapi workflow id that is no longer configured, and the other pushed the user to
+"/" on call end - the same silent redirect removed from the real path for
+losing sessions. Original note below.
 
 **Severity: none today. Unreachable. Logged so it is not capped by mistake, and
 not reintroduced by accident.**
@@ -399,7 +446,21 @@ left alone rather than folded into the Vapi work.
 
 ---
 
-## 15. 222 dependency vulnerabilities on `main`
+## 15. MOSTLY RESOLVED - 65 local advisories down to 4, none critical or high
+
+Removed five packages nothing imported (nodemailer, @heygen/streaming-avatar,
+@ai-sdk/google, ai, firebase-functions), then upgraded jspdf, puppeteer and
+firebase-admin one at a time with a build between each, then pinned
+lodash.merge to close the last high.
+
+**The 4 that remain are moderate and unreachable from this codebase:** a JSZip
+path traversal in `loadAsync` (we only ever generate a docx) and a uuid buffer
+check in v3/v5/v6 (not called). Overrides for both were tried and reverted -
+the patched versions are majors inside firebase-admin's tree, and forcing them
+to close something unreachable is the worse trade.
+
+html-docx-js is unmaintained with no fix available. Replacing it means a real
+HTML-to-docx rewrite. Original note below.
 
 **Severity: unknown until triaged. Needs its own pass.**
 
@@ -430,7 +491,16 @@ dead since the switch to Resend.
 
 ---
 
-## 16. PARTLY FIXED: behavioural routing done, mixed question split still wrong
+## 16. FIXED, ONE VERIFICATION OUTSTANDING
+
+Both bugs are fixed. Behavioural routing maps rather than casts. The mixed
+question split now uses the generator's own technical/behavioural arrays out of
+`interviews.metadata` instead of halving the flat list by position -
+`verify:mixed-split` proves it against production rows, and asserts the result
+DIFFERS from the old halving so the test fails if the fix is a no-op.
+
+**Still unverified:** that a mixed interview's two calls produce two cost rows
+summing to the tier budget. Needs one real mixed interview. Original note below.
 
 **The spelling half is fixed and deployed.** `toPanelType()` in
 `InterviewPageClient.tsx` now maps British `behavioural` to the panel's
@@ -527,7 +597,15 @@ URL. The page handles the `?pack=&status=` return from Stripe.
 Still gated: `PACKS_CHECKOUT_ENABLED` is unset, so the route answers 503 and the
 section shows a notice. See 21 for what else has to be true before flipping it.
 
-## 19. Packs have no refund path
+## 19. RESOLVED - app/api/packs/refund
+
+GET lists every pack with an eligibility verdict and a reason when refused.
+POST voids the credits before calling Stripe, so a failure between the two
+leaves the buyer briefly with neither rather than with both, and restores them
+if Stripe rejects. Compare-and-set on `refunded_at is null` stops two
+concurrent requests both reaching stripe.refunds.create.
+
+`npm run verify:pack-refund`, 18 assertions. Original note below.
 
 `pack_refund_eligible(p_pack_id, p_window_days)` exists in migration 0030 and
 has zero callers. `app/api/refund/request` is subscription-only and never looks
@@ -542,7 +620,18 @@ Until then a pack refund is a manual Stripe dashboard action, and whoever does
 it must also set `refunded_at` by hand, or the credits stay spendable after the
 money is returned.
 
-## 20. The Stripe webhook still has no event-level idempotency
+## 20. RESOLVED in code, MIGRATION 0035 NOT APPLIED
+
+`lib/stripe/event-ledger.ts` claims the event id before the switch and confirms
+after, releasing the claim if the handler throws so Stripe's retry is not
+skipped. A ledger failure processes the event anyway - see the file for why
+that is the right trade.
+
+**Run migration 0035 to activate it.** Until then it logs a warning and behaves
+exactly as before. `verify:pack-webhook` has a section that skips while the
+table is absent and starts asserting once it exists.
+
+Ordering is still unsolved and is the harder half. Original note below.
 
 Adding `checkout.session.completed` did not change this, but it is worth
 recording where the protection actually comes from.
