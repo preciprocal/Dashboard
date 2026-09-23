@@ -142,16 +142,17 @@ export async function POST(request: NextRequest) {
     });
     if (replyError) throw replyError;
 
-    // ── Update ticket meta ────────────────────────────────────────────────────
-    const nowIso = new Date().toISOString();
-    const { error: updateError } = await supabaseAdmin.from('support_tickets').update({
-      status: 'in-progress',
-      updated_at: nowIso,
-      last_reply_by: 'support',
-      last_reply_at: nowIso,
-      reply_count: (ticketData.reply_count ?? 0) + 1,
-    }).eq('id', ticketId);
-    if (updateError) throw updateError;
+    // ── Ticket meta is maintained by a trigger ───────────────────────────────
+    //
+    // sync_ticket_on_reply (migration 0036) sets status, reply_count,
+    // last_reply_by, last_reply_at and updated_at from the reply that was just
+    // inserted. This route used to set them itself, and the help page set the
+    // same columns differently on a user reply - two writers, one of them
+    // counting from client state, disagreeing about the same four columns.
+    //
+    // reply_count here was `(ticketData.reply_count ?? 0) + 1`, read before
+    // the insert, so two replies arriving together both read the same value
+    // and both wrote the same result.
 
     console.log('✅ Reply saved for ticket:', ticketId);
 

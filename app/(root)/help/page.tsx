@@ -13,7 +13,7 @@ import {
   Loader2, Pen, Edit3, Sparkles, PenTool, Shield, Building2, Eye,
   Calendar, TrendingUp, Zap, BarChart3, Users, Globe, Smartphone,
   CreditCard, Lock, Settings as SettingsIcon, Download,
-  RefreshCw, ArrowLeft, Home, LogOut, Paperclip, X, Image, File,
+  RefreshCw, ArrowLeft, Home, LogOut, Paperclip, X, Image as ImageIcon, File,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
@@ -110,7 +110,9 @@ function formatBytes(b: number) {
 }
 
 function FileTypeIcon({ type }: { type: string }) {
-  if (type.startsWith('image/')) return <Image className="w-3.5 h-3.5 text-blue-400" />;
+  // Aliased on import: lucide's icon is named Image, which shadows next/image
+  // and makes jsx-a11y/alt-text flag it as an <img> with no alt.
+  if (type.startsWith('image/')) return <ImageIcon className="w-3.5 h-3.5 text-blue-400" />;
   return <File className="w-3.5 h-3.5 text-purple-400" />;
 }
 
@@ -378,7 +380,6 @@ function HelpSupportContent() {
       const ticket = userTickets.find(t => t.id === selectedTicket);
       if (!ticket) return;
 
-      const nowIso = new Date().toISOString();
 
       const { error: replyError } = await supabase.from('support_ticket_replies').insert({
         ticket_id: selectedTicket,
@@ -389,13 +390,20 @@ function HelpSupportContent() {
       });
       if (replyError) throw replyError;
 
-      const { error: updateError } = await supabase.from('support_tickets').update({
-        updated_at: nowIso,
-        last_reply_by: 'user',
-        last_reply_at: nowIso,
-        reply_count: ticketReplies.length + 1,
-      }).eq('id', selectedTicket);
-      if (updateError) throw updateError;
+      // No ticket update here any more. A trigger on support_ticket_replies
+      // (migration 0036) maintains reply_count, last_reply_by, last_reply_at,
+      // updated_at and status.
+      //
+      // This used to write `reply_count: ticketReplies.length + 1` - the
+      // number of replies THIS BROWSER had loaded - which a stale tab gets
+      // wrong and two simultaneous replies race over. The inbound-email route
+      // computed the same column from the database, so the two writers
+      // disagreed by construction.
+      //
+      // It also did not touch status, so replying to a ticket support had
+      // marked resolved left it resolved: out of the support queue, while the
+      // user waited for an answer to a message nobody would see. The trigger
+      // reopens it.
 
       fetch('/api/support/notify-admin', {
         method:  'POST',
