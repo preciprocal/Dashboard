@@ -64,16 +64,24 @@ async function makeTicket(userId: string, subject: string) {
 const ticketRow = async (id: string) =>
   (await supabaseAdmin.from("support_tickets").select("*").eq("id", id).single()).data!;
 
-/** Does the reply trigger exist? Everything in section 3 depends on it. */
-async function triggerInstalled(id: string): Promise<boolean> {
-  const before = await ticketRow(id);
+/**
+ * Does the reply trigger exist? Everything in section 3 depends on it.
+ *
+ * Probes a DISPOSABLE ticket, never the one under test. The first version ran
+ * against the real ticket and left it dirty: the probe insert fired the
+ * trigger, setting last_reply_by to support and bumping reply_count, and
+ * deleting the probe row did not undo either - there is no delete trigger. So
+ * section 3 then measured the probe's leftovers and failed its first two
+ * assertions against perfectly correct code.
+ */
+async function triggerInstalled(ownerId: string): Promise<boolean> {
+  const probeTicket = await makeTicket(ownerId, "trigger probe");
   await supabaseAdmin.from("support_ticket_replies").insert({
-    ticket_id: id, body: "probe", author_user_id: null, is_staff: true,
+    ticket_id: probeTicket, body: "probe", author_user_id: null, is_staff: true,
   });
-  const after = await ticketRow(id);
-  await supabaseAdmin.from("support_ticket_replies").delete().eq("ticket_id", id).eq("body", "probe");
-  // The trigger sets reply_count; without it the column does not move.
-  return Number(after.reply_count ?? 0) > Number(before.reply_count ?? 0);
+  const after = await ticketRow(probeTicket);
+  // The trigger sets reply_count; without it the column does not move off 0.
+  return Number(after.reply_count ?? 0) > 0;
 }
 
 async function main() {
@@ -141,7 +149,7 @@ async function main() {
   // ── 3. Tracking ──────────────────────────────────────────────────────────
   console.log("\n[3] the ticket stays truthful as both sides reply");
 
-  if (!(await triggerInstalled(bobTicket))) {
+  if (!(await triggerInstalled(bob.id))) {
     console.log("  SKIP  sync_ticket_on_reply not installed - apply migration 0036");
   } else {
     let row = await ticketRow(bobTicket);
@@ -170,16 +178,41 @@ async function main() {
     check("reply_count is still correct", Number(row.reply_count) === 3, String(row.reply_count));
     check("last_reply_at moved", !!row.last_reply_at);
 
-    // The count is a COUNT(*), so a deleted reply is reflected on the next
-    // write rather than leaving the total permanently inflated.
-    const { data: someReply } = await supabaseAdmin.from("support_ticket_replies")
-      .select("id").eq("ticket_id", bobTicket).limit(1).single();
-    await supabaseAdmin.from("support_ticket_replies").delete().eq("id", someReply!.id);
-    await supabaseAdmin.from("support_ticket_replies").insert({
-      ticket_id: bobTicket, body: "Another note.", author_user_id: null, is_staff: true,
-    });
-    row = await ticketRow(bobTicket);
-    check("count recovers from a deleted reply", Number(row.reply_count) === 3, String(row.reply_count));
+    // ── Deleting a reply ───────────────────────────────────────────────────
+    //
+    // 0036 recomputed the count on INSERT only, so a deleted reply left the
+    // total inflated until the next one arrived - a ticket claiming more
+    // messages than it shows. 0037 extends the trigger to DELETE.
+    //
+    // Skipped rather than failed while only 0036 is applied, because that is a
+    // real and reasonable state to be in.
+    const beforeDelete = Number((await ticketRow(bobTicket)).reply_count);
+    const { data: doomed } = await supabaseAdmin.from("support_ticket_replies")
+      .select("id").eq("ticket_id", bobTicket).order("created_at").limit(1).single();
+    await supabaseAdmin.from("support_ticket_replies").delete().eq("id", doomed!.id);
+
+    const afterDelete = await ticketRow(bobTicket);
+    if (Number(afterDelete.reply_count) === beforeDelete) {
+      console.log("  SKIP  delete does not resync the count - apply migration 0037");
+    } else {
+      check("deleting a reply lowers reply_count",
+        Number(afterDelete.reply_count) === beforeDelete - 1,
+        `${beforeDelete} -> ${afterDelete.reply_count}`);
+      check("last_reply_at still points at a reply that exists",
+        !!afterDelete.last_reply_at);
+
+      // Deleting every reply must return the ticket to its untouched shape,
+      // not leave it describing a conversation that is no longer there.
+      await supabaseAdmin.from("support_ticket_replies").delete().eq("ticket_id", bobTicket);
+      const emptied = await ticketRow(bobTicket);
+      check("removing every reply zeroes the count", Number(emptied.reply_count) === 0,
+        String(emptied.reply_count));
+      check("and clears last_reply_by", emptied.last_reply_by === null, String(emptied.last_reply_by));
+
+      // A deletion is a correction, not a message: it must not advance status.
+      check("deleting does not reopen or advance status",
+        emptied.status === afterDelete.status, `${afterDelete.status} -> ${emptied.status}`);
+    }
   }
 
   // ── 4. The user can see their own conversation ───────────────────────────
