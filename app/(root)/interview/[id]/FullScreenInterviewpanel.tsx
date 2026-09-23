@@ -86,24 +86,34 @@ interface FullScreenInterviewPanelProps {
   onExit: () => void;
 }
 
-// ─── VideoAvatar ──────────────────────────────────────────────────────────────
+// ─── Avatar ───────────────────────────────────────────────────────────────────
+//
+// Initials on a gradient. There is no video, and there never was: this
+// component used to accept a videoSrc and render a <video> that faded in over
+// the initials on load. Every src pointed into /videos/, which does not exist
+// in public/ - so every request 404'd, onError fired, and the initials showed
+// anyway.
+//
+// Removed rather than left in place with the files added later. The markup was
+// dead weight on every panelist tile, and the initials are not a fallback: they
+// are what every candidate has always seen, and what the persona list in
+// lib/config/interview-personas.ts is written around.
+//
+// If video avatars are ever wanted, they need to match the personas - Indian
+// names and gendered to the en-IN voices - so dropping a generic stock loop in
+// would reintroduce the mismatch that list exists to prevent.
 
 const VideoAvatar = ({
   initials,
   gradient,
   isSpeaking,
-  videoSrc,
   size = "large",
 }: {
   initials: string;
   gradient: string;
   isSpeaking?: boolean;
-  videoSrc?: string;
   size?: "small" | "large";
 }) => {
-  const videoRef  = useRef<HTMLVideoElement>(null);
-  const [showVideo, setShowVideo] = useState(false);
-
   const sizeClasses = size === "small"
     ? "w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20"
     : "w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24";
@@ -111,31 +121,10 @@ const VideoAvatar = ({
     ? "text-base sm:text-lg md:text-xl"
     : "text-lg sm:text-xl md:text-2xl";
 
-  const handleVideoLoad  = useCallback(() => setShowVideo(true),  []);
-  const handleVideoError = useCallback(() => setShowVideo(false), []);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !showVideo) return;
-    if (isSpeaking) { video.play().catch(() => setShowVideo(false)); }
-    else            { video.pause(); }
-  }, [isSpeaking, showVideo]);
-
   return (
     <div className={`relative ${sizeClasses} mx-auto mb-2 sm:mb-3`}>
-      {videoSrc && (
-        <video
-          ref={videoRef}
-          className={`absolute inset-0 w-full h-full object-cover rounded-full border-2 border-slate-700 transition-opacity duration-300 ${showVideo ? "opacity-100" : "opacity-0"}`}
-          loop muted playsInline preload="metadata"
-          onLoadedData={handleVideoLoad}
-          onError={handleVideoError}
-        >
-          <source src={videoSrc} type="video/mp4" />
-        </video>
-      )}
       <div
-        className={`w-full h-full bg-gradient-to-br ${gradient} rounded-full flex items-center justify-center border-2 border-slate-700 transition-all duration-300 ${showVideo && videoSrc ? "opacity-0" : "opacity-100"} ${isSpeaking ? "scale-105" : ""}`}
+        className={`w-full h-full bg-gradient-to-br ${gradient} rounded-full flex items-center justify-center border-2 border-slate-700 transition-all duration-300 ${isSpeaking ? "scale-105" : ""}`}
       >
         <span className={`text-white ${textSize} font-bold`}>{initials}</span>
       </div>
@@ -281,11 +270,6 @@ const FullScreenInterviewPanel = ({
     return { all, technical, behavioral };
   }, [questions, technicalQuestions, behavioralQuestions]);
 
-  const videoSources = useMemo(() => ({
-    hr:            "/videos/hr-female-avatar.mp4",
-    tech_recruiter:"/videos/tech-lead-female-avatar.mp4",
-    junior:        `/videos/junior-${interviewRole.toLowerCase().replace(/\s+/g, "-")}-avatar.mp4`,
-  }), [interviewRole]);
 
   // The panel for this interview, resolved once.
   //
@@ -303,15 +287,13 @@ const FullScreenInterviewPanel = ({
       {
         id: "hr", name: names.hr.name, role: "HR Manager",
         avatar: { initials: names.hr.initials, gradient: "from-pink-500 to-rose-600" },
-        status: "available", experience: "8+ years", isLead: false,
-        videoSrc: videoSources.hr, isSpeaking: speakingPersonId === "hr",
+        status: "available", experience: "8+ years", isLead: false, isSpeaking: speakingPersonId === "hr",
       },
       {
         id: "tech_recruiter", name: names.lead.name, role: `${interviewRole} Lead`,
         avatar: { initials: names.lead.initials, gradient: "from-blue-500 to-indigo-600" },
         status: callStatus === CallStatus.ACTIVE ? "presenting" : "available",
-        experience: "12+ years", isLead: true,
-        videoSrc: videoSources.tech_recruiter, isSpeaking: speakingPersonId === "tech_recruiter",
+        experience: "12+ years", isLead: true, isSpeaking: speakingPersonId === "tech_recruiter",
       },
       {
         id: "junior", name: names.junior.name, role: `Junior ${interviewRole}`,
@@ -322,8 +304,7 @@ const FullScreenInterviewPanel = ({
             : roleNormalized.includes("analyst")   ? "from-orange-500 to-amber-600"
             : "from-teal-500 to-cyan-600",
         },
-        status: "attentive", experience: "2 years", isLead: false,
-        videoSrc: videoSources.junior, isSpeaking: speakingPersonId === "junior",
+        status: "attentive", experience: "2 years", isLead: false, isSpeaking: speakingPersonId === "junior",
       },
       {
         id: "candidate", name: userName || "Candidate", role: "Interviewee",
@@ -335,7 +316,7 @@ const FullScreenInterviewPanel = ({
         experience: `Applying for: ${interviewRole}`, isCurrentUser: true, isSpeaking: false,
       },
     ];
-  }, [names, interviewRole, callStatus, speakingPersonId, videoSources, userName]);
+  }, [names, interviewRole, callStatus, speakingPersonId, userName]);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
@@ -1108,7 +1089,6 @@ const FullScreenInterviewPanel = ({
                     initials={participant.avatar.initials}
                     gradient={participant.avatar.gradient}
                     isSpeaking={isCurrentSpeaker}
-                    videoSrc={(participant as { isCurrentUser?: boolean }).isCurrentUser ? undefined : (participant as { videoSrc?: string }).videoSrc}
                   />
                   <h3 className={`text-white font-medium text-sm sm:text-base md:text-lg mb-0.5 sm:mb-1 ${isCurrentSpeaker ? "text-blue-300" : ""}`}>
                     {participant.name}

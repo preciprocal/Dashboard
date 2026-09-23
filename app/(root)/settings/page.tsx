@@ -8,10 +8,11 @@ import { supabase } from '@/supabase/client';
 import { toast } from 'sonner';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import ExtensionConnection from '@/components/ExtensionConnection';
+import RefundPanel from '@/components/billing/RefundPanel';
 import {
   Bell, User, Shield, CreditCard, Chrome, ArrowLeft, Loader2,
   AlertTriangle, Check, Eye, EyeOff, Trash2, Mail, Lock, Zap,
-  Star, AlertCircle, RefreshCw, ExternalLink, Building2, Link2,
+  Star, AlertCircle, RefreshCw, ExternalLink, Building2, Link2, RotateCcw,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -819,6 +820,19 @@ export default function SettingsPage() {
               </div>
 
               <BillingNewsletterBlock />
+            </SectionCard>
+
+            {/* Refunds live under Plan & Billing because that is where someone
+                goes when they want their money back. Both refund APIs were
+                complete and tested with nothing calling them, so the 30-day
+                guarantee advertised on the pricing page was real in code and
+                unreachable in the product. */}
+            <SectionCard>
+              <SectionHeader icon={RotateCcw} iconColor="text-indigo-400" iconBg="bg-indigo-500/10 border-indigo-500/20"
+                title="Refunds" subtitle="Get money back on a subscription or an unused credit pack" />
+              <div className="p-5">
+                <RefundPanel />
+              </div>
             </SectionCard>
           </div>
         )}
