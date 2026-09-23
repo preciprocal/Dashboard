@@ -60,18 +60,70 @@ const check = (n: string, ok: boolean, d = "") => {
   const recurring = all.filter((p) => p.recurring);
   const oneTime   = all.filter((p) => !p.recurring);
 
-  // ── 1. Every subscription price is known ─────────────────────────────────
-  console.log("[1] every active recurring price is in the catalog");
-  if (!recurring.length) console.log("  (none found)");
+  // ── 1. Every SELLABLE subscription price is known ────────────────────────
+  //
+  // Sellable means the price is active AND its product is active. Stripe does
+  // not deactivate a product's prices when the product is archived, so an old
+  // product leaves behind prices that still read active=true while being
+  // impossible to subscribe anyone to.
+  //
+  // Those were reported as billing risks in the first version of this script.
+  // They are not: a price whose product is archived cannot be put on a new
+  // subscription, so it can never reach planFromPriceId by that route. Left as
+  // failures they would be permanent noise, and a check that always fails is a
+  // check people stop reading.
+  //
+  // They are still listed, because an EXISTING subscription on one would be a
+  // real problem, and because they are worth tidying.
+  console.log("[1] every sellable recurring price is in the catalog");
+
+  const productActive = new Map<string, { active: boolean; name: string }>();
   for (const p of recurring) {
-    const entry = PRICE_CATALOG[p.id];
+    const pid = typeof p.product === "string" ? p.product : p.product.id;
+    if (!productActive.has(pid)) {
+      const prod = await stripe.products.retrieve(pid);
+      productActive.set(pid, { active: prod.active, name: prod.name });
+    }
+  }
+
+  const orphans: Array<{ price: Stripe.Price; product: string }> = [];
+
+  for (const p of recurring) {
+    const pid  = typeof p.product === "string" ? p.product : p.product.id;
+    const prod = productActive.get(pid)!;
+    const label = `${p.id} ($${((p.unit_amount ?? 0) / 100).toFixed(2)}/${p.recurring?.interval}, ${prod.name})`;
+
+    if (!prod.active) {
+      orphans.push({ price: p, product: prod.name });
+      continue;
+    }
+
     check(
-      `${p.id} (${((p.unit_amount ?? 0) / 100).toFixed(2)} ${p.currency}/${p.recurring?.interval})`,
-      !!entry,
-      entry ? "" :
-        `Not in PRICE_CATALOG. planFromPriceId returns null for it, so a customer on this ` +
-        `price gets "pro" from subscription/activate and "free" from the webhook.`,
+      label,
+      !!PRICE_CATALOG[p.id],
+      PRICE_CATALOG[p.id] ? "" :
+        `Not in PRICE_CATALOG, and its product is ACTIVE so it can still be sold. ` +
+        `planFromPriceId returns null, so a customer on this price gets "pro" from ` +
+        `subscription/activate and "free" from the webhook.`,
     );
+  }
+
+  if (orphans.length) {
+    console.log(`\n  ${orphans.length} active price(s) left behind by archived products:`);
+    for (const o of orphans) {
+      console.log(`    ${o.price.id}  $${((o.price.unit_amount ?? 0) / 100).toFixed(2)}  (${o.product})`);
+    }
+    console.log("    Not sellable, so not failures. Archive them to keep the account tidy.");
+
+    // The one case where an orphan still matters.
+    let onOrphan = 0;
+    const subs = await stripe.subscriptions.list({ limit: 100, status: "all" });
+    for (const s of subs.data) {
+      const priceId = s.items.data[0]?.price?.id;
+      if (priceId && orphans.some((o) => o.price.id === priceId) && s.status !== "canceled") onOrphan++;
+    }
+    check("no live subscription sits on an orphaned price", onOrphan === 0,
+      onOrphan ? `${onOrphan} subscription(s) are on a price the catalog cannot resolve` : "");
   }
 
   // ── 2. Every catalog entry still exists, at the amount it claims ──────────
