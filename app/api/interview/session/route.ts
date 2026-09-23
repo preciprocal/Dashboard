@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     const [{ data: sub }, { data: profile }] = await Promise.all([
       supabaseAdmin
         .from('subscriptions')
-        .select('plan, legacy_quotas')
+        .select('plan')
         .eq('user_id', supabaseUserId)
         .maybeSingle(),
       supabaseAdmin
@@ -57,7 +57,6 @@ export async function POST(req: NextRequest) {
 
     const planKey = resolvePlanKey(sub?.plan, {
       isAdmin: profile?.is_admin === true,
-      legacyQuotas: sub?.legacy_quotas === true,
     });
 
     // Throws when the env var is missing rather than falling back to an inline
@@ -76,7 +75,7 @@ export async function POST(req: NextRequest) {
       // (they are in the repo), values are never included, and the caller is
       // already authenticated by this point.
       const missing = `VAPI_ASSISTANT_${
-        (planKey === 'premium_legacy' || planKey === 'admin' ? 'premium' : planKey).toUpperCase()
+        (planKey === 'admin' ? 'premium' : planKey).toUpperCase()
       }_${phase.toUpperCase()}`;
 
       console.error(

@@ -17,18 +17,6 @@ export interface PlanLimits {
   free: UsageLimits;
   pro: UsageLimits;
   premium: UsageLimits;
-  /**
-   * Premium subscribers who were on the pre-resize quotas, which had unlimited
-   * coverLetters and coldOutreach. Not purchasable and not stored in
-   * subscriptions.plan - those rows still say 'premium'. The distinction is
-   * the subscriptions.legacy_quotas boolean, resolved by resolvePlanKey().
-   *
-   * Time-boxed on purpose: the renewal path in the Stripe webhook clears
-   * legacy_quotas, so a legacy subscriber moves to the capped premium table at
-   * their next renewal rather than keeping unlimited forever. Indefinite
-   * unlimited would reopen the abuse vector the resize exists to close.
-   */
-  premium_legacy: UsageLimits;
   admin: UsageLimits;
 }
 
@@ -55,19 +43,25 @@ export const USAGE_LIMITS: PlanLimits = {
     resumes: 3,
     studyPlans: 2,
     interviews: 1,        // 8 min per session, capped server-side - interview-limits.ts
-    interviewDebriefs: 10, // DB insert, no model call - see feature-costs.ts
+    // Sized to a real month of interviewing rather than to cost. A debrief is
+    // a DB insert with no model call (feature-costs.ts prices it at 0), so the
+    // old 10/60/150 ladder was an abuse ceiling that nobody could reach - and
+    // it was advertised, so Premium's card claimed 150 real interviews a month.
+    interviewDebriefs: 2,
     debriefAnalyses: 1,
     linkedinOptimisations: 2,
     coldOutreach: 3,
     findContacts: 3,
-    jobTracker: 8,
+    jobTracker: 10,      // DB rows, $0 to serve - see feature-costs.ts. A
+                         // round number that fits a real early job search;
+                         // the cap is an abuse control, not cost rationing.
   },
   pro: {
     coverLetters: 30,
     resumes: 20,
     studyPlans: 10,
-    interviews: 2,        // 10 min per session, capped server-side - interview-limits.ts
-    interviewDebriefs: 60,
+    interviews: 3,        // 10 min per session, capped server-side - interview-limits.ts
+    interviewDebriefs: 5,
     debriefAnalyses: 4,
     linkedinOptimisations: 5,
     coldOutreach: 20,
@@ -79,27 +73,12 @@ export const USAGE_LIMITS: PlanLimits = {
     resumes: 50,
     studyPlans: 25,
     interviews: 5,        // 12 min per session, capped server-side - interview-limits.ts
-    interviewDebriefs: 150,
+    interviewDebriefs: 10,
     debriefAnalyses: 12,
     linkedinOptimisations: 15,
     coldOutreach: 60,
     findContacts: 50,
     jobTracker: -1,       // unlimited
-  },
-  // Identical to `premium` except the two categories that were unlimited
-  // before the resize. Everything else takes the new, higher caps, so a legacy
-  // subscriber is never worse off than a new one mid-transition.
-  premium_legacy: {
-    coverLetters: -1,     // unlimited (pre-resize)
-    resumes: 50,
-    studyPlans: 25,
-    interviews: 5,
-    interviewDebriefs: 150,
-    debriefAnalyses: 12,
-    linkedinOptimisations: 15,
-    coldOutreach: -1,     // unlimited (pre-resize)
-    findContacts: 50,
-    jobTracker: -1,
   },
 };
 
@@ -160,24 +139,16 @@ export function normalisePlan(plan: string): keyof PlanLimits {
 /**
  * The plan key a user's quotas should actually be read from.
  *
- * normalisePlan() alone cannot answer this: a grandfathered Premium subscriber
- * still has plan = 'premium' in the database, and admin status lives on
+ * normalisePlan() alone cannot answer this: admin status lives on
  * profiles.is_admin rather than on the subscription at all. Anything that gates
  * or displays quota should call this rather than normalisePlan() directly.
  */
 export function resolvePlanKey(
   plan: string | null | undefined,
-  opts: { isAdmin?: boolean; legacyQuotas?: boolean } = {},
+  opts: { isAdmin?: boolean } = {},
 ): keyof PlanLimits {
   if (opts.isAdmin) return 'admin';
-  const key = normalisePlan(plan ?? 'free');
-  if (key === 'premium' && opts.legacyQuotas) return 'premium_legacy';
-  return key;
-}
-
-/** True for plan keys that are grandfathered rather than purchasable. */
-export function isLegacyPlanKey(key: keyof PlanLimits): boolean {
-  return key === 'premium_legacy';
+  return normalisePlan(plan ?? 'free');
 }
 
 export function isUnlimited(limit: number): boolean {

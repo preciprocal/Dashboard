@@ -29,9 +29,6 @@ export const PLAN_PRICE_CENTS: Record<keyof PlanLimits, number> = {
   free: 0,
   pro: 999,
   premium: 2499,
-  // Grandfathered Premium subscribers pay the same price; only their quotas
-  // differ. Refunds must prorate against what they actually paid.
-  premium_legacy: 2499,
   // Not purchasable. Present so the Record stays exhaustive and adding a plan
   // without a price is a compile error rather than an undefined at runtime.
   admin: 0,
@@ -41,7 +38,6 @@ export const PLAN_PRICE_CENTS: Record<keyof PlanLimits, number> = {
 export const REFUNDABLE_PLANS: readonly (keyof PlanLimits)[] = [
   "pro",
   "premium",
-  "premium_legacy",
 ] as const;
 
 export function isRefundablePlan(key: keyof PlanLimits): boolean {

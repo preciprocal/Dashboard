@@ -512,11 +512,6 @@ async function handlePaymentSucceeded(invoice: InvoiceWithSubscription) {
       current_period_end: currentPeriodEnd,
       subscription_ends_at: currentPeriodEnd,
       last_payment_at: new Date().toISOString(),
-      // A successful renewal is the end of the grandfathering window. Legacy
-      // Premium subscribers keep their pre-resize unlimited categories until
-      // here, then move to the capped premium table - time-boxed rather than
-      // permanent, so unlimited monthly usage cannot persist indefinitely.
-      legacy_quotas: false,
       updated_at: new Date().toISOString(),
     }).eq("user_id", supabaseUserId);
     if (updateError) throw updateError;

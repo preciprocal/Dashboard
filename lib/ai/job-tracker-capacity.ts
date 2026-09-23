@@ -57,12 +57,11 @@ export async function checkJobTrackerCapacity(userId: string): Promise<CapacityR
 
     const [{ data: profile }, { data: sub }] = await Promise.all([
       supabaseAdmin.from("profiles").select("is_admin").eq("user_id", supabaseUserId).maybeSingle(),
-      supabaseAdmin.from("subscriptions").select("plan, legacy_quotas").eq("user_id", supabaseUserId).maybeSingle(),
+      supabaseAdmin.from("subscriptions").select("plan").eq("user_id", supabaseUserId).maybeSingle(),
     ]);
 
     const planKey = resolvePlanKey(sub?.plan, {
       isAdmin: profile?.is_admin === true,
-      legacyQuotas: sub?.legacy_quotas === true,
     });
 
     const limit = USAGE_LIMITS[planKey].jobTracker;

@@ -55,7 +55,6 @@ interface SubscriptionRow {
   subscription_started_at: string | null;
   current_period_end: string | null;
   last_payment_at: string | null;
-  legacy_quotas: boolean | null;
 }
 
 type Assessment =
@@ -84,7 +83,7 @@ async function assess(supabaseUserId: string): Promise<Assessment> {
     .from('subscriptions')
     .select(
       'plan, status, stripe_subscription_id, stripe_customer_id, ' +
-      'current_period_start, subscription_started_at, current_period_end, last_payment_at, legacy_quotas',
+      'current_period_start, subscription_started_at, current_period_end, last_payment_at',
     )
     .eq('user_id', supabaseUserId)
     .maybeSingle();
@@ -99,7 +98,6 @@ async function assess(supabaseUserId: string): Promise<Assessment> {
 
   const planKey = resolvePlanKey(sub?.plan, {
     isAdmin: profile?.is_admin === true,
-    legacyQuotas: sub?.legacy_quotas === true,
   });
 
   if (!sub || !isRefundablePlan(planKey)) {
@@ -132,7 +130,7 @@ async function assess(supabaseUserId: string): Promise<Assessment> {
     supabaseUserId,
     sub.plan ?? 'free',
     periodStart,
-    { isAdmin: profile?.is_admin === true, legacyQuotas: sub.legacy_quotas === true },
+    { isAdmin: profile?.is_admin === true },
   );
 
   const eligibility = evaluateEligibility(snapshot, maxUsagePct, maxUsageFeature);

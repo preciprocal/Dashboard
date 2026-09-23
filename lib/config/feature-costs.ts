@@ -93,7 +93,6 @@ export const INTERVIEW_COST_BY_PLAN = {
   free: 8 * VAPI_COST_PER_MINUTE, // $1.20
   pro: 10 * VAPI_COST_PER_MINUTE, // $1.50
   premium: 12 * VAPI_COST_PER_MINUTE, // $1.80
-  premium_legacy: 12 * VAPI_COST_PER_MINUTE,
   admin: 12 * VAPI_COST_PER_MINUTE,
 } as const;
 

@@ -44,7 +44,6 @@ export const INTERVIEW_DURATION_SECONDS: Record<keyof PlanLimits, number> = {
   free: 8 * 60, // 480
   pro: 10 * 60, // 600
   premium: 12 * 60, // 720
-  premium_legacy: 12 * 60,
   // Admins are unmetered on count but NOT on duration. An unbounded voice call
   // costs real money whoever is on it, and 600s is Vapi's own default anyway.
   admin: 12 * 60,
@@ -146,8 +145,8 @@ export function durationForPhase(
 /**
  * Saved assistant id for a (plan, phase) pair.
  *
- * Twelve assistants: 3 purchasable tiers x 4 phases. premium_legacy and admin
- * share premium's, since their durations are identical.
+ * Twelve assistants: 3 purchasable tiers x 4 phases. admin shares premium's,
+ * since their durations are identical.
  *
  * Read from the environment and NOT defaulted. A missing id must fail loudly
  * rather than silently falling back to an inline DTO, because the inline path
@@ -155,8 +154,7 @@ export function durationForPhase(
  * anything appearing to be wrong.
  */
 export function assistantIdFor(planKey: keyof PlanLimits, phase: InterviewPhase): string {
-  const tier =
-    planKey === "premium_legacy" || planKey === "admin" ? "premium" : planKey;
+  const tier = planKey === "admin" ? "premium" : planKey;
   const envVar = `VAPI_ASSISTANT_${tier.toUpperCase()}_${phase.toUpperCase()}`;
   const id = process.env[envVar];
   if (!id) {

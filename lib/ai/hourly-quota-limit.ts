@@ -36,17 +36,12 @@ const WINDOW_SECONDS = 3600;
  *
  * Exhaustive over every plan key on purpose. A Record<keyof PlanLimits, number>
  * means adding a plan to PlanLimits without setting a ceiling here is a compile
- * error rather than a silently unlimited account - which is precisely how
- * premium_legacy would otherwise have escaped the cap.
+ * error rather than a silently unlimited account.
  */
 export const HOURLY_LIMITS: Record<keyof PlanLimits, number> = {
   free: 5,
   pro: 10,
   premium: 15,
-  // Grandfathered unlimited MONTHLY cover letters, but not unlimited per hour.
-  // Unlimited monthly with no hourly ceiling is the actual abuse surface; the
-  // monthly number on its own is not.
-  premium_legacy: 15,
   // Admins are unmetered monthly but still bucketed, so a runaway script on an
   // admin account cannot silently burn the API budget.
   admin: 60,

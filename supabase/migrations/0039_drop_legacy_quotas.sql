@@ -1,0 +1,40 @@
+-- 0039_drop_legacy_quotas.sql
+-- NOT run automatically. Review, then apply via the Supabase SQL editor.
+--
+-- Removes the premium_legacy grandfathering mechanism added in
+-- 0030_credit_packs.sql.
+--
+-- Why it is safe to drop rather than leave inert: it never applied to anyone.
+-- The backfill in 0030 grandfathered "everyone currently ON Premium", and
+-- there were no Premium subscribers then and none now. Measured before
+-- writing this, against the live database:
+--
+--   subscriptions total rows                      31
+--   plan = 'premium'                               0
+--   legacy_quotas = true (any plan)                0
+--   legacy_quotas = true and status = 'active'     0
+--
+-- The remaining rows are test accounts. So this drops a column that is false
+-- on every row, and a plan key whose quota table no code path could reach.
+--
+-- Run the checks below FIRST. If either returns anything other than 0, stop:
+-- a real grandfathered subscriber has appeared since this was written, and
+-- dropping the column would silently move them onto capped quotas.
+--
+--   select count(*) from subscriptions where legacy_quotas;
+--   select count(*) from subscriptions where plan = 'premium';
+--
+-- Reversing this means restoring the column (default false) and re-adding the
+-- premium_legacy key. Nothing reconstructs who was grandfathered, but since
+-- that set is empty there is nothing to reconstruct.
+--
+-- ORDERING: deploy the code first, then run this. The code change removes
+-- `legacy_quotas` from four SELECT lists (usage-guard, job-tracker-capacity,
+-- interview/session, refund/request) and one UPDATE in the Stripe webhook.
+-- Dropping the column while the old code is still live would make every one
+-- of those queries error - which is the quota guard, the interview start path
+-- and the renewal handler. The reverse order is safe: the new code never
+-- names the column, so it runs fine whether or not the column still exists.
+
+alter table subscriptions
+  drop column if exists legacy_quotas;

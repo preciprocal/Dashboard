@@ -802,3 +802,84 @@ screen, or a popover landing away from its trigger.
 
 The durable fix, if this recurs, is rendering overlays through a portal to
 `document.body` so no ancestor transform can reach them.
+
+---
+
+## 26. RESOLVED - "Unlimited" was shown on capped paid plans, and admins were locked out of the job tracker
+
+Found during a link/UI audit of the whole app.
+
+Six pages derived "is this feature uncapped?" from the plan *name* rather than
+from the quota table:
+
+```ts
+const isUnlimitedPlan = usageData?.plan === 'pro' || usageData?.plan === 'premium';
+```
+
+Only `jobTracker` is actually `-1` for pro and premium. Everything else is
+capped, so five of the six pages told paying users "Unlimited" while
+`canUseFeature()` - which reads the real limit - blocked them at the cap.
+On `/resume/upload` the badge read "Unlimited" directly above an
+`<UpgradeGate used={20} limit={20} />`.
+
+The same expression also missed `admin`, whose limits are all `-1`. On
+`/job-tracker` that made `canAddJob = apps.length < -1`, permanently false:
+an admin could not add a single job, and the badge read "0 jobs left".
+
+All six now read `isUnlimited(getLimit(feature))` from
+`lib/config/usage-limits.ts`, which is the same table `lib/ai/usage-guard.ts`
+gates on. Checked exhaustively: the old expression disagreed with gating on
+31 of 50 (plan, feature) pairs, the new one on 0.
+
+`/job-tracker` also now waits on `loadingUsage` before rendering. `getLimit()`
+returns 0 until the usage fetch resolves, so a user with zero tracked jobs
+briefly rendered the "limit reached" upgrade gate instead of their list.
+
+**Not done:** `app/(root)/settings/page.tsx:741` still prints "Unlimited
+interviews and advanced analytics" for any non-free tier, directly above a
+meter showing the real `0 / 2`. Same class of bug, different shape - it keys
+off `tier` rather than a feature limit, and the surrounding card would need
+reworking rather than a one-line swap. `usagePct(used, -1)` on that page also
+yields a negative bar width and an `0 / -1` label for admins.
+
+---
+
+## 27. RESOLVED - a mock interview could end with no analysis, and the page pretended otherwise
+
+The AI analysis is part of the interview, not a separate thing the user
+requests - but it was only ever produced once, inline, from a transcript that
+existed nowhere but the browser (`allMessagesRef` in
+`FullScreenInterviewpanel.tsx`). `createFeedback()` took the transcript as an
+argument, stored only the derived analysis, and let the raw turns go out of
+scope.
+
+So if the OpenAI call errored, the tab was closed mid-generation, or the
+network dropped between the call ending and the write landing, no analysis
+could ever be produced for that interview again.
+
+What the user saw: `app/(root)/interview/[id]/feedback` rendered
+"AI Analysis in Progress" behind a spinner - on a server component, with no
+polling and nothing running. It never resolved. `components/profile/Overview.tsx`
+links *every* interview to that page with no guard on whether feedback exists
+(`score` is optional there and explicitly guarded at render), so the dead
+state was reachable from the profile.
+
+Fixed in three parts:
+
+- `0038_interview_transcript.sql` adds `interviews.transcript jsonb`.
+- `createFeedback()` writes the transcript *before* the model call, so
+  everything that can fail after that point is a retry rather than a loss.
+- `ensureInterviewFeedback()` produces the analysis from the stored transcript
+  when the page loads without one, and the page calls it. The fake spinner is
+  replaced by an honest state for the cases that genuinely cannot be analysed
+  (no transcript: abandoned sessions, and interviews taken before 0038).
+
+**MIGRATION 0038 NOT APPLIED.** Like every migration here it needs running by
+hand in the Supabase SQL editor. The code degrades safely without it - the
+transcript write and the `select transcript` are both wrapped, so an absent
+column means the honest "no analysis available" state rather than a crash -
+but no interview will gain a recoverable transcript until it is applied.
+
+**Not verified end to end.** Typecheck, lint and route compilation pass, but
+the authenticated path (finish an interview, kill generation, reload the
+feedback page) was not exercised - it needs a real session and a Vapi call.

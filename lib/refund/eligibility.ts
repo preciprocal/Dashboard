@@ -66,7 +66,7 @@ export async function buildUsageSnapshot(
   supabaseUserId: string,
   plan: string,
   periodStart: string,
-  opts: { isAdmin?: boolean; legacyQuotas?: boolean } = {},
+  opts: { isAdmin?: boolean } = {},
 ): Promise<{ snapshot: UsageSnapshot; maxUsagePct: number | null; maxUsageFeature: string | null }> {
   const { data: counterRow } = await supabaseAdmin
     .from('usage_counters')

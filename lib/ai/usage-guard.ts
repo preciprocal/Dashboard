@@ -70,7 +70,6 @@ interface SubscriptionRow {
   trial_ends_at: string | null;
   current_period_start: string | null;
   subscription_started_at: string | null;
-  legacy_quotas: boolean | null;
 }
 
 // Manually-granted trials (e.g. the student .edu offer) have no Stripe subscription
@@ -83,7 +82,7 @@ function isTrialExpired(sub: SubscriptionRow | null): boolean {
 async function getSubscription(supabaseUserId: string): Promise<SubscriptionRow | null> {
   const { data } = await supabaseAdmin
     .from('subscriptions')
-    .select('plan, status, trial_ends_at, current_period_start, subscription_started_at, legacy_quotas')
+    .select('plan, status, trial_ends_at, current_period_start, subscription_started_at')
     .eq('user_id', supabaseUserId)
     .maybeSingle();
   return data as SubscriptionRow | null;
@@ -225,7 +224,6 @@ export async function checkUsage(
 
     const plan   = isTrialExpired(sub) ? 'free' : resolvePlanKey(sub?.plan, {
       isAdmin: admin,
-      legacyQuotas: sub?.legacy_quotas === true,
     });
     const blocked = requirePhoneVerification(plan, profile, feature);
     if (blocked) return blocked;
@@ -334,7 +332,6 @@ export async function checkAndIncrementUsage(
 
     const plan   = trialExpired ? 'free' : resolvePlanKey(sub?.plan, {
       isAdmin: admin,
-      legacyQuotas: sub?.legacy_quotas === true,
     });
     const blocked = requirePhoneVerification(plan, profile, feature);
     if (blocked) return blocked;
