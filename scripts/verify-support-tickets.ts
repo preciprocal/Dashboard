@@ -217,16 +217,26 @@ async function main() {
 
   // ── 4. The user can see their own conversation ───────────────────────────
   //
-  // Independent of section 3 on purpose. Section 3 skips when the trigger is
-  // absent, and this check would then silently pass or fail on whatever that
-  // section happened to leave behind rather than on what it is testing.
+  // Its OWN ticket, built from scratch. This ran against bobTicket and broke
+  // twice for the same reason in two different ways: section 3 skips entirely
+  // when the trigger is missing, and once 0037 landed it started deleting
+  // every reply as part of testing the delete path. Either way this section
+  // was measuring section 3's leftovers rather than what it claims to test.
+  //
+  // A check that depends on the order of the sections above it is a check that
+  // will keep reporting failures nobody caused.
   console.log("\n[4] the user can read their own thread");
+  const threadTicket = await makeTicket(bob.id, "Bob thread visibility");
+
+  await asBob.from("support_ticket_replies").insert({
+    ticket_id: threadTicket, body: "My question.", author_user_id: bob.id, is_staff: false,
+  });
   await supabaseAdmin.from("support_ticket_replies").insert({
-    ticket_id: bobTicket, body: "Support answering here.", author_user_id: null, is_staff: true,
+    ticket_id: threadTicket, body: "Support answering here.", author_user_id: null, is_staff: true,
   });
 
   const { data: ownThread } = await asBob.from("support_ticket_replies")
-    .select("id, body, is_staff").eq("ticket_id", bobTicket).order("created_at");
+    .select("id, body, is_staff").eq("ticket_id", threadTicket).order("created_at");
   check("user sees their own replies", (ownThread ?? []).some((r) => !r.is_staff));
   check("user sees support replies", (ownThread ?? []).some((r) => r.is_staff));
 }
