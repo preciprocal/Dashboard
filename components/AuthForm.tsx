@@ -44,9 +44,14 @@ const AuthForm = ({ type }: { type: FormType }) => {
   // these and was silent too.
   useEffect(() => {
     const messages: Record<string, string> = {
+      // Kept in step with SIGNUP_BLOCKED_MESSAGE in lib/config/abuse-guard.ts.
+      // Both used to claim "one free account per person", which is not the
+      // enforced rule - the IP limit is 3, so that sentence showed up on the
+      // fourth attempt and contradicted what the reader had just watched
+      // happen.
       signup_limit:
-        "We've already got an account from this network in the last 30 days. " +
-        "Preciprocal allows one free account per person - email support@preciprocal.com if you share a connection with other users.",
+        "We've already seen several new accounts from this network in the last 30 days, so this one " +
+        "has been held back. If you share a connection, email support@preciprocal.com and we'll sort it out.",
       session_limit:
         "You were signed out because your account reached its device limit. Sign in again to continue on this device.",
       oauth_failed:

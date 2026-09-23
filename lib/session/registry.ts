@@ -62,10 +62,41 @@ export async function syncSession(ctx: SessionContext): Promise<SyncResult> {
     const now = new Date().toISOString();
 
     if (existing) {
+      // ── Geolocation is only overwritten when we actually have one ───────
+      //
+      // geoCountry/geoCity come from Vercel edge headers, which are absent off
+      // Vercel and on local requests. This used to write them unconditionally,
+      // so a session that recorded a good location at creation lost it on the
+      // first headerless heartbeat. checkDeviceSpread's location set then
+      // degraded toward empty and the geography half of the rule quietly
+      // stopped firing - the failure mode being that an abuse control appears
+      // to run while having nothing left to compare.
+      //
+      // ip is treated the same way for the same reason.
+      const patch: Record<string, unknown> = { last_seen_at: now };
+      if (ctx.ip)         patch.ip          = ctx.ip;
+      if (ctx.geoCountry) patch.geo_country = ctx.geoCountry;
+      if (ctx.geoCity)    patch.geo_city    = ctx.geoCity;
+
       await supabaseAdmin
         .from('user_sessions')
-        .update({ last_seen_at: now, ip: ctx.ip, geo_country: ctx.geoCountry, geo_city: ctx.geoCity })
+        .update(patch)
         .eq('session_id', ctx.sessionId);
+
+      // ── Re-evaluated on heartbeats too, not only at login ───────────────
+      //
+      // Both checks used to run on the new-session branch only, and this path
+      // returns before them. An account that crosses the device or location
+      // threshold through activity on already-registered sessions was not
+      // looked at again until someone logged in fresh - which a sharer has no
+      // reason to do.
+      //
+      // Only the spread check runs here. enforceSessionCap evicts the oldest
+      // session, and running that on every heartbeat would let two tabs take
+      // turns evicting each other; it belongs where a session is actually
+      // added.
+      await checkDeviceSpread(ctx.userId);
+
       return { revoked: false };
     }
 

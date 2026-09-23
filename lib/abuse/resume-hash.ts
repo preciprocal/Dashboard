@@ -99,8 +99,28 @@ export async function checkDuplicateResume(
     );
 
     const involved = [supabaseUserId, ...otherUserIds].filter(id => freeUserIds.has(id));
-    // Needs at least two free accounts sharing the content to mean anything.
-    if (involved.length < 2) return;
+
+    // ── The uploader alone is enough ──────────────────────────────────────
+    //
+    // This used to require involved.length >= 2, which sounds reasonable and
+    // misses the main case. If a Free account uploads a CV that a Pro or
+    // Premium account already holds, the paid account is filtered out above,
+    // `involved` is just the uploader, and the old check returned without
+    // flagging anybody - including the Free account, which is precisely the
+    // one the rule exists to catch.
+    //
+    // The realistic shape of the abuse is one paid account and a string of
+    // free ones, not a ring of free accounts, so the old threshold excluded
+    // the common case and kept the rare one.
+    //
+    // Flagging is log-only and never blocks, so the cost of widening it is a
+    // reviewable note on an account rather than anything the user experiences.
+    if (involved.length === 0) return;
+
+    // Recorded so a reviewer can tell "two free accounts share a CV" from "a
+    // free account is reusing a paying account's CV", which read the same in
+    // the flag payload otherwise.
+    const paidCounterparts = otherUserIds.filter(id => !freeUserIds.has(id));
 
     await Promise.all(
       involved.map(id =>
@@ -108,6 +128,11 @@ export async function checkDuplicateResume(
           contentHash,
           resumeId: id === supabaseUserId ? resumeId : undefined,
           sharedWith: involved.filter(other => other !== id),
+          // Empty for the free-ring case, populated when the CV also sits on a
+          // paying account. A reviewer needs to tell those apart: the second
+          // is often a shared template or a careers service rather than
+          // farming.
+          paidCounterparts,
           detectedAt: new Date().toISOString(),
         }),
       ),

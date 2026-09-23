@@ -40,10 +40,25 @@ export const MAX_SIGNUPS_PER_IP = 3;
 /** Rolling window for both counters. */
 export const SIGNUP_WINDOW_DAYS = 30;
 
+/**
+ * Shown when a signup is refused.
+ *
+ * It used to say "Preciprocal allows one free account per person", which is
+ * not the rule the code enforces. The IP limit is 3, so this sentence appeared
+ * on the FOURTH attempt from a network - by which point the reader has watched
+ * three accounts be created and is being told the limit is one. Stating a rule
+ * the system does not apply invites exactly the support email it is trying to
+ * pre-empt, and makes the refusal look arbitrary.
+ *
+ * The wording now describes what actually happened - a limit from this device
+ * or network - without claiming a per-person rule the product cannot detect.
+ * Shared wifi is named first, because on a campus that is the likeliest
+ * innocent explanation and the person reading this has done nothing wrong.
+ */
 export const SIGNUP_BLOCKED_MESSAGE =
-  "We've already got an account from this device or network in the last 30 days. " +
-  'Preciprocal allows one free account per person. If you share a computer or campus ' +
-  'wifi with other users, email support@preciprocal.com and we\'ll get you set up.';
+  "We've already seen several new accounts from this device or network in the last 30 days, " +
+  'so this one has been held back. If you share a computer or campus wifi, that is probably ' +
+  "why - email support@preciprocal.com and we'll get you set up.";
 
 // ─── Duplicate resume detection ──────────────────────────────────────────────
 

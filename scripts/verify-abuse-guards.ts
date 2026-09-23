@@ -212,21 +212,63 @@ async function checkFlagQueue() {
   eq('recurrence after resolve opens a new row', count, 2);
 }
 
+/**
+ * Refund claims are ONE PER BILLING PERIOD, not one per lifetime.
+ *
+ * This function used to test claim_refund_guarantee / release_refund_guarantee,
+ * a once-ever claim with an explicit release. Migration 0031 dropped both and
+ * replaced them with claim_period_refund, which relies on a unique index over
+ * (user_id, billing_period_start) instead - a user gets one refund request per
+ * period, and a denial does not free the slot because allowing a re-request
+ * would turn the review queue into a retry loop against a human decision.
+ *
+ * The code moved with the migration (see app/api/admin/review/route.ts, which
+ * notes release_refund_guarantee no longer exists). This script did not, so it
+ * had been failing four checks against functions that no longer exist - which
+ * is worse than not testing it at all, because a suite that always fails is
+ * one people stop reading.
+ */
 async function checkRefundGuarantee() {
-  console.log('\n── Refund guarantee claim / release ──');
+  console.log('\n── Period refund claim ──');
   const u = await makeUser('refund');
-  const { data: first }  = await db.rpc('claim_refund_guarantee', { p_user_id: u });
-  eq('first claim', first, true);
-  const { data: second } = await db.rpc('claim_refund_guarantee', { p_user_id: u });
-  eq('second claim blocked', second, false);
-  await db.rpc('release_refund_guarantee', { p_user_id: u });
-  const { data: third } = await db.rpc('claim_refund_guarantee', { p_user_id: u });
-  eq('claimable again after release', third, true);
 
-  // Non-existent user must not error - the routes probe with real ids, but a
-  // deleted account racing a request should return false, not throw.
-  const { data: nobody } = await db.rpc('claim_refund_guarantee', { p_user_id: NOBODY });
-  eq('unknown user returns false', nobody, false);
+  const periodStart = new Date(Date.now() - 10 * 86_400_000).toISOString();
+  const periodEnd   = new Date(Date.now() + 20 * 86_400_000).toISOString();
+
+  const claim = (start: string) => db.rpc('claim_period_refund', {
+    p_user_id:                u,
+    p_billing_period_start:   start,
+    p_billing_period_end:     periodEnd,
+    p_stripe_subscription_id: 'sub_verify_harness',
+    p_stripe_customer_id:     'cus_verify_harness',
+    p_usage_snapshot:         {},
+    p_max_usage_pct:          0,
+    p_status:                 'pending',
+    p_user_reason:            'verify-abuse-guards harness',
+  });
+
+  const { data: first } = await claim(periodStart);
+  eq('first claim in a period returns an id', typeof first === 'string', true);
+
+  // Same period again: the unique index must refuse it rather than opening a
+  // second request for the same money.
+  const { data: second } = await claim(periodStart);
+  eq('second claim in the same period is refused', second, null);
+
+  // A second index, refund_requests_open_key, allows only ONE OPEN request at
+  // a time regardless of period - so a new period is not claimable while the
+  // previous request is still pending. That is the stricter of the two rules
+  // and the one a user hits first.
+  const nextPeriod = new Date(Date.now() + 21 * 86_400_000).toISOString();
+  const { data: whileOpen } = await claim(nextPeriod);
+  eq('a new period is refused while a request is still open', whileOpen, null);
+
+  // Once the open one is decided, the next period is claimable.
+  await db.from('refund_requests').update({ status: 'denied' }).eq('user_id', u);
+  const { data: third } = await claim(nextPeriod);
+  eq('the next period is claimable once nothing is open', typeof third === 'string', true);
+
+  await db.from('refund_requests').delete().eq('user_id', u);
 }
 
 async function checkSeedCoverage() {
