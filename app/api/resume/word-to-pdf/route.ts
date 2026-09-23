@@ -89,7 +89,13 @@ export async function POST(request: NextRequest) {
 
     try {
       const page = await browser.newPage();
-      await page.setContent(fullHtml, { waitUntil: 'networkidle0' });
+      // See the note in app/api/resume/download/route.ts: Puppeteer narrowed
+      // setContent's waitUntil and networkidle0 no longer type-checks. 'load'
+      // covers subresources; fonts are awaited separately below, which this
+      // route was NOT doing before - a PDF rendered before the webfont
+      // resolved would silently fall back to a system font.
+      await page.setContent(fullHtml, { waitUntil: 'load' });
+      await page.evaluateHandle('document.fonts.ready');
 
       const pdfBuffer = await page.pdf({
         format:             'Letter',

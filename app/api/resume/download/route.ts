@@ -133,7 +133,14 @@ export async function POST(request: NextRequest) {
 <body>${htmlContent}</body>
 </html>`;
 
-        await pg.setContent(fullHtml, { waitUntil: 'networkidle0', timeout: 30000 });
+        // 'load' rather than 'networkidle0': Puppeteer narrowed setContent's
+        // waitUntil to load | domcontentloaded, and networkidle0 no longer
+        // type-checks here. No behaviour is lost for this page - 'load' fires
+        // once every subresource has finished, and the only thing that could
+        // still be outstanding is font rendering, which the next line awaits
+        // explicitly. networkidle0 was waiting for the same thing less
+        // precisely, by watching for 500ms of network silence.
+        await pg.setContent(fullHtml, { waitUntil: 'load', timeout: 30000 });
         await pg.evaluateHandle('document.fonts.ready');
 
         const contentH: number = await pg.evaluate(
