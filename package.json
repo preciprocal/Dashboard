@@ -17,7 +17,8 @@
     "verify:device-tiles": "tsx --tsconfig tsconfig.json scripts/verify-device-tiles.ts",
     "verify:mixed-split": "tsx --env-file=.env.local scripts/verify-mixed-split.ts",
     "verify:price-catalog": "tsx --env-file=.env.local scripts/verify-price-catalog.ts",
-    "verify:pack-refund": "tsx --env-file=.env.local scripts/verify-pack-refund.ts"
+    "verify:pack-refund": "tsx --env-file=.env.local scripts/verify-pack-refund.ts",
+    "verify:job-tracker-capacity": "tsx --env-file=.env.local scripts/verify-job-tracker-capacity.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",

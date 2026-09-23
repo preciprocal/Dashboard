@@ -209,16 +209,21 @@ export function purchasablePacks(): PackDefinition[] {
 }
 
 /**
- * Quota categories with no server-side metering. A pack must never grant credit
- * in one of these: the credits would be unspendable, because nothing decrements
- * them, and the buyer would have no way to tell.
+ * Quota categories a pack must never grant credit in, because the credits
+ * would be unspendable and the buyer would have no way to tell.
  *
- * jobTracker is here because checkAndIncrementUsage(_, 'jobTracker') is called
- * nowhere in the app. Its limit is enforced only by display logic in
- * app/(root)/job-tracker/page.tsx, and job_tracker_used is permanently 0.
+ * jobTracker is here for a different reason than it used to be. It IS enforced
+ * now - lib/ai/job-tracker-capacity.ts guards both write paths - but as a
+ * CAPACITY (how many rows may exist at once) rather than a rate (how many you
+ * may create this month).
  *
- * assertGrantsAreEnforceable() below turns this into a startup failure rather
- * than a silent one.
+ * Pack credits are the wrong shape for that. They are consumed one at a time
+ * through consume_pack_credit, which decrements a counter; a capacity has no
+ * counter to decrement. "+20 tracked jobs" would have to raise the cap
+ * permanently, which is a different mechanism nothing here implements.
+ *
+ * So the entry stays, and assertGrantsAreEnforceable() below still turns a
+ * mistaken grant into a startup failure rather than a silent one.
  */
 export const UNENFORCED_GRANT_CATEGORIES: readonly FeatureType[] = ["jobTracker"] as const;
 

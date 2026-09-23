@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
+import { checkJobTrackerCapacity } from '@/lib/ai/job-tracker-capacity';
 
 // ─── Types matching the page exactly ─────────────────────────────────────────
 
@@ -181,6 +182,19 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
       if (dup)
         return NextResponse.json({ success: true, duplicate: true, message: 'Already tracked recently' });
+    }
+
+    // Capacity check AFTER the duplicate check, deliberately. A re-submit of
+    // something already tracked adds no row, so refusing it for being at
+    // capacity would block a request that was never going to consume a slot.
+    const capacity = await checkJobTrackerCapacity(authedUser.userId);
+    if (!capacity.allowed) {
+      return NextResponse.json({
+        error: capacity.message,
+        code: 'JOB_TRACKER_FULL',
+        used: capacity.used,
+        limit: capacity.limit,
+      }, { status: 403 });
     }
 
     const now = new Date().toISOString();

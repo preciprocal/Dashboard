@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
+import { checkJobTrackerCapacity } from '@/lib/ai/job-tracker-capacity';
 
 export const runtime = 'nodejs';
 
@@ -128,6 +129,24 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ success: true, duplicate: true, message: 'Already tracked' });
         }
       }
+    }
+
+    // After both duplicate checks: a re-save of something already tracked
+    // consumes no slot, so it must not be refused for being at capacity.
+    //
+    // The 403 and JOB_TRACKER_FULL code matter more here than on the dashboard
+    // route. The extension retries failed saves from an offline queue, and a
+    // quota refusal is permanent - retrying it forever would spin against a
+    // wall. extension/background.js drops the item on this code specifically.
+    const capacity = await checkJobTrackerCapacity(authedUser.userId);
+    if (!capacity.allowed) {
+      console.log(`[track-job] tracker full for ${uid}: ${capacity.used}/${capacity.limit}`);
+      return NextResponse.json({
+        error: capacity.message,
+        code: 'JOB_TRACKER_FULL',
+        used: capacity.used,
+        limit: capacity.limit,
+      }, { status: 403 });
     }
 
     const { data: created, error } = await supabaseAdmin

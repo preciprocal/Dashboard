@@ -178,6 +178,45 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 });
 
 // ─────────────────────────────────────────────────────────────────
+/**
+ * Is this refusal one that retrying will never get past?
+ *
+ * The queue is for transient failures. Anything the server has DECIDED -
+ * you are at your tracker limit, this payload is malformed, this token is
+ * not yours - returns the same answer on every attempt, so keeping it
+ * queued burns a request per flush and delays the items behind it.
+ *
+ * 401 is deliberately NOT in here. A token can expire while items sit in
+ * the queue and be refreshed before the next flush, which is exactly the
+ * case the queue is for.
+ */
+function isPermanentRefusal(status, data) {
+  if (data && data.code === 'JOB_TRACKER_FULL') return true;
+  // 400 malformed, 403 refused, 413 too large, 422 unprocessable. A 5xx is a
+  // server problem and stays queued; 429 is rate limiting and will pass later.
+  return status === 400 || status === 403 || status === 413 || status === 422;
+}
+
+/**
+ * Tell the user once, rather than dropping their saved job silently.
+ *
+ * They pressed a button and believe it worked - the queue is invisible to
+ * them. Losing it without a word is the same failure as the silent redirect
+ * the interview panel used to do.
+ */
+function notifyQueueDrop(data) {
+  try {
+    chrome.notifications?.create({
+      type:    'basic',
+      iconUrl: 'icons/icon128.png',
+      title:   data && data.code === 'JOB_TRACKER_FULL' ? 'Job tracker is full' : "Couldn't save that job",
+      message: (data && data.error) || 'Open Preciprocal to see what happened.',
+    });
+  } catch (e) {
+    console.warn('[BG] notification failed:', e.message);
+  }
+}
+
 // Job application queue helpers
 // ─────────────────────────────────────────────────────────────────
 async function enqueueJobApplication(jobData) {
@@ -214,8 +253,23 @@ async function flushJobQueue(token, userId, email) {
           body: JSON.stringify(jobData),
         });
         const data = await res.json();
-        if (!data.success && !data.duplicate) failed.push(jobData);
-        else console.log('[BG] ✅ Flushed queued job:', jobData.jobTitle);
+
+        if (data.success || data.duplicate) {
+          console.log('[BG] ✅ Flushed queued job:', jobData.jobTitle);
+        } else if (isPermanentRefusal(res.status, data)) {
+          // Dropped, not retried. The queue exists for transient failures -
+          // offline, a dropped connection, a 500. A quota refusal is a
+          // decision, and retrying it every flush means this item spins
+          // against a wall forever while delaying everything behind it.
+          //
+          // Before this, the only test was `!data.success`, so a full tracker
+          // re-queued the same job on every flush for as long as the user
+          // stayed at their limit.
+          console.warn('[BG] ⛔ Dropping job, server refused permanently:', data.code || res.status, '-', jobData.jobTitle);
+          notifyQueueDrop(data);
+        } else {
+          failed.push(jobData);
+        }
       } catch {
         failed.push(jobData);
       }
