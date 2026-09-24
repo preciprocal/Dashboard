@@ -23,7 +23,6 @@ if (!url || !service || !anon) {
 
 const db = createClient(url, service, { auth: { autoRefreshToken: false, persistSession: false } });
 
-const NOBODY = '00000000-0000-0000-0000-000000000001';
 const TRIAL_END = new Date(Date.now() + 30 * 864e5).toISOString();
 
 let failures = 0;

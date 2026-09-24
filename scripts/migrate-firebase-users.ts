@@ -31,9 +31,23 @@
 import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
-import { auth as firebaseAuth } from '../firebase/admin';
+import { getFirebaseAuth } from '../firebase/admin';
 import { supabaseAdmin } from '../supabase/admin';
 import type { UserRecord } from 'firebase-admin/auth';
+
+// See the note in firebase/admin.ts: initialisation is lazy now, because the
+// module-scope version took production down when the credentials were pulled.
+// A migration script should still hard-fail without them, but here, where the
+// reason is legible, rather than on import.
+const firebaseAuth = (() => {
+  const a = getFirebaseAuth();
+  if (!a) throw new Error(
+    'Firebase is not configured. This migration reads Firebase Auth, so set ' +
+    'FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL and ' +
+    'FIREBASE_ADMIN_PRIVATE_KEY before running it.',
+  );
+  return a;
+})();
 
 const COMMIT = process.argv.includes('--commit');
 

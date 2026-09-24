@@ -15,7 +15,7 @@
 import { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { supabaseAdmin } from "@/supabase/admin";
-import { auth as firebaseAuth } from "@/firebase/admin";
+import { getFirebaseAuth } from "@/firebase/admin";
 
 export interface AuthedUser {
   supabaseUserId: string;
@@ -117,6 +117,13 @@ export async function getAuthedUser(request: NextRequest): Promise<AuthedUser | 
       console.log(`[ext-auth] path=supabase-token uid=${data.user.id} route=${request.nextUrl.pathname}`);
       return { supabaseUserId: data.user.id, userId: await resolveDataUserId(data.user.id), email: data.user.email ?? null };
     }
+    // Firebase is optional and being decommissioned. getFirebaseAuth() returns
+    // null when it is not configured, and that must mean "the legacy path is
+    // unavailable", not "the request fails" - this module is imported by every
+    // authenticated route and every page, so throwing here takes the site down.
+    const firebaseAuth = getFirebaseAuth();
+    if (!firebaseAuth) return null;
+
     try {
       const decoded = await firebaseAuth.verifyIdToken(extToken);
       const supabaseUserId = await resolveSupabaseUserId(decoded.uid);

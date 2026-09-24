@@ -6,7 +6,21 @@
 // Usage:
 //   npx tsx --env-file=.env.local scripts/backfill-linkedin-optimizations.ts               -> dry run
 //   npx tsx --env-file=.env.local scripts/backfill-linkedin-optimizations.ts -- --commit    -> write
-import { db } from "../firebase/admin";
+import { getFirebaseDb } from "../firebase/admin";
+
+// Lazy getter rather than a module-scope `db` export. The old export ran
+// cert() on import, and a missing credential threw before any script could
+// print a useful message. Scripts SHOULD hard-fail without Firebase, hence
+// the throw, but it happens here where the reason is legible.
+const db = (() => {
+  const d = getFirebaseDb();
+  if (!d) throw new Error(
+    "Firebase is not configured. This backfill reads Firestore, so set " +
+    "FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL and " +
+    "FIREBASE_ADMIN_PRIVATE_KEY before running it.",
+  );
+  return d;
+})();
 import { supabaseAdmin } from "../supabase/admin";
 
 const COMMIT = process.argv.includes("--commit");
