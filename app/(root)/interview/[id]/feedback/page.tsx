@@ -4,6 +4,7 @@ import {
   ensureInterviewFeedback,
 } from "@/lib/actions/general.action";
 import { getCurrentUser } from "@/lib/actions/auth.action";
+import { toSupabaseUserId } from "@/lib/auth/verify-request";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -66,8 +67,25 @@ export default async function InterviewFeedbackPage({ params }: Props) {
     notFound();
   }
 
-  if (interview.userId !== user.id) {
-    redirect("/");
+  // ─── Ownership ────────────────────────────────────────────────────────────
+  // These two ids are NOT in the same namespace, which is what broke this.
+  //
+  //   interview.userId  comes straight off interviews.user_id - a Supabase
+  //                     auth uuid (see toInterview in general.action.ts)
+  //   user.id           comes from getCurrentUser, which runs
+  //                     resolveDataUserId - the LEGACY Firebase uid for any
+  //                     account migrated from Firebase
+  //
+  // So for every migrated user the comparison was guaranteed false and the
+  // page bounced them to the dashboard, even for their own interview.
+  // getFeedbackByInterviewId below already converts; this check did not.
+  //
+  // notFound() rather than redirect("/"): a silent bounce to the dashboard is
+  // exactly why this went unnoticed, and 404 is the correct answer for a
+  // resource that is not yours - it does not confirm the id exists.
+  const viewerId = await toSupabaseUserId(user.id);
+  if (interview.userId !== viewerId) {
+    notFound();
   }
 
   let feedback = await getFeedbackByInterviewId({

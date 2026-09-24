@@ -9,7 +9,9 @@ import {
   getInterviewById,
   getFeedbackByInterviewId,
 } from "@/lib/actions/general.action";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/actions/auth.action";
+import { toSupabaseUserId } from "@/lib/auth/verify-request";
 import Link from "next/link";
 import { ArrowRight, Sparkles, Lock } from "lucide-react";
 import { ScoreCardVisual } from "@/components/ShareScoreCard";
@@ -56,6 +58,22 @@ export default async function InterviewResultsPage({ params }: Props) {
   } | null;
 
   if (!interview) notFound();
+
+  // ─── Ownership ────────────────────────────────────────────────────────────
+  // This page had NO access check. It fetched the feedback using the
+  // interview's OWN userId, so the lookup always succeeded regardless of who
+  // was asking - anyone holding an interview id could read another person's
+  // scores, transcript-derived strengths and weaknesses.
+  //
+  // The id namespaces differ and that is easy to get wrong: interview.userId
+  // is a Supabase auth uuid off interviews.user_id, while getCurrentUser()
+  // returns resolveDataUserId, which is the legacy Firebase uid for migrated
+  // accounts. Compare converted values, never the raw ones.
+  const user = await getCurrentUser();
+  if (!user?.id) redirect("/sign-in");
+
+  const viewerId = await toSupabaseUserId(user.id);
+  if (interview.userId !== viewerId) notFound();
 
   const feedback = await getFeedbackByInterviewId({
     interviewId: id,
