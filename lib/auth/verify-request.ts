@@ -3,7 +3,7 @@
 // Supabase-backed auth system (Phase 2 of the migration - see
 // C:\Users\yashv\.claude\plans\lovely-exploring-turing.md). Replaces the
 // ~40 duplicated per-route `verifyToken`/session-cookie checks that used
-// firebase/admin's `auth.verifyIdToken`/`verifySessionCookie`.
+// the pre-migration per-route Firebase token checks.
 //
 // IMPORTANT: `userId` below is NOT the raw Supabase auth uuid. Firestore
 // (Phase 3 of the migration, not done yet) still keys every document by the
@@ -15,7 +15,6 @@
 import { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { supabaseAdmin } from "@/supabase/admin";
-import { getFirebaseAuth } from "@/firebase/admin";
 
 export interface AuthedUser {
   supabaseUserId: string;
@@ -32,21 +31,7 @@ export async function resolveDataUserId(supabaseUserId: string): Promise<string>
   return (data?.firebase_uid as string | undefined) ?? supabaseUserId;
 }
 
-// Reverse of resolveDataUserId: given a legacy Firebase uid, find the real
-// Supabase auth UUID it was migrated to. `supabaseUserId` must always be a
-// genuine Supabase auth.users id (Postgres tables FK/filter on it) - it must
-// never be a Firebase uid, even when the caller authenticated with a
-// legacy Firebase token.
-async function resolveSupabaseUserId(firebaseUid: string): Promise<string | null> {
-  const { data } = await supabaseAdmin
-    .from("legacy_user_id_map")
-    .select("user_id")
-    .eq("firebase_uid", firebaseUid)
-    .maybeSingle();
-  return (data?.user_id as string | undefined) ?? null;
-}
-
-// Like resolveSupabaseUserId, but for call sites (Server Actions, etc.) that
+// For call sites (Server Actions, etc.) that
 // receive a `userId` value which is ALREADY ambiguous between "legacy
 // Firebase uid" and "native Supabase uuid" (e.g. general.action.ts's params,
 // which callers populate from getCurrentUser().id - see resolveDataUserId's
@@ -97,46 +82,21 @@ export async function getAuthedUser(request: NextRequest): Promise<AuthedUser | 
     }
   }
 
-  // Chrome extension bridge. The currently-installed extension sends a
-  // Firebase ID token here (it predates the Supabase migration and reads
-  // Firebase's own browser session, which no longer exists once the web
-  // app stops using Firebase Auth). Accept both shapes during the
-  // migration's grace window: a Firebase ID token (legacy, verified
-  // directly - already IS the Firestore-compatible userId, no mapping
-  // needed) and a Supabase access token (once the extension is rewritten
-  // to be backend-agnostic, per Phase 2b of the migration plan). Never
-  // fall back to trusting an unverified x-user-id/x-user-email header.
+  // Chrome extension bridge. Supabase access tokens only.
+  //
+  // This used to also accept a Firebase ID token, from extension builds that
+  // predated the Supabase migration. That path is gone along with the rest of
+  // Firebase: the project is decommissioned, so the tokens could not be
+  // verified even if one arrived, and keeping the branch meant importing
+  // firebase-admin here. That import is what took production down - see
+  // firebase/admin.ts in the commit that removed it.
+  //
+  // Never fall back to trusting an unverified x-user-id/x-user-email header.
   const extToken = request.headers.get("x-extension-token");
   if (extToken) {
     const { data, error } = await supabaseAdmin.auth.getUser(extToken);
     if (!error && data.user) {
-      // Telemetry for the Phase 2b dual-auth grace window: once this line
-      // stops appearing next to "path=firebase-token" in the logs (i.e.
-      // Firebase-token traffic has trailed to zero), it's safe to drop
-      // Firebase-token acceptance below and retire firebase-admin here.
-      console.log(`[ext-auth] path=supabase-token uid=${data.user.id} route=${request.nextUrl.pathname}`);
       return { supabaseUserId: data.user.id, userId: await resolveDataUserId(data.user.id), email: data.user.email ?? null };
-    }
-    // Firebase is optional and being decommissioned. getFirebaseAuth() returns
-    // null when it is not configured, and that must mean "the legacy path is
-    // unavailable", not "the request fails" - this module is imported by every
-    // authenticated route and every page, so throwing here takes the site down.
-    const firebaseAuth = getFirebaseAuth();
-    if (!firebaseAuth) return null;
-
-    try {
-      const decoded = await firebaseAuth.verifyIdToken(extToken);
-      const supabaseUserId = await resolveSupabaseUserId(decoded.uid);
-      if (supabaseUserId) {
-        console.log(`[ext-auth] path=firebase-token uid=${decoded.uid} route=${request.nextUrl.pathname}`);
-        return { supabaseUserId, userId: decoded.uid, email: decoded.email ?? null };
-      }
-      // No migration mapping exists for this Firebase uid (e.g. an account
-      // created after the bulk import ran) - nothing trustworthy to hand
-      // back as supabaseUserId, so treat this as unauthenticated rather
-      // than returning a non-UUID value that would corrupt a Postgres write.
-    } catch {
-      // fall through
     }
   }
 
