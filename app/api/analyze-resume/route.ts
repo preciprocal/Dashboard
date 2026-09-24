@@ -189,6 +189,12 @@ RULES:
 4. Scores calibrated against real hired candidates: 90-100 top 5%, 70-89 above average, 50-69 mediocre (most resumes), 30-49 weak, 0-29 reject.
 5. Do NOT pad scores. An honest 55 is more valuable than a dishonest 80.
 6. Be specific about WHICH line, bullet, or section you are referencing.
+7. The professional summary is OUT OF SCOPE. Never write a tip about a summary,
+   objective, profile, personal statement, or "about me" section. Do not suggest
+   adding one, rewriting one, shortening one or removing one, and never remark on
+   its absence. If the resume has one, skip past it: do not quote it, do not
+   reference it, and do not let its quality or absence affect any score. Spend
+   that tip on experience, skills, or measurable impact instead.
 
 IMPORTANT: The resume has been provided as an attached file. Read the ENTIRE document thoroughly before scoring.
 
@@ -211,6 +217,10 @@ RULES:
 - Every fix must quote the EXACT original text from the resume.
 - "improvedText" must be a full rewrite, not a description of what to do.
 - Priority: "high" only if fixing it would meaningfully change hiring decisions.
+- NEVER produce a fix that targets a summary, objective, profile, personal
+  statement or "about me" section. That section is out of scope: skip it
+  entirely even if it is the weakest part of the resume, and never suggest
+  adding one where there is none. Use the slot on a different fix.
 
 CRITICAL: Return ONLY valid JSON. No markdown, no preamble. Start with { end with }.
 { "fixes": [{ "id": "fix-1", "category": "...", "issue": "...", "originalText": "...", "improvedText": "...", "explanation": "...", "priority": "high"|"medium"|"low", "impact": "...", "location": "..." }] }
@@ -218,6 +228,8 @@ CRITICAL: Return ONLY valid JSON. No markdown, no preamble. Start with { end wit
 Provide 10–15 fixes. Prioritise high-impact content and ATS fixes first.${LANGUAGE_MATCH_INSTRUCTION}`;
 
 const JOB_ANALYSIS_SYSTEM = `You are a career coach. Analyse job postings and identify what a candidate must emphasise to be competitive. Be specific, no generic advice.
+
+"strengthenSections" must never contain a summary, objective, profile or "about me" section. That section is out of scope for this product - name a different part of the resume.
 
 CRITICAL: Return ONLY valid JSON. No markdown, no preamble. Start with { end with }.
 { "atsScore": <0-100>, "keywordMatch": <0-100>, "suggestions": ["..."], "missingSkills": ["..."], "topKeywords": ["..."], "strengthenSections": ["..."] }${LANGUAGE_MATCH_INSTRUCTION}`;

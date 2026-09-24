@@ -12,6 +12,7 @@ import { evaluateEduEmail } from "@/lib/config/student-domains";
 import { OTP_TTL_MINUTES } from "@/lib/config/student-perk";
 import { z } from "zod";
 import { Resend } from "resend";
+import { renderEmail, renderText } from "@/lib/email/layout";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -40,20 +41,46 @@ function getClientIp(req: NextRequest): string | null {
 }
 
 async function sendVerificationEmail(to: string, code: string) {
+  // The code is rendered as its own oversized block rather than a panel row:
+  // it is the entire purpose of the email, and people copy it at a glance.
+  const codeBlock =
+    `<div class="t-fg" style="font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;` +
+    `font-size:34px;font-weight:700;letter-spacing:10px;line-height:1.2;color:#ffffff;">${code}</div>`;
+
+  const html = renderEmail({
+    preheader: `Your verification code is ${code}`,
+    eyebrow: "Student verification",
+    heading: "Here is your code",
+    paragraphs: [
+      "Enter this code in Preciprocal to claim your free month of Pro.",
+    ],
+    panel: {
+      title: "Verification code",
+      rows: [
+        { label: "Code", value: codeBlock },
+        { label: "Expires", value: `${OTP_TTL_MINUTES} minutes from now` },
+      ],
+    },
+    signoff: "The Preciprocal team",
+    footerNote:
+      "You are receiving this because someone entered this address to verify student status on Preciprocal. " +
+      "If that was not you, ignore this email and nothing will happen.",
+  });
+
+  const text = renderText({
+    heading: "Here is your code",
+    paragraphs: ["Enter this code in Preciprocal to claim your free month of Pro."],
+    panel: { title: "Verification code", lines: [code, `Expires in ${OTP_TTL_MINUTES} minutes`] },
+    signoff: "The Preciprocal team",
+    footerNote: "If you did not request this, ignore this email and nothing will happen.",
+  });
+
   await resend.emails.send({
-    from:    "Preciprocal <noreply@preciprocal.com>",
+    from: "Preciprocal <noreply@preciprocal.com>",
     to,
-    subject: "Your student verification code",
-    html: `
-      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;">
-        <h2 style="margin:0 0 8px;color:#1e1e2e;">Preciprocal student verification</h2>
-        <p style="color:#64748b;margin:0 0 24px;">Enter this code to claim your free month of Pro.</p>
-        <div style="background:#f1f5f9;border-radius:12px;padding:24px;text-align:center;margin:0 0 24px;">
-          <span style="font-size:36px;font-weight:700;letter-spacing:8px;color:#1e1e2e;">${code}</span>
-        </div>
-        <p style="color:#94a3b8;font-size:13px;margin:0;">This code expires in ${OTP_TTL_MINUTES} minutes. If you didn't request this, ignore this email.</p>
-      </div>
-    `,
+    subject: `${code} is your Preciprocal verification code`,
+    html,
+    text,
   });
 }
 

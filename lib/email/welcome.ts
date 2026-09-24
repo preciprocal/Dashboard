@@ -3,10 +3,12 @@
 // (app/auth/confirm/route.ts) or immediately for OAuth signups, whose address
 // Google has already verified (lib/actions/auth.action.ts).
 //
-// Written as a note from a person on the team rather than a marketing blast:
-// named sender, working reply-to, restrained markup. Replies land in a human
-// inbox, which is the point - it's the cheapest onboarding feedback channel
-// there is.
+// The copy is written to land emotionally rather than to read as a feature
+// list: it names the silence a job seeker is living with, then shows what
+// changes. What survived from the earlier, deliberately understated version is
+// the part that matters - a named sender, a working reply-to, and no claim we
+// cannot back. Replies land in a human inbox, which is still the cheapest
+// onboarding feedback channel there is.
 //
 // SENDER_NAME is a team persona, not a specific individual, so the copy
 // deliberately makes no claim about who is behind it beyond "someone here
@@ -15,6 +17,7 @@
 import { Resend } from "resend";
 import { SITE } from "@/lib/seo";
 import { supabaseAdmin } from "@/supabase/admin";
+import { renderEmail, renderText, escapeHtml, firstName } from "@/lib/email/layout";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -33,337 +36,175 @@ const APP_URL = (() => {
   return configured.replace(/\/$/, "");
 })();
 
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-/** "Bruce Wayne" -> "Bruce". Falls back to a greeting that still reads naturally. */
-function firstName(name: string | null | undefined) {
-  const first = (name ?? "").trim().split(/\s+/)[0];
-  return first.length > 0 && first.length <= 40 ? first : "there";
-}
-
 interface WelcomeEmailParams {
   userId: string;
   email: string;
   name?: string | null;
 }
 
-// `short` feeds the three-column HTML grid, where each column is only ~170px
-// wide; `body` is the full sentence, used in the plain-text part where there's
-// no such constraint.
+// Each entry leads with the PAIN, not the feature name. "Resume Analysis"
+// tells a new user nothing; "most applications are filtered before a person
+// sees them" tells them why they should care, and the feature arrives as the
+// answer to a question they are already asking themselves.
+//
+// ─── On naming competitors ──────────────────────────────────────────────────
+// Comparative advertising is legal and the FTC actively encourages it, but the
+// claim has to be TRUTHFUL and SUBSTANTIABLE. "Nobody else can do this" is the
+// one phrasing that is genuinely actionable, because it is unfalsifiable and
+// disparaging at the same time.
+//
+// So the copy below makes a STRUCTURAL claim instead, which is both defensible
+// and more persuasive: a scoring tool never learns what happened to the resume
+// after you sent it, because it never sees the application. That is a fact
+// about what data those products hold, not an opinion about their quality, and
+// it is the actual reason our feedback differs.
+//
+// Keep it that way. If this ever drifts back to "better than X", it becomes a
+// claim we would have to defend with evidence we do not have.
 const STARTERS = [
   {
+    icon: "01",
     href: `${APP_URL}/resume/upload`,
-    title: "Resume Analysis",
-    short: "ATS score, missing keywords, and how a recruiter reads your page.",
-    body: "You'll get an ATS score, the keywords you're missing for the roles you want, and a read on how a recruiter actually sees the page.",
+    title: "Find out why it is being filtered out",
+    short:
+      "Most applications are rejected before a person ever opens them. Upload the resume you have been sending and you will see your ATS score, the exact keywords you are missing for the roles you want, and how it reads in the few seconds a recruiter gives it.",
+    cta: "Analyse my resume",
   },
   {
+    icon: "02",
     href: `${APP_URL}/interview`,
-    title: "Mock Interviews",
-    short: "Real voice, real follow-ups, scored feedback at the end.",
-    body: "Real voice, real follow-up questions, and scored feedback at the end on what landed and what didn't.",
+    title: "Say it out loud before it counts",
+    short:
+      "The first time you answer \"tell me about yourself\" should not be in the interview that matters. Practise against a voice that interrupts, follows up and pushes back, then read the scored feedback on what landed and what did not.",
+    cta: "Start a mock interview",
   },
   {
-    href: `${APP_URL}/planner/create`,
-    title: "Study Plans",
-    short: "Your role and timeline, mapped to what to work on next.",
-    body: "Tell it the role and your timeline, and it maps out what to work on between now and the interview.",
+    icon: "03",
+    href: `${APP_URL}/cover-letter/create`,
+    title: "Stop rewriting the same letter twelve times",
+    short:
+      "Paste the job description, get a letter written for that specific role in about ten seconds. The hours you get back go into the applications actually worth tailoring.",
+    cta: "Write a cover letter",
+  },
+  {
+    icon: "04",
+    href: `${APP_URL}/job-tracker`,
+    title: "Learn which version is actually working",
+    short:
+      "This is the part tools like Resume Worded and Jobright structurally cannot do. They score the document and stop there, because they never see what happened after you hit send. Preciprocal tracks the resume alongside the application, so after a handful of applications you find out which version is getting callbacks and which one has been quietly costing you interviews.",
+    cta: "Open my tracker",
   },
 ];
 
-// Plain white, borderless, full width. No cards, no tinted page background,
-// no rules except the one above the footer. The copy carries the email, so the
-// type is sized to be read rather than skimmed: 17px at 29px leading, and a
-// body colour dark enough (slate-600) to hold attention rather than reading as
-// a caption.
-const C = {
-  // Brand gradient (--accent #667eea / --accent-2 #764ba2) darkened by roughly
-  // 15%. At the original values white body text lands near 3.3:1 against the
-  // light end, under the 4.5:1 needed to read comfortably; these stops clear it
-  // at both ends while staying recognisably the same purple.
-  grad1: "#5a4fd0",
-  grad2: "#6b3f96",
-  gradSolid: "#62479f", // midpoint, used wherever gradients aren't supported
-  heading: "#ffffff",
-  body: "#f0edfc",
-  muted: "#c3bbe4",
-  hairline: "#7d6fb8",
-  onAccent: "#4a3fb0", // purple text sitting on a white chip or button
-} as const;
-
-const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
-
-// Email artwork is served from the public `email-assets` Supabase Storage
-// bucket rather than from public/ in this repo. Two reasons: the artwork goes
-// live without waiting on a deploy, and it can be swapped later without
-// shipping code. Set WELCOME_EMAIL_ASSET_BASE to `https://app.preciprocal.com`
-// to serve the committed copies from the app domain instead.
+// ─── Rendering ───────────────────────────────────────────────────────────────
 //
-// There is no failover between the two. HTML email has no image fallback
-// mechanism: clients strip onerror, and srcset/<picture> select on resolution,
-// not on failure. An <img> resolves exactly one URL, so this is a switch, not
-// a chain.
+// The shared dark shell (lib/email/layout.ts) carrying copy written to land
+// emotionally: name the silence a job seeker is living with, then show what
+// changes. Numbered badges rather than image icons - see PanelRow.icon in the
+// layout for why an image-based icon set is the wrong call in email.
+
+// ─── The subject line is "Congratulations!", and that is a deliberate hook ──
 //
-// Filenames are versioned by size because objects are uploaded with
-// `immutable` cache-control - overwriting a key leaves the CDN serving the old
-// bytes indefinitely. Changing artwork means a new filename.
-const ASSET_BASE =
-  process.env.WELCOME_EMAIL_ASSET_BASE ??
-  `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/email-assets`;
+// It is the exact subject a job seeker is waiting for from an employer, which
+// is why it gets opened. It is also why the FIRST line has to own the twist
+// rather than dance around it: an email that mimics the thing someone is
+// desperate for and then pretends otherwise earns resentment, not attention.
+//
+// The preheader does the same work in the inbox, before the open. Between the
+// two, the reader is never actually misled - they are told the joke is on the
+// situation, not on them, and that recognition is the emotional hook.
+//
+// If this ever starts drawing spam complaints, the subject is the first thing
+// to change. See the note in buildWelcomeEmail.
+const OPENING = [
+  "Almost certainly not. You have been waiting for that subject line from a company you applied to, and so far it has not arrived.",
+  "That is exactly why you are here, and exactly what Preciprocal is built to change.",
+  "The hardest part of a job search is not rejection. A rejection at least tells you something. It is the silence, because silence teaches you nothing at all, and you cannot fix what nobody will tell you is broken.",
+  "So this is not about firing off more applications faster. It is about finally knowing what happens to the ones you send.",
+];
 
-/** 128x128 transparent PNG, 5.5KB. Displayed at 40px, so well over 2x. */
-const LOGO_URL = `${ASSET_BASE}/logo-128.png`;
-/** 1040x796 JPEG, 219KB. Sits in the left column of the hero at ~480px. */
-const HERO_URL = `${ASSET_BASE}/email-banner.jpg`;
+const CLOSING =
+  "You do not need all of it today. Do one thing: upload the resume you have been sending out. Ten minutes from now you will understand more about why it is not landing than the last three months of applying have told you.";
 
-// Every gradient carries a matching background-color: Outlook on Windows uses
-// the Word engine, which ignores background-image entirely and would otherwise
-// render these as transparent.
-const GRADIENT = (deg: string) =>
-  `background-color:${C.gradSolid};background-image:linear-gradient(${deg},${C.grad1} 0%,${C.grad2} 100%);`;
+const SIGNATURE = {
+  name: SENDER_NAME,
+  title: `Customer Success, ${SITE.name}`,
+  email: REPLY_TO,
+  // Reads as a commitment rather than a casual aside, but stays a promise we
+  // can actually keep: REPLY_TO is a monitored human inbox, not a no-reply.
+  // The moment that stops being true this line has to go, because it is the
+  // single most trust-bearing sentence in the email.
+  note:
+    "Every reply to this address reaches me directly. If anything is unclear, " +
+    "or the product does not work the way you expect, please write back and I " +
+    "will look into it personally.",
+};
 
 function buildHtml(name: string) {
-  const greeting = escapeHtml(firstName(name));
-
-  // Gradient numbered tiles rather than icon images: remote images are blocked
-  // by default in Gmail and Outlook, and inline SVG is stripped by both, so
-  // icons would be broken boxes for a large share of recipients. Table cells
-  // with a background gradient always render.
-  const features = STARTERS.map(
-    (item, i) => `
-                <td width="33%" valign="top" class="col${i === 2 ? " col-last" : ""}" style="padding:0 ${i === 2 ? "0" : "28px"} 0 0;font-family:${FONT};">
-                  <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="padding:0 0 16px;">
-                    <tr>
-                      <td align="center" height="44" bgcolor="#ffffff" style="width:44px;height:44px;border-radius:12px;background-color:#ffffff;font-family:${FONT};font-size:17px;font-weight:700;color:${C.onAccent};line-height:44px;">${i + 1}</td>
-                    </tr>
-                  </table>
-                  <a href="${item.href}" style="display:block;font-size:18px;font-weight:700;line-height:25px;color:${C.heading};text-decoration:none;padding:0 0 8px;">${item.title}</a>
-                  <span style="font-size:16px;line-height:26px;color:${C.body};">${item.short}</span>
-                </td>`
-  ).join("");
-
-  return `<!DOCTYPE html>
-<html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="color-scheme" content="light">
-  <meta name="supported-color-schemes" content="light">
-  <title>Welcome to Preciprocal</title>
-  <style>
-    :root{color-scheme:light;supported-color-schemes:light;}
-    /* Honoured by Apple Mail, iOS, Gmail (web and app) and most modern clients.
-       Outlook for Windows ignores <style> and falls back to the fixed table
-       widths in the markup, which is correct there - it has no narrow viewport. */
-    @media only screen and (max-width:700px) {
-      .wrap      { padding:28px 22px !important; }
-      .h1        { font-size:30px !important; line-height:38px !important; }
-      .h2        { font-size:23px !important; line-height:31px !important; }
-      .lede      { font-size:17px !important; line-height:28px !important; }
-      /* Table cells cannot wrap, so each half/third is promoted to a block. */
-      .half, .col { display:block !important; width:100% !important; max-width:100% !important; padding:0 0 26px 0 !important; }
-      .col-last  { padding-bottom:0 !important; }
-      .gutter    { display:none !important; width:0 !important; }
-      .heroimg   { margin-bottom:26px !important; }
-      .btn a     { display:block !important; text-align:center !important; }
-    }
-  </style>
-  <!--[if mso]>
-  <xml><o:OfficeDocumentSettings><o:AllowPNG/><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml>
-  <![endif]-->
-</head>
-<body style="margin:0;padding:0;background-color:${C.gradSolid};">
-  <!--[if mso]>
-  <v:background xmlns:v="urn:schemas-microsoft-com:vml" fill="t">
-    <v:fill type="gradient" color="${C.grad1}" color2="${C.grad2}" angle="180"/>
-  </v:background>
-  <![endif]-->
-  <div style="display:none;max-height:0;overflow:hidden;opacity:0;">The market is brutal right now. Here is the order that actually works.</div>
-  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:${C.gradSolid};background-image:linear-gradient(165deg,${C.grad1} 0%,${C.grad2} 100%);">
-    <tr>
-      <td align="center" style="padding:0;">
-        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:1100px;width:100%;">
-          <tr>
-            <td class="wrap" style="padding:44px 40px;font-family:${FONT};">
-
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="padding:0 0 38px;">
-                <tr>
-                  <td width="40" valign="middle" style="padding:0 12px 0 0;">
-                    <img src="${LOGO_URL}" width="40" height="40" alt="" style="display:block;width:40px;height:40px;border:0;outline:none;">
-                  </td>
-                  <td valign="middle" style="font-family:${FONT};font-size:18px;font-weight:700;letter-spacing:-0.2px;color:${C.heading};">Preciprocal</td>
-                </tr>
-              </table>
-
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-                <tr>
-                  <td width="46%" valign="middle" class="half heroimg" style="padding:0;">
-                    <a href="${APP_URL}" style="display:block;text-decoration:none;font-size:0;line-height:0;">
-                      <img src="${HERO_URL}" width="480" height="367" alt="Preciprocal feature overview" style="display:block;width:100%;max-width:520px;height:auto;border:0;outline:none;border-radius:12px;color:${C.body};font-family:${FONT};font-size:14px;line-height:22px;">
-                    </a>
-                  </td>
-                  <td width="6%" class="gutter" style="font-size:0;line-height:0;">&nbsp;</td>
-                  <td width="48%" valign="middle" class="half" style="padding:0;font-family:${FONT};">
-                    <h1 class="h1" style="margin:0 0 20px;font-size:38px;line-height:46px;font-weight:800;letter-spacing:-1px;color:${C.heading};">
-                      Welcome to Preciprocal
-                    </h1>
-                    <p class="lede" style="margin:0 0 18px;font-size:19px;line-height:31px;color:${C.body};">
-                      Hi ${greeting}, let me be straight with you about why this exists.
-                    </p>
-                    <p class="lede" style="margin:0;font-size:19px;line-height:31px;color:${C.body};">
-                      The market right now is brutal, and it is not in your head.
-                    </p>
-                  </td>
-                </tr>
-              </table>
-
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:40px 0 0;">
-                <tr>
-                  <td style="font-family:${FONT};">
-                    <p style="margin:0 0 22px;font-size:17px;line-height:29px;color:${C.body};">
-                      Postings collect hundreds of applicants within hours. Most resumes are scored by software
-                      before a person opens them. Plenty of genuinely qualified people go months without a
-                      callback and start assuming something is wrong with them. Usually there is not. The
-                      process is just badly broken.
-                    </p>
-                    <p style="margin:0 0 44px;font-size:17px;line-height:29px;color:${C.body};">
-                      What actually changes the outcome is narrower than most people expect, and it is the same
-                      pattern almost every time.
-                    </p>
-                  </td>
-                </tr>
-              </table>
-
-              <h2 class="h2" style="margin:0 0 14px;font-size:27px;line-height:35px;font-weight:800;letter-spacing:-0.5px;color:${C.heading};">
-                The three steps, in order
-              </h2>
-              <p style="margin:0 0 38px;font-size:17px;line-height:29px;color:${C.body};">
-                The people who get traction here work through these in sequence rather than all at once.
-                The order matters more than the effort.
-              </p>
-
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-                <tr>${features}
-                </tr>
-              </table>
-
-              <p style="margin:44px 0 36px;font-size:17px;line-height:29px;color:${C.body};">
-                <strong style="color:#ffffff;font-weight:700;">Start with the resume.</strong>
-                If it is not clearing the filter, nothing after it gets a chance to matter. That one usually
-                takes about ten minutes and changes the most.
-              </p>
-
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 44px;">
-                <tr>
-                  <td>
-                    <!--[if mso]>
-                    <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${APP_URL}" style="height:54px;v-text-anchor:middle;width:250px;" arcsize="19%" stroke="f" fillcolor="#ffffff">
-                      <w:anchorlock/>
-                      <center style="color:${C.onAccent};font-family:${FONT};font-size:17px;font-weight:700;">Open Preciprocal</center>
-                    </v:roundrect>
-                    <![endif]-->
-                    <!--[if !mso]><!-- -->
-                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-                      <tr>
-                        <td align="center" bgcolor="#ffffff" class="btn" style="border-radius:10px;background-color:#ffffff;">
-                          <a href="${APP_URL}" style="display:inline-block;padding:17px 40px;font-family:${FONT};font-size:17px;font-weight:700;color:${C.onAccent};text-decoration:none;border-radius:10px;">Open Preciprocal</a>
-                        </td>
-                      </tr>
-                    </table>
-                    <!--<![endif]-->
-                  </td>
-                </tr>
-              </table>
-
-              <p style="margin:0 0 22px;font-size:17px;line-height:29px;color:${C.body};">
-                One more thing. This goes to a real person, not a noreply box. If you are stuck, or the search
-                is wearing you down, reply and tell me where you are at. I read every one, and I would rather
-                hear from you early than after three more months of silence.
-              </p>
-
-              <p style="margin:0 0 30px;font-size:17px;line-height:29px;color:${C.body};">
-                You are closer than it feels right now.
-              </p>
-
-              <p style="margin:0 0 3px;font-size:17px;font-weight:700;line-height:25px;color:${C.heading};">${SENDER_NAME}</p>
-              <p style="margin:0 0 44px;font-size:15px;line-height:23px;color:${C.muted};">Preciprocal</p>
-
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-                <tr><td height="1" style="height:1px;line-height:1px;font-size:0;background-color:${C.hairline};">&nbsp;</td></tr>
-              </table>
-
-              <p style="margin:26px 0 8px;font-size:13px;line-height:21px;color:${C.muted};">
-                You are getting this because you created a Preciprocal account.
-              </p>
-              <p style="margin:0;font-size:13px;line-height:21px;color:${C.muted};">
-                <a href="${SITE.marketing}" style="color:#ffffff;text-decoration:underline;">Preciprocal</a>
-                &nbsp;&middot;&nbsp;
-                <a href="${SITE.marketing}/privacy" style="color:#ffffff;text-decoration:underline;">Privacy</a>
-                &nbsp;&middot;&nbsp;
-                <a href="${SITE.marketing}/terms" style="color:#ffffff;text-decoration:underline;">Terms</a>
-              </p>
-
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
+  return renderEmail({
+    // Carries the turn in the inbox preview, so the subject never reads as a
+    // straight bait. The reader sees both lines before deciding to open.
+    preheader: "Not the one you were hoping for. Let us change that.",
+    eyebrow: "Welcome to Preciprocal",
+    heading: "Is this the email you have been waiting for?",
+    paragraphs: [
+      `Hi ${escapeHtml(firstName(name))},`,
+      ...OPENING.map(escapeHtml),
+      "Here is where to start.",
+    ],
+    panel: {
+      title: "Four things that change immediately",
+      rows: STARTERS.map(s => ({
+        icon: s.icon,
+        label: s.title,
+        value: escapeHtml(s.short),
+        link: { label: s.cta, url: s.href },
+      })),
+    },
+    closing: escapeHtml(CLOSING),
+    cta: { label: "Let's start by fixing my resume", url: `${APP_URL}/resume/upload` },
+    signature: SIGNATURE,
+    footerNote: "You are receiving this because you created a Preciprocal account.",
+  });
 }
 
-
 function buildText(name: string) {
-  return `Hi ${firstName(name)},
-
-Welcome to Preciprocal. Let me be straight with you about why it exists.
-
-The market right now is brutal, and it is not in your head. Postings collect hundreds of applicants within hours. Most resumes are scored by software before a person opens them. Plenty of genuinely qualified people go months without a callback and start assuming something is wrong with them. Usually there is not. The process is just badly broken.
-
-What actually changes the outcome is narrower than most people expect, and it is the same pattern almost every time. The people who get traction here work through these in sequence rather than all at once. The order matters more than the effort.
-
-1. ${STARTERS[0].title} - ${STARTERS[0].body}
-   ${STARTERS[0].href}
-
-2. ${STARTERS[1].title} - ${STARTERS[1].body}
-   ${STARTERS[1].href}
-
-3. ${STARTERS[2].title} - ${STARTERS[2].body}
-   ${STARTERS[2].href}
-
-Start with the resume. If it is not clearing the filter, nothing after it gets a chance to matter. That one usually takes about ten minutes and changes the most.
-
-Open Preciprocal: ${APP_URL}
-
-One more thing. This goes to a real person, not a noreply box. If you are stuck, or the search is wearing you down, reply and tell me where you are at. I read every one, and I would rather hear from you early than after three more months of silence.
-
-You are closer than it feels right now.
-
-${SENDER_NAME}
-Preciprocal
-
----
-You are getting this because you created a Preciprocal account.
-Privacy: ${SITE.marketing}/privacy
-Terms: ${SITE.marketing}/terms`;
+  return renderText({
+    heading: "Is this the email you have been waiting for?",
+    paragraphs: [`Hi ${firstName(name)},`, ...OPENING, "Here is where to start."],
+    panel: {
+      title: "Four things that change immediately",
+      lines: STARTERS.flatMap(s => [
+        `${s.icon}. ${s.title}`,
+        `    ${s.short}`,
+        `    ${s.cta}: ${s.href}`,
+        "",
+      ]),
+    },
+    closing: CLOSING,
+    cta: { label: "Let's start by fixing my resume", url: `${APP_URL}/resume/upload` },
+    signature: SIGNATURE,
+    footerNote: "You created a Preciprocal account.",
+  });
 }
 
 /**
- * Subject + both body parts for a given recipient name. Exported so the email
- * can be rendered and eyeballed (scripts/preview-welcome-email.ts) without
- * sending anything or touching the database.
+ * Subject and both body parts for a given recipient name. Exported so the
+ * email can be rendered and eyeballed (scripts/preview-welcome-email.ts)
+ * without sending anything or touching the database.
  */
 export function buildWelcomeEmail(name?: string | null) {
   return {
-    subject: `Welcome to Preciprocal, ${firstName(name)}`,
+    // Deliberately the subject line every job seeker is waiting for. The
+    // heading and preheader both own the turn immediately, so the reader is
+    // never left feeling tricked.
+    //
+    // Two costs worth watching. A one-word celebratory subject with an
+    // exclamation mark is a pattern spam classifiers weight against, and a
+    // high open rate followed by immediate deletes is itself a negative
+    // reputation signal. If Resend starts reporting complaints or the open-to-
+    // click gap widens, change this before changing anything else.
+    subject: "Congratulations!",
     html: buildHtml(name ?? ""),
     text: buildText(name ?? ""),
   };

@@ -19,6 +19,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { supabaseAdmin } from '@/supabase/admin';
 import { Resend } from 'resend';
+import { SITE } from '@/lib/seo';
+import { renderEmail, renderText, escapeHtml, firstName } from '@/lib/email/layout';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -201,6 +203,7 @@ async function notifyUserOfReply(
       replyTo: 'support@preciprocal.com',
       subject: `[Ticket #${shortId}] Re: ${cleanSubject}`,
       html:    generateReplyEmail(userName, shortId, cleanSubject, reply, ticketId),
+      text:    generateReplyText(userName, shortId, cleanSubject, reply, ticketId),
     });
 
     if (error) console.error('❌ User reply notification error:', error);
@@ -293,165 +296,53 @@ function cleanEmailReply(rawText: string): string {
 
 // ─── Reply email sent to the user ────────────────────────────────────────────
 function generateReplyEmail(
-  userName:     string,
-  shortId:      string,
-  subject:      string,
-  replyMessage: string,
-  fullTicketId: string,
+  userName: string,
+  shortId: string,
+  subject: string,
+  reply: string,
+  ticketId: string,
 ): string {
-  const appUrl    = process.env.NEXT_PUBLIC_APP_URL ?? 'https://preciprocal.com';
-  const ticketUrl = `${appUrl}/help?section=tickets`;
+  // The agent's reply is plain text from an inbox, so it is escaped and then
+  // newlines are turned back into <br />. Escaping after that conversion would
+  // render the tags as literal text.
+  const body = escapeHtml(reply).replace(/\n/g, '<br />');
 
-  const safeMessage = replyMessage
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+  return renderEmail({
+    preheader: `Reply on ticket #${shortId}`,
+    eyebrow: `Ticket #${shortId}`,
+    heading: 'We have replied',
+    paragraphs: [
+      `Hi ${escapeHtml(firstName(userName))},`,
+      'Someone from the team has replied to your support ticket.',
+    ],
+    panel: {
+      title: escapeHtml(subject) || 'Your ticket',
+      rows: [{ label: 'Reply', value: body }],
+    },
+    cta: { label: 'View the full thread', url: `${SITE.app}/help?ticket=${ticketId}` },
+    signoff: 'Just reply to this email to continue the conversation.<br />Preciprocal Support',
+    footerNote: 'You are receiving this because you opened a support ticket with Preciprocal.',
+  });
+}
 
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>Support Reply · Ticket #${shortId}</title>
-</head>
-<body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
-
-  <div style="display:none;max-height:0;overflow:hidden;font-size:1px;color:#f4f5f7;">
-    Our support team replied to your ticket #${shortId} &zwnj;&nbsp;&zwnj;
-  </div>
-
-  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f5f7;">
-    <tr><td align="center" style="padding:40px 16px;">
-
-      <table width="600" cellpadding="0" cellspacing="0" border="0"
-             style="width:600px;max-width:100%;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
-
-        <!-- Header -->
-        <tr>
-          <td style="padding:0 0 0;background:#0f0f1a;border-bottom:1px solid #1e1e2e;">
-            <table width="100%" cellpadding="0" cellspacing="0" border="0">
-              <tr>
-                <td style="padding:28px 36px;">
-                  <table width="100%" cellpadding="0" cellspacing="0" border="0">
-                    <tr>
-                      <td valign="middle">
-                        <p style="margin:0 0 2px;font-size:17px;font-weight:700;color:#ffffff;letter-spacing:-0.2px;">Preciprocal</p>
-                        <p style="margin:0;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.4px;">Support Team</p>
-                      </td>
-                      <td align="right" valign="middle">
-                        <span style="display:inline-block;background:#1e1e2e;color:#818cf8;font-size:12px;font-weight:600;padding:5px 12px;border-radius:20px;border:1px solid #2e2e4e;letter-spacing:0.2px;">
-                          #${shortId}
-                        </span>
-                      </td>
-                    </tr>
-                  </table>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-
-        <!-- Body -->
-        <tr>
-          <td style="padding:32px 36px 28px;">
-
-            <p style="margin:0 0 6px;font-size:22px;font-weight:700;color:#111827;letter-spacing:-0.3px;">You have a reply</p>
-            <p style="margin:0 0 26px;font-size:14px;color:#6b7280;line-height:1.5;">
-              Hi ${userName}, our support team has responded to your ticket.
-            </p>
-
-            <!-- Subject chip -->
-            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:20px;">
-              <tr>
-                <td style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px 16px;">
-                  <p style="margin:0 0 2px;font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Subject</p>
-                  <p style="margin:0;font-size:14px;color:#374151;font-weight:500;">${subject}</p>
-                </td>
-              </tr>
-            </table>
-
-            <!-- Reply block -->
-            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
-              <tr>
-                <td style="background:#fafafa;border:1px solid #e5e7eb;border-left:3px solid #4f46e5;border-radius:8px;padding:22px 24px;">
-                  <!-- Agent label -->
-                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:14px;">
-                    <tr>
-                      <td valign="middle">
-                        <span style="display:inline-block;width:28px;height:28px;background:#4f46e5;border-radius:50%;text-align:center;line-height:28px;font-size:12px;font-weight:700;color:#ffffff;vertical-align:middle;">P</span>
-                        <span style="font-size:13px;font-weight:600;color:#374151;vertical-align:middle;margin-left:8px;">Preciprocal Support</span>
-                      </td>
-                      <td align="right" valign="middle">
-                        <span style="font-size:12px;color:#9ca3af;">Support reply</span>
-                      </td>
-                    </tr>
-                  </table>
-                  <p style="margin:0;font-size:14px;line-height:1.75;color:#1f2937;white-space:pre-wrap;word-break:break-word;">${safeMessage}</p>
-                </td>
-              </tr>
-            </table>
-
-            <!-- CTA -->
-            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
-              <tr>
-                <td align="center">
-                  <a href="${ticketUrl}"
-                     style="display:inline-block;background:#4f46e5;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:13px 28px;border-radius:8px;">
-                    View Full Conversation
-                  </a>
-                </td>
-              </tr>
-            </table>
-
-            <!-- Info note -->
-            <table width="100%" cellpadding="0" cellspacing="0" border="0">
-              <tr>
-                <td style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:14px 16px;">
-                  <p style="margin:0;font-size:13px;color:#0369a1;line-height:1.5;">
-                    You can also reply directly to this email to continue the conversation, or visit your dashboard to see the full ticket history.
-                  </p>
-                </td>
-              </tr>
-            </table>
-
-          </td>
-        </tr>
-
-        <!-- Divider -->
-        <tr><td style="height:1px;background:#f3f4f6;font-size:0;">&nbsp;</td></tr>
-
-        <!-- Footer -->
-        <tr>
-          <td style="padding:20px 36px;background:#f9fafb;">
-            <table width="100%" cellpadding="0" cellspacing="0" border="0">
-              <tr>
-                <td>
-                  <p style="margin:0 0 3px;font-size:13px;font-weight:600;color:#374151;">Preciprocal</p>
-                  <p style="margin:0;font-size:12px;color:#9ca3af;">
-                    <a href="https://preciprocal.com" style="color:#6b7280;text-decoration:none;">preciprocal.com</a>
-                    &nbsp;·&nbsp;
-                    <a href="${appUrl}/help" style="color:#6b7280;text-decoration:none;">Help Center</a>
-                    &nbsp;·&nbsp;
-                    <a href="https://preciprocal.com/privacy" style="color:#6b7280;text-decoration:none;">Privacy</a>
-                  </p>
-                </td>
-                <td align="right" valign="top">
-                  <p style="margin:0;font-size:11px;color:#d1d5db;font-family:monospace;">#${fullTicketId}</p>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-
-      </table>
-
-      <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;text-align:center;">
-        This was sent because you submitted a support ticket at preciprocal.com
-      </p>
-
-    </td></tr>
-  </table>
-</body>
-</html>`;
+function generateReplyText(
+  userName: string,
+  shortId: string,
+  subject: string,
+  reply: string,
+  ticketId: string,
+): string {
+  return renderText({
+    heading: `Reply on ticket #${shortId}`,
+    paragraphs: [
+      `Hi ${firstName(userName)},`,
+      'Someone from the team has replied to your support ticket.',
+      subject ? `Subject: ${subject}` : '',
+      '',
+      reply,
+    ].filter(Boolean),
+    cta: { label: 'View the full thread', url: `${SITE.app}/help?ticket=${ticketId}` },
+    signoff: 'Just reply to this email to continue the conversation.\nPreciprocal Support',
+    footerNote: 'You opened a support ticket with Preciprocal.',
+  });
 }

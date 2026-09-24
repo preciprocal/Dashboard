@@ -12,14 +12,32 @@ export const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_R
     })
   : null;
 
+/**
+ * Version stamp for anything whose cached value is a model response shaped by a
+ * system prompt in this repo.
+ *
+ * v2: the resume analysis and fix prompts were told to stop producing tips
+ *     about summary / objective / profile sections.
+ */
+export const ANALYSIS_PROMPT_VERSION = 2;
+
 // Helper functions for key generation
 export const RedisKeys = {
   // Resume analysis cache
-  resumeAnalysis: (hash: string) => `resume:analysis:${hash}`,
+  // Keyed on the resume hash AND the prompt version, because the cached value
+  // is the model's OUTPUT, not the resume. Without the version, editing a
+  // system prompt changes nothing for anyone who has already been analysed:
+  // their old result keeps being served for the full 7-day TTL, so the change
+  // looks like it silently failed.
+  //
+  // Bump ANALYSIS_PROMPT_VERSION in the same commit as any edit to
+  // ANALYSIS_SYSTEM or FIX_SYSTEM in app/api/analyze-resume/route.ts. Old keys
+  // are not deleted; they simply stop being read and expire on their own.
+  resumeAnalysis: (hash: string) => `resume:analysis:v${ANALYSIS_PROMPT_VERSION}:${hash}`,
   resumeText: (hash: string) => `resume:text:${hash}`,
-  
+
   // Resume fixes cache
-  resumeFixes: (hash: string) => `resume:fixes:${hash}`,
+  resumeFixes: (hash: string) => `resume:fixes:v${ANALYSIS_PROMPT_VERSION}:${hash}`,
   
   // Company info cache (for cover letters and research)
   company: (domain: string) => `company:${domain}`,

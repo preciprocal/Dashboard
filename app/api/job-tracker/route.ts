@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
 import { checkJobTrackerCapacity } from '@/lib/ai/job-tracker-capacity';
+import { hasResponded } from '@/lib/config/outcomes';
 
 // ─── Types matching the page exactly ─────────────────────────────────────────
 
@@ -25,6 +26,8 @@ interface Application {
   notes:       string | null;
   status:      AppStatus;
   appliedDate: string;
+  /** Which resume was sent. Null for applications logged without one. */
+  resumeId:    string | null;
   createdAt:   string;
   updatedAt:   string;
 }
@@ -42,6 +45,7 @@ interface JobApplicationRow {
   notes: string | null;
   status: string | null;
   applied_date: string | null;
+  resume_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -77,6 +81,10 @@ function sanitize(body: Record<string, unknown>): Partial<AppFields> {
     out.workType = body.workType as WorkType;
   if (typeof body.status === 'string' && VALID_STATUSES.includes(body.status as AppStatus))
     out.status = body.status as AppStatus;
+  // Not validated as a real resume here: the FK does that, and an id belonging
+  // to someone else fails the constraint rather than silently attributing one
+  // user's outcomes to another's resume.
+  if ('resumeId' in body) out.resumeId = str(body.resumeId);
 
   return out;
 }
@@ -111,6 +119,7 @@ function normaliseRow(row: JobApplicationRow): Application {
     notes:       row.notes  ?? null,
     status:      (VALID_STATUSES.includes(status as AppStatus) ? status : 'applied') as AppStatus,
     appliedDate: row.applied_date ?? new Date().toISOString().split('T')[0],
+    resumeId:    row.resume_id ?? null,
     createdAt:   row.created_at,
     updatedAt:   row.updated_at,
   };
@@ -120,6 +129,7 @@ const fieldsToColumns: Record<keyof AppFields, string> = {
   company: 'company', jobTitle: 'job_title', jobUrl: 'job_url',
   location: 'location', salary: 'salary', workType: 'work_type',
   source: 'source', notes: 'notes', status: 'status', appliedDate: 'applied_date',
+  resumeId: 'resume_id',
 };
 
 function toColumns(fields: Partial<AppFields>): Record<string, unknown> {
@@ -212,6 +222,11 @@ export async function POST(request: NextRequest) {
         notes:        data.notes       ?? null,
         status:       data.status      ?? 'applied',
         applied_date: data.appliedDate ?? now.split('T')[0],
+        // Which resume was actually sent. Without it the product can store a
+        // whole job search and still not answer "which version is working",
+        // which is the one question this data is uniquely able to answer.
+        // Nullable: plenty of applications are logged without one.
+        resume_id:    data.resumeId    ?? null,
       })
       .select('id')
       .single();
@@ -239,7 +254,7 @@ export async function PATCH(request: NextRequest) {
 
     const { data: existing } = await supabaseAdmin
       .from('job_applications')
-      .select('user_id')
+      .select('user_id, first_response_at')
       .eq('id', id)
       .maybeSingle();
     if (!existing)                return NextResponse.json({ error: 'Not found' },  { status: 404 });
@@ -249,9 +264,25 @@ export async function PATCH(request: NextRequest) {
     if (Object.keys(updates).length === 0)
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
 
+    // Record the first employer response. Write-once: an application that goes
+    // phone-screen -> rejected keeps the phone-screen timestamp, because the
+    // question this answers is "how long until they got back to me", not "when
+    // did this end".
+    //
+    // updated_at cannot stand in for it - that moves every time the user edits
+    // a note, months later.
+    const becameResponsive =
+      updates.status !== undefined &&
+      hasResponded(updates.status) &&
+      !existing.first_response_at;
+
     const { error } = await supabaseAdmin
       .from('job_applications')
-      .update({ ...toColumns(updates), updated_at: new Date().toISOString() })
+      .update({
+        ...toColumns(updates),
+        ...(becameResponsive ? { first_response_at: new Date().toISOString() } : {}),
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', id);
     if (error) throw error;
 

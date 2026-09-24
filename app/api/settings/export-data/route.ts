@@ -12,6 +12,7 @@ import { supabaseAdmin } from '@/supabase/admin';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 import { Resend } from 'resend';
 import { SITE } from '@/lib/seo';
+import { renderEmail, renderText } from '@/lib/email/layout';
 
 export const runtime = 'nodejs';
 // Collecting ~30 tables and building the attachment takes longer than the
@@ -138,29 +139,38 @@ export async function POST(request: NextRequest) {
       to: email,
       replyTo: REPLY_TO,
       subject: 'Your Preciprocal data export',
-      html: `
-        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:480px;margin:0 auto;padding:32px;color:#1e1e2e;">
-          <p style="margin:0 0 16px;">Hi,</p>
-          <p style="margin:0 0 16px;line-height:1.6;">
-            You asked for a copy of your Preciprocal data. It's attached as a JSON file.
-          </p>
-          <p style="margin:0 0 16px;line-height:1.6;">
-            It covers your profile, subscription, resumes, interviews, cover letters,
-            study plans, job applications and support history. Security and anti-abuse
-            records are withheld, as permitted under GDPR Art.15(4).
-          </p>
-          <p style="margin:0 0 24px;line-height:1.6;">
-            Reply to this email if anything looks wrong or incomplete.
-          </p>
-          <p style="margin:0;color:#64748b;font-size:13px;">${SENDER_NAME}<br/>${SITE.app}</p>
-        </div>
-      `,
-      text:
-        `You asked for a copy of your Preciprocal data. It's attached as a JSON file.\n\n`
-        + `It covers your profile, subscription, resumes, interviews, cover letters, study `
-        + `plans, job applications and support history. Security and anti-abuse records are `
-        + `withheld, as permitted under GDPR Art.15(4).\n\n`
-        + `Reply to this email if anything looks wrong or incomplete.\n\n${SENDER_NAME}\n${SITE.app}`,
+      html: renderEmail({
+        preheader: 'Your data export is attached',
+        eyebrow: 'Data request',
+        heading: 'Your data export',
+        paragraphs: [
+          'You asked for a copy of your Preciprocal data. It is attached to this email as a JSON file.',
+          'It covers your profile, subscription, resumes, interviews, cover letters, study plans, job applications and support history.',
+          'Security and anti-abuse records are withheld, as permitted under GDPR Art.15(4).',
+          'Reply to this email if anything looks wrong or incomplete.',
+        ],
+        panel: {
+          title: 'Export details',
+          rows: [
+            { label: 'Generated', value: new Date().toUTCString() },
+            { label: 'Format', value: 'JSON, attached' },
+          ],
+        },
+        cta: { label: 'Open Preciprocal', url: `${SITE.app}/settings` },
+        signoff: SENDER_NAME,
+        footerNote: 'You are receiving this because you requested a data export from your account settings.',
+      }),
+      text: renderText({
+        heading: 'Your data export',
+        paragraphs: [
+          'You asked for a copy of your Preciprocal data. It is attached to this email as a JSON file.',
+          'It covers your profile, subscription, resumes, interviews, cover letters, study plans, job applications and support history. Security and anti-abuse records are withheld, as permitted under GDPR Art.15(4).',
+          'Reply to this email if anything looks wrong or incomplete.',
+        ],
+        cta: { label: 'Open Preciprocal', url: `${SITE.app}/settings` },
+        signoff: SENDER_NAME,
+        footerNote: 'You requested this export from your account settings.',
+      }),
       attachments: [{
         filename: `preciprocal-data-export-${stamp}.json`,
         content: Buffer.from(json, 'utf8').toString('base64'),
