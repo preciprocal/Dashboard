@@ -12,6 +12,7 @@ import { getAuthedUser } from "@/lib/auth/verify-request";
 import { invalidateUserCache } from "@/lib/actions/auth.action";
 import { supabaseAdmin } from "@/supabase/admin";
 import { evaluateEduEmail } from "@/lib/config/student-domains";
+import { findAccountLoggingInWith } from "@/lib/abuse/claimed-edu-address";
 import {
   TRIAL_DAYS,
   OTP_MAX_ATTEMPTS,
@@ -120,6 +121,21 @@ export async function POST(req: NextRequest) {
     const evaluation = evaluateEduEmail(eduEmail);
     if (!evaluation.ok) {
       throw new VerificationError(400, evaluation.message!);
+    }
+
+    // ── The same person, from the other side ────────────────────────────────
+    // If this address is already the LOGIN email of a different account, then
+    // verifying it here would leave one person holding two accounts and two
+    // free allowances. Refuse and point them at the account that already owns
+    // the address, rather than quietly granting the perk on a second one.
+    const loginOwner = await findAccountLoggingInWith(eduEmail, supabaseUserId);
+    if (loginOwner) {
+      throw new VerificationError(
+        409,
+        "You already have a Preciprocal account that signs in with this university " +
+        "address. Sign in to that account and claim the student month there, so " +
+        "everything stays on one account.",
+      );
     }
 
     // ── Check the code ──────────────────────────────────────────────────────

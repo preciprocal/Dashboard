@@ -9,6 +9,7 @@ import { USAGE_LIMITS, normalisePlan } from "@/lib/config/usage-limits";
 import { sendWelcomeEmail } from "@/lib/email/welcome";
 import { sendNewSignupAlert } from "@/lib/email/new-signup-admin";
 import { checkSignupCluster } from "@/lib/abuse/signup-cluster";
+import { findAccountHoldingEduAddress, CLAIMED_EDU_SIGNUP_MESSAGE } from "@/lib/abuse/claimed-edu-address";
 import { checkSignupAllowed, recordSignup } from "@/lib/redis/signup-limiter";
 import { SIGNUP_BLOCKED_MESSAGE } from "@/lib/config/abuse-guard";
 import { computeUsagePeriod, pickAnchor } from "@/lib/usage/period";
@@ -297,6 +298,19 @@ export async function signUp(params: SignUpParams) {
       return { success: false, message: SIGNUP_BLOCKED_MESSAGE };
     }
 
+    // ── Already a verified student address somewhere else? ──────────────────
+    // The perk has always attached to the signed-in account, so nobody could
+    // get it without an account first. What was missing was the reverse: a
+    // university address could be verified on a personal account and then
+    // reused as the LOGIN for a second one, which is two free allowances for
+    // one person. Exact-match on a redeemed address, so there is nothing
+    // heuristic about it.
+    const eduOwner = await findAccountHoldingEduAddress(email);
+    if (eduOwner) {
+      console.log(`🚫 Signup blocked=claimed_edu email=${email} owner=${eduOwner}`);
+      return { success: false, message: CLAIMED_EDU_SIGNUP_MESSAGE };
+    }
+
     const supabase = await createServerSupabaseClient();
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -399,6 +413,16 @@ export async function ensureOAuthUserDocument(
       headerList.get("x-forwarded-for")?.split(",")[0].trim()
       ?? headerList.get("x-real-ip")
       ?? null;
+
+    // Same claimed-address rule as the email path. Checked before the guard
+    // because it is the more specific reason, and the user should be told
+    // "you already have an account" rather than a generic rate-limit message.
+    const eduOwner = await findAccountHoldingEduAddress(email, userId);
+    if (eduOwner) {
+      console.log(`🚫 OAuth signup blocked=claimed_edu email=${email} owner=${eduOwner}`);
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+      return { blocked: true };
+    }
 
     const guard = await checkSignupAllowed(signupIp, null);
     if (!guard.allowed) {
