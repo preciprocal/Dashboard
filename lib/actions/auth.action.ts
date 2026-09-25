@@ -7,6 +7,7 @@ import { tryMigrateLegacyPassword } from "@/lib/auth/legacy-password";
 import { redis, RedisKeys } from "@/lib/redis/redis-client";
 import { USAGE_LIMITS, normalisePlan } from "@/lib/config/usage-limits";
 import { sendWelcomeEmail } from "@/lib/email/welcome";
+import { sendNewSignupAlert } from "@/lib/email/new-signup-admin";
 import { checkSignupAllowed, recordSignup } from "@/lib/redis/signup-limiter";
 import { SIGNUP_BLOCKED_MESSAGE } from "@/lib/config/abuse-guard";
 import { computeUsagePeriod, pickAnchor } from "@/lib/usage/period";
@@ -329,6 +330,18 @@ export async function signUp(params: SignUpParams) {
 
     await markPhoneVerificationRequired(userId);
 
+    // Operator heads-up. Awaited rather than fired and forgotten because
+    // serverless freezes the process the moment the response returns, which
+    // would drop the send. It never throws, so it cannot fail the signup.
+    await sendNewSignupAlert({
+      userId,
+      email,
+      name,
+      provider: "email",
+      signupIp,
+      hasFingerprint: Boolean(fingerprint),
+    });
+
     console.log(
       `✅ New user created - UID: ${userId} | Email: ${email} | Plan: free`,
       `| Limits: resumes=${USAGE_LIMITS.free.resumes} coverLetters=${USAGE_LIMITS.free.coverLetters}`,
@@ -414,6 +427,19 @@ export async function ensureOAuthUserDocument(
     // OAuth accounts are gated too: a verified Google address proves an email
     // is real, not that the person behind it hasn't already got five accounts.
     await markPhoneVerificationRequired(userId);
+
+    // Only on the create branch, so a returning user signing in with Google
+    // does not generate a "new signup" every time.
+    await sendNewSignupAlert({
+      userId,
+      email,
+      name,
+      provider,
+      signupIp,
+      // OAuth is a server-side redirect from the provider, so there is no
+      // client to collect a fingerprint from - see the note in the guard above.
+      hasFingerprint: false,
+    });
 
     return { blocked: false };
   } catch (error) {
