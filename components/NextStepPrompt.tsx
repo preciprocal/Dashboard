@@ -477,19 +477,31 @@ export default function NextStepPrompt({
 
           {/* Secondary cards */}
           {secondary.length > 0 && (
-            <div className={`grid gap-2.5 ${secondary.length === 1 ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'}`}>
+            <div className={`grid items-stretch gap-2.5 ${secondary.length === 1 ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'}`}>
               {secondary.map(step => {
                 const Icon = step.icon;
                 return (
-                  <Link key={step.id} href={step.href} className="block group">
-                    <div className={`flex items-start gap-3 p-3.5 rounded-xl border ${step.accentBorder} bg-white/[0.02] hover:bg-white/[0.04] transition-all duration-150`}>
+                  // h-full at every level is what makes the pair match. Grid
+                  // items stretch by default, but that only sizes the <Link>;
+                  // without h-full on the Link AND the card inside it, a card
+                  // with a one-line headline stays short next to one that
+                  // wraps, and the row reads as broken rather than dense.
+                  //
+                  // mt-auto then pins the call to action to the bottom of
+                  // whichever card is taller, so both CTAs sit on one line.
+                  <Link key={step.id} href={step.href} className="block group h-full">
+                    <div className={`flex h-full items-start gap-3 p-3.5 rounded-xl border ${step.accentBorder} bg-white/[0.02] hover:bg-white/[0.04] transition-all duration-150`}>
                       <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${step.accentBg}`}>
                         <Icon className={`w-3.5 h-3.5 ${step.accentColor}`} />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[12px] font-semibold text-slate-200 leading-snug mb-0.5">{step.headline}</p>
+                      <div className="flex flex-1 min-w-0 flex-col">
+                        {/* Clamped for the same reason the body is: these are
+                            AI-generated and their length is not controlled
+                            here, so one long headline must not set the height
+                            of the whole row. */}
+                        <p className="text-[12px] font-semibold text-slate-200 leading-snug mb-0.5 line-clamp-2">{step.headline}</p>
                         <p className="text-[10px] text-slate-500 leading-relaxed line-clamp-2 mb-2">{step.sub}</p>
-                        <span className={`inline-flex items-center gap-1 text-[10px] font-semibold ${step.accentColor} group-hover:gap-1.5 transition-all`}>
+                        <span className={`mt-auto inline-flex items-center gap-1 text-[10px] font-semibold ${step.accentColor} group-hover:gap-1.5 transition-all`}>
                           {step.cta} <ArrowRight className="w-2.5 h-2.5" />
                         </span>
                       </div>

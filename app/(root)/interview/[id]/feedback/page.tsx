@@ -185,6 +185,13 @@ export default async function InterviewFeedbackPage({ params }: Props) {
   };
 
   const categoryScores: CategoryScore[] = Array.isArray(feedback.categoryScores) ? feedback.categoryScores : [];
+
+  // Lowest-scoring category, for the "what to work on" prompt. Undefined when
+  // there are no category scores, which leaves NextStepPrompt on its generic
+  // "your weak areas" wording rather than an empty template hole.
+  const weakestCategory = categoryScores.length > 0
+    ? [...categoryScores].sort((a, b) => a.score - b.score)[0].name
+    : undefined;
   const strengths: string[] = Array.isArray(feedback.strengths) ? feedback.strengths : [];
   const areasForImprovement: string[] = Array.isArray(feedback.areasForImprovement) ? feedback.areasForImprovement : [];
 
@@ -569,7 +576,19 @@ export default async function InterviewFeedbackPage({ params }: Props) {
         context={{
           score: feedback.totalScore,
           role: interview.role,
-          weakCategory: areasForImprovement[0] || undefined,
+          // The LOWEST-SCORING CATEGORY NAME, not a sentence.
+          //
+          // This passed areasForImprovement[0], which is a full AI-written
+          // sentence. NextStepPrompt interpolates it as `Practice ${weak}
+          // again`, so the card read "Practice Improve clarity and structure
+          // in responses; practice articulating technical challenges and
+          // solutions more effectively. again" - ungrammatical, and long
+          // enough to double the height of its half of the row.
+          //
+          // categoryScores carries exactly what the prop means: a short label
+          // like "Communication Skills" that reads correctly inside a
+          // template.
+          weakCategory: weakestCategory,
         }}
         delay={1500}
       />
