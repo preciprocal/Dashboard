@@ -81,4 +81,8 @@ export const FLAG_REASONS = {
   // .edu address. Cannot be blocked at the point of detection - see
   // lib/subscription/student-coupon.ts.
   unverifiedStudentCoupon: 'unverified_student_coupon',
+  // Several accounts sharing a display name, where each email also carries
+  // that name. Log only, and expect legitimate matches - see
+  // lib/abuse/signup-cluster.ts.
+  duplicateIdentity: 'duplicate_identity',
 } as const;

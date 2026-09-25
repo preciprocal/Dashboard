@@ -18,7 +18,15 @@ import { renderEmail, renderText, escapeHtml } from '@/lib/email/layout';
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'admin@preciprocal.com';
-const FROM = process.env.ADMIN_ALERT_FROM ?? 'Preciprocal <noreply@preciprocal.com>';
+
+// Same sender identity as every other email. It previously came from
+// `Preciprocal <noreply@...>`, which renders as a different sender in the
+// inbox row and makes an otherwise identical email look like it is from
+// somewhere else before it is even opened.
+const SENDER_NAME = process.env.WELCOME_EMAIL_SENDER_NAME ?? 'Francesca';
+const FROM = process.env.ADMIN_ALERT_FROM
+  ?? process.env.WELCOME_EMAIL_FROM
+  ?? `${SENDER_NAME} from Preciprocal <francesca@preciprocal.com>`;
 
 /** Set to "false" to silence these without a deploy. Any other value keeps them on. */
 const ENABLED = process.env.NOTIFY_ADMIN_ON_SIGNUP !== 'false';
@@ -77,7 +85,18 @@ export async function sendNewSignupAlert(alert: NewSignupAlert): Promise<void> {
       ],
       panel: { title: 'Account details', rows },
       cta: { label: 'Open the review queue', url: `${SITE.app}/admin/review` },
-      signoff: 'Preciprocal',
+      // The same signature treatment as every other email rather than a bare
+      // one-line signoff, which was the only structural difference between
+      // this and the rest and the reason it read as off-brand.
+      //
+      // The address shown is the NEW USER's, not a support inbox: on an alert
+      // about a person, the useful contact is that person, and it matches the
+      // replyTo below so the block and the reply button agree.
+      signature: {
+        name: displayName,
+        title: `New ${alert.provider} signup`,
+        email: alert.email,
+      },
       footerNote:
         'You are receiving this because you are the operator on this Preciprocal deployment. ' +
         'Set NOTIFY_ADMIN_ON_SIGNUP=false to stop these.',
@@ -99,7 +118,18 @@ export async function sendNewSignupAlert(alert: NewSignupAlert): Promise<void> {
         ],
       },
       cta: { label: 'Open the review queue', url: `${SITE.app}/admin/review` },
-      signoff: 'Preciprocal',
+      // The same signature treatment as every other email rather than a bare
+      // one-line signoff, which was the only structural difference between
+      // this and the rest and the reason it read as off-brand.
+      //
+      // The address shown is the NEW USER's, not a support inbox: on an alert
+      // about a person, the useful contact is that person, and it matches the
+      // replyTo below so the block and the reply button agree.
+      signature: {
+        name: displayName,
+        title: `New ${alert.provider} signup`,
+        email: alert.email,
+      },
       footerNote: 'Set NOTIFY_ADMIN_ON_SIGNUP=false to stop these.',
     });
 

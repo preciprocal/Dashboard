@@ -38,6 +38,7 @@ const REASON_LABELS: Record<string, string> = {
   refund_high_usage:         "Refund request - high usage",
   multi_device:              "Multiple devices / locations",
   unverified_student_coupon: "Student coupon without .edu verification",
+  duplicate_identity:        "Multiple accounts, same person",
 };
 
 export default function ReviewQueue() {

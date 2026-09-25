@@ -8,6 +8,7 @@ import { redis, RedisKeys } from "@/lib/redis/redis-client";
 import { USAGE_LIMITS, normalisePlan } from "@/lib/config/usage-limits";
 import { sendWelcomeEmail } from "@/lib/email/welcome";
 import { sendNewSignupAlert } from "@/lib/email/new-signup-admin";
+import { checkSignupCluster } from "@/lib/abuse/signup-cluster";
 import { checkSignupAllowed, recordSignup } from "@/lib/redis/signup-limiter";
 import { SIGNUP_BLOCKED_MESSAGE } from "@/lib/config/abuse-guard";
 import { computeUsagePeriod, pickAnchor } from "@/lib/usage/period";
@@ -333,6 +334,11 @@ export async function signUp(params: SignUpParams) {
     // Operator heads-up. Awaited rather than fired and forgotten because
     // serverless freezes the process the moment the response returns, which
     // would drop the send. It never throws, so it cannot fail the signup.
+    // Detection, not prevention: flags when this looks like another account
+    // for someone who already has one. Runs before the alert so the operator
+    // email and the review queue agree.
+    await checkSignupCluster(userId, name, email);
+
     await sendNewSignupAlert({
       userId,
       email,
@@ -430,6 +436,8 @@ export async function ensureOAuthUserDocument(
 
     // Only on the create branch, so a returning user signing in with Google
     // does not generate a "new signup" every time.
+    await checkSignupCluster(userId, name, email);
+
     await sendNewSignupAlert({
       userId,
       email,
