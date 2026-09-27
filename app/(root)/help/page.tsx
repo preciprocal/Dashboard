@@ -20,6 +20,7 @@ import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import ErrorPage from '@/components/Error';
 import { formatDistanceToNow } from 'date-fns';
 import { hasUnreadSupportReply } from '@/lib/support/unread';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { USAGE_LIMITS } from '@/lib/config/usage-limits';
 import { PLAN_PRICE_CENTS } from '@/lib/config/plan-prices';
 import { SITE } from '@/lib/seo';
@@ -888,18 +889,25 @@ function HelpSupportContent() {
 
                     {/* Category */}
                     <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1.5 sm:mb-2">Category</label>
-                      <select value={category} onChange={e => setCategory(e.target.value)}
-                        className="glass-input w-full px-3 py-2 sm:py-2.5 rounded-lg text-white text-xs sm:text-sm bg-slate-900/50" required>
-                        {ticketCategories.map(cat => (
-                          <option key={cat.value} value={cat.value} className="bg-slate-900 text-white">{cat.label}</option>
-                        ))}
-                      </select>
+                      <label className="block text-sm font-medium text-slate-400 mb-2">Category</label>
+                      {/* Radix, not <select>. A native option list is drawn by
+                          the OS and cannot be themed - on this dark page it
+                          renders a bright blue highlight bar. */}
+                      <Select value={category} onValueChange={setCategory}>
+                        <SelectTrigger aria-label="Category">
+                          <SelectValue placeholder="Choose a category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ticketCategories.map(cat => (
+                            <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     {/* Priority */}
                     <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1.5 sm:mb-2">Priority</label>
+                      <label className="block text-sm font-medium text-slate-400 mb-2">Priority</label>
                       <div className="flex gap-2">
                         {(['low', 'medium', 'high'] as const).map(p => (
                           <button key={p} type="button" onClick={() => setPriority(p)}
@@ -912,7 +920,7 @@ function HelpSupportContent() {
 
                     {/* Subject */}
                     <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1.5 sm:mb-2">Subject</label>
+                      <label className="block text-sm font-medium text-slate-400 mb-2">Subject</label>
                       <input type="text" value={subject} onChange={e => setSubject(e.target.value)}
                         placeholder="Brief description"
                         className="glass-input w-full px-3 py-2 sm:py-2.5 rounded-lg text-white placeholder-slate-500 text-xs sm:text-sm" required />
@@ -920,7 +928,7 @@ function HelpSupportContent() {
 
                     {/* Message */}
                     <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1.5 sm:mb-2">Message</label>
+                      <label className="block text-sm font-medium text-slate-400 mb-2">Message</label>
                       <textarea value={message} onChange={e => setMessage(e.target.value)}
                         placeholder="Describe your issue..." rows={4}
                         className="glass-input w-full px-3 py-2 sm:py-2.5 rounded-lg text-white placeholder-slate-500 resize-none glass-scrollbar text-xs sm:text-sm" required />
@@ -928,7 +936,7 @@ function HelpSupportContent() {
 
                     {/* Attachments */}
                     <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1.5 sm:mb-2">
+                      <label className="block text-sm font-medium text-slate-400 mb-2">
                         Attachments{' '}
                         <span className="text-slate-600 font-normal">(optional · up to {MAX_FILES} files · 10 MB each)</span>
                       </label>
