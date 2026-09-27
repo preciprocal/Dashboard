@@ -35,6 +35,8 @@ interface SupportTicket {
   createdAt: string | null; updatedAt: string | null;
   lastReplyBy?: 'user' | 'support'; lastReplyAt?: string | null;
   userLastReadAt?: string | null;
+  /** Maintained by sync_ticket_on_reply (migration 0036), never by a client. */
+  replyCount?: number;
   attachments?: AttachmentMeta[];
 }
 
@@ -50,6 +52,7 @@ interface SupportTicketRow {
   created_at: string; updated_at: string;
   last_reply_by: string | null; last_reply_at: string | null;
   user_last_read_at: string | null;
+  reply_count: number | null;
   attachments: AttachmentMeta[] | null;
 }
 
@@ -69,6 +72,7 @@ function toSupportTicket(row: SupportTicketRow): SupportTicket {
     lastReplyBy: (row.last_reply_by as SupportTicket['lastReplyBy']) ?? undefined,
     lastReplyAt: row.last_reply_at,
     userLastReadAt: row.user_last_read_at,
+    replyCount: row.reply_count ?? 0,
     attachments: row.attachments ?? undefined,
   };
 }
@@ -783,14 +787,12 @@ function HelpSupportContent() {
 
         {/* ── Contact ── */}
         {activeSection === 'contact' && (
-          <div className="grid md:grid-cols-2 gap-6 max-w-6xl animate-fade-in-up">
+          <div className="grid lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-6 xl:gap-10 animate-fade-in-up">
             <div className="glass-card">
               <div className="p-4 sm:p-6">
-                <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
-                  <div className="w-9 h-9 sm:w-10 sm:h-10 gradient-accent rounded-lg flex items-center justify-center shadow-glass">
-                    <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                  </div>
-                  <h3 className="text-base sm:text-lg font-semibold text-white">Submit Ticket</h3>
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-white">Submit a ticket</h3>
+                  <p className="text-sm text-slate-500 mt-1">We reply by email, usually within 24 hours.</p>
                 </div>
 
                 {submitSuccess ? (
@@ -801,12 +803,12 @@ function HelpSupportContent() {
                   </div>
                 ) : !user ? (
                   <div className="glass-morphism p-6 sm:p-8 rounded-xl border border-white/10 text-center space-y-4">
-                    <div className="w-12 h-12 gradient-primary rounded-xl flex items-center justify-center mx-auto shadow-glass">
-                      <LogOut className="w-6 h-6 text-white rotate-180" />
+                    <div className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mx-auto">
+                      <LogOut className="w-4 h-4 text-slate-400 rotate-180" />
                     </div>
                     <div>
-                      <h4 className="text-sm sm:text-base font-semibold text-white mb-1">Sign in to submit a ticket</h4>
-                      <p className="text-slate-400 text-xs sm:text-sm">You need to be logged in to contact support and track your tickets.</p>
+                      <h4 className="text-base font-semibold text-white mb-1">Sign in to submit a ticket</h4>
+                      <p className="text-slate-500 text-sm">You need to be signed in to contact support and track your tickets.</p>
                     </div>
                     <Link href="/sign-in" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white text-sm font-medium shadow-md hover:shadow-lg transition-all">
                       <LogOut className="w-4 h-4 rotate-180" />Sign In
@@ -962,7 +964,7 @@ function HelpSupportContent() {
 
         {/* ── Tickets ── */}
         {activeSection === 'tickets' && (
-          <div className="max-w-5xl animate-fade-in-up">
+          <div className="animate-fade-in-up">
             {!user ? (
               <div className="glass-card">
                 <div className="text-center py-14 px-6">
@@ -997,22 +999,12 @@ function HelpSupportContent() {
                       <ArrowLeft className="w-3.5 h-3.5" /> All tickets
                     </button>
 
+                    <div className="grid lg:grid-cols-[minmax(0,1fr)_260px] gap-6 xl:gap-8 items-start">
                     <div className="glass-card overflow-hidden">
-                      {/* Thread header */}
+                      {/* Thread header. Ticket metadata lives in the rail, not
+                          crammed into a subtitle under the subject. */}
                       <div className="px-5 py-4 border-b border-white/[0.06]">
-                        <div className="flex items-start justify-between gap-4">
-                          <h2 className="text-lg font-semibold text-white leading-snug">{ticket.subject}</h2>
-                          <span className={`flex items-center gap-1.5 flex-shrink-0 text-sm font-medium ${st.text}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />{st.label}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-slate-600 mt-1.5">
-                          <span className="font-mono">#{ticket.id.slice(0, 8)}</span>
-                          <span>·</span>
-                          <span className="capitalize">{ticket.category}</span>
-                          <span>·</span>
-                          <span>{relTime(ticket.createdAt)}</span>
-                        </div>
+                        <h2 className="text-lg font-semibold text-white leading-snug">{ticket.subject}</h2>
                       </div>
 
                       {/* Transcript */}
@@ -1077,46 +1069,93 @@ function HelpSupportContent() {
                         )}
                       </div>
                     </div>
+
+                    {/* Metadata rail */}
+                    <aside className="glass-card p-5 lg:sticky lg:top-32">
+                      <dl className="space-y-4">
+                        {[
+                          { k: 'Status',   v: (
+                              <span className={`inline-flex items-center gap-1.5 ${st.text}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />{st.label}
+                              </span>) },
+                          { k: 'Ticket',   v: <span className="font-mono text-slate-400">#{ticket.id.slice(0, 8)}</span> },
+                          { k: 'Category', v: <span className="capitalize text-slate-400">{ticket.category}</span> },
+                          { k: 'Priority', v: <span className="capitalize text-slate-400">{ticket.priority}</span> },
+                          { k: 'Opened',   v: <span className="text-slate-400">{relTime(ticket.createdAt)}</span> },
+                          { k: 'Replies',  v: <span className="text-slate-400">{ticket.replyCount ?? 0}</span> },
+                        ].map(row => (
+                          <div key={row.k} className="flex items-center justify-between gap-3">
+                            <dt className="text-sm text-slate-600">{row.k}</dt>
+                            <dd className="text-sm">{row.v}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </aside>
+                    </div>
                   </div>
                 );
               })()
             ) : userTickets.length > 0 ? (
-              <div className="glass-card overflow-hidden divide-y divide-white/[0.05]">
-                {userTickets.map(ticket => {
-                  const st     = statusMeta(ticket.status);
-                  const unread = hasUnreadSupportReply(ticket);
-                  return (
-                    <button key={ticket.id} onClick={() => setSelectedTicket(ticket.id)}
-                      className="w-full text-left px-5 py-4 hover:bg-white/[0.02] transition-colors group">
-                      <div className="flex items-start gap-3">
-                        {/* Unread marker keeps the row aligned whether or not it is shown */}
-                        <span className={`w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 ${unread ? 'bg-purple-400' : 'bg-transparent'}`} />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-3">
-                            <h3 className={`text-base truncate ${unread ? 'text-white font-semibold' : 'text-slate-200 font-medium'}`}>
+              /* A table, not a stack of cards. At full width a card list just
+                 grows one very wide column; columns let status, activity and
+                 volume line up so the list can be scanned down rather than
+                 read across - which is what every support console does. */
+              <div className="glass-card overflow-hidden">
+                <div className="hidden md:grid grid-cols-[minmax(0,1fr)_120px_100px_150px_32px] gap-4
+                                px-5 py-2.5 border-b border-white/[0.06] bg-white/[0.02]">
+                  {['Subject', 'Status', 'Replies', 'Last activity', ''].map((h, i) => (
+                    <span key={i} className="text-xs font-semibold text-slate-600 uppercase tracking-wider">{h}</span>
+                  ))}
+                </div>
+
+                <div className="divide-y divide-white/[0.05]">
+                  {userTickets.map(ticket => {
+                    const st     = statusMeta(ticket.status);
+                    const unread = hasUnreadSupportReply(ticket);
+                    return (
+                      <button key={ticket.id} onClick={() => setSelectedTicket(ticket.id)}
+                        className="w-full text-left px-5 py-3.5 hover:bg-white/[0.02] transition-colors group
+                                   md:grid md:grid-cols-[minmax(0,1fr)_120px_100px_150px_32px] md:gap-4 md:items-center">
+                        {/* Subject */}
+                        <div className="min-w-0 flex items-start md:items-center gap-2.5">
+                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mt-2 md:mt-0
+                                            ${unread ? 'bg-purple-400' : 'bg-transparent'}`} />
+                          <div className="min-w-0">
+                            <div className={`text-base truncate ${unread ? 'text-white font-semibold' : 'text-slate-200 font-medium'}`}>
                               {ticket.subject}
-                            </h3>
-                            <span className={`flex items-center gap-1.5 flex-shrink-0 text-sm ${st.text}`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />{st.label}
-                            </span>
-                          </div>
-                          <p className="text-slate-500 text-sm mt-1 line-clamp-1">{ticket.message}</p>
-                          <div className="flex items-center gap-2 text-sm text-slate-600 mt-1.5">
-                            <span className="font-mono">#{ticket.id.slice(0, 8)}</span>
-                            <span>·</span>
-                            <span className="capitalize">{ticket.category}</span>
-                            {ticket.attachments && ticket.attachments.length > 0 && (
-                              <><span>·</span><span className="inline-flex items-center gap-1"><Paperclip className="w-3 h-3" />{ticket.attachments.length}</span></>
-                            )}
-                            <span>·</span>
-                            <span>{relTime(ticket.lastReplyAt ?? ticket.createdAt)}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-slate-600 mt-0.5">
+                              <span className="font-mono">#{ticket.id.slice(0, 8)}</span>
+                              <span>·</span>
+                              <span className="capitalize">{ticket.category}</span>
+                              {ticket.attachments && ticket.attachments.length > 0 && (
+                                <><span>·</span><span className="inline-flex items-center gap-1"><Paperclip className="w-3 h-3" />{ticket.attachments.length}</span></>
+                              )}
+                            </div>
                           </div>
                         </div>
-                        <ChevronRight className="w-4 h-4 text-slate-700 group-hover:text-slate-500 transition-colors flex-shrink-0 mt-0.5" />
-                      </div>
-                    </button>
-                  );
-                })}
+
+                        {/* Status */}
+                        <div className={`flex items-center gap-1.5 text-sm mt-2 md:mt-0 ${st.text}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${st.dot}`} />{st.label}
+                        </div>
+
+                        {/* Replies - labelled on mobile, where the header is hidden */}
+                        <div className="text-sm text-slate-500 mt-1 md:mt-0">
+                          <span className="md:hidden text-slate-600">Replies: </span>
+                          {ticket.replyCount ?? 0}
+                        </div>
+
+                        {/* Last activity */}
+                        <div className="text-sm text-slate-500 mt-1 md:mt-0">
+                          {relTime(ticket.lastReplyAt ?? ticket.createdAt)}
+                        </div>
+
+                        <ChevronRight className="hidden md:block w-4 h-4 text-slate-700 group-hover:text-slate-500 transition-colors" />
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             ) : (
               <div className="glass-card">
@@ -1146,10 +1185,10 @@ function HelpSupportFallback() {
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center">
       <div className="flex flex-col items-center gap-4">
-        <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center animate-pulse">
-          <HelpCircle className="w-5 h-5 text-white" />
+        <div className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center">
+          <HelpCircle className="w-4 h-4 text-slate-400" />
         </div>
-        <p className="text-slate-400 text-sm">Loading help center...</p>
+        <p className="text-slate-500 text-sm">Loading</p>
       </div>
     </div>
   );
