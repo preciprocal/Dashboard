@@ -15,6 +15,7 @@ import { signOut } from "@/lib/actions/auth.action";
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import SessionHeartbeat from '@/components/SessionHeartbeat';
 import { supabase } from '@/supabase/client';
+import { hasUnreadSupportReply } from '@/lib/support/unread';
 import { FirebaseService } from '@/lib/services/firebase-service';
 import { useNotifications } from '@/lib/hooks/useNotifications';
 import NotificationCenter from '@/components/Notifications';
@@ -164,6 +165,55 @@ const PUBLIC_ROUTES = [
 ];
 
 // ─── Resume count hook ────────────────────────────────────────────────────────
+
+/**
+ * Number of support threads where support has replied since the user last
+ * opened them. Drives the dot on the Support nav item.
+ *
+ * Counted in the browser rather than with a filter because PostgREST cannot
+ * compare two columns to each other (last_reply_at > user_last_read_at). The
+ * `last_reply_by = 'support'` filter and the partial index from migration
+ * 0040 keep the fetched set to the handful of threads that could qualify.
+ */
+const useUnreadTickets = () => {
+  const [user] = useSupabaseUser();
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    if (!user) { setUnread(0); return; }
+
+    const fetchUnread = async () => {
+      const { data, error } = await supabase
+        .from('support_tickets')
+        .select('last_reply_at, user_last_read_at, created_at')
+        .eq('user_id', user.id)
+        .eq('last_reply_by', 'support');
+      if (error) { console.error('Unread ticket check failed:', error.message); return; }
+      const rows = (data ?? []) as { last_reply_at: string | null; user_last_read_at: string | null; created_at: string }[];
+      setUnread(rows.filter(r => hasUnreadSupportReply({
+        lastReplyBy:    'support',   // guaranteed by the query filter above
+        lastReplyAt:    r.last_reply_at,
+        userLastReadAt: r.user_last_read_at,
+        createdAt:      r.created_at,
+      })).length);
+    };
+
+    fetchUnread();
+
+    // support_tickets is already in the supabase_realtime publication
+    // (migration 0013), so a staff reply clears/sets the dot without a reload.
+    const channel = supabase
+      .channel(`nav_unread_tickets:${user.id}`)
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'support_tickets', filter: `user_id=eq.${user.id}` },
+        fetchUnread)
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
+
+  return unread;
+};
 
 const useResumeCount = () => {
   const [user] = useSupabaseUser();
@@ -493,6 +543,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
   }, [currentUser?.id]);
 
   const { latestResume } = useResumeCount();
+  const unreadTickets    = useUnreadTickets();
 
   const {
     notifications, unreadCount,
@@ -606,6 +657,9 @@ function LayoutContent({ children, user }: LayoutClientProps) {
     { id: 'settings', label: 'Settings', icon: Settings,   href: '/settings' },
     { id: 'help',     label: 'Support',  icon: HelpCircle, href: '/help'     },
   ];
+  // Only the Support row carries a count today, so it is matched by id rather
+  // than widening NavItem with a badge field nothing else sets.
+  const navBadge = (id: string) => (id === 'help' ? unreadTickets : 0);
 
   const authPages   = ['/sign-in', '/sign-up', '/forgot-password', '/reset-password', '/verify-email', '/onboarding', '/auth/action', '/auth'];
   const publicPages = ['/help', '/terms', '/privacy', '/subscription'];
@@ -807,12 +861,25 @@ function LayoutContent({ children, user }: LayoutClientProps) {
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Other</p>
             </div>
             {otherItems.map(item => {
-              const Icon = item.icon;
+              const Icon  = item.icon;
+              const badge = navBadge(item.id);
               return (
                 <Link key={item.id} href={item.href} onClick={handleLinkClick}
-                  className="flex items-center space-x-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-white/5 hover:text-white transition-colors">
-                  <Icon className="w-5 h-5 text-slate-400" />
-                  <span className="font-medium text-sm">{item.label}</span>
+                  className="flex items-center justify-between px-3 py-2.5 rounded-lg text-slate-300 hover:bg-white/5 hover:text-white transition-colors">
+                  <div className="flex items-center space-x-3">
+                    <Icon className="w-5 h-5 text-slate-400" />
+                    <span className="font-medium text-sm">{item.label}</span>
+                  </div>
+                  {badge > 0 && (
+                    <span
+                      aria-label={`${badge} ticket${badge === 1 ? '' : 's'} with a new reply`}
+                      className="min-w-[18px] h-[18px] px-1.5 rounded-full bg-purple-500/20 border border-purple-500/30
+                                 text-purple-300 text-[10px] font-semibold leading-none
+                                 flex items-center justify-center"
+                    >
+                      {badge > 9 ? '9+' : badge}
+                    </span>
+                  )}
                 </Link>
               );
             })}

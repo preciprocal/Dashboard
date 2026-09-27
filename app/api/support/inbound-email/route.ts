@@ -158,6 +158,32 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Reply saved for ticket:', ticketId);
 
+    // ── In-app notification ──────────────────────────────────────────────────
+    //
+    // Written here with the service-role client rather than through
+    // NotificationService, which is browser-side and whose RLS policy
+    // (auth.uid() = user_id) can only ever write a notification for the
+    // session doing the writing. A staff reply has no such session - it
+    // arrives as an inbound email from outside the app entirely.
+    //
+    // Best-effort: a user who cannot be notified in-app has still had the
+    // reply saved and the email sent, and failing the webhook here would make
+    // the provider retry a delivery that already succeeded.
+    if (ticketData.user_id) {
+      const subject = (ticketData.subject as string) || 'your ticket';
+      const preview = cleanReply.length > 140 ? `${cleanReply.slice(0, 140)}…` : cleanReply;
+      const { error: notifyError } = await supabaseAdmin.from('notifications').insert({
+        user_id:      ticketData.user_id,
+        type:         'support',
+        title:        `Support replied to "${subject}"`,
+        body:         preview,
+        action_url:   `/help?tab=tickets&ticket=${ticketId}`,
+        action_label: 'View ticket',
+        metadata:     { ticketId },
+      });
+      if (notifyError) console.error('⚠️ Could not write in-app notification:', notifyError.message);
+    }
+
     // ── Notify user via email ─────────────────────────────────────────────────
     await notifyUserOfReply(
       ticketData.user_email as string,

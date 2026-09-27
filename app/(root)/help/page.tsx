@@ -18,6 +18,8 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import ErrorPage from '@/components/Error';
+import { formatDistanceToNow } from 'date-fns';
+import { hasUnreadSupportReply } from '@/lib/support/unread';
 import { toast } from 'sonner';
 import { NotificationService } from '@/lib/services/notification-services';
 
@@ -32,6 +34,7 @@ interface SupportTicket {
   priority: 'low' | 'medium' | 'high';
   createdAt: string | null; updatedAt: string | null;
   lastReplyBy?: 'user' | 'support'; lastReplyAt?: string | null;
+  userLastReadAt?: string | null;
   attachments?: AttachmentMeta[];
 }
 
@@ -46,6 +49,7 @@ interface SupportTicketRow {
   status: string; priority: string | null;
   created_at: string; updated_at: string;
   last_reply_by: string | null; last_reply_at: string | null;
+  user_last_read_at: string | null;
   attachments: AttachmentMeta[] | null;
 }
 
@@ -64,6 +68,7 @@ function toSupportTicket(row: SupportTicketRow): SupportTicket {
     updatedAt: row.updated_at,
     lastReplyBy: (row.last_reply_by as SupportTicket['lastReplyBy']) ?? undefined,
     lastReplyAt: row.last_reply_at,
+    userLastReadAt: row.user_last_read_at,
     attachments: row.attachments ?? undefined,
   };
 }
@@ -83,6 +88,68 @@ function toTicketReply(row: TicketReplyRow): TicketReply {
     createdAt: row.created_at,
     isStaff: row.is_staff,
   };
+}
+
+// ─── Ticket presentation helpers ──────────────────────────────────────────────
+
+/**
+ * Status as a dot plus a word, rather than a filled uppercase pill.
+ *
+ * 'resolved' is included because the 0036 trigger can set it even though the
+ * SupportTicket union predates that; the fallback keeps an unknown status
+ * rendering as something rather than blank.
+ */
+function statusMeta(status: string): { label: string; dot: string; text: string } {
+  switch (status) {
+    case 'open':        return { label: 'Open',        dot: 'bg-emerald-400', text: 'text-emerald-300/90' };
+    case 'in-progress': return { label: 'In progress', dot: 'bg-amber-400',   text: 'text-amber-300/90'   };
+    case 'resolved':    return { label: 'Resolved',    dot: 'bg-slate-500',   text: 'text-slate-400'      };
+    case 'closed':      return { label: 'Closed',      dot: 'bg-slate-600',   text: 'text-slate-500'      };
+    default:            return { label: status,        dot: 'bg-slate-500',   text: 'text-slate-400'      };
+  }
+}
+
+function relTime(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return formatDistanceToNow(d, { addSuffix: true });
+}
+
+/** One turn in the thread. Same shape for the opening message and every reply. */
+function Message({
+  author, at, body, isStaff = false, attachments, onOpenAttachment,
+}: {
+  author: string;
+  at: string | null;
+  body: string;
+  isStaff?: boolean;
+  attachments?: AttachmentMeta[];
+  onOpenAttachment?: (a: AttachmentMeta) => void;
+}) {
+  return (
+    <div className="px-5 py-4">
+      <div className="flex items-baseline gap-2 mb-1.5">
+        <span className={`text-xs font-semibold ${isStaff ? 'text-purple-300' : 'text-slate-300'}`}>{author}</span>
+        <span className="text-[11px] text-slate-600">{at ? new Date(at).toLocaleString() : ''}</span>
+      </div>
+      <p className="text-[13px] text-slate-300 leading-relaxed whitespace-pre-wrap">{body}</p>
+      {attachments && attachments.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-3">
+          {attachments.map((att, i) => (
+            <button key={i} type="button" onClick={() => onOpenAttachment?.(att)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg
+                         bg-white/[0.03] border border-white/[0.08] hover:border-white/[0.16]
+                         text-[11px] text-slate-400 hover:text-slate-200 transition-colors">
+              <FileTypeIcon type={att.type} />
+              <span className="truncate max-w-[160px]">{att.name}</span>
+              <span className="text-slate-600">{formatBytes(att.size)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 interface CriticalError { code: string; title: string; message: string; details?: string; }
@@ -157,6 +224,13 @@ function HelpSupportContent() {
     if (q)   { setSearchQuery(decodeURIComponent(q)); setActiveSection('faq'); }
     if (cat && cat !== 'all') setSelectedCategory(cat);
     if (sec === 'tickets') setActiveSection('tickets');
+
+    // Deep link from the in-app notification a staff reply creates
+    // (app/api/support/inbound-email). Opening the thread is what marks it
+    // read, so landing here from the bell clears the badge too.
+    if (searchParams.get('tab') === 'tickets') setActiveSection('tickets');
+    const ticket = searchParams.get('ticket');
+    if (ticket) { setActiveSection('tickets'); setSelectedTicket(ticket); }
   }, [searchParams]);
 
   // ── File selection ──────────────────────────────────────────────────────────
@@ -303,11 +377,13 @@ function HelpSupportContent() {
     { value: 'bug',       label: 'Bug Report'       },
   ];
 
-  const openTicketsCount = userTickets.filter(t => t.status !== 'closed').length;
+  // Counts threads with an unread support reply, not open tickets. See
+  // hasUnreadSupportReply() and migration 0040.
+  const unreadTicketCount = userTickets.filter(hasUnreadSupportReply).length;
   const tabs: TabItem[] = [
-    { id: 'faq',     label: 'FAQs',    icon: BookOpen                                              },
-    { id: 'contact', label: 'Contact', icon: MessageSquare                                         },
-    { id: 'tickets', label: 'Tickets', icon: FileText, badge: openTicketsCount },
+    { id: 'faq',     label: 'FAQs',    icon: BookOpen      },
+    { id: 'contact', label: 'Contact', icon: MessageSquare },
+    { id: 'tickets', label: 'Tickets', icon: FileText, badge: unreadTicketCount },
   ];
 
   // ── Live tickets ─────────────────────────────────────────────────────────────
@@ -363,6 +439,18 @@ function HelpSupportContent() {
     };
 
     fetchReplies();
+
+    // Opening the thread is the read receipt. Written on every open rather
+    // than only when something is unread: the cost is one indexed update, and
+    // the alternative needs the ticket row in scope here, which would couple
+    // this effect to the list's fetch order.
+    void supabase
+      .from('support_tickets')
+      .update({ user_last_read_at: new Date().toISOString() })
+      .eq('id', selectedTicket)
+      .then(({ error }) => {
+        if (error) console.error('Could not mark ticket read:', error.message);
+      });
 
     const channel: RealtimeChannel = supabase
       .channel(`support_ticket_replies:${selectedTicket}`)
@@ -537,13 +625,6 @@ function HelpSupportContent() {
     return matchesCategory && matchesSearch;
   });
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'closed':      return 'bg-green-500/20 text-green-400';
-      case 'in-progress': return 'bg-blue-500/20 text-blue-400';
-      default:            return 'bg-yellow-500/20 text-yellow-400';
-    }
-  };
 
   if (criticalError) return (
     <ErrorPage errorCode={criticalError.code} errorTitle={criticalError.title}
@@ -836,194 +917,173 @@ function HelpSupportContent() {
 
         {/* ── Tickets ── */}
         {activeSection === 'tickets' && (
-          <div className="space-y-3 sm:space-y-4 animate-fade-in-up">
+          <div className="animate-fade-in-up">
             {!user ? (
               <div className="glass-card">
-                <div className="text-center py-12 sm:py-16 px-4 space-y-4">
-                  <div className="w-12 h-12 gradient-primary rounded-xl flex items-center justify-center mx-auto shadow-glass">
-                    <LogOut className="w-6 h-6 text-white rotate-180" />
+                <div className="text-center py-14 px-6">
+                  <div className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mx-auto mb-4">
+                    <Lock className="w-4 h-4 text-slate-400" />
                   </div>
-                  <div>
-                    <h3 className="text-sm sm:text-base font-semibold text-white mb-1">Sign in to view tickets</h3>
-                    <p className="text-slate-400 text-xs sm:text-sm">You need to be logged in to view and manage your support tickets.</p>
-                  </div>
-                  <Link href="/sign-in" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white text-sm font-medium shadow-md hover:shadow-lg transition-all">
-                    <LogOut className="w-4 h-4 rotate-180" />Sign In
+                  <h3 className="text-sm font-semibold text-white mb-1">Sign in to view tickets</h3>
+                  <p className="text-slate-500 text-xs mb-5">Your support history is tied to your account.</p>
+                  <Link href="/sign-in"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold transition-colors">
+                    Sign in
                   </Link>
                 </div>
               </div>
             ) : loadingTickets ? (
               <div className="glass-card">
-                <div className="text-center py-12 sm:py-16 px-4">
-                  <Loader2 className="w-8 h-8 sm:w-10 sm:h-10 text-purple-500 animate-spin mx-auto mb-2 sm:mb-3" />
-                  <p className="text-slate-400 text-xs sm:text-sm">Loading tickets...</p>
+                <div className="text-center py-14 px-6">
+                  <Loader2 className="w-5 h-5 text-slate-500 animate-spin mx-auto mb-3" />
+                  <p className="text-slate-500 text-xs">Loading tickets</p>
                 </div>
               </div>
             ) : selectedTicket ? (
-              <div className="space-y-3 sm:space-y-4">
-                <button onClick={() => { setSelectedTicket(null); setTicketReplies([]); }}
-                  className="glass-button hover-lift inline-flex items-center px-3 py-2 rounded-lg text-sm text-slate-300">
-                  <ArrowLeft className="w-4 h-4 mr-2" /> Back to all tickets
-                </button>
-                {(() => {
-                  const ticket = userTickets.find(t => t.id === selectedTicket);
-                  if (!ticket) return null;
-                  return (
-                    <div className="glass-card">
-                      <div className="p-4 sm:p-6 border-b border-white/5">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2 flex-wrap">
-                              <h2 className="text-lg sm:text-xl font-bold text-white">{ticket.subject}</h2>
-                              <span className={`px-2 py-0.5 rounded text-xs font-medium ${getStatusBadge(ticket.status)}`}>{ticket.status.toUpperCase()}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-slate-400 mb-3">
-                              <span>Ticket #{ticket.id.slice(0, 8)}</span><span>•</span>
-                              <span>{ticket.createdAt ? new Date(ticket.createdAt).toLocaleDateString() : ''}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="glass-morphism p-4 rounded-lg border border-white/5">
-                          <div className="flex items-center gap-2 mb-2">
-                            <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full flex items-center justify-center">
-                              <span className="text-white text-xs font-bold">{ticket.userName?.charAt(0) || 'U'}</span>
-                            </div>
-                            <div>
-                              <p className="text-white font-medium text-sm">{ticket.userName || 'You'}</p>
-                              <p className="text-slate-500 text-xs">{ticket.createdAt ? new Date(ticket.createdAt).toLocaleString() : ''}</p>
-                            </div>
-                          </div>
-                          <p className="text-slate-300 text-sm leading-relaxed mt-2 whitespace-pre-wrap">{ticket.message}</p>
+              (() => {
+                const ticket = userTickets.find(t => t.id === selectedTicket);
+                if (!ticket) return null;
+                const st = statusMeta(ticket.status);
+                const canReply = ticket.status !== 'closed';
+                return (
+                  <div className="space-y-4">
+                    <button onClick={() => { setSelectedTicket(null); setTicketReplies([]); }}
+                      className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors">
+                      <ArrowLeft className="w-3.5 h-3.5" /> All tickets
+                    </button>
 
-                          {ticket.attachments && ticket.attachments.length > 0 && (
-                            <div className="mt-3 pt-3 border-t border-white/5">
-                              <p className="text-xs text-slate-500 mb-2 flex items-center gap-1">
-                                <Paperclip className="w-3 h-3" />
-                                {ticket.attachments.length} attachment{ticket.attachments.length > 1 ? 's' : ''}
-                              </p>
-                              <div className="flex flex-wrap gap-2">
-                                {ticket.attachments.map((att, i) => (
-                                  <button key={i} type="button" onClick={() => openAttachment(att)}
-                                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg glass-morphism border border-white/10 hover:border-white/20 text-xs text-slate-300 hover:text-white transition-all">
-                                    <FileTypeIcon type={att.type} />
-                                    <span className="truncate max-w-[140px]">{att.name}</span>
-                                    <span className="text-slate-600">{formatBytes(att.size)}</span>
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          )}
+                    <div className="glass-card overflow-hidden">
+                      {/* Thread header */}
+                      <div className="px-5 py-4 border-b border-white/[0.06]">
+                        <div className="flex items-start justify-between gap-4">
+                          <h2 className="text-[15px] font-semibold text-white leading-snug">{ticket.subject}</h2>
+                          <span className={`flex items-center gap-1.5 flex-shrink-0 text-[11px] font-medium ${st.text}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />{st.label}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-[11px] text-slate-600 mt-1.5">
+                          <span className="font-mono">#{ticket.id.slice(0, 8)}</span>
+                          <span>·</span>
+                          <span className="capitalize">{ticket.category}</span>
+                          <span>·</span>
+                          <span>{relTime(ticket.createdAt)}</span>
                         </div>
                       </div>
 
-                      <div className="p-4 sm:p-6 space-y-3">
-                        <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3">Conversation</h3>
+                      {/* Transcript */}
+                      <div className="divide-y divide-white/[0.05]">
+                        <Message
+                          author="You"
+                          at={ticket.createdAt}
+                          body={ticket.message}
+                          attachments={ticket.attachments}
+                          onOpenAttachment={openAttachment}
+                        />
                         {loadingReplies ? (
-                          <div className="text-center py-8"><Loader2 className="w-6 h-6 text-purple-500 animate-spin mx-auto" /></div>
-                        ) : ticketReplies.length > 0 ? (
-                          <div className="space-y-3">
-                            {ticketReplies.map(reply => (
-                              <div key={reply.id} className={`glass-morphism p-4 rounded-lg border ${reply.isStaff ? 'border-green-500/20 bg-green-500/5' : 'border-blue-500/20 bg-blue-500/5'}`}>
-                                <div className="flex items-center gap-2 mb-2">
-                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${reply.isStaff ? 'bg-gradient-to-r from-green-600 to-emerald-600' : 'bg-gradient-to-r from-purple-600 to-blue-600'}`}>
-                                    <span className="text-white text-xs font-bold">{reply.isStaff ? 'S' : 'U'}</span>
-                                  </div>
-                                  <div>
-                                    <p className="text-white font-medium text-sm">{reply.isStaff ? 'Support Team' : 'You'}</p>
-                                    <p className="text-slate-500 text-xs">{reply.createdAt ? new Date(reply.createdAt).toLocaleString() : ''}</p>
-                                  </div>
-                                </div>
-                                <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{reply.message}</p>
-                              </div>
-                            ))}
+                          <div className="px-5 py-8 text-center">
+                            <Loader2 className="w-4 h-4 text-slate-600 animate-spin mx-auto" />
                           </div>
                         ) : (
-                          <p className="text-center text-slate-500 text-sm py-4">No replies yet. We&apos;ll respond via email within 24 hours.</p>
+                          ticketReplies.map(reply => (
+                            <Message
+                              key={reply.id}
+                              author={reply.isStaff ? 'Support' : 'You'}
+                              isStaff={reply.isStaff}
+                              at={reply.createdAt}
+                              body={reply.message}
+                            />
+                          ))
                         )}
-                        {ticket.status === 'closed' ? (
-                          <div className="mt-4 glass-morphism p-4 rounded-lg border border-white/10 text-center">
-                            <CheckCircle2 className="w-5 h-5 text-green-400 mx-auto mb-1.5" />
-                            <p className="text-sm font-medium text-white mb-0.5">Ticket Closed</p>
-                            <p className="text-xs text-slate-400">If you need further assistance, please create a new ticket.</p>
-                          </div>
-                        ) : ticketReplies.some(r => r.isStaff) ? (
-                          <div className="mt-4 space-y-2">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Send a Reply</p>
+                      </div>
+
+                      {/* Composer */}
+                      <div className="px-5 py-4 border-t border-white/[0.06] bg-white/[0.015]">
+                        {canReply ? (
+                          <>
                             <textarea
                               value={replyText}
                               onChange={e => setReplyText(e.target.value)}
-                              placeholder="Type your reply..."
+                              placeholder="Write a reply…"
                               rows={3}
-                              className="glass-input w-full px-3 py-2.5 rounded-lg text-white placeholder-slate-500 resize-none glass-scrollbar text-sm"
+                              className="w-full px-3 py-2.5 rounded-lg text-[13px] text-white placeholder-slate-600
+                                         bg-white/[0.03] border border-white/[0.08] resize-none
+                                         focus:outline-none focus:border-purple-500/40 transition-colors glass-scrollbar"
                             />
-                            <button
-                              onClick={handleUserReply}
-                              disabled={isReplying || !replyText.trim()}
-                              className="w-full glass-button-primary hover-lift px-4 py-2 rounded-lg font-medium flex items-center justify-center gap-2 disabled:opacity-50 text-sm">
-                              {isReplying
-                                ? <><Loader2 className="w-4 h-4 animate-spin" />Sending...</>
-                                : <><Send className="w-4 h-4" />Send Reply</>}
-                            </button>
-                          </div>
+                            <div className="flex items-center justify-between mt-2.5">
+                              <p className="text-[11px] text-slate-600">We typically reply within 24 hours.</p>
+                              <button
+                                onClick={handleUserReply}
+                                disabled={isReplying || !replyText.trim()}
+                                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg
+                                           bg-purple-600 hover:bg-purple-500 disabled:bg-white/[0.06]
+                                           disabled:text-slate-600 text-white text-xs font-semibold
+                                           transition-colors disabled:cursor-not-allowed">
+                                {isReplying
+                                  ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Sending</>
+                                  : <><Send className="w-3.5 h-3.5" />Send reply</>}
+                              </button>
+                            </div>
+                          </>
                         ) : (
-                          <div className="mt-4 glass-morphism p-4 rounded-lg border border-white/10 flex items-start gap-3">
-                            <Mail className="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5" />
-                            <p className="text-xs text-slate-500 leading-relaxed">
-                              Once our team replies, you&apos;ll be able to respond here. We typically reply within 24 hours.
-                            </p>
+                          <div className="flex items-center gap-2.5 text-[11px] text-slate-500">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
+                            This ticket is closed. Start a new one if you still need help.
                           </div>
                         )}
                       </div>
                     </div>
-                  );
-                })()}
-              </div>
+                  </div>
+                );
+              })()
             ) : userTickets.length > 0 ? (
-              <div className="space-y-2.5 sm:space-y-3">
-                {userTickets.map(ticket => (
-                  <div key={ticket.id}
-                    onClick={() => setSelectedTicket(ticket.id)}
-                    className="glass-card hover-lift cursor-pointer">
-                    <div className="p-4 sm:p-5">
-                      <div className="flex items-start justify-between mb-2 sm:mb-3 gap-2">
+              <div className="glass-card overflow-hidden divide-y divide-white/[0.05]">
+                {userTickets.map(ticket => {
+                  const st     = statusMeta(ticket.status);
+                  const unread = hasUnreadSupportReply(ticket);
+                  return (
+                    <button key={ticket.id} onClick={() => setSelectedTicket(ticket.id)}
+                      className="w-full text-left px-5 py-4 hover:bg-white/[0.02] transition-colors group">
+                      <div className="flex items-start gap-3">
+                        {/* Unread marker keeps the row aligned whether or not it is shown */}
+                        <span className={`w-1.5 h-1.5 rounded-full mt-[7px] flex-shrink-0 ${unread ? 'bg-purple-400' : 'bg-transparent'}`} />
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1.5 sm:mb-2 flex-wrap">
-                            <h3 className="text-sm sm:text-base font-semibold text-white line-clamp-1">{ticket.subject}</h3>
-                            <span className={`px-2 py-0.5 rounded text-xs font-medium flex-shrink-0 ${getStatusBadge(ticket.status)}`}>{ticket.status.toUpperCase()}</span>
-                            {ticket.lastReplyBy === 'support' && (
-                              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 text-[11px] font-semibold flex-shrink-0">
-                                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block" />
-                                New Reply
-                              </span>
-                            )}
+                          <div className="flex items-center justify-between gap-3">
+                            <h3 className={`text-[13px] truncate ${unread ? 'text-white font-semibold' : 'text-slate-200 font-medium'}`}>
+                              {ticket.subject}
+                            </h3>
+                            <span className={`flex items-center gap-1.5 flex-shrink-0 text-[11px] ${st.text}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />{st.label}
+                            </span>
                           </div>
-                          <p className="text-slate-400 text-xs sm:text-sm mb-1.5 sm:mb-2 line-clamp-2">{ticket.message}</p>
-                          <div className="flex items-center gap-2 sm:gap-3 text-xs text-slate-500 flex-wrap">
-                            <span className="capitalize">{ticket.category}</span><span>•</span>
-                            <span>{ticket.createdAt ? new Date(ticket.createdAt).toLocaleDateString() : 'Recently'}</span>
+                          <p className="text-slate-500 text-xs mt-1 line-clamp-1">{ticket.message}</p>
+                          <div className="flex items-center gap-2 text-[11px] text-slate-600 mt-1.5">
+                            <span className="font-mono">#{ticket.id.slice(0, 8)}</span>
+                            <span>·</span>
+                            <span className="capitalize">{ticket.category}</span>
                             {ticket.attachments && ticket.attachments.length > 0 && (
-                              <><span>•</span><span className="flex items-center gap-1"><Paperclip className="w-3 h-3" />{ticket.attachments.length}</span></>
+                              <><span>·</span><span className="inline-flex items-center gap-1"><Paperclip className="w-3 h-3" />{ticket.attachments.length}</span></>
                             )}
-                            {ticket.lastReplyAt && (
-                              <><span>•</span><span className="text-green-400">Last reply: {ticket.lastReplyAt ? new Date(ticket.lastReplyAt).toLocaleDateString() : ''}</span></>
-                            )}
+                            <span>·</span>
+                            <span>{relTime(ticket.lastReplyAt ?? ticket.createdAt)}</span>
                           </div>
                         </div>
-                        <ChevronRight className="w-5 h-5 text-slate-500 flex-shrink-0" />
+                        <ChevronRight className="w-4 h-4 text-slate-700 group-hover:text-slate-500 transition-colors flex-shrink-0 mt-0.5" />
                       </div>
-                    </div>
-                  </div>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
             ) : (
               <div className="glass-card">
-                <div className="text-center py-12 sm:py-16 px-4">
-                  <FileText className="w-8 h-8 sm:w-10 sm:h-10 text-slate-500 mx-auto mb-2 sm:mb-3" />
-                  <h3 className="text-sm sm:text-base font-semibold text-white mb-1 sm:mb-2">No tickets</h3>
-                  <p className="text-slate-400 text-xs sm:text-sm mb-3 sm:mb-4">You haven&apos;t submitted any tickets yet</p>
+                <div className="text-center py-14 px-6">
+                  <div className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mx-auto mb-4">
+                    <FileText className="w-4 h-4 text-slate-500" />
+                  </div>
+                  <h3 className="text-sm font-semibold text-white mb-1">No tickets yet</h3>
+                  <p className="text-slate-500 text-xs mb-5">When you contact support, the conversation appears here.</p>
                   <button onClick={() => setActiveSection('contact')}
-                    className="glass-button-primary hover-lift inline-flex items-center px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-medium text-xs sm:text-sm">
-                    <MessageSquare className="w-4 h-4 mr-2" /> Create Ticket
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold transition-colors">
+                    <MessageSquare className="w-3.5 h-3.5" /> Contact support
                   </button>
                 </div>
               </div>

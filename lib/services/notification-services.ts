@@ -14,6 +14,7 @@ export type NotificationType =
   | 'cover_letter'
   | 'planner'
   | 'achievement'
+  | 'support'
   | 'system';
 
 export interface Notification {

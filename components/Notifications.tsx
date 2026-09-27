@@ -5,7 +5,7 @@ import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import {
   Bell, Check, CheckCheck, Trash2,
-  Video, FileText, Pen, Calendar, Trophy, AlertCircle, Loader2,
+  Video, FileText, Pen, Calendar, Trophy, AlertCircle, Loader2, LifeBuoy,
 } from "lucide-react";
 import { Notification as AppNotification } from "@/lib/services/notification-services";
 
@@ -31,6 +31,7 @@ const TYPE_META: Record<
   cover_letter: { icon: Pen,         color: "text-indigo-400" },
   planner:      { icon: Calendar,    color: "text-violet-400" },
   achievement:  { icon: Trophy,      color: "text-amber-400" },
+  support:      { icon: LifeBuoy,    color: "text-emerald-400" },
   system:       { icon: AlertCircle, color: "text-slate-400" },
 };
 

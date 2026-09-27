@@ -27,6 +27,7 @@
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/supabase/admin";
+import { hasUnreadSupportReply } from "@/lib/support/unread";
 
 const URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -239,17 +240,104 @@ async function main() {
     .select("id, body, is_staff").eq("ticket_id", threadTicket).order("created_at");
   check("user sees their own replies", (ownThread ?? []).some((r) => !r.is_staff));
   check("user sees support replies", (ownThread ?? []).some((r) => r.is_staff));
+
+  // ── 5. Unread state and the notification a staff reply creates ───────────
+  //
+  // The Tickets tab badge used to count `status != 'closed'`, so replying
+  // never moved it - and because the 0036 trigger reopens a resolved ticket,
+  // answering support could push it up. Unread is now derived from
+  // last_reply_by / last_reply_at against user_last_read_at (migration 0040),
+  // through the same lib/support/unread.ts the UI calls.
+  console.log("\n[5] unread state tracks who spoke last");
+
+  const unreadTicket = await makeTicket(bob.id, "Bob unread tracking");
+  const unreadRow = async () => {
+    const r = await ticketRow(unreadTicket);
+    return hasUnreadSupportReply({
+      lastReplyBy:    r.last_reply_by,
+      lastReplyAt:    r.last_reply_at,
+      userLastReadAt: r.user_last_read_at,
+      createdAt:      r.created_at,
+    });
+  };
+
+  const probe = await ticketRow(unreadTicket);
+  if (!("user_last_read_at" in probe)) {
+    console.log("  SKIP  user_last_read_at missing - apply migration 0040");
+  } else {
+    check("a brand new ticket is not unread", (await unreadRow()) === false);
+
+    // The user writes. Their own message must never light up their own badge.
+    await asBob.from("support_ticket_replies").insert({
+      ticket_id: unreadTicket, body: "My question.", author_user_id: bob.id, is_staff: false,
+    });
+    check("the user's OWN reply does not make it unread", (await unreadRow()) === false,
+      "this is the reported bug: the count must not move when you reply");
+
+    // Support answers.
+    await supabaseAdmin.from("support_ticket_replies").insert({
+      ticket_id: unreadTicket, body: "Support answering.", author_user_id: null, is_staff: true,
+    });
+    check("a support reply makes it unread", (await unreadRow()) === true);
+
+    // Opening the thread is the read receipt, written by the browser under RLS.
+    const { error: markErr } = await asBob.from("support_tickets")
+      .update({ user_last_read_at: new Date().toISOString() }).eq("id", unreadTicket);
+    check("the owner may write their own read marker", !markErr, markErr?.message);
+    check("opening the thread clears unread", (await unreadRow()) === false);
+
+    // And a later reply lights it up again.
+    await new Promise((r) => setTimeout(r, 1100)); // timestamps are second-ish granular
+    await supabaseAdmin.from("support_ticket_replies").insert({
+      ticket_id: unreadTicket, body: "One more thing.", author_user_id: null, is_staff: true,
+    });
+    check("a later support reply makes it unread again", (await unreadRow()) === true);
+
+    // The read marker is per-owner state, so it must be as protected as the
+    // rest of the row - otherwise one user could clear another's badge.
+    const { data: crossMark } = await asBob.from("support_tickets")
+      .update({ user_last_read_at: new Date().toISOString() })
+      .eq("id", aliceTicket).select("id");
+    check("cannot mark another user's ticket read", (crossMark?.length ?? 0) === 0);
+  }
+
+  // The in-app notification is written by app/api/support/inbound-email with
+  // the service-role client, because a staff reply arrives as an email and has
+  // no browser session - NotificationService is RLS-bound to auth.uid() and
+  // could only ever notify the person doing the writing. What matters here is
+  // that the row the route writes is one the recipient can actually read back.
+  console.log("\n[6] the support notification reaches its owner");
+  const { error: notifErr } = await supabaseAdmin.from("notifications").insert({
+    user_id: bob.id, type: "support",
+    title: 'Support replied to "Bob unread tracking"',
+    body: "Support answering.",
+    action_url: `/help?tab=tickets&ticket=${unreadTicket}`,
+    action_label: "View ticket",
+    metadata: { ticketId: unreadTicket },
+  });
+  check("service role can write a support notification", !notifErr, notifErr?.message);
+
+  const { data: bobNotifs } = await asBob.from("notifications")
+    .select("type, action_url").eq("user_id", bob.id).eq("type", "support");
+  check("the recipient can read it", (bobNotifs?.length ?? 0) === 1, String(bobNotifs?.length));
+  check("it deep-links to the ticket",
+    (bobNotifs?.[0]?.action_url ?? "").includes(unreadTicket));
+
+  const { data: aliceSees } = await asBob.from("notifications")
+    .select("id").eq("user_id", alice.id);
+  check("and is not visible to anyone else", (aliceSees?.length ?? 0) === 0);
 }
 
 main()
   .catch((err) => { console.error("\nHarness error:", err); fail++; })
   .finally(async () => {
-    console.log("\n[5] cleanup");
+    console.log("\n[7] cleanup");
     if (tickets.length) {
       await supabaseAdmin.from("support_ticket_replies").delete().in("ticket_id", tickets);
       await supabaseAdmin.from("support_tickets").delete().in("id", tickets);
     }
     await supabaseAdmin.from("support_tickets").delete().eq("subject", "forged");
+    if (users.length) await supabaseAdmin.from("notifications").delete().in("user_id", users);
     for (const id of users) await supabaseAdmin.auth.admin.deleteUser(id);
     check("test users and tickets removed", true);
     console.log(`\n${pass} passed, ${fail} failed`);
