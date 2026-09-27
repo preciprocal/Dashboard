@@ -131,16 +131,16 @@ function Message({
     <div className="px-5 py-4">
       <div className="flex items-baseline gap-2 mb-1.5">
         <span className={`text-xs font-semibold ${isStaff ? 'text-purple-300' : 'text-slate-300'}`}>{author}</span>
-        <span className="text-[11px] text-slate-600">{at ? new Date(at).toLocaleString() : ''}</span>
+        <span className="text-xs text-slate-600">{at ? new Date(at).toLocaleString() : ''}</span>
       </div>
-      <p className="text-[13px] text-slate-300 leading-relaxed whitespace-pre-wrap">{body}</p>
+      <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{body}</p>
       {attachments && attachments.length > 0 && (
         <div className="flex flex-wrap gap-2 mt-3">
           {attachments.map((att, i) => (
             <button key={i} type="button" onClick={() => onOpenAttachment?.(att)}
               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg
                          bg-white/[0.03] border border-white/[0.08] hover:border-white/[0.16]
-                         text-[11px] text-slate-400 hover:text-slate-200 transition-colors">
+                         text-xs text-slate-400 hover:text-slate-200 transition-colors">
               <FileTypeIcon type={att.type} />
               <span className="truncate max-w-[160px]">{att.name}</span>
               <span className="text-slate-600">{formatBytes(att.size)}</span>
@@ -956,12 +956,12 @@ function HelpSupportContent() {
                       {/* Thread header */}
                       <div className="px-5 py-4 border-b border-white/[0.06]">
                         <div className="flex items-start justify-between gap-4">
-                          <h2 className="text-[15px] font-semibold text-white leading-snug">{ticket.subject}</h2>
-                          <span className={`flex items-center gap-1.5 flex-shrink-0 text-[11px] font-medium ${st.text}`}>
+                          <h2 className="text-base font-semibold text-white leading-snug">{ticket.subject}</h2>
+                          <span className={`flex items-center gap-1.5 flex-shrink-0 text-xs font-medium ${st.text}`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />{st.label}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 text-[11px] text-slate-600 mt-1.5">
+                        <div className="flex items-center gap-2 text-xs text-slate-600 mt-1.5">
                           <span className="font-mono">#{ticket.id.slice(0, 8)}</span>
                           <span>·</span>
                           <span className="capitalize">{ticket.category}</span>
@@ -1005,12 +1005,12 @@ function HelpSupportContent() {
                               onChange={e => setReplyText(e.target.value)}
                               placeholder="Write a reply…"
                               rows={3}
-                              className="w-full px-3 py-2.5 rounded-lg text-[13px] text-white placeholder-slate-600
+                              className="w-full px-3 py-2.5 rounded-lg text-sm text-white placeholder-slate-600
                                          bg-white/[0.03] border border-white/[0.08] resize-none
                                          focus:outline-none focus:border-purple-500/40 transition-colors glass-scrollbar"
                             />
                             <div className="flex items-center justify-between mt-2.5">
-                              <p className="text-[11px] text-slate-600">We typically reply within 24 hours.</p>
+                              <p className="text-xs text-slate-600">We typically reply within 24 hours.</p>
                               <button
                                 onClick={handleUserReply}
                                 disabled={isReplying || !replyText.trim()}
@@ -1025,7 +1025,7 @@ function HelpSupportContent() {
                             </div>
                           </>
                         ) : (
-                          <div className="flex items-center gap-2.5 text-[11px] text-slate-500">
+                          <div className="flex items-center gap-2.5 text-xs text-slate-500">
                             <CheckCircle2 className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
                             This ticket is closed. Start a new one if you still need help.
                           </div>
@@ -1048,15 +1048,15 @@ function HelpSupportContent() {
                         <span className={`w-1.5 h-1.5 rounded-full mt-[7px] flex-shrink-0 ${unread ? 'bg-purple-400' : 'bg-transparent'}`} />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-3">
-                            <h3 className={`text-[13px] truncate ${unread ? 'text-white font-semibold' : 'text-slate-200 font-medium'}`}>
+                            <h3 className={`text-sm truncate ${unread ? 'text-white font-semibold' : 'text-slate-200 font-medium'}`}>
                               {ticket.subject}
                             </h3>
-                            <span className={`flex items-center gap-1.5 flex-shrink-0 text-[11px] ${st.text}`}>
+                            <span className={`flex items-center gap-1.5 flex-shrink-0 text-xs ${st.text}`}>
                               <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />{st.label}
                             </span>
                           </div>
                           <p className="text-slate-500 text-xs mt-1 line-clamp-1">{ticket.message}</p>
-                          <div className="flex items-center gap-2 text-[11px] text-slate-600 mt-1.5">
+                          <div className="flex items-center gap-2 text-xs text-slate-600 mt-1.5">
                             <span className="font-mono">#{ticket.id.slice(0, 8)}</span>
                             <span>·</span>
                             <span className="capitalize">{ticket.category}</span>
