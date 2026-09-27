@@ -13,7 +13,7 @@ import {
   Loader2, Pen, Edit3, Sparkles, PenTool, Shield, Building2, Eye,
   Calendar, TrendingUp, Zap, BarChart3, Users, Globe, Smartphone,
   CreditCard, Lock, Settings as SettingsIcon, Download,
-  RefreshCw, ArrowLeft, Home, LogOut, Paperclip, X, Image as ImageIcon, File,
+  RefreshCw, ArrowLeft, ArrowRight, Home, LogOut, Paperclip, X, Image as ImageIcon, File,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
@@ -714,95 +714,139 @@ function HelpSupportContent() {
       <div className="px-4 sm:px-6 lg:px-10 xl:px-16 py-8">
 
         {/* ── FAQ ── */}
-        {activeSection === 'faq' && (
-          <div className="grid xl:grid-cols-[240px_minmax(0,1fr)] gap-8 xl:gap-12 animate-fade-in-up">
+        {activeSection === 'faq' && (() => {
+          // Browsing = the landing state: hero plus the category grid.
+          // Searching or picking a category switches to the article list.
+          const browsing = selectedCategory === 'all' && searchQuery === '';
+          const countFor = (value: string) =>
+            value === 'all' ? faqs.length : faqs.filter(f => f.category === value).length;
+          const current = categories.find(c => c.value === selectedCategory);
 
-            {/* Category rail. Vertical on wide screens, which is what actually
-                uses the extra width - stretching answer text to 2000px would
-                not. Wraps to a horizontal row below xl. */}
-            <aside className="xl:sticky xl:top-32 xl:self-start">
-              <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-3 px-3">Categories</p>
-              <div className="flex xl:flex-col gap-1 overflow-x-auto xl:overflow-visible pb-2 xl:pb-0">
-                {categories.map(cat => {
-                  const on = selectedCategory === cat.value;
-                  return (
-                    <button key={cat.value} onClick={() => { setSelectedCategory(cat.value); setOpenFaq(null); }}
-                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-colors
-                        ${on ? 'bg-white/[0.06] text-white font-medium' : 'text-slate-400 hover:text-white hover:bg-white/[0.03]'}`}>
-                      <cat.icon className={`w-4 h-4 flex-shrink-0 ${on ? 'text-purple-400' : 'text-slate-600'}`} />
-                      <span>{cat.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </aside>
+          return (
+            <div className="animate-fade-in-up">
 
-            <div className="min-w-0">
-              <div className="relative mb-6">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
-                <input type="text" value={searchQuery}
-                  onChange={e => { setSearchQuery(e.target.value); setOpenFaq(null); }}
-                  placeholder="Search help articles"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-lg text-sm text-white placeholder-slate-600
-                             bg-white/[0.03] border border-white/[0.08]
-                             focus:outline-none focus:border-purple-500/40 transition-colors" />
-              </div>
+              {/* Hero. One focal point: the search field. No card, no icon,
+                  no subtitle stack - the question is the heading. */}
+              <div className={`text-center ${browsing ? 'pt-16 pb-14' : 'pt-10 pb-8'}`}>
+                <h2 className={`font-semibold text-white tracking-tight ${browsing ? 'text-4xl sm:text-5xl' : 'text-2xl'}`}>
+                  How can we help?
+                </h2>
 
-              <div className="flex items-baseline justify-between mb-3">
-                <p className="text-sm text-slate-500">
-                  {filteredFaqs.length} {filteredFaqs.length === 1 ? 'article' : 'articles'}
-                </p>
-                {openFaq !== null && (
-                  <button onClick={() => setOpenFaq(null)}
-                    className="text-sm text-slate-600 hover:text-slate-400 transition-colors">
-                    Collapse
-                  </button>
+                <div className={`relative mx-auto ${browsing ? 'mt-8 max-w-2xl' : 'mt-6 max-w-xl'}`}>
+                  <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-600" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={e => { setSearchQuery(e.target.value); setOpenFaq(null); }}
+                    placeholder="Search for an answer"
+                    className={`w-full pl-14 pr-5 rounded-2xl text-white placeholder-slate-600
+                                bg-white/[0.04] border border-white/[0.08]
+                                focus:outline-none focus:border-purple-500/50 focus:bg-white/[0.06]
+                                transition-all ${browsing ? 'py-4 text-lg' : 'py-3 text-base'}`}
+                  />
+                </div>
+
+                {browsing && (
+                  <p className="mt-5 text-sm text-slate-600">
+                    Popular:{' '}
+                    {['billing', 'interviews', 'resume', 'cancel'].map((term, i) => (
+                      <span key={term}>
+                        {i > 0 && <span className="text-slate-700"> · </span>}
+                        <button onClick={() => { setSearchQuery(term); setOpenFaq(null); }}
+                          className="text-slate-400 hover:text-white underline underline-offset-4 decoration-white/20 hover:decoration-white/60 transition-colors">
+                          {term}
+                        </button>
+                      </span>
+                    ))}
+                  </p>
                 )}
               </div>
 
-              {filteredFaqs.length > 0 ? (
-                <div className="glass-card overflow-hidden divide-y divide-white/[0.05]">
-                  {filteredFaqs.map(faq => {
-                    const open = openFaq === faq.id;
-                    return (
-                      <div key={faq.id}>
-                        <button
-                          onClick={() => setOpenFaq(open ? null : faq.id)}
-                          aria-expanded={open}
-                          className="w-full flex items-center justify-between gap-4 text-left px-5 py-4
-                                     hover:bg-white/[0.02] transition-colors group">
-                          <h3 className={`text-base font-medium ${open ? 'text-white' : 'text-slate-200'}`}>
-                            {faq.question}
-                          </h3>
-                          <ChevronRight
-                            className={`w-4 h-4 flex-shrink-0 transition-transform duration-200
-                              ${open ? 'rotate-90 text-purple-400' : 'text-slate-700 group-hover:text-slate-500'}`} />
+              {browsing ? (
+                <>
+                  {/* Category grid. The whole point of the width. */}
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {categories.filter(c => c.value !== 'all').map(cat => {
+                      const n = countFor(cat.value);
+                      if (n === 0) return null;
+                      return (
+                        <button key={cat.value} onClick={() => setSelectedCategory(cat.value)}
+                          className="group text-left p-6 rounded-2xl border border-white/[0.06] bg-white/[0.02]
+                                     hover:bg-white/[0.04] hover:border-white/[0.12] transition-all">
+                          <cat.icon className="w-5 h-5 text-slate-500 group-hover:text-purple-400 transition-colors" />
+                          <h3 className="text-base font-semibold text-white mt-4">{cat.label}</h3>
+                          <p className="text-sm text-slate-600 mt-1">
+                            {n} {n === 1 ? 'article' : 'articles'}
+                          </p>
                         </button>
-                        {open && (
-                          <div className="px-5 pb-5 -mt-1">
-                            {/* Capped so a line of prose stays readable even
-                                when the viewport is 2000px wide. */}
-                            <p className="text-base text-slate-400 leading-relaxed max-w-4xl">{faq.answer}</p>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="glass-card">
-                  <div className="text-center py-16 px-6">
-                    <Search className="w-5 h-5 text-slate-600 mx-auto mb-3" />
-                    <h3 className="text-base font-semibold text-white mb-1">No results</h3>
-                    <p className="text-sm text-slate-500">
-                      Nothing matches that search. Try another term, or contact support.
-                    </p>
+                      );
+                    })}
                   </div>
+
+                  {/* Closing CTA, the way a real help centre ends a page. */}
+                  <div className="mt-16 py-12 text-center border-t border-white/[0.06]">
+                    <h3 className="text-xl font-semibold text-white">Still stuck?</h3>
+                    <p className="text-sm text-slate-500 mt-2">
+                      Send us a ticket and we will reply by email, usually within 24 hours.
+                    </p>
+                    <button onClick={() => setActiveSection('contact')}
+                      className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
+                                 bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold transition-colors">
+                      Contact support <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="max-w-3xl mx-auto">
+                  <div className="flex items-center justify-between gap-4 mb-6">
+                    <button onClick={() => { setSelectedCategory('all'); setSearchQuery(''); setOpenFaq(null); }}
+                      className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-300 transition-colors">
+                      <ArrowLeft className="w-3.5 h-3.5" /> All topics
+                    </button>
+                    <span className="text-sm text-slate-600">
+                      {searchQuery
+                        ? `${filteredFaqs.length} ${filteredFaqs.length === 1 ? 'result' : 'results'}`
+                        : `${filteredFaqs.length} in ${current?.label ?? ''}`}
+                    </span>
+                  </div>
+
+                  {filteredFaqs.length > 0 ? (
+                    <div className="divide-y divide-white/[0.06] border-y border-white/[0.06]">
+                      {filteredFaqs.map(faq => {
+                        const open = openFaq === faq.id;
+                        return (
+                          <div key={faq.id}>
+                            <button onClick={() => setOpenFaq(open ? null : faq.id)} aria-expanded={open}
+                              className="w-full flex items-start justify-between gap-6 text-left py-5 group">
+                              <h3 className={`text-base transition-colors ${open ? 'text-white font-semibold' : 'text-slate-300 font-medium group-hover:text-white'}`}>
+                                {faq.question}
+                              </h3>
+                              <ChevronRight className={`w-4 h-4 mt-1 flex-shrink-0 transition-transform duration-200
+                                ${open ? 'rotate-90 text-purple-400' : 'text-slate-700 group-hover:text-slate-500'}`} />
+                            </button>
+                            {open && (
+                              <p className="text-base text-slate-400 leading-relaxed pb-6 pr-10">{faq.answer}</p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-20">
+                      <p className="text-base text-slate-400">
+                        No answers for &ldquo;{searchQuery}&rdquo;.
+                      </p>
+                      <button onClick={() => setActiveSection('contact')}
+                        className="mt-4 text-sm text-purple-400 hover:text-purple-300 transition-colors">
+                        Ask support instead
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* ── Contact ── */}
         {activeSection === 'contact' && (
