@@ -156,7 +156,7 @@ export default function CreatePlanPage() {
     setError('');
 
     if (!canUseFeature('studyPlans')) {
-      setError(`You've used all ${plansLimit} free study plans this month. Upgrade to Pro for unlimited access.`);
+      setError(`You've used all ${plansLimit} study plans in your plan this month. Upgrade for a higher limit.`);
       return;
     }
     if (!formData.role.trim()) { setError('Please enter the role or goal'); return; }

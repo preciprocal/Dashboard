@@ -583,12 +583,12 @@ export default function JobTrackerPage() {
   useEffect(() => { if (!loading && !user) router.push('/sign-in'); }, [user, loading, router]);
 
   const handleAddApp = () => {
-    if (!canAddJob) { toast.error(`Free plan is limited to ${jobsLimit} tracked jobs. Upgrade to Pro for unlimited tracking.`); return; }
+    if (!canAddJob) { toast.error(`Your plan is limited to ${jobsLimit} tracked jobs. Pro and Premium track unlimited jobs.`); return; }
     setForm({ ...EMPTY_FORM }); setEditingId(null); setShowForm(true);
   };
 
   const handleFindContacts = (app: Application) => {
-    if (!canFindContacts) { toast.error(`You've used all ${contactsLimit} free contact searches this month. Upgrade for more.`); return; }
+    if (!canFindContacts) { toast.error(`You've used all ${contactsLimit} contact searches in your plan this month. Upgrade for a higher limit.`); return; }
     setContactsModal(app);
   };
 

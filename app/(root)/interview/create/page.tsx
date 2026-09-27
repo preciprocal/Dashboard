@@ -130,8 +130,8 @@ export default async function CreateInterviewPage() {
               </div>
               <h2 className="text-xl font-bold text-white mb-2">Interview Limit Reached</h2>
               <p className="text-sm text-slate-500 leading-relaxed max-w-sm mx-auto">
-                You&apos;ve used all {interviewsLimit} of your free interview sessions this month.
-                Upgrade for unlimited access or wait for your next reset.
+                You&apos;ve used all {interviewsLimit} mock interviews in your plan this month.
+                Upgrade for a higher limit, or wait for your next reset.
               </p>
             </div>
 

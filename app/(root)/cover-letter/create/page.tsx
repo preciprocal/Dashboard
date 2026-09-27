@@ -302,7 +302,7 @@ export default function CoverLetterGeneratorPage() {
   const handleGenerate = async () => {
     if (!jobRole.trim()) { setError('Please enter a job role'); return; }
     if (!canUseFeature('coverLetters')) {
-      setError(`You've used all ${clLimit} free cover letters this month. Upgrade to Pro for unlimited access.`);
+      setError(`You've used all ${clLimit} cover letters in your plan this month. Upgrade for a higher limit.`);
       return;
     }
     setIsGenerating(true); setError(''); setGeneratedLetter(''); setMetadata(null); setIsSaved(false);

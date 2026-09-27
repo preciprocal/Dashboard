@@ -38,7 +38,10 @@ const defaultSettings: AppSettings = {
 };
 interface PlanInfo {
   name: string;
-  tier: 'free' | 'pro' | 'enterprise';
+  // 'admin' is a real tier, not a flavour of Premium. profiles.is_admin
+  // grants uncapped usage, and labelling it "Premium Plan" put "Unlimited"
+  // beside a plan name that is capped on every feature.
+  tier: 'free' | 'pro' | 'enterprise' | 'admin';
   /** Raw key from /api/usage - 'admin' is a real value and is not a tier. */
   planKey: string;
   /** The whole quota table, so the panel is not limited to two features. */
@@ -302,11 +305,12 @@ export default function SettingsPage() {
 
       const tierMap: Record<string, PlanInfo['tier']> = {
         free: 'free', pro: 'pro', premium: 'enterprise',
-        admin: 'enterprise', starter: 'free',
+        admin: 'admin', starter: 'free',
       };
       const tier = tierMap[usage.plan] ?? 'free';
       const tierNames: Record<PlanInfo['tier'], string> = {
         free: 'Free Plan', pro: 'Pro Plan', enterprise: 'Premium Plan',
+        admin: 'Admin Account',
       };
 
       setPlan({
@@ -756,19 +760,25 @@ export default function SettingsPage() {
                               ? 'bg-slate-700/60 text-slate-400 border-slate-600/50'
                               : plan.tier === 'pro'
                               ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                              : plan.tier === 'admin'
+                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                               : 'bg-purple-500/10 text-purple-400 border-purple-500/20'
                           }`}>
                             {plan.tier === 'pro'        && <Star      className="w-2.5 h-2.5" />}
                             {plan.tier === 'enterprise' && <Building2 className="w-2.5 h-2.5" />}
-                            {plan.tier === 'free' ? 'Free' : plan.tier === 'pro' ? 'Pro' : 'Premium'}
+                            {plan.tier === 'admin'      && <Shield    className="w-2.5 h-2.5" />}
+                            {plan.tier === 'free'  ? 'Free'
+                              : plan.tier === 'pro'   ? 'Pro'
+                              : plan.tier === 'admin' ? 'Admin'
+                              : 'Premium'}
                           </span>
                         </div>
                         {/* Was hardcoded to "Unlimited interviews and advanced
                             analytics" for every paid tier, directly above a
                             meter reading the real cap. Derived now. */}
                         <p className="text-slate-500 text-xs mt-1">
-                          {isUnlimited(plan.limits.interviews)
-                            ? 'Unlimited usage on every feature'
+                          {plan.tier === 'admin'
+                            ? 'Uncapped on every feature, granted by admin status rather than a subscription'
                             : `${plan.limits.interviews} mock interviews · ${plan.limits.resumes} resume analyses per month`}
                         </p>
                       </>

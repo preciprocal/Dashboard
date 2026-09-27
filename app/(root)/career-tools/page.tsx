@@ -650,7 +650,7 @@ export default function CareerToolsPage() {
 
   const handleLinkedIn = async () => {
     if (!canUseFeature('linkedinOptimisations')) {
-      setLiError(`You've used all ${liLimit} free LinkedIn optimisations this month. Upgrade to Pro for more.`);
+      setLiError(`You've used all ${liLimit} LinkedIn optimisations in your plan this month. Upgrade for a higher limit.`);
       return;
     }
     if (!liHeadline.trim() && !liAbout.trim()) { setLiError('Enter at least your headline or about section'); return; }
@@ -676,7 +676,7 @@ export default function CareerToolsPage() {
 
   const handleOutreach = async () => {
     if (!canUseFeature('coldOutreach')) {
-      setOrError(`You've used all ${orLimit} free outreach messages this month. Upgrade to Pro for unlimited.`);
+      setOrError(`You've used all ${orLimit} outreach messages in your plan this month. Upgrade for a higher limit.`);
       return;
     }
     if (!orCompany.trim() && !orRecipRole.trim()) { setOrError('Enter at least the recipient company or role'); return; }

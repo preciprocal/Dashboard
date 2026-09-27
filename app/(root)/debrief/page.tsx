@@ -792,7 +792,7 @@ export default function InterviewDebriefPage() {
 
   const handleLogInterview = () => {
     if (!canUseFeature('interviewDebriefs')) {
-      toast.error(`You've used all ${debriefLimit} free debriefs this month. Upgrade to Pro for more.`);
+      toast.error(`You've used all ${debriefLimit} journal entries in your plan this month. Upgrade for a higher limit.`);
       return;
     }
     setShowForm(!showForm);
