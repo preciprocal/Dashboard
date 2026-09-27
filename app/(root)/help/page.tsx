@@ -667,48 +667,54 @@ function HelpSupportContent() {
       {/* Masthead - full bleed, so the page reads as a section of the product
           rather than a card floating in the middle of a very wide screen. */}
       <header className="border-b border-white/[0.06] bg-slate-950/80 backdrop-blur-xl sticky top-0 z-20">
-        <div className="px-4 sm:px-6 lg:px-10 xl:px-16">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
-              <HelpCircle className="w-5 h-5 text-slate-400" />
-              <h1 className="text-base font-semibold text-white tracking-tight">Help &amp; Support</h1>
+        {/* Title and tabs are one column so the Dashboard button can centre
+            against the masthead as a whole. It used to live inside the title
+            row, which centred it on that row only and left it sitting high
+            against the two-row header. */}
+        <div className="px-4 sm:px-6 lg:px-10 xl:px-16 flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3 h-16">
+              <HelpCircle className="w-5 h-5 text-slate-400 flex-shrink-0" />
+              <h1 className="text-base font-semibold text-white tracking-tight truncate">Help &amp; Support</h1>
             </div>
-            <Link href={user ? '/' : '/sign-in'}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/[0.08]
-                         text-sm text-slate-400 hover:text-white hover:border-white/[0.16] transition-colors">
-              {user
-                ? <><Home className="w-4 h-4" /><span className="hidden sm:inline">Dashboard</span></>
-                : <><LogOut className="w-4 h-4 rotate-180" /><span className="hidden sm:inline">Sign in</span></>}
-            </Link>
+
+            {/* Underline tabs. A filled gradient pill reads as a call to action;
+                these are navigation, and should sit quietly until chosen. */}
+            <nav className="flex gap-6 -mb-px" aria-label="Help sections">
+              {tabs.map(tab => {
+                const on = activeSection === tab.id;
+                return (
+                  <button key={tab.id}
+                    onClick={() => {
+                      setActiveSection(tab.id);
+                      if (tab.id !== 'tickets') { setSelectedTicket(null); setTicketReplies([]); }
+                    }}
+                    aria-current={on ? 'page' : undefined}
+                    className={`relative flex items-center gap-2 pb-3 pt-1 text-sm font-medium border-b-2 transition-colors
+                      focus:outline-none focus-visible:text-white
+                      ${on ? 'border-purple-500 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>
+                    <tab.icon className="w-4 h-4" />
+                    <span>{tab.label}</span>
+                    {tab.badge !== undefined && tab.badge > 0 && (
+                      <span className="ml-0.5 min-w-[18px] h-[18px] px-1.5 rounded-full bg-purple-500/20
+                                       border border-purple-500/30 text-purple-300 text-xs font-semibold
+                                       leading-none flex items-center justify-center">
+                        {tab.badge > 9 ? '9+' : tab.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </nav>
           </div>
 
-          {/* Underline tabs. A filled gradient pill reads as a call to action;
-              these are navigation, and should sit quietly until chosen. */}
-          <nav className="flex gap-6 -mb-px" aria-label="Help sections">
-            {tabs.map(tab => {
-              const on = activeSection === tab.id;
-              return (
-                <button key={tab.id}
-                  onClick={() => {
-                    setActiveSection(tab.id);
-                    if (tab.id !== 'tickets') { setSelectedTicket(null); setTicketReplies([]); }
-                  }}
-                  aria-current={on ? 'page' : undefined}
-                  className={`relative flex items-center gap-2 pb-3 pt-1 text-sm font-medium border-b-2 transition-colors
-                    ${on ? 'border-purple-500 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>
-                  <tab.icon className="w-4 h-4" />
-                  <span>{tab.label}</span>
-                  {tab.badge !== undefined && tab.badge > 0 && (
-                    <span className="ml-0.5 min-w-[18px] h-[18px] px-1.5 rounded-full bg-purple-500/20
-                                     border border-purple-500/30 text-purple-300 text-xs font-semibold
-                                     leading-none flex items-center justify-center">
-                      {tab.badge > 9 ? '9+' : tab.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
+          <Link href={user ? '/' : '/sign-in'}
+            className="flex-shrink-0 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/[0.08]
+                       text-sm text-slate-400 hover:text-white hover:border-white/[0.16] transition-colors">
+            {user
+              ? <><Home className="w-4 h-4" /><span className="hidden sm:inline">Dashboard</span></>
+              : <><LogOut className="w-4 h-4 rotate-180" /><span className="hidden sm:inline">Sign in</span></>}
+          </Link>
         </div>
       </header>
 
