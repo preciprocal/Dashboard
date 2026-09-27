@@ -236,7 +236,7 @@ export default function InterviewGeneratorForm({ userId }: InterviewGeneratorFor
     setFormData(p => ({ ...p, [name]: name === 'amount' ? parseInt(value) || 1 : value }));
   };
 
-  const levelLabel = { entry: 'Entry Level (0–2 yrs)', mid: 'Mid Level (2–5 yrs)', senior: 'Senior Level (5+ yrs)' };
+  const levelLabel = { entry: 'Entry Level (0-2 yrs)', mid: 'Mid Level (2-5 yrs)', senior: 'Senior Level (5+ yrs)' };
   const typeLabel  = { technical: 'Technical Questions', behavioural: 'Behavioral Questions', mixed: 'Mixed (Technical + Behavioral)' };
 
   return (
@@ -408,7 +408,7 @@ export default function InterviewGeneratorForm({ userId }: InterviewGeneratorFor
             <p className="text-[11px] text-slate-600 mt-1.5">
               {formData.type === 'mixed'
                 ? `${Math.ceil(formData.amount / 2)} technical + ${Math.floor(formData.amount / 2)} behavioral`
-                : 'Recommended: 5–10 questions'}
+                : 'Recommended: 5-10 questions'}
             </p>
           </div>
         </div>

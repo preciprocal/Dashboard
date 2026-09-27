@@ -18,6 +18,7 @@ import { Resend } from "resend";
 import { SITE } from "@/lib/seo";
 import { supabaseAdmin } from "@/supabase/admin";
 import { renderEmail, renderText, escapeHtml, firstName } from "@/lib/email/layout";
+import { emailAppUrl } from "@/lib/email/app-url";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -25,16 +26,8 @@ const SENDER_NAME = process.env.WELCOME_EMAIL_SENDER_NAME ?? "Francesca";
 const FROM = process.env.WELCOME_EMAIL_FROM ?? `${SENDER_NAME} from Preciprocal <francesca@preciprocal.com>`;
 const REPLY_TO = process.env.WELCOME_EMAIL_REPLY_TO ?? "francesca@preciprocal.com";
 
-// NEXT_PUBLIC_APP_URL is http://localhost:3000 in local dev, and a localhost
-// link in a real inbox is dead on arrival - fall back to the canonical app
-// origin unless the env var points somewhere externally reachable.
-const APP_URL = (() => {
-  const configured = process.env.NEXT_PUBLIC_APP_URL;
-  if (!configured || configured.includes("localhost") || configured.includes("127.0.0.1")) {
-    return SITE.app;
-  }
-  return configured.replace(/\/$/, "");
-})();
+// Shared with every other email sender - see lib/email/app-url.ts.
+const APP_URL = emailAppUrl();
 
 interface WelcomeEmailParams {
   userId: string;

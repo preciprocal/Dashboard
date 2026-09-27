@@ -195,7 +195,7 @@ export default function RecruiterEyeSimulation({
         </div>
         <p className="text-white font-semibold mb-2">Recruiter Eye-Track Analysis</p>
         <p className="text-slate-400 text-sm mb-5 max-w-xs mx-auto">
-          See how a recruiter would scan your resume in 6–8 seconds{companyName ? ` at ${companyName}` : ''}.
+          See how a recruiter would scan your resume in 6-8 seconds{companyName ? ` at ${companyName}` : ''}.
         </p>
         <button onClick={() => runSimulation()}
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white

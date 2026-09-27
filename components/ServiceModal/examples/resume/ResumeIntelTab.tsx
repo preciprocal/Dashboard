@@ -236,7 +236,7 @@ export function ResumeIntelTab() {
               <div className="text-right"><span className="text-[16px] font-bold text-amber-400">72%</span><p className="text-[7px] text-amber-400">Strong Match</p></div>
             </div>
             <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden"><div className="h-full bg-amber-500 rounded-full" style={{ width: '72%' }} /></div>
-            <p className="text-[7px] text-slate-500 mt-1">Estimated prep time: 2–4 weeks (strengthen system design and Go proficiency)</p>
+            <p className="text-[7px] text-slate-500 mt-1">Estimated prep time: 2-4 weeks (strengthen system design and Go proficiency)</p>
           </div>
           <div className="grid grid-cols-2 gap-1.5">
             <div className="p-2 bg-emerald-500/[0.04] border-l-2 border-emerald-500/40 rounded-lg">
@@ -259,9 +259,9 @@ export function ResumeIntelTab() {
           <div className="p-2.5 bg-white/[0.02] border border-white/[0.06] rounded-lg">
             <div className="flex items-center gap-1.5 mb-2"><BookOpen className="w-3 h-3 text-blue-400" /><p className="text-[9px] font-bold text-white">Your Prep Priorities</p></div>
             {[
-              { title: 'System Design Practice', desc: 'Focus on high-throughput monitoring pipeline design and distributed tracing.', time: '2–3 weeks', tags: ['Educative.io', 'System design primer'] },
-              { title: 'Go Language Proficiency', desc: 'Build a small monitoring tool in Go to demonstrate working knowledge.', time: '1–2 weeks', tags: ['Go tour', 'Personal project'] },
-              { title: 'Behavioral Prep', desc: 'Practice articulating debugging stories and cross-team collaboration examples.', time: '3–5 days', tags: ['Mock interviews', 'STAR method'] },
+              { title: 'System Design Practice', desc: 'Focus on high-throughput monitoring pipeline design and distributed tracing.', time: '2-3 weeks', tags: ['Educative.io', 'System design primer'] },
+              { title: 'Go Language Proficiency', desc: 'Build a small monitoring tool in Go to demonstrate working knowledge.', time: '1-2 weeks', tags: ['Go tour', 'Personal project'] },
+              { title: 'Behavioral Prep', desc: 'Practice articulating debugging stories and cross-team collaboration examples.', time: '3-5 days', tags: ['Mock interviews', 'STAR method'] },
             ].map(p => (
               <div key={p.title} className="p-2 bg-white/[0.02] border border-white/[0.06] rounded-lg mb-1.5">
                 <div className="flex items-center justify-between mb-0.5">

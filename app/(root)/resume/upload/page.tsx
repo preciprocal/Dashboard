@@ -27,7 +27,7 @@ const PROCESSING_STEPS = [
 ];
 
 const RESUME_FACTS = [
-  '💼 Recruiters spend an average of 6–7 seconds on initial resume screening',
+  '💼 Recruiters spend an average of 6-7 seconds on initial resume screening',
   '📊 75% of resumes are rejected by ATS systems before reaching human eyes',
   '✨ Resumes with quantified achievements get 40% more interview callbacks',
   '🎯 Using keywords from the job description increases ATS match by 60%',
@@ -39,7 +39,7 @@ const RESUME_FACTS = [
   '⚡ PDF format is preferred by 83% of recruiters over Word documents',
   '🎨 Clean, professional fonts like Calibri or Arial score higher in ATS',
   '📞 Including a LinkedIn URL increases profile views by 71%',
-  '💪 Skills sections with 6–12 relevant skills perform best',
+  '💪 Skills sections with 6-12 relevant skills perform best',
   '🏆 Resumes starting with a strong summary get 50% more attention',
   '📧 Professional email addresses increase callback rates by 24%',
 ];
@@ -488,7 +488,7 @@ export default function UploadResume() {
                       : <><Upload className="w-4 h-4" /> Analyse Resume</>}
                   </button>
                   <p className="text-center text-[11px] text-slate-600">
-                    PDF or Word (.docx, .doc) · Max 10 MB · Takes 10–20 seconds
+                    PDF or Word (.docx, .doc) · Max 10 MB · Takes 10-20 seconds
                   </p>
                 </div>
               </form>
@@ -513,7 +513,7 @@ export default function UploadResume() {
                   <Shield className="w-3.5 h-3.5 text-blue-400" /> File requirements
                 </p>
                 <div className="space-y-2">
-                  {['PDF or Word (.docx, .doc)', 'Maximum size: 10 MB', 'Text-based files work best', 'Takes 10–20 seconds'].map(item => (
+                  {['PDF or Word (.docx, .doc)', 'Maximum size: 10 MB', 'Text-based files work best', 'Takes 10-20 seconds'].map(item => (
                     <div key={item} className="flex items-center gap-2 text-[12px] text-slate-500">
                       <div className="w-1.5 h-1.5 rounded-full bg-blue-400/40 flex-shrink-0" /> {item}
                     </div>

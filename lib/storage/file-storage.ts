@@ -1,6 +1,6 @@
 // lib/storage/file-storage.ts
 // Profile-page resume/transcript storage (one fixed file per user).
-// Ported from Firebase Storage to Supabase Storage — see the migration plan
+// Ported from Firebase Storage to Supabase Storage - see the migration plan
 // at C:\Users\yashv\.claude\plans\lovely-exploring-turing.md, Phase 1.
 
 import { supabaseAdmin } from '@/supabase/admin';

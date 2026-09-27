@@ -74,7 +74,7 @@ const CATEGORIES: Category[] = [
     iconEl: <TrendingUp className="w-3 h-3 text-red-400" />,
     tips: [
       { type: 'warning', title: "Inconsistent bullet point formatting across roles.", desc: "Some entries use different spacing and alignment patterns.", fix: "Standardize all bullet points with uniform indentation and consistent punctuation." },
-      { type: 'warning', title: "Missing a professional summary section at the top.", desc: "A 2–3 line summary helps recruiters quickly assess fit within the first 6 seconds.", fix: "Add a targeted summary highlighting 4+ years experience, key technologies, and career objective." },
+      { type: 'warning', title: "Missing a professional summary section at the top.", desc: "A 2-3 line summary helps recruiters quickly assess fit within the first 6 seconds.", fix: "Add a targeted summary highlighting 4+ years experience, key technologies, and career objective." },
       { type: 'good', title: "Clear section hierarchy with Education, Experience, Projects, and Skills.", desc: "Logical ordering that matches what recruiters expect to see." },
     ],
   },

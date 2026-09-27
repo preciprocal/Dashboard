@@ -140,9 +140,9 @@ export function ResumeBenchmarkTab() {
         </div>
         <div className="space-y-2">
           {[
-            { num: '1', title: "Revise the bullet points under each role to include specific metrics and outcomes, such as 'Increased revenue by X% through Y initiative'.", desc: "Quantifying your contributions will make your achievements more compelling and demonstrate your value to potential employers.", points: '+8–12 points on Content Quality' },
-            { num: '2', title: 'Standardize the formatting of bullet points for consistency, ensuring uniform spacing and alignment.', desc: 'Improved formatting will enhance readability and present a more professional image to recruiters.', points: '+3–5 points on Structure & Format' },
-            { num: '3', title: "Add specific tools and technologies relevant to Software Engineers, such as 'System Design' or 'Microservices Architecture', to the skills section.", desc: 'Including these keywords can improve ATS compatibility and align your resume more closely with what hiring managers are looking for.', points: '+5–7 points on ATS Compatibility' },
+            { num: '1', title: "Revise the bullet points under each role to include specific metrics and outcomes, such as 'Increased revenue by X% through Y initiative'.", desc: "Quantifying your contributions will make your achievements more compelling and demonstrate your value to potential employers.", points: '+8-12 points on Content Quality' },
+            { num: '2', title: 'Standardize the formatting of bullet points for consistency, ensuring uniform spacing and alignment.', desc: 'Improved formatting will enhance readability and present a more professional image to recruiters.', points: '+3-5 points on Structure & Format' },
+            { num: '3', title: "Add specific tools and technologies relevant to Software Engineers, such as 'System Design' or 'Microservices Architecture', to the skills section.", desc: 'Including these keywords can improve ATS compatibility and align your resume more closely with what hiring managers are looking for.', points: '+5-7 points on ATS Compatibility' },
           ].map(fix => (
             <div key={fix.num} className="p-2 bg-white/[0.02] border border-white/[0.06] rounded-lg">
               <div className="flex items-start gap-2">

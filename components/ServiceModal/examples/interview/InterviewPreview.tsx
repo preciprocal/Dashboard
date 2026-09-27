@@ -579,7 +579,7 @@ function FeedbackReport() {
             <p className="text-[12px] font-bold text-white">AI Assessment Summary</p>
           </div>
           <p className="text-[11px] text-slate-300 leading-relaxed mb-3">
-            Strong frontend candidate with solid React fundamentals and excellent communication skills. Technical depth in system design and performance optimization needs strengthening before targeting senior-level roles. With 2–3 weeks of targeted preparation on architecture patterns and quantified storytelling, this candidate would be very competitive for mid-level frontend positions at top-tier companies.
+            Strong frontend candidate with solid React fundamentals and excellent communication skills. Technical depth in system design and performance optimization needs strengthening before targeting senior-level roles. With 2-3 weeks of targeted preparation on architecture patterns and quantified storytelling, this candidate would be very competitive for mid-level frontend positions at top-tier companies.
           </p>
           <div className="flex items-center gap-2.5">
             {[

@@ -588,7 +588,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
         } else {
           window.postMessage({ type: 'PRECIPROCAL_AUTH_CHANGE', user: null }, window.location.origin);
         }
-      } catch { /* extension may not be installed — silent */ }
+      } catch { /* extension may not be installed - silent */ }
     };
 
     broadcastAuth();

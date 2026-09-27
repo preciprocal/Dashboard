@@ -59,7 +59,7 @@ export default function ExtensionConnection() {
         photoURL:    (user.user_metadata?.avatar_url as string) || '',
         token:       session?.access_token ?? null,
       };
-      // Store as raw JSON — no encoding needed, clipboard preserves it exactly
+      // Store as raw JSON - no encoding needed, clipboard preserves it exactly
       setManualToken(JSON.stringify(payload));
     } catch {
       setError('Could not generate token. Please reload and try again.');

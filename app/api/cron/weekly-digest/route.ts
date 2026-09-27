@@ -17,6 +17,7 @@ import { getFollowUps, markNudged } from '@/lib/outcomes/follow-ups';
 import { sendWeeklyDigest, hasSomethingToSay } from '@/lib/email/weekly-digest';
 import { hasResponded } from '@/lib/config/outcomes';
 import { createHmac, timingSafeEqual } from 'crypto';
+import { emailAppUrl } from '@/lib/email/app-url';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -43,7 +44,7 @@ function isAuthorised(req: NextRequest): boolean {
 
 /** Signed, so an unsubscribe link cannot be edited to target another account. */
 function unsubscribeUrl(userId: string): string {
-  const base = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.preciprocal.com').replace(/\/$/, '');
+  const base = emailAppUrl();
   const secret = process.env.CRON_SECRET ?? '';
   const token = createHmac('sha256', secret).update(userId).digest('hex').slice(0, 32);
   return `${base}/api/digest/unsubscribe?u=${userId}&t=${token}`;

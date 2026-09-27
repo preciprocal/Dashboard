@@ -345,7 +345,7 @@ function LocationPicker({ value, onChange }: { value: string[]; onChange: (v: st
   const toggle = (loc: string) =>
     onChange(value.includes(loc) ? value.filter(l => l !== loc) : [...value, loc]);
   return (
-    <F label="Preferred Locations" hint="select all that apply — used for office location questions">
+    <F label="Preferred Locations" hint="select all that apply - used for office location questions">
       <div className="flex flex-wrap gap-2 mt-1">
         {PREFERRED_LOCS.map(loc => {
           const active = value.includes(loc);
@@ -378,7 +378,7 @@ const YOE        = optsKV([['','Select…'],['0','Less than 1 year'],['1','1 yea
 const NOTICE     = opts(['Immediately','1 week','2 weeks','3 weeks','1 month','6 weeks','2 months','3 months']);
 const WORK_TYPE  = opts(['Remote','Hybrid','On-site','Flexible']);
 const EMP_TYPE   = opts(['Full-time','Part-time','Contract','Internship','Freelance','Temporary']);
-const TRAVEL     = opts(['No','Occasionally (up to 10%)','Sometimes (10–25%)','Frequently (25–50%)','Yes, as needed']);
+const TRAVEL     = opts(['No','Occasionally (up to 10%)','Sometimes (10-25%)','Frequently (25-50%)','Yes, as needed']);
 const REFERRAL   = opts(['LinkedIn','Indeed','Glassdoor','Company Website','Referral','Job Board','Google','Other']);
 const WORK_AUTH  = optsKV([['Yes','Yes - I am authorized'],['No','No - I need authorization']]);
 const VISA       = opts(['','US Citizen','Permanent Resident (Green Card)','H-1B Visa','H-4 EAD','L-1 Visa','OPT / STEM OPT','CPT','TN Visa (Canada/Mexico)','E-3 (Australian)','Other Work Visa','Not applicable']);

@@ -1,6 +1,7 @@
 // app/api/firebase/emails/reply/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
+import { emailAppUrl, EMAIL_MARKETING_URL } from '@/lib/email/app-url';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -159,7 +160,7 @@ function generateReplyEmail(
   subject: string,
   replyMessage: string
 ): string {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://preciprocal.com';
+  const appUrl = emailAppUrl();
   const ticketUrl = `${appUrl}/help?section=tickets`;
 
   // Escape the reply message for safe HTML rendering
@@ -364,7 +365,7 @@ function generateReplyEmail(
                       &nbsp;·&nbsp;
                       <a href="${appUrl}/help" style="color:#6b7280;text-decoration:none;">Help Center</a>
                       &nbsp;·&nbsp;
-                      <a href="${appUrl}/privacy" style="color:#6b7280;text-decoration:none;">Privacy Policy</a>
+                      <a href="${EMAIL_MARKETING_URL}/privacy" style="color:#6b7280;text-decoration:none;">Privacy Policy</a>
                     </p>
                   </td>
                   <td align="right" valign="top">

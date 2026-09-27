@@ -20,6 +20,9 @@ import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import ErrorPage from '@/components/Error';
 import { formatDistanceToNow } from 'date-fns';
 import { hasUnreadSupportReply } from '@/lib/support/unread';
+import { USAGE_LIMITS } from '@/lib/config/usage-limits';
+import { PLAN_PRICE_CENTS } from '@/lib/config/plan-prices';
+import { SITE } from '@/lib/seo';
 import { toast } from 'sonner';
 import { NotificationService } from '@/lib/services/notification-services';
 
@@ -316,11 +319,26 @@ function HelpSupportContent() {
   };
 
   // ── FAQs ────────────────────────────────────────────────────────────────────
+  //
+  // Anything quoting a quota or a price is interpolated from the same tables
+  // the app enforces - lib/config/usage-limits.ts and lib/config/plan-prices.ts
+  // - rather than typed into the copy. These answers were wrong before: they
+  // promised 10 interview sessions and 5 resume analyses on Free (really 1 and
+  // 3), 50 cover letters on Pro (really 30), and "unlimited access to all
+  // features" on Premium, which is capped on every one of them. A support page
+  // that contradicts the paywall is worse than no support page.
+  const L = USAGE_LIMITS;
+  const price = (k: 'pro' | 'premium') => `$${(PLAN_PRICE_CENTS[k] / 100).toFixed(2)}`;
+  const plan = (k: 'free' | 'pro' | 'premium') =>
+    `${L[k].interviews} mock interview${L[k].interviews === 1 ? '' : 's'}, ` +
+    `${L[k].resumes} resume analyses, ${L[k].coverLetters} cover letters and ` +
+    `${L[k].studyPlans} study plans a month`;
+
   const faqs: FAQ[] = [
     { id: 1,  category: 'general',      question: 'What is Preciprocal?',                               answer: 'Preciprocal is an AI-powered career preparation platform that helps you ace your job interviews. We offer realistic interview simulations, comprehensive resume analysis with ATS scoring, intelligent cover letter generation with company research, and personalized study planning to maximize your interview readiness.', icon: HelpCircle,    gradient: 'gradient-primary',   keywords: ['about','platform','what is','introduction','overview'] },
     { id: 2,  category: 'general',      question: 'How do I get started?',                              answer: 'Sign up with your email, complete your profile in Settings (add your name, experience level, target role, skills), and optionally upload your resume. Then you can start with interview practice, resume analysis, cover letter generation, or create a study plan. We recommend starting with a resume analysis to understand your baseline.', icon: Target,        gradient: 'gradient-success',   keywords: ['getting started','begin','start','first steps','onboarding','setup'] },
     { id: 3,  category: 'general',      question: 'Do I need to upload my resume to use the platform?', answer: 'While not mandatory, uploading your resume significantly enhances the experience. It enables personalized cover letters that incorporate your actual experience, more accurate recruiter eye simulations, and better-tailored interview questions. You can still use most features without a resume by completing your profile.', icon: FileText,      gradient: 'gradient-accent',    keywords: ['resume upload','required','mandatory','optional'] },
-    { id: 4,  category: 'general',      question: 'Is Preciprocal free to use?',                        answer: 'Preciprocal offers a free plan with 10 interview sessions and 5 resume analyses per month. Pro and Premium plans provide expanded limits and additional features like unlimited cover letters, advanced analytics, and priority support.', icon: CreditCard,    gradient: 'gradient-warning',   keywords: ['free','pricing','cost','plans','subscription'] },
+    { id: 4,  category: 'general',      question: 'Is Preciprocal free to use?',                        answer: `Yes. The Free plan includes ${plan('free')}, plus ${L.free.jobTracker} tracked job applications. Pro (${price('pro')}/month) and Premium (${price('premium')}/month) raise every limit and add unlimited job tracking. No card is needed to start.`, icon: CreditCard,    gradient: 'gradient-warning',   keywords: ['free','pricing','cost','plans','subscription'] },
     { id: 5,  category: 'interviews',   question: 'How does the AI interview simulation work?',         answer: 'Our platform uses advanced AI technology to create realistic interview experiences. The AI evaluates your responses in real-time, providing detailed feedback on technical accuracy, communication skills, problem-solving approach, and behavioral responses using the STAR method.', icon: Video,         gradient: 'gradient-accent',    keywords: ['interview','AI','simulation','how it works','practice'] },
     { id: 6,  category: 'interviews',   question: 'What interview types are supported?',                answer: 'We support Technical interviews (coding, algorithms, data structures), Behavioral interviews (STAR method, situational questions), System Design interviews (architecture, scalability), and Mixed interviews combining multiple formats. Each type includes relevant questions crafted by experienced recruiters from top tech companies.', icon: MessageSquare, gradient: 'gradient-primary',   keywords: ['interview types','technical','behavioral','system design'] },
     { id: 7,  category: 'interviews',   question: 'Can I practice for specific companies?',             answer: "Yes! When creating an interview, specify your target company. Our AI adapts questions to match that company's known interview style, culture, technical focus areas, and difficulty level based on real interview data collected from industry recruiters at companies like Google, Amazon, Microsoft, and Meta.", icon: Building2,     gradient: 'gradient-accent',    keywords: ['company specific','target company','FAANG','Google','Amazon'] },
@@ -342,17 +360,17 @@ function HelpSupportContent() {
     { id: 23, category: 'cover-letter', question: 'How long does it take to generate a cover letter?',  answer: 'Cover letter generation typically takes 10-30 seconds. The AI performs real-time company research (5-10 sec), analyzes the job description and your resume (3-5 sec), then crafts the personalized letter (5-10 sec). You can immediately save, edit, copy, or download the result in multiple formats.', icon: Zap,           gradient: 'gradient-success',   keywords: ['speed','time','how long','duration','fast'] },
     { id: 24, category: 'cover-letter', question: 'Does the cover letter use my resume information?',   answer: 'Yes! If you have a resume uploaded, the AI automatically incorporates your specific experience, skills, projects, and achievements into the cover letter. This ensures consistency between your application materials and highlights your most relevant qualifications with actual examples and metrics from your resume.', icon: CheckCircle2,  gradient: 'gradient-primary',   keywords: ['resume integration','uses resume','consistency'] },
     { id: 25, category: 'cover-letter', question: 'Can I edit the generated cover letter?',             answer: 'Absolutely! After generation, you can copy the text to edit in your preferred word processor, or use our built-in editor to make changes. The AI provides a strong foundation with company research and proper structure, which you can then personalize further to match your unique voice and style.', icon: Edit3,         gradient: 'gradient-accent',    keywords: ['edit','modify','change','customize'] },
-    { id: 26, category: 'cover-letter', question: 'How many cover letters can I generate?',             answer: 'Free plan users can generate up to 5 cover letters per month. Pro users get 50 per month, and Premium users have unlimited cover letter generation. All generated letters are saved in your dashboard for future reference and editing.', icon: FileText,      gradient: 'gradient-warning',   keywords: ['limit','how many','count','quota'] },
+    { id: 26, category: 'cover-letter', question: 'How many cover letters can I generate?',             answer: `${L.free.coverLetters} a month on Free, ${L.pro.coverLetters} on Pro and ${L.premium.coverLetters} on Premium. Every letter is saved to your dashboard, where you can edit, download or reuse it. The count resets on your billing date.`, icon: FileText,      gradient: 'gradient-warning',   keywords: ['limit','how many','count','quota'] },
     { id: 27, category: 'planner',      question: 'How do I create an effective study plan?',           answer: 'Navigate to the Planner section and click "Create New Plan". Enter your interview date, target role (e.g., Software Engineer), current skill level (beginner/intermediate/advanced), and daily time commitment. Our AI generates a personalized day-by-day schedule with specific tasks, curated resources, practice problems, and progress tracking.', icon: Target,        gradient: 'gradient-primary',   keywords: ['study plan','create plan','planner','schedule'] },
     { id: 28, category: 'planner',      question: 'Can I customize my study plan?',                     answer: 'Yes! While our AI generates an initial plan optimized for your timeline and skill level, you have full control to add, remove, or reorder tasks. You can adjust daily time commitments, set custom deadlines, add your own resources, mark tasks as complete, and the AI will automatically rebalance your schedule to keep you on track.', icon: Calendar,      gradient: 'gradient-accent',    keywords: ['customize','modify','adjust','personalize'] },
     { id: 29, category: 'planner',      question: 'What happens if I miss a day in my plan?',           answer: "No worries! Your plan adapts to your actual pace. Missed tasks automatically roll over to the next available day, and you can adjust deadlines as needed. The AI intelligently re-calculates your daily workload distribution to keep you on track for your target interview date without overwhelming you.", icon: Calendar,      gradient: 'gradient-warning',   keywords: ['miss day','skip','behind schedule','late'] },
     { id: 30, category: 'planner',      question: 'What happens when I complete all tasks?',            answer: 'Upon completing all tasks in your study plan, you unlock an AI-generated personalized quiz based on all your study material and practice areas. This final assessment quiz evaluates your readiness with tailored questions across different difficulty levels, providing a comprehensive readiness score and identifying any remaining weak spots.', icon: Award,         gradient: 'gradient-success',   keywords: ['complete','finish','done','final quiz','assessment'] },
-    { id: 33, category: 'subscription', question: 'What are the subscription plans and limits?',        answer: 'Free Plan: 10 interview sessions and 5 resume analyses per month. Pro Plan: 50 interview sessions, 20 resume analyses, unlimited cover letters, and advanced planner features. Premium Plan: Unlimited access to all features including interviews, resume analyses, cover letters, priority support, and early access to new features.', icon: Award,         gradient: 'gradient-warning',   keywords: ['plans','pricing','limits','subscription','tiers'] },
+    { id: 33, category: 'subscription', question: 'What are the subscription plans and limits?',        answer: `Free: ${plan('free')}. Pro (${price('pro')}/month): ${plan('pro')}, plus unlimited job tracking and longer interview sessions. Premium (${price('premium')}/month): ${plan('premium')}, plus the longest sessions, the highest AI-analysis allowance and priority support. Every plan has a monthly allowance rather than unlimited use, so the numbers above are what you get.`, icon: Award,         gradient: 'gradient-warning',   keywords: ['plans','pricing','limits','subscription','tiers'] },
     { id: 34, category: 'subscription', question: 'Is there a student discount?',                       answer: "Yes! University students can get significant discounts on Pro and Premium plans. Verify your student status through your university email address (.edu domain) in Settings. The discount is automatically applied upon verification and remains valid while you're enrolled.", icon: Award,         gradient: 'gradient-accent',    keywords: ['student','discount','education','university'] },
     { id: 35, category: 'subscription', question: 'Can I cancel my subscription anytime?',              answer: "Yes, you can cancel your subscription at any time from the Settings page. You'll retain access to all paid features until the end of your current billing period. After cancellation, your account reverts to the Free plan. All your data, analyses, and interview history remain accessible.", icon: Shield,        gradient: 'gradient-warning',   keywords: ['cancel','unsubscribe','stop','downgrade'] },
-    { id: 36, category: 'subscription', question: 'When do usage limits reset?',                        answer: 'For Free and Pro users, monthly usage limits reset on the same date each month as your subscription start date. For example, if you subscribed on the 15th, your limits reset on the 15th of every month. Premium users have unlimited access to all features.', icon: Calendar,      gradient: 'gradient-primary',   keywords: ['reset','limits','renewal','monthly'] },
+    { id: 36, category: 'subscription', question: 'When do usage limits reset?',                        answer: 'Limits reset monthly on your billing date, whichever plan you are on. If you subscribed on the 15th, they reset on the 15th. Free accounts reset on the date you signed up. Paid plans have higher allowances than Free, but they are still monthly allowances rather than unlimited use - you can see exactly what you have left in Settings.', icon: Calendar,      gradient: 'gradient-primary',   keywords: ['reset','limits','renewal','monthly'] },
     { id: 39, category: 'technical',    question: 'Can I use Preciprocal on mobile devices?',           answer: 'Yes! Preciprocal is fully responsive and works on all devices including smartphones and tablets. However, for the best interview simulation experience (especially voice-based interviews), we strongly recommend using a desktop or laptop with a quality microphone and stable internet connection.', icon: Smartphone,    gradient: 'gradient-secondary', keywords: ['mobile','phone','tablet','responsive','device'] },
-    { id: 40, category: 'technical',    question: 'Is my data secure and private?',                     answer: 'Absolutely. All data is encrypted in transit and at rest. Your resumes, interview responses, and personal information are never shared with third parties. We use enterprise-grade security, comply with GDPR and CCPA regulations, and conduct regular security audits. You can delete your data anytime.', icon: Lock,          gradient: 'gradient-accent',    keywords: ['security','privacy','safe','encrypted','data protection'] },
+    { id: 40, category: 'technical',    question: 'Is my data secure and private?',                     answer: `Absolutely. All data is encrypted in transit and at rest. Your resumes, interview responses, and personal information are never shared with third parties. We use enterprise-grade security, comply with GDPR and CCPA regulations, and conduct regular security audits. You can delete your data anytime, and our full privacy policy is at ${SITE.marketing}/privacy.`, icon: Lock,          gradient: 'gradient-accent',    keywords: ['security','privacy','safe','encrypted','data protection'] },
     { id: 41, category: 'technical',    question: 'What browsers are supported?',                       answer: 'Preciprocal works best on modern browsers including Google Chrome (recommended), Mozilla Firefox, Microsoft Edge, Safari, and Brave. We recommend using the latest version of your browser for optimal performance and access to all features. Mobile browsers are also supported.', icon: Globe,         gradient: 'gradient-primary',   keywords: ['browser','Chrome','Firefox','Safari','Edge','compatibility'] },
     { id: 42, category: 'technical',    question: 'Do I need a webcam or microphone?',                  answer: 'A microphone is required only for voice-based interview simulations. A webcam is optional but can enhance the practice experience. For text-based interviews, resume analysis, cover letter generation, and study planning, neither webcam nor microphone is needed.', icon: Video,         gradient: 'gradient-accent',    keywords: ['webcam','microphone','camera','audio','requirements'] },
     { id: 45, category: 'account',      question: 'How do I update my profile information?',            answer: 'Go to Settings > Profile to update your personal information including name, email, location, target role, experience level, preferred technologies, LinkedIn, GitHub, and career goals. This information helps personalize your interview questions and cover letters.', icon: SettingsIcon,  gradient: 'gradient-primary',   keywords: ['profile','update','edit','settings'] },
@@ -575,7 +593,7 @@ function HelpSupportContent() {
         }
       }
 
-      // Fire-and-forget email — log response so failures are visible in console
+      // Fire-and-forget email - log response so failures are visible in console
       fetch('/api/firebase/emails', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1176,6 +1194,29 @@ function HelpSupportContent() {
         )}
 
       </div>
+
+      {/* Terms and Privacy live on the marketing site, not here - /terms and
+          /privacy have no route in this app and 404. Linked absolutely off
+          SITE.marketing so they keep working wherever the app is deployed. */}
+      <footer className="border-t border-white/[0.06] mt-8">
+        <div className="px-4 sm:px-6 lg:px-10 xl:px-16 py-6 flex flex-wrap items-center gap-x-6 gap-y-2">
+          <span className="text-sm text-slate-600">
+            &copy; {new Date().getFullYear()} {SITE.name}
+          </span>
+          <a href={`${SITE.marketing}/terms`} target="_blank" rel="noopener noreferrer"
+            className="text-sm text-slate-500 hover:text-slate-300 transition-colors">
+            Terms of Service
+          </a>
+          <a href={`${SITE.marketing}/privacy`} target="_blank" rel="noopener noreferrer"
+            className="text-sm text-slate-500 hover:text-slate-300 transition-colors">
+            Privacy Policy
+          </a>
+          <a href={SITE.marketing} target="_blank" rel="noopener noreferrer"
+            className="text-sm text-slate-500 hover:text-slate-300 transition-colors">
+            preciprocal.com
+          </a>
+        </div>
+      </footer>
     </div>
   );
 }

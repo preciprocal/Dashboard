@@ -1,6 +1,7 @@
 // app/api/firebase/emails/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
+import { emailAppUrl } from '@/lib/email/app-url';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ADMIN EMAIL — Professional dark-themed internal notification
+// ADMIN EMAIL - Professional dark-themed internal notification
 // ─────────────────────────────────────────────────────────────────────────────
 function generateAdminEmail(ticketId: string, shortId: string, ticket: SupportTicket): string {
   const priorityMeta: Record<string, { color: string; bg: string; stripe: string; label: string }> = {
@@ -227,7 +228,7 @@ function generateAdminEmail(ticketId: string, shortId: string, ticket: SupportTi
                       <td valign="middle">
                         <p style="margin:0 0 3px;font-size:13px;font-weight:600;color:#58a6ff;">Reply to this email to respond</p>
                         <p style="margin:0;font-size:12px;color:#8b949e;line-height:1.55;">
-                          Your reply is automatically saved to the ticket and the customer is notified. Do not forward — just reply.
+                          Your reply is automatically saved to the ticket and the customer is notified. Do not forward - just reply.
                         </p>
                       </td>
                     </tr>
@@ -274,7 +275,7 @@ function generateAdminEmail(ticketId: string, shortId: string, ticket: SupportTi
 function generateUserConfirmationEmail(
   userName: string, ticketId: string, subject: string, message: string,
 ): string {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://preciprocal.com';
+  const appUrl = emailAppUrl();
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -286,7 +287,7 @@ function generateUserConfirmationEmail(
 <body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
 
   <div style="display:none;max-height:0;overflow:hidden;font-size:1px;color:#f4f5f7;">
-    Your support request has been received — Ticket #${ticketId} &zwnj;&nbsp;&zwnj;
+    Your support request has been received - Ticket #${ticketId} &zwnj;&nbsp;&zwnj;
   </div>
 
   <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f5f7;">

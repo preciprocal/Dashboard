@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
     const cleanReply = cleanEmailReply(rawBody);
 
     if (!cleanReply.trim()) {
-      console.warn('⚠️ Reply body empty after cleaning — likely a quoted-only reply');
+      console.warn('⚠️ Reply body empty after cleaning - likely a quoted-only reply');
       return NextResponse.json({ success: true, message: 'Empty reply body ignored' });
     }
 
@@ -215,7 +215,7 @@ async function notifyUserOfReply(
   reply:     string,
 ): Promise<void> {
   try {
-    // Clean the subject — strip any "Re:" prefixes and the ticket reference
+    // Clean the subject - strip any "Re:" prefixes and the ticket reference
     const cleanSubject = subject
       .replace(/^(re:\s*)+/gi, '')
       .replace(/\[Ticket #[^\]]+\]\s*/g, '')
@@ -281,7 +281,7 @@ function cleanEmailReply(rawText: string): string {
     /^\s*>/,
   ];
 
-  // Metadata injected by our own admin email template — stop here to avoid
+  // Metadata injected by our own admin email template - stop here to avoid
   // the admin accidentally forwarding internal ticket details to the user.
   const metaStopPatterns = [
     /^New Support Ticket$/i,

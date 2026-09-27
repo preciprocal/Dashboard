@@ -236,7 +236,7 @@ function FormModal({ form, setForm, onSave, onCancel, saving, isEdit }: FormModa
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Salary / Range</label><input type="text" value={form.salary || ''} onChange={e => f('salary', e.target.value)} placeholder="e.g. $140k–$170k" className={inp} /></div>
+            <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Salary / Range</label><input type="text" value={form.salary || ''} onChange={e => f('salary', e.target.value)} placeholder="e.g. $140k-$170k" className={inp} /></div>
             <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Source</label><input type="text" value={form.source || ''} onChange={e => f('source', e.target.value)} placeholder="e.g. LinkedIn, referral" className={inp} /></div>
           </div>
           <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Job URL</label><input type="url" value={form.jobUrl || ''} onChange={e => f('jobUrl', e.target.value)} placeholder="https://…" className={inp} /></div>
@@ -332,7 +332,7 @@ function ConfidenceDot({ score }: { score: number }) {
   return <div className="flex items-center gap-1.5" title={`${score}% email verified`}><div className={`w-1.5 h-1.5 rounded-full ${color}`} /><span className="text-[11px] text-slate-500">{score}% verified</span></div>;
 }
 
-function buildSubject(jobTitle: string, company: string): string { return `${jobTitle} Role at ${company} – Reaching Out`; }
+function buildSubject(jobTitle: string, company: string): string { return `${jobTitle} Role at ${company} - Reaching Out`; }
 function openInGmail(to: string, subject: string, body: string) { const url = new URL('https://mail.google.com/mail/'); url.searchParams.set('view', 'cm'); url.searchParams.set('to', to); url.searchParams.set('su', subject); url.searchParams.set('body', body); window.open(url.toString(), '_blank', 'noopener,noreferrer'); }
 function openInOutlook(to: string, subject: string, body: string) { window.location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`; }
 
@@ -504,7 +504,7 @@ function CreatePlanModal({ app, onConfirm, onClose }: { app: Application; onConf
             {PLAN_PRESETS.map(p => (<button key={p.days} type="button" onClick={() => { setSelected(p.days); setCustom(false); }} className={`py-2.5 rounded-xl text-xs font-semibold transition-all border ${!custom && selected === p.days ? 'bg-gradient-to-r from-violet-600 to-indigo-600 border-violet-500 text-white shadow-[0_4px_12px_rgba(124,58,237,0.3)]' : 'bg-white/[0.03] border-white/[0.07] text-slate-500 hover:border-violet-500/40 hover:text-white'}`}>{p.label}</button>))}
             <button type="button" onClick={() => setCustom(true)} className={`py-2.5 rounded-xl text-xs font-semibold transition-all border ${custom ? 'bg-gradient-to-r from-violet-600 to-indigo-600 border-violet-500 text-white shadow-[0_4px_12px_rgba(124,58,237,0.3)]' : 'bg-white/[0.03] border-white/[0.07] text-slate-500 hover:border-violet-500/40 hover:text-white'}`}>Custom</button>
           </div>
-          {custom && <div><label className="block text-xs text-slate-400 mb-1.5">Days until interview (1–90)</label><input type="number" min={1} max={90} value={customVal} onChange={e => setCustomVal(e.target.value)} className={inp} autoFocus /></div>}
+          {custom && <div><label className="block text-xs text-slate-400 mb-1.5">Days until interview (1-90)</label><input type="number" min={1} max={90} value={customVal} onChange={e => setCustomVal(e.target.value)} className={inp} autoFocus /></div>}
           <div className="flex gap-2 pt-1">
             <button onClick={handleConfirm} className="flex-1 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-xl font-semibold text-sm transition-all shadow-[0_4px_14px_rgba(124,58,237,0.3)] flex items-center justify-center gap-2"><Sparkles className="w-4 h-4" /> Generate Plan</button>
             <button onClick={onClose} className="px-4 py-2.5 bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.07] text-slate-300 rounded-xl font-semibold text-sm transition-all">Cancel</button>

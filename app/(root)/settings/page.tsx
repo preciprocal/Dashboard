@@ -10,6 +10,9 @@ import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import ExtensionConnection from '@/components/ExtensionConnection';
 import RefundPanel from '@/components/billing/RefundPanel';
 import {
+  USAGE_LIMITS, FEATURE_NAMES, isUnlimited, type FeatureType,
+} from '@/lib/config/usage-limits';
+import {
   Bell, User, Shield, CreditCard, Chrome, ArrowLeft, Loader2,
   AlertTriangle, Check, Eye, EyeOff, Trash2, Mail, Lock, Zap,
   Star, AlertCircle, RefreshCw, ExternalLink, Building2, Link2, RotateCcw,
@@ -33,11 +36,26 @@ const defaultSettings: AppSettings = {
 interface PlanInfo {
   name: string;
   tier: 'free' | 'pro' | 'enterprise';
-  interviewsUsed: number;
-  interviewsLimit: number;
-  resumesUsed: number;
-  resumesLimit: number;
+  /** Raw key from /api/usage - 'admin' is a real value and is not a tier. */
+  planKey: string;
+  /** The whole quota table, so the panel is not limited to two features. */
+  limits: Record<string, number>;
+  usage:  Record<string, number>;
 }
+
+/** Order the usage rows are shown in. Leads with what people compare plans on. */
+const USAGE_ROWS: { key: FeatureType; usageKey: string }[] = [
+  { key: 'interviews',            usageKey: 'interviewsUsed' },
+  { key: 'resumes',               usageKey: 'resumesUsed' },
+  { key: 'coverLetters',          usageKey: 'coverLettersUsed' },
+  { key: 'studyPlans',            usageKey: 'studyPlansUsed' },
+  { key: 'debriefAnalyses',       usageKey: 'debriefAnalysesUsed' },
+  { key: 'interviewDebriefs',     usageKey: 'interviewDebriefsUsed' },
+  { key: 'linkedinOptimisations', usageKey: 'linkedinOptimisationsUsed' },
+  { key: 'coldOutreach',          usageKey: 'coldOutreachUsed' },
+  { key: 'findContacts',          usageKey: 'findContactsUsed' },
+  { key: 'jobTracker',            usageKey: 'jobTrackerUsed' },
+];
 
 // ─── Design-system primitives ─────────────────────────────────────────────────
 
@@ -239,9 +257,9 @@ export default function SettingsPage() {
 
   // Usage stats
   const [plan, setPlan] = useState<PlanInfo>({
-    name: 'Free Plan', tier: 'free',
-    interviewsUsed: 0, interviewsLimit: 5,
-    resumesUsed: 0,    resumesLimit: 2,
+    name: 'Free Plan', tier: 'free', planKey: 'free',
+    limits: USAGE_LIMITS.free as unknown as Record<string, number>,
+    usage: {},
   });
   const [statsLoading, setStatsLoading] = useState(true);
 
@@ -289,11 +307,8 @@ export default function SettingsPage() {
       };
 
       setPlan({
-        name: tierNames[tier], tier,
-        interviewsUsed:  usage.usage.interviewsUsed ?? 0,
-        interviewsLimit: usage.limits.interviews    ?? 0,
-        resumesUsed:     usage.usage.resumesUsed    ?? 0,
-        resumesLimit:    usage.limits.resumes       ?? 0,
+        name: tierNames[tier], tier, planKey: usage.plan,
+        limits: usage.limits, usage: usage.usage,
       });
     } catch (err) {
       console.error('Failed to load stats:', err);
@@ -404,7 +419,13 @@ export default function SettingsPage() {
   const isGoogleUser  = (user?.app_metadata?.providers as string[] | undefined)?.includes('google') ?? false;
   const avatarUrl     = user?.user_metadata?.avatar_url as string | undefined;
   const userInitials  = ((user?.user_metadata?.name as string) || (user?.user_metadata?.full_name as string) || user?.email || 'U').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-  const usagePct      = (used: number, limit: number) => Math.min(100, Math.round((used / limit) * 100));
+  // null = nothing to draw. isUnlimited(-1) short-circuits before the divide,
+  // which previously produced a negative width for uncapped plans and NaN% for
+  // limit 0. Both rendered as an invisible bar next to a "0 / -1" label.
+  const usagePct = (used: number, limit: number): number | null => {
+    if (isUnlimited(limit) || limit <= 0) return null;
+    return Math.min(100, Math.round((used / limit) * 100));
+  };
 
   if (loading || pageLoading) return <AnimatedLoader isVisible loadingText="Loading settings…" showNavigation />;
   if (!user) return null;
@@ -735,10 +756,13 @@ export default function SettingsPage() {
                             {plan.tier === 'free' ? 'Free' : plan.tier === 'pro' ? 'Pro' : 'Premium'}
                           </span>
                         </div>
+                        {/* Was hardcoded to "Unlimited interviews and advanced
+                            analytics" for every paid tier, directly above a
+                            meter reading the real cap. Derived now. */}
                         <p className="text-slate-500 text-xs mt-1">
-                          {plan.tier === 'free'
-                            ? `${plan.interviewsLimit} interviews · ${plan.resumesLimit} resumes per month`
-                            : 'Unlimited interviews and advanced analytics'}
+                          {isUnlimited(plan.limits.interviews)
+                            ? 'Unlimited usage on every feature'
+                            : `${plan.limits.interviews} mock interviews · ${plan.limits.resumes} resume analyses per month`}
                         </p>
                       </>
                     )}
@@ -752,7 +776,7 @@ export default function SettingsPage() {
                   <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Monthly Usage</p>
                   {statsLoading ? (
                     <div className="space-y-3">
-                      {[1, 2].map(n => (
+                      {[1, 2, 3, 4].map(n => (
                         <div key={n}>
                           <div className="flex justify-between mb-1.5">
                             <div className="h-3 w-24 bg-slate-800 rounded animate-pulse" />
@@ -763,20 +787,35 @@ export default function SettingsPage() {
                       ))}
                     </div>
                   ) : (
-                    <div className="space-y-3">
-                      {[
-                        { label: 'Mock Interviews', used: plan.interviewsUsed, limit: plan.interviewsLimit, color: 'from-blue-600 to-purple-600'   },
-                        { label: 'Resume Analyses', used: plan.resumesUsed,    limit: plan.resumesLimit,    color: 'from-emerald-600 to-teal-600'  },
-                      ].map(m => {
-                        const pct = usagePct(m.used, m.limit);
+                    <div className="divide-y divide-white/[0.05]">
+                      {USAGE_ROWS.map(({ key, usageKey }) => {
+                        const limit = plan.limits[key] ?? 0;
+                        const used  = plan.usage[usageKey] ?? 0;
+                        const pct   = usagePct(used, limit);
+                        const near  = pct !== null && pct >= 80;
                         return (
-                          <div key={m.label}>
-                            <div className="flex justify-between text-xs mb-1.5">
-                              <span className="text-slate-400">{m.label}</span>
-                              <span className={pct >= 80 ? 'text-orange-400 font-medium' : 'text-slate-500'}>{m.used} / {m.limit}</span>
+                          <div key={key} className="py-2.5 first:pt-0 last:pb-0">
+                            <div className="flex items-center justify-between gap-4 text-xs mb-1.5">
+                              <span className="text-slate-400">{FEATURE_NAMES[key]}</span>
+                              {/* -1 is the uncapped sentinel and must never reach
+                                  the screen. It used to render as "0 / -1". */}
+                              {isUnlimited(limit) ? (
+                                <span className="text-slate-500">Unlimited</span>
+                              ) : (
+                                <span className={near ? 'text-amber-400 font-medium tabular-nums' : 'text-slate-500 tabular-nums'}>
+                                  {used} <span className="text-slate-700">/</span> {limit}
+                                </span>
+                              )}
                             </div>
-                            <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                              <div className={`h-full bg-gradient-to-r ${m.color} rounded-full transition-all duration-500`} style={{ width: `${pct}%` }} />
+                            <div className="h-1 bg-white/[0.04] rounded-full overflow-hidden">
+                              {pct === null ? (
+                                /* Uncapped: a full bar would read as "you are at
+                                   your limit", an empty one as "nothing used". */
+                                <div className="h-full w-full bg-[repeating-linear-gradient(45deg,rgba(148,163,184,0.18)_0_4px,transparent_4px_8px)]" />
+                              ) : (
+                                <div className={`h-full rounded-full transition-all duration-500 ${near ? 'bg-amber-500/70' : 'bg-purple-500/70'}`}
+                                  style={{ width: `${pct}%` }} />
+                              )}
                             </div>
                           </div>
                         );

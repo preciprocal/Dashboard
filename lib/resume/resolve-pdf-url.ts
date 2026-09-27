@@ -1,7 +1,7 @@
 // lib/resume/resolve-pdf-url.ts
 // Client-safe helpers for opening/downloading a resume PDF regardless of
 // whether `resumePath` is a legacy Firebase Storage download URL or a bare
-// Supabase Storage path (Phase 1 of the migration — see
+// Supabase Storage path (Phase 1 of the migration - see
 // C:\Users\yashv\.claude\plans\lovely-exploring-turing.md). Supabase's
 // bucket is private, so bare paths are resolved to a short-lived signed URL
 // on demand via /api/resume/proxy-pdf rather than stored as a permanent URL.

@@ -686,7 +686,7 @@ export default function CoverLetterGeneratorPage() {
                     </p>
                     <div className="grid grid-cols-2 gap-2">
                       {[
-                        { icon: FileText,    color: 'text-blue-400',    bg: 'bg-blue-500/[0.08]',    title: 'Concise & Clear',   desc: '250–400 words'          },
+                        { icon: FileText,    color: 'text-blue-400',    bg: 'bg-blue-500/[0.08]',    title: 'Concise & Clear',   desc: '250-400 words'          },
                         { icon: CheckCircle2,color: 'text-emerald-400', bg: 'bg-emerald-500/[0.08]', title: 'Highly Relevant',   desc: 'Match job requirements' },
                         { icon: Sparkles,    color: 'text-amber-400',   bg: 'bg-amber-500/[0.08]',   title: 'Authentic Voice',   desc: 'Show genuine interest'  },
                         { icon: Briefcase,   color: 'text-violet-400',  bg: 'bg-violet-500/[0.08]',  title: 'Results-Driven',    desc: 'Concrete examples'      },

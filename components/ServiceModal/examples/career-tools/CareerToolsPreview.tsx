@@ -514,7 +514,7 @@ function OutreachResults() {
             <p className="text-[10px] font-bold text-white flex items-center gap-1.5 mb-2"><RefreshCw className="w-3 h-3 text-blue-400" /> Follow-up Template</p>
             <div className="flex items-center gap-1.5 p-1.5 bg-blue-500/[0.06] border border-blue-500/15 rounded mb-2">
               <Info className="w-2.5 h-2.5 text-blue-400 flex-shrink-0" />
-              <p className="text-[8px] text-blue-300">Send 3–5 business days after initial email</p>
+              <p className="text-[8px] text-blue-300">Send 3-5 business days after initial email</p>
             </div>
             <div className="p-2 bg-white/[0.03] border border-white/[0.07] rounded-lg">
               <p className="text-[8px] text-slate-300 leading-relaxed">Hi Sarah, just bumping this to the top - I know inboxes move fast. Would a 10-minute call work this week? Happy to share more about the payment pipeline work I mentioned. No worries if the timing isn&apos;t right.</p>
@@ -758,7 +758,7 @@ function InteractiveView() {
                 <p className="text-[10px] font-bold text-white flex items-center gap-1.5 mb-2"><RefreshCw className="w-3 h-3 text-blue-400" /> Follow-up Template</p>
                 <div className="flex items-center gap-1.5 p-1.5 bg-blue-500/[0.06] border border-blue-500/15 rounded mb-2">
                   <Info className="w-2.5 h-2.5 text-blue-400 flex-shrink-0" />
-                  <p className="text-[8px] text-blue-300">Send 3–5 business days after initial email</p>
+                  <p className="text-[8px] text-blue-300">Send 3-5 business days after initial email</p>
                 </div>
                 <div className="p-2 bg-white/[0.03] border border-white/[0.07] rounded-lg">
                   <p className="text-[8px] text-slate-300 leading-relaxed">Hi Sarah, just bumping this to the top - I know inboxes move fast. Would a 10-minute call work this week? Happy to share more about the payment pipeline work I mentioned. No worries if the timing isn&apos;t right.</p>

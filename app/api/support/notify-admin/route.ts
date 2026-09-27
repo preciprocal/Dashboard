@@ -1,7 +1,7 @@
 // app/api/support/notify-admin/route.ts
 // Fires when a user replies to their own ticket from the app dashboard.
 // Sends an email notification to the admin with the user's reply.
-// Admin can reply to this email — it routes through support@preciprocal.com
+// Admin can reply to this email - it routes through support@preciprocal.com
 // and the inbound webhook saves it back to Firestore automatically.
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -96,7 +96,7 @@ function generateUserReplyAdminEmail(
       <table width="640" cellpadding="0" cellspacing="0" border="0"
              style="width:640px;max-width:100%;background:#161b22;border-radius:12px;border:1px solid #30363d;overflow:hidden;">
 
-        <!-- Top stripe — blue for user reply -->
+        <!-- Top stripe - blue for user reply -->
         <tr><td style="height:3px;background:#58a6ff;font-size:0;line-height:0;">&nbsp;</td></tr>
 
         <!-- Header -->
