@@ -21,6 +21,7 @@ import { supabaseAdmin } from '@/supabase/admin';
 import { Resend } from 'resend';
 import { SITE } from '@/lib/seo';
 import { renderEmail, renderText, escapeHtml, firstName } from '@/lib/email/layout';
+import { canSend } from '@/lib/notifications/preferences';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -184,14 +185,22 @@ export async function POST(request: NextRequest) {
       if (notifyError) console.error('⚠️ Could not write in-app notification:', notifyError.message);
     }
 
-    // ── Notify user via email ─────────────────────────────────────────────────
-    await notifyUserOfReply(
-      ticketData.user_email as string,
-      ticketData.user_name  as string,
-      ticketId,
-      ticketData.subject    as string,
-      cleanReply,
-    );
+    // ── Notify user via email, if they want it ───────────────────────────────
+    //
+    // The in-app notification above is written either way: it lives in the
+    // product the user opted into by opening a ticket, and it is how the
+    // Support badge appears. This toggle is about their inbox.
+    if (ticketData.user_id && await canSend(ticketData.user_id as string, 'supportReplies')) {
+      await notifyUserOfReply(
+        ticketData.user_email as string,
+        ticketData.user_name  as string,
+        ticketId,
+        ticketData.subject    as string,
+        cleanReply,
+      );
+    } else {
+      console.log('↩️ Support reply email suppressed by user preference');
+    }
 
     return NextResponse.json({ success: true, ticketId });
   } catch (error) {

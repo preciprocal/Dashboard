@@ -403,7 +403,7 @@ function HelpSupportContent() {
   ];
 
   // Counts threads with an unread support reply, not open tickets. See
-  // hasUnreadSupportReply() and migration 0040.
+  // hasUnreadSupportReply() and migration 0041.
   const unreadTicketCount = userTickets.filter(hasUnreadSupportReply).length;
   const tabs: TabItem[] = [
     { id: 'faq',     label: 'FAQs',    icon: BookOpen      },
@@ -465,15 +465,16 @@ function HelpSupportContent() {
 
     fetchReplies();
 
-    // Opening the thread is the read receipt. Written on every open rather
-    // than only when something is unread: the cost is one indexed update, and
-    // the alternative needs the ticket row in scope here, which would couple
-    // this effect to the list's fetch order.
+    // Opening the thread is the read receipt.
+    //
+    // Through an RPC so the timestamp comes from the DATABASE clock. Writing
+    // `new Date()` from here compares a browser clock against the server
+    // clock that stamped last_reply_at, and this project's database measured
+    // 334ms ahead of a dev machine - enough that opening a thread failed to
+    // clear the badge. See migration 0042.
     void supabase
-      .from('support_tickets')
-      .update({ user_last_read_at: new Date().toISOString() })
-      .eq('id', selectedTicket)
-      .then(({ error }) => {
+      .rpc('mark_ticket_read', { p_ticket_id: selectedTicket })
+      .then(({ error }: { error: { message: string } | null }) => {
         if (error) console.error('Could not mark ticket read:', error.message);
       });
 

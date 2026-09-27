@@ -173,7 +173,7 @@ const PUBLIC_ROUTES = [
  * Counted in the browser rather than with a filter because PostgREST cannot
  * compare two columns to each other (last_reply_at > user_last_read_at). The
  * `last_reply_by = 'support'` filter and the partial index from migration
- * 0040 keep the fetched set to the handful of threads that could qualify.
+ * 0041 keep the fetched set to the handful of threads that could qualify.
  */
 const useUnreadTickets = () => {
   const [user] = useSupabaseUser();

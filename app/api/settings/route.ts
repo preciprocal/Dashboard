@@ -5,12 +5,12 @@ import { supabaseAdmin } from '@/supabase/admin';
 
 interface AppSettings {
   notifications: {
-    email: boolean;
-    push: boolean;
-    interviewReminders: boolean;
+    /** Gates the support-reply email in app/api/support/inbound-email. */
+    supportReplies: boolean;
+    /** Mirrored to profiles.weekly_digest_opt_out, which the cron reads. */
     weeklyDigest: boolean;
-    aiRecommendations: boolean;
-    systemUpdates: boolean;
+    /** Mirrored to newsletter_subscribers.subscribed. Opt-in. */
+    productUpdates: boolean;
   };
   privacy: {
     shareAnalytics: boolean;
@@ -33,12 +33,9 @@ interface AppSettings {
 
 const defaultSettings: AppSettings = {
   notifications: {
-    email: true,
-    push: true,
-    interviewReminders: true,
+    supportReplies: true,
     weeklyDigest: true,
-    aiRecommendations: true,
-    systemUpdates: true,
+    productUpdates: false,
   },
   privacy: {
     shareAnalytics: false,
@@ -77,15 +74,37 @@ export async function GET(request: NextRequest) {
       .maybeSingle();
     if (error) throw error;
 
-    if (!row) {
-      // Return default settings if none exist
-      return NextResponse.json({
-        success: true,
-        settings: defaultSettings,
-      });
+    // weeklyDigest and productUpdates are owned by other tables, so the JSON
+    // blob is not authoritative for them. Read them from where their senders
+    // read them, or the toggle lies after an unsubscribe from the digest
+    // footer link (app/api/digest/unsubscribe writes the column directly and
+    // never touches user_settings).
+    const [{ data: profileRow }, stored] = await Promise.all([
+      supabaseAdmin.from('profiles')
+        .select('email, weekly_digest_opt_out')
+        .eq('user_id', authedUser.supabaseUserId).maybeSingle(),
+      Promise.resolve(row?.settings as AppSettings | undefined),
+    ]);
+
+    let productUpdates = defaultSettings.notifications.productUpdates;
+    if (profileRow?.email) {
+      const { data: sub } = await supabaseAdmin
+        .from('newsletter_subscribers')
+        .select('subscribed')
+        .eq('email', String(profileRow.email).toLowerCase().trim())
+        .maybeSingle();
+      productUpdates = sub?.subscribed === true;
     }
 
-    const settings = row.settings as AppSettings;
+    const base = stored ?? defaultSettings;
+    const settings: AppSettings = {
+      ...base,
+      notifications: {
+        supportReplies: base.notifications?.supportReplies ?? defaultSettings.notifications.supportReplies,
+        weeklyDigest:   profileRow?.weekly_digest_opt_out !== true,
+        productUpdates,
+      },
+    };
 
     return NextResponse.json({
       success: true,
@@ -124,12 +143,9 @@ export async function POST(request: NextRequest) {
     // Validate settings structure
     const validatedSettings: AppSettings = {
       notifications: {
-        email: settings.notifications?.email ?? defaultSettings.notifications.email,
-        push: settings.notifications?.push ?? defaultSettings.notifications.push,
-        interviewReminders: settings.notifications?.interviewReminders ?? defaultSettings.notifications.interviewReminders,
-        weeklyDigest: settings.notifications?.weeklyDigest ?? defaultSettings.notifications.weeklyDigest,
-        aiRecommendations: settings.notifications?.aiRecommendations ?? defaultSettings.notifications.aiRecommendations,
-        systemUpdates: settings.notifications?.systemUpdates ?? defaultSettings.notifications.systemUpdates,
+        supportReplies: settings.notifications?.supportReplies ?? defaultSettings.notifications.supportReplies,
+        weeklyDigest:   settings.notifications?.weeklyDigest   ?? defaultSettings.notifications.weeklyDigest,
+        productUpdates: settings.notifications?.productUpdates ?? defaultSettings.notifications.productUpdates,
       },
       privacy: {
         shareAnalytics: settings.privacy?.shareAnalytics ?? defaultSettings.privacy.shareAnalytics,
@@ -159,6 +175,33 @@ export async function POST(request: NextRequest) {
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id' });
     if (upsertError) throw upsertError;
+
+    // Two of these three are not read from user_settings at all: the digest
+    // cron filters on profiles.weekly_digest_opt_out, and product updates are
+    // a newsletter_subscribers row keyed by email. Writing only the JSON blob
+    // is exactly how the old toggles ended up controlling nothing, so mirror
+    // them to where their senders actually look.
+    //
+    // Best-effort and logged: the user's choice is already recorded above, and
+    // failing the whole save because a mirror write missed would lose it.
+    const n = validatedSettings.notifications;
+    const { error: digestErr } = await supabaseAdmin
+      .from('profiles')
+      .update({ weekly_digest_opt_out: !n.weeklyDigest })
+      .eq('user_id', authedUser.supabaseUserId);
+    if (digestErr) console.error('⚠️ could not mirror weeklyDigest:', digestErr.message);
+
+    const { data: profileRow } = await supabaseAdmin
+      .from('profiles').select('email').eq('user_id', authedUser.supabaseUserId).maybeSingle();
+    const subscriberEmail = profileRow?.email
+      ? String(profileRow.email).toLowerCase().trim()
+      : null;
+    if (subscriberEmail) {
+      const { error: newsErr } = await supabaseAdmin
+        .from('newsletter_subscribers')
+        .upsert({ email: subscriberEmail, subscribed: n.productUpdates }, { onConflict: 'email' });
+      if (newsErr) console.error('⚠️ could not mirror productUpdates:', newsErr.message);
+    }
 
     return NextResponse.json({
       success: true,

@@ -1,4 +1,4 @@
--- 0040_ticket_user_last_read.sql
+-- 0041_ticket_user_last_read.sql
 -- NOT run automatically. Review, then apply via the Supabase SQL editor.
 --
 -- Lets the app tell "this ticket has something the user has not seen" apart

@@ -246,7 +246,7 @@ async function main() {
   // The Tickets tab badge used to count `status != 'closed'`, so replying
   // never moved it - and because the 0036 trigger reopens a resolved ticket,
   // answering support could push it up. Unread is now derived from
-  // last_reply_by / last_reply_at against user_last_read_at (migration 0040),
+  // last_reply_by / last_reply_at against user_last_read_at (migration 0041),
   // through the same lib/support/unread.ts the UI calls.
   console.log("\n[5] unread state tracks who spoke last");
 
@@ -263,7 +263,7 @@ async function main() {
 
   const probe = await ticketRow(unreadTicket);
   if (!("user_last_read_at" in probe)) {
-    console.log("  SKIP  user_last_read_at missing - apply migration 0040");
+    console.log("  SKIP  user_last_read_at missing - apply migration 0041");
   } else {
     check("a brand new ticket is not unread", (await unreadRow()) === false);
 
@@ -280,11 +280,23 @@ async function main() {
     });
     check("a support reply makes it unread", (await unreadRow()) === true);
 
-    // Opening the thread is the read receipt, written by the browser under RLS.
-    const { error: markErr } = await asBob.from("support_tickets")
-      .update({ user_last_read_at: new Date().toISOString() }).eq("id", unreadTicket);
-    check("the owner may write their own read marker", !markErr, markErr?.message);
-    check("opening the thread clears unread", (await unreadRow()) === false);
+    // Opening the thread is the read receipt. Through the 0042 RPC so the
+    // timestamp comes from the same clock as last_reply_at - a browser-written
+    // marker loses to a server-written reply whenever the database clock runs
+    // ahead, which it does here by ~334ms.
+    // PostgREST reports a missing function as "Could not find the function
+    // ... in the schema cache", not "does not exist".
+    const rpcMissing = (m?: string) =>
+      !!m && (/could not find the function/i.test(m) || /does not exist/i.test(m));
+
+    const { data: readAt, error: markErr } = await asBob.rpc("mark_ticket_read", { p_ticket_id: unreadTicket });
+    if (rpcMissing(markErr?.message)) {
+      console.log("  SKIP  mark_ticket_read() missing - apply migration 0042");
+    } else {
+      check("the owner may mark their own ticket read", !markErr, markErr?.message);
+      check("the marker came from the database clock", !!readAt);
+      check("opening the thread clears unread", (await unreadRow()) === false);
+    }
 
     // And a later reply lights it up again.
     await new Promise((r) => setTimeout(r, 1100)); // timestamps are second-ish granular
@@ -295,10 +307,12 @@ async function main() {
 
     // The read marker is per-owner state, so it must be as protected as the
     // rest of the row - otherwise one user could clear another's badge.
-    const { data: crossMark } = await asBob.from("support_tickets")
-      .update({ user_last_read_at: new Date().toISOString() })
-      .eq("id", aliceTicket).select("id");
-    check("cannot mark another user's ticket read", (crossMark?.length ?? 0) === 0);
+    const { data: crossMark, error: crossErr } = await asBob.rpc("mark_ticket_read", { p_ticket_id: aliceTicket });
+    if (!rpcMissing(crossErr?.message)) {
+      // SECURITY DEFINER, so the guard is the user_id = auth.uid() predicate
+      // inside the function: zero rows updated, null returned.
+      check("cannot mark another user's ticket read", crossMark === null, String(crossMark));
+    }
   }
 
   // The in-app notification is written by app/api/support/inbound-email with

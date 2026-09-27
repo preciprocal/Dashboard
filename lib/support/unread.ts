@@ -18,7 +18,7 @@ export interface UnreadInput {
   /** 'user' | 'support', maintained by sync_ticket_on_reply (migration 0036). */
   lastReplyBy?: string | null;
   lastReplyAt?: string | null;
-  /** Set when the owner opens the thread (migration 0040). */
+  /** Set when the owner opens the thread (migration 0041). */
   userLastReadAt?: string | null;
   /** Fallback read-marker for a thread the owner has never opened. */
   createdAt?: string | null;

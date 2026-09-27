@@ -22,16 +22,19 @@ import Image from 'next/image';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+// Named after senders that exist. The previous three (email,
+// interviewReminders, systemUpdates) were read by nothing, and two of them
+// described mail this product has never sent. See lib/notifications/preferences.ts.
 interface NotificationSettings {
-  email: boolean;
-  interviewReminders: boolean;
-  systemUpdates: boolean;
+  supportReplies: boolean;
+  weeklyDigest: boolean;
+  productUpdates: boolean;
 }
 interface AppSettings {
   notifications: NotificationSettings;
 }
 const defaultSettings: AppSettings = {
-  notifications: { email: true, interviewReminders: true, systemUpdates: true },
+  notifications: { supportReplies: true, weeklyDigest: true, productUpdates: false },
 };
 interface PlanInfo {
   name: string;
@@ -595,9 +598,9 @@ export default function SettingsPage() {
             <div className="p-5 space-y-2">
               {(
                 [
-                  { key: 'email'              as const, label: 'Email Notifications', desc: 'Interview results, resume analysis, and account updates sent to your inbox' },
-                  { key: 'interviewReminders' as const, label: 'Interview Reminders',  desc: 'Get reminded before a scheduled mock interview session' },
-                  { key: 'systemUpdates'      as const, label: 'Product Updates',      desc: 'New features, maintenance notices, and important platform announcements' },
+                  { key: 'supportReplies' as const, label: 'Support replies',  desc: 'Email me when the support team answers one of my tickets. Replies always appear in the app regardless.' },
+                  { key: 'weeklyDigest'   as const, label: 'Weekly digest',    desc: 'A Monday summary of your applications, interviews and progress.' },
+                  { key: 'productUpdates' as const, label: 'Product updates',  desc: 'Occasional email about new features. Off by default.' },
                 ] satisfies { key: keyof NotificationSettings; label: string; desc: string }[]
               ).map(item => {
                 const isSaving = savingNotifKey === item.key;
@@ -615,6 +618,10 @@ export default function SettingsPage() {
                   </div>
                 );
               })}
+              <p className="text-xs text-slate-600 leading-relaxed px-1 pt-1">
+                Security and account email - password resets, new-device alerts and
+                billing receipts - is always sent and cannot be turned off.
+              </p>
             </div>
           </SectionCard>
         )}
