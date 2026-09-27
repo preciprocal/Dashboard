@@ -761,7 +761,7 @@ export default function SettingsPage() {
                               : plan.tier === 'pro'
                               ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
                               : plan.tier === 'admin'
-                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                              ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
                               : 'bg-purple-500/10 text-purple-400 border-purple-500/20'
                           }`}>
                             {plan.tier === 'pro'        && <Star      className="w-2.5 h-2.5" />}

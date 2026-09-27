@@ -79,6 +79,13 @@ interface PlanInfo {
   icon: LucideIcon;
   style: string;
   badgeClass: string;
+  /**
+   * One line under the plan name. Lives here rather than as a chain of
+   * `planInfo.text === 'Pro' && ...` in the card, which silently produced an
+   * EMPTY paragraph for any plan the chain forgot - Admin was missing, so an
+   * admin saw a blank line and a stray gap where the description belongs.
+   */
+  description: string;
   showUpgrade: boolean;
 }
 
@@ -91,6 +98,7 @@ function getPlanInfo(subscription?: UserData['subscription']): PlanInfo {
   if (plan === 'admin') {
     return {
       text: 'Admin', displayName: 'Admin Access', icon: Shield,
+      description: 'Unrestricted access. Granted by account role, not billing.',
       style: 'text-rose-400',
       badgeClass: 'bg-rose-500/10 border-rose-500/20 text-rose-400',
       showUpgrade: false,
@@ -100,6 +108,7 @@ function getPlanInfo(subscription?: UserData['subscription']): PlanInfo {
   if (plan === 'premium' && status === 'active') {
     return {
       text: 'Premium', displayName: 'Premium Plan', icon: Zap,
+      description: 'The highest monthly allowances on every feature.',
       style: 'text-purple-400',
       badgeClass: 'bg-purple-500/10 border-purple-500/20 text-purple-400',
       showUpgrade: false,
@@ -109,6 +118,7 @@ function getPlanInfo(subscription?: UserData['subscription']): PlanInfo {
   if (plan === 'pro' && status === 'active') {
     return {
       text: 'Pro', displayName: 'Pro Plan', icon: Crown,
+      description: 'Higher allowances than Free. Upgrade for the highest.',
       style: 'text-indigo-400',
       badgeClass: 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400',
       showUpgrade: true,
@@ -118,6 +128,7 @@ function getPlanInfo(subscription?: UserData['subscription']): PlanInfo {
   if (plan === 'enterprise') {
     return {
       text: 'Enterprise', displayName: 'Enterprise Plan', icon: Zap,
+      description: 'Full enterprise access enabled.',
       style: 'text-amber-400',
       badgeClass: 'bg-amber-500/10 border-amber-500/20 text-amber-400',
       showUpgrade: false,
@@ -127,6 +138,7 @@ function getPlanInfo(subscription?: UserData['subscription']): PlanInfo {
   // free / starter / canceled / past_due / anything else → Free tier
   return {
     text: 'Free', displayName: 'Free Plan', icon: Shield,
+      description: 'Limited monthly usage. Upgrade to unlock more.',
     style: 'text-green-400',
     badgeClass: 'bg-green-500/10 border-green-500/20 text-green-400',
     showUpgrade: true,
@@ -897,13 +909,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
               </div>
             </div>
 
-            {/* Plan-specific description */}
-            <p className="text-[11px] text-slate-500 leading-snug">
-              {planInfo.text === 'Premium' && 'Unlimited access to all features.'}
-              {planInfo.text === 'Pro'     && 'Most features unlocked. Upgrade for unlimited.'}
-              {planInfo.text === 'Free'    && 'Limited usage. Upgrade to unlock everything.'}
-              {planInfo.text === 'Enterprise' && 'Full enterprise access enabled.'}
-            </p>
+            <p className="text-[11px] text-slate-500 leading-snug">{planInfo.description}</p>
 
             {planInfo.showUpgrade && (
               <Link href="/pricing" onClick={handleLinkClick}
