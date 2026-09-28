@@ -329,8 +329,18 @@ export default function CoverLetterGeneratorPage() {
         }
       } else { throw new Error('Invalid response format'); }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate cover letter.');
+      const reason = err instanceof Error ? err.message : 'Failed to generate cover letter.';
+      setError(reason);
       toast.error('Failed to generate cover letter');
+      // Success here writes two notifications. Failure wrote none, so the
+      // feed only ever told half the story.
+      if (user?.id) {
+        NotificationService.notify(
+          user.id, 'error', 'Cover letter generation failed',
+          `We could not generate your ${jobRole || 'cover'} letter. ${reason}`,
+          { actionUrl: '/cover-letter/create', actionLabel: 'Try again' },
+        );
+      }
     } finally { setIsGenerating(false); }
   };
 

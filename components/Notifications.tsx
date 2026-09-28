@@ -6,6 +6,7 @@ import { formatDistanceToNow } from "date-fns";
 import {
   Bell, Check, CheckCheck, Trash2,
   Video, FileText, Pen, Calendar, Trophy, AlertCircle, Loader2, LifeBuoy,
+  AlertTriangle,
 } from "lucide-react";
 import { Notification as AppNotification } from "@/lib/services/notification-services";
 
@@ -32,6 +33,8 @@ const TYPE_META: Record<
   planner:      { icon: Calendar,    color: "text-violet-400" },
   achievement:  { icon: Trophy,      color: "text-amber-400" },
   support:      { icon: LifeBuoy,    color: "text-emerald-400" },
+  // The only red in the list, so a failure is findable at a glance.
+  error:        { icon: AlertTriangle, color: "text-rose-400" },
   system:       { icon: AlertCircle, color: "text-slate-400" },
 };
 

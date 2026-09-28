@@ -670,7 +670,14 @@ export default function CareerToolsPage() {
         const label = result.overallScore >= 75 ? 'Strong' : result.overallScore >= 50 ? 'Needs Work' : 'Needs Improvement';
         await NotificationService.createNotification(user.id, 'system', 'LinkedIn Profile Optimised 🔵', `Your profile scored ${result.overallScore}/100 (${label}).`, { actionUrl: '/career-tools', actionLabel: 'View Results' });
       }
-    } catch (e: unknown) { setLiError(e instanceof Error ? e.message : 'Failed'); }
+    } catch (e: unknown) {
+      const reason = e instanceof Error ? e.message : 'Something went wrong.';
+      setLiError(reason);
+      if (user?.id) {
+        NotificationService.notify(user.id, 'error', 'LinkedIn optimisation failed',
+          reason, { actionUrl: '/career-tools', actionLabel: 'Try again' });
+      }
+    }
     finally { setLiLoading(false); }
   };
 
@@ -696,7 +703,14 @@ export default function CareerToolsPage() {
         const target = orRecipName ? `${orRecipName}${orCompany ? ` at ${orCompany}` : ''}` : orCompany || orRecipRole || 'your target';
         await NotificationService.createNotification(user.id, 'system', `${orPlatform === 'linkedin' ? 'LinkedIn' : 'Email'} Outreach Ready ✉️`, `3 personalised messages for ${target} have been generated.`, { actionUrl: '/career-tools', actionLabel: 'View Messages' });
       }
-    } catch (e: unknown) { setOrError(e instanceof Error ? e.message : 'Failed'); }
+    } catch (e: unknown) {
+      const reason = e instanceof Error ? e.message : 'Something went wrong.';
+      setOrError(reason);
+      if (user?.id) {
+        NotificationService.notify(user.id, 'error', 'Outreach generation failed',
+          reason, { actionUrl: '/career-tools', actionLabel: 'Try again' });
+      }
+    }
     finally { setOrLoading(false); }
   };
 

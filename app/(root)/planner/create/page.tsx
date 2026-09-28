@@ -225,9 +225,17 @@ export default function CreatePlanPage() {
       router.push(`/planner/${data.planId}`);
     } catch (err) {
       console.error('Error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to generate plan. Please try again.');
+      const reason = err instanceof Error ? err.message : 'Failed to generate plan. Please try again.';
+      setError(reason);
       setIsGenerating(false);
       toast.error('Failed to generate plan');
+      if (user?.id) {
+        NotificationService.notify(
+          user.id, 'error', 'Study plan generation failed',
+          `Your plan could not be created. ${reason}`,
+          { actionUrl: '/planner/create', actionLabel: 'Try again' },
+        );
+      }
     }
   };
 

@@ -318,10 +318,22 @@ export default function UploadResume() {
       }, 2000);
 
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
+      const reason = err instanceof Error ? err.message : 'An unexpected error occurred';
+      setError(reason);
       setIsProcessing(false);
       setCurrentStep(0);
       toast.error('Failed to analyse resume');
+      // The feed recorded "Resume Uploaded" and "Analysis Complete" but
+      // nothing when the run failed, so a user who closed the tab mid-upload
+      // was left with a half-finished story and no way back to it. A toast
+      // does not survive a navigation; this does.
+      if (user?.id) {
+        fireNotification(
+          user.id, 'error', 'Resume analysis failed',
+          `"${file?.name ?? 'Your resume'}" could not be analysed. ${reason}`,
+          { actionUrl: '/resume/upload', actionLabel: 'Try again' },
+        );
+      }
     } finally {
       clearInterval(factInterval);
     }

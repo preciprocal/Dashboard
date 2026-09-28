@@ -24,6 +24,7 @@ import { createFeedback } from "@/lib/actions/general.action";
 
 // Import the shared panel-name generator so the names match the waiting room.
 import { panelFor } from "@/lib/config/interview-personas";
+import { NotificationService } from '@/lib/services/notification-services';
 import {
   setMicMuted, muteRemoteAudio, startCamera, setCameraEnabled, type CameraHandle,
 } from "@/lib/interview/media-controls";
@@ -641,6 +642,19 @@ const FullScreenInterviewPanel = ({
   // A failure here means the user's completed interview transcript couldn't
   // be saved - never silently redirect away from it. Show a retryable error
   // instead so the user (and their answers) aren't just lost.
+  // An on-screen error disappears the moment the tab is closed. A failed
+  // interview is exactly the case where the user walks away, so it needs to
+  // survive in the feed alongside the successes.
+  const notifyInterviewFailed = useCallback(() => {
+    if (!userId) return;
+    NotificationService.notify(
+      userId, 'error', 'Interview feedback could not be saved',
+      'Your answers were recorded but the analysis did not complete. Open the interview to try again.',
+      { actionUrl: `/interview/${interviewId}/feedback`, actionLabel: 'Retry',
+        metadata: { interviewId } },
+    );
+  }, [userId, interviewId]);
+
   const generateFeedbackAndRedirect = useCallback(async (msgs: SavedMessage[]) => {
     lastTranscriptRef.current = msgs;
     setIsGeneratingFeedback(true);
@@ -654,6 +668,18 @@ const FullScreenInterviewPanel = ({
       });
 
       if (success && (id || feedbackId)) {
+        // Completing an interview left no trace in the notification feed.
+        // Creating one did - "Interview Session Ready" fires from the
+        // generator form - so the record showed sessions being set up and
+        // never finished. This is the moment there is something to go back to.
+        if (userId) {
+          NotificationService.notify(
+            userId, 'interview', 'Interview complete',
+            `Your ${interviewRole} interview has been analysed and your feedback is ready.`,
+            { actionUrl: `/interview/${interviewId}/feedback`, actionLabel: 'View feedback',
+              metadata: { interviewId } },
+          );
+        }
         setTimeout(() => {
           setIsGeneratingFeedback(false);
           router.push(`/interview/${interviewId}/feedback`);
@@ -661,13 +687,15 @@ const FullScreenInterviewPanel = ({
       } else {
         setIsGeneratingFeedback(false);
         setFeedbackError("We couldn't save your interview feedback. Your answers are safe - please try again.");
+        notifyInterviewFailed();
       }
     } catch (error) {
       console.error("Error during feedback generation:", error);
       setIsGeneratingFeedback(false);
       setFeedbackError("We couldn't save your interview feedback. Your answers are safe - please try again.");
+      notifyInterviewFailed();
     }
-  }, [interviewId, userId, feedbackId, router]);
+  }, [interviewId, userId, feedbackId, router, interviewRole, notifyInterviewFailed]);
 
   const handleRetryFeedback = () => generateFeedbackAndRedirect(lastTranscriptRef.current);
 
@@ -740,14 +768,26 @@ const FullScreenInterviewPanel = ({
       body: JSON.stringify({ interviewId, reason: wastedReason }),
     })
       .then((r) => r.json())
-      .then((d) => { if (!cancelled) setRefundState(d?.refunded ? "refunded" : "not_needed"); })
+      .then((d) => {
+        if (cancelled) return;
+        setRefundState(d?.refunded ? "refunded" : "not_needed");
+        if (userId) {
+          NotificationService.notify(
+            userId, 'error', 'Interview did not record',
+            d?.refunded
+              ? 'Nothing was captured from that session, so the credit has been returned to your account.'
+              : 'Nothing was captured from that session. Contact support if your credit was not returned.',
+            { actionUrl: '/interview', actionLabel: 'Try again', metadata: { interviewId } },
+          );
+        }
+      })
       // The screen still tells them it does not count. If the call failed the
       // credit is recoverable by support, and showing an error here would make
       // a bad moment worse for something they cannot act on.
       .catch(() => { if (!cancelled) setRefundState("not_needed"); });
 
     return () => { cancelled = true; };
-  }, [wastedReason, interviewId]);
+  }, [wastedReason, interviewId, userId]);
 
   // ── Device controls: make the three buttons actually do something ─────────
   //

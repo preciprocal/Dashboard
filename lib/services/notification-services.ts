@@ -15,6 +15,10 @@ export type NotificationType =
   | 'planner'
   | 'achievement'
   | 'support'
+  // Something the user tried and did not get. Until this existed the
+  // notification feed only ever recorded successes, so a failed upload or a
+  // dropped interview left no trace once its toast had gone.
+  | 'error'
   | 'system';
 
 export interface Notification {
@@ -95,6 +99,25 @@ export const NotificationService = {
     }).select('id').single();
     if (error) throw error;
     return data.id as string;
+  },
+
+  /**
+   * Fire-and-forget. A notification is a side effect of the thing the user
+   * actually asked for, so failing to write one must never surface as a
+   * failure of that thing - least of all on the error path, where it would
+   * replace a real message with a misleading one.
+   *
+   * Three call sites had already hand-rolled this wrapper; it belongs here.
+   */
+  notify(
+    userId: string,
+    type: NotificationType,
+    title: string,
+    message: string,
+    options?: { actionUrl?: string; actionLabel?: string; metadata?: Record<string, unknown> },
+  ): void {
+    void this.createNotification(userId, type, title, message, options)
+      .catch(err => console.warn('⚠️ Notification failed (non-fatal):', err));
   },
 
   // ── READ ───────────────────────────────────────────────────
