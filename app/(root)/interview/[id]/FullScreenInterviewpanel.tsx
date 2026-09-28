@@ -196,6 +196,8 @@ const FullScreenInterviewPanel = ({
   const [totalQuestions,         setTotalQuestions]         = useState(10);
   const [speakingPersonId,       setSpeakingPersonId]       = useState<string | null>(null);
   const [autoStartAttempted,     setAutoStartAttempted]     = useState(false);
+  /** Bumped when getUserMedia resolves, so the attach effect below re-runs. */
+  const [cameraReady,            setCameraReady]            = useState(0);
   const [currentInterviewPhase,  setCurrentInterviewPhase]  = useState<"technical" | "behavioral" | null>(null);
   const [showExitConfirm,        setShowExitConfirm]        = useState(false);
   // Set when a session ends with nothing the candidate said. Drives the
@@ -778,15 +780,26 @@ const FullScreenInterviewPanel = ({
         if (cancelled) { handle?.stop(); return; }
         cameraRef.current = handle;
         setCameraEnabled(handle, isVideoOn);
-        if (selfViewRef.current && handle) {
-          selfViewRef.current.srcObject = handle.stream;
-          selfViewRef.current.play().catch(() => { /* autoplay blocked, muted so unlikely */ });
-        }
+        setCameraReady(c => c + 1);
       });
     }
 
     return () => { cancelled = true; };
   }, [callStatus, isVideoOn]);
+
+  // Attach the stream whenever the element and the stream both exist, rather
+  // than once inside the acquisition callback above. getUserMedia can resolve
+  // before the <video> has mounted - it lives in the candidate's grid cell,
+  // which renders on the same transition that acquires the camera - and a
+  // one-shot assignment that lands on a null ref fails silently, leaving a
+  // black tile with the camera light on. Re-running is cheap and idempotent.
+  useEffect(() => {
+    const el     = selfViewRef.current;
+    const stream = cameraRef.current?.stream;
+    if (!el || !stream || el.srcObject === stream) return;
+    el.srcObject = stream;
+    el.play().catch(() => { /* autoplay blocked; muted, so unlikely */ });
+  }, [cameraReady, callStatus, isVideoOn]);
 
   useEffect(() => {
     setCameraEnabled(cameraRef.current, isVideoOn);
@@ -1033,46 +1046,21 @@ const FullScreenInterviewPanel = ({
         </div>
       </div>
 
-      {/* Self view.
-          The camera button controlled nothing before this, because the call
-          never acquired a camera - there was no picture anywhere for it to
-          turn off. Floating rather than a grid cell so it does not reflow the
-          panel, and sized down on mobile where the grid is single-column. */}
-      {callStatus === CallStatus.ACTIVE && (
-        <div className="absolute bottom-28 right-3 sm:bottom-32 sm:right-4 md:right-6 z-20
-                        w-28 h-20 sm:w-36 sm:h-26 md:w-44 md:h-32
-                        rounded-xl overflow-hidden border border-slate-700
-                        bg-slate-900 shadow-xl shadow-black/40">
-          <video
-            ref={selfViewRef}
-            autoPlay playsInline muted
-            className={`w-full h-full object-cover scale-x-[-1] transition-opacity duration-200 ${
-              isVideoOn ? "opacity-100" : "opacity-0"
-            }`}
-          />
-          {!isVideoOn && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-slate-500">
-              <VideoOff className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="text-[10px] sm:text-xs">Camera off</span>
-            </div>
-          )}
-          <div className="absolute bottom-1 left-1.5 flex items-center gap-1">
-            <span className="text-[10px] sm:text-xs text-white/90 drop-shadow">You</span>
-            {!isAudioOn && <MicOff className="w-3 h-3 text-red-400 drop-shadow" />}
-          </div>
-        </div>
-      )}
-
       {/* Video Grid */}
       <div className="flex-1 flex flex-col min-h-0">
         <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 md:gap-4 p-3 sm:p-4 md:p-6 min-h-0 overflow-y-auto">
           {interviewPanel.map((participant) => {
             const statusInfo      = getStatusInfo(participant.status, participant.isSpeaking);
             const isCurrentSpeaker = speakingPersonId === participant.id;
+            const isSelf           = (participant as { isCurrentUser?: boolean }).isCurrentUser === true;
+            // The camera belongs in the candidate's own cell, not in a
+            // floating thumbnail pinned over the panel. Every other seat at
+            // this table is a tile; theirs was a corner overlay.
+            const showSelfVideo    = isSelf && callStatus === CallStatus.ACTIVE && isVideoOn;
             return (
               <div
                 key={participant.id}
-                className={`bg-slate-900/60 backdrop-blur-xl rounded-2xl flex flex-col justify-center items-center p-4 sm:p-5 md:p-6 border relative transition-all duration-300 ${
+                className={`bg-slate-900/60 backdrop-blur-xl rounded-2xl flex flex-col justify-center items-center p-4 sm:p-5 md:p-6 border relative overflow-hidden transition-all duration-300 ${
                   (participant as { isLead?: boolean }).isLead      ? "border-blue-500/30 shadow-lg shadow-blue-500/10"
                     : (participant as { isCurrentUser?: boolean }).isCurrentUser ? "border-purple-500/30 shadow-lg shadow-purple-500/10"
                     : "border-slate-800"
@@ -1084,6 +1072,32 @@ const FullScreenInterviewPanel = ({
                 {(participant as { isCurrentUser?: boolean }).isCurrentUser && (
                   <div className="absolute top-2 sm:top-3 md:top-4 right-2 sm:right-3 md:right-4 bg-purple-600 text-white text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1 rounded-full font-medium">You</div>
                 )}
+                {isSelf && callStatus === CallStatus.ACTIVE && (
+                  <video
+                    ref={selfViewRef}
+                    autoPlay playsInline muted
+                    className={`absolute inset-0 w-full h-full object-cover scale-x-[-1] transition-opacity duration-300 ${
+                      showSelfVideo ? "opacity-100" : "opacity-0 pointer-events-none"
+                    }`}
+                  />
+                )}
+
+                {showSelfVideo ? (
+                  <>
+                    {/* Readability for the name over an arbitrary camera image. */}
+                    <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-slate-950/85 to-transparent pointer-events-none" />
+                    <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 flex items-center gap-2 z-10">
+                      <span className="text-white text-sm sm:text-base font-medium drop-shadow">
+                        {participant.name}
+                      </span>
+                      {!isAudioOn && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-500/90">
+                          <MicOff className="w-3 h-3 text-white" />
+                        </span>
+                      )}
+                    </div>
+                  </>
+                ) : (
                 <div className="text-center">
                   <VideoAvatar
                     initials={participant.avatar.initials}
@@ -1103,7 +1117,13 @@ const FullScreenInterviewPanel = ({
                     <span>{statusInfo.text}</span>
                   </div>
                   <div className="mt-1.5 sm:mt-2 text-xs text-slate-600">{participant.experience}</div>
+                  {isSelf && callStatus === CallStatus.ACTIVE && !isVideoOn && (
+                    <div className="mt-2 inline-flex items-center gap-1.5 text-xs text-slate-500">
+                      <VideoOff className="w-3.5 h-3.5" /> Camera off
+                    </div>
+                  )}
                 </div>
+                )}
                 {(participant as { isCurrentUser?: boolean }).isCurrentUser && (
                   <div className="absolute -bottom-1 -right-1 w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 rounded-full border-2 border-slate-950 flex items-center justify-center bg-slate-900">
                     <div className={`w-3 h-3 sm:w-4 sm:h-4 rounded-full ${
@@ -1132,11 +1152,11 @@ const FullScreenInterviewPanel = ({
                 }`}></div>
                 <span className="text-white font-medium">
                   {isGeneratingFeedback
-                    ? "Generating…"
+                    ? "Finishing"
                     : callStatus === CallStatus.ACTIVE      ? "Active"
-                    : callStatus === CallStatus.CONNECTING  ? "Starting…"
+                    : callStatus === CallStatus.CONNECTING  ? "Connecting"
                     : callStatus === CallStatus.FINISHED    ? "Completed"
-                    : !autoStartAttempted                   ? "Auto-starting…"
+                    : !autoStartAttempted                   ? "Connecting"
                     : "Ready"}
                 </span>
               </div>
@@ -1183,7 +1203,7 @@ const FullScreenInterviewPanel = ({
                 </button>
               ) : (callStatus === CallStatus.INACTIVE && !autoStartAttempted) || callStatus === CallStatus.CONNECTING ? (
                 <div className="px-4 sm:px-6 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg font-medium flex items-center gap-2 text-xs sm:text-sm">
-                  <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" /><span>Please Wait</span>
+                  <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" /><span>Connecting</span>
                 </div>
               ) : callStatus === CallStatus.ACTIVE && !isGeneratingFeedback ? (
                 <>
@@ -1218,50 +1238,16 @@ const FullScreenInterviewPanel = ({
                 </>
               ) : isGeneratingFeedback ? (
                 <div className="px-4 sm:px-6 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg font-medium flex items-center gap-2 text-xs sm:text-sm">
-                  <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" /><span>Processing</span>
+                  <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" /><span>Finishing</span>
                 </div>
               ) : null}
             </div>
 
-            {/* Auto-start notification */}
-            {!autoStartAttempted && callStatus === CallStatus.INACTIVE && (
-              <div className="bg-blue-500/10 backdrop-blur-xl rounded-xl p-3 sm:p-4 border border-blue-500/30">
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400 animate-spin flex-shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <h4 className="text-blue-300 font-medium text-xs sm:text-sm">Preparing Interview</h4>
-                    <p className="text-blue-400/70 text-xs">
-                      {/* Names come from the panel, not from literals. These
-                          said "Marcus" and "Priya", neither of whom is on the
-                          panel the candidate is looking at. */}
-                      {interviewType === "mixed"
-                        ? mixedPhase.current === 2
-                          ? `Starting technical round with ${names.lead.name.split(" ")[0]} (Part 2 of 2)…`
-                          : `Starting behavioral round with ${names.hr.name.split(" ")[0]} (Part 1 of 2)…`
-                        : interviewType === "system-design"
-                          ? `Setting up your system design session with ${names.lead.name.split(" ")[0]}…`
-                          : "Setting up your session…"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Feedback generation */}
-            {isGeneratingFeedback && (
-              <div className="bg-blue-500/10 backdrop-blur-xl rounded-xl p-3 sm:p-4 border border-blue-500/30">
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400 animate-spin flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-blue-300 font-medium text-xs sm:text-sm">Finalizing Interview</h4>
-                    <p className="text-blue-400/70 text-xs">Preparing your personalized feedback…</p>
-                  </div>
-                </div>
-                <div className="mt-2 sm:mt-3 bg-blue-500/20 rounded-full h-1.5 sm:h-2 overflow-hidden">
-                  <div className="bg-blue-400 h-full rounded-full animate-pulse w-3/4"></div>
-                </div>
-              </div>
-            )}
+            {/* No "Preparing Interview" or "Finalizing Interview" banner.
+                Both narrated a state the status row and the button spinner
+                already carry, and a fake progress bar that moved on a timer
+                rather than on anything real. Errors below still speak up,
+                because those are the states the candidate can act on. */}
 
             {/* Feedback save failed - never silently redirect away from a completed interview */}
             {feedbackError && (
