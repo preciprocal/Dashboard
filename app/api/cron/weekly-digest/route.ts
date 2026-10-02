@@ -15,9 +15,9 @@ import { supabaseAdmin } from '@/supabase/admin';
 import { getResumePerformance } from '@/lib/outcomes/resume-performance';
 import { getFollowUps, markNudged } from '@/lib/outcomes/follow-ups';
 import { sendWeeklyDigest, hasSomethingToSay } from '@/lib/email/weekly-digest';
-import { hasResponded } from '@/lib/config/outcomes';
-import { createHmac, timingSafeEqual } from 'crypto';
-import { emailAppUrl } from '@/lib/email/app-url';
+import { hasResponded, wasSent } from '@/lib/config/outcomes';
+import { timingSafeEqual } from 'crypto';
+import { unsubscribeUrl } from '@/lib/email/unsubscribe';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -42,12 +42,14 @@ function isAuthorised(req: NextRequest): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-/** Signed, so an unsubscribe link cannot be edited to target another account. */
-function unsubscribeUrl(userId: string): string {
-  const base = emailAppUrl();
-  const secret = process.env.CRON_SECRET ?? '';
-  const token = createHmac('sha256', secret).update(userId).digest('hex').slice(0, 32);
-  return `${base}/api/digest/unsubscribe?u=${userId}&t=${token}`;
+/**
+ * Optional ?user=<uuid>: run for that one account only. For re-sending a
+ * missed email to one person, and for testing against production without
+ * emailing anyone else. Still behind CRON_SECRET like the full run.
+ */
+function onlyUser(req: NextRequest): Record<string, string> {
+  const id = req.nextUrl.searchParams.get('user') ?? '';
+  return /^[0-9a-f-]{36}$/i.test(id) ? { user_id: id } : {};
 }
 
 export async function GET(req: NextRequest) {
@@ -56,6 +58,7 @@ export async function GET(req: NextRequest) {
   }
 
   const startedAt = Date.now();
+  const scope = onlyUser(req);
   const weekAgoIso = new Date(startedAt - 7 * DAY_MS).toISOString();
   const weekAgoDate = new Date(startedAt - 7 * DAY_MS).toISOString().slice(0, 10);
   // Anything sent within six days counts as already done this week, which
@@ -71,6 +74,7 @@ export async function GET(req: NextRequest) {
       .from('profiles')
       .select('user_id, name, email')
       .eq('weekly_digest_opt_out', false)
+      .match(scope)
       .limit(5000);
     if (error) throw error;
 
@@ -95,21 +99,25 @@ export async function GET(req: NextRequest) {
           status: string; applied_date: string | null; first_response_at: string | null;
         }[];
 
+        // wasSent, because applied_date defaults to the day a row is created:
+        // without it, five bookmarked wishlist jobs read as "5 applications
+        // sent this week", which is a number we would be making up.
         const appliedThisWeek = rows.filter(
-          r => r.applied_date && r.applied_date >= weekAgoDate,
+          r => r.applied_date && r.applied_date >= weekAgoDate && wasSent(r.status),
         ).length;
         const responsesThisWeek = rows.filter(
           r => r.first_response_at && r.first_response_at >= weekAgoIso && hasResponded(r.status),
         ).length;
 
         const payload = {
+          userId,
           email,
           name: profile.name as string | null,
           appliedThisWeek,
           responsesThisWeek,
           outcomes,
           followUps,
-          unsubscribeUrl: unsubscribeUrl(userId),
+          unsubscribeUrl: unsubscribeUrl(userId, 'weeklyDigest'),
         };
 
         // Nothing happened this week. Skip BEFORE claiming, so a quiet week

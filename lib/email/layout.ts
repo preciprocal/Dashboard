@@ -42,6 +42,38 @@
 // mitigations. Always send the plain-text part alongside the HTML - HTML-only
 // scores worse with spam filters and text-only clients show nothing otherwise.
 import { SITE } from '@/lib/seo';
+import { emailAppUrl } from '@/lib/email/app-url';
+
+// ─── Link tagging ────────────────────────────────────────────────────────────
+//
+// Every link into the app gets utm_source=email and utm_campaign=<email type>,
+// so components/ActivityTracker.tsx can attribute what someone does after
+// clicking (starting a mock interview, say) to the email that sent them.
+// Links to /api/ are left alone: those are unsubscribe endpoints, and their
+// signatures cover the exact query string.
+const escapeRe = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+function tagUrl(url: string, campaign: string): string {
+  if (url.includes('/api/') || url.includes('utm_source=')) return url;
+  const [base, hash] = url.split('#');
+  const sep = base.includes('?') ? '&' : '?';
+  const tagged = `${base}${sep}utm_source=email&utm_medium=email&utm_campaign=${encodeURIComponent(campaign)}`;
+  return hash !== undefined ? `${tagged}#${hash}` : tagged;
+}
+
+const appOrigins = () => [...new Set([emailAppUrl(), SITE.app])].map(escapeRe).join('|');
+
+function tagHtmlLinks(html: string, campaign?: string): string {
+  if (!campaign) return html;
+  const re = new RegExp(`href="((?:${appOrigins()})[^"]*)"`, 'g');
+  return html.replace(re, (_m, url: string) => `href="${tagUrl(url, campaign)}"`);
+}
+
+function tagTextLinks(text: string, campaign?: string): string {
+  if (!campaign) return text;
+  const re = new RegExp(`((?:${appOrigins()})[^\\s]*)`, 'g');
+  return text.replace(re, (url: string) => tagUrl(url, campaign));
+}
 
 // ─── Palette, matched to the app ─────────────────────────────────────────────
 // Mirrors the Stripe Elements theme in app/(root)/pricing/page.tsx so an email
@@ -222,6 +254,8 @@ export interface EmailOptions {
   footerNote: string;
   /** Appended under the footer links, e.g. an unsubscribe link. */
   footerExtraHtml?: string;
+  /** Email type for link tagging and analytics, e.g. 'coaching_offer'. */
+  campaign?: string;
 }
 
 const panelRowHtml = (row: PanelRow, isLast: boolean): string => {
@@ -376,7 +410,7 @@ export function renderEmail(o: EmailOptions): string {
     .map(p => `<p class="t-muted" style="margin:0 0 18px 0;font-family:${SANS};font-size:16px;line-height:1.65;color:${C.muted};">${p}</p>`)
     .join('');
 
-  return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+  const html = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
 <head>
   <meta charset="utf-8" />
@@ -541,6 +575,7 @@ export function renderEmail(o: EmailOptions): string {
   </table>
 </body>
 </html>`;
+  return tagHtmlLinks(html, o.campaign);
 }
 
 /**
@@ -559,6 +594,8 @@ export function renderText(opts: {
   signoff?: string;
   signature?: { name: string; title?: string; email?: string; note?: string };
   footerNote?: string;
+  /** Same as EmailOptions.campaign. */
+  campaign?: string;
 }): string {
   const parts: string[] = [opts.heading, ''];
   parts.push(...opts.paragraphs, '');
@@ -573,5 +610,5 @@ export function renderText(opts: {
   parts.push('', `${SITE.app}  |  support@preciprocal.com`);
   if (opts.footerNote) parts.push('', opts.footerNote);
 
-  return parts.join('\n');
+  return tagTextLinks(parts.join('\n'), opts.campaign);
 }

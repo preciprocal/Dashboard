@@ -13,6 +13,7 @@ import { OTP_TTL_MINUTES } from "@/lib/config/student-perk";
 import { z } from "zod";
 import { Resend } from "resend";
 import { renderEmail, renderText } from "@/lib/email/layout";
+import { recordEmailSend } from "@/lib/email/track";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -40,7 +41,7 @@ function getClientIp(req: NextRequest): string | null {
   return req.headers.get("x-real-ip");
 }
 
-async function sendVerificationEmail(to: string, code: string) {
+async function sendVerificationEmail(to: string, code: string, userId: string) {
   // The code is rendered as its own oversized block rather than a panel row:
   // it is the entire purpose of the email, and people copy it at a glance.
   const codeBlock =
@@ -48,6 +49,7 @@ async function sendVerificationEmail(to: string, code: string) {
     `font-size:34px;font-weight:700;letter-spacing:10px;line-height:1.2;color:#ffffff;">${code}</div>`;
 
   const html = renderEmail({
+    campaign: 'student_verification',
     preheader: `Your verification code is ${code}`,
     eyebrow: "Student verification",
     heading: "Here is your code",
@@ -68,6 +70,7 @@ async function sendVerificationEmail(to: string, code: string) {
   });
 
   const text = renderText({
+    campaign: 'student_verification',
     heading: "Here is your code",
     paragraphs: ["Enter this code in Preciprocal to claim your free month of Pro."],
     panel: { title: "Verification code", lines: [code, `Expires in ${OTP_TTL_MINUTES} minutes`] },
@@ -75,13 +78,19 @@ async function sendVerificationEmail(to: string, code: string) {
     footerNote: "If you did not request this, ignore this email and nothing will happen.",
   });
 
-  await resend.emails.send({
+  const { data: sent, error } = await resend.emails.send({
     from: "Preciprocal <noreply@preciprocal.com>",
     to,
     subject: `${code} is your Preciprocal verification code`,
     html,
     text,
   });
+  // Resend reports failure in its return value. Ignoring it told people a
+  // code was on its way when it never left.
+  if (error) throw error;
+  // Logged without the code: the subject carries it, and analytics has no
+  // business storing a live one-time code.
+  await recordEmailSend({ resendId: sent?.id, userId, emailType: "student_verification", subject: "Student verification code" });
 }
 
 export async function POST(req: NextRequest) {
@@ -199,7 +208,7 @@ export async function POST(req: NextRequest) {
       }, { onConflict: "user_id" });
     if (upsertError) throw upsertError;
 
-    await sendVerificationEmail(eduEmail, code);
+    await sendVerificationEmail(eduEmail, code, supabaseUserId);
 
     return NextResponse.json({ success: true });
   } catch (err) {

@@ -9,6 +9,10 @@ interface AppSettings {
     supportReplies: boolean;
     /** Mirrored to profiles.weekly_digest_opt_out, which the cron reads. */
     weeklyDigest: boolean;
+    /** Mirrored to profiles.activation_email_opt_out, which the activation cron reads. */
+    activation: boolean;
+    /** Mirrored to profiles.application_email_opt_out, which the coaching cron reads. */
+    coaching: boolean;
     /** Mirrored to newsletter_subscribers.subscribed. Opt-in. */
     productUpdates: boolean;
   };
@@ -35,6 +39,8 @@ const defaultSettings: AppSettings = {
   notifications: {
     supportReplies: true,
     weeklyDigest: true,
+    activation: true,
+    coaching: true,
     productUpdates: false,
   },
   privacy: {
@@ -81,7 +87,7 @@ export async function GET(request: NextRequest) {
     // never touches user_settings).
     const [{ data: profileRow }, stored] = await Promise.all([
       supabaseAdmin.from('profiles')
-        .select('email, weekly_digest_opt_out')
+        .select('email, weekly_digest_opt_out, activation_email_opt_out, application_email_opt_out')
         .eq('user_id', authedUser.supabaseUserId).maybeSingle(),
       Promise.resolve(row?.settings as AppSettings | undefined),
     ]);
@@ -96,12 +102,16 @@ export async function GET(request: NextRequest) {
       productUpdates = sub?.subscribed === true;
     }
 
-    const base = stored ?? defaultSettings;
+    // Section-by-section, because an email unsubscribe can create this row
+    // holding only `notifications` (lib/email/unsubscribe.ts).
+    const base: AppSettings = { ...defaultSettings, ...(stored ?? {}) };
     const settings: AppSettings = {
       ...base,
       notifications: {
         supportReplies: base.notifications?.supportReplies ?? defaultSettings.notifications.supportReplies,
         weeklyDigest:   profileRow?.weekly_digest_opt_out !== true,
+        activation:     profileRow?.activation_email_opt_out !== true,
+        coaching:       profileRow?.application_email_opt_out !== true,
         productUpdates,
       },
     };
@@ -145,6 +155,8 @@ export async function POST(request: NextRequest) {
       notifications: {
         supportReplies: settings.notifications?.supportReplies ?? defaultSettings.notifications.supportReplies,
         weeklyDigest:   settings.notifications?.weeklyDigest   ?? defaultSettings.notifications.weeklyDigest,
+        activation:     settings.notifications?.activation     ?? defaultSettings.notifications.activation,
+        coaching:       settings.notifications?.coaching       ?? defaultSettings.notifications.coaching,
         productUpdates: settings.notifications?.productUpdates ?? defaultSettings.notifications.productUpdates,
       },
       privacy: {
@@ -187,7 +199,11 @@ export async function POST(request: NextRequest) {
     const n = validatedSettings.notifications;
     const { error: digestErr } = await supabaseAdmin
       .from('profiles')
-      .update({ weekly_digest_opt_out: !n.weeklyDigest })
+      .update({
+        weekly_digest_opt_out: !n.weeklyDigest,
+        activation_email_opt_out: !n.activation,
+        application_email_opt_out: !n.coaching,
+      })
       .eq('user_id', authedUser.supabaseUserId);
     if (digestErr) console.error('⚠️ could not mirror weeklyDigest:', digestErr.message);
 

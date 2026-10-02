@@ -19,6 +19,10 @@
 //                   read by app/api/support/inbound-email
 //   weeklyDigest    profiles.weekly_digest_opt_out (inverted)
 //                   read by app/api/cron/weekly-digest
+//   activation      profiles.activation_email_opt_out (inverted)
+//                   read by app/api/cron/activation-email
+//   coaching        profiles.application_email_opt_out (inverted)
+//                   read by app/api/cron/application-coaching
 //   productUpdates  newsletter_subscribers.subscribed, keyed by email
 //
 // Deliberately NOT gated, and there is no toggle for them: password reset,
@@ -32,6 +36,8 @@ import { supabaseAdmin } from "@/supabase/admin";
 export interface NotificationPrefs {
   supportReplies: boolean;
   weeklyDigest: boolean;
+  activation: boolean;
+  coaching: boolean;
   productUpdates: boolean;
 }
 
@@ -39,6 +45,8 @@ export interface NotificationPrefs {
 export const DEFAULT_PREFS: NotificationPrefs = {
   supportReplies: true,
   weeklyDigest: true,
+  activation: true,
+  coaching: true,
   productUpdates: false, // opt-IN, unlike the other two
 };
 
@@ -52,6 +60,24 @@ export async function canSend(
   channel: keyof NotificationPrefs,
 ): Promise<boolean> {
   try {
+    if (channel === "coaching") {
+      const { data } = await supabaseAdmin
+        .from("profiles")
+        .select("application_email_opt_out")
+        .eq("user_id", supabaseUserId)
+        .maybeSingle();
+      return data?.application_email_opt_out !== true;
+    }
+
+    if (channel === "activation") {
+      const { data } = await supabaseAdmin
+        .from("profiles")
+        .select("activation_email_opt_out")
+        .eq("user_id", supabaseUserId)
+        .maybeSingle();
+      return data?.activation_email_opt_out !== true;
+    }
+
     if (channel === "weeklyDigest") {
       const { data } = await supabaseAdmin
         .from("profiles")

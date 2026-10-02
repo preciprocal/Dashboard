@@ -13,6 +13,8 @@ import { applyRateLimit } from '@/lib/ai/rate-limit';
 import { Resend } from 'resend';
 import { SITE } from '@/lib/seo';
 import { renderEmail, renderText } from '@/lib/email/layout';
+import { recordEmailSend } from '@/lib/email/track';
+import { SENDER_FROM as FROM, SENDER_REPLY_TO as REPLY_TO, senderSignature } from '@/lib/email/sender';
 
 export const runtime = 'nodejs';
 // Collecting ~30 tables and building the attachment takes longer than the
@@ -21,9 +23,6 @@ export const maxDuration = 60;
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const SENDER_NAME = process.env.WELCOME_EMAIL_SENDER_NAME ?? 'Francesca';
-const FROM = process.env.WELCOME_EMAIL_FROM ?? `${SENDER_NAME} from Preciprocal <francesca@preciprocal.com>`;
-const REPLY_TO = process.env.WELCOME_EMAIL_REPLY_TO ?? 'francesca@preciprocal.com';
 
 // Every table keyed by user_id that holds data the subject is entitled to.
 // Deliberately excludes:
@@ -43,10 +42,16 @@ const EXPORT_TABLES = [
   'planner_chat_sessions', 'planner_preferences', 'planner_notifications',
   'job_applications', 'job_analyses', 'linkedin_optimizations',
   'outreach_history', 'contact_searches', 'outcome_data',
-  'notifications', 'support_tickets', 'support_ticket_replies',
-  'app_feedback', 'feature_ratings', 'feature_rewards', 'product_surveys',
+  'notifications', 'support_tickets',
+  'feature_ratings', 'feature_rewards', 'product_surveys',
   'student_verifications', 'refund_requests', 'extension_upsell_events',
+  // Product analytics and email history (migrations 0045, 0046). Collected
+  // about the user, so the user is entitled to see it.
+  'activity_events', 'application_status_events', 'email_sends',
 ] as const;
+// support_ticket_replies has no user_id: replies are fetched through the
+// user's own tickets below. app_feedback used to be listed here, but the table
+// no longer exists, which made every single export come back "partial".
 
 // Columns that must never leave the building even from exported tables.
 const REDACTED_COLUMNS = new Set([
@@ -107,6 +112,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const ticketIds = ((collected.support_tickets ?? []) as { id: string }[]).map(t => t.id);
+    if (ticketIds.length > 0) {
+      const { data, error } = await supabaseAdmin
+        .from('support_ticket_replies')
+        .select('*')
+        .in('ticket_id', ticketIds);
+      if (error) errors.push(`support_ticket_replies: ${error.message}`);
+      else if (data && data.length > 0) collected.support_ticket_replies = redact(data as Record<string, unknown>[]);
+    }
+
     const payload = {
       exportedAt: new Date().toISOString(),
       account: { userId: supabaseUserId, email },
@@ -134,18 +149,19 @@ export async function POST(request: NextRequest) {
 
     const stamp = new Date().toISOString().slice(0, 10);
 
-    await resend.emails.send({
+    const { data: sent, error: sendError } = await resend.emails.send({
       from: FROM,
       to: email,
       replyTo: REPLY_TO,
       subject: 'Your Preciprocal data export',
       html: renderEmail({
+        campaign: 'data_export',
         preheader: 'Your data export is attached',
         eyebrow: 'Data request',
         heading: 'Your data export',
         paragraphs: [
           'You asked for a copy of your Preciprocal data. It is attached to this email as a JSON file.',
-          'It covers your profile, subscription, resumes, interviews, cover letters, study plans, job applications and support history.',
+          'It covers your profile, subscription, resumes, interviews, cover letters, study plans, job applications, support history, your activity in the app and the emails we have sent you.',
           'Security and anti-abuse records are withheld, as permitted under GDPR Art.15(4).',
           'Reply to this email if anything looks wrong or incomplete.',
         ],
@@ -157,18 +173,19 @@ export async function POST(request: NextRequest) {
           ],
         },
         cta: { label: 'Open Preciprocal', url: `${SITE.app}/settings` },
-        signoff: SENDER_NAME,
+        signature: senderSignature(),
         footerNote: 'You are receiving this because you requested a data export from your account settings.',
       }),
       text: renderText({
+        campaign: 'data_export',
         heading: 'Your data export',
         paragraphs: [
           'You asked for a copy of your Preciprocal data. It is attached to this email as a JSON file.',
-          'It covers your profile, subscription, resumes, interviews, cover letters, study plans, job applications and support history. Security and anti-abuse records are withheld, as permitted under GDPR Art.15(4).',
+          'It covers your profile, subscription, resumes, interviews, cover letters, study plans, job applications, support history, your activity in the app and the emails we have sent you. Security and anti-abuse records are withheld, as permitted under GDPR Art.15(4).',
           'Reply to this email if anything looks wrong or incomplete.',
         ],
         cta: { label: 'Open Preciprocal', url: `${SITE.app}/settings` },
-        signoff: SENDER_NAME,
+        signature: senderSignature(),
         footerNote: 'You requested this export from your account settings.',
       }),
       attachments: [{
@@ -176,6 +193,11 @@ export async function POST(request: NextRequest) {
         content: Buffer.from(json, 'utf8').toString('base64'),
       }],
     });
+
+    // Resend reports failure in its return value. Ignoring it used to tell the
+    // user their export was on its way when it had never been sent.
+    if (sendError) throw sendError;
+    await recordEmailSend({ resendId: sent?.id, userId: supabaseUserId, emailType: 'data_export', subject: 'Your Preciprocal data export' });
 
     console.log(
       `📦 Data export sent: user=${userId} tables=${Object.keys(collected).length} `

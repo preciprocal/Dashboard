@@ -10,21 +10,23 @@
 // cannot back. Replies land in a human inbox, which is still the cheapest
 // onboarding feedback channel there is.
 //
-// SENDER_NAME is a team persona, not a specific individual, so the copy
-// deliberately makes no claim about who is behind it beyond "someone here
-// reads this". Whoever staffs the reply inbox signs as the same name; keep
-// these three values in sync if it ever changes.
+// The sender, her role and her signature live in lib/email/sender.ts, shared
+// with every other email she signs.
 import { Resend } from "resend";
-import { SITE } from "@/lib/seo";
 import { supabaseAdmin } from "@/supabase/admin";
 import { renderEmail, renderText, escapeHtml, firstName } from "@/lib/email/layout";
 import { emailAppUrl } from "@/lib/email/app-url";
+import { SENDER_FROM as FROM, SENDER_REPLY_TO as REPLY_TO, senderSignature } from "@/lib/email/sender";
+import { recordEmailSend } from "@/lib/email/track";
+import {
+  unsubscribeUrl,
+  unsubscribeHeaders,
+  unsubscribeFooterHtml,
+  unsubscribeFooterText,
+} from "@/lib/email/unsubscribe";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const SENDER_NAME = process.env.WELCOME_EMAIL_SENDER_NAME ?? "Francesca";
-const FROM = process.env.WELCOME_EMAIL_FROM ?? `${SENDER_NAME} from Preciprocal <francesca@preciprocal.com>`;
-const REPLY_TO = process.env.WELCOME_EMAIL_REPLY_TO ?? "francesca@preciprocal.com";
 
 // Shared with every other email sender - see lib/email/app-url.ts.
 const APP_URL = emailAppUrl();
@@ -60,7 +62,7 @@ const STARTERS = [
     href: `${APP_URL}/resume/upload`,
     title: "Find out why it is being filtered out",
     short:
-      "Most applications are rejected before a person ever opens them. Upload the resume you have been sending and you will see your ATS score, the exact keywords you are missing for the roles you want, and how it reads in the few seconds a recruiter gives it.",
+      "Before a person reads your resume, it often has to get past software that screens it first. Upload the resume you have been sending and you will see your ATS score, the keywords you are missing for the roles you want, and how it reads to a recruiter at first glance.",
     cta: "Analyse my resume",
   },
   {
@@ -68,7 +70,7 @@ const STARTERS = [
     href: `${APP_URL}/interview`,
     title: "Say it out loud before it counts",
     short:
-      "The first time you answer \"tell me about yourself\" should not be in the interview that matters. Practise against a voice that interrupts, follows up and pushes back, then read the scored feedback on what landed and what did not.",
+      "The first time you answer \"tell me about yourself\" should not be in the interview that matters. Practise against a voice interviewer that asks follow-up questions and pushes back on vague answers, then read the scored feedback on what landed and what did not.",
     cta: "Start a mock interview",
   },
   {
@@ -76,7 +78,7 @@ const STARTERS = [
     href: `${APP_URL}/cover-letter/create`,
     title: "Stop rewriting the same letter twelve times",
     short:
-      "Paste the job description, get a letter written for that specific role in about ten seconds. The hours you get back go into the applications actually worth tailoring.",
+      "Paste the job description and get a first draft written for that specific role, ready for you to edit. The hours you get back go into the applications actually worth tailoring.",
     cta: "Write a cover letter",
   },
   {
@@ -84,7 +86,7 @@ const STARTERS = [
     href: `${APP_URL}/job-tracker`,
     title: "Learn which version is actually working",
     short:
-      "This is the part tools like Resume Worded and Jobright structurally cannot do. They score the document and stop there, because they never see what happened after you hit send. Preciprocal tracks the resume alongside the application, so after a handful of applications you find out which version is getting callbacks and which one has been quietly costing you interviews.",
+      "A resume score on its own cannot tell you this, because it never sees what happened after you hit send. Preciprocal tracks the resume alongside the application, so after a handful of applications you find out which version is getting callbacks and which one has been quietly costing you interviews.",
     cta: "Open my tracker",
   },
 ];
@@ -117,24 +119,21 @@ const OPENING = [
 ];
 
 const CLOSING =
-  "You do not need all of it today. Do one thing: upload the resume you have been sending out. Ten minutes from now you will understand more about why it is not landing than the last three months of applying have told you.";
+  "You do not need all of it today. Do one thing: upload the resume you have been sending out. A few minutes from now you will have a clearer picture of why it might not be landing than silence will ever give you.";
 
-const SIGNATURE = {
-  name: SENDER_NAME,
-  title: `Customer Success, ${SITE.name}`,
-  email: REPLY_TO,
+const SIGNATURE = senderSignature(
   // Reads as a commitment rather than a casual aside, but stays a promise we
   // can actually keep: REPLY_TO is a monitored human inbox, not a no-reply.
   // The moment that stops being true this line has to go, because it is the
   // single most trust-bearing sentence in the email.
-  note:
-    "Every reply to this address reaches me directly. If anything is unclear, " +
-    "or the product does not work the way you expect, please write back and I " +
-    "will look into it personally.",
-};
+  "Every reply to this address reaches me directly. If anything is unclear, " +
+  "or the product does not work the way you expect, please write back and I " +
+  "will look into it personally.",
+);
 
-function buildHtml(name: string) {
+function buildHtml(name: string, unsubscribe?: string) {
   return renderEmail({
+    campaign: "welcome",
     // Carries the turn in the inbox preview, so the subject never reads as a
     // straight bait. The reader sees both lines before deciding to open.
     preheader: "Not the one you were hoping for. Let us change that.",
@@ -158,11 +157,13 @@ function buildHtml(name: string) {
     cta: { label: "Let's start by fixing my resume", url: `${APP_URL}/resume/upload` },
     signature: SIGNATURE,
     footerNote: "You are receiving this because you created a Preciprocal account.",
+    footerExtraHtml: unsubscribe ? unsubscribeFooterHtml(unsubscribe, "all") : undefined,
   });
 }
 
-function buildText(name: string) {
+function buildText(name: string, unsubscribe?: string) {
   return renderText({
+    campaign: "welcome",
     heading: "Is this the email you have been waiting for?",
     paragraphs: [`Hi ${firstName(name)},`, ...OPENING, "Here is where to start."],
     panel: {
@@ -177,7 +178,10 @@ function buildText(name: string) {
     closing: CLOSING,
     cta: { label: "Let's start by fixing my resume", url: `${APP_URL}/resume/upload` },
     signature: SIGNATURE,
-    footerNote: "You created a Preciprocal account.",
+    footerNote: unsubscribe
+      ? `You created a Preciprocal account.
+${unsubscribeFooterText(unsubscribe, "all")}`
+      : "You created a Preciprocal account.",
   });
 }
 
@@ -185,8 +189,12 @@ function buildText(name: string) {
  * Subject and both body parts for a given recipient name. Exported so the
  * email can be rendered and eyeballed (scripts/preview-welcome-email.ts)
  * without sending anything or touching the database.
+ *
+ * `unsubscribe` is optional only so the preview can omit it. Every real send
+ * passes one: the welcome email is the first mail a new account gets, and the
+ * place to learn that the rest of it can be switched off.
  */
-export function buildWelcomeEmail(name?: string | null) {
+export function buildWelcomeEmail(name?: string | null, unsubscribe?: string) {
   return {
     // Deliberately the subject line every job seeker is waiting for. The
     // heading and preheader both own the turn immediately, so the reader is
@@ -198,8 +206,8 @@ export function buildWelcomeEmail(name?: string | null) {
     // reputation signal. If Resend starts reporting complaints or the open-to-
     // click gap widens, change this before changing anything else.
     subject: "Congratulations!",
-    html: buildHtml(name ?? ""),
-    text: buildText(name ?? ""),
+    html: buildHtml(name ?? "", unsubscribe),
+    text: buildText(name ?? "", unsubscribe),
   };
 }
 
@@ -223,13 +231,17 @@ export async function sendWelcomeEmail({ userId, email, name }: WelcomeEmailPara
     if (claimError) throw claimError;
     if (!claimed) return; // already sent, or profile row not there yet
 
-    const { error: sendError } = await resend.emails.send({
+    const unsubscribe = unsubscribeUrl(userId, "all");
+    const built = buildWelcomeEmail(name, unsubscribe);
+    const { data: sent, error: sendError } = await resend.emails.send({
       from: FROM,
       to: email,
       replyTo: REPLY_TO,
-      ...buildWelcomeEmail(name),
+      headers: unsubscribeHeaders(unsubscribe),
+      ...built,
     });
     if (sendError) throw sendError;
+    await recordEmailSend({ resendId: sent?.id, userId, emailType: "welcome", subject: built.subject });
 
     console.log(`📧 Welcome email sent - ${email}`);
   } catch (error) {

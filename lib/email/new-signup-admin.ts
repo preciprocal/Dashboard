@@ -14,6 +14,7 @@
 import { Resend } from 'resend';
 import { SITE } from '@/lib/seo';
 import { renderEmail, renderText, escapeHtml } from '@/lib/email/layout';
+import { SENDER_FROM } from '@/lib/email/sender';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -23,10 +24,7 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'admin@preciprocal.com';
 // `Preciprocal <noreply@...>`, which renders as a different sender in the
 // inbox row and makes an otherwise identical email look like it is from
 // somewhere else before it is even opened.
-const SENDER_NAME = process.env.WELCOME_EMAIL_SENDER_NAME ?? 'Francesca';
-const FROM = process.env.ADMIN_ALERT_FROM
-  ?? process.env.WELCOME_EMAIL_FROM
-  ?? `${SENDER_NAME} from Preciprocal <francesca@preciprocal.com>`;
+const FROM = process.env.ADMIN_ALERT_FROM ?? SENDER_FROM;
 
 /** Set to "false" to silence these without a deploy. Any other value keeps them on. */
 const ENABLED = process.env.NOTIFY_ADMIN_ON_SIGNUP !== 'false';

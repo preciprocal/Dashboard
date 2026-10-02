@@ -9,13 +9,14 @@ import { toast } from 'sonner';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import ExtensionConnection from '@/components/ExtensionConnection';
 import RefundPanel from '@/components/billing/RefundPanel';
+import DevicesPanel from '@/components/settings/DevicesPanel';
 import {
   USAGE_LIMITS, FEATURE_NAMES, isUnlimited, type FeatureType,
 } from '@/lib/config/usage-limits';
 import {
   Bell, User, Shield, CreditCard, Chrome, ArrowLeft, Loader2,
   AlertTriangle, Check, Eye, EyeOff, Trash2, Mail, Lock, Zap,
-  Star, AlertCircle, RefreshCw, ExternalLink, Building2, Link2, RotateCcw,
+  Star, AlertCircle, RefreshCw, ExternalLink, Building2, Link2, RotateCcw, MonitorSmartphone,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -28,13 +29,15 @@ import Image from 'next/image';
 interface NotificationSettings {
   supportReplies: boolean;
   weeklyDigest: boolean;
+  activation: boolean;
+  coaching: boolean;
   productUpdates: boolean;
 }
 interface AppSettings {
   notifications: NotificationSettings;
 }
 const defaultSettings: AppSettings = {
-  notifications: { supportReplies: true, weeklyDigest: true, productUpdates: false },
+  notifications: { supportReplies: true, weeklyDigest: true, activation: true, coaching: true, productUpdates: false },
 };
 interface PlanInfo {
   name: string;
@@ -249,6 +252,17 @@ export default function SettingsPage() {
   const [settings,        setSettings]        = useState<AppSettings>(defaultSettings);
   const notifTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ?section=notifications deep-links a tab. Unsubscribe emails and pages send
+  // people here to turn mail back on, and landing on Account left them hunting.
+  // Read from window rather than useSearchParams, which would need a Suspense
+  // boundary around the whole page.
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get('section');
+    if (requested && ['account', 'notifications', 'security', 'devices', 'billing', 'extension', 'danger'].includes(requested)) {
+      setActiveSection(requested);
+    }
+  }, []);
+
   // Email form
   const [newEmail,          setNewEmail]          = useState('');
   const [emailPassword,     setEmailPassword]     = useState('');
@@ -441,6 +455,7 @@ export default function SettingsPage() {
     { id: 'account',       label: 'Account',          icon: User,          danger: false, badge: null },
     { id: 'notifications', label: 'Notifications',    icon: Bell,          danger: false, badge: null },
     { id: 'security',      label: 'Security',         icon: Shield,        danger: false, badge: null },
+    { id: 'devices',       label: 'Devices',          icon: MonitorSmartphone, danger: false, badge: null },
     { id: 'billing',       label: 'Plan & Billing',   icon: CreditCard,    danger: false, badge: plan.tier === 'free' ? 'Upgrade' : null },
     { id: 'extension',     label: 'Extension',        icon: Chrome,        danger: false, badge: null },
     { id: 'danger',        label: 'Danger Zone',      icon: AlertTriangle, danger: true,  badge: null },
@@ -604,6 +619,8 @@ export default function SettingsPage() {
                 [
                   { key: 'supportReplies' as const, label: 'Support replies',  desc: 'Email me when the support team answers one of my tickets. Replies always appear in the app regardless.' },
                   { key: 'weeklyDigest'   as const, label: 'Weekly digest',    desc: 'A Monday summary of your applications, interviews and progress.' },
+                  { key: 'coaching'       as const, label: 'Application coaching', desc: 'When an application in your tracker changes stage, an email the next morning on what to do next. One a day at most.' },
+                  { key: 'activation'     as const, label: 'Next-step suggestions', desc: 'Up to three Monday emails after you sign up, each suggesting one feature you have not tried yet.' },
                   { key: 'productUpdates' as const, label: 'Product updates',  desc: 'Occasional email about new features. Off by default.' },
                 ] satisfies { key: keyof NotificationSettings; label: string; desc: string }[]
               ).map(item => {
@@ -631,6 +648,8 @@ export default function SettingsPage() {
         )}
 
         {/* ════ SECURITY ════ */}
+        {activeSection === 'devices' && <DevicesPanel />}
+
         {activeSection === 'security' && (
           <div className="space-y-4">
             {isGoogleUser ? (

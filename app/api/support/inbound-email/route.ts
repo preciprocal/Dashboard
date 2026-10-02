@@ -16,49 +16,27 @@
 //       Resend fires this webhook → reply saved to Firestore → user notified.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createHmac, timingSafeEqual } from 'crypto';
+import { verifySvix } from '@/lib/webhooks/svix';
 import { supabaseAdmin } from '@/supabase/admin';
 import { Resend } from 'resend';
 import { SITE } from '@/lib/seo';
 import { renderEmail, renderText, escapeHtml, firstName } from '@/lib/email/layout';
 import { canSend } from '@/lib/notifications/preferences';
+import { recordEmailSend } from '@/lib/email/track';
+import {
+  unsubscribeUrl,
+  unsubscribeHeaders,
+  unsubscribeFooterHtml,
+  unsubscribeFooterText,
+} from '@/lib/email/unsubscribe';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 const WEBHOOK_SECRET = process.env.INBOUND_WEBHOOK_SECRET;
 
-/**
- * Verify the Svix signature Resend sends on inbound webhooks.
- *
- * Resend uses Svix, so the signed payload is `${id}.${timestamp}.${body}` and
- * the `svix-signature` header carries one or more space-separated
- * `v1,<base64>` values (more than one during a secret rotation). The secret
- * itself is `whsec_<base64>`; the bytes after that prefix are the HMAC key.
- */
+/** Svix signature check, shared with the Resend delivery webhook. */
 function verifySignature(raw: string, headers: Headers): boolean {
-  const id        = headers.get('svix-id');
-  const timestamp = headers.get('svix-timestamp');
-  const signature = headers.get('svix-signature');
-  if (!id || !timestamp || !signature || !WEBHOOK_SECRET) return false;
-
-  // Reject anything older than 5 minutes so a captured request cannot be
-  // replayed indefinitely.
-  const age = Math.abs(Date.now() / 1000 - Number(timestamp));
-  if (!Number.isFinite(age) || age > 300) return false;
-
-  const key = Buffer.from(WEBHOOK_SECRET.replace(/^whsec_/, ''), 'base64');
-  const expected = createHmac('sha256', key)
-    .update(`${id}.${timestamp}.${raw}`)
-    .digest('base64');
-  const expectedBuf = Buffer.from(expected);
-
-  // Constant-time compare against every offered signature; a plain === would
-  // leak position-of-first-difference via timing.
-  return signature.split(' ').some(part => {
-    const provided = part.startsWith('v1,') ? part.slice(3) : part;
-    const buf = Buffer.from(provided);
-    return buf.length === expectedBuf.length && timingSafeEqual(buf, expectedBuf);
-  });
+  return verifySvix(raw, headers, WEBHOOK_SECRET);
 }
 
 // ─── Resend inbound payload ───────────────────────────────────────────────────
@@ -192,6 +170,7 @@ export async function POST(request: NextRequest) {
     // Support badge appears. This toggle is about their inbox.
     if (ticketData.user_id && await canSend(ticketData.user_id as string, 'supportReplies')) {
       await notifyUserOfReply(
+        ticketData.user_id    as string,
         ticketData.user_email as string,
         ticketData.user_name  as string,
         ticketId,
@@ -217,6 +196,7 @@ function parseEmail(from: string): string {
 
 // ─── Send reply notification email to the user ───────────────────────────────
 async function notifyUserOfReply(
+  userId:    string,
   userEmail: string,
   userName:  string,
   ticketId:  string,
@@ -232,17 +212,24 @@ async function notifyUserOfReply(
 
     const shortId = ticketId.slice(0, 8).toUpperCase();
 
-    const { error } = await resend.emails.send({
-      from:    'Preciprocal Support <admin@preciprocal.com>',
+    const unsubscribe = unsubscribeUrl(userId, 'supportReplies');
+
+    const emailSubject = `[Ticket #${shortId}] Re: ${cleanSubject}`;
+    const { data: sent, error } = await resend.emails.send({
+      from:    'Preciprocal Support <support@preciprocal.com>',
       to:      userEmail,
       replyTo: 'support@preciprocal.com',
-      subject: `[Ticket #${shortId}] Re: ${cleanSubject}`,
-      html:    generateReplyEmail(userName, shortId, cleanSubject, reply, ticketId),
-      text:    generateReplyText(userName, shortId, cleanSubject, reply, ticketId),
+      subject: emailSubject,
+      html:    generateReplyEmail(userName, shortId, cleanSubject, reply, ticketId, unsubscribe),
+      text:    generateReplyText(userName, shortId, cleanSubject, reply, ticketId, unsubscribe),
+      headers: unsubscribeHeaders(unsubscribe),
     });
 
     if (error) console.error('❌ User reply notification error:', error);
-    else        console.log('✅ User notified of reply for ticket:', ticketId);
+    else {
+      console.log('✅ User notified of reply for ticket:', ticketId);
+      await recordEmailSend({ resendId: sent?.id, userId, emailType: 'support_reply', subject: emailSubject });
+    }
   } catch (err) {
     console.error('❌ Failed to notify user:', err);
   }
@@ -336,6 +323,7 @@ function generateReplyEmail(
   subject: string,
   reply: string,
   ticketId: string,
+  unsubscribe: string,
 ): string {
   // The agent's reply is plain text from an inbox, so it is escaped and then
   // newlines are turned back into <br />. Escaping after that conversion would
@@ -343,6 +331,7 @@ function generateReplyEmail(
   const body = escapeHtml(reply).replace(/\n/g, '<br />');
 
   return renderEmail({
+    campaign: 'support_reply',
     preheader: `Reply on ticket #${shortId}`,
     eyebrow: `Ticket #${shortId}`,
     heading: 'We have replied',
@@ -357,6 +346,7 @@ function generateReplyEmail(
     cta: { label: 'View the full thread', url: `${SITE.app}/help?ticket=${ticketId}` },
     signoff: 'Just reply to this email to continue the conversation.<br />Preciprocal Support',
     footerNote: 'You are receiving this because you opened a support ticket with Preciprocal.',
+    footerExtraHtml: unsubscribeFooterHtml(unsubscribe, 'supportReplies'),
   });
 }
 
@@ -366,8 +356,10 @@ function generateReplyText(
   subject: string,
   reply: string,
   ticketId: string,
+  unsubscribe: string,
 ): string {
   return renderText({
+    campaign: 'support_reply',
     heading: `Reply on ticket #${shortId}`,
     paragraphs: [
       `Hi ${firstName(userName)},`,
@@ -378,6 +370,7 @@ function generateReplyText(
     ].filter(Boolean),
     cta: { label: 'View the full thread', url: `${SITE.app}/help?ticket=${ticketId}` },
     signoff: 'Just reply to this email to continue the conversation.\nPreciprocal Support',
-    footerNote: 'You opened a support ticket with Preciprocal.',
+    footerNote: `You opened a support ticket with Preciprocal.
+${unsubscribeFooterText(unsubscribe, 'supportReplies')}`,
   });
 }
