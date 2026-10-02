@@ -158,18 +158,7 @@ async function enforceSessionCap(ctx: SessionContext): Promise<void> {
     .update({ revoked_at: now, revoked_reason: 'concurrent_session_cap' })
     .in('session_id', toRevoke);
 
-  // Redis is what middleware actually checks, so a failure here means the
-  // eviction is recorded but not enforced until that session's next heartbeat.
-  // Logged rather than thrown: partial enforcement beats failing the login.
-  if (redis) {
-    try {
-      await Promise.all(
-        toRevoke.map(id => redis!.set(revokedKey(id), '1', { ex: REVOKED_TTL_SECONDS })),
-      );
-    } catch (err) {
-      console.error('⚠️ Failed to publish session revocations to Redis:', err);
-    }
-  }
+  await publishRevocations(toRevoke);
 
   console.log(
     `🔐 Session cap: revoked ${toRevoke.length} session(s) for user=${ctx.userId} ` +
@@ -178,8 +167,72 @@ async function enforceSessionCap(ctx: SessionContext): Promise<void> {
 
   if (ctx.email) {
     const location = [ctx.geoCity, ctx.geoCountry].filter(Boolean).join(', ') || null;
-    await sendNewDeviceEmail({ email: ctx.email, location, userAgent: ctx.userAgent });
+    await sendNewDeviceEmail({ userId: ctx.userId, email: ctx.email, location, userAgent: ctx.userAgent });
   }
+}
+
+/**
+ * Tell middleware to sign these sessions out on their next page load.
+ *
+ * Redis is what middleware actually checks, so a failure here means the
+ * revocation is recorded but not enforced on navigation until that session's
+ * next heartbeat. Logged rather than thrown: partial enforcement beats failing
+ * the request that asked for it.
+ */
+async function publishRevocations(sessionIds: string[]): Promise<void> {
+  if (!redis || sessionIds.length === 0) return;
+  try {
+    await Promise.all(
+      sessionIds.map(id => redis!.set(revokedKey(id), '1', { ex: REVOKED_TTL_SECONDS })),
+    );
+  } catch (err) {
+    console.error('⚠️ Failed to publish session revocations to Redis:', err);
+  }
+}
+
+// ─── User-initiated removal (Settings > Devices) ────────────────────────────
+//
+// Unlike the cap above, these END the session at the token layer too: see
+// migration 0044 for why "remove this device" has to mean it.
+
+/** Remove one device. Scoped to userId, so it can only touch that user's sessions. */
+export async function removeDevice(userId: string, sessionId: string): Promise<boolean> {
+  const { error } = await supabaseAdmin.rpc('revoke_user_sessions', {
+    p_user_id: userId,
+    p_session_ids: [sessionId],
+    p_reason: 'removed_by_user',
+  });
+  if (error) {
+    console.error('❌ removeDevice failed:', error.message);
+    return false;
+  }
+  await publishRevocations([sessionId]);
+  console.log(`🔐 Device removed by user=${userId}`);
+  return true;
+}
+
+/** Sign out every session except the one making the request. */
+export async function removeOtherDevices(userId: string, keepSessionId: string): Promise<boolean> {
+  // Read first: the RPC ends them, and Redis needs to know which ones it was.
+  const { data: others } = await supabaseAdmin
+    .from('user_sessions')
+    .select('session_id')
+    .eq('user_id', userId)
+    .neq('session_id', keepSessionId)
+    .is('revoked_at', null);
+
+  const { error } = await supabaseAdmin.rpc('revoke_other_user_sessions', {
+    p_user_id: userId,
+    p_keep: keepSessionId,
+    p_reason: 'signed_out_by_user',
+  });
+  if (error) {
+    console.error('❌ removeOtherDevices failed:', error.message);
+    return false;
+  }
+  await publishRevocations((others ?? []).map(o => o.session_id as string));
+  console.log(`🔐 All other devices signed out by user=${userId}`);
+  return true;
 }
 
 /**
