@@ -9,8 +9,9 @@
 //
 //   lib/email/welcome.ts                    guarded
 //   app/api/cron/weekly-digest/route.ts     `?? 'https://app.preciprocal.com'`
-//   app/api/firebase/emails/route.ts        `?? 'https://preciprocal.com'`
-//   app/api/firebase/emails/reply/route.ts  `?? 'https://preciprocal.com'`
+//   app/api/support/ticket-created/route.ts `?? 'https://preciprocal.com'`
+//                                           (then app/api/firebase/emails)
+//   a support reply route, since deleted    `?? 'https://preciprocal.com'`
 //
 // `??` only fires when the variable is UNSET. It cannot help when the variable
 // is set to something that is simply wrong for an email, which is exactly the

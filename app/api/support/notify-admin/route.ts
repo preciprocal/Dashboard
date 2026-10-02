@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     const shortId    = ticketId.slice(0, 8).toUpperCase();
 
     const { error } = await resend.emails.send({
-      from:    'Preciprocal Support <admin@preciprocal.com>',
+      from:    'Preciprocal Support <support@preciprocal.com>',
       to:      adminEmail,
       // replyTo is support@preciprocal.com so admin replies are captured
       // by the inbound webhook and saved back to Firestore automatically.

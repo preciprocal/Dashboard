@@ -377,8 +377,8 @@ function HelpSupportContent() {
     { id: 45, category: 'account',      question: 'How do I update my profile information?',            answer: 'Go to Settings > Profile to update your personal information including name, email, location, target role, experience level, preferred technologies, LinkedIn, GitHub, and career goals. This information helps personalize your interview questions and cover letters.', icon: SettingsIcon,  gradient: 'gradient-primary',   keywords: ['profile','update','edit','settings'] },
     { id: 46, category: 'account',      question: 'Can I change my email address?',                     answer: "Yes, you can update your email address in Settings > Profile. After changing, you'll receive a verification email to confirm the new address. Your subscription, data, and progress remain intact.", icon: Mail,          gradient: 'gradient-accent',    keywords: ['email','change email','update email'] },
     { id: 47, category: 'account',      question: 'How do I delete my account?',                        answer: 'To delete your account, go to Settings > Account > Delete Account. This permanently removes all your data including interviews, resumes, cover letters, and study plans. This action cannot be undone. If you have an active subscription, it will be automatically canceled.', icon: AlertCircle,   gradient: 'gradient-warning',   keywords: ['delete','remove','close account','deactivate'] },
-    { id: 55, category: 'support',      question: 'How do I contact support?',                          answer: 'Contact support through Help & Support > Contact > Submit Ticket. Choose your issue category, set priority, and describe your issue. We respond within 24 hours. You can track your ticket status and view all communication history in the Tickets section.', icon: MessageSquare, gradient: 'gradient-accent',    keywords: ['contact','support','help','customer service'] },
-    { id: 56, category: 'support',      question: 'What is your response time for support tickets?',    answer: "We aim to respond to all support tickets within 24 hours. High-priority issues are addressed within 12 hours, and critical issues receive immediate attention. Premium users get priority support with faster response times. You'll receive email notifications when we reply.", icon: Clock,         gradient: 'gradient-primary',   keywords: ['response time','support speed','how long','wait time'] },
+    { id: 55, category: 'support',      question: 'How do I contact support?',                          answer: 'Contact support through Help & Support > Contact > Submit Ticket. Choose your issue category, set priority, and describe your issue. We reply by email, and Premium plans include a reply within 24 hours. You can track your ticket status and view all communication history in the Tickets section.', icon: MessageSquare, gradient: 'gradient-accent',    keywords: ['contact','support','help','customer service'] },
+    { id: 56, category: 'support',      question: 'What is your response time for support tickets?',    answer: "Premium plans include priority support with a reply within 24 hours. On every other plan, the team replies as soon as they can. Either way, you'll get an email when we reply, and the full conversation stays in Help & Support > Tickets.", icon: Clock,         gradient: 'gradient-primary',   keywords: ['response time','support speed','how long','wait time'] },
     { id: 57, category: 'support',      question: 'What is your refund policy?',                        answer: "We offer a 30-day money-back guarantee for new Pro and Premium subscriptions. If you're not satisfied, request a refund within 30 days of purchase. Contact support with your subscription details. Refunds are processed within 5-7 business days.", icon: Shield,        gradient: 'gradient-warning',   keywords: ['refund','money back','return','guarantee'] },
   ];
 
@@ -596,13 +596,11 @@ function HelpSupportContent() {
       }
 
       // Fire-and-forget email - log response so failures are visible in console
-      fetch('/api/firebase/emails', {
+      // The route reads the ticket back from the database, so only the id is sent.
+      fetch('/api/support/ticket-created', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          ticketId,
-          ticket:   { ...ticketData, userEmail: user.email, userName, attachments: uploadedAttachments },
-        }),
+        body:    JSON.stringify({ ticketId }),
       })
         .then(r => r.json().then(d => {
           if (!r.ok) console.error('❌ Email route error:', d);
@@ -614,7 +612,7 @@ function HelpSupportContent() {
       try {
         await NotificationService.createNotification(
           user.id, 'system', 'Support Ticket Submitted 🎫',
-          `Your ticket "${subject.trim()}" has been received. We'll respond within 24 hours. Track it in Help & Support > Tickets.`,
+          `Your ticket "${subject.trim()}" has been received. We'll reply by email. Track it in Help & Support > Tickets.`,
           { actionUrl: '/help?section=tickets', actionLabel: 'View Ticket' }
         );
       } catch (notifError) {
@@ -794,7 +792,7 @@ function HelpSupportContent() {
                   <div className="mt-16 py-12 text-center border-t border-white/[0.06]">
                     <h3 className="text-xl font-semibold text-white">Still stuck?</h3>
                     <p className="text-sm text-slate-500 mt-2">
-                      Send us a ticket and we will reply by email, usually within 24 hours.
+                      Send us a ticket and we will reply by email.
                     </p>
                     <button onClick={() => setActiveSection('contact')}
                       className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
@@ -862,14 +860,14 @@ function HelpSupportContent() {
               <div className="p-4 sm:p-6">
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold text-white">Submit a ticket</h3>
-                  <p className="text-sm text-slate-500 mt-1">We reply by email, usually within 24 hours.</p>
+                  <p className="text-sm text-slate-500 mt-1">We reply by email. Premium plans include a reply within 24 hours.</p>
                 </div>
 
                 {submitSuccess ? (
                   <div className="glass-morphism p-6 sm:p-8 rounded-xl border border-green-500/30 text-center">
                     <CheckCircle2 className="w-10 h-10 sm:w-12 sm:h-12 text-green-400 mx-auto mb-2 sm:mb-3" />
                     <h4 className="text-sm sm:text-base font-semibold text-white mb-1">Ticket Submitted</h4>
-                    <p className="text-slate-400 text-xs sm:text-sm">We&apos;ll respond via email within 24 hours</p>
+                    <p className="text-slate-400 text-xs sm:text-sm">We&apos;ll reply by email</p>
                   </div>
                 ) : !user ? (
                   <div className="glass-morphism p-6 sm:p-8 rounded-xl border border-white/10 text-center space-y-4">

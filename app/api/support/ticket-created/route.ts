@@ -1,9 +1,27 @@
-// app/api/firebase/emails/route.ts
+// app/api/support/ticket-created/route.ts
+// Called by the Help page right after it inserts a support ticket. Emails the
+// team about the new ticket and sends the user their "we received it" copy.
+//
+// Moved from app/api/firebase/emails, a leftover of the Firestore era, which
+// trusted the request body for everything: who to email, and what to say. Any
+// caller could send the confirmation template, with their own subject and
+// message in it, from our support address to any inbox. Now the caller must
+// be signed in, the ticket is read from the database, it must be theirs, and
+// it must be new, so the route can only ever confirm a ticket the caller has
+// just opened.
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
+import { z } from 'zod';
+import { getAuthedUser } from '@/lib/auth/verify-request';
+import { supabaseAdmin } from '@/supabase/admin';
 import { emailAppUrl } from '@/lib/email/app-url';
+import { renderEmail, renderText, firstName } from '@/lib/email/layout';
+import { recordEmailSend } from '@/lib/email/track';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+
+/** Older than this and the ticket is not "just opened": refuse, so the route cannot be replayed. */
+const FRESH_TICKET_MS = 10 * 60 * 1000;
 
 interface SupportTicket {
   userName:  string;
@@ -23,13 +41,50 @@ function escapeHtml(str: string): string {
     .replace(/'/g, '&#39;');
 }
 
+const bodySchema = z.object({ ticketId: z.string().uuid() });
+
 export async function POST(request: NextRequest) {
   try {
-    const { ticketId, ticket } = await request.json() as { ticketId: string; ticket: SupportTicket };
+    const authedUser = await getAuthedUser(request);
+    if (!authedUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+    if (!parsed.success) return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+    const { ticketId } = parsed.data;
 
     if (!process.env.RESEND_API_KEY) {
       return NextResponse.json({ error: 'Email service not configured' }, { status: 500 });
     }
+
+    const { data: row } = await supabaseAdmin
+      .from('support_tickets')
+      .select('user_id, user_email, user_name, subject, message, category, priority, created_at')
+      .eq('id', ticketId)
+      .eq('user_id', authedUser.supabaseUserId)
+      .maybeSingle();
+    if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    if (Date.now() - new Date(row.created_at as string).getTime() > FRESH_TICKET_MS) {
+      return NextResponse.json({ error: 'Ticket is not new' }, { status: 409 });
+    }
+
+    const priority = ['high', 'medium', 'low'].includes(row.priority as string)
+      ? (row.priority as SupportTicket['priority'])
+      : 'medium';
+    const ticket: SupportTicket = {
+      // The account's own address, never one supplied by the caller.
+      userEmail: authedUser.email ?? (row.user_email as string),
+      userName:  (row.user_name as string) || 'there',
+      subject:   (row.subject as string) || '(no subject)',
+      message:   (row.message as string) || '',
+      category:  (row.category as string) || 'general',
+      priority,
+    };
+    if (!ticket.userEmail) return NextResponse.json({ error: 'No email on account' }, { status: 400 });
+
+    const { data: sub } = await supabaseAdmin
+      .from('subscriptions').select('plan, status').eq('user_id', authedUser.supabaseUserId).maybeSingle();
+    const hasSla = String(sub?.plan ?? '').toLowerCase() === 'premium'
+      && ['active', 'trialing'].includes(String(sub?.status ?? 'active'));
 
     const adminEmail = process.env.ADMIN_EMAIL || 'admin@preciprocal.com';
     const shortId    = ticketId.slice(0, 8).toUpperCase();
@@ -37,11 +92,11 @@ export async function POST(request: NextRequest) {
     // ── 1. Admin notification ─────────────────────────────────────────────────
     // IMPORTANT: replyTo is support@preciprocal.com (NOT userEmail).
     // When the admin replies, the email routes through the inbound webhook
-    // which saves the reply to Firestore and notifies the user automatically.
+    // which saves the reply to the ticket and notifies the user automatically.
     // Ensure Resend Inbound is configured to route support@preciprocal.com
     // to: https://your-domain.com/api/support/inbound-email
     const { data: adminData, error: adminError } = await resend.emails.send({
-      from:    'Preciprocal Support <admin@preciprocal.com>',
+      from:    'Preciprocal Support <support@preciprocal.com>',
       to:      adminEmail,
       replyTo: 'support@preciprocal.com',
       subject: `[Ticket #${ticketId}] ${ticket.subject}`,
@@ -53,15 +108,24 @@ export async function POST(request: NextRequest) {
 
     // ── 2. User confirmation ──────────────────────────────────────────────────
     const { data: userData, error: userError } = await resend.emails.send({
-      from:    'Preciprocal Support <admin@preciprocal.com>',
+      from:    'Preciprocal Support <support@preciprocal.com>',
       to:      ticket.userEmail,
       replyTo: 'support@preciprocal.com',
       subject: `[Ticket #${shortId}] We received your request`,
-      html:    generateUserConfirmationEmail(ticket.userName, shortId, ticket.subject, ticket.message),
+      html:    generateUserConfirmationEmail(ticket.userName, shortId, ticketId, ticket.subject, ticket.message, hasSla),
+      text:    generateUserConfirmationText(ticket.userName, shortId, ticketId, ticket.subject, ticket.message, hasSla),
     });
 
     if (userError) console.error('❌ User confirmation error:', userError);
-    else           console.log('✅ User confirmation sent:', userData?.id);
+    else {
+      console.log('✅ User confirmation sent:', userData?.id);
+      await recordEmailSend({
+        resendId: userData?.id,
+        userId: authedUser.supabaseUserId,
+        emailType: 'ticket_received',
+        subject: `[Ticket #${shortId}] We received your request`,
+      });
+    }
 
     return NextResponse.json({ success: true, adminEmailId: adminData?.id, userEmailId: userData?.id });
   } catch (error) {
@@ -272,116 +336,61 @@ function generateAdminEmail(ticketId: string, shortId: string, ticket: SupportTi
 // ─────────────────────────────────────────────────────────────────────────────
 // USER CONFIRMATION EMAIL
 // ─────────────────────────────────────────────────────────────────────────────
+// Built on the shared shell (lib/email/layout.ts) and laid out like the staff
+// reply in app/api/support/inbound-email, so the two ends of one ticket thread
+// look like the same product. It used to be a separate light-theme template.
+/**
+ * Only Premium is sold a response time ("Priority support (24hr SLA)" on the
+ * pricing page). Promising 24 hours to everyone would be a commitment nobody
+ * agreed to, so everyone else is told the truth: as soon as we can.
+ */
+function responseLine(hasSla: boolean): string {
+  return hasSla
+    ? 'Your Premium plan includes a reply within 24 hours'
+    : 'Someone from the team will reply as soon as they can';
+}
+
 function generateUserConfirmationEmail(
-  userName: string, ticketId: string, subject: string, message: string,
+  userName: string, shortId: string, ticketId: string, subject: string, message: string, hasSla: boolean,
 ): string {
-  const appUrl = emailAppUrl();
+  // The message is the user's own plain text, so it is escaped and then its
+  // newlines are turned back into <br />, matching the reply email.
+  const body = escapeHtml(message).replace(/\n/g, '<br />');
 
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>We received your request · Preciprocal Support</title>
-</head>
-<body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+  return renderEmail({
+    campaign: 'ticket_received',
+    preheader: `We received ticket #${shortId}. ${responseLine(hasSla)}.`,
+    eyebrow: `Ticket #${shortId}`,
+    heading: 'We received your request',
+    paragraphs: [
+      `Hi ${escapeHtml(firstName(userName))},`,
+      `Thanks for reaching out. ${responseLine(hasSla)}, and you can follow the whole conversation from Help &amp; Support in the app.`,
+    ],
+    panel: {
+      title: escapeHtml(subject) || 'Your ticket',
+      rows: [{ label: 'Your message', value: body }],
+    },
+    cta: { label: 'View your ticket', url: `${emailAppUrl()}/help?ticket=${ticketId}` },
+    signoff: 'Just reply to this email to add anything.<br />Preciprocal Support',
+    footerNote: 'You are receiving this because you opened a support ticket with Preciprocal.',
+  });
+}
 
-  <div style="display:none;max-height:0;overflow:hidden;font-size:1px;color:#f4f5f7;">
-    Your support request has been received - Ticket #${ticketId} &zwnj;&nbsp;&zwnj;
-  </div>
-
-  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f5f7;">
-    <tr><td align="center" style="padding:40px 16px;">
-
-      <table width="580" cellpadding="0" cellspacing="0" border="0"
-             style="width:580px;max-width:100%;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
-
-        <!-- Header -->
-        <tr>
-          <td style="padding:32px 36px 28px;background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%);">
-            <p style="margin:0 0 4px;font-size:19px;font-weight:700;color:#ffffff;letter-spacing:-0.2px;">We received your request</p>
-            <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.75);">Ticket #${ticketId} · ${escapeHtml(subject)}</p>
-          </td>
-        </tr>
-
-        <!-- Body -->
-        <tr>
-          <td style="padding:32px 36px;">
-            <p style="margin:0 0 8px;font-size:16px;color:#111827;font-weight:600;">Hi ${escapeHtml(userName)},</p>
-            <p style="margin:0 0 24px;font-size:14px;color:#4b5563;line-height:1.65;">
-              Thanks for reaching out. We've received your support request and our team will get back to you within <strong style="color:#111827;">24 hours</strong>.
-            </p>
-
-            <!-- Message recap -->
-            <p style="margin:0 0 10px;font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.6px;">Your message</p>
-            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
-              <tr>
-                <td style="background:#f9fafb;border:1px solid #e5e7eb;border-left:3px solid #6366f1;border-radius:6px;padding:16px 18px;">
-                  <p style="margin:0;font-size:14px;color:#374151;line-height:1.7;white-space:pre-wrap;word-break:break-word;">${escapeHtml(message)}</p>
-                </td>
-              </tr>
-            </table>
-
-            <!-- CTA -->
-            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
-              <tr>
-                <td align="center">
-                  <a href="${appUrl}/help?section=tickets"
-                     style="display:inline-block;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:12px 28px;border-radius:8px;letter-spacing:0.1px;">
-                    View Your Ticket
-                  </a>
-                </td>
-              </tr>
-            </table>
-
-            <!-- Info note -->
-            <table width="100%" cellpadding="0" cellspacing="0" border="0">
-              <tr>
-                <td style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:14px 18px;">
-                  <p style="margin:0;font-size:13px;color:#1d4ed8;line-height:1.55;">
-                    <strong>What happens next?</strong><br/>
-                    Our team typically responds within 24 hours. You can also check your ticket status and full conversation history from the Help &amp; Support section in your dashboard.
-                  </p>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-
-        <!-- Divider -->
-        <tr><td style="height:1px;background:#f3f4f6;font-size:0;">&nbsp;</td></tr>
-
-        <!-- Footer -->
-        <tr>
-          <td style="padding:20px 36px;background:#f9fafb;">
-            <table width="100%" cellpadding="0" cellspacing="0" border="0">
-              <tr>
-                <td>
-                  <p style="margin:0 0 3px;font-size:13px;font-weight:600;color:#374151;">Preciprocal</p>
-                  <p style="margin:0;font-size:12px;color:#9ca3af;">
-                    <a href="https://preciprocal.com" style="color:#6b7280;text-decoration:none;">preciprocal.com</a>
-                    &nbsp;·&nbsp;
-                    <a href="${appUrl}/help" style="color:#6b7280;text-decoration:none;">Help Center</a>
-                    &nbsp;·&nbsp;
-                    <a href="https://preciprocal.com/privacy" style="color:#6b7280;text-decoration:none;">Privacy Policy</a>
-                  </p>
-                </td>
-                <td align="right" valign="top">
-                  <p style="margin:0;font-size:11px;color:#d1d5db;font-family:monospace;">Ticket #${ticketId}</p>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-
-      </table>
-
-      <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;text-align:center;">
-        You received this because you submitted a support ticket at preciprocal.com
-      </p>
-
-    </td></tr>
-  </table>
-</body>
-</html>`;
+function generateUserConfirmationText(
+  userName: string, shortId: string, ticketId: string, subject: string, message: string, hasSla: boolean,
+): string {
+  return renderText({
+    campaign: 'ticket_received',
+    heading: 'We received your request',
+    paragraphs: [
+      `Hi ${firstName(userName)},`,
+      `Thanks for reaching out. ${responseLine(hasSla)}.`,
+      subject ? `Subject: ${subject}` : '',
+      '',
+      message,
+    ].filter(Boolean),
+    cta: { label: 'View your ticket', url: `${emailAppUrl()}/help?ticket=${ticketId}` },
+    signoff: 'Just reply to this email to add anything.\nPreciprocal Support',
+    footerNote: 'You opened a support ticket with Preciprocal.',
+  });
 }

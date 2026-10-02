@@ -883,3 +883,30 @@ but no interview will gain a recoverable transcript until it is applied.
 **Not verified end to end.** Typecheck, lint and route compilation pass, but
 the authenticated path (finish an interview, kill generation, reload the
 feedback page) was not exercised - it needs a real session and a Vapi call.
+
+---
+
+## 28. RESOLVED - open email relays under app/api/firebase/emails
+
+The unused reply route was deleted. Its sibling, the "ticket received" sender,
+turned out to be a second relay (it emailed whatever address the request body
+named) and moved to app/api/support/ticket-created, which now requires a
+session, reads the ticket from the database, checks it belongs to the caller,
+and refuses tickets older than ten minutes. Original note below.
+
+
+**Severity: high. Found while adding unsubscribe links, not fixed with them.**
+
+`POST /api/firebase/emails/reply` has no auth check and takes `to`, `subject`
+and `replyMessage` straight from the request body, then sends through Resend
+as `Preciprocal Support <support@preciprocal.com>`. Anyone can use it to send
+arbitrary mail from our domain to any address, which is a phishing vector and
+a fast way to burn the Resend quota and sender reputation.
+
+Nothing in the codebase calls it any more: staff replies arrive through
+`app/api/support/inbound-email`, which is where the support-reply unsubscribe
+link was added.
+
+**Deferred because** deleting a route is a separate decision from the
+unsubscribe change. Unblocked by: confirming nothing outside this repo (an
+admin tool, a Zap) still posts to it, then deleting the route.
