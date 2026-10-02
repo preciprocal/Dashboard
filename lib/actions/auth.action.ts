@@ -57,6 +57,9 @@ interface SignUpParams {
    *  blocks the APIs it's built from - treated as "no signal", never as a
    *  reason to reject. */
   fingerprint?: string;
+  /** The Terms and Privacy checkbox. Checked here as well as in the form,
+   *  because a server action can be called without the form. */
+  acceptedTerms: boolean;
 }
 
 interface SignInParams {
@@ -276,7 +279,14 @@ async function validateAndFixUserDocument(firebaseUser: {
 // ─── Sign Up (email/password) ─────────────────────────────────────────────────
 
 export async function signUp(params: SignUpParams) {
-  const { name, email, password, fingerprint } = params;
+  const { name, email, password, fingerprint, acceptedTerms } = params;
+
+  if (acceptedTerms !== true) {
+    return {
+      success: false,
+      message: "Please agree to the Terms of Service and Privacy Policy to create an account.",
+    };
+  }
 
   try {
     // ── Free-account farming guard ──────────────────────────────────────────

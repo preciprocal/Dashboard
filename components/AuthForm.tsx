@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { signIn, signUp } from "@/lib/actions/auth.action";
 import { getDeviceFingerprint } from "@/lib/fingerprint";
 import logo from "@/public/logo.png";
+import { SITE } from "@/lib/seo";
 
 type FormType = "sign-in" | "sign-up";
 
@@ -25,6 +26,11 @@ const authFormSchema = (type: FormType) => {
     email: z.string().email(),
     password: z.string().min(3),
     rememberMe: z.boolean().optional(),
+    // Required on both forms: Google sign-in creates an account on first use,
+    // so the sign-in page is a sign-up page too.
+    acceptedTerms: z.literal(true, {
+      errorMap: () => ({ message: "Please agree to the Terms of Service and Privacy Policy." }),
+    }),
   });
 };
 
@@ -70,8 +76,12 @@ const AuthForm = ({ type }: { type: FormType }) => {
       email: "",
       password: "",
       rememberMe: false,
+      acceptedTerms: false as unknown as true,
     },
   });
+
+  const acceptedTerms = form.watch("acceptedTerms") === true;
+  const termsError = form.formState.errors.acceptedTerms?.message;
 
   useEffect(() => {
     if (type === "sign-in") {
@@ -86,6 +96,12 @@ const AuthForm = ({ type }: { type: FormType }) => {
   }, [type, form]);
 
   const handleGoogleAuth = async () => {
+    if (!acceptedTerms) {
+      form.setError("acceptedTerms", {
+        message: "Please agree to the Terms of Service and Privacy Policy.",
+      });
+      return;
+    }
     setIsGoogleLoading(true);
     try {
       const next = redirectUrl !== "/" ? redirectUrl : "/";
@@ -121,7 +137,13 @@ const AuthForm = ({ type }: { type: FormType }) => {
         // the IP limit alone rather than rejecting.
         const fingerprint = (await getDeviceFingerprint()) ?? undefined;
 
-        const result = await signUp({ name: name!, email, password, fingerprint });
+        const result = await signUp({
+          name: name!,
+          email,
+          password,
+          fingerprint,
+          acceptedTerms: data.acceptedTerms === true,
+        });
         if (!result.success) {
           toast.error(result.message);
           return;
@@ -322,6 +344,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
           <div className="space-y-3 mb-6">
             <button
               onClick={handleGoogleAuth}
+              type="button"
               disabled={isGoogleLoading}
               className="w-full flex items-center justify-center space-x-3 py-3 px-4 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed group"
             >
@@ -438,9 +461,45 @@ const AuthForm = ({ type }: { type: FormType }) => {
                 </div>
               )}
 
+              {/* Unticked by default on purpose: consent has to be an action
+                  the person takes, not a default they failed to undo. */}
+              <div>
+                <label className="flex items-start cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    {...form.register("acceptedTerms")}
+                    className="mt-0.5 w-4 h-4 flex-shrink-0 bg-slate-900 border-slate-700 rounded cursor-pointer accent-purple-600"
+                    style={{ colorScheme: "dark" }}
+                  />
+                  <span className="ml-2 text-sm text-slate-400 group-hover:text-slate-300 transition-colors">
+                    I agree to the{" "}
+                    <a
+                      href={`${SITE.marketing}/terms`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-purple-400 hover:text-purple-300 underline"
+                    >
+                      Terms of Service
+                    </a>{" "}
+                    and{" "}
+                    <a
+                      href={`${SITE.marketing}/privacy`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-purple-400 hover:text-purple-300 underline"
+                    >
+                      Privacy Policy
+                    </a>
+                  </span>
+                </label>
+                {termsError && (
+                  <p role="alert" className="text-xs text-red-400 mt-2">{termsError}</p>
+                )}
+              </div>
+
               <Button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || !acceptedTerms}
                 className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-3 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border-0 shadow-lg hover:shadow-xl"
               >
                 {isLoading ? (
@@ -469,26 +528,6 @@ const AuthForm = ({ type }: { type: FormType }) => {
             </Link>
           </p>
 
-          <p className="mt-8 text-center text-xs text-slate-500">
-            By continuing, you agree to our{" "}
-            <a 
-  href="https://preciprocal.com/terms" 
-  target="_blank" 
-  rel="noopener noreferrer"
-  className="text-slate-400 hover:text-slate-300 underline"
->
-  Terms of Service
-</a>{" "}
-and{" "}
-<a 
-  href="https://preciprocal.com/privacy" 
-  target="_blank" 
-  rel="noopener noreferrer"
-  className="text-slate-400 hover:text-slate-300 underline"
->
-  Privacy Policy
-</a>
-          </p>
         </div>
       </div>
     </div>
