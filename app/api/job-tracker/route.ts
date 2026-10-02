@@ -3,7 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
 import { checkJobTrackerCapacity } from '@/lib/ai/job-tracker-capacity';
-import { hasResponded } from '@/lib/config/outcomes';
+import { hasResponded, isInterview } from '@/lib/config/outcomes';
+import { recordStatusChange } from '@/lib/applications/status-events';
 
 // ─── Types matching the page exactly ─────────────────────────────────────────
 
@@ -227,11 +228,14 @@ export async function POST(request: NextRequest) {
         // which is the one question this data is uniquely able to answer.
         // Nullable: plenty of applications are logged without one.
         resume_id:    data.resumeId    ?? null,
+        ...(data.status && isInterview(data.status) ? { reached_interview_at: now } : {}),
       })
       .select('id')
       .single();
 
     if (error) throw error;
+
+    await recordStatusChange(uid, created.id, null, data.status ?? 'applied');
 
     return NextResponse.json({ success: true, id: created.id }, { status: 201 });
   } catch (error) {
@@ -254,7 +258,7 @@ export async function PATCH(request: NextRequest) {
 
     const { data: existing } = await supabaseAdmin
       .from('job_applications')
-      .select('user_id, first_response_at')
+      .select('user_id, first_response_at, reached_interview_at, status')
       .eq('id', id)
       .maybeSingle();
     if (!existing)                return NextResponse.json({ error: 'Not found' },  { status: 404 });
@@ -276,15 +280,29 @@ export async function PATCH(request: NextRequest) {
       hasResponded(updates.status) &&
       !existing.first_response_at;
 
+    // Write-once for the same reason: an interview that ends in a rejection
+    // still happened, and the outcome numbers must keep counting it.
+    const reachedInterview =
+      updates.status !== undefined &&
+      isInterview(updates.status) &&
+      !existing.reached_interview_at;
+
     const { error } = await supabaseAdmin
       .from('job_applications')
       .update({
         ...toColumns(updates),
         ...(becameResponsive ? { first_response_at: new Date().toISOString() } : {}),
+        ...(reachedInterview ? { reached_interview_at: new Date().toISOString() } : {}),
         updated_at: new Date().toISOString(),
       })
       .eq('id', id);
     if (error) throw error;
+
+    // Only a real move between columns. Editing notes or the salary is not
+    // a stage of the search, and must not trigger coaching about one.
+    if (updates.status !== undefined && updates.status !== existing.status) {
+      await recordStatusChange(uid, id, (existing.status as string | null) ?? null, updates.status);
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
 import { checkJobTrackerCapacity } from '@/lib/ai/job-tracker-capacity';
+import { recordStatusChange } from '@/lib/applications/status-events';
 
 export const runtime = 'nodejs';
 
@@ -168,6 +169,8 @@ export async function POST(request: NextRequest) {
       .select('id')
       .single();
     if (error) throw error;
+
+    await recordStatusChange(uid, created.id, null, 'applied');
 
     console.log('[track-job] ✅ Saved:', created.id, '-', jobTitle, '@', company);
     return NextResponse.json({ success: true, id: created.id });

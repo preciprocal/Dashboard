@@ -9,6 +9,14 @@
     {
       "path": "/api/cron/weekly-digest",
       "schedule": "0 8 * * 1"
+    },
+    {
+      "path": "/api/cron/activation-email",
+      "schedule": "0 9 * * 1"
+    },
+    {
+      "path": "/api/cron/application-coaching",
+      "schedule": "0 9 * * *"
     }
   ]
 }

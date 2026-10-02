@@ -39,6 +39,7 @@ interface AppRow {
   status: string;
   applied_date: string | null;
   first_response_at: string | null;
+  reached_interview_at: string | null;
 }
 
 const median = (xs: number[]): number | null => {
@@ -52,7 +53,7 @@ export async function getResumePerformance(supabaseUserId: string): Promise<Outc
   const [{ data: apps }, { data: resumes }] = await Promise.all([
     supabaseAdmin
       .from('job_applications')
-      .select('resume_id, status, applied_date, first_response_at')
+      .select('resume_id, status, applied_date, first_response_at, reached_interview_at')
       .eq('user_id', supabaseUserId),
     supabaseAdmin
       .from('resumes')
@@ -79,7 +80,10 @@ export async function getResumePerformance(supabaseUserId: string): Promise<Outc
     const key = raw.resume_id;
     const b = buckets.get(key) ?? { sent: 0, interviews: 0, rejected: 0, days: [] };
     b.sent += 1;
-    if (isInterview(raw.status)) b.interviews += 1;
+    // Reached an interview at ANY point, not just currently at one. Counting
+    // only the current status dropped every interview that later ended in a
+    // rejection, understating the user's real results.
+    if (isInterview(raw.status) || raw.reached_interview_at) b.interviews += 1;
     else if (hasResponded(raw.status)) b.rejected += 1;
 
     if (raw.first_response_at && raw.applied_date) {

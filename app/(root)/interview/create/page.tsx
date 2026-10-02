@@ -51,7 +51,19 @@ function calculateNextResetDate(subscription: Subscription | undefined): Date {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default async function CreateInterviewPage() {
+const INTERVIEW_TYPES = ['behavioural', 'technical', 'mixed'] as const;
+
+export default async function CreateInterviewPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  // ?role=&type= pre-fill the form, so a link like "Practise for this screen"
+  // in an application coaching email lands ready to start.
+  const params = await searchParams;
+  const roleParam = typeof params.role === 'string' ? params.role.trim().slice(0, 100) : '';
+  const typeParam = INTERVIEW_TYPES.find(t => t === params.type);
+
   const user = await getCurrentUser();
   if (!user?.id) redirect('/sign-in');
 
@@ -113,7 +125,7 @@ export default async function CreateInterviewPage() {
           {/* Form */}
           <div className="overflow-y-auto glass-scrollbar pb-4">
             <div className="glass-card p-5 sm:p-6">
-              <InterviewGeneratorForm userId={user.id} />
+              <InterviewGeneratorForm userId={user.id} initialRole={roleParam || undefined} initialType={typeParam} />
             </div>
           </div>
         </>

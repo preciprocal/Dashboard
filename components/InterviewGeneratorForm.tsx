@@ -9,7 +9,12 @@ import { useSupabaseUser } from "@/lib/hooks/useSupabaseUser";
 import { toast } from "sonner";
 import { NotificationService } from "@/lib/services/notification-services";
 
-interface InterviewGeneratorFormProps { userId: string; }
+interface InterviewGeneratorFormProps {
+  userId: string;
+  /** Pre-fill from a link, e.g. "Practise for this screen" in a coaching email. */
+  initialRole?: string;
+  initialType?: "behavioural" | "technical" | "mixed";
+}
 
 interface FormData {
   role: string;
@@ -46,7 +51,7 @@ const inp = [
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function InterviewGeneratorForm({ userId }: InterviewGeneratorFormProps) {
+export default function InterviewGeneratorForm({ userId, initialRole, initialType }: InterviewGeneratorFormProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   // `userId` above is the legacy-resolved id (server-passed, correct for the
@@ -64,7 +69,7 @@ export default function InterviewGeneratorForm({ userId }: InterviewGeneratorFor
   const [showTypeMenu,     setShowTypeMenu]     = useState(false);
 
   const [formData, setFormData] = useState<FormData>({
-    role: '', level: 'mid', type: 'technical', amount: 5, techstack: '', jobDescription: '',
+    role: initialRole ?? '', level: 'mid', type: initialType ?? 'technical', amount: 5, techstack: '', jobDescription: '',
   });
 
   const { canUseFeature } = useUsageTracking();
