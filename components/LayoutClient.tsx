@@ -14,6 +14,7 @@ import {
 import { signOut } from "@/lib/actions/auth.action";
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import SessionHeartbeat from '@/components/SessionHeartbeat';
+import ActivityTracker from '@/components/ActivityTracker';
 import { supabase } from '@/supabase/client';
 import { hasUnreadSupportReply } from '@/lib/support/unread';
 import { FirebaseService } from '@/lib/services/firebase-service';
@@ -39,6 +40,7 @@ interface UserData {
     plan?: string;
     status?: string;
   };
+  isAdmin?: boolean;
 }
 
 interface UserStats {
@@ -668,6 +670,9 @@ function LayoutContent({ children, user }: LayoutClientProps) {
   const otherItems: NavItem[] = [
     { id: 'settings', label: 'Settings', icon: Settings,   href: '/settings' },
     { id: 'help',     label: 'Support',  icon: HelpCircle, href: '/help'     },
+    // Admin pages 404 for everyone else anyway; this only saves an admin
+    // from typing the URL.
+    ...(user?.isAdmin ? [{ id: 'admin', label: 'Admin', icon: Shield, href: '/admin/analytics' }] : []),
   ];
   // Only the Support row carries a count today, so it is matched by id rather
   // than widening NavItem with a badge field nothing else sets.
@@ -1077,6 +1082,7 @@ export default function LayoutClient({ children, user, userStats }: LayoutClient
         }}
       />
       <SessionHeartbeat />
+      {user && <ActivityTracker />}
       <LayoutContent user={user} userStats={userStats}>
         {children}
       </LayoutContent>
