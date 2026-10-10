@@ -158,6 +158,8 @@ function CheckoutFormInner({ plan, user, billedAmount, onClose, onVerifyStudent 
   const [country, setCountry]         = useState("US");
   const [countryOpen, setCountryOpen] = useState(false);
   const [showPaused, setShowPaused]   = useState(false);
+  // Sent as autoPay to /api/subscription/activate when checkout is re-enabled.
+  const [autoPay, setAutoPay]         = useAutoPayChoice();
 
   const COUNTRIES = [
     { code: "US", label: "United States" }, { code: "GB", label: "United Kingdom" },
@@ -352,6 +354,9 @@ function CheckoutFormInner({ plan, user, billedAmount, onClose, onVerifyStudent 
               )}
 
 
+              <AutoPayCheckbox checked={autoPay} onChange={setAutoPay}
+                amount={`$${billedAmount.toFixed(2)}`} firstChargeLabel="from next month"/>
+
               <div className="flex items-start gap-2.5">
                 <button type="button" onClick={() => setAgreed(v => !v)}
                   className="mt-0.5 w-4 h-4 rounded flex-shrink-0 flex items-center justify-center transition-all"
@@ -365,7 +370,7 @@ function CheckoutFormInner({ plan, user, billedAmount, onClose, onVerifyStudent 
                   <a href="https://preciprocal.com/terms" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-white transition-colors underline underline-offset-2">Terms</a>
                   {" "}&amp;{" "}
                   <a href="https://preciprocal.com/privacy" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-white transition-colors underline underline-offset-2">Privacy Policy</a>.
-                  {" "}Renews automatically. Cancel anytime.
+                  {" "}{autoPay ? "Renews automatically each month." : "Renews monthly by emailed invoice."} Cancel anytime.
                 </p>
               </div>
 
@@ -537,6 +542,51 @@ function PaymentPausedModal({ user, onVerifyStudent, onBack, onClose }: PaymentP
 // Stripe auto-bills Pro on day 31.
 interface StudentCardStepProps { clientSecret: string; onDone: () => void; }
 
+// ─── Auto pay choice ──────────────────────────────────────────────────────────
+// Off unless the customer ticks it (lib/stripe/auto-pay.ts). Remembered for the
+// tab, because a card needing 3D Secure redirects away and back, and coming
+// back silently unticked would change what they agreed to.
+const AUTO_PAY_KEY = "prc_auto_pay_choice";
+
+function useAutoPayChoice(): [boolean, (v: boolean) => void] {
+  const [autoPay, setAutoPayState] = useState(false);
+  useEffect(() => {
+    try { setAutoPayState(sessionStorage.getItem(AUTO_PAY_KEY) === "on"); } catch { /* private mode */ }
+  }, []);
+  const set = (v: boolean) => {
+    setAutoPayState(v);
+    try { sessionStorage.setItem(AUTO_PAY_KEY, v ? "on" : "off"); } catch { /* private mode */ }
+  };
+  return [autoPay, set];
+}
+
+function AutoPayCheckbox({ checked, onChange, amount, firstChargeLabel }: {
+  checked: boolean; onChange: (v: boolean) => void; amount: string; firstChargeLabel: string;
+}) {
+  return (
+    <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl"
+      style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+      <button type="button" role="checkbox" aria-checked={checked} onClick={() => onChange(!checked)}
+        className="mt-0.5 w-4 h-4 rounded flex-shrink-0 flex items-center justify-center transition-all cursor-pointer"
+        style={checked ? { background: "linear-gradient(135deg,#6366f1,#a855f7)" } : { background: "transparent", border: "1px solid rgba(255,255,255,0.18)" }}>
+        {checked && <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7"/>
+        </svg>}
+      </button>
+      <div className="text-xs leading-relaxed">
+        <p className="text-slate-200 font-medium cursor-pointer" onClick={() => onChange(!checked)}>
+          Pay automatically each month
+        </p>
+        <p className="text-slate-500 mt-0.5">
+          {checked
+            ? <>Your card is charged {amount} automatically {firstChargeLabel}, and every month after. Turn it off any time in Settings.</>
+            : <>Off: {firstChargeLabel}, we email you an invoice for {amount} each month instead. Pay it within 7 days to keep your plan. You can turn auto pay on any time in Settings.</>}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function StudentCardStep({ clientSecret, onDone }: StudentCardStepProps) {
   return (
     <Elements stripe={stripePromise} options={{ clientSecret, appearance: stripeAppearance }}>
@@ -550,6 +600,7 @@ function StudentCardStepInner({ clientSecret, onDone }: StudentCardStepProps) {
   const elements = useElements();
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState<string | null>(null);
+  const [autoPay, setAutoPay] = useAutoPayChoice();
 
   const submit = async () => {
     if (!stripe || !elements) return;
@@ -571,6 +622,7 @@ function StudentCardStepInner({ clientSecret, onDone }: StudentCardStepProps) {
         body: JSON.stringify({
           setupIntentId: setupIntent.id,
           fingerprint: (await getDeviceFingerprint()) ?? undefined,
+          autoPay,
         }),
       });
       const data = await res.json();
@@ -587,12 +639,14 @@ function StudentCardStepInner({ clientSecret, onDone }: StudentCardStepProps) {
     <div className="space-y-4">
       <div className="px-4 py-3 rounded-xl" style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.15)" }}>
         <p className="text-xs text-slate-400">
-          $0 today. We&apos;ll charge <span className="text-white font-medium">$9.99/mo</span> after your
-          free 30 days - cancel any time before then and you pay nothing.
+          $0 today. Pro is <span className="text-white font-medium">$9.99/mo</span> after your free
+          30 days. Cancel any time before then and you pay nothing.
         </p>
       </div>
 
       <PaymentElement key={clientSecret} options={{ layout: "tabs" }}/>
+
+      <AutoPayCheckbox checked={autoPay} onChange={setAutoPay} amount="$9.99" firstChargeLabel="after your free 30 days"/>
 
       {error && <p className="text-xs text-red-400">{error}</p>}
 

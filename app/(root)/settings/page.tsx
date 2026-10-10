@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import ExtensionConnection from '@/components/ExtensionConnection';
 import RefundPanel from '@/components/billing/RefundPanel';
+import AutoPayPanel from '@/components/billing/AutoPayPanel';
 import DevicesPanel from '@/components/settings/DevicesPanel';
 import {
   USAGE_LIMITS, FEATURE_NAMES, isUnlimited, type FeatureType,
@@ -895,6 +896,14 @@ export default function SettingsPage() {
               </div>
 
               <BillingNewsletterBlock />
+            </SectionCard>
+
+            <SectionCard>
+              <SectionHeader icon={CreditCard} iconColor="text-indigo-400" iconBg="bg-indigo-500/10 border-indigo-500/20"
+                title="Auto pay" subtitle="Charge your card each month, or get an invoice to pay yourself" />
+              <div className="p-5">
+                <AutoPayPanel />
+              </div>
             </SectionCard>
 
             {/* Refunds live under Plan & Billing because that is where someone

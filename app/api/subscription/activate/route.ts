@@ -5,6 +5,7 @@ import { getAuthedUser } from "@/lib/auth/verify-request";
 import { redis } from "@/lib/redis/redis-client";
 import { recordReactivation } from "@/lib/subscription/reactivation";
 import { planFromPriceId, warnUnknownPrice } from "@/lib/config/stripe-prices";
+import { collectionParams, consentMetadata } from "@/lib/stripe/auto-pay";
 
 export const runtime = "nodejs";
 
@@ -45,9 +46,11 @@ export async function POST(req: NextRequest) {
     if (!authedUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { userId, supabaseUserId } = authedUser;
 
-    const { setupIntentId, subscriptionId } = await req.json() as {
+    const { setupIntentId, subscriptionId, autoPay: autoPayRaw } = await req.json() as {
       setupIntentId: string;
       subscriptionId: string;
+      /** The checkout checkbox. Off unless the customer ticked it. */
+      autoPay?: boolean;
     };
     if (!setupIntentId || !subscriptionId) {
       return NextResponse.json({ error: "Missing setupIntentId or subscriptionId" }, { status: 400 });
@@ -92,6 +95,16 @@ export async function POST(req: NextRequest) {
         console.error("⚠️ Invoice pay error (may already be paid):", payErr);
       }
     }
+
+    // ── Apply the auto pay choice to month two onwards ─────────────────────
+    // The first invoice is always paid above, right now. This only decides
+    // whether later months are charged to the card or emailed as invoices.
+    // Anything but an explicit true is "off": opting in has to be deliberate.
+    const autoPay = autoPayRaw === true;
+    await stripe.subscriptions.update(subscriptionId, {
+      ...collectionParams(autoPay),
+      metadata: { ...sub.metadata, ...consentMetadata(autoPay, "checkout") },
+    });
 
     // ── Determine plan ─────────────────────────────────────────────────────
     const priceId = sub.items.data[0]?.price?.id ?? "";

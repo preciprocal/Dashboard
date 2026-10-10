@@ -17,6 +17,7 @@ import {
   STUDENT_CONVERSION_PRICE_ID,
 } from "@/lib/config/student-perk";
 import { z } from "zod";
+import { collectionParams, consentMetadata } from "@/lib/stripe/auto-pay";
 
 export const runtime = "nodejs";
 
@@ -26,6 +27,9 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 const schema = z.object({
   setupIntentId: z.string().min(1),
+  // The trial checkbox. Off unless ticked: with it off, day 31 is an emailed
+  // invoice rather than a charge to the card.
+  autoPay: z.boolean().optional(),
   fingerprint:   z.string().max(128).optional(),
 });
 
@@ -64,6 +68,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }
     const { setupIntentId } = parsed.data;
+    const autoPay = parsed.data.autoPay === true;
     const fingerprint = parsed.data.fingerprint ?? null;
 
     // ── The address must already have passed the OTP in verify-code ─────────
@@ -124,10 +129,12 @@ export async function POST(req: NextRequest) {
       items:                  [{ price: STUDENT_CONVERSION_PRICE_ID }],
       trial_period_days:      TRIAL_DAYS,
       default_payment_method: paymentMethodId,
+      ...collectionParams(autoPay),
       metadata: {
         userId:      supabaseUserId,
         billingCycle: "monthly",
         source:      "student_perk",
+        ...consentMetadata(autoPay, "student_trial"),
       },
     });
     createdSubscriptionId = subscription.id;
