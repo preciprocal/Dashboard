@@ -11,6 +11,8 @@
 
 import { useState } from "react";
 import type { User } from "@supabase/supabase-js";
+import { EmbeddedCheckout, EmbeddedCheckoutProvider } from "@stripe/react-stripe-js";
+import { stripePromise } from "@/lib/stripe/client";
 import { PACKS, type PackKey } from "@/lib/config/packs";
 import { featureLabel } from "@/lib/config/plan-features";
 import type { FeatureType } from "@/lib/config/usage-limits";
@@ -72,6 +74,8 @@ export interface CreditPacksProps {
 export default function CreditPacks({ user }: CreditPacksProps) {
   const [busy, setBusy]     = useState<PackKey | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Set while the in-app checkout window is open.
+  const [checkout, setCheckout] = useState<{ key: PackKey; clientSecret: string } | null>(null);
 
   // The catalog is imported directly rather than fetched. PACKS holds no
   // secrets, and purchasablePacks() cannot run here - it reads the pack price
@@ -94,10 +98,11 @@ export default function CreditPacks({ user }: CreditPacksProps) {
       });
       const data = await res.json().catch(() => ({}));
 
-      if (res.ok && data.url) {
-        // `busy` is deliberately left set. Clearing it would flash the button
-        // back to its normal label while the browser is already navigating.
-        window.location.href = data.url;
+      if (res.ok && data.clientSecret) {
+        // Checkout opens inside the page; Stripe navigates to the pricing
+        // page's confirmation when payment completes.
+        setCheckout({ key, clientSecret: data.clientSecret });
+        setBusy(null);
         return;
       }
 
@@ -114,6 +119,27 @@ export default function CreditPacks({ user }: CreditPacksProps) {
 
   return (
     <section className="mt-16 pt-12 border-t border-white/[0.06]">
+      {checkout && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          role="dialog" aria-modal="true" aria-label={`Buy ${PACKS[checkout.key].name}`}>
+          <div className="relative w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-2xl bg-white">
+            <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 bg-white border-b border-slate-200">
+              <p className="text-sm font-semibold text-slate-900">{PACKS[checkout.key].name}</p>
+              <button type="button" onClick={() => setCheckout(null)} aria-label="Close checkout"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 cursor-pointer">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+            {/* key forces a fresh Stripe mount per session; the provider
+                cannot switch client secrets once mounted. */}
+            <EmbeddedCheckoutProvider key={checkout.clientSecret} stripe={stripePromise} options={{ clientSecret: checkout.clientSecret }}>
+              <EmbeddedCheckout />
+            </EmbeddedCheckoutProvider>
+          </div>
+        </div>
+      )}
       <div className="text-center mb-8">
         <span className="inline-block px-3 py-1 mb-4 text-xs font-semibold rounded-full bg-white/5 border border-white/10 text-slate-300">
           Top-ups

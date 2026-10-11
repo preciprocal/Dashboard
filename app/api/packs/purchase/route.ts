@@ -13,7 +13,12 @@
 // one-off against Stripe Price objects that already exist in the dashboard.
 // Passing a price id as a line item means the amount is never restated in our
 // code, which removes the failure where the pricing page, the Stripe catalog
-// and the charge disagree. The trade is a redirect instead of an inline form.
+// and the charge disagree.
+//
+// Embedded mode (ui_mode: "embedded"): the same Checkout renders inside our
+// own pricing page, so buying a pack never leaves app.preciprocal.com. It is
+// still a Checkout Session, so checkout.session.completed, the grant, and pack
+// refunds are all unchanged. Stripe sends the browser to return_url when done.
 
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
@@ -137,8 +142,11 @@ export async function POST(req: NextRequest) {
       payment_intent_data: {
         metadata: { userId: supabaseUserId, packKey },
       },
-      success_url: `${origin}/pricing?pack=${packKey}&status=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/pricing?pack=${packKey}&status=cancelled`,
+      ui_mode: "embedded",
+      // Same landing as the old success_url, so the pricing page's existing
+      // confirmation banner handles it. There is no cancel_url in embedded
+      // mode: closing the checkout window simply cancels.
+      return_url: `${origin}/pricing?pack=${packKey}&status=success&session_id={CHECKOUT_SESSION_ID}`,
       // Abandoned sessions stop holding a PaymentIntent open. 30 minutes is
       // the Stripe minimum.
       expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
@@ -146,7 +154,7 @@ export async function POST(req: NextRequest) {
 
     console.log(`🛒 pack checkout [${packKey}] user=${supabaseUserId} session=${session.id}`);
 
-    return NextResponse.json({ url: session.url, sessionId: session.id });
+    return NextResponse.json({ clientSecret: session.client_secret, sessionId: session.id });
   } catch (err) {
     console.error("❌ pack purchase error:", err);
     return NextResponse.json({ error: "Could not start checkout." }, { status: 500 });
