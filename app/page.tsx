@@ -375,10 +375,13 @@ export default function Dashboard() {
       try {
         setIsLoading(true);
         const { supabase }                                       = await import('@/supabase/client');
+        const { getClientUser }                                  = await import('@/lib/auth/client-user');
         const { ResumeService }                               = await import('@/lib/services/resume-service');
         const { getInterviewsByUserId, getFeedbackByInterviewId } = await import('@/lib/actions/general.action');
 
-        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        // Never hangs, and falls back to the browser's session when Supabase
+        // is slow (lib/auth/client-user.ts).
+        const { user: currentUser } = await getClientUser();
 
         if (!currentUser) {
           toast.error('Please sign in to view your dashboard');
@@ -414,7 +417,15 @@ export default function Dashboard() {
           plannerStats = await fetchPlannerStats(currentUser.id);
         } catch { /* non-fatal */ }
 
-        const userInterviews = await getInterviewsByUserId(currentUser.id) as unknown[];
+        // Non-fatal like the rest: without interviews the dashboard still
+        // shows resumes and plans instead of an error card.
+        let userInterviews: unknown[] = [];
+        try {
+          userInterviews = (await getInterviewsByUserId(currentUser.id) as unknown[] | null) ?? [];
+        } catch (e) {
+          if ((await import('@/lib/auth/client-user')).reloadIfStaleBuild(e)) return;
+          console.error('Dashboard interviews fetch failed:', e);
+        }
         if (!userInterviews?.length) {
           setStats(calculateStats([], userResumes, plannerStats));
           setIsLoading(false);
@@ -449,6 +460,7 @@ export default function Dashboard() {
         analyzeInterviewPerformance(typedInterviews);
         analyzeResumeData(userResumes);
       } catch (err) {
+        if ((await import('@/lib/auth/client-user')).reloadIfStaleBuild(err)) return;
         console.error('Dashboard fetch error:', err);
         toast.error('Failed to load dashboard data');
       } finally {

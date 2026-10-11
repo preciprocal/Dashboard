@@ -15,6 +15,7 @@ import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 
 import { signIn, signUp } from "@/lib/actions/auth.action";
+import { reloadIfStaleBuild } from "@/lib/auth/client-user";
 import { getDeviceFingerprint } from "@/lib/fingerprint";
 import logo from "@/public/logo.png";
 import { SITE } from "@/lib/seo";
@@ -190,7 +191,11 @@ const AuthForm = ({ type }: { type: FormType }) => {
       } else {
         const { email, password } = data;
 
-        const result = await signIn({ email, password });
+        // A sign-in that never answers left the button spinning for good.
+        const result = await Promise.race([
+          signIn({ email, password }),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 25_000)),
+        ]);
         if (!result.success) {
           if (result.message.toLowerCase().includes("confirm")) {
             const verifyUrl =
@@ -212,8 +217,11 @@ const AuthForm = ({ type }: { type: FormType }) => {
         window.location.replace(redirectUrl === "/" ? `/?_t=${Date.now()}` : redirectUrl);
       }
     } catch (error) {
+      if (reloadIfStaleBuild(error)) return;
       console.error(error);
-      toast.error("There was an error signing in.");
+      toast.error((error as Error)?.message === "timeout"
+        ? "Signing in is taking too long. Check your connection and try again."
+        : "There was an error signing in.");
     } finally {
       setIsLoading(false);
     }

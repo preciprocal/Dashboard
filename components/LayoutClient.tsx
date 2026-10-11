@@ -615,21 +615,27 @@ function LayoutContent({ children, user }: LayoutClientProps) {
     return () => window.removeEventListener('message', handleAuthRequest);
   }, [currentUser, loading]);
 
-  // ── Auth guard: redirect to sign-in if session is missing or empty ─────────
+  // ── Auth guard: redirect to sign-in when the server says signed out ───────
+  // The server's answer (from the session cookie) is the one that counts:
+  // /sign-in redirects back to / whenever the server sees a session, so
+  // redirecting on the browser's own check as well looped a signed-in person
+  // between the two whenever that check was slow or failed. A counter stops
+  // the bounce for good if the two still disagree.
+  const [authLoop, setAuthLoop] = useState(false);
   useEffect(() => {
     const isPublicRoute = PUBLIC_ROUTES.some(route => pathname.startsWith(route));
     if (!authResolved) return;
     if (isPublicRoute) return;
-    // Redirect if no server-side user data (no session cookie / broken session)
-    // OR if there's no Firebase client user at all
     if (!user || (!user.id && !user.email && !user.name)) {
+      try {
+        const now = Date.now();
+        const hops = (JSON.parse(sessionStorage.getItem('prc_auth_hops') || '[]') as number[]).filter(t => now - t < 20_000);
+        if (hops.length >= 2) { setAuthLoop(true); return; }
+        sessionStorage.setItem('prc_auth_hops', JSON.stringify([...hops, now]));
+      } catch { /* storage blocked: redirect anyway */ }
       router.push(`/sign-in?redirect=${encodeURIComponent(pathname)}`);
-      return;
     }
-    if (!currentUser) {
-      router.push(`/sign-in?redirect=${encodeURIComponent(pathname)}`);
-    }
-  }, [user, currentUser, authResolved, pathname, router]);
+  }, [user, authResolved, pathname, router]);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10);
@@ -720,9 +726,29 @@ function LayoutContent({ children, user }: LayoutClientProps) {
     return <AnimatedLoader isVisible={true} loadingText="Loading" showNavigation={false} tone="focused" />;
   }
 
-  // Show loader while redirect fires (covers both empty user and missing Firebase session)
+  // Show loader while the redirect to /sign-in fires
   const userIsEmpty = !user || (!user.id && !user.email && !user.name);
-  if ((userIsEmpty || !currentUser) && !isPublicRoute) {
+  if (userIsEmpty && !isPublicRoute && authLoop) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <div className="glass-card p-8 max-w-sm w-full text-center">
+          <p className="text-slate-200 font-semibold mb-1">We couldn&apos;t restore your session</p>
+          <p className="text-slate-400 text-sm mb-6">Sign in again to continue.</p>
+          <button
+            onClick={async () => {
+              try { sessionStorage.removeItem('prc_auth_hops'); } catch {}
+              await supabase.auth.signOut().catch(() => {});
+              await signOut().catch(() => {});
+              window.location.replace('/sign-in');
+            }}
+            className="glass-button-primary px-5 py-2.5 rounded-xl text-white text-sm w-full">
+            Sign in again
+          </button>
+        </div>
+      </div>
+    );
+  }
+  if (userIsEmpty && !isPublicRoute) {
     return <AnimatedLoader isVisible={true} loadingText="Redirecting" showNavigation={false} tone="focused" />;
   }
 

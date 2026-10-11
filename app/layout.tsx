@@ -3,7 +3,6 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import {
-  isAuthenticated,
   getCurrentUser,
 } from "@/lib/actions/auth.action";
 import {
@@ -166,26 +165,24 @@ export default async function RootLayout({
   let userStats = { ...defaultStats };
 
   try {
-    const isUserAuthenticated = await isAuthenticated();
+    // One lookup: isAuthenticated() is getCurrentUser() too, so calling both
+    // fetched the user twice on every page load.
+    try {
+      user = await getCurrentUser();
+    } catch (e) {
+      console.error("getCurrentUser failed:", e);
+      user = null;
+    }
 
-    if (isUserAuthenticated) {
+    if (user?.id) {
       try {
-        user = await getCurrentUser();
+        const interviews = await getInterviewsByUserId(user.id);
+        userStats = await calculateUserStats(
+          (interviews || []) as Interview[]
+        );
       } catch (e) {
-        console.error("getCurrentUser failed:", e);
-        user = null;
-      }
-
-      if (user?.id) {
-        try {
-          const interviews = await getInterviewsByUserId(user.id);
-          userStats = await calculateUserStats(
-            (interviews || []) as Interview[]
-          );
-        } catch (e) {
-          console.error("Failed to fetch user stats:", e);
-          userStats = { ...defaultStats };
-        }
+        console.error("Failed to fetch user stats:", e);
+        userStats = { ...defaultStats };
       }
     }
   } catch (error) {

@@ -955,3 +955,18 @@ branches are gone, and Settings only saves notification preferences.
 
 **Needs a Stripe setting:** add `charge.dispute.updated` and
 `charge.dispute.closed` to the live webhook so dispute statuses update.
+
+## 30. Server actions in lib/actions/general.action.ts trust the user id they are given
+
+Found 2026-10-11 while fixing the sign-in loop. Every export of a
+`"use server"` file is a public endpoint, and `getInterviewsByUserId(userId)`
+and `getFeedbackByInterviewId({ interviewId, userId })` read with
+`supabaseAdmin` for whatever `userId` the caller sends. Anyone signed in (or
+not) can call them with another user's id and read that person's interviews
+and feedback. The dashboard (app/page.tsx) calls both from the browser.
+
+**Fix:** have each read derive the user from the session
+(`createServerSupabaseClient().auth.getUser()` + `resolveDataUserId`) and
+ignore or check the passed id, then audit the file's other exports the same
+way. Check the server pages that pass `interview.userId` (interview/[id]/results)
+still work for their intended viewers.
