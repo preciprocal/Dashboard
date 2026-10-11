@@ -753,7 +753,9 @@ function LayoutContent({ children, user }: LayoutClientProps) {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      <div className="fixed inset-0 bg-gradient-to-br from-slate-900/95 via-purple-900/90 to-slate-900/95 -z-10" aria-hidden="true" />
+      {/* Solid app background on mobile: the purple gradient showed through
+          below the last section when scrolling past it. Desktop keeps it. */}
+      <div className="fixed inset-0 bg-[var(--bg)] lg:bg-transparent lg:bg-gradient-to-br lg:from-slate-900/95 lg:via-purple-900/90 lg:to-slate-900/95 -z-10" aria-hidden="true" />
 
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
