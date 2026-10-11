@@ -92,6 +92,22 @@ function seller(): { name: string; lines: string[] } {
   return { name: process.env.BILLING_LEGAL_NAME || 'Preciprocal', lines };
 }
 
+/** The date the document is about: paid date for a receipt, issue date otherwise. */
+const docDate = (inv: Stripe.Invoice) =>
+  (inv.status === 'paid' ? inv.status_transitions?.paid_at : null) ?? inv.status_transitions?.finalized_at ?? inv.created;
+
+/**
+ * "Preciprocal_Receipt_2026-10-11_PRCP-0001.pdf". Date first after the kind so
+ * a folder of them sorts by date; ASCII only so every OS and mail client keeps
+ * the name intact.
+ */
+export function invoiceFileName(inv: Stripe.Invoice): string {
+  const kind = inv.status === 'paid' ? 'Receipt' : 'Invoice';
+  const date = new Date(docDate(inv) * 1000).toISOString().slice(0, 10);
+  const ref = (inv.number ?? inv.id ?? '').replace(/[^A-Za-z0-9-]/g, '');
+  return `Preciprocal_${kind}_${date}${ref ? `_${ref}` : ''}.pdf`;
+}
+
 const hex = (h: string) => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)) as [number, number, number];
 
 export async function renderInvoicePdf(invoice: Stripe.Invoice): Promise<Buffer> {
@@ -124,6 +140,13 @@ export async function renderInvoicePdf(invoice: Stripe.Invoice): Promise<Buffer>
   const paid = invoice.status === 'paid';
   const cur = invoice.currency;
   const kind = paid ? 'Receipt' : 'Invoice';
+  // What a PDF viewer shows in its title bar and tab, instead of the file name.
+  doc.setProperties({
+    title: `Preciprocal ${kind} ${invoice.number ?? ''}`.trim(),
+    subject: `${kind} for ${fmt(paid ? invoice.amount_paid : invoice.amount_due, cur)}`,
+    author: from.name, creator: 'Preciprocal',
+  });
+  doc.setDisplayMode('fullwidth', 'continuous');
 
   // ── Header band ───────────────────────────────────────────────────────────
   const bandH = 138;

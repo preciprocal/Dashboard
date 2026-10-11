@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { billingContext, ownedInvoice } from '@/lib/stripe/billing';
-import { renderInvoicePdf } from '@/lib/billing/invoice-pdf';
+import { renderInvoicePdf, invoiceFileName } from '@/lib/billing/invoice-pdf';
 
 export const runtime = 'nodejs';
 
@@ -19,8 +19,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   try {
     const pdf = await renderInvoicePdf(invoice);
-    const kind = invoice.status === 'paid' ? 'receipt' : 'invoice';
-    const name = `Preciprocal-${kind}-${invoice.number ?? invoice.id}.pdf`.replace(/[^A-Za-z0-9._-]/g, '-');
+    const name = invoiceFileName(invoice);
     return new NextResponse(new Uint8Array(pdf), {
       headers: {
         'Content-Type': 'application/pdf',
