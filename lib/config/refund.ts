@@ -1,19 +1,53 @@
 // lib/config/refund.ts
-// Terms of the money-back guarantee, in one place so the enforced policy and
-// the advertised policy cannot drift apart again.
+// The refund policy's terms, in one place so the enforced policy and every
+// place that describes it cannot drift apart.
 //
-// They HAD drifted, three ways: the app advertised 7-day (pricing trust row,
-// help FAQ #57), 30-day (pricing hero and trust signals) and 60-day (the
-// Chrome extension manifest, which is also the public Web Store listing)
-// simultaneously, with no code enforcing any of them - refunds were handled
-// entirely by hand. 30 days is the real policy and all four now say so.
-//
-// If this constant changes, those four strings have to change with it:
-//   app/(root)/pricing/page.tsx  (hero + trust row + trust signals)
-//   app/(root)/help/page.tsx     (FAQ #57)
-//   extension/manifest.json      (needs a Web Store resubmission to go live)
+// If these change, the descriptions have to change with them:
+//   app/(root)/pricing/page.tsx    (hero + trust badges)
+//   app/(root)/help/page.tsx       (refund FAQ)
+//   app/api/refund/policy/route.ts (machine-readable, read by the landing page)
 
+/** Window of the pre-0049 prorated policy, still used to decide queued requests. */
 export const REFUND_WINDOW_DAYS = 30;
+
+// ─── The refund policy, as of migration 0049 ────────────────────────────────
+//
+//   1. A full refund of a customer's FIRST payment, on request, within
+//      FIRST_REFUND_WINDOW_DAYS of paying, if they used less than
+//      FIRST_REFUND_MAX_PLAN_USED_PCT of the plan. Processed instantly by
+//      lib/refund/first-payment.ts, once per account, card and device.
+//   2. Otherwise: cancel any time, the plan runs to the end of the paid month,
+//      and partial months are not refunded.
+//
+// Every refund is on request. Nothing is ever refunded automatically.
+//
+// The prorated, usage-gated constants below are kept only so requests already
+// in the admin queue from before 0049 can still be decided.
+
+/** Days after the first payment in which the full refund can be requested. */
+export const FIRST_REFUND_WINDOW_DAYS = 7;
+
+/**
+ * How much of the plan can have been used and still get the full refund, as a
+ * share of the plan's value: every feature counts, each weighted by what it
+ * costs us to provide (lib/refund/proration.ts, lib/config/feature-costs.ts).
+ *
+ * Counting mock interviews alone let someone use every other feature in full
+ * and still get everything back (35% of a Pro plan's value, 42% of Premium).
+ * The Free plan is where people try the product; this refund is for a
+ * purchase made by mistake or regretted straight away, so the bar is
+ * "essentially unused". For scale: one mock interview is 22% of Pro and 12%
+ * of Premium; all resumes and cover letters with no interviews is 12-14%.
+ */
+export const FIRST_REFUND_MAX_PLAN_USED_PCT = 10;
+
+/**
+ * And no single feature may be more than this far through its monthly
+ * allowance. The value share above weights by cost, and the cheap features
+ * barely move it: half of all resumes and cover letters is only 6% of a Pro
+ * plan's value. This catches "used half or more of something" directly.
+ */
+export const FIRST_REFUND_MAX_FEATURE_USED_PCT = 50;
 
 /**
  * Usage share, in any single quota category, above which a request is routed

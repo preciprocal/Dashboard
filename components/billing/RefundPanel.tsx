@@ -24,6 +24,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Loader2, AlertCircle, CheckCircle2, RotateCcw, Package } from "lucide-react";
+import { getDeviceFingerprint } from "@/lib/fingerprint";
 
 interface SubscriptionPreview {
   eligible: boolean;
@@ -39,6 +40,8 @@ interface SubscriptionPreview {
   thresholdPct?: number;
   note?: string;
   existingRequest?: { id: string; status: string; createdAt: string };
+  planUsedPct?: number | null;
+  policy?: { windowDays: number; maxPlanUsedPct: number };
 }
 
 interface PackItem {
@@ -73,7 +76,9 @@ export default function RefundPanel() {
     // Settled, not all: a failure in one API must not blank the other. Someone
     // with no subscription still needs to see their packs.
     const [subRes, packRes] = await Promise.allSettled([
-      fetch("/api/refund/request").then((r) => r.json()),
+      // The device fingerprint lets the server tell the customer up front
+      // that the first-payment refund was already used from this device.
+      getDeviceFingerprint().then(fp => fetch(`/api/refund/request${fp ? `?fp=${encodeURIComponent(fp)}` : ""}`)).then((r) => r.json()),
       fetch("/api/packs/refund").then((r) => r.json()),
     ]);
 
@@ -97,17 +102,12 @@ export default function RefundPanel() {
       const res  = await fetch("/api/refund/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: "Requested from billing settings" }),
+        body: JSON.stringify({ fingerprint: (await getDeviceFingerprint()) ?? undefined }),
       });
       const data = await res.json().catch(() => ({}));
 
-      if (res.ok && data?.requestId) {
-        setNotice({ tone: "ok", text: "Request submitted. Someone will review it and email you." });
-      } else if (data?.code === "quote_stale") {
-        // The amount moved between preview and submit, because usage changed.
-        // Reloading is the correct response: submitting a figure the server no
-        // longer agrees with would show one number and pay another.
-        setNotice({ tone: "bad", text: "Your usage changed while this was open, so the amount was recalculated. Please review it again." });
+      if (res.ok && data?.refunded) {
+        setNotice({ tone: "ok", text: `Refunded ${money(data.amountCents)}. It goes back to your card now; your bank may take 5 to 10 business days to show it. Your plan has ended and you are on the Free plan.` });
         await load();
       } else {
         setNotice({ tone: "bad", text: data?.reason ?? data?.error ?? "We could not submit that request." });
@@ -192,44 +192,27 @@ export default function RefundPanel() {
         ) : !sub.eligible ? (
           <div className="space-y-2">
             <p className="text-sm text-slate-300 leading-relaxed">{sub.reason}</p>
-            {sub.requestBy && (
-              <p className="text-xs text-slate-500 mt-2">
-                Refund requests for this billing month close on {new Date(sub.requestBy).toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })}.
-              </p>
-            )}
-            {/* Shown when the refusal is usage-based, because "you've used too
-                much" is only fair if the user can see the number. */}
-            {typeof sub.interviewUsagePct === "number" && typeof sub.thresholdPct === "number" && (
-              <p className="text-xs text-slate-500">
-                You have used {Math.round(sub.interviewUsagePct)}% of your mock interviews this period.
-                Refunds are available below {sub.thresholdPct}%.
-              </p>
-            )}
+            <p className="text-xs text-slate-500">
+              Need help with something that went wrong on our side? Email support@preciprocal.com.
+            </p>
           </div>
         ) : (
           <div className="space-y-4">
             <div className="flex items-baseline gap-2 flex-wrap">
               <span className="text-2xl font-bold text-white">{money(sub.refundCents)}</span>
-              <span className="text-xs text-slate-500">
-                of {money(sub.amountPaidCents)} paid
-                {sub.feeCents ? `, after ${money(sub.feeCents)} in card fees` : ""}
-              </span>
+              <span className="text-xs text-slate-500">full refund of your first payment</span>
             </div>
 
-            {/* Stated before the button, not after. The API says the same thing
-                in its `note`, and it has to be visible BEFORE someone clicks
-                something they might read as "refund me now". */}
-            <p className="text-xs text-slate-500 leading-relaxed">
-              {sub.note ?? "Refund requests are reviewed by a person before any money is returned."}
-            </p>
+            {/* Stated before the button, so nobody is surprised by what it does. */}
             <p className="text-xs text-slate-400 leading-relaxed">
-              If it is approved, the refund goes back to your card and your paid plan ends, moving your
-              account to the Free plan. We email you either way.
+              Not what you needed? You can get your whole first payment back. It is refunded straight away,
+              your paid plan ends, and your account moves to the Free plan.
             </p>
             {sub.requestBy && (
               <p className="text-xs text-amber-300/90 leading-relaxed">
-                Request by {new Date(sub.requestBy).toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })}.
-                After that, this billing month can no longer be refunded.
+                Available until {new Date(sub.requestBy).toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })}
+                {sub.policy ? `, while you have used less than ${sub.policy.maxPlanUsedPct}% of your plan (you have used about ${sub.planUsedPct ?? 0}%)` : ""}.
+                After that, you can still cancel any time, but payments are not refunded.
               </p>
             )}
 
@@ -242,7 +225,7 @@ export default function RefundPanel() {
                   style={{ background: "linear-gradient(135deg,#6366f1,#a855f7)" }}
                 >
                   {subBusy && <Loader2 className="w-4 h-4 animate-spin" />}
-                  Yes, submit the request
+                  Yes, refund {money(sub.refundCents)}
                 </button>
                 <button
                   onClick={() => setConfirming(null)}

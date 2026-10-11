@@ -15,8 +15,8 @@
 // Public and uncached-by-user: contains no account data, only policy terms.
 import { NextResponse } from 'next/server';
 import {
-  REFUND_WINDOW_DAYS,
-  INTERVIEW_ELIGIBILITY_THRESHOLD_PCT,
+  FIRST_REFUND_WINDOW_DAYS,
+  FIRST_REFUND_MAX_PLAN_USED_PCT,
   STRIPE_FEE_PERCENT,
   STRIPE_FEE_FIXED_CENTS,
 } from '@/lib/config/refund';
@@ -31,47 +31,43 @@ export const revalidate = 3600;
 export async function GET() {
   return NextResponse.json(
     {
-      version: 1,
-
-      windowDays: REFUND_WINDOW_DAYS,
-
+      // Version 2: the first-payment refund (migration 0049). Version 1 was
+      // the usage-gated prorated refund, which refused light users.
+      version: 2,
+      windowDays: FIRST_REFUND_WINDOW_DAYS,
       eligibility: {
-        // The single most misread part of this policy. It is NOT a
-        // satisfaction guarantee: using nothing makes you ineligible.
-        // Marketing copy that says "money back, no questions asked" would be
-        // materially false.
-        gateFeature: 'mock_interviews',
-        thresholdPct: INTERVIEW_ELIGIBILITY_THRESHOLD_PCT,
-        comparison: 'greater_than',
-        measuredBy: 'count',
-        perBillingPeriod: true,
-        zeroUsageEligible: false,
+        firstPaymentOnly: true,
+        // Share of the plan's value used, across every feature, each weighted
+        // by what it costs to provide.
+        maxPlanUsedPct: FIRST_REFUND_MAX_PLAN_USED_PCT,
+        measuredBy: 'cost_weighted_share_of_plan',
+        oncePerCustomer: true,
+        onRequestOnly: true,
         summary:
-          `Refunds are available once you have used more than ` +
-          `${INTERVIEW_ELIGIBILITY_THRESHOLD_PCT}% of your mock interviews for the ` +
-          `current billing period. Using little or none of your plan does not qualify.`,
+          `A full refund of your first payment, on request, within ${FIRST_REFUND_WINDOW_DAYS} days ` +
+          `of paying, if you have used less than ${FIRST_REFUND_MAX_PLAN_USED_PCT}% of your plan. ` +
+          'Once per customer. The Free plan is there to try Preciprocal first.',
       },
-
       calculation: {
-        method: 'prorated_by_unused_cost_value',
-        // Weighted by per-feature cost, not by unit count, because the units
-        // are not comparable - one mock interview is worth roughly 85 cover
-        // letters.
-        weighting: 'per_feature_cost',
-        unlimitedCategoriesExcluded: true,
-        retainsProcessingFee: true,
+        method: 'full_refund_of_first_payment',
+        retainsProcessingFee: false,
+        summary: 'The whole first payment is refunded.',
+      },
+      afterWindow: {
+        partialRefunds: false,
+        cancelAnytime: true,
+        accessUntilPeriodEnd: true,
         summary:
-          'We refund the share of your payment matching the value of the allowance ' +
-          'you did not use, less the payment processing fee.',
+          'After that, you can cancel any time and keep your plan until the end of the month ' +
+          'you paid for. Payments are not refunded, and nothing is refunded unless you ask.',
       },
-
       processing: {
-        // Stated plainly so the landing page cannot imply an instant refund.
-        automaticApproval: false,
-        humanReviewed: true,
-        reviewSlaBusinessDays: 2,
-        payoutBusinessDays: '5-7',
+        // On request only; when the conditions are met it is processed at once.
+        automaticApproval: true,
+        humanReviewed: false,
+        payoutBusinessDays: '5-10',
       },
+      packs: { windowDays: 7, unusedOnly: true, fullRefund: true },
 
       fee: {
         percent: STRIPE_FEE_PERCENT,

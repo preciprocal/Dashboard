@@ -270,7 +270,7 @@ function CheckoutFormInner({ plan, user, billedAmount, onClose, onVerifyStudent 
               </div>
             </div>
             <div className="relative z-10 flex items-center justify-between pt-6">
-              {[{ icon: "🔒", text: "SSL encrypted" }, { icon: "↩", text: "Fair refund policy" }, { icon: "✕", text: "Cancel anytime" }].map(t => (
+              {[{ icon: "🔒", text: "SSL encrypted" }, { icon: "↩", text: "7-day refund on first payment" }, { icon: "✕", text: "Cancel anytime" }].map(t => (
                 <span key={t.text} className="flex items-center gap-1.5 text-[11px] text-slate-600">
                   <span>{t.icon}</span>{t.text}
                 </span>
@@ -995,13 +995,12 @@ export default function PricingPage() {
             We only win when <span style={{ background: "linear-gradient(135deg,#6366f1,#a855f7)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>you do.</span>
           </h1>
           <p className="text-slate-400 text-base sm:text-lg max-w-3xl mx-auto leading-relaxed">
-            {/* Describes the refund policy as enforced in lib/config/refund.ts.
-                It used to promise a "30 day money back guarantee", which the
-                policy does not offer: light or no use is not eligible. A
-                guarantee we would refuse to honour is a misleading claim. */}
-            Pay for what helps. If you have used more than half your mock interviews and Preciprocal still
-            is not working for you, you can ask for back the value of the plan you did not use. Ask within
-            30 days of that month&apos;s payment. <span className="text-white font-semibold">Fair refunds, no fine print.</span>
+            {/* Describes the refund policy as enforced in lib/config/refund.ts
+                (first-payment refund, migration 0049). Keep the two in step:
+                a refund promise we would not honour is a misleading claim. */}
+            Start on the Free plan and upgrade when it is earning its place. Changed your mind straight after
+            paying? Ask within 7 days of your first payment and get it all back, as long as you have used less
+            than 10% of your plan. After that, cancel any time and keep your plan to the end of the month. <span className="text-white font-semibold">No tricks, no fine print.</span>
           </p>
         </div>
 
@@ -1181,7 +1180,7 @@ export default function PricingPage() {
                 replaced because it was unverifiable, and an unsubstantiated
                 number on a pricing page is a liability rather than an asset. */}
             {[
-              { icon: "↩", text: "Fair, usage-based refunds" },
+              { icon: "↩", text: "Full refund within 7 days of first payment" },
               { icon: "⚡", text: "Free plan, no card required" },
               { icon: "🛡️", text: "Your data is never sold" },
             ].map(t => (
