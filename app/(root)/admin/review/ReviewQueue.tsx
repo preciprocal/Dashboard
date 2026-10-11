@@ -25,6 +25,8 @@ interface RefundRow {
   created_at: string;
   /** Frozen at submit. This is the figure to refund, NOT a recomputation. */
   quoted_refund_cents: number | null;
+  /** Set when the last approval attempt was refused by Stripe. */
+  refund_error?: string | null;
   quoted_gross_cents: number | null;
   quoted_fee_cents: number | null;
   amount_paid_cents: number | null;
@@ -68,8 +70,12 @@ export default function ReviewQueue() {
     type: "flag" | "refund",
     id: string,
     action: string,
+    confirmText?: string,
   ) => {
-    const note = window.prompt("Note (optional) - saved with the decision:") ?? undefined;
+    // Approving a refund moves real money and ends a plan, so it is never one
+    // stray click.
+    if (confirmText && !window.confirm(confirmText)) return;
+    const note = window.prompt("Note (optional, internal only) - saved with the decision:") ?? undefined;
     setBusyId(id);
     try {
       const res  = await fetch("/api/admin/review", {
@@ -79,7 +85,7 @@ export default function ReviewQueue() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to record decision");
-      toast.success("Decision recorded");
+      toast.success(data.refund ? `Refunded ${money(data.refund.amountCents)} and ended the plan` : "Decision recorded");
       await load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
@@ -166,16 +172,18 @@ export default function ReviewQueue() {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  <ActionButton label="Approve"  tone="positive" disabled={busyId === r.id}
-                    onClick={() => decide("refund", r.id, "approve")}/>
-                  <ActionButton label="Mark refunded" tone="neutral" disabled={busyId === r.id}
-                    onClick={() => decide("refund", r.id, "refunded")}/>
+                  <ActionButton label={`Approve and refund ${money(r.quoted_refund_cents)}`} tone="positive" disabled={busyId === r.id}
+                    onClick={() => decide("refund", r.id, "approve",
+                      `Refund ${money(r.quoted_refund_cents)} to this customer now and end their plan? This sends the money back through Stripe and cannot be undone.`)}/>
                   <ActionButton label="Deny" tone="negative" disabled={busyId === r.id}
-                    onClick={() => decide("refund", r.id, "deny")}/>
+                    onClick={() => decide("refund", r.id, "deny", "Deny this refund? The customer will be emailed that it was not approved.")}/>
                 </div>
+                {r.refund_error && (
+                  <p className="text-[11px] text-red-300 mt-2.5">Last attempt failed: {r.refund_error}</p>
+                )}
                 <p className="text-[11px] text-slate-600 mt-2.5">
-                  Approving records the decision only - issue the refund in Stripe.
-                  Denying returns the guarantee to the user.
+                  Approving refunds the quoted amount in Stripe, ends the plan, and emails the customer.
+                  Denying emails them that it was not approved; their plan is unchanged.
                 </p>
               </div>
             ))}

@@ -13,7 +13,7 @@ import { periodOf, subscriptionIdOfInvoice } from "@/lib/stripe/compat";
 import {
   sendInvoiceEmail, sendReceiptEmail, sendPackReceiptEmail, sendRefundEmail,
   sendTrialEndingEmail, sendRenewalReminderEmail, sendPaymentFailedEmail,
-  sendActionRequiredEmail, userForCustomer,
+  sendActionRequiredEmail, userForCustomer, sendDisputeAlert,
 } from "@/lib/email/billing";
 import { PACKS, type PackKey } from "@/lib/config/packs";
 
@@ -175,6 +175,9 @@ export async function POST(request: NextRequest) {
         break;
       case "charge.refunded":
         await handleChargeRefunded(event.data.object as Stripe.Charge);
+        break;
+      case "charge.dispute.created":
+        await handleDisputeCreated(event.data.object as Stripe.Dispute);
         break;
       // One-time credit packs. Both events carry the same session shape; the
       // async variant fires for payment methods that settle after the redirect
@@ -605,25 +608,100 @@ async function handleTrialWillEnd(subscription: SubscriptionWithPeriods) {
 }
 
 /**
- * Any refund, whether issued by the app (pack refunds) or by hand in the
- * Stripe dashboard (approved subscription refunds). Emails the amount of the
- * newest refund on the charge, not the running total.
+ * Any refund, whether issued by the app (pack refunds, approved subscription
+ * refunds) or by hand in the Stripe dashboard. Emails the amount of the newest
+ * refund on the charge, not the running total.
+ *
+ * Packs are recognised by their payment intent, not charge metadata: Stripe
+ * does not copy PaymentIntent metadata onto the charge. A pack refunded from
+ * the dashboard also has its credits voided here; before, only the app's own
+ * refund button did that, so a dashboard refund left the buyer both the money
+ * and the credits.
  */
 async function handleChargeRefunded(charge: Stripe.Charge) {
-  const customerId = typeof charge.customer === "string" ? charge.customer : charge.customer?.id;
-  const supabaseUserId = charge.metadata?.userId ?? (await userForCustomer(customerId));
-  if (!supabaseUserId) return;
-
+  const piId = typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent?.id;
   const latest = (await stripe.refunds.list({ charge: charge.id, limit: 1 })).data[0];
   if (!latest || latest.status === "failed" || latest.status === "canceled") return;
 
-  const packKey = charge.metadata?.packKey as PackKey | undefined;
+  const { data: pack } = piId
+    ? await supabaseAdmin.from("credit_packs").select("id, user_id, pack_key, refunded_at").eq("stripe_payment_intent_id", piId).maybeSingle()
+    : { data: null };
+
+  if (pack) {
+    if (!pack.refunded_at) {
+      await supabaseAdmin.from("credit_packs")
+        .update({ refunded_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq("id", pack.id)
+        .is("refunded_at", null);
+      console.log(`💸 Pack ${pack.id} refunded outside the app; credits voided`);
+    }
+    await sendRefundEmail(pack.user_id as string, {
+      amountCents: latest.amount,
+      currency: latest.currency,
+      forWhat: PACKS[pack.pack_key as PackKey]?.name ?? "Credit pack",
+      refundedAt: latest.created,
+      full: charge.amount_refunded >= charge.amount,
+    });
+    return;
+  }
+
+  const customerId = typeof charge.customer === "string" ? charge.customer : charge.customer?.id;
+  const supabaseUserId = latest.metadata?.userId ?? (await userForCustomer(customerId));
+  if (!supabaseUserId) return;
   await sendRefundEmail(supabaseUserId, {
     amountCents: latest.amount,
     currency: latest.currency,
-    forWhat: packKey && PACKS[packKey] ? PACKS[packKey].name : "Your Preciprocal subscription",
+    forWhat: "Your Preciprocal subscription",
     refundedAt: latest.created,
     full: charge.amount_refunded >= charge.amount,
+    // Refunds approved through the app end the plan (lib/refund/execute.ts).
+    planEnded: latest.metadata?.kind === "subscription",
+  });
+}
+
+/**
+ * A chargeback. The money is already held by the bank, so a disputed pack's
+ * credits are voided now rather than left spendable, and the admin inbox is
+ * alerted because the dispute has a response deadline. Subscriptions are left
+ * to Stripe's dispute setting (leave the subscription past due).
+ */
+async function handleDisputeCreated(dispute: Stripe.Dispute) {
+  const chargeId = typeof dispute.charge === "string" ? dispute.charge : dispute.charge.id;
+  const piId = typeof dispute.payment_intent === "string" ? dispute.payment_intent : dispute.payment_intent?.id;
+  const { data: pack } = piId
+    ? await supabaseAdmin.from("credit_packs").select("id, user_id, pack_key, refunded_at").eq("stripe_payment_intent_id", piId).maybeSingle()
+    : { data: null };
+  if (pack && !pack.refunded_at) {
+    await supabaseAdmin.from("credit_packs")
+      .update({ refunded_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq("id", pack.id)
+      .is("refunded_at", null);
+    console.log(`⚠️ Pack ${pack.id} disputed; credits voided`);
+  }
+  const charge = await stripe.charges.retrieve(chargeId);
+  // Automatic renewal charges usually carry no billing email, so fall back to
+  // the Stripe customer, then to our own profile.
+  let customerEmail = charge.billing_details?.email ?? charge.receipt_email ?? null;
+  const customerId = typeof charge.customer === "string" ? charge.customer : charge.customer?.id;
+  if (!customerEmail && customerId) {
+    const cust = await stripe.customers.retrieve(customerId).catch(() => null);
+    if (cust && !("deleted" in cust && cust.deleted)) customerEmail = (cust as Stripe.Customer).email ?? null;
+  }
+  if (!customerEmail) {
+    const ownerId = (pack as { user_id?: string } | null)?.user_id ?? (await userForCustomer(customerId));
+    if (ownerId) {
+      const { data: prof } = await supabaseAdmin.from("profiles").select("email").eq("user_id", ownerId).maybeSingle();
+      customerEmail = (prof?.email as string | undefined) ?? null;
+    }
+  }
+  await sendDisputeAlert({
+    amountCents: dispute.amount,
+    currency: dispute.currency,
+    reason: dispute.reason,
+    chargeId,
+    dueBy: dispute.evidence_details?.due_by ?? null,
+    customerEmail,
+    what: pack ? (PACKS[pack.pack_key as PackKey]?.name ?? "Credit pack") : "Subscription payment",
   });
 }
 

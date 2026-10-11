@@ -215,6 +215,10 @@ export default function RefundPanel() {
             <p className="text-xs text-slate-500 leading-relaxed">
               {sub.note ?? "Refund requests are reviewed by a person before any money is returned."}
             </p>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              If it is approved, the refund goes back to your card and your paid plan ends, moving your
+              account to the Free plan. We email you either way.
+            </p>
 
             {confirming === "subscription" ? (
               <div className="flex flex-col sm:flex-row gap-2">
@@ -255,7 +259,8 @@ export default function RefundPanel() {
             <h3 className="text-white font-semibold text-sm sm:text-base">Credit packs</h3>
           </div>
           <p className="text-xs text-slate-500 mb-4">
-            Unused packs can be returned within {windowDays} days. Refunds are immediate.
+            Unused packs can be returned within {windowDays} days. We send the money back straight away;
+            your bank usually takes 5 to 10 business days to show it.
           </p>
 
           <ul className="space-y-3">

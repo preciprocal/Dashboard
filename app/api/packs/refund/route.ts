@@ -139,18 +139,29 @@ export async function POST(req: NextRequest) {
       .update({ refunded_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq("id", row.id)
       .is("refunded_at", null)
+      // Still unused at the moment of the claim, not just when it was checked
+      // above: without this, a credit spent between the check and here was
+      // both used and refunded.
+      .is("first_used_at", null)
       .select("id");
 
     if (claimErr || !claimed?.length) {
-      return NextResponse.json({ refunded: false, reason: "Already refunded." }, { status: 409 });
+      return NextResponse.json(
+        { refunded: false, reason: "This pack has just been used or refunded, so it can no longer be returned." },
+        { status: 409 },
+      );
     }
 
     try {
-      const refund = await stripe.refunds.create({
-        payment_intent: row.stripe_payment_intent_id,
-        reason: "requested_by_customer",
-        metadata: { packId: row.id, packKey: row.pack_key, userId: supabaseUserId },
-      });
+      const refund = await stripe.refunds.create(
+        {
+          payment_intent: row.stripe_payment_intent_id,
+          reason: "requested_by_customer",
+          metadata: { packId: row.id, packKey: row.pack_key, userId: supabaseUserId, kind: "pack" },
+        },
+        // A double-submit or retry can never refund the same pack twice.
+        { idempotencyKey: `pack-refund-${row.id}` },
+      );
 
       console.log(`💸 Refunded pack ${row.id} (${row.pack_key}) for ${supabaseUserId}: ${refund.id}`);
 

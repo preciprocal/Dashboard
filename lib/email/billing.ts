@@ -187,7 +187,7 @@ export async function sendPackReceiptEmail(
 
 export async function sendRefundEmail(
   supabaseUserId: string,
-  args: { amountCents: number; currency: string; forWhat: string; refundedAt: number; full: boolean },
+  args: { amountCents: number; currency: string; forWhat: string; refundedAt: number; full: boolean; planEnded?: boolean },
 ): Promise<void> {
   const amount = money(args.amountCents, args.currency);
   await send(supabaseUserId, {
@@ -199,6 +199,7 @@ export async function sendRefundEmail(
     paragraphs: [
       `We have refunded ${amount} to the card you paid with. Banks usually take 5 to 10 business days to show it, depending on your card.`,
       ...(args.full ? [] : ['This is a partial refund of the original payment.']),
+      ...(args.planEnded ? ['As part of the refund, your paid plan has ended and your account is now on the Free plan. You can subscribe again any time.'] : []),
     ],
     panelTitle: 'Refund details',
     rows: [
@@ -343,4 +344,55 @@ export async function sendCardExpiringEmail(
     cta: { label: 'Update card', url: billingUrl() },
     footerNote: 'You are receiving this because the card on your Preciprocal account is about to expire.',
   });
+}
+
+export async function sendRefundDeniedEmail(supabaseUserId: string): Promise<void> {
+  await send(supabaseUserId, {
+    type: 'billing_refund_denied',
+    subject: 'About your Preciprocal refund request',
+    preheader: 'We have reviewed your request.',
+    eyebrow: 'Refund request',
+    heading: 'We reviewed your refund request',
+    paragraphs: [
+      'Thanks for your patience. We looked at your refund request carefully, and we are not able to approve it under our refund policy for this billing period.',
+      'Your plan carries on as normal and nothing has been charged. If you think we got this wrong, reply to this email and a person will look at it again.',
+    ],
+    panelTitle: 'Your request',
+    rows: [{ label: 'Decision', value: 'Not approved' }, { label: 'Your plan', value: 'Unchanged' }],
+    cta: { label: 'View billing', url: billingUrl() },
+    footerNote: 'You are receiving this because you asked for a refund on your Preciprocal account.',
+  });
+}
+
+/**
+ * To the admin inbox, not the customer: a chargeback has a response deadline,
+ * and the only way to win one is to answer it in the Stripe dashboard in time.
+ */
+export async function sendDisputeAlert(args: {
+  amountCents: number; currency: string; reason: string; chargeId: string; dueBy: number | null;
+  customerEmail: string | null; what: string;
+}): Promise<void> {
+  try {
+    const amount = money(args.amountCents, args.currency);
+    const due = day(args.dueBy);
+    const subject = `Chargeback opened: ${amount} (${args.reason})`;
+    const lines = [
+      `A customer disputed a payment of ${amount} with their bank.`,
+      `For: ${args.what}`,
+      `Customer: ${args.customerEmail ?? 'unknown'}`,
+      `Reason: ${args.reason}`,
+      `Respond in Stripe by: ${due ?? 'see Stripe'}`,
+      `Charge: ${args.chargeId}`,
+      'Open Stripe > Payments > Disputes to submit evidence. If this was a pack, its unused credits have been voided.',
+    ];
+    const { error } = await resend.emails.send({
+      from: FROM,
+      to: process.env.ADMIN_EMAIL ?? 'admin@preciprocal.com',
+      subject,
+      text: lines.join('\n'),
+    });
+    if (error) throw error;
+  } catch (err) {
+    console.error('⚠️ Dispute alert failed (non-fatal):', err);
+  }
 }

@@ -7,6 +7,8 @@ import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
 import { REFUND_STATUSES } from '@/lib/config/refund';
 import { z } from 'zod';
+import { approveAndRefund, RefundExecutionError } from '@/lib/refund/execute';
+import { sendRefundDeniedEmail } from '@/lib/email/billing';
 
 export const runtime = 'nodejs';
 
@@ -57,7 +59,7 @@ export async function GET(req: NextRequest) {
         .select(
           'id, user_id, status, max_usage_pct, usage_snapshot, user_reason, ' +
           'billing_period_start, billing_period_end, stripe_subscription_id, created_at, ' +
-          'quoted_refund_cents, quoted_gross_cents, quoted_fee_cents, amount_paid_cents, proration_lines',
+          'quoted_refund_cents, quoted_gross_cents, quoted_fee_cents, amount_paid_cents, proration_lines, refund_error',
         )
         .in('status', [REFUND_STATUSES.pending, REFUND_STATUSES.flagged])
         .order('created_at', { ascending: false })
@@ -114,7 +116,10 @@ const patchSchema = z.discriminatedUnion('type', [
   z.object({
     type:   z.literal('refund'),
     id:     z.string().uuid(),
-    action: z.enum(['approve', 'deny', 'refunded']),
+    // 'approve' issues the refund in Stripe and ends the plan (lib/refund/execute).
+    // There is no manual 'refunded' action any more: marking a refund done by
+    // hand is how a request said refunded while no money had moved.
+    action: z.enum(['approve', 'deny']),
     note:   z.string().max(2000).optional(),
   }),
 ]);
@@ -155,22 +160,38 @@ export async function PATCH(req: NextRequest) {
     if (fetchError) throw fetchError;
     if (!request) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-    const nextStatus =
-      body.action === 'approve'  ? REFUND_STATUSES.approved
-      : body.action === 'refunded' ? REFUND_STATUSES.refunded
-      : REFUND_STATUSES.denied;
+    let nextStatus: string;
+    let refundInfo: { refundId: string; amountCents: number } | null = null;
 
-    const { error: updateError } = await supabaseAdmin
-      .from('refund_requests')
-      .update({
-        status:        nextStatus,
-        decision_note: body.note ?? null,
-        decided_by:    adminId,
-        decided_at:    now,
-        updated_at:    now,
-      })
-      .eq('id', body.id);
-    if (updateError) throw updateError;
+    if (body.action === 'approve') {
+      try {
+        refundInfo = await approveAndRefund(body.id, adminId, body.note ?? null);
+        nextStatus = REFUND_STATUSES.refunded;
+      } catch (err) {
+        if (err instanceof RefundExecutionError) {
+          return NextResponse.json({ error: err.message }, { status: 409 });
+        }
+        throw err;
+      }
+    } else {
+      const { data: denied, error: updateError } = await supabaseAdmin
+        .from('refund_requests')
+        .update({
+          status:        REFUND_STATUSES.denied,
+          decision_note: body.note ?? null,
+          decided_by:    adminId,
+          decided_at:    now,
+          updated_at:    now,
+        })
+        .eq('id', body.id)
+        .in('status', [REFUND_STATUSES.pending, REFUND_STATUSES.flagged])
+        .select('id');
+      if (updateError) throw updateError;
+      if (!denied?.length) return NextResponse.json({ error: 'This request has already been decided.' }, { status: 409 });
+      nextStatus = REFUND_STATUSES.denied;
+      // Never throws. The decision note is internal and is not included.
+      await sendRefundDeniedEmail(request.user_id as string);
+    }
 
     // No release on deny any more.
     //
@@ -202,10 +223,10 @@ export async function PATCH(req: NextRequest) {
 
     console.log(`⚖️ Refund ${body.id} -> ${nextStatus} by admin=${adminId}`);
 
-    // NOTE: this records the decision only. The Stripe refund is still issued
-    // by hand from the Stripe dashboard - see the header of
-    // app/api/refund/request/route.ts for why that is deliberate.
-    return NextResponse.json({ success: true, status: nextStatus });
+    // A person still decides every refund (see app/api/refund/request); once
+    // they approve, the money, the plan and the record all follow from that
+    // one click.
+    return NextResponse.json({ success: true, status: nextStatus, refund: refundInfo });
   } catch (err) {
     console.error('❌ admin review PATCH error:', err);
     return NextResponse.json({ error: 'Failed to record decision' }, { status: 500 });

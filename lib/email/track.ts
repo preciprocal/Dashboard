@@ -21,6 +21,7 @@ export type EmailType =
   | 'billing_receipt'
   | 'billing_pack_receipt'
   | 'billing_refund'
+  | 'billing_refund_denied'
   | 'billing_trial_ending'
   | 'billing_renewal'
   | 'billing_payment_failed'

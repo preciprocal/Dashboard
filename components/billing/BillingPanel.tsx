@@ -204,8 +204,10 @@ export default function BillingPanel() {
             </div>
           ) : (
             <div className="flex items-center justify-between gap-3">
-              <p className="text-sm text-slate-400">
-                {sub.status === 'trialing' ? `Free trial until ${day(endsOn)}.` : `Renews on ${day(endsOn)}.`}
+              <p className={`text-sm ${sub.status === 'past_due' || sub.status === 'unpaid' ? 'text-amber-300' : 'text-slate-400'}`}>
+                {sub.status === 'past_due' || sub.status === 'unpaid'
+                  ? 'Your last payment did not go through. Pay the invoice marked Due below to keep your plan.'
+                  : sub.status === 'trialing' ? `Free trial until ${day(endsOn)}.` : `Renews on ${day(endsOn)}.`}
               </p>
               <button type="button" onClick={() => setConfirmCancel(true)}
                 className="text-xs text-slate-400 hover:text-red-300 cursor-pointer flex-shrink-0">
