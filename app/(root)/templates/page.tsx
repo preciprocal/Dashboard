@@ -43,7 +43,30 @@ interface Template {
 const TemplateCard: React.FC<{ template: Template }> = ({ template }) => {
   const router = useRouter();
   const [isStarting,   setIsStarting]   = useState(false);
+  // Saved to the browser under the key Profile > Saved reads
+  // (app/(root)/profile/page.tsx). It used to toggle on screen only.
   const [isBookmarked, setIsBookmarked] = useState(false);
+  // Read after mount: the server render has no localStorage, and reading it
+  // during render would make the two disagree.
+  useEffect(() => {
+    let saved = false;
+    try { saved = (JSON.parse(localStorage.getItem('bookmarkedTemplates') || '[]') as { id: string }[]).some(t => String(t.id) === template.id); }
+    catch { /* storage blocked */ }
+    if (saved) void Promise.resolve().then(() => setIsBookmarked(true));
+  }, [template.id]);
+  const toggleBookmark = () => {
+    const next = !isBookmarked;
+    setIsBookmarked(next);
+    try {
+      const list = (JSON.parse(localStorage.getItem('bookmarkedTemplates') || '[]') as { id: string }[]).filter(t => String(t.id) !== template.id);
+      if (next) list.unshift({
+        id: template.id, title: template.role, role: template.role, category: template.category, description: template.description,
+        techstack: template.techstack, difficulty: template.difficulty, type: template.type, duration: template.duration,
+        questions: template.questions, rating: template.rating,
+      } as { id: string });
+      localStorage.setItem('bookmarkedTemplates', JSON.stringify(list.slice(0, 100)));
+    } catch { /* storage blocked: the on-screen state still changes */ }
+  };
 
   const handleStartInterview = async () => {
     setIsStarting(true);
@@ -104,7 +127,8 @@ const TemplateCard: React.FC<{ template: Template }> = ({ template }) => {
           <p className="text-slate-400 text-xs leading-relaxed line-clamp-2">{template.description}</p>
         </div>
         <button
-          onClick={() => setIsBookmarked(!isBookmarked)}
+          onClick={toggleBookmark}
+          aria-label={isBookmarked ? 'Remove from saved' : 'Save template'}
           className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all cursor-pointer ${
             isBookmarked
               ? 'bg-purple-500/15 border border-purple-500/25 text-purple-400'

@@ -229,7 +229,12 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("❌ activate error:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Internal error" },
+      { error: err instanceof Stripe.errors.StripeCardError && err.message
+          // Card errors are written for customers ("Your card was declined.").
+          ? err.message
+          : // This can fail after the charge went through; the Stripe webhook then
+            // applies the plan on its own, so say that rather than "not charged".
+            "Something went wrong finishing your upgrade. If your card was charged, your plan turns on automatically within a few minutes; if not, please try again." },
       { status: 500 }
     );
   }

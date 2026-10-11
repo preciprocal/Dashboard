@@ -329,8 +329,8 @@ export function generateDynamicAIRecommendations(
               users: "12K readers"
             },
             {
-              title: "Effective Communication for Interviews",
-              url: "https://www.coursera.org/learn/professional-interview-skills",
+              title: "Interview Skills Courses",
+              url: "https://www.coursera.org/search?query=interview%20skills",
               type: "course",
               rating: 4.5,
               users: "45K students"
@@ -441,8 +441,8 @@ export function generateDynamicAIRecommendations(
         confidence: 85,
         resources: [
           {
-            title: "Interview Performance Analysis",
-            url: "https://www.themuse.com/advice/what-to-do-when-interviews-arent-going-well",
+            title: "Common Interview Questions and How to Answer Them",
+            url: "https://www.themuse.com/advice/interview-questions-and-answers",
             type: "article",
             rating: 4.4,
             users: "8K readers"
@@ -630,7 +630,7 @@ export function generateDynamicAIRecommendations(
         resources: [
           {
             title: "Strategic Job Search Guide",
-            url: "https://www.linkedin.com/business/talent/blog/talent-acquisition/strategic-job-search",
+            url: "https://www.indeed.com/career-advice/finding-a-job",
             type: "article",
             rating: 4.6,
             users: "80K readers"

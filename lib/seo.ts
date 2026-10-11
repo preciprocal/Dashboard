@@ -21,7 +21,7 @@ export const SITE = {
     "Preciprocal is the AI-powered job search platform that auto-fills applications, optimizes your resume for ATS, and runs realistic AI mock interviews - all in one place.",
 
   twitterHandle: "@preciprocal",
-  ogImage: "/og-default.png", // 1200×630 in /public
+  ogImage: "/og-image.png", // 1200×630 in /public
 } as const;
 
 interface PageMetaInput {
@@ -95,10 +95,10 @@ export function buildMetadata({
     icons: {
       icon: [
         { url: "/favicon.ico" },
-        { url: "/icon-32.png", sizes: "32x32", type: "image/png" },
-        { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+        { url: "/favicon.svg", type: "image/svg+xml" },
+        { url: "/favicon-96x96.png", sizes: "96x96", type: "image/png" },
       ],
-      apple: [{ url: "/apple-icon.png", sizes: "180x180" }],
+      apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
     },
   };
 }

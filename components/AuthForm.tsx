@@ -63,6 +63,9 @@ const AuthForm = ({ type }: { type: FormType }) => {
         "You were signed out because your account reached its device limit. Sign in again to continue on this device.",
       oauth_failed:
         "We couldn't complete that sign-in. Please try again, or use your email and password.",
+      // app/auth/confirm: an expired or already-used confirmation or reset link.
+      link_invalid:
+        "That link has expired or was already used. Sign in below, or use \"Forgot password?\" to get a new one.",
     };
 
     const key = searchParams.get("error") ?? searchParams.get("reason");

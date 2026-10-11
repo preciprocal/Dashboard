@@ -130,7 +130,7 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
                          hover:shadow-[0_6px_28px_rgba(102,126,234,0.4)]
                          transition-all group"
             >
-              Go Unlimited
+              Get More
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </Link>
             <span className="text-[10px] text-slate-600">Cancel anytime · Instant access</span>
@@ -368,7 +368,7 @@ export default function CoverLetterGeneratorPage() {
         const target = companyName.trim() ? `${jobRole.trim()} at ${companyName.trim()}` : jobRole.trim();
         await NotificationService.createNotification(user.id, 'cover_letter', 'Cover Letter Saved ✅',
           `Your cover letter for ${target} has been saved.`,
-          { actionUrl: `/cover-letter/${id}`, actionLabel: 'View Letter' });
+          { actionUrl: `/cover-letter?open=${id}`, actionLabel: 'View Letter' });
       }
     } catch { toast.error('Failed to save cover letter'); }
     finally { setIsSaving(false); }

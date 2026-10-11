@@ -116,7 +116,7 @@ function buildSteps(trigger: NextStepTrigger, ctx: NextStepContext): Step[] {
           headline: 'Write a targeted cover letter',
           sub: 'Your resume is ready. A tailored cover letter using the same job description doubles your callback rate.',
           cta: 'Generate Cover Letter',
-          href: '/cover-letter/generate',
+          href: '/cover-letter/create',
           isPrimary: false,
         },
         {
@@ -186,7 +186,7 @@ function buildSteps(trigger: NextStepTrigger, ctx: NextStepContext): Step[] {
           headline: `Write a cover letter for ${co}`,
           sub: `You\'ve committed to applying. A targeted letter takes 30 seconds to generate here and meaningfully improves your odds.`,
           cta: 'Generate Cover Letter',
-          href: '/cover-letter/generate',
+          href: '/cover-letter/create',
           isPrimary: true,
         },
         {
@@ -259,7 +259,7 @@ function buildSteps(trigger: NextStepTrigger, ctx: NextStepContext): Step[] {
           headline: `Keep applying - generate your next cover letter`,
           sub: `Don\'t pause your search while you prep. Keep the pipeline moving with a tailored letter for your next target.`,
           cta: 'Generate Cover Letter',
-          href: '/cover-letter/generate',
+          href: '/cover-letter/create',
           isPrimary: false,
         },
       ];
@@ -317,7 +317,7 @@ function buildSteps(trigger: NextStepTrigger, ctx: NextStepContext): Step[] {
           headline: `Write a cover letter for ${co}`,
           sub: `You\'ve opened the door. Now have the cover letter ready for when they reply and ask for one.`,
           cta: 'Generate Cover Letter',
-          href: '/cover-letter/generate',
+          href: '/cover-letter/create',
           isPrimary: false,
         },
       ];

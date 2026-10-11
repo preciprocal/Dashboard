@@ -336,7 +336,7 @@ function JobToolsContent() {
               <Link href="/" className="glass-button-primary hover-lift inline-flex items-center px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-medium text-sm sm:text-base w-full justify-center">
                 Go to Dashboard
               </Link>
-              <a href="https://chrome.google.com/webstore" target="_blank" rel="noopener noreferrer"
+              <a href="https://chromewebstore.google.com/detail/iiomkjnpkaefapdajnabiljngkjddmoi?utm_source=app" target="_blank" rel="noopener noreferrer"
                 className="glass-button hover-lift inline-flex items-center px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-medium text-sm sm:text-base w-full justify-center">
                 Get Chrome Extension
               </a>

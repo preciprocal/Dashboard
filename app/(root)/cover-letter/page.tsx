@@ -625,6 +625,10 @@ export default function CoverLetterDashboard() {
         .map(l => ({ ...l, createdAt: new Date(l.createdAt) }))
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
       setCoverLetters(letters);
+      // ?open=<id>, from the "View Letter" notification: open that letter.
+      const openId = new URLSearchParams(window.location.search).get('open');
+      const toOpen = openId ? letters.find(l => l.id === openId) : undefined;
+      if (toOpen) { setSelectedLetter(toOpen); setShowPreview(true); }
       setLoadingStep(3);
       setStats(computeStats(letters));
       setLoadingStep(4);

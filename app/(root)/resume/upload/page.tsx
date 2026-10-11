@@ -152,7 +152,7 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
                          hover:shadow-[0_6px_28px_rgba(102,126,234,0.4)]
                          transition-all group"
             >
-              Go Unlimited
+              Get More
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </Link>
             <span className="text-[10px] text-slate-600">

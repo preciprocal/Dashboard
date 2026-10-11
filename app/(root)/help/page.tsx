@@ -1016,7 +1016,7 @@ function HelpSupportContent() {
                       <Clock className="w-4 h-4 text-green-400 flex-shrink-0" />
                       <div>
                         <p className="text-xs text-slate-500">Response Time</p>
-                        <p className="text-white font-medium text-xs sm:text-sm">Within 24 hours</p>
+                        <p className="text-white font-medium text-xs sm:text-sm">Within 24 hours on Premium</p>
                       </div>
                     </div>
                   </div>
@@ -1122,7 +1122,7 @@ function HelpSupportContent() {
                                          focus:outline-none focus:border-purple-500/40 transition-colors glass-scrollbar"
                             />
                             <div className="flex items-center justify-between mt-2.5">
-                              <p className="text-sm text-slate-600">We typically reply within 24 hours.</p>
+                              <p className="text-sm text-slate-600">We reply by email. Premium plans get a reply within 24 hours.</p>
                               <button
                                 onClick={handleUserReply}
                                 disabled={isReplying || !replyText.trim()}

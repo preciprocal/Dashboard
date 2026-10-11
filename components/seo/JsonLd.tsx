@@ -13,11 +13,9 @@ export function OrganizationJsonLd() {
     name: SITE.name,
     url: SITE.marketing,
     logo: `${SITE.marketing}/logo.png`,
-    sameAs: [
-      "https://twitter.com/preciprocal",
-      "https://www.linkedin.com/company/preciprocal",
-      // Add real handles
-    ],
+    // Only profiles that exist. The placeholder Twitter and LinkedIn URLs
+    // here returned 404, which search engines read as a broken entity.
+    sameAs: ["https://preciprocal.com"],
   };
 
   return (

@@ -51,7 +51,7 @@ const PLANS: Plan[] = [
       // The extension is deliberately NOT gated by plan (see extension/upsell.js),
       // so advertising it as "limited" on Free promised a restriction that does
       // not exist in the code.
-      { text: "Chrome extension (autofill + job tracker)" },
+      { text: "Chrome extension" },
       { text: "Basic analytics" },
     ],
   },
@@ -65,11 +65,9 @@ const PLANS: Plan[] = [
     popular: true,
     features: [
       ...planFeatureLines("pro"),
-      { text: "Chrome extension (full)" },
       { text: "Resume editor + PDF & Word export",  highlight: true },
       { text: "Recruiter eye simulation",           highlight: true },
       { text: "Full analytics dashboard" },
-      { text: "Priority AI responses" },
       { text: "Students: 1 month free with a .edu email", highlight: true },
     ],
   },
@@ -82,11 +80,8 @@ const PLANS: Plan[] = [
     border: "border-purple-500/30",
     features: [
       ...planFeatureLines("premium"),
-      { text: "Chrome extension (full)" },
       { text: "Resume editor + PDF & Word export",  highlight: true },
-      { text: "Priority AI responses",              highlight: true },
       { text: "Priority support (24hr SLA)",        highlight: true },
-      { text: "Early access to new features" },
     ],
   },
   {

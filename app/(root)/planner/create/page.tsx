@@ -75,7 +75,7 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
         <div>
           <h2 className="text-xl font-bold text-white mb-2">Study Plan Limit Reached</h2>
           <p className="text-sm text-slate-500 max-w-xs mx-auto leading-relaxed">
-            You&apos;ve used {used} of {limit} free study plans this month. Upgrade to Pro for unlimited plans.
+            You&apos;ve used {used} of {limit} free study plans this month. Upgrade to Pro for 10 a month, or Premium for 25.
           </p>
         </div>
         <Link href="/pricing"

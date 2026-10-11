@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Bookmark,
@@ -436,15 +438,7 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
                             <Eye className="w-4 h-4 mr-1" />
                             Preview
                           </Button>
-                          <Button
-                            asChild
-                            size="sm"
-                            className="bg-blue-600 hover:bg-blue-700 text-white"
-                          >
-                            <Link href={`/templates/${template.id}`}>
-                              <span>Practice</span>
-                            </Link>
-                          </Button>
+                          <PracticeButton templateId={template.id} />
                         </div>
                       </div>
                     </div>
@@ -549,7 +543,7 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
                             size="sm"
                             className="bg-green-600 hover:bg-green-700 text-white"
                           >
-                            <Link href={`/help?article=${blog.id}`}>
+                            <Link href="https://preciprocal.com/blog" target="_blank" rel="noopener noreferrer">
                               <span>Read</span>
                             </Link>
                           </Button>
@@ -784,3 +778,29 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
 };
 
 export default ProfileSaved;
+// Starts a mock interview from a saved template, the same way the Templates
+// page does. It used to link to /templates/[id], which does not exist.
+function PracticeButton({ templateId }: { templateId: string }) {
+  const router = useRouter();
+  const [starting, setStarting] = useState(false);
+  const start = async () => {
+    setStarting(true);
+    try {
+      const res = await fetch('/api/templates/interview', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ templateId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.interviewId) throw new Error(data.error || 'Could not start the interview');
+      router.push(`/interview/${data.interviewId}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not start the interview');
+      setStarting(false);
+    }
+  };
+  return (
+    <Button size="sm" onClick={start} disabled={starting} className="bg-blue-600 hover:bg-blue-700 text-white">
+      {starting ? 'Starting…' : 'Practice'}
+    </Button>
+  );
+}

@@ -313,7 +313,7 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
           </div>
           <div className="flex items-center gap-3">
             <Link href="/pricing" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-[0_4px_20px_rgba(124,58,237,0.3)] hover:shadow-[0_6px_28px_rgba(124,58,237,0.4)] transition-all group">
-              Go Unlimited <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+              Get More <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </Link>
             <span className="text-[10px] text-slate-600">Cancel anytime · Instant access</span>
           </div>

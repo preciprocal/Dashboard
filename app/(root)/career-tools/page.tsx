@@ -439,7 +439,7 @@ function UpgradeGate({ feature, used, limit }: { feature: 'linkedin' | 'outreach
           </div>
           <div className="flex items-center gap-3">
             <Link href="/pricing" className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all group ${isLI ? 'bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-500 hover:to-violet-500 shadow-[0_4px_20px_rgba(59,130,246,0.3)]' : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-[0_4px_20px_rgba(16,185,129,0.3)]'}`}>
-              Go Unlimited <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+              Get More <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </Link>
             <span className="text-[10px] text-slate-600">Cancel anytime · Instant access</span>
           </div>

@@ -231,7 +231,7 @@ export const NotificationService = {
       userId, 'cover_letter',
       'Cover Letter Ready 📝',
       `Your cover letter for ${companyName} has been generated!`,
-      { actionUrl: `/cover-letter/${coverLetterId}`, actionLabel: 'View Letter', metadata: { coverLetterId } }
+      { actionUrl: `/cover-letter?open=${coverLetterId}`, actionLabel: 'View Letter', metadata: { coverLetterId } }
     );
   },
 

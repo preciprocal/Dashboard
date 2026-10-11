@@ -99,7 +99,10 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("❌ create-subscription error:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Internal error" },
+      { error: err instanceof Stripe.errors.StripeCardError && err.message
+          // Card errors are written for customers ("Your card was declined.").
+          ? err.message
+          : "Something went wrong setting up your plan. You have not been charged; please try again." },
       { status: 500 }
     );
   }

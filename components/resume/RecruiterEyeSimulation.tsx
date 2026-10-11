@@ -121,7 +121,7 @@ export default function RecruiterEyeSimulation({
         if (errData.code === 'USAGE_LIMIT') {
           toast.error(errData.error || 'Usage limit reached', {
             duration: 5000,
-            description: 'Upgrade your plan for unlimited access',
+            description: 'Upgrade your plan for more each month',
           });
           return;
         }

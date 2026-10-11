@@ -219,13 +219,10 @@ const ProfilePage = () => {
       } catch { return []; }
     };
     setSavedTemplates(parseArr<SavedTemplate>(localStorage.getItem('bookmarkedTemplates')));
-    const blogIds: string[] = parseArr<{ id: string }>(localStorage.getItem('bookmarkedPosts')).map(x => x.id);
-    setBookmarkedBlogs(blogIds.map(id => ({
-      id, title: `How to Ace Your Interview: Advanced Tips ${id}`,
-      excerpt: 'Comprehensive guide covering advanced interview techniques…',
-      category: 'career-tips', author: 'Career Expert', publishDate: '2025-01-10',
-      readTime: '8 min read', tags: ['Career', 'Interview Tips', 'Success'], savedAt: new Date().toISOString(),
-    })));
+    // Articles cannot be bookmarked in the app, and this used to invent a
+    // title and summary for any id it found. Nothing shown is better than
+    // something made up.
+    setBookmarkedBlogs([]);
     setUserCreatedContent({
       blogs:            parseArr<BookmarkedBlog>(localStorage.getItem('userPosts')),
       templates:        parseArr<SavedTemplate>(localStorage.getItem('userTemplates')),
