@@ -724,7 +724,7 @@ export default function SettingsPage() {
                         <p className="text-slate-500 text-xs mt-1">
                           {plan.tier === 'admin'
                             ? 'Uncapped on every feature, granted by admin status rather than a subscription'
-                            : `${plan.limits.interviews} mock interviews · ${plan.limits.resumes} resume analyses per month`}
+                            : `${plan.limits.interviews} mock interview${plan.limits.interviews === 1 ? '' : 's'} · ${plan.limits.resumes} resume analys${plan.limits.resumes === 1 ? 'is' : 'es'} per month`}
                         </p>
                       </>
                     )}
@@ -934,7 +934,7 @@ export default function SettingsPage() {
                   <div>
                     <p className="text-orange-300 text-sm font-medium">Manual review required</p>
                     <p className="text-slate-400 text-xs mt-1 leading-relaxed">
-                      Because your account may have an active subscription, we handle closure requests manually to ensure billing is correctly resolved and all your data is fully removed per GDPR / CCPA.
+                      We handle closures by hand so that any paid plan is cancelled and all your data is fully removed, as GDPR and CCPA require. We confirm each step by email.
                     </p>
                   </div>
                 </div>

@@ -254,6 +254,30 @@ const PAGE_CONFIGS: Record<string, PageConfig> = {
     freePlaceholder: "What would make tracking your applications faster or more organized?",
   },
 
+  debrief: {
+    title: "Interview Journal Feedback",
+    subtitle: "Help us improve your interview journal",
+    overallQuestion: "How useful is the Interview Journal for you?",
+    featureRatings: [
+      { id: "logging", label: "Logging an interview", icon: <FileText className="w-3.5 h-3.5" /> },
+      { id: "analysis", label: "AI analysis", icon: <Sparkles className="w-3.5 h-3.5" /> },
+      { id: "insights", label: "Patterns and insights", icon: <BarChart3 className="w-3.5 h-3.5" /> },
+    ],
+    usageLabel: "What do you use it for?",
+    usageOptions: ["Remembering questions", "Tracking outcomes", "Preparing for the next round", "Spotting patterns"],
+    improvementOptions: [
+      "Faster logging",
+      "Better AI analysis",
+      "More insight across interviews",
+      "Reminders to log interviews",
+      "Easier navigation",
+    ],
+    specificQuestions: [
+      { id: "helps_prepare", label: "The journal helps me prepare for my next interview" },
+      { id: "would_recommend", label: "I would recommend Preciprocal to a friend in job search" },
+    ],
+    freePlaceholder: "What would make the journal more useful?",
+  },
   global: {
     title: "Quick Feedback",
     subtitle: "Help us improve Preciprocal",
@@ -387,30 +411,31 @@ export default function UsersFeedback({
   // Step 3
   const [freeText, setFreeText] = useState("");
 
-  // Check for prior submission for this user+page
+  // Opens only when the page asks for it (forceOpen), which pages do after
+  // someone has actually used the feature. It used to also open itself four
+  // seconds after any visit, so a brand-new user was asked to rate a cover
+  // letter they had never generated, in a modal they could not close.
   useEffect(() => {
-    if (forceOpen) { setIsOpen(true); return; }
-    if (!user) return;
-
-    const check = async () => {
-      try {
-        const res = await fetch(`/api/userfeedback?page=${encodeURIComponent(page)}`);
-        const { alreadySubmitted } = await res.json();
-        if (alreadySubmitted) return;
-        const t = setTimeout(() => setIsOpen(true), 4000);
-        return () => clearTimeout(t);
-      } catch {
-        // don't block on error
-      }
-    };
-
-    check();
+    if (!forceOpen || !user) return;
+    let live = true;
+    fetch(`/api/userfeedback?page=${encodeURIComponent(page)}`)
+      .then(r => r.json())
+      .then(({ alreadySubmitted }: { alreadySubmitted?: boolean }) => { if (live && !alreadySubmitted) setIsOpen(true); })
+      .catch(() => { /* no feedback prompt is better than a broken one */ });
+    return () => { live = false; };
   }, [forceOpen, user, page]);
 
   const handleClose = useCallback(() => {
     setIsOpen(false);
     onClose?.();
   }, [onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") handleClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen, handleClose]);
 
   const toggleUsage = (opt: string) =>
     setUsageSelected((prev) => prev.includes(opt) ? prev.filter((o) => o !== opt) : [...prev, opt]);
@@ -474,9 +499,10 @@ export default function UsersFeedback({
               <p className="text-slate-500 text-xs">{config.subtitle}</p>
             </div>
           </div>
-          <div className="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700">
-            <span className="text-slate-500 text-xs">Required</span>
-          </div>
+          <button type="button" onClick={handleClose} aria-label="Close feedback"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer">
+            <span aria-hidden="true" className="text-lg leading-none">&times;</span>
+          </button>
         </div>
 
         {/* Step indicator */}

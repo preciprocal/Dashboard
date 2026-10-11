@@ -7,7 +7,7 @@ import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import {
   AlertCircle, Search, X, Play, Loader2,
-  BookmarkCheck, Bookmark, Star, Users, Clock,
+  BookmarkCheck, Bookmark, Users, Clock,
   MessageSquare, Filter, ChevronDown, Sparkles, ArrowLeft,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -141,13 +141,11 @@ const TemplateCard: React.FC<{ template: Template }> = ({ template }) => {
 
       {/* Stats row */}
       <div className="px-5 pb-4 flex items-center gap-3 text-xs text-slate-500 flex-wrap">
-        <div className="flex items-center gap-1">
-          <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-          <span className="text-white font-medium">{template.rating}</span>
-        </div>
+        {/* The rating and completion figures in the template list are not
+            measured from real use, so they are not shown. */}
         <div className="flex items-center gap-1">
           <Users className="w-3.5 h-3.5" />
-          <span>{template.completions.toLocaleString()}</span>
+          <span>{template.questions} questions</span>
         </div>
         <div className="flex items-center gap-1">
           <Clock className="w-3.5 h-3.5" />
@@ -319,8 +317,8 @@ export default function TemplatesPage() {
   const stats = useMemo(() => ({
     total:            templateData.length,
     categories:       categories.length - 1,
-    avgRating:        (templateData.reduce((s, t) => s + t.rating, 0) / templateData.length).toFixed(1),
-    totalCompletions: templateData.reduce((s, t) => s + t.completions, 0),
+    technical:        templateData.filter(t => t.type === 'Technical').length,
+    behavioral:       templateData.filter(t => t.type === 'Behavioral').length,
   }), []);
 
   const resetFilters = () => {
@@ -365,12 +363,11 @@ export default function TemplatesPage() {
           {[
             { value: `${stats.total}+`,                                          label: 'Templates'   },
             { value: `${stats.categories}`,                                      label: 'Categories'  },
-            { value: stats.avgRating, label: 'Avg Rating', star: true },
-            { value: `${(stats.totalCompletions / 1000).toFixed(0)}k+`,          label: 'Completions' },
+            { value: `${stats.technical}`,                                       label: 'Technical'   },
+            { value: `${stats.behavioral}`,                                      label: 'Behavioral'  },
           ].map(s => (
             <div key={s.label} className="bg-slate-800/40 border border-white/[0.06] rounded-xl p-3 sm:p-4">
               <div className="flex items-center gap-1 mb-0.5">
-                {'star' in s && s.star && <Star className="w-4 h-4 text-amber-400 fill-amber-400" />}
                 <span className="text-xl font-bold text-white">{s.value}</span>
               </div>
               <p className="text-xs text-slate-500">{s.label}</p>

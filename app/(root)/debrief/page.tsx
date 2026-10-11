@@ -1305,7 +1305,7 @@ export default function InterviewDebriefPage() {
       )}
 
       <UsersFeedback
-        page="interviews"
+        page="debrief"
         forceOpen={showFeedback}
         onClose={() => setShowFeedback(false)}
       />
