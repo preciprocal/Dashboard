@@ -38,6 +38,13 @@ interface Template {
   tags?: string[];
 }
 
+// Saved templates live in the browser under the key Profile > Saved reads.
+const SAVED_EVENT = 'preciprocal:saved-templates';
+function readSavedIds(): Set<string> {
+  try { return new Set((JSON.parse(localStorage.getItem('bookmarkedTemplates') || '[]') as { id: string }[]).map(t => String(t.id))); }
+  catch { return new Set(); }
+}
+
 // ─── Template Card ────────────────────────────────────────────────────────────
 
 const TemplateCard: React.FC<{ template: Template }> = ({ template }) => {
@@ -65,6 +72,7 @@ const TemplateCard: React.FC<{ template: Template }> = ({ template }) => {
         questions: template.questions, rating: template.rating,
       } as { id: string });
       localStorage.setItem('bookmarkedTemplates', JSON.stringify(list.slice(0, 100)));
+      window.dispatchEvent(new Event(SAVED_EVENT));
     } catch { /* storage blocked: the on-screen state still changes */ }
   };
 
@@ -282,13 +290,26 @@ export default function TemplatesPage() {
   const [selectedType,       setSelectedType]       = useState('All');
   const [selectedDuration,   setSelectedDuration]   = useState('All');
   const [showFilters,        setShowFilters]        = useState(false);
+  const [view,               setView]               = useState<'all' | 'saved'>('all');
+  const [savedIds,           setSavedIds]           = useState<Set<string>>(() => new Set());
+
+  // Read after mount (no localStorage on the server), and again whenever a
+  // card is saved or removed, here or in another tab.
+  useEffect(() => {
+    const sync = () => setSavedIds(readSavedIds());
+    void Promise.resolve().then(sync);
+    window.addEventListener(SAVED_EVENT, sync);
+    window.addEventListener('storage', sync);
+    if (new URLSearchParams(window.location.search).get('view') === 'saved') void Promise.resolve().then(() => setView('saved'));
+    return () => { window.removeEventListener(SAVED_EVENT, sync); window.removeEventListener('storage', sync); };
+  }, []);
 
   useEffect(() => {
     if (!loading && !user) router.push('/sign-in');
   }, [user, loading, router]);
 
   const filteredTemplates = useMemo(() => {
-    let f = templateData;
+    let f = view === 'saved' ? templateData.filter(t => savedIds.has(t.id)) : templateData;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       f = f.filter(t =>
@@ -312,7 +333,7 @@ export default function TemplatesPage() {
       });
     }
     return f;
-  }, [searchQuery, selectedCategory, selectedDifficulty, selectedType, selectedDuration]);
+  }, [searchQuery, selectedCategory, selectedDifficulty, selectedType, selectedDuration, view, savedIds]);
 
   const stats = useMemo(() => ({
     total:            templateData.length,
@@ -375,6 +396,19 @@ export default function TemplatesPage() {
           ))}
         </div>
 
+        {/* All / Saved */}
+        <div role="tablist" aria-label="Templates" className="inline-flex gap-1 p-1 mb-4 rounded-xl bg-slate-800/50 border border-white/[0.06]">
+          {([['all', 'All templates', templateData.length], ['saved', 'Saved', savedIds.size]] as const).map(([id, label, n]) => (
+            <button key={id} role="tab" aria-selected={view === id} onClick={() => setView(id)}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                view === id ? 'bg-purple-600/25 text-white border border-purple-500/30' : 'text-slate-400 hover:text-white border border-transparent'}`}>
+              {id === 'saved' && <BookmarkCheck className="w-3.5 h-3.5" />}
+              {label}
+              <span className={`text-xs tabular-nums ${view === id ? 'text-purple-200' : 'text-slate-500'}`}>{n}</span>
+            </button>
+          ))}
+        </div>
+
         {/* Search */}
         <div className="relative mb-4">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
@@ -425,11 +459,27 @@ export default function TemplatesPage() {
       {/* ── Results count ── */}
       <p className="text-slate-500 text-sm px-1">
         Showing <span className="text-white font-semibold">{filteredTemplates.length}</span> of{' '}
-        <span className="text-white font-semibold">{templateData.length}</span> templates
+        <span className="text-white font-semibold">{view === 'saved' ? savedIds.size : templateData.length}</span> {view === 'saved' ? 'saved templates' : 'templates'}
       </p>
 
       {/* ── Grid ── */}
-      {filteredTemplates.length === 0 ? (
+      {view === 'saved' && savedIds.size === 0 ? (
+        <div className="glass-card p-12 text-center">
+          <div className="w-14 h-14 bg-slate-800/60 border border-white/[0.06] rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <Bookmark className="w-7 h-7 text-slate-500" />
+          </div>
+          <h3 className="text-lg font-semibold text-white mb-2">No saved templates yet</h3>
+          <p className="text-slate-400 text-sm mb-5 max-w-xs mx-auto">
+            Tap the bookmark on any template to keep it here for later practice.
+          </p>
+          <button onClick={() => setView('all')}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white
+                       bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500
+                       transition-all cursor-pointer">
+            Browse templates
+          </button>
+        </div>
+      ) : filteredTemplates.length === 0 ? (
         <div className="glass-card p-12 text-center">
           <div className="w-14 h-14 bg-slate-800/60 border border-white/[0.06] rounded-2xl flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="w-7 h-7 text-slate-500" />

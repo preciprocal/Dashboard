@@ -848,7 +848,7 @@ export default function SettingsPage() {
                 <ol className="space-y-3">
                   {[
                     { step: 1, text: <span>Click <strong className="text-white">&quot;Connect Extension&quot;</strong> above to generate your auth token</span> },
-                    { step: 2, text: <span>Install the <strong className="text-white">Preciprocal Chrome Extension</strong> from the Chrome Web Store</span> },
+                    { step: 2, text: <span>Install the <a href="https://chromewebstore.google.com/detail/iiomkjnpkaefapdajnabiljngkjddmoi?utm_source=app-settings" target="_blank" rel="noopener noreferrer" className="text-white font-semibold underline decoration-indigo-400/50 underline-offset-2 hover:decoration-indigo-300">Preciprocal Chrome Extension</a> from the <a href="https://chromewebstore.google.com/detail/iiomkjnpkaefapdajnabiljngkjddmoi?utm_source=app-settings" target="_blank" rel="noopener noreferrer" className="text-indigo-300 hover:text-indigo-200 underline underline-offset-2">Chrome Web Store</a></span> },
                     { step: 3, text: <span>Token auto-syncs to your extension - or paste it manually in the extension popup</span> },
                     { step: 4, text: <span>Navigate to any <strong className="text-white">LinkedIn job posting</strong></span> },
                     { step: 5, text: <span>Click the <strong className="text-white">Preciprocal icon</strong> in your toolbar to analyze the job</span> },
