@@ -178,9 +178,17 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // The last moment a request for THIS billing month is accepted. Each month
+    // stands alone: once its window closes it can no longer be refunded.
+    const windowStart = a.sub.current_period_start ?? a.sub.last_payment_at;
+    const requestBy = windowStart
+      ? new Date(new Date(windowStart).getTime() + REFUND_WINDOW_DAYS * 86_400_000).toISOString()
+      : null;
+
     if (!a.eligibility.eligible) {
       return NextResponse.json({
         eligible: false,
+        requestBy,
         code: a.eligibility.ineligibleReason,
         // Explains rather than denies silently, per Task 2 item 1.
         reason: explainIneligibility(
@@ -195,6 +203,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       eligible: true,
+      requestBy,
       plan: a.planKey,
       amountPaidCents: a.proration.amountPaidCents,
       refundCents: a.proration.netRefundCents,

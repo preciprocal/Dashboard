@@ -1000,8 +1000,8 @@ export default function PricingPage() {
                 policy does not offer: light or no use is not eligible. A
                 guarantee we would refuse to honour is a misleading claim. */}
             Pay for what helps. If you have used more than half your mock interviews and Preciprocal still
-            is not working for you, you can ask for back the value of the plan you did not use, within
-            30 days of paying. <span className="text-white font-semibold">Fair refunds, no fine print.</span>
+            is not working for you, you can ask for back the value of the plan you did not use. Ask within
+            30 days of that month&apos;s payment. <span className="text-white font-semibold">Fair refunds, no fine print.</span>
           </p>
         </div>
 

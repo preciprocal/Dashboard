@@ -32,12 +32,32 @@ interface RequestRow {
   stripe_subscription_id: string | null;
   stripe_customer_id: string | null;
   stripe_refund_id: string | null;
+  billing_period_start: string | null;
 }
 
-async function refundablePayment(subscriptionId: string): Promise<{ paymentIntentId: string; refundableCents: number }> {
-  const invoices = await stripe.invoices.list({ subscription: subscriptionId, status: 'paid', limit: 10 });
-  for (const inv of invoices.data) {
-    if (inv.amount_paid <= 0) continue;
+/**
+ * The payment for the billing period the customer asked about. A request can
+ * be approved days after it was made, possibly after the next renewal; taking
+ * simply the newest payment would then refund the wrong month. Matches on the
+ * invoice's period start (within 36 hours, to absorb timezone and proration
+ * edges), and only falls back to the newest refundable payment when the
+ * request has no period on record.
+ */
+async function refundablePayment(subscriptionId: string, periodStart: string | null): Promise<{ paymentIntentId: string; refundableCents: number }> {
+  const target = periodStart ? Math.floor(new Date(periodStart).getTime() / 1000) : null;
+  const invoices = await stripe.invoices.list({ subscription: subscriptionId, status: 'paid', limit: 24 });
+  const candidates = invoices.data.filter(inv => inv.amount_paid > 0);
+  const ordered = target === null
+    ? candidates
+    : candidates.filter(inv => {
+        const start = inv.lines.data[0]?.period?.start ?? inv.period_start;
+        return Math.abs(start - target) <= 36 * 3600;
+      });
+  if (target !== null && ordered.length === 0) {
+    throw new RefundExecutionError('No paid invoice matches the billing period this request was made for.');
+  }
+
+  for (const inv of ordered) {
     const payments = await stripe.invoicePayments.list({ invoice: inv.id!, limit: 5 });
     for (const p of payments.data) {
       const piRef = p.payment?.payment_intent;
@@ -49,7 +69,7 @@ async function refundablePayment(subscriptionId: string): Promise<{ paymentInten
       if (refundable > 0) return { paymentIntentId: piId, refundableCents: refundable };
     }
   }
-  throw new RefundExecutionError('No paid, refundable payment was found on this subscription.');
+  throw new RefundExecutionError('The payment for this billing period has already been fully refunded.');
 }
 
 export async function approveAndRefund(requestId: string, adminId: string, note: string | null): Promise<{
@@ -66,7 +86,7 @@ export async function approveAndRefund(requestId: string, adminId: string, note:
     .update({ status: REFUND_STATUSES.approved, decided_by: adminId, decided_at: now, decision_note: note, refund_error: null, updated_at: now })
     .eq('id', requestId)
     .in('status', [REFUND_STATUSES.pending, REFUND_STATUSES.flagged])
-    .select('id, user_id, status, quoted_refund_cents, stripe_subscription_id, stripe_customer_id, stripe_refund_id')
+    .select('id, user_id, status, quoted_refund_cents, stripe_subscription_id, stripe_customer_id, stripe_refund_id, billing_period_start')
     .maybeSingle();
   if (claimErr) throw claimErr;
   if (!claimed) throw new RefundExecutionError('This request has already been decided.');
@@ -84,7 +104,7 @@ export async function approveAndRefund(requestId: string, adminId: string, note:
     if (quoted <= 0) throw new RefundExecutionError('The quoted refund is zero, so there is nothing to refund.');
 
     // 2. Refund
-    const { paymentIntentId, refundableCents } = await refundablePayment(req.stripe_subscription_id);
+    const { paymentIntentId, refundableCents } = await refundablePayment(req.stripe_subscription_id, req.billing_period_start);
     const amount = Math.min(quoted, refundableCents);
     const refund = await stripe.refunds.create(
       {

@@ -27,6 +27,8 @@ import { Loader2, AlertCircle, CheckCircle2, RotateCcw, Package } from "lucide-r
 
 interface SubscriptionPreview {
   eligible: boolean;
+  /** ISO; last moment a request for this billing month is accepted. */
+  requestBy?: string | null;
   code?: string;
   reason?: string;
   plan?: string;
@@ -190,6 +192,11 @@ export default function RefundPanel() {
         ) : !sub.eligible ? (
           <div className="space-y-2">
             <p className="text-sm text-slate-300 leading-relaxed">{sub.reason}</p>
+            {sub.requestBy && (
+              <p className="text-xs text-slate-500 mt-2">
+                Refund requests for this billing month close on {new Date(sub.requestBy).toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })}.
+              </p>
+            )}
             {/* Shown when the refusal is usage-based, because "you've used too
                 much" is only fair if the user can see the number. */}
             {typeof sub.interviewUsagePct === "number" && typeof sub.thresholdPct === "number" && (
@@ -219,6 +226,12 @@ export default function RefundPanel() {
               If it is approved, the refund goes back to your card and your paid plan ends, moving your
               account to the Free plan. We email you either way.
             </p>
+            {sub.requestBy && (
+              <p className="text-xs text-amber-300/90 leading-relaxed">
+                Request by {new Date(sub.requestBy).toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })}.
+                After that, this billing month can no longer be refunded.
+              </p>
+            )}
 
             {confirming === "subscription" ? (
               <div className="flex flex-col sm:flex-row gap-2">
