@@ -25,6 +25,7 @@ import { stripe } from '@/lib/stripe/billing';
 import { subscriptionIdOfInvoice } from '@/lib/stripe/compat';
 import { buildUsageSnapshot } from '@/lib/refund/eligibility';
 import { prorateRefund } from '@/lib/refund/proration';
+import { feesFor } from '@/lib/refund/fees';
 import { USAGE_LIMITS, resolvePlanKey } from '@/lib/config/usage-limits';
 import { computeUsagePeriod, pickAnchor } from '@/lib/usage/period';
 import { FIRST_REFUND_WINDOW_DAYS, FIRST_REFUND_MAX_PLAN_USED_PCT, FIRST_REFUND_MAX_FEATURE_USED_PCT, REFUND_STATUSES } from '@/lib/config/refund';
@@ -43,6 +44,8 @@ export type FirstRefundAssessment =
   | {
       eligible: true;
       amountCents: number;
+      paidCents: number;
+      feeCents: number;
       currency: string;
       requestBy: string;
       planUsedPct: number;
@@ -130,8 +133,12 @@ export async function assessFirstPaymentRefund(
   const pi = await stripe.paymentIntents.retrieve(piId, { expand: ['latest_charge'] });
   const charge = pi.latest_charge && typeof pi.latest_charge === 'object' ? pi.latest_charge : null;
   const refundable = (charge?.amount ?? pi.amount_received) - (charge?.amount_refunded ?? 0);
-  if (refundable <= 0) return no('already_refunded', 'This payment has already been refunded.');
-  const cardFingerprint = charge?.payment_method_details?.card?.fingerprint ?? null;
+  if (refundable <= 0 || !charge) return no('already_refunded', 'This payment has already been refunded.');
+  const cardFingerprint = charge.payment_method_details?.card?.fingerprint ?? null;
+  // Stripe keeps its fees on a refund, so they come out of it (lib/refund/fees.ts).
+  const fees = await feesFor(charge, 'subscription');
+  const amountCents = refundable - fees.totalCents;
+  if (amountCents <= 0) return no('nothing_unused', 'After card processing fees there is nothing left to refund on this payment.');
 
   if (cardFingerprint) {
     const { data: card } = await supabaseAdmin.from('refund_requests')
@@ -141,7 +148,9 @@ export async function assessFirstPaymentRefund(
 
   return {
     eligible: true,
-    amountCents: refundable,
+    amountCents,
+    paidCents: refundable,
+    feeCents: fees.totalCents,
     currency: first.currency,
     requestBy,
     planUsedPct,
@@ -171,7 +180,8 @@ export async function executeFirstPaymentRefund(
     stripe_subscription_id: a._subscriptionId,
     billing_period_start: a._periodStart,
     quoted_refund_cents: a.amountCents,
-    amount_paid_cents: a.amountCents,
+    amount_paid_cents: a.paidCents,
+    quoted_fee_cents: a.feeCents,
     card_fingerprint: a._cardFingerprint,
     device_fingerprint: deviceFingerprint,
     usage_snapshot: { planUsedPct: a.planUsedPct },

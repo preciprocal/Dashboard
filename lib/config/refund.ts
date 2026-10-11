@@ -12,13 +12,16 @@ export const REFUND_WINDOW_DAYS = 30;
 
 // ─── The refund policy, as of migration 0049 ────────────────────────────────
 //
-//   1. A full refund of a customer's FIRST payment, on request, within
+// Every refund deducts the Stripe fees on the payment (lib/refund/fees.ts),
+// which Stripe does not return, so no refund costs us money.
+//
+//   1. A refund of a customer's FIRST payment, minus fees, on request, within
 //      FIRST_REFUND_WINDOW_DAYS of paying, if they used less than
 //      FIRST_REFUND_MAX_PLAN_USED_PCT of the plan. Processed instantly by
 //      lib/refund/first-payment.ts, once per account, card and device.
 //   2. Otherwise, at any point in the current billing month: a refund of the
 //      unused part of THIS month's payment, weighted by what each feature
-//      costs, with no card fee deducted. Processed instantly by
+//      costs, minus Stripe's fees. Processed instantly by
 //      lib/refund/unused-credits.ts; the plan ends. Once every
 //      UNUSED_REFUND_EVERY_DAYS per account, card and device.
 //   3. Last month's payment cannot be refunded once a new month starts.
@@ -103,6 +106,14 @@ export const ELIGIBILITY_GATE_FEATURE = 'interviews' as const;
  */
 export const STRIPE_FEE_PERCENT = 0.029;
 export const STRIPE_FEE_FIXED_CENTS = 30;
+
+/**
+ * Stripe Billing's usage fee on subscription payments (pay-as-you-go
+ * pricing). Not refunded by Stripe and not on the charge itself, so every
+ * subscription refund deducts it (lib/refund/fees.ts). Update if the Stripe
+ * plan changes.
+ */
+export const STRIPE_BILLING_FEE_PERCENT = 0.007;
 
 /** Stripe's fee on a charge, in cents, from the standard model. */
 export function estimateStripeFeeCents(amountCents: number): number {

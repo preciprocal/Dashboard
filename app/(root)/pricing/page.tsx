@@ -999,8 +999,8 @@ export default function PricingPage() {
                 (first-payment refund, migration 0049). Keep the two in step:
                 a refund promise we would not honour is a misleading claim. */}
             Start on the Free plan and upgrade when it is earning its place. If you change your mind, ask any
-            time in your billing month and we refund the part of it you have not used, with nothing taken off
-            for card fees. Barely used it in your first 7 days? You get the whole first payment back. <span className="text-white font-semibold">No tricks, no fine print.</span>
+            time in your billing month and we refund the part of it you have not used, less the card
+            processing fees. Barely used it in your first 7 days? You get your first payment back, less those fees. <span className="text-white font-semibold">No tricks, no fine print.</span>
           </p>
         </div>
 

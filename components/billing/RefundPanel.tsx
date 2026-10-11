@@ -41,6 +41,7 @@ interface SubscriptionPreview {
   note?: string;
   existingRequest?: { id: string; status: string; createdAt: string };
   planUsedPct?: number | null;
+  grossCents?: number;
   type?: "full" | "unused";
   availableUntil?: string | null;
   nextEligibleAt?: string | null;
@@ -207,22 +208,29 @@ export default function RefundPanel() {
               <span className="text-2xl font-bold text-white">{money(sub.refundCents)}</span>
               <span className="text-xs text-slate-500">
                 {sub.type === "full"
-                  ? "full refund of your first payment"
+                  ? "back from your first payment"
                   : `back from your ${money(sub.amountPaidCents)} payment this month`}
               </span>
             </div>
+            {/* The deduction is shown before anyone asks, never discovered after. */}
+            {typeof sub.feeCents === "number" && typeof sub.grossCents === "number" && (
+              <p className="text-xs text-slate-500">
+                {money(sub.grossCents)} {sub.type === "full" ? "paid" : "unused"} &minus; {money(sub.feeCents)} in card and billing
+                fees, which our payment provider keeps on every payment and does not return on a refund.
+              </p>
+            )}
 
             {/* Stated before the button, so nobody is surprised by what it does. */}
             <p className="text-xs text-slate-400 leading-relaxed">
               {sub.type === "full"
-                ? "Changed your mind? You can get your whole first payment back."
-                : `You have used about ${sub.planUsedPct ?? 0}% of your plan this month, so you can get back the part you have not used. Nothing is taken off for card fees.`}
+                ? "Changed your mind? You can get your first payment back, less the processing fees."
+                : `You have used about ${sub.planUsedPct ?? 0}% of your plan this month, so you can get back the part you have not used, less the processing fees.`}
               {" "}It is refunded straight away, your paid plan ends, and your account moves to the Free plan.
             </p>
             {sub.availableUntil && (
               <p className="text-xs text-amber-300/90 leading-relaxed">
                 {sub.type === "full"
-                  ? `The full refund is available until ${fmtDate(sub.availableUntil)}.`
+                  ? `The first-payment refund is available until ${fmtDate(sub.availableUntil)}.`
                   : `Available until your billing month ends on ${fmtDate(sub.availableUntil)}. Once a new month starts, this month's payment can no longer be refunded.`}
                 {sub.policy && sub.type === "unused" ? ` You can get an unused-credits refund once every ${sub.policy.unusedRefundEveryMonths} months.` : ""}
               </p>
@@ -267,8 +275,8 @@ export default function RefundPanel() {
             <h3 className="text-white font-semibold text-sm sm:text-base">Credit packs</h3>
           </div>
           <p className="text-xs text-slate-500 mb-4">
-            Unused packs can be returned within {windowDays} days. We send the money back straight away;
-            your bank usually takes 5 to 10 business days to show it.
+            Unused packs can be returned within {windowDays} days, minus the card processing fee. We send
+            the money back straight away; your bank usually takes 5 to 10 business days to show it.
           </p>
 
           <ul className="space-y-3">

@@ -4,7 +4,8 @@
 //
 //   amount  = this month's payment x the share of the plan not used, where
 //             every feature is weighted by what it costs to provide
-//             (lib/refund/proration.ts). No card fee is deducted.
+//             (lib/refund/proration.ts), minus the Stripe fees on the payment
+//             (lib/refund/fees.ts), which Stripe does not return.
 //   effect  = processed at once; the paid plan ends and the account moves to
 //             Free through the webhook, as for any cancellation
 //   limit   = once every UNUSED_REFUND_EVERY_DAYS per account, card and device,
@@ -25,6 +26,7 @@ import { stripe } from '@/lib/stripe/billing';
 import { periodOf } from '@/lib/stripe/compat';
 import { buildUsageSnapshot } from '@/lib/refund/eligibility';
 import { prorateRefund } from '@/lib/refund/proration';
+import { feesFor } from '@/lib/refund/fees';
 import { computeUsagePeriod, pickAnchor } from '@/lib/usage/period';
 import { USAGE_LIMITS, resolvePlanKey } from '@/lib/config/usage-limits';
 import { UNUSED_REFUND_EVERY_DAYS, UNUSED_REFUND_MIN_CENTS, REFUND_STATUSES } from '@/lib/config/refund';
@@ -37,6 +39,8 @@ export type UnusedRefundAssessment =
       eligible: true;
       amountCents: number;
       amountPaidCents: number;
+      unusedCents: number;
+      feeCents: number;
       currency: string;
       planUsedPct: number;
       periodEndsAt: string;
@@ -101,8 +105,8 @@ export async function assessUnusedCreditsRefund(
   const pi = await stripe.paymentIntents.retrieve(piId, { expand: ['latest_charge'] });
   const charge = pi.latest_charge && typeof pi.latest_charge === 'object' ? (pi.latest_charge as Stripe.Charge) : null;
   const refundable = (charge?.amount ?? pi.amount_received) - (charge?.amount_refunded ?? 0);
-  if (refundable <= 0) return no('already_refunded', 'This month\'s payment has already been refunded.');
-  const cardFingerprint = charge?.payment_method_details?.card?.fingerprint ?? null;
+  if (refundable <= 0 || !charge) return no('already_refunded', 'This month\'s payment has already been refunded.');
+  const cardFingerprint = charge.payment_method_details?.card?.fingerprint ?? null;
 
   // ── Frequency limit ─────────────────────────────────────────────────────
   const last = await recentRefund(supabaseUserId, deviceFingerprint, cardFingerprint);
@@ -121,17 +125,23 @@ export async function assessUnusedCreditsRefund(
   const share = unusedShare ?? 1;
   const planUsedPct = Math.round((1 - share) * 100);
   const amountPaid = current.amount_paid;
-  const amount = Math.min(refundable, Math.floor(amountPaid * share));
+  const unusedCents = Math.min(refundable, Math.floor(amountPaid * share));
+  // Stripe keeps its fees on a refund, so they come out of it (lib/refund/fees.ts):
+  // we keep exactly the value used, and the fees are covered.
+  const fees = await feesFor(charge, 'subscription');
+  const amount = unusedCents - fees.totalCents;
 
   if (amount < UNUSED_REFUND_MIN_CENTS) {
     return no('nothing_unused',
-      `You have used about ${planUsedPct}% of your plan this month, so there is nothing meaningful left to refund. You can cancel any time and keep your plan to the end of the month.`,
+      `You have used about ${planUsedPct}% of your plan this month, so after card processing fees there is nothing meaningful left to refund. You can cancel any time and keep your plan to the end of the month.`,
       { planUsedPct });
   }
 
   return {
     eligible: true,
     amountCents: amount,
+    unusedCents,
+    feeCents: fees.totalCents,
     amountPaidCents: amountPaid,
     currency: current.currency,
     planUsedPct,
@@ -161,6 +171,8 @@ export async function executeUnusedCreditsRefund(
     billing_period_start: a._periodStart,
     quoted_refund_cents: a.amountCents,
     amount_paid_cents: a.amountPaidCents,
+    quoted_gross_cents: a.unusedCents,
+    quoted_fee_cents: a.feeCents,
     max_usage_pct: a.planUsedPct,
     card_fingerprint: a._cardFingerprint,
     device_fingerprint: deviceFingerprint,

@@ -29,6 +29,7 @@ import { getAuthedUser } from "@/lib/auth/verify-request";
 import { applyRateLimit } from "@/lib/ai/rate-limit";
 import { supabaseAdmin } from "@/supabase/admin";
 import { PACKS, type PackKey } from "@/lib/config/packs";
+import { feesFor } from "@/lib/refund/fees";
 
 export const runtime = "nodejs";
 
@@ -153,9 +154,19 @@ export async function POST(req: NextRequest) {
     }
 
     try {
+      // Stripe keeps its card fee on a refund, so it comes out of the refund
+      // (lib/refund/fees.ts). Packs are not subscriptions, so no Billing fee.
+      const pi = await stripe.paymentIntents.retrieve(row.stripe_payment_intent_id, { expand: ["latest_charge"] });
+      const charge = pi.latest_charge && typeof pi.latest_charge === "object" ? (pi.latest_charge as Stripe.Charge) : null;
+      if (!charge) throw new Error("No charge found for this pack payment");
+      const fees = await feesFor(charge, "pack");
+      const refundCents = charge.amount - charge.amount_refunded - fees.totalCents;
+      if (refundCents <= 0) throw new Error("Nothing left to refund after fees");
+
       const refund = await stripe.refunds.create(
         {
           payment_intent: row.stripe_payment_intent_id,
+          amount: refundCents,
           reason: "requested_by_customer",
           metadata: { packId: row.id, packKey: row.pack_key, userId: supabaseUserId, kind: "pack" },
         },
@@ -167,7 +178,8 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({
         refunded: true,
-        amountCents: row.price_cents,
+        amountCents: refundCents,
+        feeCents: fees.totalCents,
         refundId: refund.id,
       });
     } catch (stripeErr) {

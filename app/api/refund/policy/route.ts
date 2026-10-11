@@ -49,31 +49,32 @@ export async function GET() {
         summary:
           `In your first ${FIRST_REFUND_WINDOW_DAYS} days, if you have used less than ` +
           `${FIRST_REFUND_MAX_PLAN_USED_PCT}% of your plan and no feature more than ` +
-          `${FIRST_REFUND_MAX_FEATURE_USED_PCT}%, your whole first payment back.`,
+          `${FIRST_REFUND_MAX_FEATURE_USED_PCT}%, your first payment back, less processing fees.`,
       },
       unusedCredits: {
         availableDuring: 'current_billing_month',
         previousMonthsRefundable: false,
         measuredBy: 'cost_weighted_share_of_plan',
-        retainsProcessingFee: false,
+        retainsProcessingFee: true,
         everyMonths: Math.round(UNUSED_REFUND_EVERY_DAYS / 30),
         endsPlan: true,
         summary:
           'Any time in your billing month, on request, a refund of the part of that ' +
-          "month's payment you have not used, with no card fee deducted. Once every " +
+          "month's payment you have not used, less the card processing and billing fees. Once every " +
           `${Math.round(UNUSED_REFUND_EVERY_DAYS / 30)} months.`,
       },
       calculation: {
         method: 'full_first_payment_or_unused_share',
-        retainsProcessingFee: false,
-        summary: "Either the whole first payment, or the unused share of this month's payment.",
+        retainsProcessingFee: true,
+        feesDeducted: ['card_processing_fee_as_charged', 'stripe_billing_fee'],
+        summary: "Either the first payment, or the unused share of this month's payment, less the payment provider's fees, which it does not return on refunds.",
       },
       processing: {
         automaticApproval: true,
         humanReviewed: false,
         payoutBusinessDays: '5-10',
       },
-      packs: { windowDays: 7, unusedOnly: true, fullRefund: true },
+      packs: { windowDays: 7, unusedOnly: true, fullRefund: false, lessProcessingFee: true },
 
       fee: {
         percent: STRIPE_FEE_PERCENT,
