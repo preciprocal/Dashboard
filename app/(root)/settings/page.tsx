@@ -10,6 +10,7 @@ import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import ExtensionConnection from '@/components/ExtensionConnection';
 import RefundPanel from '@/components/billing/RefundPanel';
 import AutoPayPanel from '@/components/billing/AutoPayPanel';
+import BillingPanel from '@/components/billing/BillingPanel';
 import DevicesPanel from '@/components/settings/DevicesPanel';
 import {
   USAGE_LIMITS, FEATURE_NAMES, isUnlimited, type FeatureType,
@@ -896,6 +897,14 @@ export default function SettingsPage() {
               </div>
 
               <BillingNewsletterBlock />
+            </SectionCard>
+
+            <SectionCard>
+              <SectionHeader icon={CreditCard} iconColor="text-indigo-400" iconBg="bg-indigo-500/10 border-indigo-500/20"
+                title="Payment and invoices" subtitle="Your card, your plan's renewal, and every invoice" />
+              <div className="p-5">
+                <BillingPanel />
+              </div>
             </SectionCard>
 
             <SectionCard>

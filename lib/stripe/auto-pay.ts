@@ -96,7 +96,7 @@ export async function setAutoPay(
     throw new AutoPayError('This subscription has ended, so there is nothing to change.');
   }
   if (autoPay && !hasDefaultPaymentMethod(sub)) {
-    throw new AutoPayError('Add a card under Manage billing first, then turn auto pay on.');
+    throw new AutoPayError('Add a card under Payment and invoices first, then turn auto pay on.');
   }
 
   await stripe.subscriptions.update(subscriptionId, {

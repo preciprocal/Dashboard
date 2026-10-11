@@ -1,7 +1,7 @@
 // components/billing/AutoPayPanel.tsx
 // Settings > Plan & Billing: turn auto pay on or off for the current
 // subscription. Backed by /api/subscription/auto-pay; what each state means in
-// Stripe is in lib/stripe/auto-pay.ts.
+// Stripe is in lib/stripe/auto-pay.ts. Card and invoices are in BillingPanel.
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
@@ -22,7 +22,6 @@ interface State {
 export default function AutoPayPanel() {
   const [state, setState] = useState<State | null>(null);
   const [saving, setSaving] = useState(false);
-  const [openingPortal, setOpeningPortal] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -53,23 +52,6 @@ export default function AutoPayPanel() {
       toast.error(err instanceof Error ? err.message : 'Could not change auto pay');
     } finally {
       setSaving(false);
-    }
-  };
-
-  const openPortal = async () => {
-    setOpeningPortal(true);
-    try {
-      const res = await fetch('/api/subscription/create-portal-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ returnUrl: `${window.location.origin}/settings?section=billing` }),
-      });
-      const body = await res.json();
-      if (!res.ok || !body.url) throw new Error(body.error ?? 'Could not open billing');
-      window.location.href = body.url;
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not open billing');
-      setOpeningPortal(false);
     }
   };
 
@@ -125,14 +107,10 @@ export default function AutoPayPanel() {
 
       {!state.hasPaymentMethod && (
         <p className="text-xs text-amber-300">
-          There is no card saved for automatic payments. Add one under Manage billing before turning auto pay on.
+          There is no card saved for automatic payments. Add one under Payment and invoices above before turning auto pay on.
         </p>
       )}
 
-      <button type="button" onClick={openPortal} disabled={openingPortal}
-        className="text-xs text-indigo-300 hover:text-indigo-200 cursor-pointer disabled:opacity-50">
-        {openingPortal ? 'Opening…' : 'Manage billing: cards, invoices and receipts'}
-      </button>
     </div>
   );
 }
