@@ -1,7 +1,15 @@
 // lib/billing/invoice-pdf.ts
-// Our own invoice PDF, replacing Stripe's. Built from the Stripe invoice
-// object, so every number matches what was actually billed; only the layout
-// and branding are ours. Served by /api/billing/invoices/[id]/pdf.
+// Our own invoice and receipt PDF, replacing Stripe's. Built from the Stripe
+// invoice object, so every number matches what was actually billed; only the
+// layout and branding are ours. Served by /api/billing/invoices/[id]/pdf.
+//
+// ─── Design ─────────────────────────────────────────────────────────────────
+// The app's dark header (the same #05070c / indigo-to-purple accent as the
+// product and its emails) over a white body, because this is a document
+// people print and file: a fully dark page wastes ink and photocopies badly.
+// Type is the app's own: Inter for text, Space Grotesk for the amount, both
+// embedded from lib/billing/fonts (SIL Open Font License), so the PDF looks
+// the same in every viewer instead of falling back to Helvetica.
 //
 // Seller details come from env, because the Stripe account's business profile
 // is not always what belongs on a legal document (the test account's says
@@ -15,16 +23,58 @@
 // is a placeholder ("address_full_match"), and a legal document should only
 // say what someone deliberately put there.
 
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { jsPDF } from 'jspdf';
 import type Stripe from 'stripe';
 import { emailAppUrl } from '@/lib/email/app-url';
 import { LOGO_PNG_DATA_URL } from '@/lib/billing/logo-data';
 
-const BRAND = '#6366f1';
-const INK = '#0f172a';
-const MUTED = '#64748b';
-const RULE = '#e2e8f0';
+// ─── Palette, matched to the app ─────────────────────────────────────────────
+const C = {
+  base: '#05070c',     // header band
+  surface: '#0d1117',
+  accent: '#818cf8',   // indigo-400, labels on dark
+  brand: '#6366f1',
+  purple: '#a855f7',
+  onDark: '#ffffff',
+  onDarkMuted: '#94a3b8',
+  ink: '#0f172a',
+  body: '#334155',
+  muted: '#64748b',
+  rule: '#e2e8f0',
+  panel: '#f8fafc',
+  paid: '#059669', paidBg: '#ecfdf5',
+  open: '#b45309', openBg: '#fffbeb',
+} as const;
 
+// ─── Fonts ───────────────────────────────────────────────────────────────────
+// Read once per server instance. next.config.ts traces lib/billing/fonts into
+// this route's bundle (outputFileTracingIncludes).
+const FONT_FILES = [
+  ['Inter-Regular.ttf', 'Inter', 'normal'],
+  ['Inter-Medium.ttf', 'Inter', 'medium'],
+  ['Inter-SemiBold.ttf', 'Inter', 'semibold'],
+  ['Inter-Bold.ttf', 'Inter', 'bold'],
+  ['SpaceGrotesk-Bold.ttf', 'SpaceGrotesk', 'bold'],
+] as const;
+
+let fontCache: { file: string; family: string; style: string; data: string }[] | null | undefined;
+function loadFonts() {
+  if (fontCache !== undefined) return fontCache;
+  try {
+    const dir = join(process.cwd(), 'lib', 'billing', 'fonts');
+    fontCache = FONT_FILES.map(([file, family, style]) => ({ file, family, style, data: readFileSync(join(dir, file)).toString('base64') }));
+  } catch (err) {
+    console.error('⚠️ invoice fonts missing, falling back to Helvetica:', err);
+    fontCache = null;
+  }
+  return fontCache;
+}
+
+type Weight = 'normal' | 'medium' | 'semibold' | 'bold';
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 const fmt = (cents: number, currency: string) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: currency.toUpperCase() }).format(cents / 100);
 const day = (unix: number | null | undefined) =>
@@ -42,131 +92,187 @@ function seller(): { name: string; lines: string[] } {
   return { name: process.env.BILLING_LEGAL_NAME || 'Preciprocal', lines };
 }
 
+const hex = (h: string) => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)) as [number, number, number];
+
 export async function renderInvoicePdf(invoice: Stripe.Invoice): Promise<Buffer> {
   const from = seller();
-  const logoData = LOGO_PNG_DATA_URL;
   const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+  const fonts = loadFonts();
+  if (fonts) {
+    for (const f of fonts) {
+      doc.addFileToVFS(f.file, f.data);
+      doc.addFont(f.file, f.family, f.style);
+    }
+  }
+  const sans = (w: Weight = 'normal') => {
+    if (fonts) doc.setFont('Inter', w);
+    else doc.setFont('helvetica', w === 'normal' || w === 'medium' ? 'normal' : 'bold');
+    return doc;
+  };
+  const display = () => { if (fonts) doc.setFont('SpaceGrotesk', 'bold'); else doc.setFont('helvetica', 'bold'); return doc; };
+  /** Small caps label, letter-spaced like the app's section labels. */
+  const label = (text: string, x: number, y: number, color: string = C.muted, align: 'left' | 'right' = 'left') => {
+    sans('semibold').setFontSize(7.5).setTextColor(color).setCharSpace(1.1);
+    doc.text(text.toUpperCase(), x, y, { align });
+    doc.setCharSpace(0);
+  };
+
   const W = doc.internal.pageSize.getWidth();
-  const M = 48;
+  const H = doc.internal.pageSize.getHeight();
+  const M = 52;
   const right = W - M;
   const paid = invoice.status === 'paid';
   const cur = invoice.currency;
-  let y = M;
+  const kind = paid ? 'Receipt' : 'Invoice';
 
-  // ── Header ────────────────────────────────────────────────────────────────
-  if (logoData) {
-    try { doc.addImage(logoData, 'PNG', M, y - 4, 32, 32); } catch { /* fall back to wordmark only */ }
+  // ── Header band ───────────────────────────────────────────────────────────
+  const bandH = 138;
+  doc.setFillColor(C.base).rect(0, 0, W, bandH, 'F');
+  // The accent edge, indigo to purple, as on the app's cards and emails.
+  const steps = 80;
+  const [r1, g1, b1] = hex(C.brand), [r2, g2, b2] = hex(C.purple);
+  for (let i = 0; i < steps; i++) {
+    const t = i / (steps - 1);
+    doc.setFillColor(Math.round(r1 + (r2 - r1) * t), Math.round(g1 + (g2 - g1) * t), Math.round(b1 + (b2 - b1) * t));
+    doc.rect((W / steps) * i, bandH, W / steps + 0.5, 3, 'F');
   }
-  doc.setFont('helvetica', 'bold').setFontSize(18).setTextColor(INK);
-  doc.text('Preciprocal', logoData ? M + 42 : M, y + 18);
-  doc.setFontSize(22).setTextColor(BRAND);
-  doc.text(paid ? 'Receipt' : 'Invoice', right, y + 18, { align: 'right' });
-  y += 52;
 
-  doc.setDrawColor(BRAND).setLineWidth(2).line(M, y, right, y);
-  y += 26;
+  let hy = 50;
+  if (LOGO_PNG_DATA_URL) {
+    try { doc.addImage(LOGO_PNG_DATA_URL, 'PNG', M, hy - 22, 34, 34); } catch { /* wordmark only */ }
+  }
+  const wordX = LOGO_PNG_DATA_URL ? M + 44 : M;
+  sans('bold').setFontSize(17).setTextColor(C.onDark).text('Preciprocal', wordX, hy);
+  sans().setFontSize(8.5).setTextColor(C.onDarkMuted).text('app.preciprocal.com', wordX, hy + 13);
 
-  // ── Meta, seller, customer ────────────────────────────────────────────────
+  label(kind, right, hy - 12, C.accent, 'right');
+  const headAmount = paid ? invoice.amount_paid : invoice.amount_due;
+  display().setFontSize(30).setTextColor(C.onDark).text(fmt(headAmount, cur), right, hy + 20, { align: 'right' });
+  const headNote = paid
+    ? `Paid${invoice.status_transitions?.paid_at ? ` ${day(invoice.status_transitions.paid_at)}` : ''}`
+    : `Due${invoice.due_date ? ` ${day(invoice.due_date)}` : ' on receipt'}`;
+  sans().setFontSize(9).setTextColor(C.onDarkMuted).text(headNote, right, hy + 36, { align: 'right' });
+
+  hy = bandH - 26;
+  sans('medium').setFontSize(9).setTextColor(C.onDarkMuted)
+    .text(`${kind} ${invoice.number ?? invoice.id ?? ''}`, M, hy);
+
+  // ── Details ───────────────────────────────────────────────────────────────
+  let y = bandH + 44;
+  const colW = (right - M) / 3;
+  const cols = [M, M + colW, M + colW * 2];
+
   const meta: [string, string][] = [
-    ['Invoice number', invoice.number ?? invoice.id ?? ''],
-    ['Date issued', day(invoice.status_transitions?.finalized_at ?? invoice.created) ?? ''],
-    ...(invoice.due_date && !paid ? [['Due date', day(invoice.due_date)!] as [string, string]] : []),
-    ...(paid && invoice.status_transitions?.paid_at ? [['Date paid', day(invoice.status_transitions.paid_at)!] as [string, string]] : []),
+    ['Number', invoice.number ?? invoice.id ?? ''],
+    ['Issued', day(invoice.status_transitions?.finalized_at ?? invoice.created) ?? ''],
+    ...(paid && invoice.status_transitions?.paid_at ? [['Paid', day(invoice.status_transitions.paid_at)!] as [string, string]] : []),
+    ...(!paid && invoice.due_date ? [['Due', day(invoice.due_date)!] as [string, string]] : []),
   ];
-  doc.setFontSize(9);
+  label('Details', cols[0], y);
   meta.forEach(([k, v], i) => {
-    doc.setFont('helvetica', 'normal').setTextColor(MUTED).text(k, M, y + i * 15);
-    doc.setFont('helvetica', 'bold').setTextColor(INK).text(v, M + 92, y + i * 15);
+    const ly = y + 18 + i * 15;
+    sans().setFontSize(9).setTextColor(C.muted).text(k, cols[0], ly);
+    sans('medium').setFontSize(9).setTextColor(C.ink).text(v, cols[0] + 46, ly);
   });
 
-  const colX = W / 2 + 20;
-  doc.setFont('helvetica', 'bold').setFontSize(9).setTextColor(MUTED).text('FROM', colX, y);
-  doc.setFont('helvetica', 'bold').setTextColor(INK).text(from.name, colX, y + 15);
-  doc.setFont('helvetica', 'normal');
-  from.lines.forEach((l, i) => doc.text(l, colX, y + 30 + i * 13));
-  doc.text('support@preciprocal.com', colX, y + 30 + from.lines.length * 13);
+  const billTo = [invoice.customer_name, invoice.customer_email, ...addressLines(invoice.customer_address)]
+    .filter((v): v is string => Boolean(v));
+  label('Billed to', cols[1], y);
+  billTo.forEach((l, i) => {
+    sans(i === 0 ? 'semibold' : 'normal').setFontSize(9.5).setTextColor(i === 0 ? C.ink : C.body);
+    doc.text(doc.splitTextToSize(l, colW - 14)[0] as string, cols[1], y + 18 + i * 14);
+  });
 
-  y += Math.max(meta.length * 15, 45 + from.lines.length * 13) + 22;
+  label('From', cols[2], y);
+  const fromLines = [from.name, ...from.lines, 'support@preciprocal.com'];
+  fromLines.forEach((l, i) => {
+    sans(i === 0 ? 'semibold' : 'normal').setFontSize(9.5).setTextColor(i === 0 ? C.ink : C.body).text(l, cols[2], y + 18 + i * 14);
+  });
 
-  const billTo = [
-    invoice.customer_name,
-    invoice.customer_email,
-    ...addressLines(invoice.customer_address),
-  ].filter((v): v is string => Boolean(v));
-  doc.setFont('helvetica', 'bold').setTextColor(MUTED).text('BILL TO', M, y);
-  doc.setFont('helvetica', 'normal').setTextColor(INK);
-  billTo.forEach((l, i) => doc.text(l, M, y + 15 + i * 13));
-  y += 15 + Math.max(billTo.length, 1) * 13 + 26;
+  y += 18 + Math.max(meta.length * 15, billTo.length * 14, fromLines.length * 14) + 22;
 
-  // ── Amount banner ─────────────────────────────────────────────────────────
-  const headline = paid
-    ? `${fmt(invoice.amount_paid, cur)} paid${invoice.status_transitions?.paid_at ? ` on ${day(invoice.status_transitions.paid_at)}` : ''}`
-    : `${fmt(invoice.amount_due, cur)} due${invoice.due_date ? ` by ${day(invoice.due_date)}` : ''}`;
-  doc.setFont('helvetica', 'bold').setFontSize(15).setTextColor(INK).text(headline, M, y);
-  y += 28;
+  // Status pill
+  const pill = paid ? { text: 'PAID', fg: C.paid, bg: C.paidBg } : { text: invoice.status === 'void' ? 'VOID' : 'UNPAID', fg: C.open, bg: C.openBg };
+  sans('bold').setFontSize(7.5).setCharSpace(1);
+  const pw = doc.getTextWidth(pill.text) + 22;
+  doc.setFillColor(pill.bg).roundedRect(M, y - 12, pw, 18, 9, 9, 'F');
+  doc.setTextColor(pill.fg).text(pill.text, M + pw / 2, y, { align: 'center' });
+  doc.setCharSpace(0);
+  y += 26;
 
   // ── Line items ────────────────────────────────────────────────────────────
-  doc.setFontSize(8.5).setTextColor(MUTED).setFont('helvetica', 'bold');
-  doc.text('DESCRIPTION', M, y);
-  doc.text('QTY', right - 150, y, { align: 'right' });
-  doc.text('AMOUNT', right, y, { align: 'right' });
-  y += 8;
-  doc.setDrawColor(RULE).setLineWidth(0.75).line(M, y, right, y);
-  y += 18;
+  const qtyX = right - 130;
+  doc.setFillColor(C.panel).rect(M, y - 13, right - M, 24, 'F');
+  label('Description', M + 12, y + 2);
+  label('Qty', qtyX, y + 2, C.muted, 'right');
+  label('Amount', right - 12, y + 2, C.muted, 'right');
+  y += 30;
 
-  doc.setFontSize(10);
   for (const line of invoice.lines.data) {
     const desc = (line.description ?? 'Preciprocal subscription').replace(/^\d+ × /, '');
-    const wrapped = doc.splitTextToSize(desc, right - 200 - M) as string[];
-    doc.setFont('helvetica', 'normal').setTextColor(INK);
-    doc.text(wrapped, M, y);
-    doc.text(String(line.quantity ?? 1), right - 150, y, { align: 'right' });
-    doc.text(fmt(line.amount, cur), right, y, { align: 'right' });
+    sans('medium').setFontSize(10).setTextColor(C.ink);
+    const wrapped = doc.splitTextToSize(desc, qtyX - M - 60) as string[];
+    doc.text(wrapped, M + 12, y);
+    sans().setTextColor(C.body).text(String(line.quantity ?? 1), qtyX, y, { align: 'right' });
+    sans('medium').setTextColor(C.ink).text(fmt(line.amount, cur), right - 12, y, { align: 'right' });
     let h = wrapped.length * 13;
     if (line.period?.start && line.period?.end && line.period.end > line.period.start) {
-      doc.setFontSize(8.5).setTextColor(MUTED).text(`${day(line.period.start)} to ${day(line.period.end)}`, M, y + h);
-      doc.setFontSize(10);
+      sans().setFontSize(8.5).setTextColor(C.muted).text(`${day(line.period.start)} to ${day(line.period.end)}`, M + 12, y + h);
       h += 12;
     }
-    y += h + 12;
-    doc.setDrawColor(RULE).line(M, y - 6, right, y - 6);
-    y += 6;
+    y += h + 10;
+    doc.setDrawColor(C.rule).setLineWidth(0.6).line(M, y, right, y);
+    y += 20;
   }
 
   // ── Totals ────────────────────────────────────────────────────────────────
-  const totals: [string, string, boolean?][] = [['Subtotal', fmt(invoice.subtotal, cur)]];
+  const totals: { k: string; v: string; strong?: boolean }[] = [{ k: 'Subtotal', v: fmt(invoice.subtotal, cur) }];
   for (const d of invoice.total_discount_amounts ?? []) {
-    if (d.amount > 0) totals.push(['Discount', `-${fmt(d.amount, cur)}`]);
+    if (d.amount > 0) totals.push({ k: 'Discount', v: `-${fmt(d.amount, cur)}` });
   }
   for (const t of invoice.total_taxes ?? []) {
-    if (t.amount > 0) totals.push(['Tax', fmt(t.amount, cur)]);
+    if (t.amount > 0) totals.push({ k: t.tax_behavior === 'inclusive' ? 'Tax (included)' : 'Tax', v: fmt(t.amount, cur) });
   }
-  totals.push(['Total', fmt(invoice.total, cur), true]);
-  if (invoice.amount_paid > 0) totals.push(['Amount paid', `-${fmt(invoice.amount_paid, cur)}`]);
-  totals.push([paid ? 'Balance' : 'Amount due', fmt(invoice.amount_remaining, cur), true]);
+  totals.push({ k: 'Total', v: fmt(invoice.total, cur), strong: true });
+  if (invoice.amount_paid > 0) totals.push({ k: 'Amount paid', v: `-${fmt(invoice.amount_paid, cur)}` });
 
-  y += 6;
-  const labelX = right - 190;
-  for (const [k, v, strong] of totals) {
-    doc.setFont('helvetica', strong ? 'bold' : 'normal').setFontSize(10).setTextColor(strong ? INK : MUTED);
-    doc.text(k, labelX, y);
-    doc.setTextColor(INK).text(v, right, y, { align: 'right' });
-    y += 17;
+  const boxX = right - 230;
+  y += 2;
+  for (const t of totals) {
+    if (t.strong) {
+      doc.setDrawColor(C.rule).setLineWidth(0.6).line(boxX, y - 12, right, y - 12);
+      y += 4;
+    }
+    sans(t.strong ? 'semibold' : 'normal').setFontSize(t.strong ? 10.5 : 9.5).setTextColor(t.strong ? C.ink : C.muted).text(t.k, boxX, y);
+    sans(t.strong ? 'semibold' : 'medium').setTextColor(C.ink).text(t.v, right - 12, y, { align: 'right' });
+    y += t.strong ? 22 : 18;
   }
 
-  if (paid) {
-    doc.setDrawColor('#059669').setTextColor('#059669').setLineWidth(1.5);
-    doc.roundedRect(M, y - 48, 70, 26, 4, 4);
-    doc.setFont('helvetica', 'bold').setFontSize(12).text('PAID', M + 35, y - 30, { align: 'center' });
+  // Balance, the one number that matters, on the app's dark surface.
+  const due = invoice.amount_remaining;
+  y += 12;
+  doc.setFillColor(C.base).roundedRect(boxX - 12, y - 14, right - boxX + 12, 34, 6, 6, 'F');
+  sans('semibold').setFontSize(10).setTextColor(C.onDarkMuted).text(paid ? 'Balance' : 'Amount due', boxX, y + 7);
+  display().setFontSize(14).setTextColor(C.onDark).text(fmt(due, cur), right - 12, y + 8, { align: 'right' });
+  y += 48;
+
+  if (!paid && invoice.status !== 'void') {
+    sans().setFontSize(9).setTextColor(C.body).text('Pay this invoice securely online:', M, y);
+    sans('semibold').setTextColor(C.brand).text(`${emailAppUrl()}/billing/invoice/${invoice.id}`, M, y + 14);
   }
 
   // ── Footer ────────────────────────────────────────────────────────────────
-  const H = doc.internal.pageSize.getHeight();
-  doc.setDrawColor(RULE).setLineWidth(0.75).line(M, H - 70, right, H - 70);
-  doc.setFont('helvetica', 'normal').setFontSize(8.5).setTextColor(MUTED);
-  doc.text(`Questions about this ${paid ? 'receipt' : 'invoice'}? Email support@preciprocal.com`, M, H - 52);
-  doc.text('app.preciprocal.com', right, H - 52, { align: 'right' });
-  if (!paid) doc.text(`Pay online: ${emailAppUrl()}/billing/invoice/${invoice.id}`, M, H - 38);
+  doc.setDrawColor(C.rule).setLineWidth(0.6).line(M, H - 72, right, H - 72);
+  sans('semibold').setFontSize(9).setTextColor(C.ink).text('Thank you for using Preciprocal.', M, H - 52);
+  sans().setFontSize(8.5).setTextColor(C.muted)
+    .text(`Questions about this ${kind.toLowerCase()}? Email support@preciprocal.com`, M, H - 38);
+  sans('medium').setFontSize(8.5).setTextColor(C.muted).text('app.preciprocal.com', right, H - 38, { align: 'right' });
+  // Thin accent rule at the very bottom, echoing the header edge.
+  for (let i = 0; i < steps; i++) {
+    const t = i / (steps - 1);
+    doc.setFillColor(Math.round(r1 + (r2 - r1) * t), Math.round(g1 + (g2 - g1) * t), Math.round(b1 + (b2 - b1) * t));
+    doc.rect((W / steps) * i, H - 4, W / steps + 0.5, 4, 'F');
+  }
 
   return Buffer.from(doc.output('arraybuffer'));
 }

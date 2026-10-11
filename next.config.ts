@@ -26,6 +26,11 @@ const nextConfig: NextConfig = {
     ];
   },
 
+  // The invoice PDF reads its embedded fonts from disk (lib/billing/invoice-pdf.ts).
+  outputFileTracingIncludes: {
+    "/api/billing/invoices/**": ["./lib/billing/fonts/**/*"],
+  },
+
   reactStrictMode: true,
 
   // Dev-only build-activity indicator defaults to bottom-left, where it
