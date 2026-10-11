@@ -270,7 +270,7 @@ function CheckoutFormInner({ plan, user, billedAmount, onClose, onVerifyStudent 
               </div>
             </div>
             <div className="relative z-10 flex items-center justify-between pt-6">
-              {[{ icon: "🔒", text: "SSL encrypted" }, { icon: "↩", text: "30-day guarantee" }, { icon: "✕", text: "Cancel anytime" }].map(t => (
+              {[{ icon: "🔒", text: "SSL encrypted" }, { icon: "↩", text: "Fair refund policy" }, { icon: "✕", text: "Cancel anytime" }].map(t => (
                 <span key={t.text} className="flex items-center gap-1.5 text-[11px] text-slate-600">
                   <span>{t.icon}</span>{t.text}
                 </span>
@@ -995,7 +995,13 @@ export default function PricingPage() {
             We only win when <span style={{ background: "linear-gradient(135deg,#6366f1,#a855f7)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>you do.</span>
           </h1>
           <p className="text-slate-400 text-base sm:text-lg max-w-3xl mx-auto leading-relaxed">
-            Most tools charge you and disappear. We offer a <span className="text-white font-semibold">30 day money back guarantee</span> because we&apos;ve seen what Preciprocal does for real people - and we stand behind it completely.
+            {/* Describes the refund policy as enforced in lib/config/refund.ts.
+                It used to promise a "30 day money back guarantee", which the
+                policy does not offer: light or no use is not eligible. A
+                guarantee we would refuse to honour is a misleading claim. */}
+            Pay for what helps. If you have used more than half your mock interviews and Preciprocal still
+            is not working for you, you can ask for back the value of the plan you did not use, within
+            30 days of paying. <span className="text-white font-semibold">Fair refunds, no fine print.</span>
           </p>
         </div>
 
@@ -1169,13 +1175,13 @@ export default function PricingPage() {
         <div className="mt-12 pt-8 border-t border-white/[0.06]">
           <div className="flex flex-wrap justify-center gap-8 text-sm text-slate-400">
             {/* Every claim here has to be one we can actually stand behind.
-                The guarantee is enforced in code (lib/config/refund.ts) and the
+                The refund policy is enforced in code (lib/config/refund.ts) and the
                 data promise matches the Enterprise column. The invented
                 satisfaction stat that used to sit in the third slot was
                 replaced because it was unverifiable, and an unsubstantiated
                 number on a pricing page is a liability rather than an asset. */}
             {[
-              { icon: "🔒", text: "30-day money-back guarantee" },
+              { icon: "↩", text: "Fair, usage-based refunds" },
               { icon: "⚡", text: "Free plan, no card required" },
               { icon: "🛡️", text: "Your data is never sold" },
             ].map(t => (
