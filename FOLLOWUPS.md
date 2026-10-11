@@ -921,68 +921,40 @@ admin tool, a Zap) still posts to it, then deleting the route.
 
 ---
 
-## 29. Audit of 2026-10-11: what was found and left for later
+## 29. MOSTLY RESOLVED - audit of 2026-10-11
 
-A full audit (links, blind spots, ERP, landing site, a signed-in click
-through every page) on 2026-10-11. The high-severity findings were fixed
-in that pass (security holes, account closure, unsubscribe paths, team
-alerts, broken links, the trapping feedback modal, invented stats, open
-redirects, overstated copy). These were found and consciously left:
+Found by a full audit on 2026-10-11; the high-severity items were fixed the
+same day, and the rest of the list in the days after:
 
-**Records and alerts still missing**
-- Disputes are only an admin email: no DB row, no ERP view. A disputed
-  pack's credits are voided without telling the user.
-- `invoice.overdue` is not handled: auto-pay-off customers get one invoice
-  email and no reminder before the plan lapses.
-- Refunds: the user's reason is never stored; a failed Stripe refund
-  deletes its `refund_requests` row; a refund made in the Stripe dashboard
-  on a subscription is not written to `refund_requests`.
-- Password and email changes leave no audit trail and send no "your
-  password was changed" email from the app; `profiles.email` and the
-  Stripe customer email only sync on the next email sign-in.
-- Failed logins are only logged, with the address in plain text.
-- Hard bounces do not opt anyone out (spam complaints now do).
-- Support ticket alerts are fired from the browser, so a closed tab can
-  drop them (the ticket itself is saved).
-- Data export failures ("too large") alert nobody.
+- Records and alerts: disputes stored and kept current (migration 0052,
+  `payment_disputes`), an invoice reminder two days before an emailed
+  invoice is due, refund reasons stored, failed refunds alerted, Stripe
+  dashboard refunds written to `refund_requests`, password and email
+  changes recorded (`account_events`) and emailed, confirmed email changes
+  synced to `profiles.email` and Stripe, failed sign-ins recorded with a
+  hashed address, hard bounces opted out, data exports and closure
+  requests recorded, support alerts sent with keepalive.
+- Half-built: the resume editor imports PDFs for new uploads; unused
+  components with fake content deleted; the product-updates setting says
+  what it covers.
+- Security found on the way: `/api/resume/proxy-pdf` served any user's
+  files without a login; now signed-in and owner-only.
+- Raw error text removed from about 16 API routes.
+- UI: Templates paginates, names come from one place, the extension
+  sign-in page, job application placeholder, Settings tabs on mobile,
+  cover letter button, upload zone and Solutions colours.
+- ERP: Operations panel (disputes, webhook health, deliverability,
+  failed sign-ins), security history per user, logs paging, uncapped
+  analytics, undo scheduled cancellation, coupon load errors, student
+  labels, Teams admin check, no sample meetings, Firebase removed.
+- Landing: AI interview analysis limits shown on the plan cards.
 
-**Half-built**
-- "Product updates" is a toggle for email nothing sends
-  (`app/api/newsletter/subscribe` TODO).
-- The resume editor's PDF import only works for old Firebase resumes;
-  new uploads store a storage path and fall back to plain text.
-- Settings saves privacy/appearance/preference fields nothing reads.
-- Unused components with fake content: `components/profile/Settings.tsx`,
-  `Planner.tsx`, `Interviews.tsx`, `Resumes.tsx`, `components/UserDropDown.tsx`.
+**Still open (cosmetic):**
+- Firebase-era names remain in the app (`FirebaseService`, a few error
+  branches that check for Firebase codes and can never fire). Renaming
+  touches six pages for no user-visible change.
+- Settings still saves privacy/appearance/preference fields that nothing
+  reads. Harmless; remove with the next Settings rework.
 
-**Hygiene**
-- About 14 API routes still return raw `err.message` to users (planner,
-  resume, extension, profile, vapi routes).
-- Firebase-era error branches and names (`FirebaseService`) remain.
-
-**UI polish**
-- /templates renders all 173 cards with no pagination (63k px on mobile).
-- /job-application placeholder looks like real text and is cut off.
-- The greeting and Settings card read the auth metadata name; the sidebar
-  reads `profiles.name`. They can drift.
-- /extension-auth-success counts to 0 but stays open.
-- Mobile: Settings tab strip hides 4 of 7 tabs with no scroll hint; the
-  cover letter empty-state button wraps to 3 lines.
-- /solutions colours and the resume upload drop zone are off-theme.
-
-**ERP (Preciprocal-ERP)**
-- Logs paging: the UI sends `before=`, the server ignores it (stops at 500).
-- Analytics silently cap interviews/resumes/feedback at 1000 rows.
-- Meetings is a hard-coded sample list that is never saved; Teams meetings
-  have no admin check.
-- Several actions swallow errors (Kanban admins/comments, support reply
-  email, coupon list).
-- `firebase` / `firebase-admin` packages and Firebase files still present.
-- No ERP view of: stripe_events (webhook health), Vapi call costs across
-  users, product-wide feature usage, deliverability by email type.
-
-**Landing**
-- Debrief AI analyses are capped separately (Free 1, Pro 4, Premium 12)
-  but the plan cards and `lib/pricing.ts` say they are not metered.
-
-**Unblocked by** nothing; pick these up in priority order.
+**Needs a Stripe setting:** add `charge.dispute.updated` and
+`charge.dispute.closed` to the live webhook so dispute statuses update.
