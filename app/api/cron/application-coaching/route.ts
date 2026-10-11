@@ -23,6 +23,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { timingSafeEqual } from 'crypto';
 import { supabaseAdmin } from '@/supabase/admin';
+import { stripe } from '@/lib/stripe/billing';
+import { lapseUnpaidInvoices } from '@/lib/stripe/lapse';
 import { unsubscribeUrl } from '@/lib/email/unsubscribe';
 import {
   sendCoachingEmail,
@@ -113,7 +115,18 @@ export async function GET(req: NextRequest) {
   const now = Date.now();
   const scope = onlyUser(req);
   const iso = (ms: number) => new Date(ms).toISOString();
-  const tally = { users: 0, sent: 0, checkins: 0, deferred: 0, skipped: 0, superseded: 0, failed: 0 };
+  const tally = { users: 0, sent: 0, checkins: 0, deferred: 0, skipped: 0, superseded: 0, failed: 0, lapsed: 0 };
+
+  // Daily billing upkeep rides on this cron rather than a cron of its own, so
+  // the Vercel cron count stays where it is. Full runs only: a ?user= test
+  // run must never touch other customers' subscriptions.
+  if (!scope.user_id) {
+    try {
+      tally.lapsed = (await lapseUnpaidInvoices(stripe)).lapsed.length;
+    } catch (err) {
+      console.error('❌ unpaid-invoice lapse failed (coaching continues):', err);
+    }
+  }
 
   try {
     // ── Expire events too old to be worth coaching on ─────────────────────
