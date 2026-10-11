@@ -9,6 +9,8 @@ import { recordCouponStudentPerk } from "@/lib/subscription/student-coupon";
 import { planFromPriceId, warnUnknownPrice } from "@/lib/config/stripe-prices";
 import { grantPack } from "@/lib/packs/grant";
 import { claimEvent, confirmEvent, releaseEvent } from "@/lib/stripe/event-ledger";
+import { periodOf, subscriptionIdOfInvoice } from "@/lib/stripe/compat";
+import { sendInvoiceEmail, sendReceiptEmail } from "@/lib/email/billing";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-07-30.basil",
@@ -151,6 +153,11 @@ export async function POST(request: NextRequest) {
       case "invoice.payment_failed":
         await handlePaymentFailed(event.data.object as InvoiceWithSubscription);
         break;
+      // Our own branded invoice email, for subscriptions with auto pay off.
+      // Replaces Stripe's "send finalized invoices" email.
+      case "invoice.finalized":
+        await handleInvoiceFinalized(event.data.object as Stripe.Invoice);
+        break;
       // One-time credit packs. Both events carry the same session shape; the
       // async variant fires for payment methods that settle after the redirect
       // rather than during it, where completed arrives unpaid.
@@ -285,8 +292,8 @@ async function handleSubscriptionCreated(subscription: SubscriptionWithPeriods) 
       return;
     }
 
-    const currentPeriodStart = safeTimestampToISO(subscription.current_period_start);
-    const currentPeriodEnd   = safeTimestampToISO(subscription.current_period_end);
+    const currentPeriodStart = safeTimestampToISO(periodOf(subscription).start);
+    const currentPeriodEnd   = safeTimestampToISO(periodOf(subscription).end);
 
     // Check if a student coupon was applied at creation time
     const appliedCouponId = getAppliedCouponId(subscription) ?? null;
@@ -368,7 +375,7 @@ async function handleSubscriptionUpdated(subscription: SubscriptionWithPeriods) 
       return;
     }
 
-    const currentPeriodEnd = safeTimestampToISO(subscription.current_period_end);
+    const currentPeriodEnd = safeTimestampToISO(periodOf(subscription).end);
 
     // Preserve existing studentVerified OR set true if a student coupon is now applied.
     // This means once verified, it's never accidentally wiped on a plan change.
@@ -387,7 +394,7 @@ async function handleSubscriptionUpdated(subscription: SubscriptionWithPeriods) 
     // pickAnchor) and for the refund window (lib/refund/eligibility.ts
     // isWithinRefundWindow), so leaving it frozen at the original signup date
     // meant a long-lived subscriber's quota window never advanced with billing.
-    const currentPeriodStart = safeTimestampToISO(subscription.current_period_start);
+    const currentPeriodStart = safeTimestampToISO(periodOf(subscription).start);
 
     const { error: updateError } = await supabaseAdmin.from("subscriptions").update({
       status: subscription.status,
@@ -454,7 +461,7 @@ async function handleSubscriptionDeleted(subscription: SubscriptionWithPeriods) 
     if (updateError) throw updateError;
 
     // Write-only cancellation history. Set here as well as in
-    // app/api/subscription/cancel-subscription because Stripe can cancel
+    // app/api/billing (cancel at period end) because Stripe can cancel
     // without the app ever seeing the request - dunning failures, or a
     // cancellation made from the billing portal.
     await recordCancellation(supabaseUserId);
@@ -470,10 +477,13 @@ async function handleSubscriptionDeleted(subscription: SubscriptionWithPeriods) 
 async function handlePaymentSucceeded(invoice: InvoiceWithSubscription) {
   console.log("💰 Payment succeeded for invoice:", invoice.id);
 
-  if (!invoice.subscription) return;
+  // invoice.subscription no longer exists under the basil API; reading it
+  // returned early here on every single event. See lib/stripe/compat.ts.
+  const subscriptionId = subscriptionIdOfInvoice(invoice);
+  if (!subscriptionId) return;
 
   const subscription = (await stripe.subscriptions.retrieve(
-    invoice.subscription as string
+    subscriptionId
   )) as unknown as SubscriptionWithPeriods;
 
   const userId = getUserId(subscription);
@@ -494,7 +504,7 @@ async function handlePaymentSucceeded(invoice: InvoiceWithSubscription) {
       return;
     }
 
-    const currentPeriodEnd = safeTimestampToISO(subscription.current_period_end);
+    const currentPeriodEnd = safeTimestampToISO(periodOf(subscription).end);
 
     // Preserve studentVerified on every renewal - never accidentally wipe it
     const studentVerified = existing.student_verified === true;
@@ -502,7 +512,7 @@ async function handlePaymentSucceeded(invoice: InvoiceWithSubscription) {
     // See the note in handleSubscriptionUpdated: this column anchors both the
     // rolling quota window and the refund window, and was never advanced on
     // renewal before.
-    const currentPeriodStart = safeTimestampToISO(subscription.current_period_start);
+    const currentPeriodStart = safeTimestampToISO(periodOf(subscription).start);
 
     const { error: updateError } = await supabaseAdmin.from("subscriptions").update({
       status: "active",
@@ -518,19 +528,43 @@ async function handlePaymentSucceeded(invoice: InvoiceWithSubscription) {
 
     await invalidateUserCache(userId);
 
+    // Our own receipt, replacing Stripe's. Never throws.
+    await sendReceiptEmail(supabaseUserId, invoice);
+
     console.log(`✅ Payment succeeded | plan: ${plan} | studentVerified: ${studentVerified}`);
   } catch (error) {
     console.error("❌ Failed to update user subscription after payment:", error);
   }
 }
 
+async function handleInvoiceFinalized(invoice: Stripe.Invoice) {
+  // Auto pay on: Stripe charges the card and the receipt follows. Only an
+  // invoice the customer pays themselves needs an email asking them to.
+  // Only an invoice that is actually open and payable: never a draft, never
+  // one already paid by the time this event is processed.
+  if (invoice.collection_method !== "send_invoice" || invoice.status !== "open" || invoice.amount_due <= 0) return;
+
+  const subscriptionId = subscriptionIdOfInvoice(invoice);
+  if (!subscriptionId) return;
+  const subscription = (await stripe.subscriptions.retrieve(subscriptionId)) as unknown as SubscriptionWithPeriods;
+  const userId = getUserId(subscription);
+  if (!userId) return;
+
+  const supabaseUserId = await toSupabaseUserId(userId);
+  await sendInvoiceEmail(supabaseUserId, invoice);
+  console.log("🧾 Invoice email sent:", invoice.id);
+}
+
 async function handlePaymentFailed(invoice: InvoiceWithSubscription) {
   console.log("❌ Payment failed for invoice:", invoice.id);
 
-  if (!invoice.subscription) return;
+  // invoice.subscription no longer exists under the basil API; reading it
+  // returned early here on every single event. See lib/stripe/compat.ts.
+  const subscriptionId = subscriptionIdOfInvoice(invoice);
+  if (!subscriptionId) return;
 
   const subscription = (await stripe.subscriptions.retrieve(
-    invoice.subscription as string
+    subscriptionId
   )) as unknown as SubscriptionWithPeriods;
 
   const userId = getUserId(subscription);

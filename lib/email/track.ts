@@ -17,6 +17,8 @@ export type EmailType =
   | 'ticket_received'
   | 'data_export'
   | 'student_verification'
+  | 'billing_invoice'
+  | 'billing_receipt'
   | `activation_${string}`
   | `coaching_${string}`;
 

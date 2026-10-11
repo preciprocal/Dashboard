@@ -6,6 +6,7 @@ import { redis } from "@/lib/redis/redis-client";
 import { recordReactivation } from "@/lib/subscription/reactivation";
 import { planFromPriceId, warnUnknownPrice } from "@/lib/config/stripe-prices";
 import { collectionParams, consentMetadata } from "@/lib/stripe/auto-pay";
+import { periodOf } from "@/lib/stripe/compat";
 
 export const runtime = "nodejs";
 
@@ -123,7 +124,7 @@ export async function POST(req: NextRequest) {
     const plan = resolved && resolved !== "free" ? resolved : "pro";
 
     // ── Build updated subscription fields ──────────────────────────────────
-    const periodEnd    = (sub as unknown as { current_period_end: number }).current_period_end;
+    const periodEnd    = periodOf(sub).end;
     const periodEndISO = periodEnd ? new Date(periodEnd * 1000).toISOString() : null;
     const now          = new Date().toISOString();
 
