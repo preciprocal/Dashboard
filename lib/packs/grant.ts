@@ -101,6 +101,12 @@ export async function grantPack(input: GrantPackInput): Promise<GrantOutcome> {
     );
   }
 
+  // A goodwill bonus owed to this customer on this pack (migration 0053),
+  // claimed before the insert so it can only be used once. Released again
+  // if the insert does not happen.
+  const offer = await claimBonusOffer(supabaseUserId, pack.key);
+  const granted = offer ? mergeGrants(pack.grants as Record<string, number>, offer.bonus) : pack.grants;
+
   const { data, error } = await supabaseAdmin
     .from("credit_packs")
     .insert({
@@ -111,13 +117,14 @@ export async function grantPack(input: GrantPackInput): Promise<GrantOutcome> {
       // as p_field. Passing usage_counters column names instead ("resumes_used")
       // is the one mistake that fails completely silently: the insert succeeds,
       // the balance RPC reports credits, and every consume attempt finds none.
-      granted: pack.grants,
+      granted,
       consumed: {},
       price_cents: amountCents,
     })
     .select("id")
     .single();
 
+  if (error && offer) await releaseBonusOffer(offer.id);
   if (error) {
     // 23505: the unique index fired, so this PaymentIntent was already granted.
     // That is the redelivery path working as designed, not a failure.
@@ -141,5 +148,38 @@ export async function grantPack(input: GrantPackInput): Promise<GrantOutcome> {
     throw error;
   }
 
+  if (offer) {
+    await supabaseAdmin.from("pack_bonus_offers").update({ claimed_pack_id: data.id }).eq("id", offer.id);
+    console.log(`🎁 Bonus offer ${offer.id} added to pack ${data.id}`);
+  }
   return { status: "granted", packId: data.id };
+}
+
+function mergeGrants(base: Record<string, number>, bonus: Record<string, number>): Record<string, number> {
+  const out = { ...base };
+  for (const [k, v] of Object.entries(bonus)) if (typeof v === "number" && v > 0) out[k] = (out[k] ?? 0) + v;
+  return out;
+}
+
+/** The oldest open offer for this user and pack, marked claimed atomically. */
+async function claimBonusOffer(userId: string, packKey: string): Promise<{ id: string; bonus: Record<string, number> } | null> {
+  try {
+    const { data: open } = await supabaseAdmin.from("pack_bonus_offers").select("id")
+      .eq("user_id", userId).eq("pack_key", packKey).is("claimed_at", null)
+      .order("created_at").limit(1).maybeSingle();
+    if (!open) return null;
+    const { data: claimed } = await supabaseAdmin.from("pack_bonus_offers")
+      .update({ claimed_at: new Date().toISOString() })
+      .eq("id", open.id).is("claimed_at", null)
+      .select("id,bonus").maybeSingle();
+    return claimed ? { id: claimed.id as string, bonus: (claimed.bonus ?? {}) as Record<string, number> } : null;
+  } catch (err) {
+    // Missing table (migration 0053 not applied) must never block a purchase.
+    console.error("⚠️ bonus offer lookup failed:", err);
+    return null;
+  }
+}
+
+async function releaseBonusOffer(id: string) {
+  await supabaseAdmin.from("pack_bonus_offers").update({ claimed_at: null }).eq("id", id);
 }

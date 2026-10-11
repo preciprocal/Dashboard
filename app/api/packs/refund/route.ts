@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
     return {
       packId: row.id,
       packKey: row.pack_key,
-      name: PACKS[row.pack_key as PackKey]?.name ?? row.pack_key,
+      name: row.stripe_payment_intent_id ? (PACKS[row.pack_key as PackKey]?.name ?? row.pack_key) : "Bonus credits",
       priceCents: row.price_cents,
       purchasedAt: row.purchased_at,
       used: row.first_used_at !== null,
@@ -212,6 +212,8 @@ export async function POST(req: NextRequest) {
  */
 function ineligibilityReason(row: PackRow): string | null {
   if (row.refunded_at) return "This pack has already been refunded.";
+  // Bonus credits from the team (granted in the ERP) were never paid for.
+  if (!row.stripe_payment_intent_id) return "These are bonus credits from our team, so there is nothing to refund.";
 
   if (row.first_used_at) {
     const used = Object.entries(row.consumed ?? {})
