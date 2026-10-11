@@ -78,7 +78,7 @@ export const REQUIRE_CARD = process.env.STUDENT_PERK_REQUIRE_CARD !== 'false';
  * env-overridable so staging can point at a test price without a code change.
  */
 export const STUDENT_CONVERSION_PRICE_ID =
-  priceIdFor('pro', 'monthly') ?? 'price_1TFjwCQSkS83MGF9xH1bdc1o';
+  priceIdFor('pro', 'monthly') ?? 'price_1UOhFOKQ6vMUI194GVN3RAot';
 
 // ─── Future upgrade path ─────────────────────────────────────────────────────
 // TODO: If abuse persists past the domain denylist + device fingerprinting in

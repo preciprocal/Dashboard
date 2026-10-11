@@ -23,8 +23,9 @@
 // their file happened to have.
 //
 // Env-overridable per entry so a test-mode catalog can be pointed at without a
-// code change, falling back to the live ids that were previously hardcoded in
-// four places.
+// code change. The fallbacks are the LIVE-mode price ids; local development
+// runs on a test key, so .env.local sets all three to the test-mode ids.
+// Without that, local checkout would send live ids to the test account.
 
 export type PaidPlan = "pro" | "premium";
 export type CatalogPlan = "free" | PaidPlan;
@@ -54,13 +55,13 @@ const id = (envVar: string, fallback: string) => process.env[envVar] ?? fallback
 
 /** Price id -> what it means. The only copy of this mapping. */
 export const PRICE_CATALOG: Record<string, PriceEntry> = {
-  [id("STRIPE_FREE_PRICE_ID", "price_1TFjvAQSkS83MGF9XlLXgu5H")]: {
+  [id("STRIPE_FREE_PRICE_ID", "price_1UOhFJKQ6vMUI1940yx1rqc5")]: {
     plan: "free", cycle: "monthly", amountCents: 0,
   },
-  [id("STRIPE_PRO_MONTHLY_PRICE_ID", "price_1TFjwCQSkS83MGF9xH1bdc1o")]: {
+  [id("STRIPE_PRO_MONTHLY_PRICE_ID", "price_1UOhFOKQ6vMUI194GVN3RAot")]: {
     plan: "pro", cycle: "monthly", amountCents: 999,
   },
-  [id("STRIPE_PREMIUM_MONTHLY_PRICE_ID", "price_1TFjzWQSkS83MGF9YCP7CBk3")]: {
+  [id("STRIPE_PREMIUM_MONTHLY_PRICE_ID", "price_1UOhFJKQ6vMUI194CB4gWj4w")]: {
     plan: "premium", cycle: "monthly", amountCents: 2499,
   },
   // The pro and premium ANNUAL entries were removed with the annual product.
