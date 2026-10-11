@@ -89,13 +89,13 @@ const day = (unix: number | null | undefined) =>
 const shortDay = (unix: number) =>
   new Date(unix * 1000).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
 
-function addressLines(a: Stripe.Address | null | undefined): string[] {
+export function addressLines(a: Stripe.Address | null | undefined): string[] {
   if (!a) return [];
   const cityLine = [a.city, a.state, a.postal_code].filter(Boolean).join(', ');
   return [a.line1, a.line2, cityLine, a.country].filter((v): v is string => Boolean(v && v.trim()));
 }
 
-function seller(): { name: string; lines: string[] } {
+export function seller(): { name: string; lines: string[] } {
   const lines = (process.env.BILLING_ADDRESS ?? '').split('|').map(v => v.trim()).filter(Boolean);
   if (process.env.BILLING_TAX_ID) lines.push(process.env.BILLING_TAX_ID);
   return { name: process.env.BILLING_LEGAL_NAME || 'Preciprocal', lines };

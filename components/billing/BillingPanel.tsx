@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
-import { CreditCard, Download, Loader2, FileText } from 'lucide-react';
+import { CreditCard, Download, Eye, Loader2, FileText } from 'lucide-react';
 import { stripeAppearance, stripePromise } from '@/lib/stripe/client';
 
 interface Card { brand: string; last4: string; expMonth: number; expYear: number }
@@ -246,12 +246,16 @@ export default function BillingPanel() {
                         Pay
                       </Link>
                     )}
-                    {inv.status !== 'draft' && (
-                      <a href={`/api/billing/invoices/${inv.id}/pdf`} aria-label="Download invoice PDF"
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.04]">
-                        <Download className="w-3.5 h-3.5" />
+                    {inv.status !== 'draft' && (<>
+                      <Link href={`/billing/invoice/${inv.id}`} title={`View ${inv.status === 'paid' ? 'receipt' : 'invoice'}`}
+                        className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg border border-white/10 text-slate-200 hover:text-white hover:bg-white/5">
+                        <Eye className="w-3.5 h-3.5" /> View
+                      </Link>
+                      <a href={`/api/billing/invoices/${inv.id}/pdf`} title="Download PDF" aria-label="Download PDF"
+                        className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg border border-white/10 text-slate-200 hover:text-white hover:bg-white/5">
+                        <Download className="w-3.5 h-3.5" /> PDF
                       </a>
-                    )}
+                    </>)}
                   </div>
                 </div>
               );

@@ -9,6 +9,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { billingContext, defaultCard, ownedInvoice, stripe } from '@/lib/stripe/billing';
+import { addressLines, cleanDescription, seller } from '@/lib/billing/invoice-pdf';
+import { invoiceExtras } from '@/lib/billing/invoice-extras';
 
 export const runtime = 'nodejs';
 
@@ -31,6 +33,13 @@ export async function GET(req: NextRequest, { params }: Params) {
     clientSecret = withSecret.confirmation_secret?.client_secret ?? null;
   }
 
+  // The same details the PDF shows, so the page and the PDF agree.
+  const extras = await invoiceExtras(invoice);
+  const taxes = (invoice.total_taxes ?? []).filter(t => t.amount > 0).map(t => {
+    const rateId = t.tax_rate_details?.tax_rate;
+    return { label: (rateId && extras.taxLabels?.[rateId]) || 'Tax', amount: t.amount, inclusive: t.tax_behavior === 'inclusive' };
+  });
+
   return NextResponse.json({
     id: invoice.id,
     number: invoice.number,
@@ -43,7 +52,20 @@ export async function GET(req: NextRequest, { params }: Params) {
     total: invoice.total,
     amountDue: invoice.amount_due,
     amountPaid: invoice.amount_paid,
-    lines: invoice.lines.data.map(l => ({ description: l.description, amount: l.amount, periodStart: l.period?.start, periodEnd: l.period?.end })),
+    amountRemaining: invoice.amount_remaining,
+    discounts: (invoice.total_discount_amounts ?? []).filter(d => d.amount > 0).map(d => d.amount),
+    taxes,
+    customer: {
+      name: invoice.customer_name, email: invoice.customer_email,
+      address: addressLines(invoice.customer_address),
+    },
+    seller: seller(),
+    paymentMethod: extras.paymentMethod ?? null,
+    receiptNumber: extras.receiptNumber ?? null,
+    lines: invoice.lines.data.map(l => ({
+      description: cleanDescription(l.description), amount: l.amount, quantity: l.quantity ?? 1,
+      periodStart: l.period?.start, periodEnd: l.period?.end,
+    })),
     savedCard: customerId ? await defaultCard(customerId, subscriptionId) : null,
     clientSecret,
   });
