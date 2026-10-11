@@ -194,7 +194,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
   return (
     <div className="min-h-screen flex bg-[#050810]">
       {/* Left Side - Branding, styled after the preciprocal.com hero */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-[#050810] border-r border-white/[0.04]">
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-[#050810]">
         {/* Spotlight glows */}
         <div className="pointer-events-none absolute -top-40 -left-32 w-[560px] h-[560px] rounded-full bg-indigo-500/[0.12] blur-[120px]" />
         <div className="pointer-events-none absolute -bottom-48 -right-24 w-[520px] h-[520px] rounded-full bg-purple-500/[0.10] blur-[120px]" />
@@ -210,6 +210,9 @@ const AuthForm = ({ type }: { type: FormType }) => {
             WebkitMaskImage: "radial-gradient(ellipse at 30% 40%, black 20%, transparent 75%)",
           }}
         />
+
+        {/* Fade the glows out before the panel edge so the split isn't visible */}
+        <div className="pointer-events-none absolute inset-y-0 right-0 z-[1] w-48 bg-gradient-to-r from-transparent to-[#050810]" />
 
         <div className="relative z-10 flex flex-col justify-between w-full px-14 xl:px-20 py-12">
           {/* Brand */}
