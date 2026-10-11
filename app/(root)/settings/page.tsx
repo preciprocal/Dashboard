@@ -135,111 +135,6 @@ function Input({ ...props }: React.InputHTMLAttributes<HTMLInputElement> & { cla
   );
 }
 
-// ─── Billing newsletter block ─────────────────────────────────────────────────
-
-function BillingNewsletterBlock() {
-  const [user] = useSupabaseUser();
-  const [email,        setEmail]        = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const [errorMessage, setErrorMessage] = useState('');
-  const [isSubscribed, setIsSubscribed] = useState(false);
-  const [checking,     setChecking]     = useState(true);
-
-  useEffect(() => {
-    if (!user?.email) { setChecking(false); return; }
-    setEmail(user.email);
-    (async () => {
-      try {
-        const res  = await fetch('/api/newsletter/check-subscription', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: user.email }),
-        });
-        const data = await res.json();
-        if (data.subscribed) setIsSubscribed(true);
-      } catch { /* non-critical */ }
-      setChecking(false);
-    })();
-  }, [user]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim()) return;
-    setIsSubmitting(true);
-    setSubmitStatus('idle');
-    try {
-      const res  = await fetch('/api/newsletter/subscribe', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim() }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to subscribe');
-      setSubmitStatus('success');
-      setIsSubscribed(true);
-      setTimeout(() => setSubmitStatus('idle'), 5000);
-    } catch (err) {
-      setSubmitStatus('error');
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to subscribe.');
-      setTimeout(() => { setSubmitStatus('idle'); setErrorMessage(''); }, 5000);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  if (checking) return (
-    <div className="p-5 flex items-center justify-center gap-2 text-slate-500 text-sm">
-      <Loader2 className="w-4 h-4 animate-spin" /> Checking subscription…
-    </div>
-  );
-
-  if (isSubscribed) return (
-    <div className="p-5 flex flex-col items-center gap-3 text-center">
-      <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-        <Check className="w-5 h-5 text-emerald-400" />
-      </div>
-      <div>
-        <p className="text-white text-sm font-medium">You&apos;re on the list!</p>
-        <p className="text-slate-500 text-xs mt-1">We&apos;ll notify you at <span className="text-slate-300">{email}</span> when premium plans launch.</p>
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="p-5 space-y-3">
-      <p className="text-xs text-slate-400 text-center">Get notified when we launch - no spam, ever.</p>
-      <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2.5">
-        <input
-          type="email" value={email} onChange={e => setEmail(e.target.value)}
-          placeholder="your@email.com" required
-          disabled={isSubmitting || submitStatus === 'success'}
-          className="flex-1 px-3.5 py-2.5 bg-slate-800/50 border border-white/[0.08] rounded-xl text-white text-sm
-                     placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/40 disabled:opacity-50 transition-all"
-        />
-        <button type="submit" disabled={isSubmitting || submitStatus === 'success'}
-          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white
-                     bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500
-                     disabled:opacity-50 disabled:cursor-not-allowed transition-all whitespace-nowrap cursor-pointer">
-          {isSubmitting         ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Subscribing…</>
-            : submitStatus === 'success' ? <><Check className="w-3.5 h-3.5" />Subscribed!</>
-            : <><Bell className="w-3.5 h-3.5" />Notify Me</>}
-        </button>
-      </form>
-      {submitStatus === 'success' && (
-        <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
-          <Check className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-          <p className="text-emerald-400 text-xs">You&apos;re on the list! We&apos;ll notify you when premium plans launch.</p>
-        </div>
-      )}
-      {submitStatus === 'error' && (
-        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
-          <p className="text-red-400 text-xs">{errorMessage || 'Something went wrong. Please try again.'}</p>
-        </div>
-      )}
-      <p className="text-center text-slate-600 text-[10px]">No credit card required. Unsubscribe anytime.</p>
-    </div>
-  );
-}
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
@@ -864,40 +759,23 @@ export default function SettingsPage() {
               </div>
             </SectionCard>
 
-            <SectionCard>
-              <div className="p-5 text-center border-b border-white/[0.06]">
-                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-purple-900/30">
-                  <Zap className="w-5 h-5 text-white" />
+            {plan.tier === 'free' && (
+              <SectionCard>
+                <div className="p-5 text-center">
+                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-purple-900/30">
+                    <Zap className="w-5 h-5 text-white" />
+                  </div>
+                  <h3 className="text-white font-semibold text-sm mb-1">Need more than the Free plan?</h3>
+                  <p className="text-slate-400 text-xs max-w-sm mx-auto leading-relaxed mb-4">
+                    Pro and Premium raise every monthly limit. Cancel any time, and unused credits can be refunded on request.
+                  </p>
+                  <Link href="/pricing"
+                    className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-xs font-semibold text-white bg-gradient-to-r from-indigo-500 to-purple-500 hover:opacity-90 transition-opacity">
+                    See plans
+                  </Link>
                 </div>
-                <h3 className="text-white font-semibold text-sm mb-1">Premium Plans Coming Soon</h3>
-                <p className="text-slate-400 text-xs max-w-sm mx-auto leading-relaxed">
-                  We&apos;re launching premium tiers with exclusive features. Subscribe to get early access pricing.
-                </p>
-              </div>
-
-              <div className="p-5 border-b border-white/[0.06]">
-                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-3">What&apos;s coming</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {[
-                    'Unlimited mock interviews',
-                    'Advanced AI feedback & scoring',
-                    'Unlimited resume analyses',
-                    'D-ID avatar video interviews',
-                    'Priority question banks',
-                    'Early-bird pricing - locked in forever',
-                  ].map(feature => (
-                    <div key={feature} className="flex items-center gap-2 text-slate-300 text-xs">
-                      <div className="w-4 h-4 rounded-md bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
-                        <Check className="w-2.5 h-2.5 text-blue-400" />
-                      </div>
-                      {feature}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <BillingNewsletterBlock />
-            </SectionCard>
+              </SectionCard>
+            )}
 
             <SectionCard>
               <SectionHeader icon={CreditCard} iconColor="text-indigo-400" iconBg="bg-indigo-500/10 border-indigo-500/20"
