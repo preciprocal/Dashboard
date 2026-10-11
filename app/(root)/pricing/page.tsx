@@ -15,22 +15,12 @@ import {
 import logo from "@/public/logo.png";
 import AnimatedLoader from "@/components/loader/AnimatedLoader";
 import { getDeviceFingerprint } from "@/lib/fingerprint";
-import { priceIdFor } from "@/lib/config/stripe-prices";
 import { planFeatureLines } from "@/lib/config/plan-features";
 import CreditPacks from "@/components/pricing/CreditPacks";
 import { PACKS, type PackKey } from "@/lib/config/packs";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
-// Kept for when billing comes back online - checkout is paused before these
-// are used. Resolved from lib/config/stripe-prices.ts rather than hardcoded:
-// this was a fourth copy of the catalog, and copies are how the webhook and
-// subscription/activate ended up disagreeing about what an unknown price meant.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const PRICE_IDS = {
-  pro:     { monthly: priceIdFor("pro", "monthly") },
-  premium: { monthly: priceIdFor("premium", "monthly") },
-} as const;
 
 type PlanId = "free" | "pro" | "premium" | "enterprise";
 
@@ -145,10 +135,10 @@ const stripeAppearance = {
 interface CheckoutFormInnerProps {
   plan: Plan; user: User;
   billedAmount: number; displayPrice: number;
-  onSuccess: () => void; onClose: () => void; onVerifyStudent: () => void;
+  onSuccess: () => void; onClose: () => void;
 }
 
-function CheckoutFormInner({ plan, user, billedAmount, onClose, onVerifyStudent }: CheckoutFormInnerProps) {
+function CheckoutFormInner({ plan, user, billedAmount, onSuccess, onClose }: CheckoutFormInnerProps) {
   const stripe   = useStripe();
   const elements = useElements();
   const [loading, setLoading]         = useState(false);
@@ -157,8 +147,7 @@ function CheckoutFormInner({ plan, user, billedAmount, onClose, onVerifyStudent 
   const [ready, setReady]             = useState(false);
   const [country, setCountry]         = useState("US");
   const [countryOpen, setCountryOpen] = useState(false);
-  const [showPaused, setShowPaused]   = useState(false);
-  // Sent as autoPay to /api/subscription/activate when checkout is re-enabled.
+  // Sent as autoPay to /api/subscription/activate.
   const [autoPay, setAutoPay]         = useAutoPayChoice();
 
   const COUNTRIES = [
@@ -182,9 +171,53 @@ function CheckoutFormInner({ plan, user, billedAmount, onClose, onVerifyStudent 
       const { error: submitErr } = await elements.submit();
       if (submitErr) throw new Error(submitErr.message || "Form validation failed");
 
-      // Billing is temporarily paused while we finish rolling out payments.
-      await new Promise(r => setTimeout(r, 900));
-      setShowPaused(true);
+      // 1. A SetupIntent for the card. The server picks the price from the
+      //    plan name.
+      const res = await fetch("/api/subscription/create-subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: plan.id, country }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not start the subscription");
+
+      // 2. Save the card (3D Secure, if the bank asks, happens here).
+      const { error: stripeErr, setupIntent } = await stripe.confirmSetup({
+        elements,
+        clientSecret: data.clientSecret,
+        confirmParams: {
+          return_url: `${window.location.origin}/pricing`,
+          payment_method_data: {
+            billing_details: {
+              name: (user.user_metadata?.name as string) || (user.user_metadata?.full_name as string) || "",
+              email: user.email || "",
+              address: { country },
+            },
+          },
+        },
+        redirect: "if_required",
+      });
+      if (stripeErr) throw new Error(stripeErr.message || "Your card could not be saved");
+      if (!setupIntent?.id) throw new Error("Your card could not be saved");
+
+      // 3. The subscription is created from the saved card and the first
+      //    month charged. The plan is only granted once it is paid.
+      const activate = () => fetch("/api/subscription/activate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ setupIntentId: setupIntent.id, autoPay }),
+      });
+      let act = await activate();
+      let actData = await act.json();
+      if (actData.requiresAction && actData.clientSecret) {
+        const { error: actionErr } = await stripe.handleNextAction({ clientSecret: actData.clientSecret });
+        if (actionErr) throw new Error(actionErr.message || "Your bank did not approve the payment");
+        act = await activate();
+        actData = await act.json();
+      }
+      if (!act.ok) throw new Error(actData.error || "Your card was not charged. Please try again.");
+
+      onSuccess();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally { setLoading(false); }
@@ -198,13 +231,6 @@ function CheckoutFormInner({ plan, user, billedAmount, onClose, onVerifyStudent 
         <div className="absolute inset-0 z-50">
           <AnimatedLoader isVisible={true} mode="auto" tone="focused" loadingText="Processing payment..." duration={15000} showNavigation={false}/>
         </div>
-      )}
-
-      {showPaused && (
-        <PaymentPausedModal user={user}
-          onVerifyStudent={onVerifyStudent}
-          onBack={() => setShowPaused(false)}
-          onClose={onClose}/>
       )}
 
       {/* Top bar */}
@@ -401,14 +427,10 @@ function CheckoutFormInner({ plan, user, billedAmount, onClose, onVerifyStudent 
 // ─── Checkout wrapper ─────────────────────────────────────────────────────────
 interface CheckoutFormProps {
   plan: Plan; user: User;
-  onSuccess: () => void; onClose: () => void; onVerifyStudent: () => void;
+  onSuccess: () => void; onClose: () => void;
 }
 
-// Not currently rendered - billing is paused, so plan selection shows
-// PaymentPausedModal directly instead of this Stripe form (see the main
-// component below). Kept intact, not deleted, for when billing resumes.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function CheckoutForm({ plan, user, onSuccess, onClose, onVerifyStudent }: CheckoutFormProps) {
+function CheckoutForm({ plan, user, onSuccess, onClose }: CheckoutFormProps) {
   const displayPrice = plan.monthlyPrice;
   const billedAmount = plan.monthlyPrice;
   return (
@@ -419,118 +441,8 @@ function CheckoutForm({ plan, user, onSuccess, onClose, onVerifyStudent }: Check
     }}>
       <CheckoutFormInner plan={plan} user={user}
         billedAmount={billedAmount} displayPrice={displayPrice}
-        onSuccess={onSuccess} onClose={onClose} onVerifyStudent={onVerifyStudent}/>
+        onSuccess={onSuccess} onClose={onClose}/>
     </Elements>
-  );
-}
-
-// ─── Payment paused modal ──────────────────────────────────────────────────────
-interface PaymentPausedModalProps { user: User; onVerifyStudent: () => void; onBack: () => void; onClose: () => void; }
-
-function PaymentPausedModal({ user, onVerifyStudent, onBack, onClose }: PaymentPausedModalProps) {
-  const [email, setEmail]           = useState(user.email || "");
-  const [subState, setSubState]     = useState<"idle" | "loading" | "done" | "error">("idle");
-  const [subError, setSubError]     = useState<string | null>(null);
-
-  const handleSubscribe = async () => {
-    if (!email.trim()) return;
-    setSubState("loading"); setSubError(null);
-    try {
-      const res = await fetch("/api/newsletter/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Could not subscribe");
-      setSubState("done");
-    } catch (err) {
-      setSubState("error");
-      setSubError(err instanceof Error ? err.message : "Could not subscribe. Please try again.");
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: "rgba(5,7,12,0.92)" }}>
-      <div className="relative w-full max-w-md rounded-2xl shadow-2xl"
-        style={{ background: "#0a0c12", border: "1px solid rgba(255,255,255,0.08)" }}>
-
-        <button onClick={onBack}
-          className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-300 transition-colors cursor-pointer"
-          style={{ background: "rgba(255,255,255,0.04)" }}>
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
-          </svg>
-        </button>
-
-        <div className="px-7 py-8 space-y-6">
-          <div>
-            <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4"
-              style={{ background: "rgba(99,102,241,0.12)", border: "1px solid rgba(99,102,241,0.25)" }}>
-              <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-              </svg>
-            </div>
-            <h3 className="text-lg font-bold text-white leading-snug">Thanks for trying Preciprocal</h3>
-            <p className="text-sm text-slate-400 mt-2 leading-relaxed">
-              Your card details look good, but we&apos;re putting the finishing touches on billing right now, so checkout is paused for the moment. This isn&apos;t anything on your end - we&apos;ll have it back shortly.
-            </p>
-          </div>
-
-          <div className="p-4 rounded-xl" style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.15)" }}>
-            <p className="text-sm text-white font-medium">Have a university (.edu) email?</p>
-            <p className="text-xs text-slate-400 mt-1 mb-3">Verify it and we&apos;ll unlock Pro for you free while billing comes back online.</p>
-            <button onClick={onVerifyStudent}
-              className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-all cursor-pointer"
-              style={{ background: "linear-gradient(135deg,#6366f1,#a855f7)" }}>
-              Verify university email
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            <div>
-              <p className="text-xs text-slate-500 mb-2">Get notified the moment payments are back</p>
-              {subState === "done" ? (
-                <p className="text-xs text-emerald-400 flex items-center gap-1.5">
-                  <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/>
-                  </svg>
-                  You&apos;re on the list - we&apos;ll email you.
-                </p>
-              ) : (
-                <div className="flex gap-2">
-                  <input type="email" value={email}
-                    onChange={e => { setEmail(e.target.value); setSubState("idle"); setSubError(null); }}
-                    placeholder="you@email.com"
-                    className="flex-1 min-w-0 px-3 py-2.5 rounded-xl text-sm text-white placeholder-slate-700 focus:outline-none transition-all"
-                    style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}/>
-                  <button onClick={handleSubscribe} disabled={subState === "loading" || !email.trim()}
-                    className="px-4 py-2.5 rounded-xl text-xs font-semibold text-white whitespace-nowrap transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                    style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
-                    {subState === "loading" ? "Subscribing…" : "Notify me"}
-                  </button>
-                </div>
-              )}
-              {subError && <p className="text-xs text-red-400 mt-1.5">{subError}</p>}
-            </div>
-
-            <a href="/help"
-              className="flex items-center justify-between px-4 py-3 rounded-xl text-sm text-white transition-colors cursor-pointer hover:bg-white/[0.05]"
-              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
-              Contact support
-              <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/>
-              </svg>
-            </a>
-          </div>
-
-          <button onClick={onClose}
-            className="w-full text-center text-xs text-slate-500 hover:text-slate-300 transition-colors cursor-pointer">
-            Back to plans
-          </button>
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -948,9 +860,6 @@ export default function PricingPage() {
     setShowSuccess(true);
   };
 
-  // Not currently called - wire this back up to CheckoutForm's onSuccess
-  // when billing resumes.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleSuccess = () => {
     if (selectedPlan) { setSuccessPlan(selectedPlan); setCurrentPlan(selectedPlan.id); }
     setSuccessIsStudent(false);
@@ -964,14 +873,9 @@ export default function PricingPage() {
 
   return (
     <>
-      {/* Billing is paused (see PaymentPausedModal) - show that immediately on
-          plan selection instead of letting the user fill out a full Stripe
-          card form (including passing Stripe's own field validation) only to
-          hit a guaranteed dead end after submitting. */}
       {selectedPlan && user && (
-        <PaymentPausedModal user={user}
-          onVerifyStudent={() => { setSelectedPlan(null); setShowStudent(true); }}
-          onBack={() => setSelectedPlan(null)}
+        <CheckoutForm plan={selectedPlan} user={user}
+          onSuccess={handleSuccess}
           onClose={() => setSelectedPlan(null)}/>
       )}
       {showStudent && user && (

@@ -298,12 +298,22 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   }
 }
 
+// A subscription only carries a plan once it is paid for (or on a trial).
+// "incomplete" is a checkout whose first payment has not gone through: copying
+// its plan onto the account would hand out the plan for a declined card.
+const GRANTING_STATUSES = new Set(["active", "trialing", "past_due"]);
+
 async function handleSubscriptionCreated(subscription: SubscriptionWithPeriods) {
   console.log("🆕 Subscription created:", subscription.id);
 
   const userId = getUserId(subscription);
   if (!userId) {
     console.error("❌ No userId in subscription metadata or coupon metadata");
+    return;
+  }
+  if (!GRANTING_STATUSES.has(subscription.status)) {
+    // Recorded by customer.subscription.updated once the payment succeeds.
+    console.log(`⏳ Subscription ${subscription.id} is ${subscription.status}; nothing granted yet`);
     return;
   }
 
@@ -396,12 +406,22 @@ async function handleSubscriptionUpdated(subscription: SubscriptionWithPeriods) 
     const supabaseUserId = await toSupabaseUserId(userId);
     const { data: existing, error: fetchError } = await supabaseAdmin
       .from("subscriptions")
-      .select("student_verified")
+      .select("student_verified, stripe_subscription_id")
       .eq("user_id", supabaseUserId)
       .maybeSingle();
     if (fetchError) throw fetchError;
     if (!existing) {
       console.error("❌ Subscription row does not exist:", userId);
+      return;
+    }
+
+    // Not paid for: it may only change the account if it is the account's
+    // current subscription, and then it takes the plan away rather than
+    // granting it. An old subscription, or another checkout, is ignored.
+    const grants = GRANTING_STATUSES.has(subscription.status);
+    const isCurrent = existing.stripe_subscription_id === subscription.id;
+    if (!grants && !isCurrent) {
+      console.log(`⏭️ Ignoring ${subscription.status} subscription ${subscription.id}; not the account's current one`);
       return;
     }
 
@@ -427,8 +447,9 @@ async function handleSubscriptionUpdated(subscription: SubscriptionWithPeriods) 
     const currentPeriodStart = safeTimestampToISO(periodOf(subscription).start);
 
     const { error: updateError } = await supabaseAdmin.from("subscriptions").update({
+      stripe_subscription_id: subscription.id,
       status: subscription.status,
-      plan,
+      plan: grants ? plan : "free",
       student_verified: studentVerified,
       ...(currentPeriodStart ? { current_period_start: currentPeriodStart } : {}),
       current_period_end: currentPeriodEnd,
@@ -469,12 +490,19 @@ async function handleSubscriptionDeleted(subscription: SubscriptionWithPeriods) 
     const supabaseUserId = await toSupabaseUserId(userId);
     const { data: existing, error: fetchError } = await supabaseAdmin
       .from("subscriptions")
-      .select("user_id")
+      .select("user_id, stripe_subscription_id")
       .eq("user_id", supabaseUserId)
       .maybeSingle();
     if (fetchError) throw fetchError;
     if (!existing) {
       console.error("❌ Subscription row does not exist:", userId);
+      return;
+    }
+    // Checkout cancels abandoned checkouts and a trial being replaced. Those
+    // deletions can arrive after the new plan is written, and must not
+    // downgrade the customer who just paid.
+    if (existing.stripe_subscription_id && existing.stripe_subscription_id !== subscription.id) {
+      console.log(`⏭️ Deleted subscription ${subscription.id} is not the account's current one; plan unchanged`);
       return;
     }
 

@@ -64,7 +64,10 @@ export async function ensureTaxLocation(
     const ip = cleanIp(hints.ip);
 
     const update: Stripe.CustomerUpdateParams = {};
-    if (country && (!existing?.country || hints.country)) {
+    // A postcode Stripe does not have yet is worth writing even when the
+    // country is unchanged: US and Canadian tax needs it.
+    const newPostal = !!postal && postal !== existing?.postal_code;
+    if (country && (!existing?.country || hints.country || newPostal)) {
       update.address = { ...(existing ?? {}), country, ...(postal ? { postal_code: postal } : {}) } as Stripe.AddressParam;
     }
     if (ip) update.tax = { ip_address: ip };

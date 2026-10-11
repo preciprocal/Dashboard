@@ -7,7 +7,7 @@ import { recordReactivation } from "@/lib/subscription/reactivation";
 import { planFromPriceId, warnUnknownPrice } from "@/lib/config/stripe-prices";
 import { collectionParams, consentMetadata } from "@/lib/stripe/auto-pay";
 import { periodOf } from "@/lib/stripe/compat";
-import { ensureTaxLocation } from "@/lib/stripe/tax";
+import { automaticTaxParams, ensureTaxLocation } from "@/lib/stripe/tax";
 
 export const runtime = "nodejs";
 
@@ -48,22 +48,12 @@ export async function POST(req: NextRequest) {
     if (!authedUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { userId, supabaseUserId } = authedUser;
 
-    const { setupIntentId, subscriptionId, autoPay: autoPayRaw } = await req.json() as {
+    const { setupIntentId, autoPay: autoPayRaw } = await req.json() as {
       setupIntentId: string;
-      subscriptionId: string;
       /** The checkout checkbox. Off unless the customer ticked it. */
       autoPay?: boolean;
     };
-    if (!setupIntentId || !subscriptionId) {
-      return NextResponse.json({ error: "Missing setupIntentId or subscriptionId" }, { status: 400 });
-    }
-
-    // ── Get saved payment method ───────────────────────────────────────────
-    const setupIntent     = await stripe.setupIntents.retrieve(setupIntentId);
-    const paymentMethodId = setupIntent.payment_method as string | null;
-    if (!paymentMethodId) {
-      return NextResponse.json({ error: "No payment method on SetupIntent" }, { status: 400 });
-    }
+    if (!setupIntentId) return NextResponse.json({ error: "Missing setupIntentId" }, { status: 400 });
 
     // ── Get customer ───────────────────────────────────────────────────────
     const { data: subRow } = await supabaseAdmin
@@ -71,36 +61,115 @@ export async function POST(req: NextRequest) {
       .select("stripe_customer_id")
       .eq("user_id", supabaseUserId)
       .maybeSingle();
-    const customerId = subRow?.stripe_customer_id as string;
+    const customerId = subRow?.stripe_customer_id as string | undefined;
+    if (!customerId) return NextResponse.json({ error: "No billing account found" }, { status: 400 });
 
-    // ── Set default payment method ─────────────────────────────────────────
+    // ── The SetupIntent must be this customer's, with a saved card ─────────
+    // Its id comes from the browser, so without this check one account could
+    // activate itself with another account's card.
+    const setupIntent = await stripe.setupIntents.retrieve(setupIntentId);
+    const ownerOf = (c: string | { id: string } | null) => (typeof c === "string" ? c : c?.id);
+    if (ownerOf(setupIntent.customer) !== customerId || setupIntent.metadata?.userId !== supabaseUserId) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    const paymentMethodId = setupIntent.payment_method as string | null;
+    if (setupIntent.status !== "succeeded" || !paymentMethodId) {
+      return NextResponse.json({ error: "Your card has not been saved yet" }, { status: 400 });
+    }
+    // Plan and price were written by create-subscription, on the server.
+    const priceId = setupIntent.metadata?.priceId;
+    if (!priceId || !planFromPriceId(priceId) || planFromPriceId(priceId) === "free") {
+      return NextResponse.json({ error: "This plan is not available right now" }, { status: 400 });
+    }
+
+    // ── Card becomes the default, and its address places the customer ──────
     await stripe.customers.update(customerId, {
       invoice_settings: { default_payment_method: paymentMethodId },
     });
-    await stripe.subscriptions.update(subscriptionId, {
-      default_payment_method: paymentMethodId,
-    });
-    // The card's billing address is the best location Stripe Tax can get.
     await ensureTaxLocation(stripe, customerId, {
       paymentMethod: await stripe.paymentMethods.retrieve(paymentMethodId).catch(() => null),
+      ip: req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip"),
     });
+
+    // ── Create the subscription, once per SetupIntent ──────────────────────
+    // A retry (after 3D Secure, or a double click) finds the subscription
+    // already recorded on the SetupIntent and carries on with that one.
+    let subscriptionId = setupIntent.metadata?.subscriptionId || "";
+    if (!subscriptionId) {
+      for (const status of ["active", "past_due"] as const) {
+        const running = await stripe.subscriptions.list({ customer: customerId, status, limit: 1 });
+        if (running.data.length) {
+          return NextResponse.json({ error: "You already have a paid plan." }, { status: 409 });
+        }
+      }
+      // Abandoned checkouts have taken no money, so ending them costs nothing
+      // and keeps one subscription per customer.
+      const abandoned = await stripe.subscriptions.list({ customer: customerId, status: "incomplete" });
+      for (const s of abandoned.data) await stripe.subscriptions.cancel(s.id);
+      const params: Stripe.SubscriptionCreateParams = {
+        customer:               customerId,
+        items:                  [{ price: priceId }],
+        default_payment_method: paymentMethodId,
+        payment_behavior:       "default_incomplete",
+        payment_settings:       { save_default_payment_method: "on_subscription" },
+        metadata:               { userId: supabaseUserId, billingCycle: setupIntent.metadata?.billingCycle ?? "monthly" },
+      };
+      let created: Stripe.Subscription;
+      try {
+        created = await stripe.subscriptions.create(
+          { ...params, ...automaticTaxParams() },
+          { idempotencyKey: `checkout-sub-${setupIntentId}` },
+        );
+      } catch (err) {
+        // Stripe Tax could not place the customer. The sale is not lost over
+        // it: no tax is registered anywhere yet, so the amount is identical.
+        if (!(err instanceof Stripe.errors.StripeError) || err.code !== "customer_tax_location_invalid") throw err;
+        console.error("⚠️ tax location unknown, subscribing without automatic tax:", customerId);
+        created = await stripe.subscriptions.create(params, { idempotencyKey: `checkout-sub-notax-${setupIntentId}` });
+      }
+      subscriptionId = created.id;
+      await stripe.setupIntents.update(setupIntentId, { metadata: { subscriptionId } });
+    }
 
     // ── Pay first invoice ──────────────────────────────────────────────────
-    const sub = await stripe.subscriptions.retrieve(subscriptionId, {
-      expand: ["latest_invoice"],
-    });
-
-    type ExpandedInvoice = Stripe.Invoice & { status: string };
-    const invoice = sub.latest_invoice as ExpandedInvoice | null;
-
-    if (invoice && invoice.status === "open") {
+    const before = await stripe.subscriptions.retrieve(subscriptionId, { expand: ["latest_invoice"] });
+    if (ownerOf(before.customer) !== customerId) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const firstInvoice = before.latest_invoice as Stripe.Invoice | null;
+    if (firstInvoice && firstInvoice.status === "open") {
       try {
-        await stripe.invoices.pay(invoice.id!, { payment_method: paymentMethodId });
-        console.log("✅ First invoice paid:", invoice.id);
+        await stripe.invoices.pay(firstInvoice.id!, { payment_method: paymentMethodId });
+        console.log("✅ First invoice paid:", firstInvoice.id);
       } catch (payErr) {
-        console.error("⚠️ Invoice pay error (may already be paid):", payErr);
+        // Declines and 3D Secure both land here; the check below decides.
+        console.error("⚠️ First invoice not paid yet:", firstInvoice.id, payErr);
       }
     }
+
+    // ── The plan is granted only once the money has actually been taken ─────
+    const sub = await stripe.subscriptions.retrieve(subscriptionId, {
+      expand: ["latest_invoice.confirmation_secret"],
+    });
+    const invoice = sub.latest_invoice as Stripe.Invoice | null;
+    const paid = !invoice || invoice.status === "paid" || invoice.amount_due === 0;
+    if (!paid || !["active", "trialing"].includes(sub.status)) {
+      const payments = invoice?.id ? await stripe.invoicePayments.list({ invoice: invoice.id, limit: 5, expand: ["data.payment.payment_intent"] }) : null;
+      const pi = payments?.data
+        .map(p => p.payment?.payment_intent)
+        .find((x): x is Stripe.PaymentIntent => !!x && typeof x === "object");
+      if (pi?.status === "requires_action" && invoice?.confirmation_secret?.client_secret) {
+        // The bank wants 3D Secure. The browser completes it, then calls again.
+        return NextResponse.json({ requiresAction: true, clientSecret: invoice.confirmation_secret.client_secret }, { status: 402 });
+      }
+      const reason = pi?.last_payment_error?.message;
+      return NextResponse.json({
+        error: reason ? `Your card was not charged: ${reason}` : "Your card was not charged. Please try another card.",
+      }, { status: 402 });
+    }
+
+    // ── A free trial this replaces ends only now that the payment is in ─────
+    // Ending it earlier would cost a student the trial over a declined card.
+    const trials = await stripe.subscriptions.list({ customer: customerId, status: "trialing" });
+    for (const t of trials.data) if (t.id !== subscriptionId) await stripe.subscriptions.cancel(t.id);
 
     // ── Apply the auto pay choice to month two onwards ─────────────────────
     // The first invoice is always paid above, right now. This only decides
@@ -113,8 +182,8 @@ export async function POST(req: NextRequest) {
     });
 
     // ── Determine plan ─────────────────────────────────────────────────────
-    const priceId = sub.items.data[0]?.price?.id ?? "";
-    const resolved = planFromPriceId(priceId);
+    const subPriceId = sub.items.data[0]?.price?.id ?? "";
+    const resolved = planFromPriceId(subPriceId);
 
     // This path runs immediately after a customer's card has been charged, so
     // an unrecognised price must NOT drop them to free - they paid. "pro" is
@@ -124,7 +193,7 @@ export async function POST(req: NextRequest) {
     // reasoning is stated in both places because the divergence used to be
     // accidental.
     if (!resolved || resolved === "free") {
-      warnUnknownPrice(priceId, "subscription/activate (post-payment)", "pro");
+      warnUnknownPrice(subPriceId, "subscription/activate (post-payment)", "pro");
     }
     const plan = resolved && resolved !== "free" ? resolved : "pro";
 
