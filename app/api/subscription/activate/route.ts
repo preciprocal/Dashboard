@@ -7,6 +7,7 @@ import { recordReactivation } from "@/lib/subscription/reactivation";
 import { planFromPriceId, warnUnknownPrice } from "@/lib/config/stripe-prices";
 import { collectionParams, consentMetadata } from "@/lib/stripe/auto-pay";
 import { periodOf } from "@/lib/stripe/compat";
+import { ensureTaxLocation } from "@/lib/stripe/tax";
 
 export const runtime = "nodejs";
 
@@ -78,6 +79,10 @@ export async function POST(req: NextRequest) {
     });
     await stripe.subscriptions.update(subscriptionId, {
       default_payment_method: paymentMethodId,
+    });
+    // The card's billing address is the best location Stripe Tax can get.
+    await ensureTaxLocation(stripe, customerId, {
+      paymentMethod: await stripe.paymentMethods.retrieve(paymentMethodId).catch(() => null),
     });
 
     // ── Pay first invoice ──────────────────────────────────────────────────

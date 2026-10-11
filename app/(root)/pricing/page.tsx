@@ -1167,6 +1167,11 @@ export default function PricingPage() {
           })}
         </div>
 
+        {/* Tax-inclusive pricing (lib/stripe/tax.ts): what is shown is what is paid. */}
+        <p className="text-center text-xs text-slate-500 mt-6">
+          Prices are in US dollars and include any applicable sales tax or VAT. What you see is what you pay.
+        </p>
+
         {/* One-time credit packs */}
         <CreditPacks user={user}/>
 

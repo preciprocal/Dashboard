@@ -24,6 +24,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { z } from "zod";
 import { getAuthedUser } from "@/lib/auth/verify-request";
+import { automaticTaxEnabled } from "@/lib/stripe/tax";
 import { applyRateLimit } from "@/lib/ai/rate-limit";
 import { supabaseAdmin } from "@/supabase/admin";
 import {
@@ -143,6 +144,17 @@ export async function POST(req: NextRequest) {
         metadata: { userId: supabaseUserId, packKey },
       },
       ui_mode: "embedded",
+      // Stripe Tax (lib/stripe/tax.ts). Checkout asks for whatever address
+      // detail the tax rules need and saves it to the customer, and lets a
+      // business enter its VAT or tax id so it is taxed correctly.
+      ...(automaticTaxEnabled()
+        ? {
+            automatic_tax: { enabled: true },
+            billing_address_collection: "auto" as const,
+            customer_update: { address: "auto" as const, name: "auto" as const },
+            tax_id_collection: { enabled: true },
+          }
+        : {}),
       // Same landing as the old success_url, so the pricing page's existing
       // confirmation banner handles it. There is no cancel_url in embedded
       // mode: closing the checkout window simply cancels.

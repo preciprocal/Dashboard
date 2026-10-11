@@ -37,6 +37,11 @@ const day = (unix: number | null | undefined) =>
 const billingUrl = () => `${emailAppUrl()}/settings?section=billing`;
 const invoiceUrl = (id: string) => `${emailAppUrl()}/billing/invoice/${id}`;
 
+/** Tax inside an invoice's total, from Stripe Tax. 0 when none applied. */
+function taxOf(invoice: Stripe.Invoice): number {
+  return (invoice.total_taxes ?? []).reduce((n, t) => n + (t.amount ?? 0), 0);
+}
+
 function describe(invoice: Stripe.Invoice): string {
   return invoice.lines.data[0]?.description?.replace(/^1 × /, '') ?? 'Preciprocal subscription';
 }
@@ -125,6 +130,7 @@ export async function sendInvoiceEmail(supabaseUserId: string, invoice: Stripe.I
     rows: [
       { label: 'For', value: describe(invoice) },
       { label: 'Amount', value: amount },
+      ...(taxOf(invoice) > 0 ? [{ label: 'Includes tax', value: money(taxOf(invoice), invoice.currency) }] : []),
       ...(due ? [{ label: 'Due', value: due }] : []),
       ...(invoice.number ? [{ label: 'Invoice', value: invoice.number }] : []),
     ],
@@ -149,6 +155,7 @@ export async function sendReceiptEmail(supabaseUserId: string, invoice: Stripe.I
     rows: [
       { label: 'For', value: describe(invoice) },
       { label: 'Amount paid', value: amount },
+      ...(taxOf(invoice) > 0 ? [{ label: 'Includes tax', value: money(taxOf(invoice), invoice.currency) }] : []),
       ...(day(invoice.status_transitions?.paid_at ?? invoice.created) ? [{ label: 'Paid on', value: day(invoice.status_transitions?.paid_at ?? invoice.created)! }] : []),
       ...(period ? [{ label: 'Covers', value: period }] : []),
       ...(invoice.number ? [{ label: 'Invoice', value: invoice.number }] : []),
@@ -160,7 +167,7 @@ export async function sendReceiptEmail(supabaseUserId: string, invoice: Stripe.I
 
 export async function sendPackReceiptEmail(
   supabaseUserId: string,
-  args: { packName: string; amountCents: number; currency: string; paidAt: number; reference: string },
+  args: { packName: string; amountCents: number; currency: string; paidAt: number; reference: string; taxCents?: number },
 ): Promise<void> {
   if (args.amountCents <= 0) return;
   const amount = money(args.amountCents, args.currency);
@@ -177,6 +184,7 @@ export async function sendPackReceiptEmail(
     rows: [
       { label: 'For', value: args.packName },
       { label: 'Amount paid', value: amount },
+      ...(args.taxCents ? [{ label: 'Includes tax', value: money(args.taxCents, args.currency) }] : []),
       { label: 'Paid on', value: day(args.paidAt) ?? '' },
       { label: 'Reference', value: args.reference },
     ],

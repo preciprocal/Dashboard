@@ -281,6 +281,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
         currency: session.currency ?? "usd",
         paidAt: session.created,
         reference: session.id.slice(-10).toUpperCase(),
+        taxCents: session.total_details?.amount_tax ?? 0,
       });
       break;
     case "duplicate":

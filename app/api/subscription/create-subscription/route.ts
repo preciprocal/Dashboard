@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { supabaseAdmin } from "@/supabase/admin";
 import { getAuthedUser } from "@/lib/auth/verify-request";
+import { automaticTaxParams, ensureTaxLocation } from "@/lib/stripe/tax";
 
 export const runtime = "nodejs";
 
@@ -17,10 +18,13 @@ export async function POST(req: NextRequest) {
 
     const { supabaseUserId, email } = authedUser;
 
-    const { priceId, billingCycle, couponId } = await req.json() as {
+    const { priceId, billingCycle, couponId, country, postalCode } = await req.json() as {
       priceId: string;
       billingCycle?: string;
       couponId?: string;
+      /** From the checkout form, for Stripe Tax (lib/stripe/tax.ts). */
+      country?: string;
+      postalCode?: string;
     };
     if (!priceId) return NextResponse.json({ error: "Missing priceId" }, { status: 400 });
 
@@ -58,7 +62,15 @@ export async function POST(req: NextRequest) {
     // ── Create incomplete subscription ─────────────────────────────────────
     // FIXED: `coupon: couponId` is a removed Stripe param - throws "unknown parameter" error.
     //        Correct format is `discounts: [{ coupon: couponId }]`
+    // Stripe Tax has to know where the customer is before the subscription
+    // exists, because the first invoice is calculated at creation.
+    await ensureTaxLocation(stripe, customerId, {
+      country, postalCode,
+      ip: req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip"),
+    });
+
     const sub = await stripe.subscriptions.create({
+      ...automaticTaxParams(),
       customer:         customerId,
       items:            [{ price: priceId }],
       payment_behavior: "default_incomplete",

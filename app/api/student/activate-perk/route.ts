@@ -18,6 +18,7 @@ import {
 } from "@/lib/config/student-perk";
 import { z } from "zod";
 import { collectionParams, consentMetadata } from "@/lib/stripe/auto-pay";
+import { automaticTaxParams, ensureTaxLocation } from "@/lib/stripe/tax";
 
 export const runtime = "nodejs";
 
@@ -119,6 +120,13 @@ export async function POST(req: NextRequest) {
       invoice_settings: { default_payment_method: paymentMethodId },
     });
 
+    // Where the customer is, for Stripe Tax: the card's billing country and
+    // postcode, else their IP (lib/stripe/tax.ts).
+    await ensureTaxLocation(stripe, customerId, {
+      paymentMethod: await stripe.paymentMethods.retrieve(paymentMethodId).catch(() => null),
+      ip: req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip"),
+    });
+
     // ── Hand the trial to Stripe ────────────────────────────────────────────
     // trial_period_days means Stripe itself bills on day 31 with no cron on
     // our side. This is the whole point of the card requirement: the no-card
@@ -130,6 +138,7 @@ export async function POST(req: NextRequest) {
       trial_period_days:      TRIAL_DAYS,
       default_payment_method: paymentMethodId,
       ...collectionParams(autoPay),
+      ...automaticTaxParams(),
       metadata: {
         userId:      supabaseUserId,
         billingCycle: "monthly",
