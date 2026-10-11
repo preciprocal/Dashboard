@@ -1,55 +1,79 @@
 // app/api/refund/request/route.ts
 // The customer-facing subscription refund, under the policy in
-// lib/config/refund.ts:
+// lib/config/refund.ts. Every refund is on request; nothing is automatic.
 //
-//   GET   whether the first-payment refund is available, the exact amount,
-//         and the date it must be requested by. Reads only.
-//   POST  { fingerprint? }  requests it. Processed immediately when eligible:
-//         full refund, plan ends, refund email sent by the webhook.
+//   GET   the refund available right now, if any: the amount, what it is, and
+//         by when. Reads only.
+//   POST  { fingerprint? }  takes it. Processed immediately: money back, paid
+//         plan ends, refund email sent by the webhook.
 //
-// Every refund is on request. If it is not requested in time, it is gone.
-// After the first payment there are no partial refunds: cancel any time and
-// the plan runs to the end of the paid month. Exceptions are handled by
-// support.
-//
-// Replaces the usage-gated prorated request (refunds only after heavy use),
-// which turned away the customers most likely to dispute a charge instead.
-// Requests from that policy already in the admin queue are still decided
-// there (lib/refund/execute.ts).
+// Two kinds, offered in this order:
+//   full    first payment, within 7 days, plan essentially unused
+//           (lib/refund/first-payment.ts)
+//   unused  any time in the current billing month: the unused part of this
+//           month's payment (lib/refund/unused-credits.ts)
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
+import { assessFirstPaymentRefund, executeFirstPaymentRefund, FirstRefundError } from '@/lib/refund/first-payment';
+import { assessUnusedCreditsRefund, executeUnusedCreditsRefund, UnusedRefundError } from '@/lib/refund/unused-credits';
 import {
-  assessFirstPaymentRefund,
-  executeFirstPaymentRefund,
-  FirstRefundError,
-} from '@/lib/refund/first-payment';
-import { FIRST_REFUND_WINDOW_DAYS, FIRST_REFUND_MAX_PLAN_USED_PCT } from '@/lib/config/refund';
+  FIRST_REFUND_WINDOW_DAYS,
+  FIRST_REFUND_MAX_PLAN_USED_PCT,
+  UNUSED_REFUND_EVERY_DAYS,
+} from '@/lib/config/refund';
 
 export const runtime = 'nodejs';
 
-const fingerprintOf = (v: unknown) => (typeof v === 'string' && v.length <= 128 ? v : null);
+const fingerprintOf = (v: unknown) => (typeof v === 'string' && v.length > 0 && v.length <= 128 ? v : null);
+
+const policy = {
+  fullRefundWindowDays: FIRST_REFUND_WINDOW_DAYS,
+  fullRefundMaxPlanUsedPct: FIRST_REFUND_MAX_PLAN_USED_PCT,
+  unusedRefundEveryMonths: Math.round(UNUSED_REFUND_EVERY_DAYS / 30),
+};
 
 export async function GET(req: NextRequest) {
   const user = await getAuthedUser(req);
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const fp = fingerprintOf(req.nextUrl.searchParams.get('fp'));
 
   try {
-    const a = await assessFirstPaymentRefund(user.supabaseUserId, fingerprintOf(req.nextUrl.searchParams.get('fp')));
-    const policy = { windowDays: FIRST_REFUND_WINDOW_DAYS, maxPlanUsedPct: FIRST_REFUND_MAX_PLAN_USED_PCT };
-    if (!a.eligible) {
-      return NextResponse.json({ eligible: false, code: a.code, reason: a.reason, requestBy: a.requestBy ?? null, planUsedPct: a.planUsedPct ?? null, policy });
+    const full = await assessFirstPaymentRefund(user.supabaseUserId, fp);
+    if (full.eligible) {
+      return NextResponse.json({
+        eligible: true,
+        type: 'full',
+        refundCents: full.amountCents,
+        amountPaidCents: full.amountCents,
+        currency: full.currency,
+        planUsedPct: full.planUsedPct,
+        availableUntil: full.requestBy,
+        policy,
+      });
+    }
+
+    const unused = await assessUnusedCreditsRefund(user.supabaseUserId, fp);
+    if (unused.eligible) {
+      return NextResponse.json({
+        eligible: true,
+        type: 'unused',
+        refundCents: unused.amountCents,
+        amountPaidCents: unused.amountPaidCents,
+        currency: unused.currency,
+        planUsedPct: unused.planUsedPct,
+        availableUntil: unused.periodEndsAt,
+        policy,
+      });
     }
     return NextResponse.json({
-      eligible: true,
-      refundCents: a.amountCents,
-      amountPaidCents: a.amountCents,
-      currency: a.currency,
-      requestBy: a.requestBy,
-      planUsedPct: a.planUsedPct,
+      eligible: false,
+      code: unused.code,
+      reason: unused.reason,
+      planUsedPct: unused.planUsedPct ?? null,
+      nextEligibleAt: unused.nextEligibleAt ?? null,
       policy,
-      note: 'The full payment goes back to your card straight away, and your paid plan ends.',
     });
   } catch (err) {
     console.error('❌ refund preview error:', err);
@@ -71,12 +95,19 @@ export async function POST(req: NextRequest) {
 
   const parsed = bodySchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+  const fp = fingerprintOf(parsed.data.fingerprint);
 
   try {
-    const done = await executeFirstPaymentRefund(user.supabaseUserId, parsed.data.fingerprint ?? null);
-    return NextResponse.json({ refunded: true, amountCents: done.amountCents, currency: done.currency, refundId: done.refundId });
+    // Re-assessed here, never trusted from the preview: usage may have moved.
+    const full = await assessFirstPaymentRefund(user.supabaseUserId, fp);
+    const done = full.eligible
+      ? { ...(await executeFirstPaymentRefund(user.supabaseUserId, fp)), type: 'full' as const }
+      : { ...(await executeUnusedCreditsRefund(user.supabaseUserId, fp)), type: 'unused' as const };
+    return NextResponse.json({ refunded: true, type: done.type, amountCents: done.amountCents, currency: done.currency, refundId: done.refundId });
   } catch (err) {
-    if (err instanceof FirstRefundError) return NextResponse.json({ refunded: false, reason: err.message }, { status: 409 });
+    if (err instanceof FirstRefundError || err instanceof UnusedRefundError) {
+      return NextResponse.json({ refunded: false, reason: err.message }, { status: 409 });
+    }
     console.error('❌ refund request error:', err);
     return NextResponse.json({ refunded: false, reason: 'We could not process the refund right now. Please try again.' }, { status: 500 });
   }

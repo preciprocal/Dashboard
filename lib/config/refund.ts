@@ -16,8 +16,12 @@ export const REFUND_WINDOW_DAYS = 30;
 //      FIRST_REFUND_WINDOW_DAYS of paying, if they used less than
 //      FIRST_REFUND_MAX_PLAN_USED_PCT of the plan. Processed instantly by
 //      lib/refund/first-payment.ts, once per account, card and device.
-//   2. Otherwise: cancel any time, the plan runs to the end of the paid month,
-//      and partial months are not refunded.
+//   2. Otherwise, at any point in the current billing month: a refund of the
+//      unused part of THIS month's payment, weighted by what each feature
+//      costs, with no card fee deducted. Processed instantly by
+//      lib/refund/unused-credits.ts; the plan ends. Once every
+//      UNUSED_REFUND_EVERY_DAYS per account, card and device.
+//   3. Last month's payment cannot be refunded once a new month starts.
 //
 // Every refund is on request. Nothing is ever refunded automatically.
 //
@@ -48,6 +52,16 @@ export const FIRST_REFUND_MAX_PLAN_USED_PCT = 10;
  * plan's value. This catches "used half or more of something" directly.
  */
 export const FIRST_REFUND_MAX_FEATURE_USED_PCT = 50;
+
+/**
+ * How often one person can get an unused-credits refund. Six months is
+ * generous for genuine cases and stops subscribe, use a little, refund,
+ * repeat from turning the plan into pay-per-use. Any refund counts.
+ */
+export const UNUSED_REFUND_EVERY_DAYS = 183;
+
+/** Below this there is nothing meaningful left to refund. */
+export const UNUSED_REFUND_MIN_CENTS = 50;
 
 /**
  * Usage share, in any single quota category, above which a request is routed

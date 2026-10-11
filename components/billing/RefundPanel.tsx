@@ -41,7 +41,10 @@ interface SubscriptionPreview {
   note?: string;
   existingRequest?: { id: string; status: string; createdAt: string };
   planUsedPct?: number | null;
-  policy?: { windowDays: number; maxPlanUsedPct: number };
+  type?: "full" | "unused";
+  availableUntil?: string | null;
+  nextEligibleAt?: string | null;
+  policy?: { fullRefundWindowDays: number; fullRefundMaxPlanUsedPct: number; unusedRefundEveryMonths: number };
 }
 
 interface PackItem {
@@ -56,6 +59,7 @@ interface PackItem {
   reason: string | null;
 }
 
+const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" });
 const money = (cents?: number) => `$${((cents ?? 0) / 100).toFixed(2)}`;
 
 export default function RefundPanel() {
@@ -107,7 +111,7 @@ export default function RefundPanel() {
       const data = await res.json().catch(() => ({}));
 
       if (res.ok && data?.refunded) {
-        setNotice({ tone: "ok", text: `Refunded ${money(data.amountCents)}. It goes back to your card now; your bank may take 5 to 10 business days to show it. Your plan has ended and you are on the Free plan.` });
+        setNotice({ tone: "ok", text: `Refunded ${money(data.amountCents)}. It goes back to your card now; your bank may take 5 to 10 business days to show it. Your paid plan has ended and you are on the Free plan.` });
         await load();
       } else {
         setNotice({ tone: "bad", text: data?.reason ?? data?.error ?? "We could not submit that request." });
@@ -193,26 +197,34 @@ export default function RefundPanel() {
           <div className="space-y-2">
             <p className="text-sm text-slate-300 leading-relaxed">{sub.reason}</p>
             <p className="text-xs text-slate-500">
-              Need help with something that went wrong on our side? Email support@preciprocal.com.
+              You can still cancel any time and keep your plan to the end of the month. If something went
+              wrong on our side, email support@preciprocal.com.
             </p>
           </div>
         ) : (
           <div className="space-y-4">
             <div className="flex items-baseline gap-2 flex-wrap">
               <span className="text-2xl font-bold text-white">{money(sub.refundCents)}</span>
-              <span className="text-xs text-slate-500">full refund of your first payment</span>
+              <span className="text-xs text-slate-500">
+                {sub.type === "full"
+                  ? "full refund of your first payment"
+                  : `back from your ${money(sub.amountPaidCents)} payment this month`}
+              </span>
             </div>
 
             {/* Stated before the button, so nobody is surprised by what it does. */}
             <p className="text-xs text-slate-400 leading-relaxed">
-              Not what you needed? You can get your whole first payment back. It is refunded straight away,
-              your paid plan ends, and your account moves to the Free plan.
+              {sub.type === "full"
+                ? "Changed your mind? You can get your whole first payment back."
+                : `You have used about ${sub.planUsedPct ?? 0}% of your plan this month, so you can get back the part you have not used. Nothing is taken off for card fees.`}
+              {" "}It is refunded straight away, your paid plan ends, and your account moves to the Free plan.
             </p>
-            {sub.requestBy && (
+            {sub.availableUntil && (
               <p className="text-xs text-amber-300/90 leading-relaxed">
-                Available until {new Date(sub.requestBy).toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })}
-                {sub.policy ? `, while you have used less than ${sub.policy.maxPlanUsedPct}% of your plan (you have used about ${sub.planUsedPct ?? 0}%)` : ""}.
-                After that, you can still cancel any time, but payments are not refunded.
+                {sub.type === "full"
+                  ? `The full refund is available until ${fmtDate(sub.availableUntil)}.`
+                  : `Available until your billing month ends on ${fmtDate(sub.availableUntil)}. Once a new month starts, this month's payment can no longer be refunded.`}
+                {sub.policy && sub.type === "unused" ? ` You can get an unused-credits refund once every ${sub.policy.unusedRefundEveryMonths} months.` : ""}
               </p>
             )}
 

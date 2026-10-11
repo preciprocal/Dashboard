@@ -270,7 +270,7 @@ function CheckoutFormInner({ plan, user, billedAmount, onClose, onVerifyStudent 
               </div>
             </div>
             <div className="relative z-10 flex items-center justify-between pt-6">
-              {[{ icon: "🔒", text: "SSL encrypted" }, { icon: "↩", text: "7-day refund on first payment" }, { icon: "✕", text: "Cancel anytime" }].map(t => (
+              {[{ icon: "🔒", text: "SSL encrypted" }, { icon: "↩", text: "Refunds for unused credits" }, { icon: "✕", text: "Cancel anytime" }].map(t => (
                 <span key={t.text} className="flex items-center gap-1.5 text-[11px] text-slate-600">
                   <span>{t.icon}</span>{t.text}
                 </span>
@@ -998,9 +998,9 @@ export default function PricingPage() {
             {/* Describes the refund policy as enforced in lib/config/refund.ts
                 (first-payment refund, migration 0049). Keep the two in step:
                 a refund promise we would not honour is a misleading claim. */}
-            Start on the Free plan and upgrade when it is earning its place. Changed your mind straight after
-            paying? Ask within 7 days of your first payment and get it all back, as long as you have used less
-            than 10% of your plan. After that, cancel any time and keep your plan to the end of the month. <span className="text-white font-semibold">No tricks, no fine print.</span>
+            Start on the Free plan and upgrade when it is earning its place. If you change your mind, ask any
+            time in your billing month and we refund the part of it you have not used, with nothing taken off
+            for card fees. Barely used it in your first 7 days? You get the whole first payment back. <span className="text-white font-semibold">No tricks, no fine print.</span>
           </p>
         </div>
 
@@ -1180,7 +1180,7 @@ export default function PricingPage() {
                 replaced because it was unverifiable, and an unsubstantiated
                 number on a pricing page is a liability rather than an asset. */}
             {[
-              { icon: "↩", text: "Full refund within 7 days of first payment" },
+              { icon: "↩", text: "Refund what you do not use" },
               { icon: "⚡", text: "Free plan, no card required" },
               { icon: "🛡️", text: "Your data is never sold" },
             ].map(t => (
