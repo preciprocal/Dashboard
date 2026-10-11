@@ -342,6 +342,14 @@ export default function TemplatesPage() {
     behavioral:       templateData.filter(t => t.type === 'Behavioral').length,
   }), []);
 
+  // 24 at a time: rendering all 173 made the page 63,000px tall on a phone.
+  const PAGE_SIZE = 24;
+  const [shown, setShown] = useState(PAGE_SIZE);
+  const filterKey = `${view}|${searchQuery}|${selectedCategory}|${selectedDifficulty}|${selectedType}|${selectedDuration}`;
+  const [shownFor, setShownFor] = useState(filterKey);
+  if (shownFor !== filterKey) { setShownFor(filterKey); setShown(PAGE_SIZE); }
+  const visibleTemplates = filteredTemplates.slice(0, shown);
+
   const resetFilters = () => {
     setSearchQuery('');
     setSelectedCategory('all');
@@ -497,9 +505,19 @@ export default function TemplatesPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredTemplates.map(template => (
+          {visibleTemplates.map(template => (
             <TemplateCard key={template.id} template={template} />
           ))}
+        </div>
+      )}
+      {filteredTemplates.length > visibleTemplates.length && (
+        <div className="flex flex-col items-center gap-2 pt-1">
+          <button onClick={() => setShown(n => n + PAGE_SIZE)}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-slate-800/60 border border-white/[0.08] hover:bg-slate-800 hover:border-white/[0.15] transition-colors cursor-pointer">
+            Show more templates
+            <ChevronDown className="w-4 h-4" />
+          </button>
+          <p className="text-xs text-slate-500">Showing {visibleTemplates.length} of {filteredTemplates.length}</p>
         </div>
       )}
 

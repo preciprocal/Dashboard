@@ -460,7 +460,7 @@ Software Engineer at TechCorp
 We're looking for a skilled software engineer...
 Required: React, Node.js, Python, AWS..."
               rows={16}
-              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none text-slate-900 dark:text-white placeholder-slate-400"
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600"
             />
             
             <div className="flex items-center justify-between mt-4">

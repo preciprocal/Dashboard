@@ -435,10 +435,10 @@ function EmptyDashboard() {
         ))}
       </div>
 
-      <div className="flex items-center justify-center gap-3">
+      <div className="flex flex-wrap items-center justify-center gap-3">
         <Link
           href="/cover-letter/create"
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl whitespace-nowrap shrink-0
                      bg-gradient-to-r from-indigo-600 to-purple-600
                      hover:from-indigo-500 hover:to-purple-500
                      text-white text-sm font-semibold
@@ -446,7 +446,7 @@ function EmptyDashboard() {
                      hover:shadow-[0_6px_20px_rgba(102,126,234,0.4)]
                      transition-all duration-200"
         >
-          <Plus className="w-4 h-4" /> Generate First Letter
+          <Plus className="w-4 h-4 shrink-0" /> Generate First Letter
         </Link>
         <SeeExampleButton
           serviceId="cover-letter"

@@ -6,6 +6,14 @@ import { CheckCircle, X } from 'lucide-react';
 
 export default function ExtensionAuthSuccess() {
   const [countdown, setCountdown] = useState(3);
+  // Browsers only let a script close a tab the script opened. When this one
+  // was opened by the user (or the extension), window.close() does nothing,
+  // so say so instead of sitting at "0 seconds".
+  const [closeBlocked, setCloseBlocked] = useState(false);
+  const tryClose = () => {
+    window.close();
+    setTimeout(() => { if (!window.closed) setCloseBlocked(true); }, 300);
+  };
 
   useEffect(() => {
     // Countdown timer
@@ -20,9 +28,7 @@ export default function ExtensionAuthSuccess() {
     }, 1000);
 
     // Close window after 3 seconds
-    const closeTimer = setTimeout(() => {
-      window.close();
-    }, 3000);
+    const closeTimer = setTimeout(tryClose, 3000);
 
     return () => {
       clearInterval(countdownInterval);
@@ -79,7 +85,7 @@ export default function ExtensionAuthSuccess() {
           {/* Action Buttons */}
           <div className="space-y-3">
             <button
-              onClick={() => window.close()}
+              onClick={tryClose}
               className="glass-button-primary hover-lift w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl transition-all"
             >
               <X className="w-4 h-4" />
@@ -87,7 +93,9 @@ export default function ExtensionAuthSuccess() {
             </button>
             
             <p className="text-xs text-slate-500">
-              Or wait {countdown} second{countdown !== 1 ? 's' : ''} for auto-close
+              {closeBlocked
+                ? 'You are signed in. You can close this tab and go back to the extension.'
+                : `Or wait ${countdown} second${countdown !== 1 ? 's' : ''} for auto-close`}
             </p>
           </div>
 
@@ -97,7 +105,7 @@ export default function ExtensionAuthSuccess() {
               <div 
                 className="h-full bg-gradient-to-r from-purple-600 via-blue-600 to-green-600 rounded-full transition-all duration-1000 ease-linear"
                 style={{ 
-                  width: `${100 - (countdown / 3 * 100)}%`,
+                  width: closeBlocked ? '100%' : `${100 - (countdown / 3 * 100)}%`,
                   animation: 'shimmer 2s infinite'
                 }}
               />

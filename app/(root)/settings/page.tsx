@@ -142,6 +142,15 @@ export default function SettingsPage() {
   const router = useRouter();
 
   const [activeSection,   setActiveSection]   = useState('account');
+  // Same source as the sidebar and Profile, so the three never disagree.
+  const [profileName, setProfileName] = useState<string | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    let live = true;
+    supabase.from('profiles').select('name').eq('user_id', user.id).maybeSingle()
+      .then(({ data }) => { if (live) setProfileName((data?.name as string | undefined)?.trim() || null); });
+    return () => { live = false; };
+  }, [user]);
   const [pageLoading,     setPageLoading]     = useState(true);
   const [savingEmail,     setSavingEmail]     = useState(false);
   const [savingPassword,  setSavingPassword]  = useState(false);
@@ -437,12 +446,14 @@ export default function SettingsPage() {
       </div>
 
       {/* ── Tab bar ── */}
-      <div className="glass-card overflow-hidden">
+      <div className="glass-card overflow-hidden relative">
+        {/* On a phone only 3 of the 7 tabs fit; the fade says there are more. */}
+        <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 w-12 z-10 bg-gradient-to-l from-slate-950 to-transparent lg:hidden" />
         <div className="flex overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
           {sections.map(s => {
             const isActive = activeSection === s.id;
             return (
-              <button key={s.id} onClick={() => setActiveSection(s.id)}
+              <button key={s.id} onClick={e => { setActiveSection(s.id); e.currentTarget.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }); }}
                 className={`relative flex-shrink-0 flex items-center gap-2 px-4 py-3.5 text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
                   isActive
                     ? s.danger ? 'text-red-400' : 'text-white'
@@ -480,7 +491,7 @@ export default function SettingsPage() {
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <p className="text-white font-semibold text-sm truncate">{(user.user_metadata?.name as string) || (user.user_metadata?.full_name as string) || 'No name set'}</p>
+                  <p className="text-white font-semibold text-sm truncate">{profileName || (user.user_metadata?.name as string) || (user.user_metadata?.full_name as string) || 'No name set'}</p>
                   <p className="text-slate-400 text-xs mt-0.5 truncate">{user.email}</p>
                   <div className="flex items-center gap-2 mt-2">
                     <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium border ${

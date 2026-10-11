@@ -87,12 +87,12 @@ export default function FileUploader({ onFileSelect, accept = DEFAULT_ACCEPT }: 
   return (
     <div className="w-full">
       <div
-        className={`border-2 border-dashed rounded-lg p-6 transition-all duration-200 ${
+        className={`border-2 border-dashed rounded-xl p-6 transition-all duration-200 ${
           isDragActive && !isDragReject
-            ? 'border-blue-400 bg-blue-50'
+            ? 'border-indigo-400/70 bg-indigo-500/10'
             : isDragReject || dragError
-            ? 'border-red-400 bg-red-50'
-            : 'border-gray-300 hover:border-gray-400'
+            ? 'border-red-500/50 bg-red-500/[0.06]'
+            : 'border-white/[0.12] bg-slate-900/40 hover:border-indigo-400/40 hover:bg-slate-900/60'
         }`}
       >
         <div {...getRootProps()}>
@@ -101,22 +101,22 @@ export default function FileUploader({ onFileSelect, accept = DEFAULT_ACCEPT }: 
           <div className="space-y-4 cursor-pointer">
             {file ? (
               <div
-                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                className="flex items-center justify-between p-4 bg-slate-800/60 border border-white/[0.06] rounded-lg hover:bg-slate-800 transition-colors"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-10 h-10 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                     </svg>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-700 truncate">{file.name}</p>
-                    <p className="text-sm text-gray-500">{formatSize(file.size)} · {fileLabel}</p>
+                    <p className="text-sm font-medium text-white truncate">{file.name}</p>
+                    <p className="text-sm text-slate-400">{formatSize(file.size)} · {fileLabel}</p>
                   </div>
                 </div>
                 <button
-                  className="p-2 hover:bg-gray-200 rounded-full transition-colors"
+                  className="p-2 hover:bg-white/[0.06] rounded-full transition-colors cursor-pointer"
                   onClick={(e) => {
                     e.stopPropagation();
                     setDragError('');
@@ -124,7 +124,7 @@ export default function FileUploader({ onFileSelect, accept = DEFAULT_ACCEPT }: 
                   }}
                   title="Remove file"
                 >
-                  <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
@@ -133,25 +133,25 @@ export default function FileUploader({ onFileSelect, accept = DEFAULT_ACCEPT }: 
               <div className="text-center">
                 <div className="mx-auto w-16 h-16 flex items-center justify-center mb-4">
                   {isDragActive ? (
-                    <svg className="w-12 h-12 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-12 h-12 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
                     </svg>
                   ) : (
-                    <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-12 h-12 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
                   )}
                 </div>
 
                 {isDragActive ? (
-                  <p className="text-lg text-blue-600 font-medium">Drop your file here</p>
+                  <p className="text-lg text-indigo-300 font-medium">Drop your file here</p>
                 ) : (
                   <>
-                    <p className="text-lg text-gray-600 mb-1">
-                      <span className="font-semibold text-blue-600 hover:text-blue-700">Click to upload</span>{' '}
+                    <p className="text-base text-slate-300 mb-1">
+                      <span className="font-semibold text-indigo-300 hover:text-indigo-200">Click to upload</span>{' '}
                       or drag and drop
                     </p>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-slate-500">
                       PDF or Word (.docx, .doc) · max {formatSize(maxFileSize)}
                     </p>
                   </>
@@ -163,7 +163,7 @@ export default function FileUploader({ onFileSelect, accept = DEFAULT_ACCEPT }: 
       </div>
 
       {dragError && (
-        <p className="mt-2 text-sm text-red-600 flex items-center">
+        <p className="mt-2 text-sm text-red-400 flex items-center">
           <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>

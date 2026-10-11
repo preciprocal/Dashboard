@@ -258,7 +258,7 @@ const InteractiveSolutionsDashboard = () => {
   const currentFramework = currentSolution.frameworks[activeFramework];
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen">
       {/* Header */}
       <section className="py-12 border-b border-gray-800">
         <div className="container mx-auto px-6">

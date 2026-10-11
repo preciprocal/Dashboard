@@ -386,9 +386,12 @@ export default function Dashboard() {
           return;
         }
 
+        // The profile's name first: it is what Settings edits and the sidebar
+        // shows. The sign-in metadata name was used here and could drift.
+        const { data: prof } = await supabase.from('profiles').select('name').eq('user_id', currentUser.id).maybeSingle();
         setUserProfile({
           id: currentUser.id,
-          name: (currentUser.user_metadata?.name as string) || (currentUser.user_metadata?.full_name as string) || 'User',
+          name: (prof?.name as string | undefined)?.trim() || (currentUser.user_metadata?.name as string) || (currentUser.user_metadata?.full_name as string) || 'User',
           email: currentUser.email || '',
           createdAt: new Date(),
           lastLogin: new Date(),
