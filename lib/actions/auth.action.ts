@@ -68,7 +68,7 @@ interface SignInParams {
   password: string;
 }
 
-interface FirebaseTimestamp {
+interface TimestampLike {
   toDate: () => Date;
   _seconds?: number;
   _nanoseconds?: number;
@@ -185,7 +185,7 @@ export async function invalidateUserCache(userId: string): Promise<void> {
 // ─── Timestamp helper ─────────────────────────────────────────────────────────
 
 function convertTimestampToISO(
-  timestamp: FirebaseTimestamp | Date | string | null | undefined
+  timestamp: TimestampLike | Date | string | null | undefined
 ): string {
   if (!timestamp) return new Date().toISOString();
   if (typeof timestamp === "object" && "toDate" in timestamp && typeof timestamp.toDate === "function")

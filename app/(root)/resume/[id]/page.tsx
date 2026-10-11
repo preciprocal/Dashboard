@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
-import { FirebaseService } from '@/lib/services/firebase-service';
+import { ResumeService } from '@/lib/services/resume-service';
 import { openResumePdf } from '@/lib/resume/resolve-pdf-url';
 import { Resume } from '@/types/resume';
 import {
@@ -400,7 +400,7 @@ export default function ResumeDetailsPage() {
       if (!params.id || typeof params.id !== 'string') { setError('Invalid resume ID'); setLoadingResume(false); return; }
       try {
         setLoadingStep(1);
-        const data = await FirebaseService.getResume(params.id);
+        const data = await ResumeService.getResume(params.id);
         setLoadingStep(2);
         if (!data) { setError('Resume not found'); setResume(null); }
         else if (user && data.userId !== user.id) { setError('Access denied'); setResume(null); }

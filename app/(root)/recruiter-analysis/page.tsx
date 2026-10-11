@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
-import { FirebaseService } from '@/lib/services/firebase-service';
+import { ResumeService } from '@/lib/services/resume-service';
 import { Resume } from '@/types/resume';
 import RecruiterEyeSimulation from '@/components/resume/RecruiterEyeSimulation';
 import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
@@ -74,12 +74,12 @@ export default function RecruiterEyePage() {
         // Step 3: Fetch the resume
         setLoadingStep(3);
         console.log('Fetching resume with ID:', profileData.currentResume);
-        const resumeData = await FirebaseService.getResume(profileData.currentResume);
+        const resumeData = await ResumeService.getResume(profileData.currentResume);
         console.log('Resume data received:', resumeData);
 
         if (!resumeData) {
           // Try to fetch all user resumes to debug
-          const allResumes = await FirebaseService.getUserResumes(user.id);
+          const allResumes = await ResumeService.getUserResumes(user.id);
           console.log('All user resumes:', allResumes);
           console.log('Total resumes found:', allResumes.length);
           

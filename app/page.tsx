@@ -375,7 +375,7 @@ export default function Dashboard() {
       try {
         setIsLoading(true);
         const { supabase }                                       = await import('@/supabase/client');
-        const { FirebaseService }                               = await import('@/lib/services/firebase-service');
+        const { ResumeService }                               = await import('@/lib/services/resume-service');
         const { getInterviewsByUserId, getFeedbackByInterviewId } = await import('@/lib/actions/general.action');
 
         const { data: { user: currentUser } } = await supabase.auth.getUser();
@@ -405,7 +405,7 @@ export default function Dashboard() {
 
         let userResumes: Resume[] = [];
         try {
-          userResumes = await FirebaseService.getUserResumes(currentUser.id) as unknown as Resume[];
+          userResumes = await ResumeService.getUserResumes(currentUser.id) as unknown as Resume[];
           setResumes(userResumes);
         } catch { /* non-fatal */ }
 

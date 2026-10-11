@@ -631,12 +631,7 @@ function HelpSupportContent() {
 
     } catch (error) {
       console.error('Error submitting ticket:', error);
-      const msg = error instanceof Error ? error.message : 'Unknown error';
-      if (msg.includes('Firebase')) {
-        setCriticalError({ code: 'DATABASE', title: 'Submission Error', message: 'Unable to submit ticket', details: msg });
-      } else {
-        setSubmitError('Failed to submit. Please try again.');
-      }
+      setSubmitError('Failed to submit. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

@@ -3,7 +3,7 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
-import { FirebaseService } from '@/lib/services/firebase-service';
+import { ResumeService } from '@/lib/services/resume-service';
 import FileUploader from '@/components/resume/FileUploader';
 import { Resume, ResumeFeedback } from '@/types/resume';
 import {
@@ -291,7 +291,7 @@ export default function UploadResume() {
         ...(cacheHash ? { cacheHash } : {}),
       };
 
-      await FirebaseService.saveResumeWithFiles(resumeToSave, pdfFile);
+      await ResumeService.saveResumeWithFiles(resumeToSave, pdfFile);
 
       await refetchUsage();
 

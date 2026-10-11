@@ -921,7 +921,7 @@ admin tool, a Zap) still posts to it, then deleting the route.
 
 ---
 
-## 29. MOSTLY RESOLVED - audit of 2026-10-11
+## 29. RESOLVED - audit of 2026-10-11
 
 Found by a full audit on 2026-10-11; the high-severity items were fixed the
 same day, and the rest of the list in the days after:
@@ -949,12 +949,9 @@ same day, and the rest of the list in the days after:
   labels, Teams admin check, no sample meetings, Firebase removed.
 - Landing: AI interview analysis limits shown on the plan cards.
 
-**Still open (cosmetic):**
-- Firebase-era names remain in the app (`FirebaseService`, a few error
-  branches that check for Firebase codes and can never fire). Renaming
-  touches six pages for no user-visible change.
-- Settings still saves privacy/appearance/preference fields that nothing
-  reads. Harmless; remove with the next Settings rework.
+The two cosmetic leftovers are done too: `FirebaseService` is now
+`ResumeService` (lib/services/resume-service.ts), the dead Firebase error
+branches are gone, and Settings only saves notification preferences.
 
 **Needs a Stripe setting:** add `charge.dispute.updated` and
 `charge.dispute.closed` to the live webhook so dispute statuses update.

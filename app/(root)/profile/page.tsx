@@ -60,10 +60,10 @@ interface UserCreatedContent {
   blogs: BookmarkedBlog[]; templates: SavedTemplate[]; customInterviews: CustomInterview[];
 }
 
-interface FirebaseTimestamp { toDate: () => Date }
+interface TimestampLike { toDate: () => Date }
 
 interface InterviewData {
-  createdAt?: FirebaseTimestamp | string | Date; status?: string; duration?: number;
+  createdAt?: TimestampLike | string | Date; status?: string; duration?: number;
   score?: number; feedback?: { overallRating?: number; totalScore?: number; strengths?: string[]; weaknesses?: string[]; communication?: number };
   type?: string; [key: string]: unknown;
 }
@@ -79,7 +79,7 @@ function isProfileComplete(profile: Partial<UserProfile>): boolean {
   );
 }
 
-function convertToDate(val: FirebaseTimestamp | string | Date | undefined): Date {
+function convertToDate(val: TimestampLike | string | Date | undefined): Date {
   if (!val) return new Date();
   if (typeof val === 'object' && 'toDate' in val) return val.toDate();
   if (val instanceof Date) return val;
@@ -301,9 +301,7 @@ const ProfilePage = () => {
         await new Promise(r => setTimeout(r, 100));
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : '';
-        if (msg.includes('Firebase') || msg.includes('firestore')) {
-          setCriticalError({ code: 'DATABASE', title: 'Database Error', message: 'Unable to load your profile data.', details: msg });
-        } else if (msg.includes('fetch') || msg.includes('network')) {
+        if (msg.includes('fetch') || msg.includes('network')) {
           setCriticalError({ code: 'NETWORK', title: 'Network Error', message: 'Check your internet connection and try again.', details: msg });
         } else {
           setProfileError('Failed to load profile data. Please try again.');

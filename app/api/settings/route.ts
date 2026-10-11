@@ -5,6 +5,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
 
+// Only notification preferences: privacy, appearance and general preference
+// fields used to be saved here too, but nothing read them.
 interface AppSettings {
   notifications: {
     /** Gates the support-reply email in app/api/support/inbound-email. */
@@ -18,23 +20,6 @@ interface AppSettings {
     /** Mirrored to newsletter_subscribers.subscribed. Opt-in. */
     productUpdates: boolean;
   };
-  privacy: {
-    shareAnalytics: boolean;
-    allowDataCollection: boolean;
-  };
-  appearance: {
-    theme: 'light' | 'dark' | 'system';
-    language: string;
-    fontSize: 'small' | 'medium' | 'large';
-    reducedMotion: boolean;
-  };
-  preferences: {
-    autoSave: boolean;
-    soundEffects: boolean;
-    defaultInterviewType: 'technical' | 'behavioral' | 'mixed';
-    practiceReminders: boolean;
-    emailFrequency: 'realtime' | 'daily' | 'weekly' | 'never';
-  };
 }
 
 const defaultSettings: AppSettings = {
@@ -44,23 +29,6 @@ const defaultSettings: AppSettings = {
     activation: true,
     coaching: true,
     productUpdates: false,
-  },
-  privacy: {
-    shareAnalytics: false,
-    allowDataCollection: true,
-  },
-  appearance: {
-    theme: 'dark',
-    language: 'en',
-    fontSize: 'medium',
-    reducedMotion: false,
-  },
-  preferences: {
-    autoSave: true,
-    soundEffects: true,
-    defaultInterviewType: 'mixed',
-    practiceReminders: true,
-    emailFrequency: 'daily',
   },
 };
 
@@ -107,8 +75,9 @@ export async function GET(request: NextRequest) {
     // Section-by-section, because an email unsubscribe can create this row
     // holding only `notifications` (lib/email/unsubscribe.ts).
     const base: AppSettings = { ...defaultSettings, ...(stored ?? {}) };
+    // Older rows may still hold the removed fields; only notifications go out,
+    // and the next save drops the rest.
     const settings: AppSettings = {
-      ...base,
       notifications: {
         supportReplies: base.notifications?.supportReplies ?? defaultSettings.notifications.supportReplies,
         weeklyDigest:   profileRow?.weekly_digest_opt_out !== true,
@@ -160,23 +129,6 @@ export async function POST(request: NextRequest) {
         activation:     settings.notifications?.activation     ?? defaultSettings.notifications.activation,
         coaching:       settings.notifications?.coaching       ?? defaultSettings.notifications.coaching,
         productUpdates: settings.notifications?.productUpdates ?? defaultSettings.notifications.productUpdates,
-      },
-      privacy: {
-        shareAnalytics: settings.privacy?.shareAnalytics ?? defaultSettings.privacy.shareAnalytics,
-        allowDataCollection: settings.privacy?.allowDataCollection ?? defaultSettings.privacy.allowDataCollection,
-      },
-      appearance: {
-        theme: settings.appearance?.theme ?? defaultSettings.appearance.theme,
-        language: settings.appearance?.language ?? defaultSettings.appearance.language,
-        fontSize: settings.appearance?.fontSize ?? defaultSettings.appearance.fontSize,
-        reducedMotion: settings.appearance?.reducedMotion ?? defaultSettings.appearance.reducedMotion,
-      },
-      preferences: {
-        autoSave: settings.preferences?.autoSave ?? defaultSettings.preferences.autoSave,
-        soundEffects: settings.preferences?.soundEffects ?? defaultSettings.preferences.soundEffects,
-        defaultInterviewType: settings.preferences?.defaultInterviewType ?? defaultSettings.preferences.defaultInterviewType,
-        practiceReminders: settings.preferences?.practiceReminders ?? defaultSettings.preferences.practiceReminders,
-        emailFrequency: settings.preferences?.emailFrequency ?? defaultSettings.preferences.emailFrequency,
       },
     };
 

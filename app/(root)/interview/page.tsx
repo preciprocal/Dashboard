@@ -288,9 +288,7 @@ export default function InterviewsDashboard() {
 
     } catch (err: unknown) {
       const msg = (err as Error).message ?? '';
-      if (msg.includes('Firebase') || msg.includes('firestore')) {
-        setCriticalError({ code: 'DATABASE', title: 'Database Error', message: 'Unable to load your interviews.', details: msg });
-      } else if (msg.includes('fetch') || msg.includes('network')) {
+      if (msg.includes('fetch') || msg.includes('network')) {
         setCriticalError({ code: 'NETWORK', title: 'Network Error', message: 'Check your internet connection and try again.', details: msg });
       } else {
         setInterviewsError('Failed to load interviews. Please try again.');

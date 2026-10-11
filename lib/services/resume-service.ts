@@ -1,9 +1,8 @@
-// lib/services/firebase-service.ts
+// lib/services/resume-service.ts
 //
-// Despite the filename, this is now a thin Postgres/API client - resumes
-// live in Postgres and are read/written through the API routes below. The
-// name is kept only because a handful of call sites still import
-// `FirebaseService` (see git blame for the pre-migration Firestore version).
+// A thin client for resumes: they live in Postgres and are read and written
+// through the API routes below. (This was firebase-service.ts before the move
+// off Firebase; see git history for the Firestore version.)
 import { Resume } from '@/types/resume';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -113,10 +112,10 @@ export async function getUserResumes(userId: string): Promise<Resume[]> {
 
 // ─── Class export (backward compatibility) ───────────────────────────────────
 
-export class FirebaseService {
+export class ResumeService {
   static saveResumeWithFiles = saveResumeWithFiles;
   static getResume           = getResume;
   static getUserResumes      = getUserResumes;
 }
 
-export default FirebaseService;
+export default ResumeService;

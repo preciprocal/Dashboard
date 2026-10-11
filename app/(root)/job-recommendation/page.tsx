@@ -248,14 +248,7 @@ function JobRecommendationsPage() {
       console.error('Error fetching resumes:', err);
       const error = err instanceof Error ? err : new Error('Unknown error');
       
-      if (error.message.includes('Firebase') || error.message.includes('firestore')) {
-        setCriticalError({
-          code: 'DATABASE',
-          title: 'Database Connection Error',
-          message: 'Unable to load your resumes. Please check your internet connection.',
-          details: error.message
-        });
-      } else if (error.message.includes('fetch') || error.message.includes('network')) {
+      if (error.message.includes('fetch') || error.message.includes('network')) {
         setCriticalError({
           code: 'NETWORK',
           title: 'Network Error',
@@ -337,14 +330,7 @@ function JobRecommendationsPage() {
       console.error('Job recommendations error:', error);
       const err = error instanceof Error ? error : new Error('Unknown error');
       
-      if (err.message.includes('Firebase') || err.message.includes('firestore')) {
-        setCriticalError({
-          code: 'DATABASE',
-          title: 'Database Connection Error',
-          message: 'Unable to fetch job recommendations. Please check your internet connection.',
-          details: err.message
-        });
-      } else if (err.message.includes('fetch') || err.message.includes('network')) {
+      if (err.message.includes('fetch') || err.message.includes('network')) {
         setCriticalError({
           code: 'NETWORK',
           title: 'Network Error',

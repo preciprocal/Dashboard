@@ -17,7 +17,7 @@ import SessionHeartbeat from '@/components/SessionHeartbeat';
 import ActivityTracker from '@/components/ActivityTracker';
 import { supabase } from '@/supabase/client';
 import { hasUnreadSupportReply } from '@/lib/support/unread';
-import { FirebaseService } from '@/lib/services/firebase-service';
+import { ResumeService } from '@/lib/services/resume-service';
 import { useNotifications } from '@/lib/hooks/useNotifications';
 import NotificationCenter from '@/components/Notifications';
 import type { LucideIcon } from 'lucide-react';
@@ -239,7 +239,7 @@ const useResumeCount = () => {
     const fetchResumeData = async () => {
       if (!user) { setLoading(false); return; }
       try {
-        const resumes = await FirebaseService.getUserResumes(user.id);
+        const resumes = await ResumeService.getUserResumes(user.id);
         setResumeCount(resumes.length);
         if (resumes.length > 0) {
           const sorted = [...resumes].sort((a, b) => {

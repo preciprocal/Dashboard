@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
 
 // POST /api/resume - Create new resume. Accepts either a bare "pending"
 // record (analysis not run yet) or a fully-analyzed one in one shot - the
-// resume upload flow (lib/services/firebase-service.ts saveResumeWithFiles)
+// resume upload flow (lib/services/resume-service.ts saveResumeWithFiles)
 // already has the AI feedback by the time it calls this, since analysis
 // happens client-side against /api/analyze-resume first.
 export async function POST(request: NextRequest) {

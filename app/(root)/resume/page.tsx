@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
-import { FirebaseService } from '@/lib/services/firebase-service';
+import { ResumeService } from '@/lib/services/resume-service';
 import ResumeCard from '@/components/resume/ResumeCard';
 import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
 import ErrorPage from '@/components/Error';
@@ -102,7 +102,7 @@ export default function ResumeDashboard() {
       setLoadingStep(0);
 
       setLoadingStep(1);
-      const userResumes = await FirebaseService.getUserResumes(user.id);
+      const userResumes = await ResumeService.getUserResumes(user.id);
       setResumes(userResumes);
 
       setLoadingStep(2);
@@ -120,9 +120,7 @@ export default function ResumeDashboard() {
     } catch (err: unknown) {
       console.error('Error loading resumes:', err);
       const error = err instanceof Error ? err : new Error('Unknown error');
-      if (error.message.includes('Firebase') || error.message.includes('firestore')) {
-        setCriticalError({ code: 'DATABASE', title: 'Database Connection Error', message: 'Unable to load your resumes. Please check your internet connection.', details: error.message });
-      } else if (error.message.includes('fetch') || error.message.includes('network')) {
+      if (error.message.includes('fetch') || error.message.includes('network')) {
         setCriticalError({ code: 'NETWORK', title: 'Network Error', message: 'Unable to connect to the server. Please check your internet connection.', details: error.message });
       } else if (error.message.includes('permission') || error.message.includes('denied')) {
         setResumesError('You do not have permission to view resumes. Please contact support.');
