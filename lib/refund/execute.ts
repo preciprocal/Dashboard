@@ -18,6 +18,7 @@
 // If Stripe refuses at step 2, the request goes back to its previous status
 // with the error recorded, and nothing else changes.
 
+import { sendOpsAlert } from '@/lib/email/ops-alert';
 import { supabaseAdmin } from '@/supabase/admin';
 import { stripe } from '@/lib/stripe/billing';
 import { REFUND_STATUSES } from '@/lib/config/refund';
@@ -136,6 +137,14 @@ export async function approveAndRefund(requestId: string, adminId: string, note:
       }
     } catch (err) {
       console.error(`🚨 REFUNDED BUT NOT CANCELLED: request=${requestId} sub=${req.stripe_subscription_id}`, err);
+      await supabaseAdmin.from('refund_requests').update({
+        refund_error: `Refunded, but cancelling ${req.stripe_subscription_id} failed: ${err instanceof Error ? err.message : String(err)}`.slice(0, 500),
+      }).eq('id', requestId);
+      await sendOpsAlert({
+        kind: 'Refunded but not cancelled', supabaseUserId: req.user_id, actionNeeded: true,
+        summary: 'An approved refund went through, but cancelling the subscription failed. Cancel it in Stripe now, or the customer will be charged again at renewal.',
+        details: [['Subscription', String(req.stripe_subscription_id)], ['Refund', refund.id], ['Request', requestId]],
+      });
     }
 
     return { refundId: refund.id, amountCents: amount };

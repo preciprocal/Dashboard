@@ -5,6 +5,7 @@
 //   GET   { available: false } when there is no Stripe subscription to manage,
 //         otherwise the current state
 //   POST  { autoPay: boolean }
+import { sendOpsAlert } from '@/lib/email/ops-alert';
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { z } from 'zod';
@@ -61,6 +62,13 @@ export async function POST(req: NextRequest) {
   try {
     const state = await setAutoPay(stripe, subId, parsed.data.autoPay, 'settings');
     console.log(`💳 Auto pay ${state.autoPay ? 'on' : 'off'} for user=${user.supabaseUserId}`);
+    if (!state.autoPay) {
+      await sendOpsAlert({
+        kind: 'Auto pay turned off', supabaseUserId: user.supabaseUserId,
+        summary: `A customer switched auto pay off. From next month they get an emailed invoice, due in ${INVOICE_DAYS_UNTIL_DUE} days, and the plan ends if it is not paid.`,
+        details: [['Subscription', subId]],
+      });
+    }
     return NextResponse.json({ success: true, invoiceDays: INVOICE_DAYS_UNTIL_DUE, ...state });
   } catch (err) {
     if (err instanceof AutoPayError) return NextResponse.json({ error: err.message }, { status: 409 });

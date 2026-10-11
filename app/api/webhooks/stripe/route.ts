@@ -1,4 +1,5 @@
 // app/api/webhooks/stripe/route.ts
+import { sendOpsAlert } from "@/lib/email/ops-alert";
 import Stripe from "stripe";
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/supabase/admin";
@@ -524,6 +525,20 @@ async function handleSubscriptionDeleted(subscription: SubscriptionWithPeriods) 
     // cancellation made from the billing portal.
     await recordCancellation(supabaseUserId);
 
+    // Cancellations the customer asked for were alerted when they asked
+    // (app/api/billing) or when they took a refund. One Stripe made on its own,
+    // because a payment could not be collected or was disputed, is news.
+    const reason = subscription.cancellation_details?.reason;
+    if (reason === "payment_failed" || reason === "payment_disputed") {
+      await sendOpsAlert({
+        kind: "Plan ended by Stripe", supabaseUserId,
+        summary: reason === "payment_failed"
+          ? "Stripe cancelled this subscription after its payment could not be collected. The account is now on Free."
+          : "Stripe cancelled this subscription because a payment was disputed. The account is now on Free.",
+        details: [["Subscription", subscription.id], ["Reason", reason.replace(/_/g, " ")]],
+      });
+    }
+
     await invalidateUserCache(userId);
 
     console.log("✅ Subscription canceled successfully");
@@ -782,6 +797,11 @@ async function handlePaymentFailed(invoice: InvoiceWithSubscription) {
     if (invoice.collection_method === "charge_automatically" && invoice.id) {
       await sendPaymentFailedEmail(supabaseUserId, invoice);
     }
+    await sendOpsAlert({
+      kind: "Payment failed", supabaseUserId,
+      summary: `A renewal payment of ${(invoice.amount_due / 100).toFixed(2)} ${invoice.currency.toUpperCase()} failed. Stripe will retry; the plan ends if it cannot be collected.`,
+      details: [["Invoice", invoice.number ?? invoice.id ?? ""], ["Attempt", String(invoice.attempt_count ?? 1)]],
+    });
 
     console.log("✅ Subscription marked as past_due");
   } catch (error) {

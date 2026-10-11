@@ -4,6 +4,21 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { getAuthedUser } from '@/lib/auth/verify-request';
+import { applyRateLimit } from '@/lib/ai/rate-limit';
+
+// Only our own storage. Fetching whatever URL the browser sends would let
+// anyone make this server request internal or third-party addresses.
+const ALLOWED_PDF_HOSTS = [
+  'firebasestorage.googleapis.com',
+  ...(process.env.NEXT_PUBLIC_SUPABASE_URL ? [new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).host] : []),
+];
+function allowedPdfUrl(raw: string): boolean {
+  try {
+    const u = new URL(raw);
+    return u.protocol === 'https:' && ALLOWED_PDF_HOSTS.includes(u.host);
+  } catch { return false; }
+}
 import * as pdfjsLib from 'pdfjs-dist';
 
 // ── Disable the web worker in Node.js (server-side) ──────────────────────────
@@ -36,10 +51,18 @@ STRICT RULES:
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getAuthedUser(request);
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const limited = await applyRateLimit(request, user.userId, 'light');
+    if (limited) return limited;
+
     const { pdfUrl } = await request.json() as { pdfUrl: string; resumeId?: string };
 
     if (!pdfUrl) {
       return NextResponse.json({ error: 'pdfUrl is required' }, { status: 400 });
+    }
+    if (!allowedPdfUrl(pdfUrl)) {
+      return NextResponse.json({ error: 'That file cannot be opened here.' }, { status: 400 });
     }
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json({ error: 'OPENAI_API_KEY not configured' }, { status: 500 });
@@ -150,7 +173,7 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     console.error('[pdf-to-html] Error:', err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Unknown error' },
+      { error: 'Could not convert this PDF. Please try again.' },
       { status: 500 },
     );
   }

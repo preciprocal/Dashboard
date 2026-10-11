@@ -1,4 +1,6 @@
 // app/api/settings/route.ts
+import { recordUnsubscribe } from '@/lib/email/unsubscribe-alert';
+import type { UnsubscribeScope } from '@/lib/email/unsubscribe';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
@@ -178,6 +180,15 @@ export async function POST(request: NextRequest) {
       },
     };
 
+    // What was on before this save, so each email someone switches off here is
+    // recorded and alerted on like an unsubscribe link (lib/email/unsubscribe-alert.ts).
+    const { data: before } = await supabaseAdmin
+      .from('user_settings').select('settings').eq('user_id', authedUser.supabaseUserId).maybeSingle();
+    const { data: beforeFlags } = await supabaseAdmin
+      .from('profiles').select('weekly_digest_opt_out,activation_email_opt_out,application_email_opt_out')
+      .eq('user_id', authedUser.supabaseUserId).maybeSingle();
+    const prevNotif = ((before?.settings as Record<string, unknown> | undefined)?.notifications ?? {}) as Record<string, unknown>;
+
     // Save to Postgres with timestamp
     const { error: upsertError } = await supabaseAdmin
       .from('user_settings')
@@ -218,6 +229,13 @@ export async function POST(request: NextRequest) {
         .upsert({ email: subscriberEmail, subscribed: n.productUpdates }, { onConflict: 'email' });
       if (newsErr) console.error('⚠️ could not mirror productUpdates:', newsErr.message);
     }
+
+    const turnedOff: UnsubscribeScope[] = [];
+    if (!beforeFlags?.weekly_digest_opt_out && !n.weeklyDigest) turnedOff.push('weeklyDigest');
+    if (!beforeFlags?.activation_email_opt_out && !n.activation) turnedOff.push('activation');
+    if (!beforeFlags?.application_email_opt_out && !n.coaching) turnedOff.push('coaching');
+    if (prevNotif.supportReplies !== false && n.supportReplies === false) turnedOff.push('supportReplies');
+    for (const scope of turnedOff) await recordUnsubscribe(authedUser.supabaseUserId, scope, 'settings');
 
     return NextResponse.json({
       success: true,

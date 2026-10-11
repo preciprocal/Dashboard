@@ -29,7 +29,16 @@ const SCOPE_NAME: Record<UnsubscribeScope, string> = {
 /** "erp_check_in" -> "ERP: check in", "weekly_digest" -> "weekly digest". */
 const emailTypeName = (t: string) => (t.startsWith('erp_') ? `ERP: ${t.slice(4)}` : t).replace(/[_-]/g, ' ');
 
-export async function recordUnsubscribe(userId: string, scope: UnsubscribeScope, method: 'link' | 'one_click'): Promise<void> {
+export type UnsubscribeMethod = 'link' | 'one_click' | 'settings' | 'spam_complaint';
+
+const HOW: Record<UnsubscribeMethod, string> = {
+  link: 'the link in an email',
+  one_click: "their email app's unsubscribe button",
+  settings: 'a toggle in their Settings',
+  spam_complaint: 'marking our email as spam (all optional emails are now off for them)',
+};
+
+export async function recordUnsubscribe(userId: string, scope: UnsubscribeScope, method: UnsubscribeMethod): Promise<void> {
   try {
     const [{ data: profile }, { data: last }] = await Promise.all([
       supabaseAdmin.from('profiles').select('name,email').eq('user_id', userId).maybeSingle(),
@@ -48,7 +57,7 @@ export async function recordUnsubscribe(userId: string, scope: UnsubscribeScope,
     const name = profile?.name?.trim() || 'Someone';
     const email = profile?.email ?? 'unknown address';
     const what = SCOPE_NAME[scope];
-    const how = method === 'one_click' ? "their email app's unsubscribe button" : 'the link in an email';
+    const how = HOW[method];
     const lastLine = last
       ? `${emailTypeName(String(last.email_type))}${last.subject ? `, "${last.subject}"` : ''}`
       : 'None on record';

@@ -20,6 +20,7 @@
 // (user_id, billing_period_start), so two clicks cannot refund twice; the
 // Stripe call also carries an idempotency key.
 
+import { sendOpsAlert } from '@/lib/email/ops-alert';
 import type Stripe from 'stripe';
 import { supabaseAdmin } from '@/supabase/admin';
 import { stripe } from '@/lib/stripe/billing';
@@ -213,7 +214,22 @@ export async function executeUnusedCreditsRefund(
     });
   } catch (err) {
     console.error(`🚨 REFUNDED BUT NOT CANCELLED: user=${supabaseUserId} sub=${a._subscriptionId}`, err);
+    // The customer has their money back but still has the plan, and the next
+    // renewal would charge them again. Someone has to cancel it by hand.
+    await supabaseAdmin.from('refund_requests').update({
+      refund_error: `Refunded, but cancelling ${a._subscriptionId} failed: ${err instanceof Error ? err.message : String(err)}`.slice(0, 500),
+    }).eq('id', row.id);
+    await sendOpsAlert({
+      kind: 'Refunded but not cancelled', supabaseUserId, actionNeeded: true,
+      summary: 'The refund went through, but cancelling the subscription failed. Cancel it in Stripe now, or the customer will be charged again at renewal.',
+      details: [['Subscription', a._subscriptionId], ['Refund', refund.id], ['Amount', `$${(a.amountCents / 100).toFixed(2)}`]],
+    });
   }
+  await sendOpsAlert({
+    kind: 'Unused-credits refund issued', supabaseUserId,
+    summary: `A customer took a unused-credits refund of ${`$${(a.amountCents / 100).toFixed(2)}`} from Settings. Their paid plan has ended.`,
+    details: [['Refund', refund.id], ['Amount refunded', `$${(a.amountCents / 100).toFixed(2)}`], ['Plan used', `${a.planUsedPct}%`]],
+  });
 
   console.log(`💸 Unused-credits refund ${refund.id} for ${supabaseUserId}: ${a.amountCents}`);
   return { refundId: refund.id, amountCents: a.amountCents, currency: a.currency };

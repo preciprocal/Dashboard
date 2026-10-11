@@ -2,10 +2,16 @@
 // Fires when a user replies to their own ticket from the app dashboard.
 // Sends an email notification to the admin with the user's reply.
 // Admin can reply to this email - it routes through support@preciprocal.com
-// and the inbound webhook saves it back to Firestore automatically.
+// and the inbound webhook saves it back to the ticket automatically.
+//
+// Signed-in only, and only for the caller's own ticket: the sender, subject
+// and ticket come from the database, never from the request body, so nobody
+// can send the admin inbox a support email in someone else's name.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
+import { getAuthedUser } from '@/lib/auth/verify-request';
+import { supabaseAdmin } from '@/supabase/admin';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -20,18 +26,25 @@ function escapeHtml(str: string): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const { ticketId, ticketSubject, userName, userEmail, message } =
-      await request.json() as {
-        ticketId:      string;
-        ticketSubject: string;
-        userName:      string;
-        userEmail:     string;
-        message:       string;
-      };
+    const authed = await getAuthedUser(request);
+    if (!authed) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    if (!ticketId || !message) {
+    const { ticketId, message: rawMessage } = await request.json() as { ticketId?: string; message?: string };
+    const message = String(rawMessage ?? '').slice(0, 10_000);
+    if (!ticketId || !message.trim()) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
+
+    const [{ data: ticket }, { data: profile }] = await Promise.all([
+      supabaseAdmin.from('support_tickets').select('id,subject,user_id').eq('id', ticketId).maybeSingle(),
+      supabaseAdmin.from('profiles').select('name,email').eq('user_id', authed.supabaseUserId).maybeSingle(),
+    ]);
+    if (!ticket || ticket.user_id !== authed.supabaseUserId) {
+      return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
+    }
+    const ticketSubject = String(ticket.subject ?? 'Support ticket');
+    const userName = String(profile?.name ?? 'User');
+    const userEmail = String(profile?.email ?? authed.email ?? '');
 
     if (!process.env.RESEND_API_KEY) {
       return NextResponse.json({ error: 'Email service not configured' }, { status: 500 });

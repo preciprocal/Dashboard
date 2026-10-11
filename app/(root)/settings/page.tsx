@@ -325,13 +325,42 @@ export default function SettingsPage() {
     }, 400);
   }, [user]);
 
-  const handleRequestDeletion = () => {
-    if (!user) return;
-    const subject = encodeURIComponent('Account Closure Request');
-    const body    = encodeURIComponent(
-      `Hi Preciprocal Support,\n\nI would like to request the closure of my account and deletion of all associated data.\n\nAccount details:\n- Name: ${(user.user_metadata?.name as string) ?? (user.user_metadata?.full_name as string) ?? 'N/A'}\n- Email: ${user.email}\n- Account ID: ${user.id}\n- Sign-in method: ${isGoogleUser ? 'Google OAuth' : 'Email & Password'}\n- Member since: ${user.created_at ?? 'N/A'}\n\nReason for closing:\n${deletionReason.trim() || 'Not provided'}\n\nPlease confirm once my account and all associated data have been fully removed.\n\nThank you.`
-    );
-    window.open(`mailto:support@preciprocal.com?subject=${subject}&body=${body}`, '_blank');
+  // A closure request is a support ticket, not a mail draft: a draft the user
+  // closes, or sends from no mail client at all, left no record anywhere. The
+  // ticket is in the support queue and the ERP, and ticket-created emails the
+  // team and confirms receipt to the user, which starts the legal clock.
+  const [closureSent, setClosureSent] = useState(false);
+  const [closureSending, setClosureSending] = useState(false);
+  const handleRequestDeletion = async () => {
+    if (!user || closureSending) return;
+    setClosureSending(true);
+    try {
+      const name = (user.user_metadata?.name as string) || (user.user_metadata?.full_name as string) || 'User';
+      const message = [
+        'I would like to close my account and have all associated data deleted.',
+        '',
+        `Reason: ${deletionReason.trim() || 'Not provided'}`,
+        '',
+        `Account ID: ${user.id}`,
+        `Sign-in method: ${isGoogleUser ? 'Google' : 'Email and password'}`,
+        `Member since: ${user.created_at ?? 'unknown'}`,
+      ].join('\n');
+      const { data: created, error } = await supabase.from('support_tickets').insert({
+        user_id: user.id, user_email: user.email, user_name: name,
+        subject: 'Account closure request', message, category: 'account', priority: 'high', status: 'open',
+      }).select('id').single();
+      if (error || !created) throw error ?? new Error('No ticket');
+      await fetch('/api/support/ticket-created', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticketId: created.id }),
+      }).catch(() => undefined);
+      setClosureSent(true);
+      toast.success('Closure request received. We will email you to confirm.');
+    } catch {
+      toast.error('Could not send the request. Please email support@preciprocal.com.');
+    } finally {
+      setClosureSending(false);
+    }
   };
 
   const isGoogleUser  = (user?.app_metadata?.providers as string[] | undefined)?.includes('google') ?? false;
@@ -923,13 +952,17 @@ export default function SettingsPage() {
                   <p className="text-slate-600 text-xs mt-1">Your feedback helps us improve Preciprocal.</p>
                 </FieldRow>
 
-                <div className="flex items-center justify-between pt-1">
-                  <p className="text-slate-500 text-xs">Clicking will open your email client with a pre-filled request.</p>
-                  <button onClick={handleRequestDeletion}
+                <div className="flex items-center justify-between gap-4 pt-1">
+                  <p className="text-slate-500 text-xs">
+                    {closureSent
+                      ? 'Request received. It is in Help & Support > Tickets, and we will email you to confirm each step.'
+                      : 'Sends a closure request to our team. You will get an email confirming we received it.'}
+                  </p>
+                  <button onClick={handleRequestDeletion} disabled={closureSending || closureSent}
                     className="flex-shrink-0 inline-flex items-center gap-2 bg-slate-800/60 hover:bg-red-600/15
-                               border border-white/[0.06] hover:border-red-500/30
+                               border border-white/[0.06] hover:border-red-500/30 disabled:opacity-50 disabled:cursor-not-allowed
                                text-slate-300 hover:text-red-400 text-xs font-medium px-4 py-2 rounded-xl transition-all cursor-pointer">
-                    <Mail className="w-3.5 h-3.5" /> Request Account Closure
+                    <Mail className="w-3.5 h-3.5" /> {closureSent ? 'Request sent' : closureSending ? 'Sending…' : 'Request Account Closure'}
                   </button>
                 </div>
               </div>

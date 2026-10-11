@@ -14,6 +14,8 @@
 //
 // Rejects everything until RESEND_WEBHOOK_SECRET is set: an unsigned endpoint
 // would let anyone write fake engagement into the numbers decisions are made on.
+import { applyUnsubscribe } from '@/lib/email/unsubscribe';
+import { recordUnsubscribe } from '@/lib/email/unsubscribe-alert';
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/supabase/admin';
 import { verifySvix } from '@/lib/webhooks/svix';
@@ -60,6 +62,16 @@ export async function POST(req: NextRequest) {
     console.error('❌ Resend webhook insert failed:', error.message);
     // 500 so Svix retries later rather than the event being lost.
     return NextResponse.json({ error: 'Not stored' }, { status: 500 });
+  }
+
+  // A spam report is the strongest unsubscribe there is. Sending that person
+  // anything optional again damages delivery for every email we send, so it
+  // turns off every optional email, recorded and alerted like any other.
+  if (event === 'complained') {
+    const { data: send } = await supabaseAdmin.from('email_sends').select('user_id').eq('resend_id', resendId).maybeSingle();
+    if (send?.user_id && await applyUnsubscribe(send.user_id, 'all')) {
+      await recordUnsubscribe(send.user_id, 'all', 'spam_complaint');
+    }
   }
   return NextResponse.json({ ok: true });
 }

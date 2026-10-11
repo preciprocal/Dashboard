@@ -4,6 +4,8 @@
 //
 //   GET   overview
 //   POST  { action: 'cancel' | 'resume' }   cancel at period end, or undo that
+import { recordReactivation } from '@/lib/subscription/reactivation';
+import { sendOpsAlert } from '@/lib/email/ops-alert';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getAuthedUser } from '@/lib/auth/verify-request';
@@ -87,6 +89,15 @@ export async function POST(req: NextRequest) {
       updated_at: new Date().toISOString(),
     }).eq('user_id', user.supabaseUserId);
     if (cancel) await recordCancellation(user.supabaseUserId);
+    else await recordReactivation(user.supabaseUserId);
+    const ends = periodOf(sub).end;
+    await sendOpsAlert({
+      kind: cancel ? 'Plan cancelled' : 'Cancellation undone', supabaseUserId: user.supabaseUserId,
+      summary: cancel
+        ? `A customer cancelled their plan in Settings. It stays active until ${ends ? new Date(ends * 1000).toDateString() : 'the end of the period'}, then moves to Free.`
+        : 'A customer who had cancelled resumed their plan before it ended.',
+      details: [['Subscription', subscriptionId]],
+    });
 
     return NextResponse.json({ success: true, cancelAtPeriodEnd: sub.cancel_at_period_end, currentPeriodEnd: periodOf(sub).end });
   } catch (err) {
