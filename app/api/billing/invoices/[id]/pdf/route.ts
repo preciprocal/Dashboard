@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { billingContext, ownedInvoice } from '@/lib/stripe/billing';
 import { renderInvoicePdf, invoiceFileName } from '@/lib/billing/invoice-pdf';
+import { invoiceExtras } from '@/lib/billing/invoice-extras';
 
 export const runtime = 'nodejs';
 
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!invoice || invoice.status === 'draft') return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
 
   try {
-    const pdf = await renderInvoicePdf(invoice);
+    const pdf = await renderInvoicePdf(invoice, await invoiceExtras(invoice));
     const name = invoiceFileName(invoice);
     return new NextResponse(new Uint8Array(pdf), {
       headers: {
