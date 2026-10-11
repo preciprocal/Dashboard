@@ -9,6 +9,7 @@ import { useForm } from "react-hook-form";
 import { useRouter, useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState, useEffect } from "react";
+import { MessagesSquare, FileText, CalendarCheck } from "lucide-react";
 
 import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
@@ -191,130 +192,107 @@ const AuthForm = ({ type }: { type: FormType }) => {
   const isSignIn = type === "sign-in";
 
   return (
-    <div className="min-h-screen flex bg-slate-950">
-      {/* Left Side - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative overflow-hidden">
+    <div className="min-h-screen flex bg-[#050810]">
+      {/* Left Side - Branding, styled after the preciprocal.com hero */}
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-[#050810] border-r border-white/[0.04]">
+        {/* Spotlight glows */}
+        <div className="pointer-events-none absolute -top-40 -left-32 w-[560px] h-[560px] rounded-full bg-indigo-500/[0.12] blur-[120px]" />
+        <div className="pointer-events-none absolute -bottom-48 -right-24 w-[520px] h-[520px] rounded-full bg-purple-500/[0.10] blur-[120px]" />
+
+        {/* Hairline grid, faded out toward the edges */}
         <div
-          className="absolute inset-0 opacity-[0.02]"
+          className="pointer-events-none absolute inset-0 opacity-[0.35]"
           style={{
-            backgroundImage: `linear-gradient(rgba(148, 163, 184, 0.1) 1px, transparent 1px),
-                           linear-gradient(90deg, rgba(148, 163, 184, 0.1) 1px, transparent 1px)`,
-            backgroundSize: "50px 50px",
+            backgroundImage: `linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)`,
+            backgroundSize: "56px 56px",
+            maskImage: "radial-gradient(ellipse at 30% 40%, black 20%, transparent 75%)",
+            WebkitMaskImage: "radial-gradient(ellipse at 30% 40%, black 20%, transparent 75%)",
           }}
-        ></div>
+        />
 
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-1/4 -left-20 w-72 h-72 bg-purple-500/5 rounded-full blur-3xl animate-pulse"></div>
-          <div
-            className="absolute bottom-1/4 -right-20 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl animate-pulse"
-            style={{ animationDelay: "2s" }}
-          ></div>
-          <div
-            className="absolute top-1/2 left-1/2 w-64 h-64 bg-slate-700/10 rounded-full blur-2xl animate-pulse"
-            style={{ animationDelay: "4s" }}
-          ></div>
-        </div>
+        <div className="relative z-10 flex flex-col justify-between w-full px-14 xl:px-20 py-12">
+          {/* Brand */}
+          <div className="flex items-center gap-2.5">
+            <Image
+              src={logo}
+              alt="Preciprocal"
+              width={36}
+              height={36}
+              className="w-9 h-9 rounded-[10px]"
+              priority
+            />
+            <span className="text-xl font-bold text-white tracking-tight">Preciprocal</span>
+          </div>
 
-        <div className="absolute top-20 right-20 w-32 h-32 border border-slate-700/20 rounded-2xl rotate-12 opacity-20"></div>
-        <div className="absolute bottom-40 left-20 w-24 h-24 border border-slate-700/20 rounded-full opacity-20"></div>
+          {/* Hero */}
+          <div className="max-w-xl py-12">
+            <p className="mb-6 text-[11px] font-semibold uppercase tracking-[0.2em] text-indigo-400/80">
+              AI interview preparation
+            </p>
 
-        <div className="relative z-10 flex flex-col justify-center px-16 text-white">
-          <div className="mb-12">
-            <div className="flex items-center space-x-4 mb-8">
-              <Image
-                src={logo}
-                alt="Preciprocal"
-                width={56}
-                height={56}
-                className="rounded-2xl shadow-2xl"
-                priority
-              />
-              <h1 className="text-5xl font-black tracking-tight text-white">
-                Preciprocal
-              </h1>
-            </div>
-
-            <h2 className="text-4xl font-bold mb-5 leading-tight tracking-tight text-white">
-              Tired of AI Taking Your Job?
+            <h2 className="text-[44px] xl:text-[52px] font-black tracking-[-0.03em] leading-[1.02] text-white">
+              Tired of AI taking your job?
               <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400">
-                Use AI to Take It Back.
+              <span className="inline-block pb-1 bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">
+                Use AI to take it back.
               </span>
             </h2>
 
-            <p className="text-lg text-slate-400 leading-relaxed max-w-lg">
-              Most candidates are qualified. Few are prepared. Preciprocal
-              closes that gap, giving you the tools, feedback, and confidence to
-              walk into any interview and own the room.
+            <p className="mt-6 text-[15px] text-slate-400 leading-relaxed font-light max-w-md">
+              Most candidates are qualified. Few are prepared. Preciprocal closes
+              that gap with the tools, feedback, and confidence to walk into any
+              interview and own the room.
             </p>
+
+            <div className="mt-10 rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm divide-y divide-white/[0.05]">
+              {[
+                {
+                  icon: MessagesSquare,
+                  title: "AI mock interviews",
+                  body: "Realistic interviewers that adapt to your role, seniority, and target company, scored on communication, depth, and confidence.",
+                },
+                {
+                  icon: FileText,
+                  title: "Resume analysis",
+                  body: "ATS scoring, keyword gap analysis, and a recruiter eye simulation so your resume clears every gate.",
+                },
+                {
+                  icon: CalendarCheck,
+                  title: "Personalized study plans",
+                  body: "A day-by-day prep schedule built around your timeline, skill gaps, and target role.",
+                },
+              ].map(({ icon: Icon, title, body }) => (
+                <div key={title} className="group flex items-start gap-4 p-5 transition-colors hover:bg-white/[0.02]">
+                  <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-400/20 flex items-center justify-center transition-colors group-hover:border-indigo-400/40">
+                    <Icon className="w-[18px] h-[18px] text-indigo-300" strokeWidth={1.75} />
+                  </div>
+                  <div>
+                    <h3 className="text-[14px] font-semibold text-white tracking-tight">{title}</h3>
+                    <p className="mt-1 text-[13px] text-slate-500 leading-relaxed">{body}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
-          <div className="space-y-3 mt-8">
-            <div className="group p-5 bg-slate-800/30 hover:bg-slate-800/50 border border-slate-700/30 rounded-xl transition-all duration-300 backdrop-blur-sm">
-              <div className="flex items-start space-x-4">
-                <div className="w-10 h-10 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-purple-500/20 transition-all">
-                  <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-base text-white mb-1">
-                    AI-Powered Mock Interviews
-                  </h3>
-                  <p className="text-slate-400 text-sm leading-relaxed">
-                    Face realistic interviewers that adapt to your role,
-                    seniority, and target company. Get scored on communication,
-                    technical depth, and confidence. Then improve before it counts.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="group p-5 bg-slate-800/30 hover:bg-slate-800/50 border border-slate-700/30 rounded-xl transition-all duration-300 backdrop-blur-sm">
-              <div className="flex items-start space-x-4">
-                <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-500/20 transition-all">
-                  <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-base text-white mb-1">
-                    Smart Resume Analysis
-                  </h3>
-                  <p className="text-slate-400 text-sm leading-relaxed">
-                    Stop getting filtered out before a human ever sees you. Our
-                    ATS scorer, keyword gap analyzer, and recruiter eye
-                    simulation make sure your resume passes every gate.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="group p-5 bg-slate-800/30 hover:bg-slate-800/50 border border-slate-700/30 rounded-xl transition-all duration-300 backdrop-blur-sm">
-              <div className="flex items-start space-x-4">
-                <div className="w-10 h-10 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-cyan-500/20 transition-all">
-                  <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-base text-white mb-1">
-                    Personalized Study Plans
-                  </h3>
-                  <p className="text-slate-400 text-sm leading-relaxed">
-                    Every day between now and your interview matters. Get a
-                    day-by-day prep schedule built around your timeline, skill
-                    gaps, and target role so nothing slips through the cracks.
-                  </p>
-                </div>
-              </div>
+          {/* Footer */}
+          <div className="flex items-center justify-between text-[11px] text-slate-600 tracking-wide">
+            <span>&copy; {new Date().getFullYear()} Preciprocal</span>
+            <div className="flex items-center gap-5">
+              <a href={`${SITE.marketing}/terms`} target="_blank" rel="noopener noreferrer" className="hover:text-slate-400 transition-colors">
+                Terms
+              </a>
+              <a href={`${SITE.marketing}/privacy`} target="_blank" rel="noopener noreferrer" className="hover:text-slate-400 transition-colors">
+                Privacy
+              </a>
             </div>
           </div>
         </div>
       </div>
 
       {/* Right Side - Auth Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-slate-950">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-[#050810]">
         <div className="w-full max-w-md">
           <div className="lg:hidden text-center mb-8">
             <div className="flex items-center justify-center space-x-3 mb-4">
@@ -369,7 +347,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
               <div className="w-full border-t border-slate-800"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-slate-950 text-slate-500 font-medium">
+              <span className="px-4 bg-[#050810] text-slate-500 font-medium">
                 Or continue with email
               </span>
             </div>
