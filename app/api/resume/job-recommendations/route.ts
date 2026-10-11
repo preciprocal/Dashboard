@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
+import { recordRapidApiQuota } from '@/lib/providers/quota';
 import Anthropic from '@anthropic-ai/sdk';
 
 const anthropic = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY || '' });
@@ -406,6 +407,7 @@ async function fetchRealJobsFromJSearch(analysis: ResumeAnalysis, searchQuery?: 
             headers: { 'X-RapidAPI-Key': process.env.RAPIDAPI_KEY!, 'X-RapidAPI-Host': 'jsearch.p.rapidapi.com' }
           });
 
+          recordRapidApiQuota(response);
           if (!response.ok) continue;
 
           const data: JSearchResponse = await response.json();
