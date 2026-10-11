@@ -53,7 +53,11 @@ quota or refund work. Owner to schedule.
 
 ---
 
-## 2. User-facing refund request UI
+## 2. RESOLVED - refunds are requested in Settings > Plan & Billing > Refunds
+
+components/billing/RefundPanel.tsx calls /api/refund/request (preview, then
+take it), with the amount, the fees deducted, the deadline and the reason when
+nothing is available. Checkout is back on. Original note below.
 
 **Severity: low while checkout is paused.**
 
@@ -124,6 +128,10 @@ because it changes a route's behaviour outside the approved scope at the time.
 ---
 
 ## 5. `0029_phone_verification.sql` is unapplied
+
+Still true on 2026-10-11 (profiles.verified_phone does not exist), and still
+harmless: production answers /api/phone/send-code with "not configured", so
+Twilio is off. Apply 0029 before adding any Twilio variable.
 
 **Severity: none today. Becomes blocking the moment Twilio is configured.**
 
@@ -620,7 +628,7 @@ Until then a pack refund is a manual Stripe dashboard action, and whoever does
 it must also set `refunded_at` by hand, or the credits stay spendable after the
 money is returned.
 
-## 20. RESOLVED in code, MIGRATION 0035 NOT APPLIED
+## 20. RESOLVED - migration 0035 applied (stripe_events exists, checked 2026-10-11)
 
 `lib/stripe/event-ledger.ts` claims the event id before the switch and confirms
 after, releasing the claim if the handler throws so Stripe's retry is not
