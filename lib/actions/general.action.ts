@@ -1,7 +1,12 @@
 "use server";
+// Every export of a "use server" file is a public endpoint: the browser can
+// call it with any arguments. These read and write with the service role, so
+// each export checks the signed-in session (callerOwns) and only acts for the
+// person calling, whatever user id it was handed.
 
 import OpenAI from "openai";
 import { supabaseAdmin } from "@/supabase/admin";
+import { createServerSupabaseClient } from "@/supabase/server";
 import { toSupabaseUserId } from "@/lib/auth/verify-request";
 import { redis } from "@/lib/redis/redis-client";
 import { getUserAIContext, buildUserContextPrompt } from "@/lib/ai/user-context";
@@ -15,14 +20,12 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const INTERVIEW_CACHE_TTL = 5 * 60;
 const INTERVIEWS_LIST_CACHE_TTL = 5 * 60;
 const FEEDBACK_CACHE_TTL = 7 * 24 * 60 * 60;
-const LATEST_INTERVIEWS_CACHE_TTL = 10 * 60;
 
 // ============ TYPE DEFINITIONS ============
 
 interface TranscriptMessage { role: string; content: string; }
 interface CreateFeedbackParams { interviewId: string; userId: string; transcript: TranscriptMessage[]; feedbackId?: string; }
 interface GetFeedbackByInterviewIdParams { interviewId: string; userId: string; }
-interface GetLatestInterviewsParams { userId: string; limit?: number; }
 interface FirestoreTimestamp { seconds: number; nanoseconds: number; toDate: () => Date; }
 
 interface Interview {
@@ -163,18 +166,6 @@ async function cacheFeedback(feedback: Feedback): Promise<void> {
   catch { /* ignore */ }
 }
 
-async function getCachedLatestInterviews(limit: number): Promise<Interview[] | null> {
-  if (!redis) return null;
-  try { const c = await redis.get(`latest-interviews:${limit}`); if (c) { const d = typeof c === 'string' ? JSON.parse(c) : c; return (d as CachedData<Interview[]>).data; } return null; }
-  catch { return null; }
-}
-
-async function cacheLatestInterviews(interviews: Interview[], limit: number): Promise<void> {
-  if (!redis) return;
-  try { await redis.setex(`latest-interviews:${limit}`, LATEST_INTERVIEWS_CACHE_TTL, JSON.stringify({ data: interviews, cachedAt: new Date().toISOString() })); }
-  catch { /* ignore */ }
-}
-
 async function invalidateUserInterviewsCache(userId: string): Promise<void> {
   if (!redis) return;
   try { await redis.del(`interviews:${userId}`); } catch { /* ignore */ }
@@ -187,12 +178,54 @@ async function invalidateInterviewCache(interviewId: string): Promise<void> {
   try { await redis.del(INTERVIEW_KEY(interviewId), `interview:${interviewId}`); } catch { /* ignore */ }
 }
 
+// ============ CALLER CHECK ============
+
+/** The signed-in caller's Supabase auth id, or null. */
+async function callerSupabaseId(): Promise<string | null> {
+  try {
+    const supabase = await createServerSupabaseClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    return user?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * True when `userId` (a Supabase id or a legacy Firebase uid) is the signed-in
+ * caller. Ids are compared in the Supabase namespace, so either form works.
+ */
+async function callerOwns(userId: string): Promise<boolean> {
+  if (!userId) return false;
+  const caller = await callerSupabaseId();
+  if (!caller) return false;
+  return (await toSupabaseUserId(userId)) === caller;
+}
+
+class NotYoursError extends Error {
+  constructor() { super("Not signed in as this user"); }
+}
+
 // ============ MAIN FUNCTIONS ============
 
-export async function createFeedback(params: CreateFeedbackParams) {
+export async function createFeedback(params: CreateFeedbackParams): Promise<{ success: boolean; feedbackId?: string }> {
+  const { interviewId, userId, transcript, feedbackId } = params;
+
+  if (!(await callerOwns(userId))) return { success: false };
+  return createFeedbackFor({ interviewId, userId, transcript, feedbackId });
+}
+
+/** createFeedback after the caller check; also the recovery path's entry. */
+async function createFeedbackFor(params: CreateFeedbackParams): Promise<{ success: boolean; feedbackId?: string }> {
   const { interviewId, userId, transcript, feedbackId } = params;
 
   try {
+    // The interview has to belong to this user: otherwise anyone could run a
+    // paid analysis against someone else's interview and overwrite theirs.
+    const ownerId = await toSupabaseUserId(userId);
+    const { data: own } = await supabaseAdmin.from("interviews").select("id").eq("id", interviewId).eq("user_id", ownerId).maybeSingle();
+    if (!own) return { success: false };
+
     // Persist the raw transcript BEFORE the model call, not after. Everything
     // below here can fail - OpenAI can error or time out, the JSON can come
     // back unparseable, the upsert can reject - and until this column existed
@@ -341,8 +374,9 @@ export async function ensureInterviewFeedback(
   interviewId: string,
   userId: string,
 ): Promise<{ status: "created" | "exists" | "no_transcript" | "failed" }> {
+  if (!(await callerOwns(userId))) return { status: "failed" };
   try {
-    const existing = await getFeedbackByInterviewId({ interviewId, userId });
+    const existing = await readFeedback(interviewId, userId);
     if (existing) return { status: "exists" };
 
     const supabaseUserId = await toSupabaseUserId(userId);
@@ -363,7 +397,7 @@ export async function ensureInterviewFeedback(
       return { status: "no_transcript" };
     }
 
-    const result = await createFeedback({ interviewId, userId, transcript });
+    const result = await createFeedbackFor({ interviewId, userId, transcript });
     return { status: result.success ? "created" : "failed" };
   } catch (err) {
     console.error("Error ensuring interview feedback:", err);
@@ -371,21 +405,30 @@ export async function ensureInterviewFeedback(
   }
 }
 
-// ============ READ FUNCTIONS (unchanged) ============
+// ============ READ FUNCTIONS ============
 
+/** The interview, only when it belongs to the signed-in caller. */
 export async function getInterviewById(id: string): Promise<Interview | null> {
-  const cached = await getCachedInterview(id);
-  if (cached) return cached;
-  const { data: row, error } = await supabaseAdmin.from("interviews").select("*").eq("id", id).maybeSingle();
-  if (error) throw error;
-  if (!row) return null;
-  const data = toInterview(row as InterviewRow);
-  await cacheInterview(data);
-  return data;
+  const caller = await callerSupabaseId();
+  if (!caller) return null;
+  let data = await getCachedInterview(id);
+  if (!data) {
+    const { data: row, error } = await supabaseAdmin.from("interviews").select("*").eq("id", id).maybeSingle();
+    if (error) throw error;
+    if (!row) return null;
+    data = toInterview(row as InterviewRow);
+    await cacheInterview(data);
+  }
+  return data.userId === caller ? data : null;
 }
 
 export async function getFeedbackByInterviewId(params: GetFeedbackByInterviewIdParams): Promise<Feedback | null> {
   const { interviewId, userId } = params;
+  if (!(await callerOwns(userId))) return null;
+  return readFeedback(interviewId, userId);
+}
+
+async function readFeedback(interviewId: string, userId: string): Promise<Feedback | null> {
   const cached = await getCachedFeedback(interviewId, userId);
   if (cached) return cached;
 
@@ -407,27 +450,8 @@ export async function getFeedbackByInterviewId(params: GetFeedbackByInterviewIdP
   return feedback;
 }
 
-export async function getLatestInterviews(params: GetLatestInterviewsParams): Promise<Interview[] | null> {
-  const { userId, limit = 20 } = params;
-  const cached = await getCachedLatestInterviews(limit);
-  if (cached) return cached;
-
-  const supabaseUserId = await toSupabaseUserId(userId);
-  const { data, error } = await supabaseAdmin
-    .from("interviews")
-    .select("*")
-    .eq("finalized", true)
-    .neq("user_id", supabaseUserId)
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (error) throw error;
-
-  const list = (data as InterviewRow[]).map(toInterview);
-  await cacheLatestInterviews(list, limit);
-  return list;
-}
-
 export async function getInterviewsByUserId(userId: string): Promise<Interview[] | null> {
+  if (!(await callerOwns(userId))) throw new NotYoursError();
   const cached = await getCachedInterviews(userId);
   if (cached) return cached;
 
@@ -445,11 +469,12 @@ export async function getInterviewsByUserId(userId: string): Promise<Interview[]
 }
 
 export async function invalidateInterviewCaches(userId: string, interviewId?: string) {
+  if (!(await callerOwns(userId))) return;
   await invalidateUserInterviewsCache(userId);
   if (interviewId) await invalidateInterviewCache(interviewId);
 }
 
 export async function invalidateFeedbackCache(userId: string, interviewId: string) {
-  if (!redis) return;
+  if (!redis || !(await callerOwns(userId))) return;
   try { await redis.del(`feedback:${userId}:${interviewId}`); } catch { /* ignore */ }
 }

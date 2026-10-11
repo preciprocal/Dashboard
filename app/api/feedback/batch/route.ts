@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getFeedbackByInterviewId } from "@/lib/actions/general.action";
 import { redis } from "@/lib/redis/redis-client";
+import { getAuthedUserId } from "@/lib/auth/verify-request";
 
 // Cache TTL for feedback (7 days - feedback doesn't change after creation)
 const FEEDBACK_CACHE_TTL = 7 * 24 * 60 * 60;
@@ -124,10 +125,15 @@ export async function POST(request: NextRequest) {
     console.log('📊 Batch feedback request started');
     console.log('   Redis available:', !!redis);
 
-    const body = await request.json() as BatchFeedbackRequest;
-    const { interviews, userId } = body;
+    // Whose feedback comes from the session; the body's userId is ignored
+    // (it let anyone read anyone's feedback).
+    const userId = await getAuthedUserId(request);
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    if (!interviews || !userId) {
+    const body = await request.json() as BatchFeedbackRequest;
+    const { interviews } = body;
+
+    if (!interviews) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }

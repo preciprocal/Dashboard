@@ -956,17 +956,18 @@ branches are gone, and Settings only saves notification preferences.
 **Needs a Stripe setting:** add `charge.dispute.updated` and
 `charge.dispute.closed` to the live webhook so dispute statuses update.
 
-## 30. Server actions in lib/actions/general.action.ts trust the user id they are given
+## 30. RESOLVED - server actions in lib/actions/general.action.ts trusted the user id they were given
 
 Found 2026-10-11 while fixing the sign-in loop. Every export of a
-`"use server"` file is a public endpoint, and `getInterviewsByUserId(userId)`
-and `getFeedbackByInterviewId({ interviewId, userId })` read with
-`supabaseAdmin` for whatever `userId` the caller sends. Anyone signed in (or
-not) can call them with another user's id and read that person's interviews
-and feedback. The dashboard (app/page.tsx) calls both from the browser.
+`"use server"` file is a public endpoint, and these read and wrote with the
+service role for whatever user id the caller sent: anyone could read another
+user's interviews and feedback, or run a paid analysis on their interview and
+overwrite it. `/api/feedback/batch` took `userId` from the request body too.
 
-**Fix:** have each read derive the user from the session
-(`createServerSupabaseClient().auth.getUser()` + `resolveDataUserId`) and
-ignore or check the passed id, then audit the file's other exports the same
-way. Check the server pages that pass `interview.userId` (interview/[id]/results)
-still work for their intended viewers.
+**Fixed:** each export checks the signed-in session (`callerOwns`) and only
+acts for the caller; `getInterviewById` returns only the caller's own
+interview; `createFeedback` also checks the interview is theirs; the batch
+route takes the user from the session; the unused `getLatestInterviews`
+(other users' interviews) is gone. Verified by replaying the dashboard's
+server action call as another account and with no session (both refused),
+and the interview pages as owner (load) and as another account (404).
