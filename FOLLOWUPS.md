@@ -918,3 +918,71 @@ link was added.
 **Deferred because** deleting a route is a separate decision from the
 unsubscribe change. Unblocked by: confirming nothing outside this repo (an
 admin tool, a Zap) still posts to it, then deleting the route.
+
+---
+
+## 29. Audit of 2026-10-11: what was found and left for later
+
+A full audit (links, blind spots, ERP, landing site, a signed-in click
+through every page) on 2026-10-11. The high-severity findings were fixed
+in that pass (security holes, account closure, unsubscribe paths, team
+alerts, broken links, the trapping feedback modal, invented stats, open
+redirects, overstated copy). These were found and consciously left:
+
+**Records and alerts still missing**
+- Disputes are only an admin email: no DB row, no ERP view. A disputed
+  pack's credits are voided without telling the user.
+- `invoice.overdue` is not handled: auto-pay-off customers get one invoice
+  email and no reminder before the plan lapses.
+- Refunds: the user's reason is never stored; a failed Stripe refund
+  deletes its `refund_requests` row; a refund made in the Stripe dashboard
+  on a subscription is not written to `refund_requests`.
+- Password and email changes leave no audit trail and send no "your
+  password was changed" email from the app; `profiles.email` and the
+  Stripe customer email only sync on the next email sign-in.
+- Failed logins are only logged, with the address in plain text.
+- Hard bounces do not opt anyone out (spam complaints now do).
+- Support ticket alerts are fired from the browser, so a closed tab can
+  drop them (the ticket itself is saved).
+- Data export failures ("too large") alert nobody.
+
+**Half-built**
+- "Product updates" is a toggle for email nothing sends
+  (`app/api/newsletter/subscribe` TODO).
+- The resume editor's PDF import only works for old Firebase resumes;
+  new uploads store a storage path and fall back to plain text.
+- Settings saves privacy/appearance/preference fields nothing reads.
+- Unused components with fake content: `components/profile/Settings.tsx`,
+  `Planner.tsx`, `Interviews.tsx`, `Resumes.tsx`, `components/UserDropDown.tsx`.
+
+**Hygiene**
+- About 14 API routes still return raw `err.message` to users (planner,
+  resume, extension, profile, vapi routes).
+- Firebase-era error branches and names (`FirebaseService`) remain.
+
+**UI polish**
+- /templates renders all 173 cards with no pagination (63k px on mobile).
+- /job-application placeholder looks like real text and is cut off.
+- The greeting and Settings card read the auth metadata name; the sidebar
+  reads `profiles.name`. They can drift.
+- /extension-auth-success counts to 0 but stays open.
+- Mobile: Settings tab strip hides 4 of 7 tabs with no scroll hint; the
+  cover letter empty-state button wraps to 3 lines.
+- /solutions colours and the resume upload drop zone are off-theme.
+
+**ERP (Preciprocal-ERP)**
+- Logs paging: the UI sends `before=`, the server ignores it (stops at 500).
+- Analytics silently cap interviews/resumes/feedback at 1000 rows.
+- Meetings is a hard-coded sample list that is never saved; Teams meetings
+  have no admin check.
+- Several actions swallow errors (Kanban admins/comments, support reply
+  email, coupon list).
+- `firebase` / `firebase-admin` packages and Firebase files still present.
+- No ERP view of: stripe_events (webhook health), Vapi call costs across
+  users, product-wide feature usage, deliverability by email type.
+
+**Landing**
+- Debrief AI analyses are capped separately (Free 1, Pro 4, Premium 12)
+  but the plan cards and `lib/pricing.ts` say they are not metered.
+
+**Unblocked by** nothing; pick these up in priority order.
