@@ -899,12 +899,12 @@ export default function PricingPage() {
             We only win when <span style={{ background: "linear-gradient(135deg,#6366f1,#a855f7)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>you do.</span>
           </h1>
           <p className="text-slate-400 text-base sm:text-lg max-w-3xl mx-auto leading-relaxed">
-            {/* Describes the refund policy as enforced in lib/config/refund.ts
-                (first-payment refund, migration 0049). Keep the two in step:
-                a refund promise we would not honour is a misleading claim. */}
-            Start on the Free plan and upgrade when it is earning its place. If you change your mind, ask any
-            time in your billing month and we refund the part of it you have not used, less the card
-            processing fees. Barely used it in your first 7 days? You get your first payment back, less those fees. <span className="text-white font-semibold">No tricks, no fine print.</span>
+            {/* Deliberately no refund terms here: they live in the Terms and
+                the Help page, and two copies of a policy drift apart. Never
+                reintroduce the old "30 day money back guarantee", which the
+                policy does not offer. */}
+            Most tools charge you and disappear. We&apos;ve seen what Preciprocal does for real people, so start on
+            the Free plan and upgrade when it is earning its place. <span className="text-white font-semibold">We stand behind it completely.</span>
           </p>
         </div>
 
