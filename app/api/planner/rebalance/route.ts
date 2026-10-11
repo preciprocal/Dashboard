@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('❌ Rebalance error:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Rebalance failed' },
+      { error: 'Could not rebalance your plan. Please try again.' },
       { status: 500 }
     );
   }

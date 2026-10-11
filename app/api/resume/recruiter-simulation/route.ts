@@ -245,6 +245,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, simulation, cached: false });
   } catch (error) {
     console.error('❌ Simulation error:', error);
-    return NextResponse.json({ error: (error as Error).message || 'Failed', details: process.env.NODE_ENV === 'development' ? String(error) : undefined }, { status: 500 });
+    return NextResponse.json({ error: 'Could not run the recruiter simulation. Please try again.', details: process.env.NODE_ENV === 'development' ? String(error) : undefined }, { status: 500 });
   }
 }

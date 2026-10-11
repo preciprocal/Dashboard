@@ -145,5 +145,5 @@ Return JSON:
     } catch {}
 
     return NextResponse.json({ success: true, intel });
-  } catch (error) { console.error('❌ Intel error:', error); return NextResponse.json({ error: error instanceof Error ? error.message : 'Failed' }, { status: 500 }); }
+  } catch (error) { console.error('❌ Intel error:', error); return NextResponse.json({ error: 'Could not prepare interview intel. Please try again.' }, { status: 500 }); }
 }

@@ -84,7 +84,7 @@ Return the complete text content of this document.`,
     return NextResponse.json(
       {
         error:   'Failed to extract text from file',
-        details: error instanceof Error ? error.message : 'Unknown error',
+        details: undefined,
       },
       { status: 500 },
     );

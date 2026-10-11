@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
   const { error } = await supabaseAdmin.storage.from(BUCKET).remove([path]);
   if (error) {
     console.error('❌ Supabase delete failed:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Could not delete the file. Please try again.' }, { status: 500 });
   }
 
   return NextResponse.json({ success: true });

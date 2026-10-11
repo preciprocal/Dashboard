@@ -1,5 +1,6 @@
 'use client';
 
+import { isSupabaseStoragePath } from '@/lib/resume/resolve-pdf-url';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -421,8 +422,17 @@ export default function ResumeDetailsPage() {
       try {
         const rd = resume as Resume & { resumeHtml?: string; resumeText?: string; imagePath?: string; resumePath?: string };
         if (rd.resumeHtml && rd.resumeHtml.length > 500 && !rd.resumeHtml.includes('Paste your resume')) { setEditorHtml(rd.resumeHtml); setEditorReady(true); return; }
-        if (rd.resumePath && rd.resumePath.startsWith('http')) {
-          try { const res = await fetch('/api/resume/pdf-to-html', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ pdfUrl: rd.resumePath, resumeId: resume.id }) }); const result = await res.json() as { html?: string }; if (res.ok && result.html && result.html.length > 100) { setEditorHtml(result.html); await saveResumeContent(resume.id, { resumeHtml: result.html }); setEditorReady(true); return; } } catch {}
+        // New uploads store a private storage path, not a URL; sign it first
+        // (the PDF import used to work only for old Firebase resumes).
+        let pdfUrl: string | null = rd.resumePath?.startsWith('http') ? rd.resumePath : null;
+        if (!pdfUrl && rd.resumePath && isSupabaseStoragePath(rd.resumePath)) {
+          try {
+            const sr = await fetch('/api/storage/signed-url', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ path: rd.resumePath }) });
+            if (sr.ok) pdfUrl = ((await sr.json()) as { url?: string }).url ?? null;
+          } catch { /* fall through to the plain-text fallback */ }
+        }
+        if (pdfUrl) {
+          try { const res = await fetch('/api/resume/pdf-to-html', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ pdfUrl, resumeId: resume.id }) }); const result = await res.json() as { html?: string }; if (res.ok && result.html && result.html.length > 100) { setEditorHtml(result.html); await saveResumeContent(resume.id, { resumeHtml: result.html }); setEditorReady(true); return; } } catch {}
         }
         if (rd.resumeText && rd.resumeText.length > 100) { const escaped = rd.resumeText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); setEditorHtml(`<div style="font-family:Calibri,Arial,sans-serif;font-size:10pt;color:#000;white-space:pre-wrap;line-height:1.4;">${escaped}</div>`); setEditorReady(true); return; }
         if (rd.imagePath?.startsWith('data:image/')) {

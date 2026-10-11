@@ -216,7 +216,7 @@ export async function GET(request: NextRequest) {
     );
   } catch (error) {
     console.error('❌ auto-apply error:', error);
-    return NextResponse.json({ error: 'Internal server error', details: (error as Error).message }, { status: 500, headers: CORS });
+    return NextResponse.json({ error: 'Could not fill this application. Please try again.' }, { status: 500, headers: CORS });
   }
 }
 

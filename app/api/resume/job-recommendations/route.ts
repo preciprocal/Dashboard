@@ -555,7 +555,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('❌ Job recommendations error:', error);
     return NextResponse.json(
-      { error: 'Failed to generate recommendations.', message: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Failed to generate recommendations.', message: 'Please try again.' },
       { status: 500 }
     );
   }

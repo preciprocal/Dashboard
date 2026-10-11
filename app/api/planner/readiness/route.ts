@@ -193,7 +193,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('❌ Readiness error:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to compute readiness' },
+      { error: 'Could not work out your readiness. Please try again.' },
       { status: 500 }
     );
   }

@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/supabase/admin';
+import { getAuthedUserId } from '@/lib/auth/verify-request';
 
 const SUPABASE_BUCKET = 'user-files';
 const SUPABASE_PATH_PREFIXES = ['resumes/', 'transcripts/', 'support-attachments/'];
 
+// Signed-in only, and only the caller's own files: this used to sign any
+// path starting with "resumes/", so anyone who knew or guessed a path could
+// download another person's resume, transcript or support attachment.
 export async function POST(request: NextRequest) {
+  const userId = await getAuthedUserId(request);
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const { url, path } = await request.json() as { url?: string; path?: string };
 
@@ -12,7 +18,7 @@ export async function POST(request: NextRequest) {
 
     if (path && typeof path === 'string') {
       // Bare Supabase Storage path - sign it just-in-time (private bucket).
-      if (!SUPABASE_PATH_PREFIXES.some((prefix) => path.startsWith(prefix))) {
+      if (!SUPABASE_PATH_PREFIXES.some((prefix) => path.startsWith(`${prefix}${userId}/`)) || path.includes('..')) {
         return NextResponse.json({ error: 'Invalid storage path' }, { status: 403 });
       }
 
@@ -32,7 +38,7 @@ export async function POST(request: NextRequest) {
         url.startsWith('https://storage.googleapis.com/');
 
       if (!isFirebaseStorageUrl) {
-        return NextResponse.json({ error: 'Only Firebase Storage URLs are allowed' }, { status: 403 });
+        return NextResponse.json({ error: 'This file cannot be opened here.' }, { status: 403 });
       }
 
       fetchUrl = url;
@@ -42,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     const upstream = await fetch(fetchUrl);
     if (!upstream.ok) {
-      return NextResponse.json({ error: `Storage fetch failed: ${upstream.status}` }, { status: upstream.status });
+      return NextResponse.json({ error: 'Could not open this file.' }, { status: upstream.status === 404 ? 404 : 502 });
     }
 
     const bytes = await upstream.arrayBuffer();

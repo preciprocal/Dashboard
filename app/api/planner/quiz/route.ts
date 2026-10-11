@@ -106,6 +106,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ questions: quizData.questions, metadata, _cached: false });
   } catch (error) {
     console.error('❌ Quiz error:', error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Internal error' }, { status: 500 });
+    return NextResponse.json({ error: 'Could not build the quiz. Please try again.' }, { status: 500 });
   }
 }

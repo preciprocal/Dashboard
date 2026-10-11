@@ -204,7 +204,7 @@ export async function GET() {
   } catch (error) {
     console.error("❌ Error fetching profile:", error);
     return NextResponse.json(
-      { error: "Internal Server Error", details: error instanceof Error ? error.message : "Unknown error" },
+      { error: "Could not load your profile. Please try again." },
       { status: 500 }
     );
   }
@@ -314,7 +314,7 @@ export async function PUT(request: NextRequest) {
       else if (error.message.includes('PERMISSION_DENIED')) { errorMessage = "Permission denied"; statusCode = 403; }
       else if (error.message.includes('INVALID_ARGUMENT')) { errorMessage = "Invalid data format"; statusCode = 400; }
     }
-    return NextResponse.json({ success: false, error: errorMessage, message: error instanceof Error ? error.message : "Unknown error" }, { status: statusCode });
+    return NextResponse.json({ success: false, error: errorMessage, message: "Please try again." }, { status: statusCode });
   }
 }
 

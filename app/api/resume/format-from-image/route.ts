@@ -120,7 +120,7 @@ Return ONLY the HTML. No code blocks, no explanations.`
       { 
         success: false,
         error: 'Failed to format resume from image',
-        details: error instanceof Error ? error.message : 'Unknown error',
+        details: undefined,
         html: null,
         text: null
       },

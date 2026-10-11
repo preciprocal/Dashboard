@@ -220,7 +220,7 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     console.error('❌ Delete resume error:', err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Failed to delete resume' },
+      { error: 'Could not delete the resume. Please try again.' },
       { status: 500 },
     );
   }

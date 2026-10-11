@@ -237,7 +237,7 @@ export async function POST(req: NextRequest) {
     }
   } catch (error) {
     console.error("Function call error:", error);
-    return NextResponse.json({ result: { success: false, message: "Error generating interview questions. Please try again.", error: error instanceof Error ? error.message : "Unknown error" } }, { status: 500 });
+    return NextResponse.json({ result: { success: false, message: "Error generating interview questions. Please try again." } }, { status: 500 });
   }
 }
 

@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     const ct = request.headers.get('content-type') ?? '';
     if (ct.includes('multipart/form-data')) return await handleFileRewrite(request, userId);
     return await handleTextRewrite(request, userId);
-  } catch (error) { console.error('❌ Rewrite error:', error); return NextResponse.json({ error: (error as Error).message || 'Failed' }, { status: 500 }); }
+  } catch (error) { console.error('❌ Rewrite error:', error); return NextResponse.json({ error: 'Could not rewrite this. Please try again.' }, { status: 500 }); }
 }
 
 async function handleFileRewrite(request: NextRequest, userId: string | null) {
@@ -104,6 +104,7 @@ async function generateSuggestions({ section, originalText, tone, context, fileB
 
     return NextResponse.json({ ...data, optimizationMode: mode, meta: { model: CLAUDE_MODEL, mode } });
   } catch (err) {
-    return NextResponse.json({ suggestions: [{ id: '1', original: originalText.substring(0, 100), rewritten: `[Unavailable - ${(err as Error).message}]`, improvements: ['Service temporarily unavailable'], tone, score: 70, keywordsAdded: [], atsOptimizations: [], confidenceScore: 0.5, optimizationMode: mode }], optimizationMode: mode, meta: { model: 'fallback' } });
+    console.error('❌ Rewrite fallback:', err);
+    return NextResponse.json({ suggestions: [{ id: '1', original: originalText.substring(0, 100), rewritten: '[Rewrite unavailable right now. Please try again.]', improvements: ['Service temporarily unavailable'], tone, score: 70, keywordsAdded: [], atsOptimizations: [], confidenceScore: 0.5, optimizationMode: mode }], optimizationMode: mode, meta: { model: 'fallback' } });
   }
 }

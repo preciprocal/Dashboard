@@ -315,9 +315,8 @@ Create a detailed, day-by-day plan with specific resources, practice problems, a
 
   } catch (error) {
     console.error('❌ Error generating interview plan:', error);
-    const err = error as Error;
     return NextResponse.json(
-      { error: 'Failed to generate plan', details: err.message, type: err.name },
+      { error: 'Could not generate your plan. Please try again.' },
       { status: 500 },
     );
   }
