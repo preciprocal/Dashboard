@@ -105,8 +105,8 @@ export async function POST(req: NextRequest) {
     // Re-assessed here, never trusted from the preview: usage may have moved.
     const full = await assessFirstPaymentRefund(user.supabaseUserId, fp);
     const done = full.eligible
-      ? { ...(await executeFirstPaymentRefund(user.supabaseUserId, fp)), type: 'full' as const }
-      : { ...(await executeUnusedCreditsRefund(user.supabaseUserId, fp)), type: 'unused' as const };
+      ? { ...(await executeFirstPaymentRefund(user.supabaseUserId, fp, parsed.data.reason)), type: 'full' as const }
+      : { ...(await executeUnusedCreditsRefund(user.supabaseUserId, fp, parsed.data.reason)), type: 'unused' as const };
     return NextResponse.json({ refunded: true, type: done.type, amountCents: done.amountCents, currency: done.currency, refundId: done.refundId });
   } catch (err) {
     if (err instanceof FirstRefundError || err instanceof UnusedRefundError) {

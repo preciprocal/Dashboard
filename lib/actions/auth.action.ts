@@ -1,5 +1,6 @@
 "use server";
 
+import { recordAccountEvent } from "@/lib/account-events";
 import { createServerSupabaseClient } from "@/supabase/server";
 import { supabaseAdmin } from "@/supabase/admin";
 import { resolveDataUserId, toSupabaseUserId } from "@/lib/auth/verify-request";
@@ -498,7 +499,8 @@ export async function ensureOAuthUserDocument(
 export async function signIn(params: SignInParams) {
   const { email, password } = params;
 
-  console.log("🔐 Sign in attempt:", { email });
+  // No address in the logs: a log line is not where personal data belongs.
+  console.log("🔐 Sign in attempt");
 
   try {
     const supabase = await createServerSupabaseClient();
@@ -523,6 +525,10 @@ export async function signIn(params: SignInParams) {
     const { data, error } = result;
     if (error || !data.user) {
       console.error("❌ Sign in failed:", error?.message);
+      // Recorded with a hash of the address (account_events), so repeated
+      // failures against one account can be spotted without storing who.
+      const { data: known } = await supabaseAdmin.from("profiles").select("user_id").eq("email", email.trim().toLowerCase()).maybeSingle();
+      await recordAccountEvent({ type: "login_failed", userId: (known?.user_id as string | undefined) ?? null, email, detail: { reason: error?.message?.slice(0, 120) ?? "no user" } });
       return { success: false, message: "Invalid email or password." };
     }
 

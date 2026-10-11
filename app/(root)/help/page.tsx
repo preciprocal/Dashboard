@@ -522,6 +522,7 @@ function HelpSupportContent() {
 
       fetch('/api/support/notify-admin', {
         method:  'POST',
+        keepalive: true,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ticketId:      selectedTicket,
@@ -599,6 +600,7 @@ function HelpSupportContent() {
       // The route reads the ticket back from the database, so only the id is sent.
       fetch('/api/support/ticket-created', {
         method:  'POST',
+        keepalive: true,
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ ticketId }),
       })

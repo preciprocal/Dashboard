@@ -74,6 +74,8 @@ export default function RefundPanel() {
   const [busyPack, setBusyPack] = useState<string | null>(null);
   const [subBusy, setSubBusy]   = useState(false);
   const [confirming, setConfirming] = useState<string | null>(null);
+  // Optional, and only asked at the confirm step: it tells us what to fix.
+  const [refundReason, setRefundReason] = useState("");
   const [notice, setNotice]     = useState<{ tone: "ok" | "bad"; text: string } | null>(null);
 
   const load = useCallback(async () => {
@@ -107,7 +109,7 @@ export default function RefundPanel() {
       const res  = await fetch("/api/refund/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fingerprint: (await getDeviceFingerprint()) ?? undefined }),
+        body: JSON.stringify({ fingerprint: (await getDeviceFingerprint()) ?? undefined, reason: refundReason.trim() || undefined }),
       });
       const data = await res.json().catch(() => ({}));
 
@@ -237,6 +239,10 @@ export default function RefundPanel() {
             )}
 
             {confirming === "subscription" ? (
+              <div className="flex flex-col gap-2">
+              <textarea value={refundReason} onChange={e => setRefundReason(e.target.value)} rows={2} maxLength={1000}
+                placeholder="Optional: what could we have done better?"
+                className="w-full px-3.5 py-2.5 bg-slate-800/50 border border-white/[0.08] rounded-xl text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/30 resize-none" />
               <div className="flex flex-col sm:flex-row gap-2">
                 <button
                   onClick={requestSubscriptionRefund}
@@ -254,6 +260,7 @@ export default function RefundPanel() {
                 >
                   Cancel
                 </button>
+              </div>
               </div>
             ) : (
               <button

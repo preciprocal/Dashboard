@@ -265,6 +265,9 @@ export default function SettingsPage() {
         return;
       }
       toast.success('Confirmation link sent to your new email - click it to finish the change');
+      // Recorded, and the current address is told, in case it was not them.
+      void fetch('/api/account/security-event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+        body: JSON.stringify({ type: 'email_change_requested', newEmail: newEmail.trim() }) }).catch(() => undefined);
       setEmailPassword('');
     } catch {
       toast.error('Failed to update email');
@@ -284,6 +287,8 @@ export default function SettingsPage() {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) { toast.error(error.message || 'Failed to update password'); return; }
       toast.success('Password updated successfully');
+      void fetch('/api/account/security-event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+        body: JSON.stringify({ type: 'password_changed' }) }).catch(() => undefined);
       setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
     } catch {
       toast.error('Failed to update password');

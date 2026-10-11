@@ -159,6 +159,8 @@ export class UnusedRefundError extends Error {}
 export async function executeUnusedCreditsRefund(
   supabaseUserId: string,
   deviceFingerprint: string | null,
+  /** What the customer said, if anything. Stored for the team. */
+  reason?: string,
 ): Promise<{ refundId: string; amountCents: number; currency: string }> {
   const a = await assessUnusedCreditsRefund(supabaseUserId, deviceFingerprint);
   if (!a.eligible) throw new UnusedRefundError(a.reason);
@@ -177,6 +179,7 @@ export async function executeUnusedCreditsRefund(
     max_usage_pct: a.planUsedPct,
     card_fingerprint: a._cardFingerprint,
     device_fingerprint: deviceFingerprint,
+    user_reason: reason?.trim().slice(0, 1000) || null,
     usage_snapshot: { planUsedPct: a.planUsedPct },
     decided_at: new Date().toISOString(),
   }).select('id').single();
@@ -197,6 +200,13 @@ export async function executeUnusedCreditsRefund(
   } catch (err) {
     await supabaseAdmin.from('refund_requests').delete().eq('id', row.id);
     console.error('❌ unused-credits refund failed:', err);
+    // The claim row is removed so the customer can try again, which also
+    // removed the only trace of the attempt. The team hears about it instead.
+    await sendOpsAlert({
+      kind: 'Refund attempt failed', supabaseUserId,
+      summary: `A customer asked for a unused credits refund of $${(a.amountCents / 100).toFixed(2)} and Stripe refused it. Nothing was refunded; they were told to try again.`,
+      details: [['Stripe error', err instanceof Error ? err.message.slice(0, 200) : String(err)]],
+    });
     throw new UnusedRefundError('We could not process the refund right now. Nothing was charged or changed; please try again in a minute.');
   }
 

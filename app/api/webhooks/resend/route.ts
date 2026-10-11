@@ -30,6 +30,7 @@ interface ResendEvent {
   data?: {
     email_id?: string;
     click?: { link?: string };
+    bounce?: { type?: string };
   };
 }
 
@@ -67,6 +68,14 @@ export async function POST(req: NextRequest) {
   // A spam report is the strongest unsubscribe there is. Sending that person
   // anything optional again damages delivery for every email we send, so it
   // turns off every optional email, recorded and alerted like any other.
+  // A permanent bounce means the address does not exist; keep sending to it
+  // and every email we send is more likely to land in spam.
+  if (event === 'bounced' && payload.data?.bounce?.type === 'Permanent') {
+    const { data: send } = await supabaseAdmin.from('email_sends').select('user_id').eq('resend_id', resendId).maybeSingle();
+    if (send?.user_id && await applyUnsubscribe(send.user_id, 'all')) {
+      await recordUnsubscribe(send.user_id, 'all', 'bounce');
+    }
+  }
   if (event === 'complained') {
     const { data: send } = await supabaseAdmin.from('email_sends').select('user_id').eq('resend_id', resendId).maybeSingle();
     if (send?.user_id && await applyUnsubscribe(send.user_id, 'all')) {

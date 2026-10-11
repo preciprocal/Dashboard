@@ -14,6 +14,7 @@
 
 import type Stripe from 'stripe';
 import { subscriptionIdOfInvoice } from '@/lib/stripe/compat';
+import { sendInvoiceReminderEmail, userForCustomer } from '@/lib/email/billing';
 
 export interface LapseResult {
   checked: number;
@@ -69,4 +70,37 @@ export async function lapseUnpaidInvoices(
     console.log(`⏳ Lapsed ${result.lapsed.length} unpaid subscription(s), ${result.failed.length} failed`);
   }
   return result;
+}
+
+
+/**
+ * One reminder per emailed invoice, sent when it is within REMIND_DAYS of its
+ * due date. Without it, someone with auto pay off got the invoice email and
+ * then nothing until their plan lapsed. Marked on the invoice's own metadata
+ * (reminder_sent_at) so a re-run of the daily cron never sends it twice.
+ */
+const REMIND_DAYS = 2;
+
+export async function remindUnpaidInvoices(stripe: Stripe, opts: { now?: number } = {}): Promise<number> {
+  const now = opts.now ?? Math.floor(Date.now() / 1000);
+  let sent = 0;
+  for await (const invoice of stripe.invoices.list({
+    status: 'open',
+    collection_method: 'send_invoice',
+    due_date: { gte: now, lte: now + REMIND_DAYS * 86_400 },
+    limit: 100,
+  })) {
+    if (invoice.metadata?.reminder_sent_at || invoice.amount_due <= 0) continue;
+    const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
+    const userId = await userForCustomer(customerId);
+    if (!userId) continue;
+    try {
+      await sendInvoiceReminderEmail(userId, invoice);
+      await stripe.invoices.update(invoice.id!, { metadata: { ...invoice.metadata, reminder_sent_at: String(now) } });
+      sent += 1;
+    } catch (err) {
+      console.error('⚠️ invoice reminder failed:', invoice.id, err);
+    }
+  }
+  return sent;
 }

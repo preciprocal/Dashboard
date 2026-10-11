@@ -168,6 +168,8 @@ export class FirstRefundError extends Error {}
 export async function executeFirstPaymentRefund(
   supabaseUserId: string,
   deviceFingerprint: string | null,
+  /** What the customer said, if anything. Stored for the team. */
+  reason?: string,
 ): Promise<{ refundId: string; amountCents: number; currency: string }> {
   const a = await assessFirstPaymentRefund(supabaseUserId, deviceFingerprint);
   if (!a.eligible) throw new FirstRefundError(a.reason);
@@ -185,6 +187,7 @@ export async function executeFirstPaymentRefund(
     quoted_fee_cents: a.feeCents,
     card_fingerprint: a._cardFingerprint,
     device_fingerprint: deviceFingerprint,
+    user_reason: reason?.trim().slice(0, 1000) || null,
     usage_snapshot: { planUsedPct: a.planUsedPct },
     max_usage_pct: a.planUsedPct,
     decided_at: new Date().toISOString(),
@@ -207,6 +210,13 @@ export async function executeFirstPaymentRefund(
     // Nothing moved: release the claim so they can try again.
     await supabaseAdmin.from('refund_requests').delete().eq('id', row.id);
     console.error('❌ first-payment refund failed:', err);
+    // The claim row is removed so the customer can try again, which also
+    // removed the only trace of the attempt. The team hears about it instead.
+    await sendOpsAlert({
+      kind: 'Refund attempt failed', supabaseUserId,
+      summary: `A customer asked for a first payment refund of $${(a.amountCents / 100).toFixed(2)} and Stripe refused it. Nothing was refunded; they were told to try again.`,
+      details: [['Stripe error', err instanceof Error ? err.message.slice(0, 200) : String(err)]],
+    });
     throw new FirstRefundError('We could not process the refund right now. Nothing was charged or changed; please try again in a minute.');
   }
 

@@ -9,6 +9,7 @@
 // be signed in, the ticket is read from the database, it must be theirs, and
 // it must be new, so the route can only ever confirm a ticket the caller has
 // just opened.
+import { recordAccountEvent } from '@/lib/account-events';
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { z } from 'zod';
@@ -65,6 +66,11 @@ export async function POST(request: NextRequest) {
     if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     if (Date.now() - new Date(row.created_at as string).getTime() > FRESH_TICKET_MS) {
       return NextResponse.json({ error: 'Ticket is not new' }, { status: 409 });
+    }
+    // Account closure arrives as a ticket (Settings > Danger zone); the
+    // account's own history should show it was asked for, and when.
+    if (row.category === 'account' && row.subject === 'Account closure request') {
+      await recordAccountEvent({ type: 'account_closure_requested', userId: authedUser.supabaseUserId, detail: { ticketId } });
     }
 
     const priority = ['high', 'medium', 'low'].includes(row.priority as string)

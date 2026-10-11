@@ -7,6 +7,7 @@ import { type EmailOtpType } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/supabase/server";
 import { sendWelcomeEmail } from "@/lib/email/welcome";
+import { syncChangedEmail } from "@/lib/account-email-sync";
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
@@ -33,6 +34,13 @@ export async function GET(request: NextRequest) {
           email: data.user.email,
           name: data.user.user_metadata?.name ?? null,
         });
+      }
+
+      // A confirmed email change: everything that emails this person reads
+      // profiles.email, and receipts go to the Stripe customer's email, so
+      // both follow the new address now instead of at the next sign-in.
+      if (type === "email_change" && data.user?.email) {
+        await syncChangedEmail(data.user.id, data.user.email);
       }
 
       // Password recovery links land the user in an authenticated session -

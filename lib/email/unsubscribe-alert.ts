@@ -29,13 +29,14 @@ const SCOPE_NAME: Record<UnsubscribeScope, string> = {
 /** "erp_check_in" -> "ERP: check in", "weekly_digest" -> "weekly digest". */
 const emailTypeName = (t: string) => (t.startsWith('erp_') ? `ERP: ${t.slice(4)}` : t).replace(/[_-]/g, ' ');
 
-export type UnsubscribeMethod = 'link' | 'one_click' | 'settings' | 'spam_complaint';
+export type UnsubscribeMethod = 'link' | 'one_click' | 'settings' | 'spam_complaint' | 'bounce';
 
 const HOW: Record<UnsubscribeMethod, string> = {
   link: 'the link in an email',
   one_click: "their email app's unsubscribe button",
   settings: 'a toggle in their Settings',
   spam_complaint: 'marking our email as spam (all optional emails are now off for them)',
+  bounce: 'their address bouncing permanently (all optional emails are now off for it)',
 };
 
 export async function recordUnsubscribe(userId: string, scope: UnsubscribeScope, method: UnsubscribeMethod): Promise<void> {

@@ -139,6 +139,33 @@ export async function sendInvoiceEmail(supabaseUserId: string, invoice: Stripe.I
   });
 }
 
+/** Two days before an emailed invoice is due: the only nudge before the plan lapses. */
+export async function sendInvoiceReminderEmail(supabaseUserId: string, invoice: Stripe.Invoice): Promise<void> {
+  if (invoice.amount_due <= 0) return;
+  const amount = money(invoice.amount_due, invoice.currency);
+  const due = day(invoice.due_date);
+  await send(supabaseUserId, {
+    type: 'billing_invoice_reminder',
+    subject: `Reminder: your Preciprocal invoice for ${amount} is due${due ? ` ${due}` : ' soon'}`,
+    preheader: `Pay ${amount}${due ? ` by ${due}` : ''} to keep your plan.`,
+    eyebrow: 'Payment reminder',
+    heading: `${amount} due${due ? ` ${due}` : ' soon'}`,
+    paragraphs: [
+      'A quick reminder that your Preciprocal invoice is still open.',
+      `Pay it${due ? ` by ${due}` : ''} to keep your plan. If it is not paid by then, your account moves to the Free plan and your saved work stays where it is. To stop these reminders, turn auto pay on in Settings.`,
+    ],
+    panelTitle: 'Invoice details',
+    rows: [
+      { label: 'For', value: describe(invoice) },
+      { label: 'Amount', value: amount },
+      ...(due ? [{ label: 'Due', value: due }] : []),
+      ...(invoice.number ? [{ label: 'Invoice', value: invoice.number }] : []),
+    ],
+    cta: { label: `Pay ${amount}`, url: invoiceUrl(invoice.id!) },
+    footerNote: 'You are receiving this because you have a Preciprocal subscription with auto pay turned off.',
+  });
+}
+
 export async function sendReceiptEmail(supabaseUserId: string, invoice: Stripe.Invoice): Promise<void> {
   if (invoice.amount_paid <= 0) return;
   const amount = money(invoice.amount_paid, invoice.currency);

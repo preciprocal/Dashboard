@@ -6,6 +6,8 @@
 // under GDPR / CCPA", since it was written - and the route never existed, so
 // every request 404'd and the user saw "Failed to request export" forever.
 // That is a legal-adjacent promise that has never once been honoured.
+import { recordAccountEvent } from '@/lib/account-events';
+import { sendOpsAlert } from '@/lib/email/ops-alert';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
@@ -141,6 +143,8 @@ export async function POST(request: NextRequest) {
     const bytes = Buffer.byteLength(json, 'utf8');
     if (bytes > 20 * 1024 * 1024) {
       console.error(`❌ data export too large for email: ${bytes} bytes, user=${userId}`);
+      await sendOpsAlert({ kind: 'Data export too large', supabaseUserId: authedUser.supabaseUserId, actionNeeded: true,
+        summary: `A customer asked for their data and the export (${Math.round(bytes / 1024)} KB) is too large to email. Send it to them another way.` });
       return NextResponse.json(
         { error: 'Your export is too large to email. Contact support@preciprocal.com and we will send it another way.' },
         { status: 413 },
@@ -198,6 +202,7 @@ export async function POST(request: NextRequest) {
     // user their export was on its way when it had never been sent.
     if (sendError) throw sendError;
     await recordEmailSend({ resendId: sent?.id, userId: supabaseUserId, emailType: 'data_export', subject: 'Your Preciprocal data export' });
+    await recordAccountEvent({ type: 'data_export', userId: supabaseUserId, ip: request.headers.get('x-forwarded-for'), userAgent: request.headers.get('user-agent') });
 
     console.log(
       `📦 Data export sent: user=${userId} tables=${Object.keys(collected).length} `

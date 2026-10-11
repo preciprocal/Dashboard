@@ -177,6 +177,12 @@ export async function POST(request: NextRequest) {
       case "charge.refunded":
         await handleChargeRefunded(event.data.object as Stripe.Charge);
         break;
+      // Not in the default event list: add charge.dispute.updated and
+      // charge.dispute.closed to the Stripe webhook to keep statuses current.
+      case "charge.dispute.updated":
+      case "charge.dispute.closed":
+        await handleDisputeChanged(event.data.object as Stripe.Dispute);
+        break;
       case "charge.dispute.created":
         await handleDisputeCreated(event.data.object as Stripe.Dispute);
         break;
@@ -692,6 +698,24 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
   const customerId = typeof charge.customer === "string" ? charge.customer : charge.customer?.id;
   const supabaseUserId = latest.metadata?.userId ?? (await userForCustomer(customerId));
   if (!supabaseUserId) return;
+
+  // A subscription refund made in the Stripe dashboard has no refund_requests
+  // row, so the ERP never showed it. Refunds made in the app carry their
+  // request id in metadata and already have one.
+  if (!latest.metadata?.refundRequestId) {
+    const { data: known } = await supabaseAdmin.from("refund_requests").select("id").eq("stripe_refund_id", latest.id).maybeSingle();
+    if (!known) {
+      const { error: insErr } = await supabaseAdmin.from("refund_requests").insert({
+        user_id: supabaseUserId, kind: "stripe_dashboard", status: "refunded",
+        stripe_customer_id: customerId ?? null, stripe_refund_id: latest.id,
+        quoted_refund_cents: latest.amount, amount_paid_cents: charge.amount,
+        user_reason: "Refunded in the Stripe dashboard", refunded_at: new Date(latest.created * 1000).toISOString(),
+        decided_at: new Date(latest.created * 1000).toISOString(),
+      });
+      if (insErr) console.error("⚠️ could not record dashboard refund:", insErr.message);
+    }
+  }
+
   await sendRefundEmail(supabaseUserId, {
     amountCents: latest.amount,
     currency: latest.currency,
@@ -738,6 +762,16 @@ async function handleDisputeCreated(dispute: Stripe.Dispute) {
       customerEmail = (prof?.email as string | undefined) ?? null;
     }
   }
+  const ownerForRecord = (pack as { user_id?: string } | null)?.user_id ?? (await userForCustomer(customerId)) ?? null;
+  const what = pack ? (PACKS[pack.pack_key as PackKey]?.name ?? "Credit pack") : "Subscription payment";
+  const { error: dispErr } = await supabaseAdmin.from("payment_disputes").upsert({
+    id: dispute.id, user_id: ownerForRecord, charge_id: chargeId, payment_intent_id: piId ?? null,
+    amount_cents: dispute.amount, currency: dispute.currency, reason: dispute.reason, status: dispute.status,
+    evidence_due_by: dispute.evidence_details?.due_by ? new Date(dispute.evidence_details.due_by * 1000).toISOString() : null,
+    what, updated_at: new Date().toISOString(),
+  }, { onConflict: "id" });
+  if (dispErr) console.error("⚠️ payment_disputes upsert failed:", dispErr.message);
+
   await sendDisputeAlert({
     amountCents: dispute.amount,
     currency: dispute.currency,
@@ -747,6 +781,40 @@ async function handleDisputeCreated(dispute: Stripe.Dispute) {
     customerEmail,
     what: pack ? (PACKS[pack.pack_key as PackKey]?.name ?? "Credit pack") : "Subscription payment",
   });
+}
+
+async function handleDisputeChanged(dispute: Stripe.Dispute) {
+  const { data: row } = await supabaseAdmin.from("payment_disputes").select("id,status,user_id,payment_intent_id").eq("id", dispute.id).maybeSingle();
+  if (!row) {
+    // Created before payment_disputes existed, or the created event was missed.
+    await handleDisputeCreated(dispute);
+    return;
+  }
+  await supabaseAdmin.from("payment_disputes").update({
+    status: dispute.status,
+    evidence_due_by: dispute.evidence_details?.due_by ? new Date(dispute.evidence_details.due_by * 1000).toISOString() : null,
+    updated_at: new Date().toISOString(),
+  }).eq("id", dispute.id);
+  if (row.status === dispute.status) return;
+
+  // Won: the money stays with us, so a pack voided when the dispute opened
+  // gets its credits back (unless it was also refunded).
+  if (dispute.status === "won" && row.payment_intent_id) {
+    const charge = await stripe.charges.retrieve(typeof dispute.charge === "string" ? dispute.charge : dispute.charge.id).catch(() => null);
+    if (charge && !charge.refunded && (charge.amount_refunded ?? 0) === 0) {
+      await supabaseAdmin.from("credit_packs").update({ refunded_at: null, updated_at: new Date().toISOString() })
+        .eq("stripe_payment_intent_id", row.payment_intent_id);
+    }
+  }
+  if (dispute.status === "won" || dispute.status === "lost") {
+    await sendOpsAlert({
+      kind: `Dispute ${dispute.status}`, supabaseUserId: row.user_id,
+      summary: dispute.status === "won"
+        ? `The bank decided a ${(dispute.amount / 100).toFixed(2)} ${dispute.currency.toUpperCase()} dispute in our favour. Any pack credits voided for it are restored.`
+        : `The bank decided a ${(dispute.amount / 100).toFixed(2)} ${dispute.currency.toUpperCase()} dispute for the customer. The money and Stripe's dispute fee are gone.`,
+      details: [["Dispute", dispute.id], ["Reason", String(dispute.reason).replace(/_/g, " ")]],
+    });
+  }
 }
 
 async function handleInvoiceFinalized(invoice: Stripe.Invoice) {
