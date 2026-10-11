@@ -843,9 +843,22 @@ export default function PricingPage() {
 
   const handleSelectPlan = (plan: Plan) => {
     if (plan.id === "free" || plan.enterprise) return;
-    if (!user) { window.location.href = "/sign-in?redirect=/pricing"; return; }
+    if (!user) { window.location.href = `/sign-in?redirect=${encodeURIComponent(`/pricing?plan=${plan.id}`)}`; return; }
     setSelectedPlan(plan);
   };
+
+  // ?plan=pro | premium, from the landing site's "Start Pro" / "Go Premium"
+  // (via sign-up) or a sign-in redirect: open that plan's checkout once.
+  const [planParamUsed, setPlanParamUsed] = useState(false);
+  useEffect(() => {
+    if (planParamUsed || authLoading || !user) return;
+    const wanted = new URLSearchParams(window.location.search).get("plan");
+    const plan = PLANS.find(p => p.id === wanted && p.id !== "free" && !p.enterprise);
+    void Promise.resolve().then(() => {
+      setPlanParamUsed(true);
+      if (plan && currentPlan !== plan.id) setSelectedPlan(plan);
+    });
+  }, [planParamUsed, authLoading, user, currentPlan]);
 
   const handleStudentVerified = () => {
     setIsStudent(true); setShowStudent(false);

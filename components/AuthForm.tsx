@@ -35,6 +35,26 @@ const authFormSchema = (type: FormType) => {
   });
 };
 
+const safeRedirect = (v: string | null): string | null =>
+  v && v.startsWith("/") && !v.startsWith("//") && !v.startsWith("/\\") ? v : null;
+
+const PLAN_DEST: Record<string, string> = { pro: "/pricing?plan=pro", premium: "/pricing?plan=premium" };
+
+// The landing site's ctaTool values (Landing-Page components/ToolPage.tsx).
+const TOOL_DEST: Record<string, string> = {
+  "ats-checker": "/resume/upload",
+  "resume-tailoring": "/resume",
+  "cover-letter": "/cover-letter/create",
+  "mock-interview": "/interview/create",
+  "interview-debrief": "/debrief",
+  "job-tracker": "/job-tracker",
+  "study-planner": "/planner/create",
+  "linkedin-optimizer": "/career-tools",
+  "cold-outreach": "/career-tools",
+  "contact-finder": "/career-tools",
+  "chrome-extension": "/settings?section=extension",
+};
+
 const AuthForm = ({ type }: { type: FormType }) => {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -43,7 +63,14 @@ const AuthForm = ({ type }: { type: FormType }) => {
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const redirectUrl = searchParams.get("redirect") || "/";
+  // Where to go after signing in. ?redirect= must be a path inside the app:
+  // a full URL there sent people off-site after a real sign-in. The landing
+  // site links here with ?plan= (Start Pro / Go Premium) and ?tool= (each
+  // tool page), which open the plan's checkout or that tool.
+  const redirectUrl = safeRedirect(searchParams.get("redirect"))
+    ?? PLAN_DEST[searchParams.get("plan") ?? ""]
+    ?? TOOL_DEST[searchParams.get("tool") ?? ""]
+    ?? "/";
 
   // Redirects into /sign-in carry a reason, and without this the user is
   // bounced here with no explanation at all - which for the signup guard would
