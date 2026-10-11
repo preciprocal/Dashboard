@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { applyUnsubscribe, renderUnsubscribePage } from '@/lib/email/unsubscribe';
+import { recordUnsubscribe } from '@/lib/email/unsubscribe-alert';
 
 export const runtime = 'nodejs';
 
@@ -45,6 +46,7 @@ export async function POST(req: NextRequest) {
 
   const userId = validLink(req);
   const ok = userId ? await applyUnsubscribe(userId, 'weeklyDigest') : false;
+  if (ok && userId) await recordUnsubscribe(userId, 'weeklyDigest', oneClick ? 'one_click' : 'link');
 
   if (oneClick) return NextResponse.json({ success: ok }, { status: ok ? 200 : 400 });
   if (!userId) return html(renderUnsubscribePage('invalid', 'weeklyDigest'), 400);

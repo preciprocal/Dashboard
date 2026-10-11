@@ -20,6 +20,7 @@ import {
   verifyUnsubscribeToken,
   type UnsubscribeScope,
 } from '@/lib/email/unsubscribe';
+import { recordUnsubscribe } from '@/lib/email/unsubscribe-alert';
 
 export const runtime = 'nodejs';
 
@@ -56,6 +57,8 @@ export async function POST(req: NextRequest) {
 
   const link = readLink(req);
   const ok = link ? await applyUnsubscribe(link.userId, link.scope) : false;
+  // Awaited: serverless freezes the process once the response is sent.
+  if (ok && link) await recordUnsubscribe(link.userId, link.scope, oneClick ? 'one_click' : 'link');
 
   if (oneClick) return NextResponse.json({ success: ok }, { status: ok ? 200 : 400 });
 
