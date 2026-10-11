@@ -10,7 +10,12 @@ import { planFromPriceId, warnUnknownPrice } from "@/lib/config/stripe-prices";
 import { grantPack } from "@/lib/packs/grant";
 import { claimEvent, confirmEvent, releaseEvent } from "@/lib/stripe/event-ledger";
 import { periodOf, subscriptionIdOfInvoice } from "@/lib/stripe/compat";
-import { sendInvoiceEmail, sendReceiptEmail } from "@/lib/email/billing";
+import {
+  sendInvoiceEmail, sendReceiptEmail, sendPackReceiptEmail, sendRefundEmail,
+  sendTrialEndingEmail, sendRenewalReminderEmail, sendPaymentFailedEmail,
+  sendActionRequiredEmail, userForCustomer,
+} from "@/lib/email/billing";
+import { PACKS, type PackKey } from "@/lib/config/packs";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-07-30.basil",
@@ -158,6 +163,19 @@ export async function POST(request: NextRequest) {
       case "invoice.finalized":
         await handleInvoiceFinalized(event.data.object as Stripe.Invoice);
         break;
+      // The rest of the customer emails Stripe used to send, now ours.
+      case "invoice.payment_action_required":
+        await handleActionRequired(event.data.object as Stripe.Invoice);
+        break;
+      case "invoice.upcoming":
+        await handleInvoiceUpcoming(event.data.object as Stripe.Invoice);
+        break;
+      case "customer.subscription.trial_will_end":
+        await handleTrialWillEnd(event.data.object as SubscriptionWithPeriods);
+        break;
+      case "charge.refunded":
+        await handleChargeRefunded(event.data.object as Stripe.Charge);
+        break;
       // One-time credit packs. Both events carry the same session shape; the
       // async variant fires for payment methods that settle after the redirect
       // rather than during it, where completed arrives unpaid.
@@ -253,6 +271,14 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   switch (outcome.status) {
     case "granted":
       console.log(`🎟️ Granted pack [${packKey}] to ${supabaseUserId} as ${outcome.packId}`);
+      // Our own receipt, replacing Stripe's Checkout receipt. Never throws.
+      await sendPackReceiptEmail(supabaseUserId, {
+        packName: PACKS[packKey as PackKey]?.name ?? "Credit pack",
+        amountCents,
+        currency: session.currency ?? "usd",
+        paidAt: session.created,
+        reference: session.id.slice(-10).toUpperCase(),
+      });
       break;
     case "duplicate":
       // Stripe redelivered an event it had already delivered. Expected.
@@ -537,6 +563,70 @@ async function handlePaymentSucceeded(invoice: InvoiceWithSubscription) {
   }
 }
 
+/** Our user for an invoice's subscription, via its metadata. */
+async function userForInvoice(invoice: Stripe.Invoice): Promise<{ supabaseUserId: string; subscription: SubscriptionWithPeriods } | null> {
+  const subscriptionId = subscriptionIdOfInvoice(invoice);
+  if (!subscriptionId) return null;
+  const subscription = (await stripe.subscriptions.retrieve(subscriptionId)) as unknown as SubscriptionWithPeriods;
+  const userId = getUserId(subscription);
+  if (!userId) return null;
+  return { supabaseUserId: await toSupabaseUserId(userId), subscription };
+}
+
+async function handleActionRequired(invoice: Stripe.Invoice) {
+  const who = await userForInvoice(invoice);
+  if (who && invoice.id) await sendActionRequiredEmail(who.supabaseUserId, invoice);
+}
+
+async function handleInvoiceUpcoming(invoice: Stripe.Invoice) {
+  const who = await userForInvoice(invoice);
+  if (!who) return;
+  // A trial converting is covered by the trial-ending email; one heads-up
+  // about the same charge is enough.
+  if (who.subscription.status === "trialing" || who.subscription.cancel_at_period_end) return;
+  await sendRenewalReminderEmail(who.supabaseUserId, {
+    renewsAt: invoice.next_payment_attempt ?? invoice.period_end ?? periodOf(who.subscription).end ?? 0,
+    amountCents: invoice.amount_due,
+    currency: invoice.currency,
+    autoPay: who.subscription.collection_method === "charge_automatically",
+  });
+}
+
+async function handleTrialWillEnd(subscription: SubscriptionWithPeriods) {
+  const userId = getUserId(subscription);
+  if (!userId || !subscription.trial_end || subscription.cancel_at_period_end) return;
+  const price = subscription.items.data[0]?.price;
+  await sendTrialEndingEmail(await toSupabaseUserId(userId), {
+    trialEnd: subscription.trial_end,
+    amountCents: price?.unit_amount ?? 0,
+    currency: price?.currency ?? "usd",
+    autoPay: subscription.collection_method === "charge_automatically",
+  });
+}
+
+/**
+ * Any refund, whether issued by the app (pack refunds) or by hand in the
+ * Stripe dashboard (approved subscription refunds). Emails the amount of the
+ * newest refund on the charge, not the running total.
+ */
+async function handleChargeRefunded(charge: Stripe.Charge) {
+  const customerId = typeof charge.customer === "string" ? charge.customer : charge.customer?.id;
+  const supabaseUserId = charge.metadata?.userId ?? (await userForCustomer(customerId));
+  if (!supabaseUserId) return;
+
+  const latest = (await stripe.refunds.list({ charge: charge.id, limit: 1 })).data[0];
+  if (!latest || latest.status === "failed" || latest.status === "canceled") return;
+
+  const packKey = charge.metadata?.packKey as PackKey | undefined;
+  await sendRefundEmail(supabaseUserId, {
+    amountCents: latest.amount,
+    currency: latest.currency,
+    forWhat: packKey && PACKS[packKey] ? PACKS[packKey].name : "Your Preciprocal subscription",
+    refundedAt: latest.created,
+    full: charge.amount_refunded >= charge.amount,
+  });
+}
+
 async function handleInvoiceFinalized(invoice: Stripe.Invoice) {
   // Auto pay on: Stripe charges the card and the receipt follows. Only an
   // invoice the customer pays themselves needs an email asking them to.
@@ -579,6 +669,12 @@ async function handlePaymentFailed(invoice: InvoiceWithSubscription) {
     if (updateError) throw updateError;
 
     await invalidateUserCache(userId);
+
+    // Our own "payment failed" email, replacing Stripe's. Only for automatic
+    // charges: an emailed invoice has no charge to fail.
+    if (invoice.collection_method === "charge_automatically" && invoice.id) {
+      await sendPaymentFailedEmail(supabaseUserId, invoice);
+    }
 
     console.log("✅ Subscription marked as past_due");
   } catch (error) {

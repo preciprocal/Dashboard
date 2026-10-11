@@ -25,6 +25,7 @@ import { timingSafeEqual } from 'crypto';
 import { supabaseAdmin } from '@/supabase/admin';
 import { stripe } from '@/lib/stripe/billing';
 import { lapseUnpaidInvoices } from '@/lib/stripe/lapse';
+import { notifyExpiringCards } from '@/lib/stripe/card-expiry';
 import { unsubscribeUrl } from '@/lib/email/unsubscribe';
 import {
   sendCoachingEmail,
@@ -115,7 +116,7 @@ export async function GET(req: NextRequest) {
   const now = Date.now();
   const scope = onlyUser(req);
   const iso = (ms: number) => new Date(ms).toISOString();
-  const tally = { users: 0, sent: 0, checkins: 0, deferred: 0, skipped: 0, superseded: 0, failed: 0, lapsed: 0 };
+  const tally = { users: 0, sent: 0, checkins: 0, deferred: 0, skipped: 0, superseded: 0, failed: 0, lapsed: 0, cardsExpiring: 0 };
 
   // Daily billing upkeep rides on this cron rather than a cron of its own, so
   // the Vercel cron count stays where it is. Full runs only: a ?user= test
@@ -125,6 +126,11 @@ export async function GET(req: NextRequest) {
       tally.lapsed = (await lapseUnpaidInvoices(stripe)).lapsed.length;
     } catch (err) {
       console.error('❌ unpaid-invoice lapse failed (coaching continues):', err);
+    }
+    try {
+      tally.cardsExpiring = (await notifyExpiringCards(stripe)).notified;
+    } catch (err) {
+      console.error('❌ expiring-card emails failed (coaching continues):', err);
     }
   }
 

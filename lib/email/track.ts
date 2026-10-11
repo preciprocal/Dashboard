@@ -19,6 +19,13 @@ export type EmailType =
   | 'student_verification'
   | 'billing_invoice'
   | 'billing_receipt'
+  | 'billing_pack_receipt'
+  | 'billing_refund'
+  | 'billing_trial_ending'
+  | 'billing_renewal'
+  | 'billing_payment_failed'
+  | 'billing_action_required'
+  | 'billing_card_expiring'
   | `activation_${string}`
   | `coaching_${string}`;
 

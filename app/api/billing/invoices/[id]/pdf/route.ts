@@ -1,10 +1,10 @@
 // app/api/billing/invoices/[id]/pdf/route.ts
-// Downloads an invoice PDF through our own domain, so the customer never
-// lands on a stripe.com URL. The file is Stripe's PDF, carrying the logo,
-// colours and business details set in Stripe's Branding settings.
+// Our own invoice PDF (lib/billing/invoice-pdf.ts), generated from the Stripe
+// invoice and served from our domain. Only for the caller's own invoices.
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { billingContext, ownedInvoice } from '@/lib/stripe/billing';
+import { renderInvoicePdf } from '@/lib/billing/invoice-pdf';
 
 export const runtime = 'nodejs';
 
@@ -15,19 +15,21 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const { customerId } = await billingContext(user.supabaseUserId);
   const invoice = await ownedInvoice(id, customerId);
-  if (!invoice?.invoice_pdf) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
+  if (!invoice || invoice.status === 'draft') return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
 
-  const upstream = await fetch(invoice.invoice_pdf);
-  if (!upstream.ok || !upstream.body) {
-    return NextResponse.json({ error: 'Could not fetch the invoice. Please try again.' }, { status: 502 });
+  try {
+    const pdf = await renderInvoicePdf(invoice);
+    const kind = invoice.status === 'paid' ? 'receipt' : 'invoice';
+    const name = `Preciprocal-${kind}-${invoice.number ?? invoice.id}.pdf`.replace(/[^A-Za-z0-9._-]/g, '-');
+    return new NextResponse(new Uint8Array(pdf), {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${name}"`,
+        'Cache-Control': 'private, no-store',
+      },
+    });
+  } catch (err) {
+    console.error('❌ invoice PDF failed:', err);
+    return NextResponse.json({ error: 'Could not create the PDF. Please try again.' }, { status: 500 });
   }
-
-  const name = `Preciprocal-invoice-${invoice.number ?? invoice.id}.pdf`.replace(/[^A-Za-z0-9._-]/g, '-');
-  return new NextResponse(upstream.body, {
-    headers: {
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${name}"`,
-      'Cache-Control': 'private, no-store',
-    },
-  });
 }
