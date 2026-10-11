@@ -123,7 +123,7 @@ const hex = (h: string) => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)) a
 export const cleanDescription = (d: string | null | undefined) => {
   const t = (d ?? 'Preciprocal subscription').replace(/^\d+\s*×\s*/, '').replace(/\s*\(at [^)]*\)\s*$/, '').trim();
   // The Stripe products are named "Pro" and "Premium"; say whose.
-  return /^preciprocal/i.test(t) ? t : `Preciprocal ${t}`;
+  return /^preciprocal\b/i.test(t) ? t : `Preciprocal ${t}`;
 };
 
 export async function renderInvoicePdf(invoice: Stripe.Invoice, extras: InvoiceExtras = {}): Promise<Buffer> {
