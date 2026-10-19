@@ -16,12 +16,18 @@ export const SITE = {
   app: "https://app.preciprocal.com",
 
   name: "Preciprocal",
-  tagline: "Land your next job, faster.",
+  // Kept in step with the marketing site (Landing-Page app/layout.tsx), which
+  // describes Preciprocal as an AI career prep platform, not job search. The
+  // same name and description on both domains matters for Google's OAuth
+  // brand verification as well as search.
+  tagline: "AI Career Prep Platform for Students",
   description:
-    "Preciprocal is the AI-powered job search platform that auto-fills applications, optimizes your resume for ATS, and runs realistic AI mock interviews - all in one place.",
+    "Preciprocal is the AI career prep platform for students and new grads: realistic AI mock interviews, ATS resume optimization, and auto-filled job applications, all in one place.",
 
   twitterHandle: "@preciprocal",
-  ogImage: "/og-image.png", // 1200×630 in /public
+  // 1200×630 in /public. Same image as the marketing site's og-image-v2.png;
+  // a new filename so platforms drop their cached copy of the old one.
+  ogImage: "/og-image-v2.png",
 } as const;
 
 interface PageMetaInput {
