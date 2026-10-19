@@ -239,6 +239,54 @@ export function cleanResumeText(text: string): string {
     .trim();
 }
 
+// ─── Dash Cleanup ────────────────────────────────────────────────────────────
+
+/**
+ * Keys whose values are quoted verbatim from the candidate's resume so the UI
+ * can find the line again (lineId, fix matching). Rewriting a dash inside
+ * one of these would break that match, so they are left exactly as returned.
+ */
+const VERBATIM_KEYS: ReadonlySet<string> = new Set(['originalText', 'original', 'targetLine', 'lineId']);
+
+/**
+ * Replace em and en dashes in AI-written text with plain hyphens. The prompts
+ * ask for this too (see LANGUAGE_MATCH_INSTRUCTION), but the model still
+ * slips them in, so this is the guarantee.
+ *   "2019–2021" -> "2019-2021"
+ *   "fast — and cheap" / "fast—and cheap" -> "fast - and cheap"
+ */
+export function stripDashes(text: string): string {
+  return text
+    .replace(/(\d)[ \t]*[–—‒][ \t]*(\d)/g, '$1-$2')
+    .replace(/[ \t]*[—―][ \t]*/g, ' - ')
+    .replace(/[ \t]+[–‒][ \t]+/g, ' - ')
+    .replace(/[–‒]/g, '-')
+    .replace(/^ - /gm, '- ')
+    .replace(/ - $/gm, '');
+}
+
+/**
+ * stripDashes over every string in a parsed AI response, skipping
+ * VERBATIM_KEYS. A string in "original → replacement" form (resume tailor)
+ * only has its replacement side cleaned, because the left side has to match
+ * the resume exactly.
+ */
+export function stripDashesDeep<T>(value: T, key?: string): T {
+  if (typeof value === 'string') {
+    if (key && VERBATIM_KEYS.has(key)) return value;
+    const arrow = value.indexOf('→');
+    if (arrow !== -1) return (value.slice(0, arrow + 1) + stripDashes(value.slice(arrow + 1))) as T;
+    return stripDashes(value) as T;
+  }
+  if (Array.isArray(value)) return value.map(v => stripDashesDeep(v, key)) as T;
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([k, v]) => [k, stripDashesDeep(v, k)]),
+    ) as T;
+  }
+  return value;
+}
+
 // ─── Multilingual Output ─────────────────────────────────────────────────────
 
 /**
@@ -250,4 +298,6 @@ export function cleanResumeText(text: string): string {
  */
 export const LANGUAGE_MATCH_INSTRUCTION = `
 
-LANGUAGE: Detect the language the candidate's resume, job description, and/or job title are written in. If it is not English, respond ENTIRELY in that language - every piece of narrative text: feedback, explanations, quotes, tips, verdicts, AND any rewritten/tailored/"improved" text you generate. The candidate must be able to use your output directly, so a rewritten bullet point must be written in their language, not translated-then-English. Keep JSON field names exactly as specified in the schema (always English) - only the string VALUES change language. If the resume and job description are in different languages, prefer the resume's language for anything the candidate will reuse (rewrites, edits), since that is the language of the document they will submit. If everything is in English, respond in English as normal.`;
+LANGUAGE: Detect the language the candidate's resume, job description, and/or job title are written in. If it is not English, respond ENTIRELY in that language - every piece of narrative text: feedback, explanations, quotes, tips, verdicts, AND any rewritten/tailored/"improved" text you generate. The candidate must be able to use your output directly, so a rewritten bullet point must be written in their language, not translated-then-English. Keep JSON field names exactly as specified in the schema (always English) - only the string VALUES change language. If the resume and job description are in different languages, prefer the resume's language for anything the candidate will reuse (rewrites, edits), since that is the language of the document they will submit. If everything is in English, respond in English as normal.
+
+PUNCTUATION: Never use em dashes (—) or en dashes (–) in text you write. Use a comma, colon, period, or a plain hyphen (-) instead, and write ranges as "2019-2021". The only exception is text you quote verbatim from the resume (such as originalText or targetLine), which must stay exactly as written.`;

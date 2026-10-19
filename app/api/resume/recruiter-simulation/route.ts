@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUserId } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
-import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
+import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, stripDashesDeep, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 import { calibrateRecruiterAttention, HIRING_BASELINES } from '@/lib/ai/outcome-tracking';
@@ -199,7 +199,7 @@ export async function POST(request: NextRequest) {
 
     const cached = row.recruiter_simulation as RecruiterSimulation | undefined;
     const cachedAt = row.recruiter_simulation_generated_at ? new Date(row.recruiter_simulation_generated_at as string).getTime() : undefined;
-    if (!force && cached && cachedAt && Date.now() - cachedAt < 7 * 24 * 60 * 60 * 1000) return NextResponse.json({ success: true, simulation: cached, cached: true });
+    if (!force && cached && cachedAt && Date.now() - cachedAt < 7 * 24 * 60 * 60 * 1000) return NextResponse.json({ success: true, simulation: stripDashesDeep(cached), cached: true });
 
     const resumeContent = data.feedback?.resumeText?.substring(0, 3000) || 'Resume text not available.';
     const overallScore = data.feedback?.overallScore || 'N/A';
@@ -215,7 +215,7 @@ export async function POST(request: NextRequest) {
     const response = await anthropic.messages.create({ model: CLAUDE_MODEL, max_tokens: MAX_TOKENS, system: cachedSystem(systemPrompt), messages: [{ role: 'user', content: userPrompt }] });
     logUsage('recruiter-sim', response);
 
-    const simulation = JSON.parse(extractJsonString(extractText(response))) as RecruiterSimulation;
+    const simulation = stripDashesDeep(JSON.parse(extractJsonString(extractText(response)))) as RecruiterSimulation;
     if (!simulation.firstImpression || !simulation.eyeTrackingHeatmap) throw new Error('Invalid structure');
 
     // Clean future-date false positives

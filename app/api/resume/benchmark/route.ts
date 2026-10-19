@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
-import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
+import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, stripDashesDeep, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 import { calibratePercentile } from '@/lib/ai/outcome-tracking';
@@ -142,14 +142,14 @@ export async function POST(request: NextRequest) {
 
     const cached = row.benchmark_result as Record<string, unknown> | undefined;
     const cachedAt = row.benchmark_generated_at ? new Date(row.benchmark_generated_at as string).getTime() : undefined;
-    if (!force && cached && cachedAt && Date.now() - cachedAt < 7 * 24 * 60 * 60 * 1000) return NextResponse.json({ success: true, data: cached, cached: true });
+    if (!force && cached && cachedAt && Date.now() - cachedAt < 7 * 24 * 60 * 60 * 1000) return NextResponse.json({ success: true, data: stripDashesDeep(cached), cached: true });
 
     const response = await anthropic.messages.create({ model: CLAUDE_MODEL, max_tokens: MAX_TOKENS, system: cachedSystem(BENCHMARK_SYSTEM), messages: [{ role: 'user', content: buildPrompt(data) }] });
     logUsage('benchmark', response);
 
     const cleaned = extractJsonString(extractText(response));
     if (!cleaned) return NextResponse.json({ error: 'AI returned malformed response' }, { status: 500 });
-    const benchmarkData = JSON.parse(cleaned) as Record<string, unknown>;
+    const benchmarkData = stripDashesDeep(JSON.parse(cleaned)) as Record<string, unknown>;
 
     // ── Calibrate percentile ──────────────────────────────────────
     const resumeScore = ((data.feedback as Record<string, unknown>)?.overallScore as number) ?? 50;

@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { stripDashes } from '@/lib/ai/claude';
 
 const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
@@ -43,11 +44,11 @@ Provide helpful, specific advice. If asked to rewrite something:
 - Include metrics and strong action verbs
 - Make it ATS-friendly
 
-Format your response conversationally but include clear examples.`;
+Format your response conversationally but include clear examples. Never use em dashes or en dashes; use a comma, colon, period or plain hyphen instead.`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    const text = response.text();
+    const text = stripDashes(response.text());
 
     return NextResponse.json({
       success: true,

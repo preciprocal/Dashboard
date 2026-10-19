@@ -5,7 +5,7 @@ import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
 import { redis } from '@/lib/redis/redis-client';
 import { getUserAIContext } from '@/lib/ai/user-context';
-import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, cleanResumeText, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
+import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, cleanResumeText, stripDashesDeep, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
     if (redis) {
       try {
         const cached = await redis.get(cacheKey);
-        if (cached) { const d = typeof cached === 'string' ? JSON.parse(cached) : cached; return NextResponse.json({ success: true, data: d, cached: true, responseTime: Date.now() - start }); }
+        if (cached) { const d = stripDashesDeep(typeof cached === 'string' ? JSON.parse(cached) : cached); return NextResponse.json({ success: true, data: d, cached: true, responseTime: Date.now() - start }); }
       } catch {}
     }
 
@@ -157,7 +157,7 @@ REMINDER: Every item in "changes" MUST use arrow format "original text → new t
     if (!cleaned) { console.error('❌ No JSON in tailor response:', raw.slice(0, 300)); return NextResponse.json({ error: 'AI returned unexpected format. Try again.' }, { status: 422 }); }
 
     let data: Record<string, unknown>;
-    try { data = JSON.parse(cleaned); } catch (err) { console.error('❌ JSON parse failed:', err); return NextResponse.json({ error: 'AI returned malformed response. Try again.' }, { status: 422 }); }
+    try { data = stripDashesDeep(JSON.parse(cleaned)); } catch (err) { console.error('❌ JSON parse failed:', err); return NextResponse.json({ error: 'AI returned malformed response. Try again.' }, { status: 422 }); }
 
     await checkAndIncrementUsage(userId, 'resumes');
 

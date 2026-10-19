@@ -4,7 +4,7 @@ import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { extractTextFromResume } from '@/lib/resume/pdf-text-extractor';
-import { LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
+import { LANGUAGE_MATCH_INSTRUCTION, stripDashes, stripDashesDeep } from '@/lib/ai/claude';
 
 const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
@@ -200,7 +200,7 @@ ${LANGUAGE_MATCH_INSTRUCTION}`;
 
     console.log('🤖 Generating tailored resume...');
     const result = await model.generateContent(prompt);
-    const tailoredResume = result.response.text();
+    const tailoredResume = stripDashes(result.response.text());
 
     // Generate change summary
     const changesPrompt = `Compare the original and tailored resumes and list the TOP 5 most important changes made:
@@ -227,7 +227,7 @@ Return ONLY the JSON array, nothing else.`;
     try {
       const jsonMatch = changesText.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
-        changes = JSON.parse(jsonMatch[0]) as string[];
+        changes = stripDashesDeep(JSON.parse(jsonMatch[0])) as string[];
       }
     } catch (e) {
       console.error('Failed to parse changes:', e);

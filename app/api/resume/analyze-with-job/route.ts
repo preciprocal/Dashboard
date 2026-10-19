@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUserId } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
-import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
+import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, stripDashesDeep, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 
@@ -50,7 +50,7 @@ async function handleDeepAnalysis(resumeText: string, jobDescription: string | n
       if (row) {
         const cached = row.deep_analysis as Record<string, unknown> | undefined;
         const cachedAt = row.deep_analysis_generated_at ? new Date(row.deep_analysis_generated_at as string).getTime() : undefined;
-        if (cached && cachedAt && Date.now() - cachedAt < 7 * 24 * 60 * 60 * 1000) return NextResponse.json({ deepAnalysis: cached, cached: true });
+        if (cached && cachedAt && Date.now() - cachedAt < 7 * 24 * 60 * 60 * 1000) return NextResponse.json({ deepAnalysis: stripDashesDeep(cached), cached: true });
       }
     } catch {}
   }
@@ -80,7 +80,7 @@ RULES: originalText MUST be EXACT verbatim. Only accomplishment bullets. Rewrite
     // extractJsonString already repairs truncated JSON - parse directly
     let deepAnalysis: Record<string, unknown>;
     try {
-      deepAnalysis = JSON.parse(cleaned);
+      deepAnalysis = stripDashesDeep(JSON.parse(cleaned));
     } catch (parseErr) {
       console.error('❌ JSON parse failed after repair:', (parseErr as Error).message);
       console.error('   First 500 chars:', cleaned.slice(0, 500));
@@ -125,7 +125,7 @@ Return JSON: { "recommendations": [{ "id": "rec-1", "type": "weak_verb"|"missing
     const cleaned = extractJsonString(extractText(response));
     let data: Record<string, unknown>;
     try {
-      data = JSON.parse(cleaned);
+      data = stripDashesDeep(JSON.parse(cleaned));
     } catch {
       return NextResponse.json({ error: 'AI returned malformed response - please retry' }, { status: 502 });
     }

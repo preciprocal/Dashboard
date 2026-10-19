@@ -18,8 +18,10 @@ export const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_R
  *
  * v2: the resume analysis and fix prompts were told to stop producing tips
  *     about summary / objective / profile sections.
+ * v3: no em/en dashes in written text, and shorter tips so analysis returns
+ *     faster.
  */
-export const ANALYSIS_PROMPT_VERSION = 2;
+export const ANALYSIS_PROMPT_VERSION = 3;
 
 // Helper functions for key generation
 export const RedisKeys = {

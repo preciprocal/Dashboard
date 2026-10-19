@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
 import { redis } from '@/lib/redis/redis-client';
-import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
+import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, stripDashesDeep, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 import { calibrateSalary } from '@/lib/ai/outcome-tracking';
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
 
     const cached = row.interview_intel as Record<string, unknown> | undefined;
     const cachedAt = row.interview_intel_generated_at as string | undefined;
-    if (!force && cached && cachedAt && Date.now() - new Date(cachedAt).getTime() < 7 * 24 * 60 * 60 * 1000) return NextResponse.json({ success: true, intel: cached, cached: true });
+    if (!force && cached && cachedAt && Date.now() - new Date(cachedAt).getTime() < 7 * 24 * 60 * 60 * 1000) return NextResponse.json({ success: true, intel: stripDashesDeep(cached), cached: true });
 
     const intelCacheKey = `intel:${company.toLowerCase().trim()}:${role.toLowerCase().trim()}`;
     if (!force && redis) {
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
         const sharedIntel = await redis.get(intelCacheKey);
         if (sharedIntel) {
           const parsed = typeof sharedIntel === 'string' ? JSON.parse(sharedIntel) : sharedIntel;
-          return NextResponse.json({ success: true, intel: parsed, cached: true });
+          return NextResponse.json({ success: true, intel: stripDashesDeep(parsed), cached: true });
         }
       } catch {}
     }
@@ -97,7 +97,7 @@ Return JSON:
     const response = await anthropic.messages.create({ model: CLAUDE_MODEL, max_tokens: MAX_TOKENS, system: cachedSystem(INTEL_SYSTEM), messages: [{ role: 'user', content: prompt }] });
     logUsage('interview-intel', response);
 
-    const intel = JSON.parse(extractJsonString(extractText(response))) as Record<string, unknown>;
+    const intel = stripDashesDeep(JSON.parse(extractJsonString(extractText(response)))) as Record<string, unknown>;
 
     // ── Post-process ──────────────────────────────────────────────
     if (!intel.companyOverview) intel.companyOverview = { name: company || 'Unknown', hiringStatus: null, interviewDifficulty: null, avgTimeToHire: null, acceptanceRate: null, glassdoorRating: null, interviewExperience: null, culture: null, sources: [] };

@@ -5,7 +5,7 @@ import { supabaseAdmin } from '@/supabase/admin';
 import { hashResumeContent } from '@/lib/redis/resume-cache';
 import { redis, RedisKeys } from '@/lib/redis/redis-client';
 import { getUserAIContext } from '@/lib/ai/user-context';
-import { anthropic, CLAUDE_MODEL, extractText, cachedSystem, logUsage, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
+import { anthropic, CLAUDE_MODEL, extractText, cachedSystem, logUsage, stripDashes, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 
@@ -223,7 +223,7 @@ ${ctx.profile.name}`;
     });
     logUsage('cover-letter', response);
 
-    const coverLetterText = extractText(response);
+    const coverLetterText = stripDashes(extractText(response));
     const tokensUsed = (response.usage?.input_tokens ?? 0) + (response.usage?.output_tokens ?? 0);
     const wordCount = coverLetterText.split(/\s+/).length;
     if (!coverLetterText || wordCount < 50) return NextResponse.json({ success: false, error: 'Failed to generate cover letter' }, { status: 500 });

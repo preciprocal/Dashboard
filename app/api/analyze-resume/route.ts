@@ -11,16 +11,21 @@ import {
   getCachedResumeFixes, cacheResumeFixes,
   type ResumeFeedback, type ResumeFix,
 } from '@/lib/redis/resume-cache';
-import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, cleanResumeText, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
+import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, cleanResumeText, stripDashesDeep, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 
 export const runtime = 'nodejs';
 export const maxDuration = 120;
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+// Resume analysis uses Sonnet 5.5 with thinking off rather than the shared
+// CLAUDE_MODEL. Measured on the same resume: ~156 output tokens/s against ~45
+// for Sonnet 4.6, and it is cheaper per token. CLAUDE_MODEL stays the fallback
+// if Sonnet 5.5 declines a request (stop_reason "refusal").
+const ANALYSIS_MODEL = 'claude-sonnet-5-5';
 const MAX_RESUME_CHARS = 12_000;
 const MAX_JOB_DESC_CHARS = 3_000;
-const FUNCTION_TIME_BUDGET_S = 55;
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
@@ -180,6 +185,11 @@ const SCORE_WEIGHTS = {
 
 // ─── System prompts ───────────────────────────────────────────────────────────
 
+// The analysis runs as one call per section, all at once (see analyseSection).
+// A single call writing all five sections took 90s+, because generation speed
+// is the whole cost; five calls each writing a fifth of it finish together in
+// a fraction of the time. The system prompt is shared by all five, and the
+// section being scored is named in the user message.
 const ANALYSIS_SYSTEM = `You are a brutally honest senior recruiter who has reviewed 50,000+ resumes at Google, Amazon, and top VC-backed startups. Your job is NOT to make the candidate feel good - it is to tell them exactly what is wrong so they can actually get hired.
 
 RULES:
@@ -195,21 +205,28 @@ RULES:
    its absence. If the resume has one, skip past it: do not quote it, do not
    reference it, and do not let its quality or absence affect any score. Spend
    that tip on experience, skills, or measurable impact instead.
+8. You will be asked to score ONE dimension of the resume. Stay strictly inside
+   it. The other dimensions are reviewed separately, so do not repeat their points.
 
-IMPORTANT: The resume has been provided as an attached file. Read the ENTIRE document thoroughly before scoring.
+IMPORTANT: Read the ENTIRE resume thoroughly before scoring.
 
 CRITICAL: Return ONLY a valid JSON object. No markdown fences, no preamble. Start with { and end with }.
 
-{
-  "overallScore": <0-100>,
-  "ATS": { "score": <0-100>, "tips": [{ "type": "good"|"improve", "tip": "<specific>", "explanation": "<why>", "solution": "<for improve only>" }] },
-  "toneAndStyle": { "score": <0-100>, "tips": [...] },
-  "content": { "score": <0-100>, "tips": [...] },
-  "structure": { "score": <0-100>, "tips": [...] },
-  "skills": { "score": <0-100>, "tips": [...] }
-}
+{ "score": <0-100>, "tips": [{ "type": "good"|"improve", "tip": "<specific>", "explanation": "<why>", "solution": "<for improve only>" }] }
 
-Each section: 4-6 tips, mix of good/improve. At least 2 improve tips per section must have a "solution".${LANGUAGE_MATCH_INSTRUCTION}`;
+Exactly 5 tips, mix of good/improve. At least 2 improve tips must have a "solution".
+
+LENGTH: Be dense, not long. Each "tip" is one sentence. Each "explanation" is at most two sentences. A "solution" is only the rewritten text, with no preamble like "Change it to".${LANGUAGE_MATCH_INSTRUCTION}`;
+
+type SectionKey = keyof typeof SCORE_WEIGHTS;
+
+const SECTION_BRIEFS: Record<SectionKey, string> = {
+  ATS: 'ATS compatibility: whether an applicant tracking system can parse this resume (layout, headings, dates, contact details) and whether it carries the keywords the target role needs.',
+  toneAndStyle: 'Tone and style: voice, action verbs, consistency of tense and formatting, concision, and buzzwords or filler.',
+  content: 'Content: the substance of the experience and projects, measurable impact, specificity, and relevance to the target role.',
+  structure: 'Structure: section order, layout, length, visual hierarchy, and how quickly a recruiter can scan it.',
+  skills: 'Skills: which skills are shown, how credibly the experience backs them, gaps against the target role, and how the skills section is organised.',
+};
 
 const FIX_SYSTEM = `You are an expert resume editor. Give specific, copy-pasteable improvements - not encouragement.
 
@@ -329,7 +346,7 @@ async function handleResumeAnalysis(request: NextRequest, userId: string) {
   if (cached) {
     console.log('⚡ Cache HIT');
     return NextResponse.json({
-      feedback: cached,
+      feedback: stripDashesDeep(cached),
       extractedText: (cached as ResumeFeedback & { resumeText?: string }).resumeText ?? '',
       meta: { cached: true, model: CLAUDE_MODEL, kind },
     });
@@ -340,93 +357,35 @@ async function handleResumeAnalysis(request: NextRequest, userId: string) {
     jobTitle ? `TARGET ROLE: ${jobTitle}` : '',
     jobDesc ? `JOB DESCRIPTION:\n${jobDesc.slice(0, MAX_JOB_DESC_CHARS)}` : '',
   ].filter(Boolean).join('\n');
-  const textPrompt = `${jobContext ? jobContext + '\n\n' : ''}Read the attached resume file thoroughly and analyse it now.`;
 
-  // ── Build message content ──
-  let userContent: Anthropic.MessageCreateParams['messages'][0]['content'];
-
+  // ── Resume block shared by every section call ──
+  let resumeBlock: Anthropic.ContentBlockParam;
   if (kind === 'pdf') {
-    console.log('📎 Sending raw PDF to Claude');
-    userContent = [
-      { type: 'document', source: { type: 'base64', media_type: 'application/pdf' as const, data: base64 } },
-      { type: 'text', text: textPrompt },
-    ];
+    resumeBlock = { type: 'document', source: { type: 'base64', media_type: 'application/pdf' as const, data: base64 } };
   } else if (kind === 'image') {
-    console.log('🖼️ Sending image to Claude');
-    userContent = [
-      { type: 'image', source: { type: 'base64', media_type: detectImageMime(buffer), data: base64 } },
-      { type: 'text', text: textPrompt },
-    ];
+    resumeBlock = { type: 'image', source: { type: 'base64', media_type: detectImageMime(buffer), data: base64 } };
   } else {
-    console.log('📝 Sending extracted Word text to Claude');
-    userContent = `${jobContext ? jobContext + '\n\n' : ''}RESUME TEXT:\n<resume>\n${resumeText}\n</resume>\n\nAnalyse this resume now.`;
+    resumeBlock = { type: 'text', text: `RESUME TEXT:\n<resume>\n${resumeText}\n</resume>` };
   }
 
-  const analysisStartTime = Date.now();
+  // The plain-text copy runs alongside the analysis rather than after it, and
+  // for an ordinary PDF it is read locally in well under a second. It stays
+  // optional: if it fails the analysis is still returned.
+  const extractionPromise: Promise<string> = resumeText
+    ? Promise.resolve(resumeText)
+    : extractResumeText(kind === 'image' ? 'image' : 'pdf', resumeBlock, buffer);
 
   try {
-    // ── Analysis call ──
-    const response = await callClaude(() =>
-      anthropic!.messages.create({
-        model: CLAUDE_MODEL,
-        max_tokens: 6000,
-        system: cachedSystem(ANALYSIS_SYSTEM),
-        messages: [{ role: 'user', content: userContent }],
-      }),
-    );
-    logUsage('analyze-resume', response);
-
-    const rawResponse = extractText(response);
-    const cleaned = extractJsonString(rawResponse);
-    let parsed: z.infer<typeof resumeFeedbackSchema>;
-    try {
-      parsed = resumeFeedbackSchema.parse(JSON.parse(cleaned));
-    } catch (err) {
-      console.error('❌ Invalid schema:', cleaned.slice(0, 500), err);
+    const sectionKeys = Object.keys(SCORE_WEIGHTS) as SectionKey[];
+    const sections = await Promise.all(sectionKeys.map(key => analyseSection(key, resumeBlock, jobContext)));
+    if (sections.some(sec => sec === null)) {
       return NextResponse.json({ error: 'AI returned unexpected format. Try again.', isMock: false }, { status: 422 });
     }
+    const bySection = Object.fromEntries(sectionKeys.map((key, i) => [key, sections[i]])) as Record<SectionKey, z.infer<typeof sectionSchema>>;
 
-    const processed = applyWeightedScore(parsed);
-
-    // ── Text extraction (time-budgeted) ──
-    let extractedText = resumeText;
-    if (!extractedText && (kind === 'pdf' || kind === 'image')) {
-      const elapsedMs = Date.now() - analysisStartTime;
-      const timeLeftMs = FUNCTION_TIME_BUDGET_S * 1000 - elapsedMs - 5000;
-
-      if (timeLeftMs > 10000) {
-        try {
-          console.log(`📝 Extracting resume text (${Math.round(timeLeftMs / 1000)}s budget left)…`);
-          const extractContent: Anthropic.MessageCreateParams['messages'][0]['content'] = kind === 'pdf'
-            ? [
-                { type: 'document', source: { type: 'base64', media_type: 'application/pdf' as const, data: base64 } },
-                { type: 'text', text: 'Extract ALL text from this resume exactly as written. Return ONLY the raw text content, preserving line breaks between sections. No commentary, no markdown formatting, no backticks. Start directly with the resume content.' },
-              ]
-            : [
-                { type: 'image', source: { type: 'base64', media_type: detectImageMime(buffer), data: base64 } },
-                { type: 'text', text: 'Extract ALL text from this resume image exactly as written. Return ONLY the raw text content, preserving line breaks between sections. No commentary, no markdown formatting, no backticks. Start directly with the resume content.' },
-              ];
-
-          const extractResponse = await callClaude(() =>
-            anthropic!.messages.create({
-              model: CLAUDE_MODEL,
-              max_tokens: 4000,
-              messages: [{ role: 'user', content: extractContent }],
-            }),
-            1, // fewer retries for extraction - it's optional
-          );
-          logUsage('extract-text', extractResponse);
-          extractedText = extractText(extractResponse).trim();
-          console.log(`📝 Text extraction result: ${extractedText.length} chars`);
-          if (extractedText.length < 50) console.warn('⚠️ Text extraction returned very short content');
-        } catch (extractErr) {
-          console.error('❌ Text extraction failed:', extractErr);
-          extractedText = '';
-        }
-      } else {
-        console.warn(`⚠️ Skipping text extraction - only ${Math.round(timeLeftMs / 1000)}s left`);
-      }
-    }
+    // overallScore is recomputed from the section scores by applyWeightedScore.
+    const processed = applyWeightedScore(stripDashesDeep({ overallScore: 0, ...bySection }));
+    const extractedText = await extractionPromise;
 
     const feedbackWithText = { ...processed, resumeText: extractedText };
 
@@ -442,7 +401,7 @@ async function handleResumeAnalysis(request: NextRequest, userId: string) {
       extractedText,
       cacheHash: cacheKey,
       meta: {
-        model: CLAUDE_MODEL,
+        model: ANALYSIS_MODEL,
         cached: false,
         isMock: false,
         kind,
@@ -456,6 +415,92 @@ async function handleResumeAnalysis(request: NextRequest, userId: string) {
       return NextResponse.json({ error: 'AI is temporarily busy. Please try again in a few seconds.' }, { status: 429 });
     console.error('❌ Analysis failed:', err);
     return NextResponse.json({ error: 'Analysis failed. Try again.' }, { status: 500 });
+  }
+}
+
+/** Request options shared by the fast analysis calls: Sonnet 5.5, thinking off. */
+function fastParams(params: Omit<Anthropic.MessageCreateParamsNonStreaming, 'model'>): Anthropic.MessageCreateParamsNonStreaming {
+  // `between_tools` is Sonnet 5.5's thinking-off mode. It is newer than the
+  // installed SDK's types, hence the cast; the API accepts it.
+  return {
+    ...params,
+    model: ANALYSIS_MODEL,
+    thinking: { type: 'between_tools' },
+    output_config: { effort: 'low' },
+  } as unknown as Anthropic.MessageCreateParamsNonStreaming;
+}
+
+/** Call Sonnet 5.5, falling back to CLAUDE_MODEL if it declines the request. */
+async function createFast(params: Omit<Anthropic.MessageCreateParamsNonStreaming, 'model'>, maxRetries = 2): Promise<Anthropic.Message> {
+  const response = await callClaude(() => anthropic!.messages.create(fastParams(params)), maxRetries);
+  if ((response.stop_reason as string) !== 'refusal') return response;
+  console.warn(`⚠️ ${ANALYSIS_MODEL} declined, retrying on ${CLAUDE_MODEL}`);
+  return callClaude(() => anthropic!.messages.create({ ...params, model: CLAUDE_MODEL }), maxRetries);
+}
+
+/** Score one dimension of the resume. Returns null if the output is unusable twice. */
+async function analyseSection(
+  key: SectionKey,
+  resumeBlock: Anthropic.ContentBlockParam,
+  jobContext: string,
+): Promise<z.infer<typeof sectionSchema> | null> {
+  const instruction = `${jobContext ? jobContext + '\n\n' : ''}DIMENSION TO SCORE: ${SECTION_BRIEFS[key]}\n\nAnalyse only this dimension of the resume now.`;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const response = await createFast({
+      max_tokens: 2500,
+      system: cachedSystem(ANALYSIS_SYSTEM),
+      messages: [{ role: 'user', content: [resumeBlock, { type: 'text', text: instruction }] }],
+    });
+    logUsage(`analyze-resume:${key}`, response);
+    const cleaned = extractJsonString(extractText(response));
+    try {
+      // Trim rather than reject an extra tip: a retry for that alone would
+      // double the wait.
+      const raw = JSON.parse(cleaned) as { tips?: unknown };
+      if (Array.isArray(raw.tips)) raw.tips = raw.tips.slice(0, 6);
+      return sectionSchema.parse(raw);
+    } catch (err) {
+      console.error(`❌ Invalid ${key} section (attempt ${attempt}):`, cleaned.slice(0, 300), err);
+    }
+  }
+  return null;
+}
+
+async function extractResumeText(kind: 'pdf' | 'image', resumeBlock: Anthropic.ContentBlockParam, buffer: Buffer): Promise<string> {
+  // A PDF with a text layer is read locally: ~0.1s against ~30s for asking
+  // Claude to transcribe it. Scanned PDFs and images have no text layer, so
+  // those still go to Claude.
+  if (kind === 'pdf') {
+    try {
+      const pdfParse = (await import('pdf-parse')).default;
+      const text = cleanResumeText((await pdfParse(buffer)).text);
+      if (text.length >= 200) {
+        console.log(`📝 Text extracted locally: ${text.length} chars`);
+        return text;
+      }
+    } catch (err) {
+      console.warn('⚠️ Local PDF text extraction failed, asking Claude:', err);
+    }
+  }
+
+  try {
+    const extractResponse = await createFast({
+      max_tokens: 4000,
+      messages: [{ role: 'user', content: [
+        resumeBlock,
+        { type: 'text', text: `Extract ALL text from this resume ${kind === 'pdf' ? '' : 'image '}exactly as written. Return ONLY the raw text content, preserving line breaks between sections. No commentary, no markdown formatting, no backticks. Start directly with the resume content.` },
+      ] }],
+    }, 1); // fewer retries for extraction - it's optional
+    logUsage('extract-text', extractResponse);
+    // Deliberately not dash-cleaned: this is the candidate's own text, and
+    // fixes quote it verbatim.
+    const text = extractText(extractResponse).trim();
+    console.log(`📝 Text extraction result: ${text.length} chars`);
+    if (text.length < 50) console.warn('⚠️ Text extraction returned very short content');
+    return text;
+  } catch (extractErr) {
+    console.error('❌ Text extraction failed:', extractErr);
+    return '';
   }
 }
 
@@ -489,7 +534,7 @@ async function handleGenerateResumeFixes(data: z.infer<typeof generateFixesBodyS
   const cacheKey = secureHash(resumeContent, jobDescription ?? '', userId);
   const cachedFixes = await getCachedResumeFixes(cacheKey);
   if (cachedFixes)
-    return NextResponse.json({ fixes: cachedFixes, meta: { cached: true, count: cachedFixes.length } });
+    return NextResponse.json({ fixes: stripDashesDeep(cachedFixes), meta: { cached: true, count: cachedFixes.length } });
   if (!anthropic) return NextResponse.json({ error: 'AI not configured' }, { status: 503 });
 
   const cleaned = cleanResumeText(resumeContent).slice(0, MAX_RESUME_CHARS);
@@ -513,7 +558,7 @@ Generate fixes now.`;
     const raw = extractJsonString(extractText(response));
     let parsedFixes: ResumeFix[];
     try {
-      const { fixes } = resumeFixSchema.parse(JSON.parse(raw));
+      const { fixes } = stripDashesDeep(resumeFixSchema.parse(JSON.parse(raw)));
       parsedFixes = fixes
         .filter(f => f.id && f.originalText && f.improvedText)
         .map((f, i) => ({
@@ -574,7 +619,7 @@ Return ONLY JSON: { "improvedText": "...", "explanation": "...", "impact": "..."
     );
     logUsage('regenerate-fix', response);
 
-    const alt = JSON.parse(extractJsonString(extractText(response))) as {
+    const alt = stripDashesDeep(JSON.parse(extractJsonString(extractText(response)))) as {
       improvedText: string;
       explanation: string;
       impact?: string;
@@ -611,7 +656,7 @@ async function handleExtensionJobAnalysis(data: z.infer<typeof extensionJobBodyS
     );
     logUsage('extension-job-analysis', response);
 
-    const result = JSON.parse(extractJsonString(extractText(response))) as Record<string, unknown>;
+    const result = stripDashesDeep(JSON.parse(extractJsonString(extractText(response)))) as Record<string, unknown>;
     return NextResponse.json({
       atsScore: result.atsScore ?? 70,
       keywordMatch: result.keywordMatch ?? 65,
