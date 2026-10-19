@@ -16,6 +16,7 @@ import { SIGNUP_BLOCKED_MESSAGE } from "@/lib/config/abuse-guard";
 import { computeUsagePeriod, pickAnchor } from "@/lib/usage/period";
 import { PHONE_VERIFICATION_ENABLED, REQUIRES_PHONE_CLAIM } from "@/lib/config/phone-verification";
 import { headers } from "next/headers";
+import { safeRedirect } from "@/lib/auth/destination";
 
 /**
  * Stamp a brand-new account as needing phone verification.
@@ -61,6 +62,9 @@ interface SignUpParams {
   /** The Terms and Privacy checkbox. Checked here as well as in the form,
    *  because a server action can be called without the form. */
   acceptedTerms: boolean;
+  /** Where to land after confirming the email (lib/auth/destination.ts).
+   *  Saved on the user and read back by app/auth/confirm. */
+  next?: string;
 }
 
 interface SignInParams {
@@ -281,6 +285,8 @@ async function validateAndFixUserDocument(firebaseUser: {
 
 export async function signUp(params: SignUpParams) {
   const { name, email, password, fingerprint, acceptedTerms } = params;
+  // Re-checked here: a server action can be called with anything.
+  const signupNext = safeRedirect(params.next);
 
   if (acceptedTerms !== true) {
     return {
@@ -326,7 +332,7 @@ export async function signUp(params: SignUpParams) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name } },
+      options: { data: signupNext && signupNext !== "/" ? { name, signup_next: signupNext } : { name } },
     });
 
     if (error) {

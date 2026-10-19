@@ -8,6 +8,8 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/supabase/server";
 import { sendWelcomeEmail } from "@/lib/email/welcome";
 import { syncChangedEmail } from "@/lib/account-email-sync";
+import { safeRedirect } from "@/lib/auth/destination";
+import { supabaseAdmin } from "@/supabase/admin";
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
@@ -43,9 +45,22 @@ export async function GET(request: NextRequest) {
         await syncChangedEmail(data.user.id, data.user.email);
       }
 
+      // Where they were headed when they signed up (e.g. a mock interview
+      // from the question predictor), saved by signUp. Used once, and only
+      // when the link itself carries no destination.
+      let signupNext: string | null = null;
+      if ((type === "signup" || type === "email") && next === "/" && data.user) {
+        signupNext = safeRedirect(data.user.user_metadata?.signup_next as string | undefined);
+        if (signupNext) {
+          const { signup_next: _used, ...rest } = data.user.user_metadata ?? {};
+          void _used;
+          await supabaseAdmin.auth.admin.updateUserById(data.user.id, { user_metadata: { ...rest, signup_next: null } }).catch(() => {});
+        }
+      }
+
       // Password recovery links land the user in an authenticated session -
       // send them to set a new password rather than straight into the app.
-      const destination = type === "recovery" ? "/reset-password" : next;
+      const destination = type === "recovery" ? "/reset-password" : signupNext ?? next;
       return NextResponse.redirect(`${origin}${destination}`);
     }
   }

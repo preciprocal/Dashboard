@@ -26,6 +26,15 @@ function isDocumentNavigation(request: NextRequest): boolean {
 }
 
 export async function middleware(request: NextRequest) {
+  // The (auth) layout sends someone who is already signed in on to where the
+  // link was taking them (?redirect=, ?plan=, ?tool=), and layouts cannot read
+  // the query string, so it is handed over in a request header. Always reset,
+  // so a header sent by the browser is never what the layout reads.
+  request.headers.delete("x-auth-search");
+  if (/^\/sign-(in|up)(\/|$)/.test(request.nextUrl.pathname)) {
+    request.headers.set("x-auth-search", request.nextUrl.search);
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(

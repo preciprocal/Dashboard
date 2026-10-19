@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 
 import { signIn, signUp } from "@/lib/actions/auth.action";
 import { reloadIfStaleBuild } from "@/lib/auth/client-user";
+import { authDestination } from "@/lib/auth/destination";
 import { getDeviceFingerprint } from "@/lib/fingerprint";
 import logo from "@/public/logo.png";
 import { SITE } from "@/lib/seo";
@@ -28,32 +29,12 @@ const authFormSchema = (type: FormType) => {
     email: z.string().email(),
     password: z.string().min(3),
     rememberMe: z.boolean().optional(),
-    // Required on both forms: Google sign-in creates an account on first use,
-    // so the sign-in page is a sign-up page too.
+    // Required to submit the email form on both pages. Google sign-in skips
+    // it and shows a "By continuing with Google, you agree..." notice instead.
     acceptedTerms: z.literal(true, {
       errorMap: () => ({ message: "Please agree to the Terms of Service and Privacy Policy." }),
     }),
   });
-};
-
-const safeRedirect = (v: string | null): string | null =>
-  v && v.startsWith("/") && !v.startsWith("//") && !v.startsWith("/\\") ? v : null;
-
-const PLAN_DEST: Record<string, string> = { pro: "/pricing?plan=pro", premium: "/pricing?plan=premium" };
-
-// The landing site's ctaTool values (Landing-Page components/ToolPage.tsx).
-const TOOL_DEST: Record<string, string> = {
-  "ats-checker": "/resume/upload",
-  "resume-tailoring": "/resume",
-  "cover-letter": "/cover-letter/create",
-  "mock-interview": "/interview/create",
-  "interview-debrief": "/debrief",
-  "job-tracker": "/job-tracker",
-  "study-planner": "/planner/create",
-  "linkedin-optimizer": "/career-tools",
-  "cold-outreach": "/career-tools",
-  "contact-finder": "/career-tools",
-  "chrome-extension": "/settings?section=extension",
 };
 
 const AuthForm = ({ type }: { type: FormType }) => {
@@ -64,14 +45,11 @@ const AuthForm = ({ type }: { type: FormType }) => {
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Where to go after signing in. ?redirect= must be a path inside the app:
-  // a full URL there sent people off-site after a real sign-in. The landing
-  // site links here with ?plan= (Start Pro / Go Premium) and ?tool= (each
-  // tool page), which open the plan's checkout or that tool.
-  const redirectUrl = safeRedirect(searchParams.get("redirect"))
-    ?? PLAN_DEST[searchParams.get("plan") ?? ""]
-    ?? TOOL_DEST[searchParams.get("tool") ?? ""]
-    ?? "/";
+  // Where to go after signing in (lib/auth/destination.ts). ?redirect= must
+  // be a path inside the app; the landing site links here with ?plan= (Start
+  // Pro / Go Premium) and ?tool= (each tool page, plus ?role= from the
+  // question predictor), which open the plan's checkout or that tool.
+  const redirectUrl = authDestination(searchParams);
 
   // Redirects into /sign-in carry a reason, and without this the user is
   // bounced here with no explanation at all - which for the signup guard would
@@ -127,13 +105,10 @@ const AuthForm = ({ type }: { type: FormType }) => {
     }
   }, [type, form]);
 
+  // No checkbox for Google: the notice under the button says continuing
+  // means agreeing to the Terms and Privacy Policy. The checkbox is only for
+  // the email form.
   const handleGoogleAuth = async () => {
-    if (!acceptedTerms) {
-      form.setError("acceptedTerms", {
-        message: "Please agree to the Terms of Service and Privacy Policy.",
-      });
-      return;
-    }
     setIsGoogleLoading(true);
     try {
       const next = redirectUrl !== "/" ? redirectUrl : "/";
@@ -175,6 +150,9 @@ const AuthForm = ({ type }: { type: FormType }) => {
           password,
           fingerprint,
           acceptedTerms: data.acceptedTerms === true,
+          // Saved on the account, so the emailed confirmation link lands here
+          // too (app/auth/confirm), on whichever device it is opened.
+          next: redirectUrl,
         });
         if (!result.success) {
           toast.error(result.message);
@@ -381,6 +359,12 @@ const AuthForm = ({ type }: { type: FormType }) => {
                 {isGoogleLoading ? "Connecting..." : "Continue with Google"}
               </span>
             </button>
+            <p className="text-[11px] leading-relaxed text-slate-500 text-center">
+              By continuing with Google, you agree to our{" "}
+              <a href={`${SITE.marketing}/terms`} target="_blank" rel="noopener noreferrer" className="text-slate-400 underline underline-offset-2 hover:text-slate-300">Terms of Service</a>
+              {" "}and{" "}
+              <a href={`${SITE.marketing}/privacy`} target="_blank" rel="noopener noreferrer" className="text-slate-400 underline underline-offset-2 hover:text-slate-300">Privacy Policy</a>.
+            </p>
           </div>
 
           <div className="relative mb-6">
