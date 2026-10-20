@@ -407,7 +407,8 @@ export default function SettingsPage() {
 
       {/* ── Page Header ── */}
       <div className="glass-card p-5">
-        <div className="mb-3"><Breadcrumbs crumbs={crumbsFor('/settings', 'Settings')} /></div>
+        {/* Same breadcrumb bar as every other page header (PageHeader). */}
+        <div className="-mx-5 -mt-5 mb-5 px-5 rounded-t-[var(--r-2xl)] border-b border-white/[0.06] bg-white/[0.015] py-2"><Breadcrumbs crumbs={crumbsFor('/settings', 'Settings')} className="" /></div>
 
         <div className="flex items-center gap-4">
           <div className="relative flex-shrink-0">

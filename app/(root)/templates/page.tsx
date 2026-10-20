@@ -373,7 +373,8 @@ export default function TemplatesPage() {
 
       {/* ── Header ── */}
       <div className="glass-card p-5 sm:p-6">
-        <Breadcrumbs crumbs={crumbsFor('/templates', 'Templates')} />
+        {/* Same breadcrumb bar as every other page header (PageHeader). */}
+        <div className="-mx-5 sm:-mx-6 -mt-5 sm:-mt-6 mb-5 px-5 sm:px-6 rounded-t-[var(--r-2xl)] border-b border-white/[0.06] bg-white/[0.015] py-2"><Breadcrumbs crumbs={crumbsFor('/templates', 'Templates')} className="" /></div>
         <div className="flex items-center gap-3 mb-5">
           <div className="w-10 h-10 rounded-[10px] bg-[var(--accent-subtle)] border border-[var(--accent-border)] flex items-center justify-center flex-shrink-0">
             <BookOpen className="w-5 h-5 text-indigo-200" strokeWidth={1.75} />

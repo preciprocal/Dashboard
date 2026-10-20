@@ -8,7 +8,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Home } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export interface Crumb { label: string; href?: string }
@@ -50,19 +50,30 @@ export function crumbsFor(pathname: string, title: string): Crumb[] {
   return crumbs;
 }
 
-export function Breadcrumbs({ crumbs }: { crumbs: Crumb[] }) {
+/**
+ * Home › Section › Page. 13px, with a Home icon and the current page in
+ * white, so it reads at a glance. Each item has a small hover pad; the -ml
+ * cancels the first pad so the trail's text lines up with the content below.
+ */
+export function Breadcrumbs({ crumbs, className = "mb-3" }: { crumbs: Crumb[]; className?: string }) {
   if (!crumbs.length) return null;
   return (
-    <nav aria-label="Breadcrumb" className="mb-2">
-      <ol className="flex items-center flex-wrap gap-1 text-[12px] text-slate-500">
+    <nav aria-label="Breadcrumb" className={className}>
+      <ol className="flex items-center flex-wrap gap-0.5 -ml-1.5 text-[13px] leading-none">
         {crumbs.map((c, i) => {
           const last = i === crumbs.length - 1;
+          const content = (
+            <>
+              {i === 0 && <Home className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />}
+              <span className="truncate">{c.label}</span>
+            </>
+          );
           return (
-            <li key={`${c.label}-${i}`} className="flex items-center gap-1 min-w-0">
+            <li key={`${c.label}-${i}`} className="flex items-center gap-0.5 min-w-0">
               {c.href && !last
-                ? <Link href={c.href} className="hover:text-slate-200 transition-colors truncate">{c.label}</Link>
-                : <span aria-current={last ? "page" : undefined} className={`truncate ${last ? "text-slate-300" : ""}`}>{c.label}</span>}
-              {!last && <ChevronRight className="w-3 h-3 text-slate-600 flex-shrink-0" aria-hidden="true" />}
+                ? <Link href={c.href} className="inline-flex items-center gap-1.5 h-7 px-1.5 rounded-md text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors min-w-0">{content}</Link>
+                : <span aria-current={last ? "page" : undefined} className="inline-flex items-center gap-1.5 h-7 px-1.5 text-white font-medium min-w-0">{content}</span>}
+              {!last && <ChevronRight className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" aria-hidden="true" />}
             </li>
           );
         })}
@@ -88,9 +99,15 @@ export default function PageHeader({
   const pathname = usePathname() ?? "/";
   const trail = crumbs ?? crumbsFor(pathname, title);
   return (
-    <header className={`glass-card px-5 py-4 animate-fade-in-up ${className}`}>
-      <Breadcrumbs crumbs={trail} />
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
+    <header className={`glass-card overflow-hidden animate-fade-in-up ${className}`}>
+      {/* The trail gets its own row, divided from the title, at the same left
+          edge as the icon below it. */}
+      {trail.length > 0 && (
+        <div className="px-5 py-2 border-b border-white/[0.06] bg-white/[0.015]">
+          <Breadcrumbs crumbs={trail} className="" />
+        </div>
+      )}
+      <div className="px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
         <div className="flex items-center gap-3 min-w-0 flex-1">
           {icon && (
             <div className="w-10 h-10 rounded-[10px] bg-[var(--accent-subtle)] border border-[var(--accent-border)] flex items-center justify-center flex-shrink-0 text-indigo-200 [&>svg]:w-5 [&>svg]:h-5">
