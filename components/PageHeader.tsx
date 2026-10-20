@@ -30,6 +30,7 @@ const SECTIONS: Record<string, string> = {
   "/pricing": "Plans",
   "/job-application": "Job Application",
   "/job-tools": "Job Tools",
+  "/extension": "Extension",
 };
 
 const SUBPAGES: Record<string, string> = {

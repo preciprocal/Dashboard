@@ -9,7 +9,7 @@ import logo from "@/public/logo.png";
 import {
   Search, Menu, X, Home, Video, BookOpen, Settings, HelpCircle,
   LogOut, Crown, FileText, Shield, Calendar, Pen, ArrowLeftRight,
-  ChevronRight, NotebookPen, Sparkles, Briefcase, Zap,
+  ChevronRight, NotebookPen, Sparkles, Briefcase, Zap, Chrome,
 } from 'lucide-react';
 import { signOut } from "@/lib/actions/auth.action";
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
@@ -281,6 +281,7 @@ const SearchDropdown = () => {
     { id: 'debrief',       label: 'Interview Journal',   href: '/debrief',          icon: NotebookPen },
     { id: 'career-tools',  label: 'Career Tools',        href: '/career-tools',     icon: Sparkles    },
     { id: 'job-tracker',   label: 'Job Tracker',         href: '/job-tracker',      icon: Briefcase   },
+    { id: 'extension',     label: 'Chrome Extension',    href: '/extension',        icon: Chrome      },
     { id: 'new-interview', label: 'Start New Interview', href: '/interview/create', icon: Video       },
     { id: 'upload-resume', label: 'Upload Resume',       href: '/resume/upload',    icon: FileText    },
   ];
@@ -659,6 +660,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
     { id: 'debrief',      label: 'Interview Journal', icon: NotebookPen, href: '/debrief'      },
     { id: 'career-tools', label: 'Career Tools',      icon: Sparkles,    href: '/career-tools' },
     { id: 'job-tracker',  label: 'Job Tracker',       icon: Briefcase,   href: '/job-tracker'  },
+    { id: 'extension',    label: 'Extension',         icon: Chrome,      href: '/extension'    },
   ];
 
   const teamSpaces: NavItem[] = [{ id: 'templates', label: 'Templates', icon: BookOpen, href: '/templates' }];
@@ -690,6 +692,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
     { id: 'career-tools', label: 'Career Tools',      icon: Sparkles,    href: '/career-tools' },
     { id: 'job-tracker',  label: 'Job Tracker',       icon: Briefcase,   href: '/job-tracker'  },
     { id: 'templates',    label: 'Templates',         icon: BookOpen,    href: '/templates'    },
+    { id: 'extension',    label: 'Extension',         icon: Chrome,      href: '/extension'    },
   ];
 
   React.useEffect(() => {
@@ -824,7 +827,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
           {mainNavItems.map(item => {
             const Icon   = item.icon;
             const active = isActive(item.href);
-            const isNew  = ['debrief', 'career-tools', 'job-tracker'].includes(item.id);
+            const isNew  = ['debrief', 'career-tools', 'job-tracker', 'extension'].includes(item.id);
             return (
               <Link key={item.id} href={item.href} onClick={handleLinkClick}
                 aria-current={active ? 'page' : undefined}

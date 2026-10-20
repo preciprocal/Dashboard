@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 
 import ProfileOverview from "@/components/profile/Overview";
+import ExtensionBanner from "@/components/ExtensionBanner";
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -781,6 +782,8 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      <ExtensionBanner />
 
       {/* ── Quick actions ─────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 animate-fade-in-up" style={{ animationDelay: '60ms' }}>

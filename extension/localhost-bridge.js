@@ -44,9 +44,20 @@ window.addEventListener('message', async (event) => {
         await chrome.runtime.sendMessage({ type: 'CLEAR_AUTH' });
         console.log('[Bridge] 🗑️ Auth cleared');
       }
+      // Tell the page the extension really received it, so Settings can
+      // show "Connected" from a confirmation rather than an assumption.
+      window.postMessage({ type: 'PRECIPROCAL_AUTH_ACK', ok: true, email: user?.email || null }, window.location.origin);
     } catch (e) {
       console.debug('[Bridge] sendMessage failed (extension inactive?):', e?.message);
+      window.postMessage({ type: 'PRECIPROCAL_AUTH_ACK', ok: false }, window.location.origin);
     }
+    return;
+  }
+
+  // ── Presence check: lets the app show whether the extension is installed,
+  //    and which version, before offering to connect it. ─────────────────────
+  if (event.data?.type === 'PRECIPROCAL_PING') {
+    window.postMessage({ type: 'PRECIPROCAL_PONG', version: chrome.runtime.getManifest().version }, window.location.origin);
     return;
   }
 

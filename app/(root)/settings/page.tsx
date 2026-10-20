@@ -1,5 +1,7 @@
 // app/(root)/settings/page.tsx
 'use client';
+import { extensionStoreUrl } from '@/lib/extension';
+import { Target as ExtTarget, ShieldCheck as ExtShield, Lightbulb as ExtBulb, Zap as ExtZap } from 'lucide-react';
 import { Breadcrumbs, crumbsFor } from '@/components/PageHeader';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -859,16 +861,15 @@ export default function SettingsPage() {
             <ExtensionConnection />
             <SectionCard>
               <SectionHeader icon={AlertCircle} iconColor="text-blue-400" iconBg="bg-blue-500/10 border-blue-500/20"
-                title="Setup Guide" subtitle="Get started in 5 steps" />
+                title="Setup Guide" subtitle="Get started in 4 steps" />
               <div className="p-5">
                 <ol className="space-y-3">
                   {[
-                    { step: 1, text: <span>Click <strong className="text-white">&quot;Connect Extension&quot;</strong> above to generate your auth token</span> },
-                    { step: 2, text: <span>Install the <a href="https://chromewebstore.google.com/detail/iiomkjnpkaefapdajnabiljngkjddmoi?utm_source=app-settings" target="_blank" rel="noopener noreferrer" className="text-white font-semibold underline decoration-indigo-400/50 underline-offset-2 hover:decoration-indigo-300">Preciprocal Chrome Extension</a> from the <a href="https://chromewebstore.google.com/detail/iiomkjnpkaefapdajnabiljngkjddmoi?utm_source=app-settings" target="_blank" rel="noopener noreferrer" className="text-indigo-300 hover:text-indigo-200 underline underline-offset-2">Chrome Web Store</a></span> },
-                    { step: 3, text: <span>Token auto-syncs to your extension - or paste it manually in the extension popup</span> },
-                    { step: 4, text: <span>Navigate to any <strong className="text-white">LinkedIn job posting</strong></span> },
-                    { step: 5, text: <span>Click the <strong className="text-white">Preciprocal icon</strong> in your toolbar to analyze the job</span> },
-                  ].map(({ step, text }) => (
+                    { step: 1, text: <span>Install the <a href={extensionStoreUrl('app-settings')} target="_blank" rel="noopener noreferrer" className="text-white font-semibold underline decoration-indigo-400/50 underline-offset-2 hover:decoration-indigo-300">Preciprocal Chrome Extension</a> from the Chrome Web Store</span> },
+                    { step: 2, text: <span>Come back here and click <strong className="text-white">&quot;Connect Extension&quot;</strong> above. It unlocks once the extension is detected</span> },
+                    { step: 3, text: <span>Your account syncs to the extension. If it does not, paste the manual token in the extension popup</span> },
+                    { step: 4, text: <span>Open any <strong className="text-white">LinkedIn job posting</strong> and click the <strong className="text-white">Preciprocal icon</strong> in your toolbar</span> },
+                                    ].map(({ step, text }) => (
                     <li key={step} className="flex items-start gap-3 text-xs text-slate-400">
                       <span className="flex-shrink-0 w-5 h-5 rounded-full bg-indigo-500/15 border border-indigo-500/20 text-indigo-400 flex items-center justify-center text-[10px] font-bold mt-0.5">{step}</span>
                       <span className="leading-relaxed pt-0.5">{text}</span>
@@ -881,20 +882,21 @@ export default function SettingsPage() {
               <SectionHeader icon={Chrome} iconColor="text-emerald-400" iconBg="bg-emerald-500/10 border-emerald-500/20"
                 title="Extension Features" subtitle="What the extension can do for you" />
               <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {[
-                  { icon: '🎯', title: 'Job Match Score',    desc: 'See your fit % for any LinkedIn job instantly' },
-                  { icon: '📊', title: 'ATS Check',          desc: 'Verify your resume passes tracking systems' },
-                  { icon: '💡', title: 'Skills Gap',         desc: 'Identify what to learn before applying' },
-                  { icon: '⚡', title: 'One-click Analysis', desc: 'Real-time results without leaving LinkedIn' },
-                ].map(f => (
-                  <div key={f.title} className="flex items-start gap-3 p-3 bg-slate-800/30 border border-white/[0.05] rounded-xl">
-                    <span className="text-lg flex-shrink-0">{f.icon}</span>
+                {([
+                  { icon: ExtTarget,  title: 'Job Match Score',    desc: 'See your fit for any LinkedIn job instantly' },
+                  { icon: ExtShield,  title: 'ATS Check',          desc: 'Check your resume passes tracking systems' },
+                  { icon: ExtBulb,    title: 'Skills Gap',         desc: 'See what to learn before applying' },
+                  { icon: ExtZap,     title: 'One-click Analysis', desc: 'Results without leaving LinkedIn' },
+                ] as const).map(f => (
+                  <div key={f.title} className="flex items-start gap-3 p-3 bg-[var(--bg-subtle)] border border-white/[0.06] rounded-[10px]">
+                    <f.icon className="w-4 h-4 text-indigo-300 flex-shrink-0 mt-0.5" strokeWidth={1.75} />
                     <div>
                       <p className="text-white text-xs font-semibold">{f.title}</p>
                       <p className="text-slate-500 text-xs mt-0.5">{f.desc}</p>
                     </div>
                   </div>
                 ))}
+                <Link href="/extension" className="sm:col-span-2 btn-secondary w-full">See your extension activity</Link>
               </div>
             </SectionCard>
           </div>
