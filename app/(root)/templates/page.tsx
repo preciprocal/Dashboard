@@ -204,8 +204,8 @@ const TemplateCard: React.FC<{ template: Template }> = ({ template }) => {
           onClick={handleStartInterview}
           disabled={isStarting}
           className="w-full py-2.5 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2
-                     bg-gradient-to-r from-purple-600 to-indigo-600
-                     hover:from-purple-500 hover:to-indigo-500
+                     bg-gradient-to-r from-indigo-500 to-violet-500
+                     hover:from-indigo-400 hover:to-violet-400
                      disabled:opacity-50 disabled:cursor-not-allowed
                      transition-all shadow-lg shadow-purple-500/15 cursor-pointer"
         >
@@ -482,7 +482,7 @@ export default function TemplatesPage() {
           </p>
           <button onClick={() => setView('all')}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white
-                       bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500
+                       bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400
                        transition-all cursor-pointer">
             Browse templates
           </button>
@@ -498,7 +498,7 @@ export default function TemplatesPage() {
           </p>
           <button onClick={resetFilters}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white
-                       bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500
+                       bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400
                        transition-all cursor-pointer">
             Clear All Filters
           </button>

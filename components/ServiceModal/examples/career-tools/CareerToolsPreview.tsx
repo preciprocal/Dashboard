@@ -77,7 +77,7 @@ function LinkedInForm({ onGenerate, isLoading }: { onGenerate: () => void; isLoa
         {/* Tool tabs */}
         <FadeIn delay={100}>
           <div className="flex gap-0.5 p-0.5 bg-white/[0.03] border border-white/[0.06] rounded-lg mb-3">
-            <div className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[8px] font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
+            <div className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[8px] font-semibold bg-gradient-to-r from-indigo-500 to-violet-500 text-white">
               <Linkedin className="w-3 h-3" /> LinkedIn
             </div>
             <div className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[8px] font-semibold text-slate-500">
@@ -177,7 +177,7 @@ function LinkedInResults() {
           <p className="text-[10px] font-bold text-white">Career Tools</p>
         </div>
         <div className="flex gap-0.5 p-0.5 bg-white/[0.03] border border-white/[0.06] rounded-lg mb-3">
-          <div className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[8px] font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 text-white"><Linkedin className="w-3 h-3" /> LinkedIn</div>
+          <div className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[8px] font-semibold bg-gradient-to-r from-indigo-500 to-violet-500 text-white"><Linkedin className="w-3 h-3" /> LinkedIn</div>
           <div className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[8px] font-semibold text-slate-500"><Send className="w-3 h-3" /> Outreach</div>
         </div>
         <div className="space-y-2">
@@ -310,7 +310,7 @@ function OutreachForm({ onGenerate, isLoading }: { onGenerate: () => void; isLoa
           </div>
           <div className="flex gap-0.5 p-0.5 bg-white/[0.03] border border-white/[0.06] rounded-lg mb-3">
             <div className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[8px] font-semibold text-slate-500"><Linkedin className="w-3 h-3" /> LinkedIn</div>
-            <div className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[8px] font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 text-white"><Send className="w-3 h-3" /> Cold Outreach</div>
+            <div className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[8px] font-semibold bg-gradient-to-r from-indigo-500 to-violet-500 text-white"><Send className="w-3 h-3" /> Cold Outreach</div>
           </div>
         </FadeIn>
 
@@ -448,7 +448,7 @@ function OutreachResults() {
         </div>
         <div className="flex gap-0.5 p-0.5 bg-white/[0.03] border border-white/[0.06] rounded-lg mb-3">
           <div className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[8px] font-semibold text-slate-500"><Linkedin className="w-3 h-3" /> LinkedIn</div>
-          <div className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[8px] font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 text-white"><Send className="w-3 h-3" /> Outreach</div>
+          <div className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[8px] font-semibold bg-gradient-to-r from-indigo-500 to-violet-500 text-white"><Send className="w-3 h-3" /> Outreach</div>
         </div>
         <div className="space-y-1.5">
           {[
@@ -581,7 +581,7 @@ function InteractiveView() {
           ].map(t => (
             <button key={t.id} onClick={() => setActiveTool(t.id)}
               className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[8px] font-semibold transition-all cursor-pointer ${
-                activeTool === t.id ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'
+                activeTool === t.id ? 'bg-gradient-to-r from-indigo-500 to-violet-500 text-white' : 'text-slate-500 hover:text-slate-300'
               }`}>
               <t.icon className="w-3 h-3" /> {t.label}
             </button>

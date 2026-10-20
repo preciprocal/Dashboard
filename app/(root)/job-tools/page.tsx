@@ -507,7 +507,7 @@ function JobToolsContent() {
             <div className="flex border-b border-slate-800/50">
               {(['resume', 'cover', 'interview'] as const).map((tab) => (
                 <button key={tab} onClick={() => setActiveTab(tab)}
-                  className={`flex-1 px-4 sm:px-6 py-3 sm:py-4 font-semibold text-xs sm:text-sm transition-colors flex items-center justify-center gap-2 ${activeTab === tab ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}>
+                  className={`flex-1 px-4 sm:px-6 py-3 sm:py-4 font-semibold text-xs sm:text-sm transition-colors flex items-center justify-center gap-2 ${activeTab === tab ? 'bg-gradient-to-r from-indigo-500 to-violet-500 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}>
                   {tab === 'resume' && <><FileText className="w-4 h-4" /><span className="hidden xs:inline">Resume</span></>}
                   {tab === 'cover' && <><MessageSquare className="w-4 h-4" /><span className="hidden xs:inline">Cover Letter</span></>}
                   {tab === 'interview' && <><Video className="w-4 h-4" /><span className="hidden xs:inline">Interview</span></>}

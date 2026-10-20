@@ -465,7 +465,7 @@ function ToolTabs({ active, setActive }: { active: 'linkedin' | 'outreach'; setA
     <div className="flex gap-1 p-1 bg-white/[0.03] border border-white/[0.06] rounded-xl">
       {tabs.map(t => (
         <button key={t.id} onClick={() => setActive(t.id)}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all duration-150 ${active === t.id ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-[0_2px_10px_rgba(102,126,234,0.35)]' : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'}`}>
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all duration-150 ${active === t.id ? 'bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-[0_2px_10px_rgba(102,126,234,0.35)]' : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'}`}>
           <t.icon className="w-3.5 h-3.5" />{t.label}
         </button>
       ))}

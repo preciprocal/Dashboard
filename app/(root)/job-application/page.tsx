@@ -381,7 +381,7 @@ export default function JobApplicationPage() {
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <div className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-full text-sm font-semibold">
+            <div className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-violet-500 text-white px-4 py-2 rounded-full text-sm font-semibold">
               <Sparkles className="w-4 h-4" />
               AI-Powered Application Generator
             </div>
@@ -404,7 +404,7 @@ export default function JobApplicationPage() {
             <React.Fragment key={s.num}>
               <div className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
                 step === s.num 
-                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg scale-105' 
+                  ? 'bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-lg scale-105' 
                   : step > s.num
                   ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300'
                   : 'bg-slate-200 dark:bg-slate-700 text-slate-500'
@@ -473,7 +473,7 @@ Required: React, Node.js, Python, AWS..."
                 className={`px-6 py-3 rounded-xl font-semibold transition-all flex items-center gap-2 ${
                   isProcessing || !jobDescription.trim() || jobDescription.length < 50
                     ? 'bg-slate-300 dark:bg-slate-700 text-slate-500 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl'
+                    : 'bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white shadow-lg hover:shadow-xl'
                 }`}
               >
                 {isProcessing ? (
@@ -654,7 +654,7 @@ Required: React, Node.js, Python, AWS..."
                 className={`px-8 py-4 rounded-xl font-semibold transition-all flex items-center gap-2 ${
                   isProcessing || !selectedResume
                     ? 'bg-slate-300 dark:bg-slate-700 text-slate-500 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl'
+                    : 'bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white shadow-lg hover:shadow-xl'
                 }`}
               >
                 {isProcessing ? (
@@ -719,7 +719,7 @@ Required: React, Node.js, Python, AWS..."
 
               {/* Tailored Resume */}
               <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl overflow-hidden">
-                <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-4">
+                <div className="bg-gradient-to-r from-indigo-500 to-violet-500 p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <FileText className="w-6 h-6 text-white" />
@@ -875,7 +875,7 @@ Required: React, Node.js, Python, AWS..."
                         `CoverLetter_${extractedData.companyName || 'Tailored'}.txt`
                       );
                     }}
-                    className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl flex items-center gap-2"
+                    className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl flex items-center gap-2"
                   >
                     <Download className="w-5 h-5" />
                     Download Both
@@ -888,7 +888,7 @@ Required: React, Node.js, Python, AWS..."
             {showCustomizer && (
               <div className="lg:col-span-1">
                 <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl overflow-hidden sticky top-6">
-                  <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-4">
+                  <div className="bg-gradient-to-r from-indigo-500 to-violet-500 p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Bot className="w-5 h-5 text-white" />
@@ -914,7 +914,7 @@ Required: React, Node.js, Python, AWS..."
                         className={`flex gap-2 ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}
                       >
                         {msg.type === 'ai' && (
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center flex-shrink-0">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center flex-shrink-0">
                             <Bot className="w-4 h-4 text-white" />
                           </div>
                         )}
@@ -936,7 +936,7 @@ Required: React, Node.js, Python, AWS..."
                     ))}
                     {isCustomizing && (
                       <div className="flex gap-2 justify-start">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center">
                           <Loader2 className="w-4 h-4 text-white animate-spin" />
                         </div>
                         <div className="bg-white dark:bg-slate-800 rounded-xl px-3 py-2 border border-slate-200 dark:border-slate-700">

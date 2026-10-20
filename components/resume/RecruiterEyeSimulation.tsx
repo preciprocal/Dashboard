@@ -317,7 +317,7 @@ export default function RecruiterEyeSimulation({
             {sim.perspectives.map((p, idx) => (
               <button key={idx} onClick={() => setSelectedPerspective(idx)}
                 className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-                  selectedPerspective === idx ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-white/[0.05]'
+                  selectedPerspective === idx ? 'bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-white/[0.05]'
                 }`}>
                 <span>{p.icon}</span><span className="hidden sm:inline">{p.role}</span>
               </button>

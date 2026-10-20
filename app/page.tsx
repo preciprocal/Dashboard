@@ -169,11 +169,11 @@ function ReadinessRing({ score }: { score: number }) {
   const circ   = 2 * Math.PI * r;
   const pct    = Math.min(100, Math.max(0, score));
   const offset = circ - (pct / 100) * circ;
-  const color  = pct >= 70 ? '#34d399' : pct >= 40 ? '#f59e0b' : '#f87171';
-  const label  = pct >= 70 ? 'Ready' : pct >= 40 ? 'In Progress' : 'Getting Started';
+  const color  = pct >= 70 ? '#34d399' : pct >= 40 ? '#f59e0b' : '#818cf8';
+  const label  = pct >= 70 ? 'Ready' : pct >= 40 ? 'In progress' : 'Getting started';
   const bgColor = pct >= 70
     ? 'rgba(52,211,153,0.12)' : pct >= 40
-    ? 'rgba(245,158,11,0.12)' : 'rgba(248,113,113,0.12)';
+    ? 'rgba(245,158,11,0.12)' : 'rgba(129,140,248,0.12)';
 
   return (
     <div className="flex flex-col items-center" role="img" aria-label={`Career readiness score: ${score} out of 100`}>
@@ -197,7 +197,7 @@ function ReadinessRing({ score }: { score: number }) {
       >
         {label}
       </span>
-      <span className="text-[11px] text-slate-500 mt-1">Career Readiness</span>
+      <span className="text-[11px] text-slate-500 mt-1">Career readiness</span>
     </div>
   );
 }
@@ -211,9 +211,9 @@ function StatPill({ label, value, sub, trend }: {
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-[11px] text-slate-500 uppercase tracking-wide font-medium">{label}</span>
+      <span className="text-[10px] text-slate-500 uppercase tracking-[0.14em] font-semibold">{label}</span>
       <div className="flex items-baseline gap-1">
-        <span className="text-white font-bold text-xl leading-none">{value}</span>
+        <span className="text-white font-semibold text-xl leading-none tabular-nums">{value}</span>
         {sub && <span className="text-slate-500 text-xs">{sub}</span>}
       </div>
       {trend !== undefined && (
@@ -257,11 +257,11 @@ function MetricCard({ icon: Icon, label, value, sub, accentClass, children }: {
   return (
     <div className="glass-card p-4 flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">{label}</span>
-        <Icon className={`w-3.5 h-3.5 ${accentClass} opacity-60`} aria-hidden="true" />
+        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.14em]">{label}</span>
+        <Icon className={`w-3.5 h-3.5 ${accentClass} opacity-70`} aria-hidden="true" strokeWidth={1.75} />
       </div>
       <div className="flex items-baseline gap-1.5">
-        <span className={`text-2xl font-bold leading-none ${accentClass}`}>{value}</span>
+        <span className={`text-2xl font-semibold leading-none tabular-nums ${accentClass}`}>{value}</span>
         {sub && <span className="text-slate-500 text-[11px]">{sub}</span>}
       </div>
       {children}
@@ -280,14 +280,14 @@ function ActionCard({ icon: Icon, label, description, href, primary }: {
   return (
     <Link
       href={href}
-      className={`group flex items-center gap-3 p-4 rounded-xl border transition-all duration-200 hover-lift
+      className={`group flex items-center gap-3 p-4 rounded-2xl border transition-all duration-200 hover:-translate-y-0.5
         ${primary
-          ? 'gradient-primary border-indigo-500/30 shadow-glass hover:shadow-glass-lg'
-          : 'glass-card'}`}
+          ? 'gradient-primary border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.15),0_12px_32px_rgba(99,102,241,0.28)]'
+          : 'glass-card hover:border-white/[0.12]'}`}
     >
       <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0
         ${primary ? 'bg-white/15' : 'bg-white/[0.05]'}`}>
-        <Icon className={`w-4 h-4 ${primary ? 'text-white' : 'text-slate-400'}`} aria-hidden="true" />
+        <Icon className={`w-4 h-4 ${primary ? 'text-white' : 'text-slate-300'}`} aria-hidden="true" strokeWidth={1.75} />
       </div>
       <div className="flex-1 min-w-0">
         <p className={`text-sm font-semibold ${primary ? 'text-white' : 'text-slate-200'}`}>{label}</p>
@@ -725,19 +725,19 @@ export default function Dashboard() {
               <div className="relative flex-shrink-0">
                 <div
                   className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center
-                             text-white font-bold text-base shadow-[0_4px_16px_rgba(102,126,234,0.35)]"
+                             text-white font-semibold text-base shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]"
                   aria-hidden="true"
                 >
                   {userProfile.name.charAt(0).toUpperCase()}
                 </div>
                 <span
-                  className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-[1.5px] border-[#090d1a]"
+                  className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-[1.5px] border-[#070a14]"
                   aria-hidden="true"
                 />
               </div>
               <div>
-                <h1 className="text-base sm:text-lg font-bold text-white leading-tight">
-                  {getGreeting()}, {userProfile.name.split(' ')[0]} 👋
+                <h1 className="text-lg sm:text-xl font-semibold text-white leading-tight tracking-tight">
+                  {getGreeting()}, {userProfile.name.split(' ')[0]}
                 </h1>
                 <p className="text-xs text-slate-500 mt-0.5">
                   {currentTime.toLocaleDateString('en-US', {
@@ -756,9 +756,9 @@ export default function Dashboard() {
                 <span className="flex-1 leading-snug">{nudge.text}</span>
                 <Link
                   href={nudge.href}
-                  className="ml-2 text-xs font-semibold whitespace-nowrap opacity-80 hover:opacity-100 underline underline-offset-2 transition-opacity"
+                  className="ml-2 inline-flex items-center gap-0.5 text-xs font-semibold whitespace-nowrap opacity-90 hover:opacity-100 transition-opacity"
                 >
-                  {nudge.cta} →
+                  {nudge.cta} <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
                 </Link>
               </div>
             )}
@@ -794,7 +794,8 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* ── Metric row ────────────────────────────────── */}
+      {/* ── Metric row (hidden until there is something to measure) ── */}
+      {(hasResume || hasInterviews || !!stats.plannerStats?.currentPlan) && (
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 animate-fade-in-up" style={{ animationDelay: '120ms' }}>
 
         <MetricCard
@@ -864,9 +865,10 @@ export default function Dashboard() {
           </MetricCard>
         )}
       </div>
+      )}
 
-      {/* ── Profile overview ──────────────────────────── */}
-      <div className="glass-card p-5 sm:p-6 animate-fade-in-up" style={{ animationDelay: '180ms' }}>
+      {/* ── Today's focus + recent sessions ───────────── */}
+      <div className="animate-fade-in-up" style={{ animationDelay: '180ms' }}>
         <ProfileOverview
           userProfile={userProfile}
           stats={stats}

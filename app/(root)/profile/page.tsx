@@ -498,7 +498,7 @@ const ProfilePage = () => {
               className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl
                           text-xs font-semibold whitespace-nowrap transition-all duration-150
                           ${activeTab === tab.id
-                            ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-[0_2px_10px_rgba(124,58,237,0.35)]'
+                            ? 'bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-[0_2px_10px_rgba(124,58,237,0.35)]'
                             : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'}`}
             >
               <tab.icon className="w-3.5 h-3.5" /> {tab.label}
@@ -548,8 +548,8 @@ const ProfilePage = () => {
                     onClick={() => handleUpdateProfile(editedProfile)}
                     disabled={isSaving}
                     className="flex items-center gap-2 px-4 py-2.5 rounded-xl flex-1 sm:flex-initial justify-center
-                               bg-gradient-to-r from-purple-600 to-indigo-600
-                               hover:from-purple-500 hover:to-indigo-500
+                               bg-gradient-to-r from-indigo-500 to-violet-500
+                               hover:from-indigo-400 hover:to-violet-400
                                text-white text-sm font-semibold
                                transition-all disabled:opacity-50"
                   >

@@ -18,7 +18,7 @@ export const SERVICE_EXAMPLES: ServiceExample[] = [
     title: 'Resume Analysis',
     subtitle: 'See how AI breaks down your resume in seconds',
     icon: FileText,
-    gradient: 'from-purple-600 to-indigo-600',
+    gradient: 'from-indigo-500 to-violet-500',
     steps: [
       { label: 'Uploading resume…', duration: 1500 },
       { label: 'Running ATS analysis…', duration: 3000 },
@@ -118,7 +118,7 @@ export const SERVICE_EXAMPLES: ServiceExample[] = [
     title: 'Job Tracker',
     subtitle: 'Track applications, find contacts, send warm outreach',
     icon: Briefcase,
-    gradient: 'from-purple-600 to-indigo-600',
+    gradient: 'from-indigo-500 to-violet-500',
     steps: [
       { label: 'Adding application…',           duration: 3000 },
       { label: 'Application saved!',             duration: 1500 },

@@ -295,7 +295,7 @@ function Sidebar({ checkedCount }: { checkedCount: number }) {
               const reached = 43 >= m;
               return (
                 <div key={m} className="flex-1 text-center">
-                  <div className={`w-6 h-6 rounded-full mx-auto mb-0.5 flex items-center justify-center text-[8px] font-bold ${reached ? 'bg-gradient-to-br from-purple-600 to-indigo-600 text-white shadow-[0_2px_8px_rgba(124,58,237,0.3)]' : 'bg-white/[0.04] border border-white/[0.07] text-slate-700'}`}>{reached ? '✓' : m === 100 ? '🏆' : ''}</div>
+                  <div className={`w-6 h-6 rounded-full mx-auto mb-0.5 flex items-center justify-center text-[8px] font-bold ${reached ? 'bg-gradient-to-br from-indigo-500 to-violet-500 text-white shadow-[0_2px_8px_rgba(124,58,237,0.3)]' : 'bg-white/[0.04] border border-white/[0.07] text-slate-700'}`}>{reached ? '✓' : m === 100 ? '🏆' : ''}</div>
                   <p className={`text-[7px] font-semibold ${reached ? 'text-slate-300' : 'text-slate-700'}`}>{m}%</p>
                 </div>
               );
@@ -592,7 +592,7 @@ function AiCoachView() {
           {/* Chat header */}
           <FadeIn delay={200}>
             <div className="p-2.5 bg-white/[0.02] border border-white/[0.06] rounded-lg mb-2 flex items-center gap-2">
-              <div className="w-7 h-7 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0">
+              <div className="w-7 h-7 bg-gradient-to-br from-indigo-500 to-violet-500 rounded-lg flex items-center justify-center flex-shrink-0">
                 <Sparkles className="w-3.5 h-3.5 text-white" />
               </div>
               <div>
@@ -713,7 +713,7 @@ function QuizView() {
                 <span className="text-[10px] text-slate-500">Q {currentQ + 1} / {QUIZ_QUESTIONS.length}</span>
               </div>
               <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-purple-600 to-indigo-600 rounded-full transition-all duration-500"
+                <div className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full transition-all duration-500"
                   style={{ width: `${((currentQ) / QUIZ_QUESTIONS.length) * 100}%` }} />
               </div>
               <div className="flex items-center gap-2 mt-2">
@@ -957,7 +957,7 @@ function InteractiveView() {
           {activeTab === 'chat' && (
             <div className="flex flex-col h-full">
               <div className="p-2.5 bg-white/[0.02] border border-white/[0.06] rounded-lg mb-2 flex items-center gap-2">
-                <div className="w-7 h-7 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0"><Sparkles className="w-3.5 h-3.5 text-white" /></div>
+                <div className="w-7 h-7 bg-gradient-to-br from-indigo-500 to-violet-500 rounded-lg flex items-center justify-center flex-shrink-0"><Sparkles className="w-3.5 h-3.5 text-white" /></div>
                 <div><p className="text-[10px] font-bold text-white">AI Interview Coach</p><p className="text-[8px] text-slate-500">Powered by Gemini 2.0 Flash</p></div>
                 <div className="ml-auto flex items-center gap-1"><div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" /><span className="text-[8px] text-emerald-400">Online</span></div>
               </div>
@@ -988,7 +988,7 @@ function InteractiveView() {
                   <div className="flex items-center gap-2"><Brain className="w-4 h-4 text-purple-400" /><p className="text-[11px] font-bold text-white">Knowledge Quiz</p></div>
                   <span className="text-[10px] text-emerald-400 font-semibold">2/3 Correct</span>
                 </div>
-                <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-purple-600 to-indigo-600 rounded-full" style={{ width: '100%' }} /></div>
+                <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full" style={{ width: '100%' }} /></div>
                 <div className="flex items-center gap-2 mt-2">
                   {[true, true, false].map((correct, i) => (
                     <div key={i} className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold ${correct ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>{correct ? '✓' : '✗'}</div>

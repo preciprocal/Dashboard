@@ -370,7 +370,7 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
             >
               {message.role === 'assistant' && (
                 <div className="flex items-center gap-2 mb-3 pb-3 border-b border-slate-700">
-                  <div className="w-6 h-6 bg-gradient-to-r from-purple-600 to-blue-600 rounded flex items-center justify-center">
+                  <div className="w-6 h-6 bg-gradient-to-r from-indigo-500 to-violet-500 rounded flex items-center justify-center">
                     <Sparkles className="w-3.5 h-3.5 text-white" />
                   </div>
                   <span className="text-xs font-medium text-purple-400">

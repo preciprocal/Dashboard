@@ -66,7 +66,7 @@ function TabBar({
   return (
     <div ref={containerRef} className="relative flex gap-0.5 p-0.5 bg-white/[0.03] border border-white/[0.06] rounded-lg">
       <div
-        className="absolute top-0.5 bottom-0.5 rounded bg-gradient-to-r from-purple-600 to-indigo-600 z-0"
+        className="absolute top-0.5 bottom-0.5 rounded bg-gradient-to-r from-indigo-500 to-violet-500 z-0"
         style={{ left: indicator.left, width: indicator.width, transition: 'left 0.3s cubic-bezier(0.4,0,0.2,1), width 0.3s cubic-bezier(0.4,0,0.2,1)' }}
       />
       {tabs.map(tab => {

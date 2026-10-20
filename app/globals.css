@@ -1,26 +1,27 @@
 @import "tailwindcss";
 
 /* ─── Design Tokens ─────────────────────────────────────────────────────────
-   Single source of truth for the entire app. Keep color theme as-is.
-   These variables are used by utility classes below and can be referenced
-   inline via var(--*) for one-off customisations.
+   Single source of truth for the entire app, matched to the marketing site
+   (preciprocal.com): deep navy, an indigo-to-violet accent, hairline borders
+   and quiet surfaces rather than heavy glass and glow. These variables are
+   used by the utility classes below and can be referenced inline via var(--*).
 ─────────────────────────────────────────────────────────────────────────── */
 :root {
   /* Background layers */
-  --bg:             #090d1a;
-  --bg-subtle:      rgba(15, 23, 42, 0.35);
-  --bg-surface:     rgba(15, 23, 42, 0.55);
-  --bg-raised:      rgba(15, 23, 42, 0.80);
-  --bg-overlay:     rgba(9, 13, 26, 0.92);
+  --bg:             #070a14;
+  --bg-subtle:      rgba(255, 255, 255, 0.015);
+  --bg-surface:     rgba(255, 255, 255, 0.025);
+  --bg-raised:      #0c1120;
+  --bg-overlay:     rgba(7, 10, 20, 0.92);
   --bg-hover:       rgba(255, 255, 255, 0.04);
-  --bg-active:      rgba(255, 255, 255, 0.07);
-  --bg-selected:    rgba(102, 126, 234, 0.12);
+  --bg-active:      rgba(255, 255, 255, 0.06);
+  --bg-selected:    rgba(99, 102, 241, 0.12);
 
   /* Borders */
-  --border:         rgba(255, 255, 255, 0.08);
-  --border-hover:   rgba(255, 255, 255, 0.12);
+  --border:         rgba(255, 255, 255, 0.06);
+  --border-hover:   rgba(255, 255, 255, 0.11);
   --border-strong:  rgba(255, 255, 255, 0.16);
-  --border-accent:  rgba(102, 126, 234, 0.30);
+  --border-accent:  rgba(99, 102, 241, 0.32);
 
   /* Text */
   --text-1:   #f1f5f9;  /* headings, primary */
@@ -29,12 +30,12 @@
   --text-4:   #64748b;  /* muted / labels */
   --text-5:   #475569;  /* faint / placeholders */
 
-  /* Accent (purple/indigo - keep original brand) */
-  --accent:        #667eea;
-  --accent-2:      #764ba2;
-  --accent-subtle: rgba(102, 126, 234, 0.12);
-  --accent-border: rgba(102, 126, 234, 0.28);
-  --accent-glow:   rgba(102, 126, 234, 0.35);
+  /* Accent: indigo to violet, as on preciprocal.com */
+  --accent:        #6366f1;
+  --accent-2:      #8b5cf6;
+  --accent-subtle: rgba(99, 102, 241, 0.12);
+  --accent-border: rgba(99, 102, 241, 0.30);
+  --accent-glow:   rgba(99, 102, 241, 0.30);
 
   /* Semantic */
   --success:        #10b981;
@@ -55,10 +56,11 @@
   --r-xl: 14px;
   --r-2xl: 18px;
 
-  /* Shadows */
+  /* Shadows. Surfaces are separated by borders, not drop shadows; the
+     inset highlight gives cards a lit top edge. */
   --shadow-xs: 0 1px 2px rgba(0,0,0,0.20);
   --shadow-sm: 0 2px 6px  rgba(0,0,0,0.24), 0 1px 2px rgba(0,0,0,0.10);
-  --shadow-md: 0 4px 14px rgba(0,0,0,0.28), 0 2px 4px rgba(0,0,0,0.12);
+  --shadow-md: inset 0 1px 0 rgba(255,255,255,0.035), 0 1px 2px rgba(0,0,0,0.25);
   --shadow-lg: 0 8px 28px rgba(0,0,0,0.32), 0 4px 8px rgba(0,0,0,0.14);
   --shadow-xl: 0 16px 48px rgba(0,0,0,0.38), 0 8px 16px rgba(0,0,0,0.18);
 
@@ -68,13 +70,13 @@
   --t3: 240ms ease;
 
   /* Tailwind compat */
-  --background: #090d1a;
+  --background: #070a14;
   --foreground: #f1f5f9;
   color-scheme: dark;
 }
 
 .dark {
-  --background: #090d1a;
+  --background: #070a14;
   --foreground: #f1f5f9;
   color-scheme: dark;
 }
@@ -104,12 +106,12 @@ html {
 /* Opt-in thin scrollbar for long lists */
 .scrollbar-thin {
   scrollbar-width: thin;
-  scrollbar-color: rgba(102, 126, 234, 0.35) transparent;
+  scrollbar-color: rgba(99, 102, 241, 0.35) transparent;
 }
 .scrollbar-thin::-webkit-scrollbar         { width: 4px; height: 4px; display: block; }
 .scrollbar-thin::-webkit-scrollbar-track   { background: transparent; }
-.scrollbar-thin::-webkit-scrollbar-thumb   { background: rgba(102, 126, 234, 0.35); border-radius: 99px; }
-.scrollbar-thin::-webkit-scrollbar-thumb:hover { background: rgba(102, 126, 234, 0.55); }
+.scrollbar-thin::-webkit-scrollbar-thumb   { background: rgba(99, 102, 241, 0.35); border-radius: 99px; }
+.scrollbar-thin::-webkit-scrollbar-thumb:hover { background: rgba(99, 102, 241, 0.55); }
 
 /* Kept for backward compat */
 .glass-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
@@ -119,7 +121,7 @@ html {
 
 /* Sidebar */
 .glass-sidebar {
-  background: rgba(9, 13, 26, 0.94);
+  background: rgba(7, 10, 20, 0.94);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-right: 1px solid var(--border);
@@ -127,21 +129,21 @@ html {
 
 /* Primary card - the most common container */
 .glass-card {
-  background: rgba(15, 23, 42, 0.55);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: var(--bg-surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border);
-  border-radius: var(--r-xl);
+  border-radius: var(--r-2xl);
   box-shadow: var(--shadow-md);
 }
 
 /* Richer card variant */
 .glass-card-gradient {
-  background: linear-gradient(145deg, rgba(22, 32, 58, 0.70) 0%, rgba(15, 23, 42, 0.55) 100%);
+  background: linear-gradient(160deg, rgba(99, 102, 241, 0.06) 0%, rgba(255, 255, 255, 0.02) 55%);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border: 1px solid var(--border);
-  border-radius: var(--r-xl);
+  border-radius: var(--r-2xl);
   box-shadow: var(--shadow-md);
 }
 
@@ -177,13 +179,14 @@ html {
 }
 
 .glass-button-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border: 1px solid rgba(102, 126, 234, 0.35);
-  transition: filter var(--t2), box-shadow var(--t2);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  transition: filter var(--t2), box-shadow var(--t2), transform var(--t2);
 }
 .glass-button-primary:hover {
-  filter: brightness(1.10);
-  box-shadow: 0 4px 18px rgba(102, 126, 234, 0.38);
+  filter: brightness(1.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 8px 24px rgba(99, 102, 241, 0.28);
 }
 .glass-button-primary:active {
   filter: brightness(0.95);
@@ -200,8 +203,8 @@ html {
 .glass-input:focus {
   outline: none;
   background: rgba(255, 255, 255, 0.045);
-  border-color: rgba(102, 126, 234, 0.45);
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.10);
+  border-color: rgba(99, 102, 241, 0.50);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
 }
 
 /* ─── Badge ──────────────────────────────────────────────────────────────── */
@@ -373,7 +376,7 @@ html {
 
 /* ─── Gradient Backgrounds ───────────────────────────────────────────────── */
 
-.gradient-primary   { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+.gradient-primary   { background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%); }
 .gradient-secondary { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
 .gradient-accent    { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
 .gradient-success   { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }

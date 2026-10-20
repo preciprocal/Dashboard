@@ -195,7 +195,7 @@ export function JobTrackerExamplePreview({ step }: { step: number }) {
           <div className="bg-[#0d1526]/90 border border-white/[0.08] rounded-xl overflow-hidden max-w-lg mx-auto">
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
               <div className="flex items-center gap-2">
-                <div className="w-6 h-6 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-lg flex items-center justify-center">
+                <div className="w-6 h-6 bg-gradient-to-br from-indigo-500 to-violet-500 rounded-lg flex items-center justify-center">
                   <Briefcase className="w-3 h-3 text-white" />
                 </div>
                 <span className="text-[10px] font-bold text-white">Add Application</span>
@@ -250,7 +250,7 @@ export function JobTrackerExamplePreview({ step }: { step: number }) {
                   </div>
                 </FadeIn>
               ) : (
-                <button className="w-full py-2 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl text-[10px] font-semibold text-white flex items-center justify-center gap-1.5">
+                <button className="w-full py-2 bg-gradient-to-r from-indigo-500 to-violet-500 rounded-xl text-[10px] font-semibold text-white flex items-center justify-center gap-1.5">
                   <CheckCircle2 className="w-3 h-3" /> Save Application
                 </button>
               )}
@@ -274,7 +274,7 @@ export function JobTrackerExamplePreview({ step }: { step: number }) {
               <button onClick={handleBackToDashboard} className="text-slate-500 hover:text-white transition-colors">
                 <ArrowLeft className="w-3.5 h-3.5" />
               </button>
-              <div className="w-6 h-6 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-lg flex items-center justify-center">
+              <div className="w-6 h-6 bg-gradient-to-br from-indigo-500 to-violet-500 rounded-lg flex items-center justify-center">
                 <UserSearch className="w-3 h-3 text-white" />
               </div>
               <div>
@@ -420,7 +420,7 @@ export function JobTrackerExamplePreview({ step }: { step: number }) {
       <FadeIn delay={100}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-[0_2px_8px_rgba(102,126,234,0.3)]">
+            <div className="w-7 h-7 bg-gradient-to-br from-indigo-500 to-violet-500 rounded-lg flex items-center justify-center shadow-[0_2px_8px_rgba(102,126,234,0.3)]">
               <Briefcase className="w-3.5 h-3.5 text-white" />
             </div>
             <div>
@@ -433,7 +433,7 @@ export function JobTrackerExamplePreview({ step }: { step: number }) {
               <Shield className="w-2.5 h-2.5 text-purple-400" />
               <span className="text-[8px] font-semibold text-purple-400">Unlimited</span>
             </div>
-            <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-[8px] font-semibold cursor-pointer">
+            <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-500 text-white text-[8px] font-semibold cursor-pointer">
               <Plus className="w-2.5 h-2.5" /> Add
             </div>
           </div>

@@ -515,7 +515,7 @@ export default function ResumeDetailsPage() {
 
   const TabBar = ({ size = 'md' }: { size?: 'sm' | 'md' }) => (
     <div className="flex gap-1 p-1 glass-card">
-      {tabs.map(tab => <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl font-medium transition-all cursor-pointer ${size === 'sm' ? 'py-2 px-2 text-xs' : 'py-2.5 px-3 text-sm'} ${activeTab === tab.id ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-white/[0.05]'}`}><tab.icon className={size === 'sm' ? 'w-3.5 h-3.5' : 'w-4 h-4'} />{tab.label}</button>)}
+      {tabs.map(tab => <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl font-medium transition-all cursor-pointer ${size === 'sm' ? 'py-2 px-2 text-xs' : 'py-2.5 px-3 text-sm'} ${activeTab === tab.id ? 'bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-white/[0.05]'}`}><tab.icon className={size === 'sm' ? 'w-3.5 h-3.5' : 'w-4 h-4'} />{tab.label}</button>)}
     </div>
   );
 

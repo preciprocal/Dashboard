@@ -466,7 +466,7 @@ export default function NextStepPrompt({
                   primary.accentColor === 'text-indigo-400'  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 shadow-indigo-500/20' :
                   primary.accentColor === 'text-blue-400'    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 shadow-blue-500/20' :
                   primary.accentColor === 'text-amber-400'   ? 'bg-gradient-to-r from-amber-600 to-orange-600 shadow-amber-500/20' :
-                  'bg-gradient-to-r from-purple-600 to-indigo-600 shadow-purple-500/20'
+                  'bg-gradient-to-r from-indigo-500 to-violet-500 shadow-purple-500/20'
                 }`}>
                   {primary.cta} <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                 </span>

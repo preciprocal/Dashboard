@@ -491,7 +491,7 @@ export default function UsersFeedback({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-800">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-linear-to-br from-purple-600 to-indigo-600 flex items-center justify-center shadow-lg">
+            <div className="w-8 h-8 rounded-xl bg-linear-to-br from-indigo-500 to-violet-500 flex items-center justify-center shadow-lg">
               <MessageSquarePlus className="w-4 h-4 text-white" />
             </div>
             <div>
@@ -510,7 +510,7 @@ export default function UsersFeedback({
           <div className="flex items-center gap-1.5 px-6 pt-5">
             {[1, 2, 3].map((s) => (
               <div key={s} className={`h-1 flex-1 rounded-full transition-all duration-500 ${
-                s <= step ? "bg-gradient-to-r from-purple-500 to-indigo-500" : "bg-slate-800"
+                s <= step ? "bg-gradient-to-r from-indigo-500 to-violet-500" : "bg-slate-800"
               }`} />
             ))}
             <span className="text-slate-600 text-xs ml-1">{step}/3</span>
@@ -706,16 +706,16 @@ export default function UsersFeedback({
                 disabled={step === 1 ? !canStep1 : !canStep2}
                 onClick={() => setStep((s) => (s + 1) as 1 | 2 | 3)}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl
-                  bg-linear-to-r from-purple-600 to-indigo-600 text-white text-xs font-medium
+                  bg-linear-to-r from-indigo-500 to-violet-500 text-white text-xs font-medium
                   shadow-lg disabled:opacity-40 disabled:cursor-not-allowed
-                  hover:from-purple-500 hover:to-indigo-500 transition-all">
+                  hover:from-indigo-400 hover:to-violet-400 transition-all">
                 Continue <ChevronRight className="w-3.5 h-3.5" />
               </button>
             ) : (
               <button type="button" onClick={handleSubmit} disabled={isSubmitting}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl
-                  bg-linear-to-r from-purple-600 to-indigo-600 text-white text-xs font-medium
-                  shadow-lg disabled:opacity-60 hover:from-purple-500 hover:to-indigo-500 transition-all">
+                  bg-linear-to-r from-indigo-500 to-violet-500 text-white text-xs font-medium
+                  shadow-lg disabled:opacity-60 hover:from-indigo-400 hover:to-violet-400 transition-all">
                 {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                 {isSubmitting ? "Submitting..." : "Submit feedback"}
               </button>
