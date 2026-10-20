@@ -706,7 +706,7 @@ function JobRecommendationsPage() {
 
       {/* Loading State with Facts */}
       {isLoading && (
-        <div className="fixed inset-0 bg-slate-950/95 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-[var(--bg)]/95 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="glass-card max-w-md w-full p-6 sm:p-8">
             <div className="text-center mb-6 sm:mb-8">
               <div className="inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 bg-[var(--accent)] rounded-lg mb-4">

@@ -1,3 +1,5 @@
+import PageHeader from '@/components/PageHeader';
+import { Video as HeaderIcon } from 'lucide-react';
 // app/interview/create/page.tsx
 import InterviewGeneratorForm from "@/components/InterviewGeneratorForm";
 import { getCurrentUser } from "@/lib/actions/auth.action";
@@ -83,44 +85,13 @@ export default async function CreateInterviewPage({
 
       {hasSessions ? (
         <>
-          {/* Header */}
-          <div className="flex-shrink-0 pb-4">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <div className="inline-flex items-center gap-1.5 bg-blue-500/[0.08] border border-blue-500/20
-                                rounded-full px-3 py-1 mb-2">
-                  <Sparkles className="w-3 h-3 text-blue-400" />
-                  <span className="text-[11px] font-semibold text-blue-400">AI-Powered</span>
-                </div>
-                <h1 className="text-xl font-bold text-white leading-tight">
-                  Create Interview Session
-                </h1>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  AI-powered questions tailored to your career goals
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3 flex-shrink-0">
-                {/* Plan badge */}
-                <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-500/[0.07] border border-indigo-500/20">
-                  <Shield className="w-4 h-4 text-indigo-400" />
-                  <span className="text-[13px] font-semibold text-indigo-400">
-                    {isUnlimited(interviewsLimit) ? 'Unlimited' : `${remaining} left`}
-                  </span>
-                </div>
-                {/* History button */}
-                <Link
-                  href="/interview"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl
-                             bg-white/[0.05] border border-white/[0.08]
-                             text-sm font-semibold text-slate-300
-                             hover:text-white hover:bg-white/[0.08] transition-all"
-                >
-                  <History className="w-3.5 h-3.5" /> History
-                </Link>
-              </div>
-            </div>
-          </div>
+          <PageHeader
+            title="New Interview" description="AI questions tailored to your role and level" icon={<HeaderIcon strokeWidth={1.75} aria-hidden="true" />}
+            actions={<>
+              <span className="btn-pill"><Shield /> {isUnlimited(interviewsLimit) ? 'Unlimited' : `${remaining} left`}</span>
+              <Link href="/interview" className="btn-secondary"><History /> History</Link>
+            </>}
+          />
 
           {/* Form */}
           <div className="overflow-y-auto glass-scrollbar pb-4">

@@ -51,7 +51,7 @@ const ForgotPasswordPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex bg-slate-950">
+    <div className="min-h-screen flex bg-[#050810]">
       {/* Left Side - Branding */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative overflow-hidden">
         {/* Subtle Grid Pattern */}
@@ -163,7 +163,7 @@ const ForgotPasswordPage = () => {
       </div>
 
       {/* Right Side - Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-slate-950">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-[#050810]">
         <div className="w-full max-w-md">
           {/* Mobile Logo */}
           <div className="lg:hidden text-center mb-8">

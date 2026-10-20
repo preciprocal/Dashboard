@@ -1,5 +1,6 @@
 // app/(root)/settings/page.tsx
 'use client';
+import { Breadcrumbs, crumbsFor } from '@/components/PageHeader';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -16,7 +17,7 @@ import {
   USAGE_LIMITS, FEATURE_NAMES, isUnlimited, type FeatureType,
 } from '@/lib/config/usage-limits';
 import {
-  Bell, User, Shield, CreditCard, Chrome, ArrowLeft, Loader2,
+  Bell, User, Shield, CreditCard, Chrome, Loader2,
   AlertTriangle, Check, Eye, EyeOff, Trash2, Mail, Lock, Zap,
   Star, AlertCircle, RefreshCw, ExternalLink, Building2, Link2, RotateCcw, MonitorSmartphone,
 } from 'lucide-react';
@@ -406,9 +407,7 @@ export default function SettingsPage() {
 
       {/* ── Page Header ── */}
       <div className="glass-card p-5">
-        <Link href="/" className="inline-flex items-center text-xs text-slate-500 hover:text-slate-300 mb-4 transition-colors gap-1.5">
-          <ArrowLeft className="w-3.5 h-3.5" /> Back to Dashboard
-        </Link>
+        <div className="mb-3"><Breadcrumbs crumbs={crumbsFor('/settings', 'Settings')} /></div>
 
         <div className="flex items-center gap-4">
           <div className="relative flex-shrink-0">

@@ -1,5 +1,7 @@
 // app/(root)/templates/page.tsx
 "use client";
+import { Breadcrumbs, crumbsFor } from '@/components/PageHeader';
+import { BookOpen } from 'lucide-react';
 
 import React, { useState, useMemo, useEffect } from "react";
 import { useRouter } from 'next/navigation';
@@ -7,8 +9,8 @@ import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import {
   AlertCircle, Search, X, Play, Loader2,
-  BookmarkCheck, Bookmark, Users, Clock,
-  MessageSquare, Filter, ChevronDown, Sparkles, ArrowLeft,
+  BookmarkCheck, Bookmark, Clock,
+  MessageSquare, Filter, ChevronDown, ArrowLeft,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -152,16 +154,12 @@ const TemplateCard: React.FC<{ template: Template }> = ({ template }) => {
         {/* The rating and completion figures in the template list are not
             measured from real use, so they are not shown. */}
         <div className="flex items-center gap-1">
-          <Users className="w-3.5 h-3.5" />
+          <MessageSquare className="w-3.5 h-3.5" />
           <span>{template.questions} questions</span>
         </div>
         <div className="flex items-center gap-1">
           <Clock className="w-3.5 h-3.5" />
           <span>{template.duration}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <MessageSquare className="w-3.5 h-3.5" />
-          <span>{template.questions} Qs</span>
         </div>
       </div>
 
@@ -375,14 +373,15 @@ export default function TemplatesPage() {
 
       {/* ── Header ── */}
       <div className="glass-card p-5 sm:p-6">
+        <Breadcrumbs crumbs={crumbsFor('/templates', 'Templates')} />
         <div className="flex items-center gap-3 mb-5">
-          <div className="w-11 h-11 gradient-primary rounded-xl flex items-center justify-center shadow-glass flex-shrink-0">
-            <Sparkles className="w-5 h-5 text-white" />
+          <div className="w-10 h-10 rounded-[10px] bg-[var(--accent-subtle)] border border-[var(--accent-border)] flex items-center justify-center flex-shrink-0">
+            <BookOpen className="w-5 h-5 text-indigo-200" strokeWidth={1.75} />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-white">Interview Templates</h1>
-            <p className="text-slate-400 text-xs sm:text-sm mt-0.5">
-              {stats.total}+ professionally crafted templates
+            <h1 className="text-[20px] font-semibold text-white tracking-tight leading-tight">Interview Templates</h1>
+            <p className="text-[13px] text-slate-400 mt-0.5">
+              {stats.total}+ ready-made interviews across every field
             </p>
           </div>
         </div>

@@ -1,5 +1,7 @@
 // app/planner/page.tsx
 'use client';
+import PageHeader from '@/components/PageHeader';
+import { Calendar as HeaderIcon } from 'lucide-react';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -189,25 +191,13 @@ export default function PlannerPage() {
   return (
     <div className="space-y-4 pt-4">
 
-      {/* Header */}
-      <div className="glass-card p-5">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-bold text-white leading-tight">Preparation Planner</h1>
-            <p className="text-xs text-slate-500 mt-0.5">Manage your study & preparation plans</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <SeeExampleButton
-              serviceId="planner"
-              className="!px-4 !py-2.5 !text-sm !font-semibold"
-            />
-            <Link href="/planner/create"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-semibold   transition-all duration-200">
-              <Plus className="w-4 h-4" /> New Plan
-            </Link>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="Preparation Planner" description="Day-by-day study plans for your interviews" icon={HeaderIcon}
+        actions={<>
+          <SeeExampleButton serviceId="planner" />
+          <Link href="/planner/create" className="btn-primary"><Plus /> New Plan</Link>
+        </>}
+      />
 
       {/* Plans error */}
       {plansError && (

@@ -51,7 +51,7 @@ function VerifyEmailContent() {
   };
 
   return (
-    <div className="min-h-screen flex bg-slate-950 items-center justify-center p-6">
+    <div className="min-h-screen flex bg-[#050810] items-center justify-center p-6">
       {/* Background orbs */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 -left-32 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl animate-pulse" />

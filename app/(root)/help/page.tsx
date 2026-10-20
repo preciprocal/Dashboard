@@ -1,5 +1,6 @@
 // app/(root)/help/page.tsx
 'use client';
+import { Breadcrumbs, crumbsFor } from '@/components/PageHeader';
 
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
@@ -657,20 +658,23 @@ function HelpSupportContent() {
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div className="min-h-screen bg-[var(--bg)]">
 
       {/* Masthead - full bleed, so the page reads as a section of the product
           rather than a card floating in the middle of a very wide screen. */}
-      <header className="border-b border-white/[0.06] bg-slate-950/80 backdrop-blur-xl sticky top-0 z-20">
+      <header className="border-b border-white/[0.07] bg-[var(--bg)]/90 backdrop-blur-xl sticky top-0 z-20">
         {/* Title and tabs are one column so the Dashboard button can centre
             against the masthead as a whole. It used to live inside the title
             row, which centred it on that row only and left it sitting high
             against the two-row header. */}
         <div className="px-4 sm:px-6 lg:px-10 xl:px-16 flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <div className="flex items-center gap-3 h-16">
-              <HelpCircle className="w-5 h-5 text-slate-400 flex-shrink-0" />
-              <h1 className="text-base font-semibold text-white tracking-tight truncate">Help &amp; Support</h1>
+            <div className="pt-4"><Breadcrumbs crumbs={crumbsFor('/help', 'Support')} /></div>
+            <div className="flex items-center gap-3 pb-3">
+              <div className="w-10 h-10 rounded-[10px] bg-[var(--accent-subtle)] border border-[var(--accent-border)] flex items-center justify-center flex-shrink-0">
+                <HelpCircle className="w-5 h-5 text-indigo-200" strokeWidth={1.75} />
+              </div>
+              <h1 className="text-[20px] font-semibold text-white tracking-tight truncate">Help &amp; Support</h1>
             </div>
 
             {/* Underline tabs. A filled gradient pill reads as a call to action;
@@ -687,7 +691,7 @@ function HelpSupportContent() {
                     aria-current={on ? 'page' : undefined}
                     className={`relative flex items-center gap-2 pb-3 pt-1 text-sm font-medium border-b-2 transition-colors
                       focus:outline-none focus-visible:text-white
-                      ${on ? 'border-purple-500 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>
+                      ${on ? 'border-[var(--accent)] text-white' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>
                     <tab.icon className="w-4 h-4" />
                     <span>{tab.label}</span>
                     {tab.badge !== undefined && tab.badge > 0 && (
@@ -1278,7 +1282,7 @@ function HelpSupportContent() {
 // ─── Fallback ─────────────────────────────────────────────────────────────────
 function HelpSupportFallback() {
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+    <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center">
       <div className="flex flex-col items-center gap-4">
         <div className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center">
           <HelpCircle className="w-4 h-4 text-slate-400" />

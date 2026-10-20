@@ -1,10 +1,11 @@
 'use client';
+import { Breadcrumbs, crumbsFor } from '@/components/PageHeader';
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import {
-  Linkedin, Mail, Loader2, ArrowLeft, Copy, Check, RefreshCw, XCircle, Zap,
+  Linkedin, Mail, Loader2, Copy, Check, RefreshCw, XCircle, Zap,
   Star, AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Sparkles, TrendingUp,
   Search, MessageSquare, Target, Info, ArrowRight, Users, Edit3, Send, Shield,
 } from 'lucide-react';
@@ -778,16 +779,16 @@ export default function CareerToolsPage() {
       {/* MOBILE */}
       <div className="lg:hidden py-4 space-y-5">
         <div>
-          <Link href="/" className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors mb-4"><ArrowLeft className="w-3.5 h-3.5" /> Dashboard</Link>
+          <Breadcrumbs crumbs={crumbsFor('/career-tools', 'Career Tools')} />
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-[var(--accent)] rounded-xl flex items-center justify-center "><Sparkles className="w-4 h-4 text-white" /></div>
+              <div className="w-10 h-10 rounded-[10px] bg-[var(--accent-subtle)] border border-[var(--accent-border)] flex items-center justify-center flex-shrink-0"><Sparkles className="w-5 h-5 text-indigo-200" strokeWidth={1.75} /></div>
               <div>
-                <h1 className="text-xl font-bold text-white">Career Tools</h1>
-                <p className="text-[11px] text-slate-600">AI-powered LinkedIn & outreach optimizer</p>
+                <h1 className="text-[20px] font-semibold text-white tracking-tight leading-tight">Career Tools</h1>
+                <p className="text-[13px] text-slate-400 mt-0.5">LinkedIn profile and outreach, written by AI</p>
               </div>
             </div>
-            <SeeExampleButton serviceId="career-tools" className="!px-3 !py-2 !text-xs !font-semibold flex-shrink-0" />
+            <SeeExampleButton serviceId="career-tools" className="flex-shrink-0" />
           </div>
         </div>
         <ToolTabs active={activeTool} setActive={handleToolChange} /> {/* ← handleToolChange */}
@@ -799,24 +800,24 @@ export default function CareerToolsPage() {
       <div className="hidden lg:flex" style={{ height: 'calc(100dvh - 113px)' /* header 65 + main padding 48 */ }}>
         <div className="w-[30%] flex-shrink-0 flex flex-col border-r border-white/[0.05] overflow-hidden">
           <div className="flex-shrink-0 px-5 py-4 border-b border-white/[0.05]">
-            <Link href="/" className="inline-flex items-center gap-1.5 text-[11px] text-slate-600 hover:text-slate-400 transition-colors mb-3"><ArrowLeft className="w-3 h-3" /> Dashboard</Link>
+            <Breadcrumbs crumbs={crumbsFor('/career-tools', 'Career Tools')} />
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 bg-[var(--accent)] rounded-xl flex items-center justify-center  flex-shrink-0"><Sparkles className="w-3.5 h-3.5 text-white" /></div>
+              <div className="w-10 h-10 rounded-[10px] bg-[var(--accent-subtle)] border border-[var(--accent-border)] flex items-center justify-center flex-shrink-0"><Sparkles className="w-5 h-5 text-indigo-200" strokeWidth={1.75} /></div>
               <div>
-                <h1 className="text-base font-bold text-white leading-tight">Career Tools</h1>
-                <p className="text-[11px] text-slate-600">AI-powered profile & outreach</p>
+                <h1 className="text-[20px] font-semibold text-white tracking-tight leading-tight">Career Tools</h1>
+                <p className="text-[13px] text-slate-400 mt-0.5">LinkedIn profile and outreach</p>
               </div>
             </div>
             <div className="flex items-center gap-2 mb-3">
-              <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-500/[0.07] border border-blue-500/20">
-                <Shield className="w-3.5 h-3.5 text-blue-400" />
-                <span className="text-[12px] font-semibold text-blue-400">
+              <span className="btn-pill flex-1 min-w-0">
+                <Shield />
+                <span className="truncate">
                   {usageLoading ? <span aria-hidden="true" className="inline-block w-12 h-3 rounded bg-current opacity-20 animate-pulse align-middle" /> : isLI
-                    ? (liUnlimited ? 'Unlimited' : `${liLeft} optimisations left`)
-                    : (orUnlimited ? 'Unlimited' : `${orLeft} messages left`)}
+                    ? (liUnlimited ? 'Unlimited' : `${liLeft} left`)
+                    : (orUnlimited ? 'Unlimited' : `${orLeft} left`)}
                 </span>
-              </div>
-              <SeeExampleButton serviceId="career-tools" className="!px-3 !py-2 !text-[12px] !font-semibold flex-shrink-0" />
+              </span>
+              <SeeExampleButton serviceId="career-tools" className="flex-shrink-0" />
             </div>
             <ToolTabs active={activeTool} setActive={handleToolChange} /> {/* ← handleToolChange */}
           </div>

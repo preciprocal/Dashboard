@@ -1,4 +1,6 @@
 'use client';
+import PageHeader from '@/components/PageHeader';
+import { FileText as HeaderIcon } from 'lucide-react';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -260,21 +262,13 @@ export default function ResumeDashboard() {
   return (
     <div className="space-y-4 pt-4">
 
-      {/* Header */}
-      <div className="glass-card p-5">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-bold text-white leading-tight">Resume Analysis</h1>
-            <p className="text-xs text-slate-500 mt-0.5">AI-powered resume optimization</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <SeeExampleButton serviceId="resume" className="!px-4 !py-2.5 !text-sm !font-semibold" />
-            <Link href="/resume/upload" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-semibold   transition-all duration-200">
-              <Upload className="w-4 h-4" /><span>Upload Resume</span>
-            </Link>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="Resume Analysis" description="AI feedback on every resume you upload" icon={HeaderIcon}
+        actions={<>
+          <SeeExampleButton serviceId="resume" />
+          <Link href="/resume/upload" className="btn-primary"><Upload /> Upload Resume</Link>
+        </>}
+      />
 
       {/* Error banner */}
       {resumesError && (

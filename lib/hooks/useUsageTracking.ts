@@ -1,7 +1,7 @@
 // lib/hooks/useUsageTracking.ts
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback } from 'react';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import {
   FeatureType,
@@ -106,12 +106,17 @@ function requestUsage(userId: string, fresh: boolean): Promise<UsageData> {
 // resolving, or the first fetch for this user. A refetch keeps the numbers on
 // screen and updates them in place instead of going back to loading.
 
+const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
+
 export function useUsageTracking(): UsageTrackingResult {
   const [user, authLoading] = useSupabaseUser();
   const userId = user?.id ?? null;
-  const [usageData, setUsageData] = useState<UsageData | null>(
-    () => (userId && usageCache?.userId === userId ? usageCache.data : null),
-  );
+  // Same as the server first (no data), then the shared cache before paint:
+  // reading it into useState directly broke hydration under <Suspense>.
+  const [usageData, setUsageData] = useState<UsageData | null>(null);
+  useIsoLayoutEffect(() => {
+    if (userId && usageCache?.userId === userId) setUsageData(prev => prev ?? usageCache!.data);
+  }, [userId]);
   const [error, setError] = useState<string | null>(null);
 
   const fetchUsageData = useCallback(async (fresh: boolean) => {

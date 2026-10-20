@@ -1,4 +1,6 @@
 'use client';
+import PageHeader from '@/components/PageHeader';
+import { Pen as HeaderIcon } from 'lucide-react';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -756,33 +758,13 @@ export default function CoverLetterDashboard() {
     <div className="space-y-4 pt-4">
       <ConfirmDialog />
 
-      {/* Page header */}
-      <div className="glass-card p-5 animate-fade-in-up">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-bold text-white leading-tight">Cover Letters</h1>
-            <p className="text-xs text-slate-500 mt-0.5">AI-powered professional cover letters</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <SeeExampleButton
-              serviceId="cover-letter"
-              className="!px-4 !py-2.5 !text-sm !font-semibold"
-            />
-            <Link
-              href="/cover-letter/create"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl
-                         bg-[var(--accent)]
-                         hover:bg-[var(--accent-hover)]
-                         text-white text-sm font-semibold
-                         
-                         
-                         transition-all duration-200"
-            >
-              <Plus className="w-4 h-4" /> Generate New
-            </Link>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="Cover Letters" description="Personalised cover letters written from your resume" icon={HeaderIcon}
+        actions={<>
+          <SeeExampleButton serviceId="cover-letter" />
+          <Link href="/cover-letter/create" className="btn-primary"><Plus /> New Cover Letter</Link>
+        </>}
+      />
 
       {/* Inline error */}
       {lettersError && (

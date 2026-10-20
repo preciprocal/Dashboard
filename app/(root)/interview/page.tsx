@@ -1,4 +1,6 @@
 'use client';
+import PageHeader from '@/components/PageHeader';
+import { Video as HeaderIcon } from 'lucide-react';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -375,33 +377,13 @@ export default function InterviewsDashboard() {
   return (
     <div className="space-y-4 pt-4">
 
-      {/* Page header */}
-      <div className="glass-card p-5 animate-fade-in-up">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-[18px] font-bold text-white leading-tight">Interview Practice</h1>
-            <p className="text-[12px] text-slate-500 mt-0.5">AI-powered interview preparation</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <SeeExampleButton
-              serviceId="interview"
-              className="!px-4 !py-2.5 !text-[13px] !font-semibold"
-            />
-            <Link
-              href="/interview/create"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl
-                         bg-[var(--accent)]
-                         hover:bg-[var(--accent-hover)]
-                         text-white text-[13px] font-semibold
-                         
-                         
-                         transition-all duration-200"
-            >
-              <Plus className="w-4 h-4" /> New Interview
-            </Link>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="Interview Practice" description="Mock interviews with AI feedback and scores" icon={HeaderIcon}
+        actions={<>
+          <SeeExampleButton serviceId="interview" />
+          <Link href="/interview/create" className="btn-primary"><Plus /> New Interview</Link>
+        </>}
+      />
 
       {/* Inline error */}
       {interviewsError && (

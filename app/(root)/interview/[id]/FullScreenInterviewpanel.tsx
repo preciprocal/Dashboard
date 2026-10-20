@@ -968,7 +968,7 @@ const FullScreenInterviewPanel = ({
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 bg-slate-950 z-50 flex flex-col overflow-hidden">
+    <div className="fixed inset-0 bg-[var(--bg)] z-50 flex flex-col overflow-hidden">
 
       {/* Exit confirmation */}
       {showExitConfirm && (
@@ -984,7 +984,7 @@ const FullScreenInterviewPanel = ({
           most common cause by far is a muted microphone, so that is named
           first rather than buried in a list of possibilities. */}
       {wastedReason && (
-        <div className="absolute inset-0 z-50 bg-slate-950/95 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="absolute inset-0 z-50 bg-[var(--bg)]/95 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 sm:p-8">
             <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-5">
               <MicOff className="w-6 h-6 text-amber-400" />

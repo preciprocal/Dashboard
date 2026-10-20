@@ -1,4 +1,6 @@
 'use client';
+import PageHeader from '@/components/PageHeader';
+import { NotebookPen as HeaderIcon } from 'lucide-react';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -7,7 +9,7 @@ import {
   BookOpen, Plus, Loader2, Trash2, ChevronDown, ChevronUp,
   Calendar, Building2, TrendingUp, AlertTriangle, CheckCircle2,
   Brain, MessageSquare, Target, BarChart3, Lightbulb, Clock,
-  Star, Edit3, X, Save, ArrowLeft, Activity, Award, Zap, Eye,
+  Star, Edit3, X, Save, Activity, Award, Zap, Eye,
   Heart, Filter, Search, RefreshCw, XCircle, ArrowRight, Flame,
   Users, MapPin, Sparkles, Shield,
 } from 'lucide-react';
@@ -836,37 +838,17 @@ export default function InterviewDebriefPage() {
     <div className="space-y-4 pt-4">
       <ConfirmDialog />
 
-      {/* Page header */}
-      <div className="glass-card p-5 animate-fade-in-up">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <Link href="/" className="inline-flex items-center gap-1.5 text-[12px] text-slate-500 hover:text-slate-300 transition-colors mb-3">
-              <ArrowLeft className="w-3.5 h-3.5" /> Dashboard
-            </Link>
-            <div className="flex items-center gap-3 mb-1">
-              <div className="w-9 h-9 bg-[var(--accent)] rounded-xl flex items-center justify-center ">
-                <BookOpen className="w-4 h-4 text-white" />
-              </div>
-              <h1 className="text-[18px] font-bold text-white">Interview Debrief Journal</h1>
-            </div>
-            <p className="text-[12px] text-slate-500 ml-12">Log real interviews, let AI find your patterns, turn losses into learning.</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <SeeExampleButton serviceId="debrief" />
-            <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-500/[0.07] border border-violet-500/20">
-              <Shield className="w-4 h-4 text-violet-400" />
-              <span className="text-[13px] font-semibold text-violet-400">
-                {usageLoading ? <span aria-hidden="true" className="inline-block w-12 h-3 rounded bg-current opacity-20 animate-pulse align-middle" /> : debriefUnlimited ? 'Unlimited' : `${debriefLeft} left`}
-              </span>
-            </div>
-            <button onClick={handleLogInterview}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-[13px] font-semibold  transition-all duration-200">
-              {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-              {showForm ? 'Cancel' : 'Log Interview'}
-            </button>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="Interview Journal" description="Log real interviews and let AI find your patterns" icon={HeaderIcon}
+        actions={<>
+          <SeeExampleButton serviceId="debrief" />
+          <span className="btn-pill"><Shield /> {usageLoading ? <span aria-hidden="true" className="inline-block w-10 h-3 rounded bg-current opacity-25 animate-pulse" /> : debriefUnlimited ? 'Unlimited' : `${debriefLeft} left`}</span>
+          <button onClick={handleLogInterview} className="btn-primary">
+            {showForm ? <X /> : <Plus />}
+            {showForm ? 'Cancel' : 'Log Interview'}
+          </button>
+        </>}
+      />
 
       {!canUseFeature('interviewDebriefs') && entries.length === 0 ? (
         <UpgradeGate used={debriefUsed} limit={debriefLimit} />

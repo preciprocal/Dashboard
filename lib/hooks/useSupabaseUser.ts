@@ -6,7 +6,7 @@
 //
 // Uses getClientUser so a slow or failed Supabase call can't leave the app on
 // a spinner or bounce a signed-in person to /sign-in (lib/auth/client-user.ts).
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/supabase/client";
 import { getClientUser } from "@/lib/auth/client-user";
@@ -34,10 +34,25 @@ function sameUser(a: User | null, b: User | null): boolean {
     && JSON.stringify(a.app_metadata ?? {}) === JSON.stringify(b.app_metadata ?? {});
 }
 
+// useLayoutEffect warns on the server; it only matters in the browser.
+const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
+
 export function useSupabaseUser(): [User | null, boolean, Error | undefined] {
-  const [user, setUser] = useState<User | null>(knownUser ?? null);
-  const [loading, setLoading] = useState(knownUser === undefined);
+  // Start exactly as the server rendered (no user, loading), then pick up a
+  // user already known on this page before the browser paints. Reading the
+  // cache straight into useState made a page inside <Suspense> hydrate
+  // after the cache filled, render "loaded" against the server's loader,
+  // and fail hydration.
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | undefined>(undefined);
+
+  useIsoLayoutEffect(() => {
+    if (knownUser !== undefined) {
+      setUser(prev => prev ?? knownUser ?? null);
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     let mounted = true;

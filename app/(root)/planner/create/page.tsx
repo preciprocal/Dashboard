@@ -1,12 +1,14 @@
 // app/planner/create/page.tsx
 'use client';
+import PageHeader from '@/components/PageHeader';
+import { Calendar as HeaderIcon } from 'lucide-react';
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import { SkillLevel } from '@/types/planner';
 import {
-  ArrowLeft, Sparkles, Calendar, Briefcase, Target, TrendingUp,
+  Sparkles, Calendar, Briefcase, Target, TrendingUp,
   Loader2, CheckCircle2, Search, X, Lock, ArrowRight, Shield, History,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -287,36 +289,16 @@ export default function CreatePlanPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-121px)] flex flex-col overflow-hidden px-4 sm:px-0">
+    <div className="h-[calc(100dvh-113px)] flex flex-col overflow-hidden px-4 sm:px-0">
 
-      {/* Header */}
-      <div className="flex-shrink-0 mb-4 sm:mb-6 pt-4">
-        <Link href="/planner" className="inline-flex items-center text-xs sm:text-sm text-slate-400 hover:text-white mb-3 sm:mb-4 transition-colors">
-          <ArrowLeft className="w-4 h-4 mr-1.5" /> Back to Plans
-        </Link>
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center gap-1.5 bg-indigo-500/[0.08] border border-indigo-500/20 rounded-full px-3 py-1 mb-2">
-              <Sparkles className="w-3 h-3 text-indigo-400" />
-              <span className="text-[11px] font-semibold text-indigo-400">AI-Powered</span>
-            </div>
-            <h1 className="text-xl font-bold text-white leading-tight">Create Preparation Plan</h1>
-            <p className="text-xs text-slate-500 mt-0.5">AI-powered personalized study plan for any goal</p>
-          </div>
-          <div className="flex items-center gap-3 flex-shrink-0">
-            <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-500/[0.07] border border-indigo-500/20">
-              <Shield className="w-4 h-4 text-indigo-400" />
-              <span className="text-[13px] font-semibold text-indigo-400">
-                {usageLoading ? <span aria-hidden="true" className="inline-block w-12 h-3 rounded bg-current opacity-20 animate-pulse align-middle" /> : plansUnlimited ? 'Unlimited' : `${plansLeft} left`}
-              </span>
-            </div>
-            <Link href="/planner"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.05] border border-white/[0.08] text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/[0.08] transition-all">
-              <History className="w-3.5 h-3.5" /> History
-            </Link>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        className="flex-shrink-0 mb-4"
+        title="New Preparation Plan" description="An AI study plan built around your interview date" icon={HeaderIcon}
+        actions={<>
+          <span className="btn-pill"><Shield /> {usageLoading ? <span aria-hidden="true" className="inline-block w-10 h-3 rounded bg-current opacity-25 animate-pulse" /> : plansUnlimited ? 'Unlimited' : `${plansLeft} left`}</span>
+          <Link href="/planner" className="btn-secondary"><History /> History</Link>
+        </>}
+      />
 
       {/* Form */}
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">

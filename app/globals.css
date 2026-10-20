@@ -572,3 +572,31 @@ html {
   }
   .choice svg { width: 16px; height: 16px; flex-shrink: 0; }
 }
+
+/* ─── Header actions: one size ───────────────────────────────────────────────
+   Every page header's buttons and usage pill are 40px, same text and radius
+   (PageHeader). Pages used py-2, py-2.5 and !px-3 !py-2 overrides, so the
+   same "See Example" button was a different size on every page. */
+@layer components {
+  .btn-primary, .btn-secondary, .btn-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 16px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: var(--r-md);
+    white-space: nowrap;
+    transition: background var(--t2), border-color var(--t2), color var(--t2);
+  }
+  .btn-primary { color: #fff; background: var(--accent); border: 1px solid transparent; }
+  .btn-primary:hover  { background: var(--accent-hover); }
+  .btn-primary:active { background: var(--accent-press); }
+  .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-secondary { color: var(--text-2); background: var(--bg-raised); border: 1px solid var(--border); }
+  .btn-secondary:hover { color: #fff; background: #1f2430; border-color: var(--border-hover); }
+  .btn-pill { padding: 0 14px; font-size: 13px; color: #c3c9ff; background: var(--accent-subtle); border: 1px solid var(--accent-border); cursor: default; }
+  .btn-primary svg, .btn-secondary svg, .btn-pill svg { width: 16px; height: 16px; flex-shrink: 0; }
+}

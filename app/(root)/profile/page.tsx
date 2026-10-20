@@ -1,4 +1,6 @@
 "use client";
+import PageHeader from '@/components/PageHeader';
+import { User as HeaderIcon } from 'lucide-react';
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
@@ -8,7 +10,7 @@ import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
 import ErrorPage from '@/components/Error';
 import {
-  ArrowLeft, MapPin, User, Bookmark, Phone, Edit, Save, X,
+  MapPin, User, Bookmark, Phone, Edit, Save, X,
   Globe, Briefcase, TrendingUp, Clock, FileText, Zap, AlertCircle,
   RefreshCw, Upload, Trash2, FileBadge,
 } from "lucide-react";
@@ -468,16 +470,7 @@ const ProfilePage = () => {
   return (
     <div className="space-y-4 pt-4">
 
-      {/* Page header */}
-      <div className="glass-card p-4 animate-fade-in-up">
-        <div className="flex items-center justify-between">
-          <Link href="/" className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors">
-            <ArrowLeft className="w-3.5 h-3.5" /> Back
-          </Link>
-          <h1 className="text-lg font-bold text-white">Profile</h1>
-          <div className="w-12" />
-        </div>
-      </div>
+      <PageHeader title="Profile" description="Your details, auto-apply settings and saved items" icon={HeaderIcon} />
 
       {/* Tab bar */}
       <div className="glass-card p-1.5">

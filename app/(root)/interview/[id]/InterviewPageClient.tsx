@@ -416,7 +416,7 @@ const InterviewDetailsClient = ({
   return (
     // ── Sits INSIDE the app shell, so it must not behave like a page ─────────
     //
-    // This was `min-h-screen bg-slate-950` wrapping a full-width nav bar and a
+    // This was `min-h-screen bg-[var(--bg)]` wrapping a full-width nav bar and a
     // `max-w-7xl mx-auto` container. All three fight the layout it actually
     // renders into: the shell already supplies the background, the sidebar
     // already takes horizontal space, and the shell already pads its content.
@@ -515,14 +515,14 @@ const InterviewDetailsClient = ({
                   <span>Camera Preview</span>
                 </h3>
 
-                <div className="relative aspect-video bg-slate-950 rounded-lg overflow-hidden border border-slate-800">
+                <div className="relative aspect-video bg-[var(--bg)] rounded-lg overflow-hidden border border-slate-800">
                   <video
                     ref={videoRef}
                     autoPlay muted playsInline
                     className={`w-full h-full object-cover scale-x-[-1] ${!isVideoOn || deviceStatus.camera !== "ready" ? 'hidden' : ''}`}
                   />
                   {(!isVideoOn || deviceStatus.camera !== "ready") && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-slate-950">
+                    <div className="absolute inset-0 flex items-center justify-center bg-[var(--bg)]">
                       <div className="text-center px-4">
                         <div className="w-16 h-16 sm:w-20 sm:h-20 bg-[var(--accent)] rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
                           <span className="text-white text-xl sm:text-2xl font-semibold">
