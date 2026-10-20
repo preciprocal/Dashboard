@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Chrome, Download, RefreshCw, Settings as SettingsIcon, Briefcase, Linkedin,
-  MousePointerClick, PenLine, Trophy, ExternalLink, Info, CheckCircle2,
+  MousePointerClick, PenLine, ExternalLink, CheckCircle2,
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import { useExtensionStatus, extensionStoreUrl } from '@/lib/extension';
@@ -50,35 +50,29 @@ export default function ExtensionPage() {
 
   const installed = ext.status === 'installed';
   const loading = !usage && !error;
-  const hasActivity = !!usage && (usage.totals.jobsTracked > 0 || usage.totals.coverLetters > 0);
 
   return (
     <div className="space-y-4 pt-4">
       <PageHeader
         title="Chrome Extension"
-        description="Save jobs from LinkedIn and track applications automatically"
+        description="Your extension activity"
         icon={Chrome}
         actions={<>
           <StatusPill status={ext.status} version={ext.version} />
           {installed
             ? <Link href="/settings?section=extension" className="btn-secondary"><SettingsIcon /> Manage connection</Link>
-            : ext.status === 'not-installed' && (
-                <a href={extensionStoreUrl('app-extension-page')} target="_blank" rel="noopener noreferrer" className="btn-primary"><Download /> Install extension</a>
-              )}
+            : ext.status === 'not-installed' && <>
+                <button onClick={ext.recheck} className="btn-secondary"><RefreshCw /> Check again</button>
+                <a href={extensionStoreUrl('app-extension-page')} target="_blank" rel="noopener noreferrer" className="btn-primary"><Download /> Install</a>
+              </>}
         </>}
       />
 
-      {ext.status === 'not-installed' && <InstallPanel onRecheck={ext.recheck} />}
-      {installed && usage && !hasActivity && <FirstStepsPanel />}
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Stat icon={Briefcase} label="Jobs tracked" value={usage?.totals.jobsTracked} loading={loading} />
-        <Stat icon={Linkedin} label="Saved from LinkedIn" value={usage?.totals.fromLinkedIn} loading={loading} />
-        <Stat icon={MousePointerClick} label="Auto-tracked applications" value={usage?.totals.autoTracked} loading={loading} />
-        <Stat icon={PenLine} label="Cover letters from jobs" value={usage?.totals.coverLetters} loading={loading} />
-        <Stat icon={Trophy} label="Reached interview" value={usage?.totals.reachedInterview} loading={loading}
-          sub={usage && usage.totals.jobsTracked > 0 ? `${Math.round((usage.totals.reachedInterview / usage.totals.jobsTracked) * 100)}% of tracked` : undefined} />
+        <Stat icon={Linkedin} label="From LinkedIn" value={usage?.totals.fromLinkedIn} loading={loading} />
+        <Stat icon={MousePointerClick} label="Auto-tracked" value={usage?.totals.autoTracked} loading={loading} />
+        <Stat icon={PenLine} label="Cover letters" value={usage?.totals.coverLetters} loading={loading} />
       </div>
 
       {error && (
@@ -90,30 +84,26 @@ export default function ExtensionPage() {
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <section className="glass-card p-5 xl:col-span-2" aria-labelledby="activity-h">
-          <div className="flex items-center justify-between gap-3 mb-4">
-            <div>
-              <h2 id="activity-h" className="text-sm font-semibold text-white">Weekly activity</h2>
-              <p className="text-xs text-slate-500 mt-0.5">Last 12 weeks</p>
-            </div>
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-4">
+            <h2 id="activity-h" className="text-sm font-semibold text-white">Last 12 weeks</h2>
             <Legend />
           </div>
           {loading ? <div className="h-48 rounded-[10px] bg-white/[0.03] animate-pulse" /> : usage && <WeeklyChart weeks={usage.weekly} />}
         </section>
 
         <section className="glass-card p-5" aria-labelledby="platform-h">
-          <h2 id="platform-h" className="text-sm font-semibold text-white">Where your jobs came from</h2>
-          <p className="text-xs text-slate-500 mt-0.5 mb-4">Every job the extension tracked</p>
+          <h2 id="platform-h" className="text-sm font-semibold text-white mb-4">Sources</h2>
           {loading ? <div className="space-y-3">{[0, 1, 2].map(i => <div key={i} className="h-8 rounded-md bg-white/[0.03] animate-pulse" />)}</div>
             : usage && usage.byPlatform.length > 0 ? <PlatformBars rows={usage.byPlatform} />
-            : <p className="text-sm text-slate-500 py-6 text-center">No tracked jobs yet</p>}
+            : <EmptyList text="No jobs yet" />}
         </section>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <section className="glass-card p-5" aria-labelledby="jobs-h">
           <div className="flex items-center justify-between mb-3">
-            <h2 id="jobs-h" className="text-sm font-semibold text-white">Recently tracked jobs</h2>
-            <Link href="/job-tracker" className="text-xs font-medium text-indigo-300 hover:text-indigo-200">Open Job Tracker</Link>
+            <h2 id="jobs-h" className="text-sm font-semibold text-white">Recent jobs</h2>
+            <Link href="/job-tracker" className="text-xs font-medium text-indigo-300 hover:text-indigo-200">View all</Link>
           </div>
           {loading ? <ListSkeleton /> : usage && usage.recentJobs.length > 0 ? (
             <ul className="divide-y divide-white/[0.06]">
@@ -128,13 +118,13 @@ export default function ExtensionPage() {
                 </li>
               ))}
             </ul>
-          ) : <EmptyList text="Jobs you save from LinkedIn or apply to on Greenhouse, Lever, Workday and others appear here." />}
+          ) : <EmptyList text="No jobs yet" />}
         </section>
 
         <section className="glass-card p-5" aria-labelledby="letters-h">
           <div className="flex items-center justify-between mb-3">
-            <h2 id="letters-h" className="text-sm font-semibold text-white">Cover letters started from a job</h2>
-            <Link href="/cover-letter" className="text-xs font-medium text-indigo-300 hover:text-indigo-200">All cover letters</Link>
+            <h2 id="letters-h" className="text-sm font-semibold text-white">Recent cover letters</h2>
+            <Link href="/cover-letter" className="text-xs font-medium text-indigo-300 hover:text-indigo-200">View all</Link>
           </div>
           {loading ? <ListSkeleton /> : usage && usage.recentCoverLetters.length > 0 ? (
             <ul className="divide-y divide-white/[0.06]">
@@ -147,17 +137,10 @@ export default function ExtensionPage() {
                 </li>
               ))}
             </ul>
-          ) : <EmptyList text="Click “Cover letter” on a LinkedIn job in the extension and the letter you write shows up here." />}
+          ) : <EmptyList text="No cover letters yet" />}
         </section>
       </div>
 
-      <p className="flex items-start gap-2 text-xs text-slate-500 px-1">
-        <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-        <span>
-          Counted from jobs and cover letters the extension created for your account
-          {usage?.firstUsedAt ? `, first on ${fmtDate(usage.firstUsedAt)}` : ''}. Job analyses and form auto-fills run inside the extension and are not recorded.
-        </span>
-      </p>
     </div>
   );
 }
@@ -170,48 +153,6 @@ function StatusPill({ status, version }: { status: string; version?: string }) {
     return <span className="btn-pill !text-emerald-300 !bg-emerald-500/10 !border-emerald-500/25"><CheckCircle2 /> Installed{version ? ` · v${version}` : ''}</span>;
   }
   return <span className="btn-pill !text-slate-300 !bg-white/[0.04] !border-white/[0.1]">Not installed</span>;
-}
-
-function InstallPanel({ onRecheck }: { onRecheck: () => void }) {
-  const steps = [
-    { title: 'Install it', text: 'Add Preciprocal from the Chrome Web Store. Works in Chrome, Edge, Brave and Arc.' },
-    { title: 'Connect it', text: 'Open Settings, Extension, and click Connect. It unlocks once the extension is detected.' },
-    { title: 'Use it on any job', text: 'On LinkedIn, save jobs and see your match. On Greenhouse, Lever or Workday, applications track themselves.' },
-  ];
-  return (
-    <section className="glass-card p-5" aria-labelledby="install-h">
-      <div className="flex flex-col lg:flex-row lg:items-center gap-5">
-        <div className="flex-1 min-w-0">
-          <h2 id="install-h" className="text-[15px] font-semibold text-white">The extension is not installed in this browser</h2>
-          <p className="text-[13px] text-slate-400 mt-1">Install it to save jobs in one click and keep your tracker filled in automatically.</p>
-          <ol className="grid sm:grid-cols-3 gap-3 mt-4">
-            {steps.map((s, i) => (
-              <li key={s.title} className="p-3 rounded-[10px] bg-[var(--bg-subtle)] border border-white/[0.06]">
-                <p className="text-xs font-semibold text-white"><span className="text-indigo-300 tabular-nums mr-1.5">{i + 1}</span>{s.title}</p>
-                <p className="text-xs text-slate-500 mt-1 leading-relaxed">{s.text}</p>
-              </li>
-            ))}
-          </ol>
-        </div>
-        <div className="flex lg:flex-col gap-2 flex-shrink-0">
-          <a href={extensionStoreUrl('app-extension-page')} target="_blank" rel="noopener noreferrer" className="btn-primary"><Download /> Install from Chrome Web Store</a>
-          <button onClick={onRecheck} className="btn-secondary"><RefreshCw /> I&apos;ve installed it</button>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function FirstStepsPanel() {
-  return (
-    <section className="glass-card p-5 flex flex-col sm:flex-row sm:items-center gap-4">
-      <div className="flex-1">
-        <h2 className="text-[15px] font-semibold text-white">You&apos;re set up. Nothing tracked yet</h2>
-        <p className="text-[13px] text-slate-400 mt-1">Open a LinkedIn job and click the Preciprocal icon, or apply on a company careers page. Activity shows up here.</p>
-      </div>
-      <a href="https://www.linkedin.com/jobs/" target="_blank" rel="noopener noreferrer" className="btn-primary flex-shrink-0"><Linkedin /> Open LinkedIn Jobs</a>
-    </section>
-  );
 }
 
 function Stat({ icon: Icon, label, value, sub, loading }: { icon: React.ElementType; label: string; value?: number; sub?: string; loading: boolean }) {
@@ -282,7 +223,7 @@ function WeeklyChart({ weeks }: { weeks: Usage['weekly'] }) {
           {/* x labels: every 3rd week, to avoid crowding */}
           <div className="absolute inset-x-0 flex" style={{ top: H + 6 }} aria-hidden="true">
             {weeks.map((w, i) => (
-              <span key={w.weekStart} className="flex-1 text-center text-[10px] text-slate-600">{i % 3 === 0 || i === weeks.length - 1 ? fmtDate(w.weekStart) : ''}</span>
+              <span key={w.weekStart} className="flex-1 text-center text-[10px] text-slate-600 whitespace-nowrap">{i % 3 === 0 || i === weeks.length - 1 ? fmtDate(w.weekStart) : ''}</span>
             ))}
           </div>
         </div>
