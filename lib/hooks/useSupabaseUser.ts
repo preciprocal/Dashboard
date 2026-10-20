@@ -21,10 +21,17 @@ let knownUser: User | null | undefined;
 // with a new User object for the same person. Pages fetch in effects keyed on
 // `user`, so swapping the object reran every fetch and put each page back on
 // its loader after a tab switch. Keep the object we have unless it is a
-// different person or their record actually changed.
+// different person or something the app shows actually changed.
+//
+// Not updated_at: Supabase bumps it on every token refresh, which is exactly
+// the event this has to ignore (measured: it moved on a refresh with no change).
 function sameUser(a: User | null, b: User | null): boolean {
   if (!a || !b) return a === b;
-  return a.id === b.id && a.updated_at === b.updated_at && a.email === b.email;
+  return a.id === b.id
+    && a.email === b.email
+    && a.phone === b.phone
+    && JSON.stringify(a.user_metadata ?? {}) === JSON.stringify(b.user_metadata ?? {})
+    && JSON.stringify(a.app_metadata ?? {}) === JSON.stringify(b.app_metadata ?? {});
 }
 
 export function useSupabaseUser(): [User | null, boolean, Error | undefined] {
