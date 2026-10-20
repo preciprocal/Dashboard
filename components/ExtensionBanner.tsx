@@ -1,11 +1,12 @@
 'use client';
 // components/ExtensionBanner.tsx
-// Dashboard prompt to try the Chrome extension. Shown only once detection
-// has settled on "not installed" (so it never flashes for people who have
-// it) and until the person dismisses it.
+// Dashboard prompt to try the Chrome extension: a slim announcement strip
+// (one sentence, a text link, one compact action) rather than a promo card.
+// Shown only once detection has settled on "not installed", so it never
+// flashes for people who have it, and until the person dismisses it.
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Chrome, Download, X } from 'lucide-react';
+import { ArrowRight, X } from 'lucide-react';
 import { useExtensionStatus, extensionStoreUrl } from '@/lib/extension';
 
 const DISMISS_KEY = 'prc_ext_banner_dismissed';
@@ -26,26 +27,27 @@ export default function ExtensionBanner() {
   };
 
   return (
-    <section aria-labelledby="ext-banner-h"
-      className="glass-card relative p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4 animate-fade-in-up">
-      <div className="flex items-center gap-3 flex-1 min-w-0 pr-8 sm:pr-0">
-        <div className="w-10 h-10 rounded-[10px] bg-[var(--accent-subtle)] border border-[var(--accent-border)] flex items-center justify-center flex-shrink-0">
-          <Chrome className="w-5 h-5 text-indigo-200" strokeWidth={1.75} />
-        </div>
-        <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-indigo-300">New · Chrome extension</p>
-          <h2 id="ext-banner-h" className="text-[15px] font-semibold text-white mt-0.5">Save jobs from LinkedIn in one click</h2>
-          <p className="text-[13px] text-slate-400 mt-0.5">See your match on any posting and keep your Job Tracker filled in as you apply.</p>
-        </div>
-      </div>
-      <div className="flex items-center gap-2 flex-shrink-0">
-        <Link href="/extension" className="btn-secondary">Learn more</Link>
-        <a href={extensionStoreUrl('app-dashboard-banner')} target="_blank" rel="noopener noreferrer" className="btn-primary"><Download /> Install</a>
-      </div>
+    <aside aria-label="Chrome extension"
+      className="flex items-center gap-3 rounded-xl border border-white/[0.08] bg-[var(--bg-surface)] pl-4 pr-2 py-2 animate-fade-in-up">
+      <span className="hidden sm:inline-block flex-shrink-0 rounded-md border border-[var(--accent-border)] bg-[var(--accent-subtle)] px-1.5 py-0.5 text-[11px] font-semibold text-indigo-200">
+        New
+      </span>
+      <p className="flex-1 min-w-0 text-[13px] text-slate-300 truncate">
+        <span className="sm:hidden text-white font-medium">Try the Chrome extension</span>
+        <span className="hidden sm:inline text-white font-medium">Save jobs from LinkedIn in one click</span>
+        <span className="hidden md:inline text-slate-400"> with the Preciprocal Chrome extension.</span>
+      </p>
+      <Link href="/extension" className="hidden sm:inline-flex items-center gap-1 flex-shrink-0 px-2 h-8 rounded-md text-[13px] font-medium text-slate-300 hover:text-white hover:bg-white/[0.05] transition-colors">
+        Learn more <ArrowRight className="w-3.5 h-3.5" />
+      </Link>
+      <a href={extensionStoreUrl('app-dashboard-banner')} target="_blank" rel="noopener noreferrer"
+        className="flex-shrink-0 inline-flex items-center h-8 px-3 rounded-md text-[13px] font-semibold text-white bg-[var(--accent)] hover:bg-[var(--accent-hover)] transition-colors">
+        Add to Chrome
+      </a>
       <button onClick={dismiss} aria-label="Dismiss"
-        className="absolute top-3 right-3 sm:static sm:ml-1 w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/[0.06] transition-colors">
+        className="flex-shrink-0 w-8 h-8 rounded-md flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/[0.05] transition-colors">
         <X className="w-4 h-4" />
       </button>
-    </section>
+    </aside>
   );
 }
