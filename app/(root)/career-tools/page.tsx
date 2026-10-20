@@ -597,7 +597,7 @@ export default function CareerToolsPage() {
 
   const {
     canUseFeature, getRemainingCount, getUsedCount,
-    getLimit, refetch: refetchUsage,
+    getLimit, refetch: refetchUsage, loading: usageLoading,
   } = useUsageTracking();
   const liUsed  = getUsedCount('linkedinOptimisations');
   const liLimit = getLimit('linkedinOptimisations');
@@ -805,7 +805,7 @@ export default function CareerToolsPage() {
               <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-500/[0.07] border border-blue-500/20">
                 <Shield className="w-3.5 h-3.5 text-blue-400" />
                 <span className="text-[12px] font-semibold text-blue-400">
-                  {isLI
+                  {usageLoading ? <span aria-hidden="true" className="inline-block w-12 h-3 rounded bg-current opacity-20 animate-pulse align-middle" /> : isLI
                     ? (liUnlimited ? 'Unlimited' : `${liLeft} optimisations left`)
                     : (orUnlimited ? 'Unlimited' : `${orLeft} messages left`)}
                 </span>

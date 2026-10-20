@@ -183,7 +183,7 @@ export default function UploadResume() {
   const [user, loading] = useSupabaseUser();
   const router = useRouter();
 
-  const { canUseFeature, getRemainingCount, getUsedCount, getLimit, refetch: refetchUsage } = useUsageTracking();
+  const { canUseFeature, getRemainingCount, getUsedCount, getLimit, refetch: refetchUsage, loading: usageLoading } = useUsageTracking();
   const resumesUsed     = getUsedCount('resumes');
   const resumesLimit    = getLimit('resumes');
   const resumesLeft     = getRemainingCount('resumes');
@@ -412,7 +412,7 @@ export default function UploadResume() {
               <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-500/[0.07] border border-indigo-500/20">
                 <Shield className="w-4 h-4 text-indigo-400" />
                 <span className="text-[13px] font-semibold text-indigo-400">
-                  {resumesUnlimited ? 'Unlimited' : `${resumesLeft} left`}
+                  {usageLoading ? <span aria-hidden="true" className="inline-block w-12 h-3 rounded bg-current opacity-20 animate-pulse align-middle" /> : resumesUnlimited ? 'Unlimited' : `${resumesLeft} left`}
                 </span>
               </div>
               <SeeExampleButton serviceId="resume" />

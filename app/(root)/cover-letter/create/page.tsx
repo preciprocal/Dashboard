@@ -161,7 +161,7 @@ export default function CoverLetterGeneratorPage() {
 
   const {
     canUseFeature, getRemainingCount, getUsedCount,
-    getLimit, refetch: refetchUsage,
+    getLimit, refetch: refetchUsage, loading: usageLoading,
   } = useUsageTracking();
   const clUsed  = getUsedCount('coverLetters');
   const clLimit = getLimit('coverLetters');
@@ -439,7 +439,7 @@ export default function CoverLetterGeneratorPage() {
             <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-500/[0.07] border border-indigo-500/20">
               <Shield className="w-4 h-4 text-indigo-400" />
               <span className="text-[13px] font-semibold text-indigo-400">
-                {clUnlimited ? 'Unlimited' : `${clLeft} left`}
+                {usageLoading ? <span aria-hidden="true" className="inline-block w-12 h-3 rounded bg-current opacity-20 animate-pulse align-middle" /> : clUnlimited ? 'Unlimited' : `${clLeft} left`}
               </span>
             </div>
             <SeeExampleButton serviceId="cover-letter" className="!px-4 !py-2.5 !text-sm !font-semibold" />

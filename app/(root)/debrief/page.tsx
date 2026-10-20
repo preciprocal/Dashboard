@@ -648,7 +648,7 @@ export default function InterviewDebriefPage() {
 
   const {
     canUseFeature, getRemainingCount, getUsedCount,
-    getLimit, refetch: refetchUsage,
+    getLimit, refetch: refetchUsage, loading: usageLoading,
   } = useUsageTracking();
   const debriefUsed  = getUsedCount('interviewDebriefs');
   const debriefLimit = getLimit('interviewDebriefs');
@@ -860,7 +860,7 @@ export default function InterviewDebriefPage() {
             <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-500/[0.07] border border-violet-500/20">
               <Shield className="w-4 h-4 text-violet-400" />
               <span className="text-[13px] font-semibold text-violet-400">
-                {debriefUnlimited ? 'Unlimited' : `${debriefLeft} left`}
+                {usageLoading ? <span aria-hidden="true" className="inline-block w-12 h-3 rounded bg-current opacity-20 animate-pulse align-middle" /> : debriefUnlimited ? 'Unlimited' : `${debriefLeft} left`}
               </span>
             </div>
             <button onClick={handleLogInterview}

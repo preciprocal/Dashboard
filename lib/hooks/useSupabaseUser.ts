@@ -11,18 +11,46 @@ import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/supabase/client";
 import { getClientUser } from "@/lib/auth/client-user";
 
+// The last user any instance resolved, shared for the life of the page.
+// `undefined` means not resolved yet. Without it, every page a person moved
+// to started from "no user, loading" and flashed its loader while auth was
+// looked up again, even though nothing had changed.
+let knownUser: User | null | undefined;
+
+// Supabase re-emits SIGNED_IN / TOKEN_REFRESHED when a tab regains focus, each
+// with a new User object for the same person. Pages fetch in effects keyed on
+// `user`, so swapping the object reran every fetch and put each page back on
+// its loader after a tab switch. Keep the object we have unless it is a
+// different person or their record actually changed.
+function sameUser(a: User | null, b: User | null): boolean {
+  if (!a || !b) return a === b;
+  return a.id === b.id && a.updated_at === b.updated_at && a.email === b.email;
+}
+
 export function useSupabaseUser(): [User | null, boolean, Error | undefined] {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(knownUser ?? null);
+  const [loading, setLoading] = useState(knownUser === undefined);
   const [error, setError] = useState<Error | undefined>(undefined);
 
   useEffect(() => {
     let mounted = true;
 
+    const accept = (next: User | null) => {
+      setUser(prev => {
+        const kept = sameUser(prev, next) ? prev : next;
+        knownUser = kept;
+        return kept;
+      });
+    };
+
     getClientUser().then(({ user: u, verified }) => {
       if (!mounted) return;
       if (!verified && !u) setError(new Error("Could not reach Supabase Auth"));
-      setUser(prev => prev ?? u);
+      setUser(prev => {
+        const kept = prev ?? u;
+        knownUser = kept;
+        return kept;
+      });
       setLoading(false);
     });
 
@@ -30,8 +58,8 @@ export function useSupabaseUser(): [User | null, boolean, Error | undefined] {
       if (!mounted) return;
       // INITIAL_SESSION can arrive with no session before storage is read;
       // only an explicit sign-out clears a user we already have.
-      if (session?.user) setUser(session.user);
-      else if (event === "SIGNED_OUT") setUser(null);
+      if (session?.user) accept(session.user);
+      else if (event === "SIGNED_OUT") accept(null);
       if (event !== "INITIAL_SESSION" || session) setLoading(false);
     });
 
