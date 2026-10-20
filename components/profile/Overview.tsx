@@ -146,10 +146,10 @@ const ProfileOverview: React.FC<ProfileOverviewProps> = ({
   const doneCount     = dailyFocus.filter(f => f.completed).length;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4">
 
       {/* ── Today's focus ───────────────────────────────────── */}
-      <section className="glass-card p-5" aria-labelledby="focus-heading">
+      <section className="glass-card p-5 flex flex-col" aria-labelledby="focus-heading">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-indigo-500/[0.1] border border-indigo-400/20 flex items-center justify-center">
@@ -196,14 +196,14 @@ const ProfileOverview: React.FC<ProfileOverviewProps> = ({
             })}
           </div>
         ) : (
-          <p className="text-sm text-slate-500 text-center py-6">
+          <p className="flex-1 flex items-center justify-center text-sm text-slate-500 text-center py-6">
             Nothing due today. Start a mock interview to set your first goal.
           </p>
         )}
       </section>
 
       {/* ── Recent sessions ─────────────────────────────────── */}
-      <section className="glass-card p-5" aria-labelledby="recent-heading">
+      <section className="glass-card p-5 flex flex-col" aria-labelledby="recent-heading">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.08] flex items-center justify-center">
@@ -251,7 +251,7 @@ const ProfileOverview: React.FC<ProfileOverviewProps> = ({
               })}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center text-center py-6">
+          <div className="flex-1 flex flex-col items-center justify-center text-center py-6">
             <p className="text-sm text-slate-300 font-medium">No sessions yet</p>
             <p className="text-xs text-slate-500 mt-1 max-w-[16rem]">Your mock interviews and their scores will show up here.</p>
             <Link href="/interview" className="mt-4 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold text-white glass-button-primary">

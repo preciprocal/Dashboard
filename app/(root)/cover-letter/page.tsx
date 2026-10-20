@@ -439,11 +439,11 @@ function EmptyDashboard() {
         <Link
           href="/cover-letter/create"
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl whitespace-nowrap shrink-0
-                     bg-gradient-to-r from-indigo-600 to-purple-600
-                     hover:from-indigo-500 hover:to-purple-500
+                     bg-[var(--accent)]
+                     hover:bg-[var(--accent-hover)]
                      text-white text-sm font-semibold
-                     shadow-[0_4px_16px_rgba(102,126,234,0.3)]
-                     hover:shadow-[0_6px_20px_rgba(102,126,234,0.4)]
+                     
+                     
                      transition-all duration-200"
         >
           <Plus className="w-4 h-4 shrink-0" /> Generate First Letter
@@ -531,8 +531,8 @@ function PreviewModal({
             <button
               onClick={onDownloadToggle}
               className="download-button flex items-center gap-2 px-4 py-2.5 rounded-xl
-                         bg-gradient-to-r from-indigo-600 to-purple-600
-                         hover:from-indigo-500 hover:to-purple-500
+                         bg-[var(--accent)]
+                         hover:bg-[var(--accent-hover)]
                          text-white text-xs font-semibold
                          transition-all duration-150"
             >
@@ -616,7 +616,6 @@ export default function CoverLetterDashboard() {
     try {
       setLoadingLetters(true); setLettersError(''); setLoadingStep(0);
       setLoadingStep(1);
-      await new Promise(r => setTimeout(r, 150));
       setLoadingStep(2);
       const res = await fetch('/api/cover-letter/list');
       if (!res.ok) throw new Error(`Failed to fetch (${res.status})`);
@@ -632,7 +631,6 @@ export default function CoverLetterDashboard() {
       setLoadingStep(3);
       setStats(computeStats(letters));
       setLoadingStep(4);
-      await new Promise(r => setTimeout(r, 100));
       setLoadingStep(5);
     } catch (err: unknown) {
       const msg = (err as Error).message ?? '';
@@ -742,9 +740,9 @@ export default function CoverLetterDashboard() {
           <Link
             href="/sign-in"
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
-                       bg-gradient-to-r from-indigo-600 to-purple-600 text-white
+                       bg-[var(--accent)] text-white
                        text-sm font-semibold transition-all duration-150
-                       hover:from-indigo-500 hover:to-purple-500"
+                       hover:bg-[var(--accent-hover)]"
           >
             Go to sign in
           </Link>
@@ -773,11 +771,11 @@ export default function CoverLetterDashboard() {
             <Link
               href="/cover-letter/create"
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl
-                         bg-gradient-to-r from-indigo-600 to-purple-600
-                         hover:from-indigo-500 hover:to-purple-500
+                         bg-[var(--accent)]
+                         hover:bg-[var(--accent-hover)]
                          text-white text-sm font-semibold
-                         shadow-[0_4px_14px_rgba(102,126,234,0.28)]
-                         hover:shadow-[0_6px_18px_rgba(102,126,234,0.38)]
+                         
+                         
                          transition-all duration-200"
             >
               <Plus className="w-4 h-4" /> Generate New

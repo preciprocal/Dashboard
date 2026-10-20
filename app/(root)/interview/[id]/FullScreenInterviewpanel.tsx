@@ -1050,7 +1050,7 @@ const FullScreenInterviewPanel = ({
             >
               <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
-            <div className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
+            <div className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 bg-[var(--accent)] rounded-lg flex items-center justify-center flex-shrink-0">
               <span className="text-white text-xs sm:text-sm font-semibold">AI</span>
             </div>
             <div className="min-w-0 flex-1">
@@ -1101,10 +1101,10 @@ const FullScreenInterviewPanel = ({
               <div
                 key={participant.id}
                 className={`bg-slate-900/60 backdrop-blur-xl rounded-2xl flex flex-col justify-center items-center p-4 sm:p-5 md:p-6 border relative overflow-hidden transition-all duration-300 ${
-                  (participant as { isLead?: boolean }).isLead      ? "border-blue-500/30 shadow-lg shadow-blue-500/10"
-                    : (participant as { isCurrentUser?: boolean }).isCurrentUser ? "border-purple-500/30 shadow-lg shadow-purple-500/10"
+                  (participant as { isLead?: boolean }).isLead      ? "border-blue-500/30 shadow-lg "
+                    : (participant as { isCurrentUser?: boolean }).isCurrentUser ? "border-purple-500/30 shadow-lg "
                     : "border-slate-800"
-                } ${isCurrentSpeaker ? "ring-2 ring-blue-500/50 scale-[1.02] shadow-xl shadow-blue-500/20" : ""}`}
+                } ${isCurrentSpeaker ? "ring-2 ring-blue-500/50 scale-[1.02] shadow-xl " : ""}`}
               >
                 {(participant as { isLead?: boolean }).isLead && (
                   <div className="absolute top-2 sm:top-3 md:top-4 right-2 sm:right-3 md:right-4 bg-blue-600 text-white text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1 rounded-full font-medium">Lead</div>

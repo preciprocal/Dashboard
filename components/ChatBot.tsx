@@ -267,7 +267,7 @@
 //       >
 //         <button
 //           onClick={() => setIsOpen(true)}
-//           className="group relative bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white rounded-full p-3 sm:p-4 shadow-lg transition-all duration-200 hover:shadow-xl"
+//           className="group relative bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-full p-3 sm:p-4 shadow-lg transition-all duration-200 hover:shadow-xl"
 //           aria-label="Open chat support"
 //         >
 //           <MessageCircle className="h-5 w-5 sm:h-6 sm:w-6" />
@@ -295,7 +295,7 @@
 //     >
 //       <div className="bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl overflow-hidden h-full flex flex-col backdrop-blur-sm">
 //         {/* Header */}
-//         <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 p-3 sm:p-4 flex items-center justify-between">
+//         <div className="bg-[var(--accent)] p-3 sm:p-4 flex items-center justify-between">
 //           <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
 //             <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
 //               <Bot className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
@@ -380,7 +380,7 @@
 //                   >
 //                     <div className="flex items-start space-x-2">
 //                       {message.type === "bot" && (
-//                         <div className="w-6 h-6 sm:w-7 sm:h-7 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+//                         <div className="w-6 h-6 sm:w-7 sm:h-7 bg-[var(--accent)] rounded-full flex items-center justify-center flex-shrink-0 mt-1">
 //                           <Bot className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
 //                         </div>
 //                       )}
@@ -388,7 +388,7 @@
 //                       <div
 //                         className={`rounded-lg px-3 py-2 ${
 //                           message.type === "user"
-//                             ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white"
+//                             ? "bg-[var(--accent)] text-white"
 //                             : "bg-gray-800/60 text-gray-100 border border-gray-700/50"
 //                         }`}
 //                       >
@@ -472,7 +472,7 @@
 //               {isTyping && (
 //                 <div className="flex justify-start">
 //                   <div className="flex items-start space-x-2">
-//                     <div className="w-6 h-6 sm:w-7 sm:h-7 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mt-1">
+//                     <div className="w-6 h-6 sm:w-7 sm:h-7 bg-[var(--accent)] rounded-full flex items-center justify-center mt-1">
 //                       <Bot className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
 //                     </div>
 //                     <div className="bg-gray-800/60 rounded-lg px-3 py-2 border border-gray-700/50">
@@ -511,7 +511,7 @@
 //                 <button
 //                   onClick={handleSendMessage}
 //                   disabled={!inputValue.trim() || isTyping}
-//                   className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 sm:px-4 py-2 rounded-lg transition-all duration-200 min-w-[40px] sm:min-w-[44px] flex items-center justify-center"
+//                   className="bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 sm:px-4 py-2 rounded-lg transition-all duration-200 min-w-[40px] sm:min-w-[44px] flex items-center justify-center"
 //                   aria-label="Send message"
 //                 >
 //                   <Send className="h-4 w-4" />

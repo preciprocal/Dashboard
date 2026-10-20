@@ -162,11 +162,11 @@ function EmptyDashboard() {
         <Link
           href="/interview/create"
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
-                     bg-gradient-to-r from-indigo-600 to-purple-600
-                     hover:from-indigo-500 hover:to-purple-500
+                     bg-[var(--accent)]
+                     hover:bg-[var(--accent-hover)]
                      text-white text-[13px] font-semibold
-                     shadow-[0_4px_16px_rgba(102,126,234,0.3)]
-                     hover:shadow-[0_6px_20px_rgba(102,126,234,0.4)]
+                     
+                     
                      transition-all duration-200"
         >
           <Plus className="w-4 h-4" /> Start First Interview
@@ -240,7 +240,6 @@ export default function InterviewsDashboard() {
 
       if (!raw?.length) {
         setInterviews([]); setLoadingStep(6);
-        await new Promise(r => setTimeout(r, 200));
         setLoadingInterviews(false);
         return;
       }
@@ -283,8 +282,8 @@ export default function InterviewsDashboard() {
         completionRate:  Math.round((completed.length / withFeedback.length) * 100),
       });
 
-      setLoadingStep(5); await new Promise(r => setTimeout(r, 100));
-      setLoadingStep(6); await new Promise(r => setTimeout(r, 100));
+      setLoadingStep(5);
+      setLoadingStep(6);
 
     } catch (err: unknown) {
       const msg = (err as Error).message ?? '';
@@ -361,8 +360,8 @@ export default function InterviewsDashboard() {
           <Link
             href="/sign-in"
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
-                       bg-gradient-to-r from-indigo-600 to-purple-600 text-white
-                       text-[13px] font-semibold hover:from-indigo-500 hover:to-purple-500
+                       bg-[var(--accent)] text-white
+                       text-[13px] font-semibold hover:bg-[var(--accent-hover)]
                        transition-all duration-150"
           >
             Go to sign in
@@ -391,11 +390,11 @@ export default function InterviewsDashboard() {
             <Link
               href="/interview/create"
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl
-                         bg-gradient-to-r from-indigo-600 to-purple-600
-                         hover:from-indigo-500 hover:to-purple-500
+                         bg-[var(--accent)]
+                         hover:bg-[var(--accent-hover)]
                          text-white text-[13px] font-semibold
-                         shadow-[0_4px_14px_rgba(102,126,234,0.28)]
-                         hover:shadow-[0_6px_18px_rgba(102,126,234,0.38)]
+                         
+                         
                          transition-all duration-200"
             >
               <Plus className="w-4 h-4" /> New Interview

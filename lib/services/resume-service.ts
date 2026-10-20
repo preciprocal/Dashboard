@@ -81,7 +81,21 @@ export async function getResume(id: string): Promise<Resume | null> {
   }
 }
 
-export async function getUserResumes(userId: string): Promise<Resume[]> {
+// The sidebar's "recent resume" and the page mount at the same moment and
+// both asked /api/resume for the same list (two 300-500ms requests). A
+// request already in flight is shared; nothing is cached after it settles,
+// so a save or delete is always reflected on the next call.
+let inflightResumes: Promise<Resume[]> | null = null;
+
+export function getUserResumes(userId: string): Promise<Resume[]> {
+  if (!inflightResumes) {
+    inflightResumes = fetchUserResumes(userId).finally(() => { inflightResumes = null; });
+  }
+  // A copy each, so one caller re-sorting or filtering cannot affect another.
+  return inflightResumes.then(list => [...list]);
+}
+
+async function fetchUserResumes(userId: string): Promise<Resume[]> {
   try {
     // The API route scopes to the caller's own authenticated session -
     // `userId` is accepted for signature compatibility with existing

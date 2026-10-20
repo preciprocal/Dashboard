@@ -88,13 +88,9 @@ function convertToDate(val: TimestampLike | string | Date | undefined): Date {
 
 // ─── Shared input style ───────────────────────────────────────────────────────
 
-const inp = [
-  'w-full px-3 py-2.5 rounded-xl text-sm text-white',
-  'bg-white/[0.04] border border-white/[0.08]',
-  'placeholder-slate-600',
-  'focus:outline-none focus:ring-1 focus:ring-purple-500/40 focus:border-purple-500/40',
-  'transition-all duration-150',
-].join(' ');
+// Shared form-control size and style (globals.css .field), so every input,
+// select and textarea on this page matches the rest of the app.
+const inp = 'field';
 
 // ─── Stat card ────────────────────────────────────────────────────────────────
 
@@ -298,7 +294,6 @@ const ProfilePage = () => {
           completionRate: total > 0 ? Math.round((completed.length / total) * 100) : 0,
         });
         setLoadingStep(5);
-        await new Promise(r => setTimeout(r, 100));
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : '';
         if (msg.includes('fetch') || msg.includes('network')) {
@@ -431,7 +426,7 @@ const ProfilePage = () => {
           <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-white mb-2">Sign in required</h2>
           <p className="text-sm text-slate-500 mb-6">Please sign in to view your profile</p>
-          <Link href="/sign-in" className="inline-flex items-center justify-center gap-2 w-full px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm font-semibold hover:from-indigo-500 hover:to-purple-500 transition-all">
+          <Link href="/sign-in" className="inline-flex items-center justify-center gap-2 w-full px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white text-sm font-semibold hover:bg-[var(--accent-hover)] transition-all">
             Go to sign in
           </Link>
         </div>
@@ -498,7 +493,7 @@ const ProfilePage = () => {
               className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl
                           text-xs font-semibold whitespace-nowrap transition-all duration-150
                           ${activeTab === tab.id
-                            ? 'bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-[0_2px_10px_rgba(124,58,237,0.35)]'
+                            ? 'bg-[var(--accent)] text-white '
                             : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'}`}
             >
               <tab.icon className="w-3.5 h-3.5" /> {tab.label}
@@ -516,7 +511,7 @@ const ProfilePage = () => {
               <div className="flex items-center gap-3.5 flex-1 min-w-0">
                 <div className="w-14 h-14 gradient-primary rounded-2xl flex items-center justify-center
                                text-white text-xl font-bold flex-shrink-0
-                               shadow-[0_4px_16px_rgba(102,126,234,0.35)]">
+                               ">
                   {userProfile.name.charAt(0).toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -548,8 +543,8 @@ const ProfilePage = () => {
                     onClick={() => handleUpdateProfile(editedProfile)}
                     disabled={isSaving}
                     className="flex items-center gap-2 px-4 py-2.5 rounded-xl flex-1 sm:flex-initial justify-center
-                               bg-gradient-to-r from-indigo-500 to-violet-500
-                               hover:from-indigo-400 hover:to-violet-400
+                               bg-[var(--accent)]
+                               hover:bg-[var(--accent-hover)]
                                text-white text-sm font-semibold
                                transition-all disabled:opacity-50"
                   >

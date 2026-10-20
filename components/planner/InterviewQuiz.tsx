@@ -224,8 +224,8 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
       <div className="min-h-[600px] flex items-center justify-center">
         <div className="text-center max-w-md">
           <div className="relative w-32 h-32 mx-auto mb-8">
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full opacity-20 animate-pulse"></div>
-            <div className="absolute inset-4 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+            <div className="absolute inset-0 bg-[var(--accent)] rounded-full opacity-20 animate-pulse"></div>
+            <div className="absolute inset-4 bg-[var(--accent)] rounded-full flex items-center justify-center">
               <Loader2 className="w-12 h-12 text-white animate-spin" />
             </div>
           </div>
@@ -267,7 +267,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
           <div className="flex gap-4 justify-center">
             <button
               onClick={fetchQuiz}
-              className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all transform hover:scale-105 flex items-center space-x-2"
+              className="px-8 py-4 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all transform hover:scale-105 flex items-center space-x-2"
             >
               <RotateCcw className="w-5 h-5" />
               <span>Try Again</span>
@@ -293,8 +293,8 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
         {/* Header */}
         <div className="text-center mb-10">
           <div className="relative w-32 h-32 mx-auto mb-6">
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-3xl opacity-20 animate-pulse"></div>
-            <div className="absolute inset-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl flex items-center justify-center shadow-2xl">
+            <div className="absolute inset-0 bg-[var(--accent)] rounded-3xl opacity-20 animate-pulse"></div>
+            <div className="absolute inset-2 bg-[var(--accent)] rounded-3xl flex items-center justify-center shadow-2xl">
               <Brain className="w-16 h-16 text-white" />
             </div>
           </div>
@@ -320,7 +320,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <div className="bg-gradient-to-br from-blue-900/20 to-cyan-900/20 border border-blue-800 rounded-2xl p-6 text-center">
-            <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center mx-auto mb-3">
+            <div className="w-14 h-14 bg-[var(--accent)] rounded-xl flex items-center justify-center mx-auto mb-3">
               <TrendingUp className="w-7 h-7 text-white" />
             </div>
             <div className="text-4xl font-bold text-blue-400 mb-1">{metadata?.totalDays || 0}</div>
@@ -328,7 +328,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
           </div>
 
           <div className="bg-gradient-to-br from-purple-900/20 to-pink-900/20 border border-purple-800 rounded-2xl p-6 text-center">
-            <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center mx-auto mb-3">
+            <div className="w-14 h-14 bg-[var(--accent)] rounded-xl flex items-center justify-center mx-auto mb-3">
               <Brain className="w-7 h-7 text-white" />
             </div>
             <div className="text-4xl font-bold text-purple-400 mb-1">{questions.length}</div>
@@ -397,7 +397,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
         {/* CTA Button */}
         <button
           onClick={() => setQuizStarted(true)}
-          className="w-full bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white font-bold py-6 px-8 rounded-2xl shadow-2xl hover:shadow-3xl transform hover:scale-[1.02] transition-all flex items-center justify-center space-x-3 text-xl"
+          className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-bold py-6 px-8 rounded-2xl shadow-2xl hover:shadow-3xl transform hover:scale-[1.02] transition-all flex items-center justify-center space-x-3 text-xl"
         >
           <span>Start Quiz</span>
           <ArrowRight className="w-6 h-6" />
@@ -529,7 +529,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
                 key={index}
                 className={`relative group flex items-center justify-center w-full aspect-square rounded-xl font-bold transition-all hover:scale-110 ${
                   isCorrect
-                    ? 'bg-gradient-to-br from-green-500 to-emerald-500 text-white shadow-lg'
+                    ? 'bg-emerald-500 text-white shadow-lg'
                     : 'bg-gradient-to-br from-red-500 to-rose-500 text-white shadow-lg'
                 }`}
               >
@@ -554,7 +554,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
           {onClose && (
             <button
               onClick={onClose}
-              className="flex-1 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white font-bold py-5 px-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all transform hover:scale-[1.02] flex items-center justify-center space-x-3 text-lg"
+              className="flex-1 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-bold py-5 px-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all transform hover:scale-[1.02] flex items-center justify-center space-x-3 text-lg"
             >
               <Award className="w-6 h-6" />
               <span>Back to Dashboard</span>
@@ -577,7 +577,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-[var(--accent)] rounded-xl flex items-center justify-center">
               <span className="text-white font-bold">{currentQuestion + 1}</span>
             </div>
             <div>
@@ -599,7 +599,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
         
         <div className="relative h-3 bg-slate-700 rounded-full overflow-hidden">
           <div
-            className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 transition-all duration-500 rounded-full"
+            className="absolute inset-y-0 left-0 bg-[var(--accent)] transition-all duration-500 rounded-full"
             style={{ width: `${((currentQuestion + 1) / questions.length) * 100}%` }}
           />
         </div>
@@ -664,7 +664,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold flex-shrink-0 ${
                       showResult && isCorrectOption ? 'bg-green-500 text-white' :
                       showResult && isSelected && !isCorrect ? 'bg-red-500 text-white' :
-                      isSelected ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white' :
+                      isSelected ? 'bg-[var(--accent)] text-white' :
                       'bg-slate-700 text-slate-400'
                     }`}>
                       {String.fromCharCode(65 + index)}
@@ -730,7 +730,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
             className={`w-full py-6 px-6 rounded-2xl font-bold text-lg transition-all duration-200 flex items-center justify-center space-x-3 ${
               selectedAnswer === null
                 ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                : 'bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white shadow-xl hover:shadow-2xl transform hover:scale-[1.02]'
+                : 'bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white shadow-xl hover:shadow-2xl transform hover:scale-[1.02]'
             }`}
           >
             <span>Submit Answer</span>
@@ -739,7 +739,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
         ) : (
           <button
             onClick={handleContinue}
-            className="w-full bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white font-bold py-6 px-6 rounded-2xl shadow-xl hover:shadow-2xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-3 text-lg"
+            className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-bold py-6 px-6 rounded-2xl shadow-xl hover:shadow-2xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-3 text-lg"
           >
             <span>{currentQuestion < questions.length - 1 ? 'Next Question' : 'See Results'}</span>
             <ArrowRight className="w-6 h-6" />

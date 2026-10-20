@@ -151,10 +151,10 @@ export default async function CreateInterviewPage({
             <Link
               href="/pricing"
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
-                         bg-gradient-to-r from-indigo-600 to-purple-600
-                         hover:from-indigo-500 hover:to-purple-500
+                         bg-[var(--accent)]
+                         hover:bg-[var(--accent-hover)]
                          text-white text-sm font-semibold
-                         shadow-[0_4px_14px_rgba(102,126,234,0.3)]
+                         
                          transition-all duration-200"
             >
               Upgrade to Pro <ArrowRight className="w-4 h-4" />

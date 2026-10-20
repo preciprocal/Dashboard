@@ -154,13 +154,9 @@ const EMPTY_FORM: Omit<DebriefEntry, 'id' | 'userId' | 'createdAt'> = {
   surprises: '', followUpActions: '', overallNotes: '', selfScore: 70,
 };
 
-const inp = [
-  'w-full px-3 py-2.5 rounded-xl text-[13px] text-white',
-  'bg-white/[0.04] border border-white/[0.08]',
-  'placeholder-slate-600',
-  'focus:outline-none focus:ring-1 focus:ring-violet-500/40 focus:border-violet-500/40',
-  'transition-all duration-150',
-].join(' ');
+// Shared form-control size and style (globals.css .field), so every input,
+// select and textarea on this page matches the rest of the app.
+const inp = 'field';
 
 const ta = `${inp} resize-none`;
 
@@ -253,7 +249,7 @@ function TabBar<T extends string>({ tabs, active, onChange }: {
         <button key={t.id} onClick={() => onChange(t.id)}
           className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12px] font-semibold whitespace-nowrap transition-all duration-150
                       ${active === t.id
-                        ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-[0_2px_10px_rgba(124,58,237,0.35)]'
+                        ? 'bg-[var(--accent)] text-white '
                         : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'}`}
         >
           <t.icon className="w-3.5 h-3.5" />{t.label}
@@ -312,7 +308,7 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/pricing" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-[0_4px_20px_rgba(124,58,237,0.3)] hover:shadow-[0_6px_28px_rgba(124,58,237,0.4)] transition-all group">
+            <Link href="/pricing" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-[var(--accent)] hover:bg-[var(--accent-hover)]   transition-all group">
               Get More <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </Link>
             <span className="text-[10px] text-slate-600">Cancel anytime · Instant access</span>
@@ -388,7 +384,7 @@ function AIInsightsPanel({ entries }: { entries: DebriefEntry[] }) {
         <XCircle className="w-9 h-9 text-red-400 mx-auto mb-4" />
         <p className="text-[14px] font-semibold text-white mb-1">Analysis failed</p>
         <p className="text-[12px] text-slate-500 mb-5">{error}</p>
-        <button onClick={runAnalysis} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-[13px] font-semibold transition-all">
+        <button onClick={runAnalysis} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white text-[13px] font-semibold transition-all">
           <RefreshCw className="w-3.5 h-3.5" /> Retry
         </button>
       </SectionCard>
@@ -406,7 +402,7 @@ function AIInsightsPanel({ entries }: { entries: DebriefEntry[] }) {
           Analyse all {entries.length} debrief entries and identify what&apos;s actually holding you back.
         </p>
         <p className="text-[11px] text-amber-400 mb-6">Brutally honest. No sugarcoating.</p>
-        <button onClick={runAnalysis} className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-[13px] font-semibold shadow-[0_4px_16px_rgba(124,58,237,0.3)] transition-all duration-200">
+        <button onClick={runAnalysis} className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-[13px] font-semibold  transition-all duration-200">
           <Zap className="w-4 h-4" /> Analyse My Interviews
         </button>
       </SectionCard>
@@ -577,7 +573,7 @@ function AIInsightsPanel({ entries }: { entries: DebriefEntry[] }) {
           {analysis.next30DayPlan?.length > 0 ? analysis.next30DayPlan.map((week, i) => (
             <SectionCard key={i}>
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-lg flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0">
+                <div className="w-8 h-8 bg-[var(--accent)] rounded-lg flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0">
                   W{week.week}
                 </div>
                 <div>
@@ -848,7 +844,7 @@ export default function InterviewDebriefPage() {
               <ArrowLeft className="w-3.5 h-3.5" /> Dashboard
             </Link>
             <div className="flex items-center gap-3 mb-1">
-              <div className="w-9 h-9 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-[0_4px_14px_rgba(124,58,237,0.35)]">
+              <div className="w-9 h-9 bg-[var(--accent)] rounded-xl flex items-center justify-center ">
                 <BookOpen className="w-4 h-4 text-white" />
               </div>
               <h1 className="text-[18px] font-bold text-white">Interview Debrief Journal</h1>
@@ -864,7 +860,7 @@ export default function InterviewDebriefPage() {
               </span>
             </div>
             <button onClick={handleLogInterview}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-[13px] font-semibold shadow-[0_4px_14px_rgba(124,58,237,0.3)] transition-all duration-200">
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-[13px] font-semibold  transition-all duration-200">
               {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
               {showForm ? 'Cancel' : 'Log Interview'}
             </button>
@@ -961,8 +957,8 @@ export default function InterviewDebriefPage() {
                           <button key={e} type="button" onClick={() => setFormData(p => ({ ...p, [field]: e }))}
                             className={`p-2 rounded-xl text-center text-[10px] transition-all duration-150
                                         ${formData[field] === e
-                                          ? 'bg-violet-500/20 border border-violet-500/40 text-white'
-                                          : 'bg-white/[0.03] border border-white/[0.07] text-slate-500 hover:border-white/[0.12]'}`}>
+                                          ? 'bg-[var(--accent-subtle)] border border-[var(--accent-border)] text-white'
+                                          : 'bg-[var(--bg-subtle)] border border-white/[0.08] text-slate-400 hover:text-white hover:border-white/[0.14]'}`}>
                             <span className="block text-lg leading-none mb-1">{EMOTIONAL_EMOJIS[e]}</span>
                             <span className="block leading-none">{e}</span>
                           </button>
@@ -1052,7 +1048,7 @@ export default function InterviewDebriefPage() {
 
                 <div className="flex items-center gap-3 pt-1">
                   <button onClick={handleSave} disabled={isSaving}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-[13px] font-semibold transition-all duration-150 disabled:opacity-50">
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-[13px] font-semibold transition-all duration-150 disabled:opacity-50">
                     {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                     {isSaving ? 'Saving…' : editingId ? 'Update Entry' : 'Save to Journal'}
                   </button>
@@ -1167,7 +1163,7 @@ export default function InterviewDebriefPage() {
                   </p>
                   {entries.length === 0 && canUseFeature('interviewDebriefs') && (
                     <button onClick={() => setShowForm(true)}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-[13px] font-semibold transition-all duration-150">
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white text-[13px] font-semibold transition-all duration-150">
                       <Plus className="w-4 h-4" /> Log Your First Interview
                     </button>
                   )}

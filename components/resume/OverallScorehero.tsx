@@ -26,7 +26,7 @@ export function OverallScoreHero({ score }: OverallScoreHeroProps) {
   };
 
   return (
-    <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-700 rounded-2xl p-8 text-white shadow-xl relative overflow-hidden">
+    <div className="bg-[var(--accent)] rounded-2xl p-8 text-white shadow-xl relative overflow-hidden">
       {/* Background Pattern */}
       <div className="absolute inset-0 opacity-10">
         <div className="absolute -top-10 -right-10 w-40 h-40 bg-white rounded-full"></div>

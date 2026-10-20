@@ -415,7 +415,7 @@ export default function SettingsPage() {
             {avatarUrl ? (
               <Image src={avatarUrl} alt="Profile" width={52} height={52} className="rounded-xl object-cover" />
             ) : (
-              <div className="w-[52px] h-[52px] rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white font-semibold text-lg">
+              <div className="w-[52px] h-[52px] rounded-xl bg-[var(--accent)] flex items-center justify-center text-white font-semibold text-lg">
                 {userInitials}
               </div>
             )}
@@ -465,7 +465,7 @@ export default function SettingsPage() {
                   <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-indigo-600 text-white font-bold leading-none">{s.badge}</span>
                 )}
                 {isActive && (
-                  <span className={`absolute bottom-0 left-0 right-0 h-0.5 rounded-full ${s.danger ? 'bg-red-400' : 'bg-gradient-to-r from-indigo-500 to-purple-500'}`} />
+                  <span className={`absolute bottom-0 left-0 right-0 h-0.5 rounded-full ${s.danger ? 'bg-red-400' : 'bg-[var(--accent)]'}`} />
                 )}
               </button>
             );
@@ -486,7 +486,7 @@ export default function SettingsPage() {
                 {avatarUrl ? (
                   <Image src={avatarUrl} alt="Avatar" width={56} height={56} className="rounded-xl flex-shrink-0" />
                 ) : (
-                  <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white font-bold text-xl flex-shrink-0">
+                  <div className="w-14 h-14 rounded-xl bg-[var(--accent)] flex items-center justify-center text-white font-bold text-xl flex-shrink-0">
                     {userInitials}
                   </div>
                 )}
@@ -638,7 +638,7 @@ export default function SettingsPage() {
                     </FieldRow>
                     <div className="flex justify-end">
                       <button onClick={handleUpdateEmail} disabled={savingEmail}
-                        className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500
+                        className="inline-flex items-center gap-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)]
                                    disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-xl transition-all cursor-pointer">
                         {savingEmail ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Updating…</> : <><Check className="w-3.5 h-3.5" />Update Email</>}
                       </button>
@@ -807,7 +807,7 @@ export default function SettingsPage() {
             {plan.tier === 'free' && (
               <SectionCard>
                 <div className="p-5 text-center">
-                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-purple-900/30">
+                  <div className="w-11 h-11 rounded-xl bg-[var(--accent)] flex items-center justify-center mx-auto mb-4 shadow-lg ">
                     <Zap className="w-5 h-5 text-white" />
                   </div>
                   <h3 className="text-white font-semibold text-sm mb-1">Need more than the Free plan?</h3>
@@ -815,7 +815,7 @@ export default function SettingsPage() {
                     Pro and Premium raise every monthly limit. Cancel any time, and unused credits can be refunded on request.
                   </p>
                   <Link href="/pricing"
-                    className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-xs font-semibold text-white bg-gradient-to-r from-indigo-500 to-purple-500 hover:opacity-90 transition-opacity">
+                    className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-xs font-semibold text-white bg-[var(--accent)] hover:opacity-90 transition-opacity">
                     See plans
                   </Link>
                 </div>

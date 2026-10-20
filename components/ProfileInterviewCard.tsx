@@ -374,7 +374,7 @@ const ProfileInterviewCard: React.FC<ProfileInterviewCardProps> = ({
           {isCompleted ? (
             <div className="flex gap-3">
               <Link href={feedbackUrl} className="flex-1 cursor-pointer">
-                <Button className="w-full py-3 rounded-lg font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 cursor-pointer">
+                <Button className="w-full py-3 rounded-lg font-medium text-white bg-[var(--accent)] hover:bg-[var(--accent-hover)] cursor-pointer">
                   <div className="flex items-center justify-center gap-2">
                     <Eye className="w-4 h-4" />
                     <span>Results</span>
@@ -383,7 +383,7 @@ const ProfileInterviewCard: React.FC<ProfileInterviewCardProps> = ({
               </Link>
 
               <Link href={interviewUrl} className="flex-1 cursor-pointer">
-                <Button className="w-full py-3 rounded-lg font-medium text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 cursor-pointer">
+                <Button className="w-full py-3 rounded-lg font-medium text-white bg-[var(--accent)] hover:bg-[var(--accent-hover)] cursor-pointer">
                   <div className="flex items-center justify-center gap-2">
                     <RotateCcw className="w-4 h-4" />
                     <span>Retake</span>
@@ -393,7 +393,7 @@ const ProfileInterviewCard: React.FC<ProfileInterviewCardProps> = ({
             </div>
           ) : (
             <Link href={interviewUrl} className="block cursor-pointer">
-              <Button className="w-full py-3 rounded-lg font-medium text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 cursor-pointer">
+              <Button className="w-full py-3 rounded-lg font-medium text-white bg-[var(--accent)] hover:bg-[var(--accent-hover)] cursor-pointer">
                 <div className="flex items-center justify-center gap-2">
                   <Play className="w-4 h-4" />
                   <span>Start Interview</span>

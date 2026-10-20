@@ -46,9 +46,11 @@ export class PlannerService {
   /**
    * Get comprehensive statistics for a user's plans
    */
-  static async getUserPlanStats(userId: string): Promise<PlanStats> {
+  static async getUserPlanStats(userId: string, alreadyFetched?: InterviewPlan[]): Promise<PlanStats> {
     try {
-      const plans = await this.getUserPlans(userId);
+      // Callers that already hold the list pass it in: fetching it again here
+      // put a second, sequential /api/planner/plans request on every load.
+      const plans = alreadyFetched ?? await this.getUserPlans(userId);
 
       const activePlans = plans.filter(p => p.status === 'active');
       const completedPlans = plans.filter(p => p.status === 'completed');

@@ -160,7 +160,7 @@ export default function TaskList({ plan, onTaskUpdate }: TaskListProps) {
                   onClick={() => setFilter(btn.value)}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                     filter === btn.value
-                      ? 'bg-gradient-to-r from-indigo-500 to-violet-500 text-white'
+                      ? 'bg-[var(--accent)] text-white'
                       : 'text-slate-400 hover:text-white hover:bg-white/5'
                   }`}
                 >

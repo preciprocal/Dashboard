@@ -29,7 +29,6 @@ import AnimatedLoader from '@/components/loader/AnimatedLoader';
 interface LayoutClientProps {
   children: React.ReactNode;
   user: UserData | null;
-  userStats: UserStats;
 }
 
 interface UserData {
@@ -41,15 +40,6 @@ interface UserData {
     status?: string;
   };
   isAdmin?: boolean;
-}
-
-interface UserStats {
-  totalInterviews?: number;
-  averageScore?: number;
-  interviewsUsed?: number;
-  interviewsLimit?: number;
-  resumesUsed?: number;
-  resumesLimit?: number;
 }
 
 interface NavItem {
@@ -779,13 +769,9 @@ function LayoutContent({ children, user }: LayoutClientProps) {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* Solid base with two faint glows, as on preciprocal.com. The base is
-          solid so scrolling past the last section never shows a different
-          colour (the old purple gradient did, on mobile). */}
-      <div className="fixed inset-0 -z-10 bg-[var(--bg)] overflow-hidden pointer-events-none" aria-hidden="true">
-        <div className="absolute -top-48 left-1/4 w-[720px] h-[480px] rounded-full bg-indigo-500/[0.07] blur-[120px]" />
-        <div className="absolute top-1/3 -right-40 w-[520px] h-[520px] rounded-full bg-violet-500/[0.05] blur-[120px]" />
-      </div>
+      {/* Solid base, so scrolling past the last section never shows a
+          different colour (the old purple gradient did, on mobile). */}
+      <div className="fixed inset-0 -z-10 bg-[var(--bg)] pointer-events-none" aria-hidden="true" />
 
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
@@ -795,7 +781,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
       {/* ── Sidebar ──────────────────────────────── */}
       <aside
         className={`fixed left-0 top-0 h-full w-64 flex flex-col
-                    bg-[#060913]/95 backdrop-blur-xl border-r border-white/[0.06]
+                    bg-[var(--bg-sidebar)] border-r border-white/[0.07]
                     z-50 transition-transform duration-300 overflow-y-auto scrollbar-hide
                     ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
         aria-label="Main navigation"
@@ -821,7 +807,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
                        hover:bg-white/[0.045] hover:border-white/[0.1] transition-colors">
             <div className="relative flex-shrink-0">
               <UserAvatar photoURL={photoURL} initials={userInitials} size="md" />
-              <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-[#060913]" />
+              <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-[var(--bg-sidebar)]" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-white font-semibold text-[13px] truncate">{safeUser?.name || 'User'}</p>
@@ -843,10 +829,10 @@ function LayoutContent({ children, user }: LayoutClientProps) {
               <Link key={item.id} href={item.href} onClick={handleLinkClick}
                 aria-current={active ? 'page' : undefined}
                 className={`group relative flex items-center justify-between px-3 py-2 rounded-lg transition-colors duration-150
-                             ${active ? 'bg-indigo-500/[0.1] text-white' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-100'}`}>
-                {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-gradient-to-b from-indigo-400 to-violet-400" aria-hidden="true" />}
+                             ${active ? 'bg-white/[0.06] text-white' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-100'}`}>
+                {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-[var(--accent)]" aria-hidden="true" />}
                 <div className="flex items-center gap-3">
-                  <Icon className={`w-[18px] h-[18px] ${active ? 'text-indigo-300' : 'text-slate-500 group-hover:text-slate-300'}`} strokeWidth={1.75} />
+                  <Icon className={`w-[18px] h-[18px] ${active ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'}`} strokeWidth={1.75} />
                   <span className="font-medium text-[13px]">{item.label}</span>
                 </div>
                 {isNew && !active && (
@@ -870,8 +856,8 @@ function LayoutContent({ children, user }: LayoutClientProps) {
                 <Link key={item.id} href={item.href} onClick={handleLinkClick}
                   aria-current={active ? 'page' : undefined}
                   className={`group flex items-center gap-3 px-3 py-2 rounded-lg transition-colors
-                              ${active ? 'bg-indigo-500/[0.1] text-white' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-100'}`}>
-                  <Icon className={`w-[18px] h-[18px] ${active ? 'text-indigo-300' : 'text-slate-500 group-hover:text-slate-300'}`} strokeWidth={1.75} />
+                              ${active ? 'bg-white/[0.06] text-white' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-100'}`}>
+                  <Icon className={`w-[18px] h-[18px] ${active ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'}`} strokeWidth={1.75} />
                   <span className="font-medium text-[13px]">{item.label}</span>
                 </Link>
               );
@@ -922,9 +908,9 @@ function LayoutContent({ children, user }: LayoutClientProps) {
                 <Link key={item.id} href={item.href} onClick={handleLinkClick}
                   aria-current={active ? 'page' : undefined}
                   className={`group flex items-center justify-between px-3 py-2 rounded-lg transition-colors
-                              ${active ? 'bg-indigo-500/[0.1] text-white' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-100'}`}>
+                              ${active ? 'bg-white/[0.06] text-white' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-100'}`}>
                   <div className="flex items-center gap-3">
-                    <Icon className={`w-[18px] h-[18px] ${active ? 'text-indigo-300' : 'text-slate-500 group-hover:text-slate-300'}`} strokeWidth={1.75} />
+                    <Icon className={`w-[18px] h-[18px] ${active ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'}`} strokeWidth={1.75} />
                     <span className="font-medium text-[13px]">{item.label}</span>
                   </div>
                   {badge > 0 && (
@@ -945,7 +931,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
 
         {/* ── Plan card ─────────────────────────────── */}
         <div className="px-4 pt-4 pb-3 mt-4 border-t border-white/[0.06]">
-          <div className="bg-gradient-to-b from-indigo-500/[0.07] to-white/[0.015] border border-white/[0.06] rounded-xl p-3.5 space-y-2.5">
+          <div className="bg-[var(--bg-surface)] border border-white/[0.08] rounded-xl p-3.5 space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-[13px] font-semibold text-white">Your plan</span>
               <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${planInfo.badgeClass} text-xs font-semibold`}>
@@ -960,9 +946,8 @@ function LayoutContent({ children, user }: LayoutClientProps) {
               <Link href="/pricing" onClick={handleLinkClick}
                 className="w-full px-4 py-2 rounded-lg flex items-center justify-center
                            text-white text-[13px] font-semibold
-                           bg-gradient-to-r from-indigo-500 to-violet-500
-                           border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]
-                           hover:brightness-110 hover:shadow-[0_8px_24px_rgba(99,102,241,0.28)] transition-all">
+                           bg-[var(--accent)] hover:bg-[var(--accent-hover)] active:bg-[var(--accent-press)]
+                           transition-colors">
                 <Crown className="w-3.5 h-3.5 mr-2" />
                 {planInfo.text === 'Pro' ? 'Upgrade to Premium' : 'Upgrade Plan'}
               </Link>
@@ -987,7 +972,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
         <header
           className={`fixed top-0 right-0 left-0 lg:left-64 z-40
                       border-b border-white/[0.06] backdrop-blur-xl transition-colors duration-200
-                      ${scrolled ? 'bg-[#060913]/90' : 'bg-[#060913]/60'}`}
+                      ${scrolled ? 'bg-[var(--bg)]/95' : 'bg-[var(--bg)]/80'}`}
           role="banner"
         >
           <div className="flex items-center justify-between px-4 sm:px-6 py-3.5">
@@ -1019,8 +1004,8 @@ function LayoutContent({ children, user }: LayoutClientProps) {
                 {showHeaderMenu && (
                   <div role="menu" aria-label="Account options"
                     className="absolute top-full right-0 mt-2 w-64
-                               bg-[#0c1120] border border-white/[0.08]
-                               rounded-xl shadow-[0_24px_64px_rgba(0,0,0,0.5)] z-50 overflow-hidden animate-fade-in-up">
+                               bg-[var(--bg-raised)] border border-white/[0.1]
+                               rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.45)] z-50 overflow-hidden animate-fade-in-up">
                     <div className="px-4 pt-4 pb-3 border-b border-white/10">
                       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Current Account</p>
                       <div className="flex items-center gap-3">
@@ -1081,7 +1066,9 @@ function LayoutContent({ children, user }: LayoutClientProps) {
           </div>
         </header>
 
-        <main className="p-4 sm:p-6 mt-[65px] flex-1" id="main-content">
+        {/* Fills the window below the header; see .app-main in globals.css
+            for how a page's last section stretches to the bottom edge. */}
+        <main className="app-main p-4 sm:p-6 mt-[65px] flex-1 flex flex-col min-h-0" id="main-content">
           {children}
         </main>
       </div>
@@ -1091,7 +1078,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
 
 // ─── Root export ──────────────────────────────────────────────────────────────
 
-export default function LayoutClient({ children, user, userStats }: LayoutClientProps) {
+export default function LayoutClient({ children, user }: LayoutClientProps) {
   return (
     <>
       <Toaster
@@ -1123,7 +1110,7 @@ export default function LayoutClient({ children, user, userStats }: LayoutClient
       />
       <SessionHeartbeat />
       {user && <ActivityTracker />}
-      <LayoutContent user={user} userStats={userStats}>
+      <LayoutContent user={user}>
         {children}
       </LayoutContent>
     </>

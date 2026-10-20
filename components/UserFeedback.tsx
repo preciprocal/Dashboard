@@ -510,7 +510,7 @@ export default function UsersFeedback({
           <div className="flex items-center gap-1.5 px-6 pt-5">
             {[1, 2, 3].map((s) => (
               <div key={s} className={`h-1 flex-1 rounded-full transition-all duration-500 ${
-                s <= step ? "bg-gradient-to-r from-indigo-500 to-violet-500" : "bg-slate-800"
+                s <= step ? "bg-[var(--accent)]" : "bg-slate-800"
               }`} />
             ))}
             <span className="text-slate-600 text-xs ml-1">{step}/3</span>
@@ -708,14 +708,14 @@ export default function UsersFeedback({
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl
                   bg-linear-to-r from-indigo-500 to-violet-500 text-white text-xs font-medium
                   shadow-lg disabled:opacity-40 disabled:cursor-not-allowed
-                  hover:from-indigo-400 hover:to-violet-400 transition-all">
+                  hover:bg-[var(--accent-hover)] transition-all">
                 Continue <ChevronRight className="w-3.5 h-3.5" />
               </button>
             ) : (
               <button type="button" onClick={handleSubmit} disabled={isSubmitting}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl
                   bg-linear-to-r from-indigo-500 to-violet-500 text-white text-xs font-medium
-                  shadow-lg disabled:opacity-60 hover:from-indigo-400 hover:to-violet-400 transition-all">
+                  shadow-lg disabled:opacity-60 hover:bg-[var(--accent-hover)] transition-all">
                 {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                 {isSubmitting ? "Submitting..." : "Submit feedback"}
               </button>

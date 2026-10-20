@@ -124,7 +124,7 @@ const TemplateCard: React.FC<{ template: Template }> = ({ template }) => {
   };
 
   return (
-    <div className="glass-card flex flex-col transition-all duration-300 hover:border-purple-500/30 hover:-translate-y-0.5 hover:shadow-[0_8px_32px_rgba(139,92,246,0.12)] group">
+    <div className="glass-card flex flex-col transition-all duration-300 hover:border-purple-500/30 hover:-translate-y-0.5  group">
 
       {/* Header */}
       <div className="p-5 flex items-start justify-between gap-3">
@@ -204,10 +204,10 @@ const TemplateCard: React.FC<{ template: Template }> = ({ template }) => {
           onClick={handleStartInterview}
           disabled={isStarting}
           className="w-full py-2.5 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2
-                     bg-gradient-to-r from-indigo-500 to-violet-500
-                     hover:from-indigo-400 hover:to-violet-400
+                     bg-[var(--accent)]
+                     hover:bg-[var(--accent-hover)]
                      disabled:opacity-50 disabled:cursor-not-allowed
-                     transition-all shadow-lg shadow-purple-500/15 cursor-pointer"
+                     transition-all shadow-lg  cursor-pointer"
         >
           {isStarting ? (
             <><Loader2 className="w-4 h-4 animate-spin" /> Starting…</>
@@ -482,7 +482,7 @@ export default function TemplatesPage() {
           </p>
           <button onClick={() => setView('all')}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white
-                       bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400
+                       bg-[var(--accent)] hover:bg-[var(--accent-hover)]
                        transition-all cursor-pointer">
             Browse templates
           </button>
@@ -498,7 +498,7 @@ export default function TemplatesPage() {
           </p>
           <button onClick={resetFilters}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white
-                       bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400
+                       bg-[var(--accent)] hover:bg-[var(--accent-hover)]
                        transition-all cursor-pointer">
             Clear All Filters
           </button>

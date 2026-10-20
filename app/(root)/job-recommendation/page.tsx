@@ -202,7 +202,6 @@ function JobRecommendationsPage() {
       setResumeLoadingStep(0);
 
       setResumeLoadingStep(1);
-      await new Promise(resolve => setTimeout(resolve, 300));
 
       setResumeLoadingStep(2);
       // No Authorization header needed - the Supabase session cookie is
@@ -242,7 +241,6 @@ function JobRecommendationsPage() {
         setSelectedResumeId(resumeList[0].id);
       }
 
-      await new Promise(resolve => setTimeout(resolve, 150));
 
     } catch (err: unknown) {
       console.error('Error fetching resumes:', err);
@@ -278,13 +276,10 @@ function JobRecommendationsPage() {
     
     try {
       setLoadingStep(0);
-      await new Promise(resolve => setTimeout(resolve, 300));
 
       setLoadingStep(1);
-      await new Promise(resolve => setTimeout(resolve, 400));
 
       setLoadingStep(2);
-      await new Promise(resolve => setTimeout(resolve, 300));
 
       setLoadingStep(3);
       // No Authorization header needed - the Supabase session cookie is
@@ -314,7 +309,6 @@ function JobRecommendationsPage() {
 
       setLoadingStep(4);
       const data: JobRecommendationsResponse = await response.json();
-      await new Promise(resolve => setTimeout(resolve, 400));
 
       setLoadingStep(5);
       setJobs(data.jobs || []);
@@ -324,7 +318,6 @@ function JobRecommendationsPage() {
         setError('No jobs found matching your criteria. Try adjusting your filters or search terms.');
       }
 
-      await new Promise(resolve => setTimeout(resolve, 150));
 
     } catch (error: unknown) {
       console.error('Job recommendations error:', error);
@@ -716,7 +709,7 @@ function JobRecommendationsPage() {
         <div className="fixed inset-0 bg-slate-950/95 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="glass-card max-w-md w-full p-6 sm:p-8">
             <div className="text-center mb-6 sm:mb-8">
-              <div className="inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg mb-4">
+              <div className="inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 bg-[var(--accent)] rounded-lg mb-4">
                 <Sparkles className="w-6 h-6 sm:w-7 sm:h-7 text-white animate-pulse" />
               </div>
               <h3 className="text-base sm:text-lg font-medium text-white mb-2 sm:mb-3">
@@ -729,7 +722,7 @@ function JobRecommendationsPage() {
 
             <div className="relative w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mb-4 sm:mb-6">
               <div 
-                className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-500 to-purple-600 transition-all duration-500"
+                className="absolute top-0 left-0 h-full bg-[var(--accent)] transition-all duration-500"
                 style={{ 
                   width: `${
                     jobSearchSteps

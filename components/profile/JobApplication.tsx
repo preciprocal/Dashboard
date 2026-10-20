@@ -203,7 +203,7 @@ function optsKV(arr: [string, string][]): DropdownOption[] {
 
 // ─── Primitives ───────────────────────────────────────────────────────────────
 
-const fieldCls = "w-full glass-input rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none transition-all";
+const fieldCls = "field"; // shared size and style, globals.css .field
 
 function F({ label, hint, span, children }: {
   label: string; hint?: string; span?: string; children: React.ReactNode;
@@ -578,7 +578,7 @@ export default function JobApplicationProfile() {
           className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all flex-shrink-0
             ${saved
               ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-400'
-              : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-[0_4px_16px_rgba(102,126,234,0.3)]'}
+              : 'bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white '}
             disabled:opacity-50 disabled:cursor-not-allowed`}
         >
           {saving
@@ -663,7 +663,7 @@ export default function JobApplicationProfile() {
       </Section>
 
       {/* ── 4. Work Auth ── */}
-      <Section label="Work Authorization" icon={Shield} gradient="bg-gradient-to-br from-emerald-500 to-teal-600" desc="Visa & authorization status">
+      <Section label="Work Authorization" icon={Shield} gradient="bg-emerald-500" desc="Visa & authorization status">
         <div className="space-y-4 mt-5">
           <div className="grid grid-cols-2 gap-4">
             <FSelect label="Authorized to work in the US?" value={p.workAuthorization} onChange={set('workAuthorization')} options={WORK_AUTH} />
@@ -675,7 +675,7 @@ export default function JobApplicationProfile() {
       </Section>
 
       {/* ── 5. Education ── */}
-      <Section label="Education" icon={GraduationCap} gradient="bg-gradient-to-br from-blue-500 to-indigo-600" desc="Degrees & schools">
+      <Section label="Education" icon={GraduationCap} gradient="bg-[var(--accent)]" desc="Degrees & schools">
         <div className="space-y-3 mt-5">
           {p.education.map((edu, i) => (
             <div key={i} className="rounded-xl p-5 space-y-4 bg-white/[0.03] border border-white/[0.06]">
@@ -820,7 +820,7 @@ export default function JobApplicationProfile() {
           className={`flex items-center gap-2.5 px-6 py-3 rounded-xl text-sm font-semibold transition-all
             ${saved
               ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-400'
-              : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-[0_4px_20px_rgba(102,126,234,0.3)]'}
+              : 'bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white '}
             disabled:opacity-50 disabled:cursor-not-allowed`}
         >
           {saving

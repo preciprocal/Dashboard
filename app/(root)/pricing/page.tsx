@@ -254,7 +254,7 @@ function CheckoutFormInner({ plan, user, billedAmount, onSuccess, onClose }: Che
       </div>
 
       {/* Two-column body */}
-      <div className="grid grid-cols-1 lg:grid-cols-2" style={{ height: "calc(100vh - 57px)" }}>
+      <div className="grid grid-cols-1 lg:grid-cols-2" style={{ height: "calc(100dvh - 113px)" /* header 65 + main padding 48 */ }}>
 
         {/* LEFT */}
         <div className="relative flex flex-col overflow-hidden border-r"

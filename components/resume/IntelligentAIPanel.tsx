@@ -115,7 +115,7 @@ function AnalysingFacts() {
         <span className="text-sm text-indigo-300 font-semibold">Analyzing your resume…</span>
       </div>
       <div className="w-full max-w-xs h-1 bg-slate-700/60 rounded-full overflow-hidden">
-        <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full" style={{ width: `${progress}%`, transition: 'width 4.8s linear' }} />
+        <div className="h-full bg-[var(--accent)] rounded-full" style={{ width: `${progress}%`, transition: 'width 4.8s linear' }} />
       </div>
       <div className={`w-full bg-slate-800/50 border border-white/[0.06] rounded-xl p-4 transition-all duration-400 ${isExiting ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'}`} style={{ minHeight: 88 }}>
         <div className="flex items-center gap-2 mb-2">
@@ -520,7 +520,7 @@ function TailorTab({ resumeId, resumeContent, jobTitle: initTitle, companyName: 
               <div><label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Company</label><input value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="e.g. Google" className="w-full px-3 py-2 bg-slate-800/60 border border-white/[0.08] rounded-lg text-xs text-white placeholder-slate-600 outline-none focus:ring-1 focus:ring-indigo-500/50" /></div>
             </div>
             <div><label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Job Description *</label><textarea value={jobDesc} onChange={e => setJobDesc(e.target.value)} placeholder="Paste the full job description…" rows={3} className="w-full px-3 py-2 bg-slate-800/60 border border-white/[0.08] rounded-xl text-xs text-white placeholder-slate-600 outline-none focus:ring-1 focus:ring-indigo-500/50 resize-none" />{jobDesc.length > 0 && jobDesc.length < 50 && <p className="text-[10px] text-amber-400 mt-1">{50 - jobDesc.length} more chars needed</p>}</div>
-            <button onClick={handleTailor} disabled={!canTailor || isTailoring} className={`w-full py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all ${!canTailor || isTailoring ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed' : 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-500/20 hover:-translate-y-0.5 cursor-pointer'}`}>{isTailoring ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Tailoring…</> : <><Target className="w-3.5 h-3.5" /> Tailor Resume</>}</button>
+            <button onClick={handleTailor} disabled={!canTailor || isTailoring} className={`w-full py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all ${!canTailor || isTailoring ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed' : 'bg-[var(--accent)] text-white shadow-lg  hover:-translate-y-0.5 cursor-pointer'}`}>{isTailoring ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Tailoring…</> : <><Target className="w-3.5 h-3.5" /> Tailor Resume</>}</button>
           </div>
         )}
       </div>

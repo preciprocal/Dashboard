@@ -474,7 +474,7 @@ const InterviewDetailsClient = ({
                 </Link>
 
                 <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
-                  <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0">
+                  <div className="w-12 h-12 sm:w-14 sm:h-14 bg-[var(--accent)] rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0">
                     <Users className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -524,7 +524,7 @@ const InterviewDetailsClient = ({
                   {(!isVideoOn || deviceStatus.camera !== "ready") && (
                     <div className="absolute inset-0 flex items-center justify-center bg-slate-950">
                       <div className="text-center px-4">
-                        <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                        <div className="w-16 h-16 sm:w-20 sm:h-20 bg-[var(--accent)] rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
                           <span className="text-white text-xl sm:text-2xl font-semibold">
                             {userName?.charAt(0)?.toUpperCase() || "C"}
                           </span>
@@ -618,7 +618,7 @@ const InterviewDetailsClient = ({
                       aria-disabled={!!joinDisabledReason}
                       className={`w-full py-2.5 sm:py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 sm:gap-3 text-sm sm:text-base ${
                         !joinDisabledReason
-                          ? 'bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-lg shadow-emerald-500/20'
+                          ? 'bg-emerald-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-lg '
                           : 'bg-slate-800 text-slate-500 cursor-not-allowed'
                       }`}
                     >
@@ -834,7 +834,7 @@ const InterviewDetailsClient = ({
                   setShowMicDropdown(false);
                   setShowSpeakerDropdown(false);
                 }}
-                className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-medium transition-all shadow-lg hover:shadow-xl"
+                className="w-full py-3 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-xl font-medium transition-all shadow-lg hover:shadow-xl"
               >
                 Done
               </button>

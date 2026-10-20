@@ -60,13 +60,9 @@ interface FormData {
   jobDescription: string;
 }
 
-const inp = [
-  'w-full px-3 py-2.5 rounded-xl text-[13px] text-white',
-  'bg-white/[0.04] border border-white/[0.08]',
-  'placeholder-slate-600',
-  'focus:outline-none focus:ring-1 focus:ring-purple-500/40 focus:border-purple-500/40',
-  'transition-all duration-150',
-].join(' ');
+// Shared form-control size and style (globals.css .field), so every input,
+// select and textarea on this page matches the rest of the app.
+const inp = 'field';
 
 function getFileKind(file: File): 'pdf' | 'word' | null {
   const name = file.name.toLowerCase();
@@ -146,10 +142,10 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
               href="/pricing"
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
                          text-sm font-bold text-white
-                         bg-gradient-to-r from-indigo-600 to-purple-600
-                         hover:from-indigo-500 hover:to-purple-500
-                         shadow-[0_4px_20px_rgba(102,126,234,0.3)]
-                         hover:shadow-[0_6px_28px_rgba(102,126,234,0.4)]
+                         bg-[var(--accent)]
+                         hover:bg-[var(--accent-hover)]
+                         
+                         
                          transition-all group"
             >
               Get More
@@ -311,7 +307,6 @@ export default function UploadResume() {
       // ServiceFeedback is handled on the /resume/[id] page,
       // so we just redirect immediately.
       setCurrentStep(3);
-      await new Promise(r => setTimeout(r, 800));
       router.push(`/resume/${resumeId}`);
       setTimeout(() => {
         if (window.location.pathname.includes('upload')) window.location.href = `/resume/${resumeId}`;
@@ -367,14 +362,14 @@ export default function UploadResume() {
         <div className="fixed inset-0 bg-[#090d1a]/95 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[#0d1526]/98 border border-white/[0.09] rounded-2xl max-w-md w-full p-6 shadow-[0_32px_64px_rgba(0,0,0,0.6)]">
             <div className="text-center mb-6">
-              <div className="w-12 h-12 gradient-primary rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-[0_4px_16px_rgba(102,126,234,0.35)]">
+              <div className="w-12 h-12 gradient-primary rounded-2xl flex items-center justify-center mx-auto mb-4 ">
                 <Sparkles className="w-5 h-5 text-white" />
               </div>
               <p className="text-[15px] font-bold text-white mb-2">{PROCESSING_STEPS[currentStep]?.message}</p>
               <p className="text-[12px] text-slate-500 leading-relaxed min-h-[36px]">{RESUME_FACTS[currentFactIndex]}</p>
             </div>
             <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden mb-5">
-              <div className="h-full bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full transition-all duration-500"
+              <div className="h-full bg-[var(--accent)] rounded-full transition-all duration-500"
                 style={{ width: `${PROCESSING_STEPS[currentStep]?.progress ?? 0}%` }} />
             </div>
             <div className="space-y-2.5">
@@ -433,7 +428,9 @@ export default function UploadResume() {
         {!canUseFeature('resumes') ? (
           <UpgradeGate used={resumesUsed} limit={resumesLimit} />
         ) : (
-          <>
+          // Form and its notes side by side on wide screens, so the page fits
+          // the window instead of pushing the notes below the fold.
+          <div className="grid xl:grid-cols-[minmax(0,1fr)_300px] gap-4 items-stretch">
             {/* Form */}
             <div className="glass-card p-5 animate-fade-in-up" style={{ animationDelay: '60ms' }}>
               {error && (
@@ -489,12 +486,9 @@ export default function UploadResume() {
                 </div>
                 <div className="space-y-3 pt-1">
                   <button type="submit" disabled={!file || isProcessing}
-                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
-                               text-[13px] font-semibold text-white
-                               bg-gradient-to-r from-indigo-600 to-purple-600
-                               hover:from-indigo-500 hover:to-purple-500
-                               shadow-[0_4px_14px_rgba(102,126,234,0.28)]
-                               transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                    className="w-full h-11 flex items-center justify-center gap-2 rounded-[10px]
+                               text-sm font-semibold text-white glass-button-primary
+                               disabled:opacity-40 disabled:cursor-not-allowed">
                     {isProcessing
                       ? <><Loader2 className="w-4 h-4 animate-spin" /> Analysing…</>
                       : <><Upload className="w-4 h-4" /> Analyse Resume</>}
@@ -507,7 +501,7 @@ export default function UploadResume() {
             </div>
 
             {/* Info cards */}
-            <div className="grid sm:grid-cols-2 gap-4 animate-fade-in-up" style={{ animationDelay: '120ms' }}>
+            <div className="grid sm:grid-cols-2 xl:grid-cols-1 xl:content-start gap-4 animate-fade-in-up" style={{ animationDelay: '120ms' }}>
               <div className="glass-card p-5">
                 <p className="text-[12px] font-bold text-white mb-3 flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> What we analyse
@@ -533,7 +527,7 @@ export default function UploadResume() {
                 </div>
               </div>
             </div>
-          </>
+          </div>
         )}
       </div>
     </>

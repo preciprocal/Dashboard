@@ -405,7 +405,7 @@ export default function ResumeDetailsPage() {
         if (!data) { setError('Resume not found'); setResume(null); }
         else if (user && data.userId !== user.id) { setError('Access denied'); setResume(null); }
         else { setResume(data); if (data.imagePath) setImageUrl(data.imagePath); }
-        setLoadingStep(4); await new Promise(r => setTimeout(r, 150));
+        setLoadingStep(4);
       } catch { setError('Failed to load resume'); setResume(null); }
       finally { setLoadingResume(false); }
     };
@@ -515,7 +515,7 @@ export default function ResumeDetailsPage() {
 
   const TabBar = ({ size = 'md' }: { size?: 'sm' | 'md' }) => (
     <div className="flex gap-1 p-1 glass-card">
-      {tabs.map(tab => <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl font-medium transition-all cursor-pointer ${size === 'sm' ? 'py-2 px-2 text-xs' : 'py-2.5 px-3 text-sm'} ${activeTab === tab.id ? 'bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-white/[0.05]'}`}><tab.icon className={size === 'sm' ? 'w-3.5 h-3.5' : 'w-4 h-4'} />{tab.label}</button>)}
+      {tabs.map(tab => <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl font-medium transition-all cursor-pointer ${size === 'sm' ? 'py-2 px-2 text-xs' : 'py-2.5 px-3 text-sm'} ${activeTab === tab.id ? 'bg-[var(--accent)] text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-white/[0.05]'}`}><tab.icon className={size === 'sm' ? 'w-3.5 h-3.5' : 'w-4 h-4'} />{tab.label}</button>)}
     </div>
   );
 
@@ -609,7 +609,7 @@ export default function ResumeDetailsPage() {
       <div className="hidden lg:flex fixed inset-0 lg:left-64 top-[73px] overflow-hidden">
         {/* Left column */}
         <div className="w-[42%] flex-shrink-0 h-full p-4 pr-2">
-          <div className="glass-card h-full overflow-hidden" style={{ maxHeight: 'calc(100vh - 73px)' }}>
+          <div className="glass-card h-full overflow-hidden" style={{ maxHeight: 'calc(100dvh - 113px)' }}>
             {activeTab === 'writer' ? (
               isLoadingEditor ? <div className="h-full flex flex-col items-center justify-center gap-3 text-slate-500"><Loader2 className="w-6 h-6 animate-spin text-indigo-400" /><p className="text-xs">Converting PDF…</p></div>
                 : <InlineResumeEditor resumeId={resume.id} initialHtml={editorHtml} onContentChange={setEditorHtml} highlightText={highlightText} />
@@ -619,7 +619,7 @@ export default function ResumeDetailsPage() {
         </div>
 
         {/* Right column */}
-        <div className="flex-1 flex flex-col overflow-hidden" style={{ maxHeight: 'calc(100vh - 73px)' }}>
+        <div className="flex-1 flex flex-col overflow-hidden" style={{ maxHeight: 'calc(100dvh - 113px)' }}>
           <div className="flex-shrink-0 p-4 pl-2 pb-0 space-y-3">
             <div className="glass-card p-5">
               <Link href="/resume" className="inline-flex items-center text-xs text-slate-400 hover:text-white transition-colors mb-4"><ArrowLeft className="w-3.5 h-3.5 mr-1.5" /> All Resumes</Link>

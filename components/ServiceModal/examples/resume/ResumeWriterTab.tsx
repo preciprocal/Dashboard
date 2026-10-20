@@ -168,7 +168,7 @@ export function ResumeWriterTab({ onHighlight }: ResumeWriterTabProps) {
       <div className="p-2.5 bg-white/[0.02] border border-white/[0.06] rounded-lg">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-gradient-to-br from-indigo-500 to-violet-500 rounded-lg flex items-center justify-center">
+            <div className="w-6 h-6 bg-[var(--accent)] rounded-lg flex items-center justify-center">
               <Sparkles className="w-3 h-3 text-white" />
             </div>
             <div>
@@ -192,7 +192,7 @@ export function ResumeWriterTab({ onHighlight }: ResumeWriterTabProps) {
         {subTabs.map(tab => (
           <button key={tab.id} onClick={() => setSubTab(tab.id)}
             className={`flex-1 py-1 text-[7px] font-medium rounded transition-all cursor-pointer flex items-center justify-center gap-0.5 ${
-              subTab === tab.id ? 'bg-gradient-to-r from-indigo-500 to-violet-500 text-white' : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'
+              subTab === tab.id ? 'bg-[var(--accent)] text-white' : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'
             }`}>
             {tab.icon} {tab.label}
             {tab.count && <span className={`text-[6px] px-1 rounded-full ${subTab === tab.id ? 'bg-white/20' : 'bg-white/[0.06]'}`}>{tab.count}</span>}

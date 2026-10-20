@@ -83,12 +83,9 @@ const EMPTY_FORM: AppForm = {
   appliedDate: new Date().toISOString().split('T')[0],
 };
 
-const inp = [
-  'w-full px-3 py-2.5 rounded-xl text-sm text-white',
-  'bg-white/[0.04] border border-white/[0.08]', 'placeholder-slate-600',
-  'focus:outline-none focus:ring-1 focus:ring-purple-500/40 focus:border-purple-500/40',
-  'transition-all duration-150',
-].join(' ');
+// Shared form-control size and style (globals.css .field), so every input,
+// select and textarea on this page matches the rest of the app.
+const inp = 'field';
 
 // ─── Upgrade Gate ─────────────────────────────────────────────────────────────
 
@@ -147,7 +144,7 @@ function UpgradeGate({ feature }: { feature: 'jobs' | 'contacts' }) {
             <span className="text-sm text-slate-400 leading-snug">{STATS[activeStat].line}</span>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/pricing" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all group bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400 shadow-[0_4px_20px_rgba(124,58,237,0.3)] hover:shadow-[0_6px_28px_rgba(124,58,237,0.4)]">
+            <Link href="/pricing" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all group bg-[var(--accent)] hover:bg-[var(--accent-hover)]  ">
               Go Unlimited <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </Link>
             <span className="text-[10px] text-slate-600">Cancel anytime · Instant access</span>
@@ -243,7 +240,7 @@ function FormModal({ form, setForm, onSave, onCancel, saving, isEdit }: FormModa
           <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Notes</label><textarea rows={3} value={form.notes || ''} onChange={e => f('notes', e.target.value)} placeholder="Interview details, recruiter name, key contacts, follow-up dates…" className={`${inp} resize-none`} /></div>
         </div>
         <div className="flex gap-3 px-6 py-4 border-t border-white/[0.06] flex-shrink-0">
-          <button onClick={onSave} disabled={saving || !form.company.trim() || !form.jobTitle.trim()} className="flex-1 py-2.5 bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400 text-white rounded-xl font-semibold text-sm transition-all shadow-[0_4px_14px_rgba(124,58,237,0.3)] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+          <button onClick={onSave} disabled={saving || !form.company.trim() || !form.jobTitle.trim()} className="flex-1 py-2.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-xl font-semibold text-sm transition-all  disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
             {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</> : <><Save className="w-4 h-4" /> {isEdit ? 'Update' : 'Save Application'}</>}
           </button>
           <button onClick={onCancel} className="px-5 py-2.5 bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.07] text-slate-300 rounded-xl font-semibold text-sm transition-all">Cancel</button>
@@ -428,7 +425,7 @@ function ContactsModal({ app, onClose, onContactsFound }: { app: Application; on
               <div className="w-12 h-12 bg-white/[0.03] border border-white/[0.07] rounded-2xl flex items-center justify-center mx-auto mb-4"><UserSearch className="w-5 h-5 text-slate-600" /></div>
               <p className="text-base font-bold text-white mb-2">Stop cold-applying. Start warm outreach.</p>
               <p className="text-xs text-slate-500 max-w-xs leading-relaxed mb-6">Find the recruiter, hiring manager, and decision-makers at <span className="text-slate-300 font-semibold">{app.company}</span> and get a personalised email ready to send.</p>
-              <button onClick={() => fetchContacts()} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-sm font-semibold shadow-[0_4px_16px_rgba(102,126,234,0.3)] transition-all duration-200"><UserSearch className="w-4 h-4" /> Find Contacts at {app.company}</button>
+              <button onClick={() => fetchContacts()} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-semibold  transition-all duration-200"><UserSearch className="w-4 h-4" /> Find Contacts at {app.company}</button>
               <button onClick={() => setShowDomainOverride(true)} className="mt-3 text-[11px] text-slate-600 hover:text-slate-400 transition-colors flex items-center gap-1 mx-auto"><Globe className="w-3 h-3" /> Enter domain manually</button>
             </div></div>
           )}
@@ -495,18 +492,18 @@ function CreatePlanModal({ app, onConfirm, onClose }: { app: Application; onConf
       <div className="absolute inset-0 bg-[#090d1a]/85 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-[#0d1526]/98 border border-white/[0.09] rounded-2xl w-full max-w-sm shadow-[0_32px_64px_rgba(0,0,0,0.6)] overflow-hidden">
         <div className="px-5 py-4 border-b border-white/[0.06] flex items-center justify-between">
-          <div className="flex items-center gap-2.5"><div className="w-8 h-8 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-lg flex items-center justify-center"><CalendarPlus className="w-4 h-4 text-white" /></div><div><p className="text-sm font-bold text-white">Create Prep Plan</p><p className="text-[11px] text-slate-500 truncate max-w-[180px]">{app.jobTitle} @ {app.company}</p></div></div>
+          <div className="flex items-center gap-2.5"><div className="w-8 h-8 bg-[var(--accent)] rounded-lg flex items-center justify-center"><CalendarPlus className="w-4 h-4 text-white" /></div><div><p className="text-sm font-bold text-white">Create Prep Plan</p><p className="text-[11px] text-slate-500 truncate max-w-[180px]">{app.jobTitle} @ {app.company}</p></div></div>
           <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-white hover:bg-white/[0.05] transition-all"><X className="w-4 h-4" /></button>
         </div>
         <div className="p-5 space-y-4">
           <p className="text-xs text-slate-500 leading-relaxed">When is your interview? We&apos;ll build a day-by-day plan to get you ready.</p>
           <div className="grid grid-cols-3 gap-2">
-            {PLAN_PRESETS.map(p => (<button key={p.days} type="button" onClick={() => { setSelected(p.days); setCustom(false); }} className={`py-2.5 rounded-xl text-xs font-semibold transition-all border ${!custom && selected === p.days ? 'bg-gradient-to-r from-violet-600 to-indigo-600 border-violet-500 text-white shadow-[0_4px_12px_rgba(124,58,237,0.3)]' : 'bg-white/[0.03] border-white/[0.07] text-slate-500 hover:border-violet-500/40 hover:text-white'}`}>{p.label}</button>))}
-            <button type="button" onClick={() => setCustom(true)} className={`py-2.5 rounded-xl text-xs font-semibold transition-all border ${custom ? 'bg-gradient-to-r from-violet-600 to-indigo-600 border-violet-500 text-white shadow-[0_4px_12px_rgba(124,58,237,0.3)]' : 'bg-white/[0.03] border-white/[0.07] text-slate-500 hover:border-violet-500/40 hover:text-white'}`}>Custom</button>
+            {PLAN_PRESETS.map(p => (<button key={p.days} type="button" onClick={() => { setSelected(p.days); setCustom(false); }} className={`py-2.5 rounded-xl text-xs font-semibold transition-all border ${!custom && selected === p.days ? 'bg-[var(--accent)] border-violet-500 text-white ' : 'bg-white/[0.03] border-white/[0.07] text-slate-500 hover:border-violet-500/40 hover:text-white'}`}>{p.label}</button>))}
+            <button type="button" onClick={() => setCustom(true)} className={`py-2.5 rounded-xl text-xs font-semibold transition-all border ${custom ? 'bg-[var(--accent)] border-violet-500 text-white ' : 'bg-white/[0.03] border-white/[0.07] text-slate-500 hover:border-violet-500/40 hover:text-white'}`}>Custom</button>
           </div>
           {custom && <div><label className="block text-xs text-slate-400 mb-1.5">Days until interview (1-90)</label><input type="number" min={1} max={90} value={customVal} onChange={e => setCustomVal(e.target.value)} className={inp} autoFocus /></div>}
           <div className="flex gap-2 pt-1">
-            <button onClick={handleConfirm} className="flex-1 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-xl font-semibold text-sm transition-all shadow-[0_4px_14px_rgba(124,58,237,0.3)] flex items-center justify-center gap-2"><Sparkles className="w-4 h-4" /> Generate Plan</button>
+            <button onClick={handleConfirm} className="flex-1 py-2.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-xl font-semibold text-sm transition-all  flex items-center justify-center gap-2"><Sparkles className="w-4 h-4" /> Generate Plan</button>
             <button onClick={onClose} className="px-4 py-2.5 bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.07] text-slate-300 rounded-xl font-semibold text-sm transition-all">Cancel</button>
           </div>
         </div>
@@ -694,7 +691,7 @@ export default function JobTrackerPage() {
             <div>
               <Link href="/" className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors mb-3"><ArrowLeft className="w-3.5 h-3.5" /> Dashboard</Link>
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 gradient-primary rounded-xl flex items-center justify-center shadow-[0_4px_14px_rgba(102,126,234,0.3)]"><Briefcase className="w-4 h-4 text-white" /></div>
+                <div className="w-9 h-9 gradient-primary rounded-xl flex items-center justify-center "><Briefcase className="w-4 h-4 text-white" /></div>
                 <div><h1 className="text-xl font-bold text-white leading-tight">Job Tracker</h1><p className="text-xs text-slate-500">Track every application from wishlist to offer</p></div>
               </div>
             </div>
@@ -704,7 +701,7 @@ export default function JobTrackerPage() {
                 <Shield className="w-4 h-4 text-purple-400" />
                 <span className="text-[13px] font-semibold text-purple-400">{jobsUnlimited ? 'Unlimited' : `${jobsLeft} jobs left`}</span>
               </div>
-              <button onClick={handleAddApp} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400 text-white text-sm font-semibold shadow-[0_4px_14px_rgba(102,126,234,0.28)] transition-all duration-200">
+              <button onClick={handleAddApp} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-semibold  transition-all duration-200">
                 <Plus className="w-4 h-4" /> Add Application
               </button>
             </div>
@@ -751,7 +748,7 @@ export default function JobTrackerPage() {
                 <p className="text-xs text-slate-600 mb-6 max-w-xs mx-auto leading-relaxed">{apps.length === 0 ? 'Start tracking your job search. Add your first application to see it here.' : 'Try adjusting your search or filters.'}</p>
                 {apps.length === 0 && canAddJob && (
                   <div className="flex flex-wrap items-center justify-center gap-3">
-                    <button onClick={() => { setForm({ ...EMPTY_FORM }); setShowForm(true); }} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 text-white text-sm font-semibold transition-all duration-150"><Plus className="w-4 h-4" /> Add First Application</button>
+                    <button onClick={() => { setForm({ ...EMPTY_FORM }); setShowForm(true); }} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white text-sm font-semibold transition-all duration-150"><Plus className="w-4 h-4" /> Add First Application</button>
                     <SeeExampleButton serviceId="job-tracker" className="!px-5 !py-2.5 !text-sm !font-semibold" />
                   </div>
                 )}

@@ -92,7 +92,6 @@ export default function RecruiterEyePage() {
         console.log('✅ Resume loaded successfully:', resumeData.fileName);
         setResume(resumeData);
         setLoadingStep(4);
-        await new Promise(resolve => setTimeout(resolve, 300));
 
       } catch (err) {
         console.error('Error loading profile resume:', err);

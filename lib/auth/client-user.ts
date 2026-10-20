@@ -21,7 +21,31 @@ const withTimeout = <T,>(p: Promise<T>, ms: number): Promise<T | "timeout"> =>
  * `verified` is false when Supabase could not be reached and the locally held
  * session was used instead.
  */
-export async function getClientUser(timeoutMs = 6000): Promise<{ user: User | null; verified: boolean }> {
+// Every hook and page that needs the user calls this on mount, five or six
+// per page load. Supabase serialises getUser() behind a client lock, so they
+// finished ~110ms apart and the last caller (the dashboard's data fetch)
+// waited ~550ms. Callers now share one request, and a result is reused for a
+// few seconds so the burst of mounts on a navigation costs one round trip.
+const REUSE_MS = 5000;
+let shared: { at: number; promise: Promise<{ user: User | null; verified: boolean }> } | null = null;
+
+// A sign-out or a sign-in as someone else must never be answered from reuse.
+if (typeof window !== "undefined") {
+  supabase.auth.onAuthStateChange(event => {
+    if (event === "SIGNED_OUT" || event === "SIGNED_IN" || event === "USER_UPDATED") shared = null;
+  });
+}
+
+export function getClientUser(timeoutMs = 6000): Promise<{ user: User | null; verified: boolean }> {
+  if (shared && (Date.now() - shared.at < REUSE_MS)) return shared.promise;
+  const promise = fetchClientUser(timeoutMs);
+  shared = { at: Date.now(), promise };
+  // An unverified answer (Supabase unreachable) should be retried next time.
+  promise.then(r => { if (!r.verified && shared?.promise === promise) shared = null; });
+  return promise;
+}
+
+async function fetchClientUser(timeoutMs: number): Promise<{ user: User | null; verified: boolean }> {
   try {
     const res = await withTimeout(supabase.auth.getUser(), timeoutMs);
     if (res !== "timeout") {

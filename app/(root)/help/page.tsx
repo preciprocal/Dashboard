@@ -875,7 +875,7 @@ function HelpSupportContent() {
                       <h4 className="text-base font-semibold text-white mb-1">Sign in to submit a ticket</h4>
                       <p className="text-slate-500 text-sm">You need to be signed in to contact support and track your tickets.</p>
                     </div>
-                    <Link href="/sign-in" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white text-sm font-medium shadow-md hover:shadow-lg transition-all">
+                    <Link href="/sign-in" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-medium shadow-md hover:shadow-lg transition-all">
                       <LogOut className="w-4 h-4 rotate-180" />Sign In
                     </Link>
                   </div>

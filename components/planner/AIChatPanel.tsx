@@ -342,7 +342,7 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
       {/* Header - Dark Mode */}
       <div className="p-4 border-b border-slate-800">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
+          <div className="w-10 h-10 bg-[var(--accent)] rounded-lg flex items-center justify-center shadow-lg ">
             <Sparkles className="w-5 h-5 text-white" />
           </div>
           <div>
@@ -364,13 +364,13 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
             <div
               className={`max-w-[85%] rounded-lg ${
                 message.role === 'user'
-                  ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 shadow-lg shadow-blue-500/20'
+                  ? 'bg-[var(--accent)] text-white p-4 shadow-lg '
                   : 'bg-slate-800/60 backdrop-blur-xl text-slate-300 border border-slate-700 p-5'
               }`}
             >
               {message.role === 'assistant' && (
                 <div className="flex items-center gap-2 mb-3 pb-3 border-b border-slate-700">
-                  <div className="w-6 h-6 bg-gradient-to-r from-indigo-500 to-violet-500 rounded flex items-center justify-center">
+                  <div className="w-6 h-6 bg-[var(--accent)] rounded flex items-center justify-center">
                     <Sparkles className="w-3.5 h-3.5 text-white" />
                   </div>
                   <span className="text-xs font-medium text-purple-400">
@@ -473,7 +473,7 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
           <button
             onClick={() => handleSend()}
             disabled={!input.trim() || isLoading}
-            className="p-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 shadow-lg shadow-blue-500/20"
+            className="p-2.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 shadow-lg "
           >
             {isLoading ? (
               <Loader2 className="w-5 h-5 animate-spin" />

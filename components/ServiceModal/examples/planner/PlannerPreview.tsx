@@ -180,7 +180,7 @@ function CreatingPlan() {
             <div>
               <p className="text-[9px] text-slate-500 mb-1">Skill Level</p>
               <FadeIn delay={2000}>
-                <div className="px-2.5 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg text-center">
+                <div className="px-2.5 py-2 bg-[var(--accent)] rounded-lg text-center">
                   <span className="text-[11px] text-white font-medium">Intermediate</span>
                 </div>
               </FadeIn>
@@ -201,7 +201,7 @@ function CreatingPlan() {
           <div className="flex flex-wrap gap-1.5">
             {FOCUS_AREAS.map((area, i) => (
               <FadeIn key={area} delay={2400 + i * 150}>
-                <span className="px-2 py-1 bg-indigo-600 text-white rounded-lg text-[9px] font-medium shadow-lg shadow-indigo-500/20">{area}</span>
+                <span className="px-2 py-1 bg-indigo-600 text-white rounded-lg text-[9px] font-medium shadow-lg ">{area}</span>
               </FadeIn>
             ))}
           </div>
@@ -210,7 +210,7 @@ function CreatingPlan() {
 
       <FadeIn delay={3200}>
         <div className="p-2.5 bg-indigo-500/[0.06] border border-indigo-500/15 rounded-lg flex items-center gap-3">
-          <div className="w-8 h-8 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+          <div className="w-8 h-8 bg-[var(--accent)] rounded-full flex items-center justify-center flex-shrink-0">
             <Calendar className="w-3.5 h-3.5 text-white" />
           </div>
           <div>
@@ -221,7 +221,7 @@ function CreatingPlan() {
       </FadeIn>
 
       <FadeIn delay={3500}>
-        <div className="w-full py-2.5 rounded-xl text-center text-[11px] font-semibold bg-gradient-to-r from-indigo-500 to-purple-500 text-white flex items-center justify-center gap-2 shadow-[0_4px_14px_rgba(139,92,246,0.35)]">
+        <div className="w-full py-2.5 rounded-xl text-center text-[11px] font-semibold bg-[var(--accent)] text-white flex items-center justify-center gap-2 ">
           <Sparkles className="w-3.5 h-3.5" /> Generate Preparation Plan
         </div>
       </FadeIn>
@@ -295,7 +295,7 @@ function Sidebar({ checkedCount }: { checkedCount: number }) {
               const reached = 43 >= m;
               return (
                 <div key={m} className="flex-1 text-center">
-                  <div className={`w-6 h-6 rounded-full mx-auto mb-0.5 flex items-center justify-center text-[8px] font-bold ${reached ? 'bg-gradient-to-br from-indigo-500 to-violet-500 text-white shadow-[0_2px_8px_rgba(124,58,237,0.3)]' : 'bg-white/[0.04] border border-white/[0.07] text-slate-700'}`}>{reached ? '✓' : m === 100 ? '🏆' : ''}</div>
+                  <div className={`w-6 h-6 rounded-full mx-auto mb-0.5 flex items-center justify-center text-[8px] font-bold ${reached ? 'bg-[var(--accent)] text-white ' : 'bg-white/[0.04] border border-white/[0.07] text-slate-700'}`}>{reached ? '✓' : m === 100 ? '🏆' : ''}</div>
                   <p className={`text-[7px] font-semibold ${reached ? 'text-slate-300' : 'text-slate-700'}`}>{m}%</p>
                 </div>
               );
@@ -321,7 +321,7 @@ function TabBar({ activeTab }: { activeTab: string }) {
     <div className="p-1 bg-white/[0.02] border border-white/[0.06] rounded-lg flex items-center gap-0.5 mb-2.5 flex-shrink-0">
       {tabs.map(tab => (
         <div key={tab.id} className={`flex items-center gap-1 px-2 py-1.5 rounded text-[8px] font-semibold flex-shrink-0 whitespace-nowrap ${
-          activeTab === tab.id ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-[0_2px_10px_rgba(99,102,241,0.3)]' : 'text-slate-500'
+          activeTab === tab.id ? 'bg-[var(--accent)] text-white ' : 'text-slate-500'
         }`}>
           <tab.icon className="w-3 h-3" />
           {tab.label}
@@ -348,7 +348,7 @@ function ScheduleView() {
               <FadeIn key={dp.day} delay={200 + i * 80}>
                 <div className="p-2.5 bg-white/[0.02] border border-white/[0.06] rounded-lg">
                   <div className="flex items-center gap-2.5 mb-2">
-                    <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <div className="w-8 h-8 bg-[var(--accent)] rounded-lg flex items-center justify-center flex-shrink-0">
                       <div className="text-center leading-none">
                         <span className="block text-[7px] text-blue-200">Day</span>
                         <span className="block text-[11px] font-bold text-white">{dp.day}</span>
@@ -367,7 +367,7 @@ function ScheduleView() {
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="flex-1 h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                      <div className="h-full bg-[var(--accent)] rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
                     </div>
                     <span className="text-[8px] font-medium text-white">{dp.done}/{dp.tasks}</span>
                   </div>
@@ -407,7 +407,7 @@ function TasksView() {
         <FadeIn delay={200}>
           <div className="flex items-center gap-2 mb-2">
             {['All (7)', 'To Do (2)', 'In Progress (1)', 'Done (4)'].map((label, i) => (
-              <span key={label} className={`px-2 py-1 rounded text-[8px] font-semibold ${i === 0 ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white' : 'text-slate-500'}`}>{label}</span>
+              <span key={label} className={`px-2 py-1 rounded text-[8px] font-semibold ${i === 0 ? 'bg-[var(--accent)] text-white' : 'text-slate-500'}`}>{label}</span>
             ))}
           </div>
         </FadeIn>
@@ -504,7 +504,7 @@ function AnalyticsView() {
                 <span className="ml-auto text-[14px] font-bold text-indigo-400">47</span>
               </div>
               <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden mb-1.5">
-                <div className="h-full bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full" style={{ width: '47%' }} />
+                <div className="h-full bg-[var(--accent)] rounded-full" style={{ width: '47%' }} />
               </div>
               <p className="text-[8px] text-slate-500">Building up - complete Day 3 and start system design to reach &quot;Almost Ready&quot;.</p>
             </div>
@@ -592,7 +592,7 @@ function AiCoachView() {
           {/* Chat header */}
           <FadeIn delay={200}>
             <div className="p-2.5 bg-white/[0.02] border border-white/[0.06] rounded-lg mb-2 flex items-center gap-2">
-              <div className="w-7 h-7 bg-gradient-to-br from-indigo-500 to-violet-500 rounded-lg flex items-center justify-center flex-shrink-0">
+              <div className="w-7 h-7 bg-[var(--accent)] rounded-lg flex items-center justify-center flex-shrink-0">
                 <Sparkles className="w-3.5 h-3.5 text-white" />
               </div>
               <div>
@@ -614,7 +614,7 @@ function AiCoachView() {
                 <div className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[88%] px-3 py-2 rounded-xl text-[9px] leading-relaxed whitespace-pre-line ${
                     msg.role === 'user'
-                      ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-br-sm'
+                      ? 'bg-[var(--accent)] text-white rounded-br-sm'
                       : 'bg-white/[0.04] border border-white/[0.06] text-slate-300 rounded-bl-sm'
                   }`}>
                     {msg.text.split(/(\*\*.*?\*\*)/).map((part, pi) =>
@@ -647,7 +647,7 @@ function AiCoachView() {
               <div className="flex-1 px-2.5 py-1.5 bg-white/[0.03] border border-white/[0.06] rounded-lg text-[9px] text-slate-600">
                 Ask your AI coach anything...
               </div>
-              <div className="w-7 h-7 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
+              <div className="w-7 h-7 bg-[var(--accent)] rounded-lg flex items-center justify-center flex-shrink-0">
                 <ArrowRight className="w-3 h-3 text-white" />
               </div>
             </div>
@@ -713,7 +713,7 @@ function QuizView() {
                 <span className="text-[10px] text-slate-500">Q {currentQ + 1} / {QUIZ_QUESTIONS.length}</span>
               </div>
               <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full transition-all duration-500"
+                <div className="h-full bg-[var(--accent)] rounded-full transition-all duration-500"
                   style={{ width: `${((currentQ) / QUIZ_QUESTIONS.length) * 100}%` }} />
               </div>
               <div className="flex items-center gap-2 mt-2">
@@ -823,7 +823,7 @@ function InteractiveTabBar({ activeTab, onTabChange }: { activeTab: string; onTa
       {tabs.map(tab => (
         <button key={tab.id} onClick={() => onTabChange(tab.id)}
           className={`flex items-center gap-1 px-2 py-1.5 rounded text-[8px] font-semibold flex-shrink-0 whitespace-nowrap cursor-pointer transition-all ${
-            activeTab === tab.id ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-[0_2px_10px_rgba(99,102,241,0.3)]' : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'
+            activeTab === tab.id ? 'bg-[var(--accent)] text-white ' : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'
           }`}>
           <tab.icon className="w-3 h-3" />
           {tab.label}
@@ -858,7 +858,7 @@ function InteractiveView() {
                 return (
                   <div key={dp.day} className="p-2.5 bg-white/[0.02] border border-white/[0.06] rounded-lg">
                     <div className="flex items-center gap-2.5 mb-2">
-                      <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <div className="w-8 h-8 bg-[var(--accent)] rounded-lg flex items-center justify-center flex-shrink-0">
                         <div className="text-center leading-none">
                           <span className="block text-[7px] text-blue-200">Day</span>
                           <span className="block text-[11px] font-bold text-white">{dp.day}</span>
@@ -877,7 +877,7 @@ function InteractiveView() {
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="flex-1 h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
-                        <div className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full" style={{ width: `${pct}%` }} />
+                        <div className="h-full bg-[var(--accent)] rounded-full" style={{ width: `${pct}%` }} />
                       </div>
                       <span className="text-[8px] font-medium text-white">{dp.done}/{dp.tasks}</span>
                     </div>
@@ -891,7 +891,7 @@ function InteractiveView() {
             <div className="space-y-2">
               <div className="flex items-center gap-2 mb-1">
                 {['All (7)', 'To Do (2)', 'In Progress (0)', 'Done (5)'].map((label, i) => (
-                  <span key={label} className={`px-2 py-1 rounded text-[8px] font-semibold ${i === 0 ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white' : 'text-slate-500'}`}>{label}</span>
+                  <span key={label} className={`px-2 py-1 rounded text-[8px] font-semibold ${i === 0 ? 'bg-[var(--accent)] text-white' : 'text-slate-500'}`}>{label}</span>
                 ))}
               </div>
               {TASK_LIST.map((task, i) => {
@@ -948,7 +948,7 @@ function InteractiveView() {
                   <p className="text-[10px] font-bold text-white">Readiness Score</p>
                   <span className="ml-auto text-[14px] font-bold text-indigo-400">47</span>
                 </div>
-                <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden mb-1.5"><div className="h-full bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full" style={{ width: '47%' }} /></div>
+                <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden mb-1.5"><div className="h-full bg-[var(--accent)] rounded-full" style={{ width: '47%' }} /></div>
                 <p className="text-[8px] text-slate-500">Building up - complete Day 3 and start system design to reach &quot;Almost Ready&quot;.</p>
               </div>
             </div>
@@ -957,7 +957,7 @@ function InteractiveView() {
           {activeTab === 'chat' && (
             <div className="flex flex-col h-full">
               <div className="p-2.5 bg-white/[0.02] border border-white/[0.06] rounded-lg mb-2 flex items-center gap-2">
-                <div className="w-7 h-7 bg-gradient-to-br from-indigo-500 to-violet-500 rounded-lg flex items-center justify-center flex-shrink-0"><Sparkles className="w-3.5 h-3.5 text-white" /></div>
+                <div className="w-7 h-7 bg-[var(--accent)] rounded-lg flex items-center justify-center flex-shrink-0"><Sparkles className="w-3.5 h-3.5 text-white" /></div>
                 <div><p className="text-[10px] font-bold text-white">AI Interview Coach</p><p className="text-[8px] text-slate-500">Powered by Gemini 2.0 Flash</p></div>
                 <div className="ml-auto flex items-center gap-1"><div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" /><span className="text-[8px] text-emerald-400">Online</span></div>
               </div>
@@ -965,7 +965,7 @@ function InteractiveView() {
                 {FULL_CHAT.map((msg, i) => (
                   <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                     <div className={`max-w-[88%] px-3 py-2 rounded-xl text-[9px] leading-relaxed whitespace-pre-line ${
-                      msg.role === 'user' ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-br-sm' : 'bg-white/[0.04] border border-white/[0.06] text-slate-300 rounded-bl-sm'
+                      msg.role === 'user' ? 'bg-[var(--accent)] text-white rounded-br-sm' : 'bg-white/[0.04] border border-white/[0.06] text-slate-300 rounded-bl-sm'
                     }`}>
                       {msg.text.split(/(\*\*.*?\*\*)/).map((part, pi) =>
                         part.startsWith('**') && part.endsWith('**') ? <strong key={pi} className="font-semibold text-white">{part.slice(2, -2)}</strong> : <span key={pi}>{part}</span>
@@ -976,7 +976,7 @@ function InteractiveView() {
               </div>
               <div className="flex items-center gap-2 p-2 bg-white/[0.02] border border-white/[0.06] rounded-lg flex-shrink-0">
                 <div className="flex-1 px-2.5 py-1.5 bg-white/[0.03] border border-white/[0.06] rounded-lg text-[9px] text-slate-600">Ask your AI coach anything...</div>
-                <div className="w-7 h-7 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0"><ArrowRight className="w-3 h-3 text-white" /></div>
+                <div className="w-7 h-7 bg-[var(--accent)] rounded-lg flex items-center justify-center flex-shrink-0"><ArrowRight className="w-3 h-3 text-white" /></div>
               </div>
             </div>
           )}
@@ -988,7 +988,7 @@ function InteractiveView() {
                   <div className="flex items-center gap-2"><Brain className="w-4 h-4 text-purple-400" /><p className="text-[11px] font-bold text-white">Knowledge Quiz</p></div>
                   <span className="text-[10px] text-emerald-400 font-semibold">2/3 Correct</span>
                 </div>
-                <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full" style={{ width: '100%' }} /></div>
+                <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden"><div className="h-full bg-[var(--accent)] rounded-full" style={{ width: '100%' }} /></div>
                 <div className="flex items-center gap-2 mt-2">
                   {[true, true, false].map((correct, i) => (
                     <div key={i} className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold ${correct ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>{correct ? '✓' : '✗'}</div>

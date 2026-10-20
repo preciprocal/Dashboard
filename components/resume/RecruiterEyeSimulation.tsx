@@ -199,8 +199,8 @@ export default function RecruiterEyeSimulation({
         </p>
         <button onClick={() => runSimulation()}
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white
-                     bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500
-                     transition-all shadow-lg shadow-indigo-500/20 cursor-pointer">
+                     bg-[var(--accent)] hover:bg-[var(--accent-hover)]
+                     transition-all shadow-lg  cursor-pointer">
           <Eye className="w-4 h-4" /> Run Simulation
         </button>
       </div>
@@ -317,7 +317,7 @@ export default function RecruiterEyeSimulation({
             {sim.perspectives.map((p, idx) => (
               <button key={idx} onClick={() => setSelectedPerspective(idx)}
                 className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-                  selectedPerspective === idx ? 'bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-white/[0.05]'
+                  selectedPerspective === idx ? 'bg-[var(--accent)] text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-white/[0.05]'
                 }`}>
                 <span>{p.icon}</span><span className="hidden sm:inline">{p.role}</span>
               </button>
@@ -477,8 +477,8 @@ export default function RecruiterEyeSimulation({
       {/* ── Re-run button ── */}
       <button onClick={() => runSimulation(true)} disabled={isSimulating}
         className="w-full py-3 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2
-                   bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500
-                   disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-indigo-500/20 cursor-pointer">
+                   bg-[var(--accent)] hover:bg-[var(--accent-hover)]
+                   disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg  cursor-pointer">
         {isSimulating ? <><Loader2 className="w-4 h-4 animate-spin" /> Running…</> : <><RefreshCw className="w-4 h-4" /> Re-run Simulation</>}
       </button>
     </div>
