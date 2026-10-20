@@ -114,7 +114,9 @@ const tipSchema = z.object({
 
 const sectionSchema = z.object({
   score: z.number().min(0).max(100),
-  tips: z.array(tipSchema).min(4).max(6),
+  // The review pass (reviewTips) can drop a wrong or repeated tip, so a
+  // section may end with as few as MIN_TIPS_PER_SECTION.
+  tips: z.array(tipSchema).min(3).max(6),
 });
 
 const resumeFeedbackSchema = z.object({
@@ -205,8 +207,30 @@ RULES:
    its absence. If the resume has one, skip past it: do not quote it, do not
    reference it, and do not let its quality or absence affect any score. Spend
    that tip on experience, skills, or measurable impact instead.
-8. You will be asked to score ONE dimension of the resume. Stay strictly inside
-   it. The other dimensions are reviewed separately, so do not repeat their points.
+8. You will be asked to score ONE dimension of the resume. You are told which
+   topics it owns and which belong to other reviewers. Only raise points on the
+   topics it owns, even when you notice something elsewhere: another reviewer
+   covers it, and repeating it makes the feedback look padded.
+9. ACCURACY. A wrong tip costs the candidate's trust, so check before you claim:
+   - Every quote is copied exactly from the resume. Never paraphrase inside quotes.
+   - Never say something is missing, misspelled, inconsistent or overlapping
+     until you have checked the whole resume and it really is.
+   - Company, product, school, project and personal names are proper nouns.
+     Never call them typos or suggest renaming them.
+   - Read every date range carefully before claiming a gap or an overlap.
+   - Before saying a skill, tool or keyword is missing, unused, "only in the
+     skills list" or unproven, search every bullet in the plain-text copy for it.
+   - Do not count bullets, entries or pages unless the count matters. If you
+     state a number, it must be exact.
+   - Your tip, explanation and solution must agree with each other.
+10. FIXES. Every "improve" tip MUST have a "solution": the exact replacement
+   text the candidate can paste in (a rewritten bullet, line, heading or skills
+   line), not advice about what to do. Keep the candidate's real facts. Never
+   invent numbers, tools, employers or results the resume does not support;
+   where a metric is missing, put a placeholder such as [X%] or [N users] for
+   the candidate to fill in. Never add a skill or tool the resume does not
+   mention; if the candidate probably has one, write it as a placeholder such
+   as [Git, if you use it].
 
 IMPORTANT: Read the ENTIRE resume thoroughly before scoring.
 
@@ -214,19 +238,60 @@ CRITICAL: Return ONLY a valid JSON object. No markdown fences, no preamble. Star
 
 { "score": <0-100>, "tips": [{ "type": "good"|"improve", "tip": "<specific>", "explanation": "<why>", "solution": "<for improve only>" }] }
 
-Exactly 5 tips, mix of good/improve. At least 2 improve tips must have a "solution".
+Exactly 5 tips: at least 3 "improve" (each with a "solution") and the rest "good".
 
 LENGTH: Be dense, not long. Each "tip" is one sentence. Each "explanation" is at most two sentences. A "solution" is only the rewritten text, with no preamble like "Change it to".${LANGUAGE_MATCH_INSTRUCTION}`;
 
 type SectionKey = keyof typeof SCORE_WEIGHTS;
 
-const SECTION_BRIEFS: Record<SectionKey, string> = {
-  ATS: 'ATS compatibility: whether an applicant tracking system can parse this resume (layout, headings, dates, contact details) and whether it carries the keywords the target role needs.',
-  toneAndStyle: 'Tone and style: voice, action verbs, consistency of tense and formatting, concision, and buzzwords or filler.',
-  content: 'Content: the substance of the experience and projects, measurable impact, specificity, and relevance to the target role.',
-  structure: 'Structure: section order, layout, length, visual hierarchy, and how quickly a recruiter can scan it.',
-  skills: 'Skills: which skills are shown, how credibly the experience backs them, gaps against the target role, and how the skills section is organised.',
+// Each section owns its topics outright. A section's call is also told every
+// other section's topics, as a do-not-cover list, so a point such as "the
+// skills block is dense" is raised once, under structure, not three times.
+const SECTION_BRIEFS: Record<SectionKey, { name: string; owns: string }> = {
+  ATS: {
+    name: 'ATS compatibility',
+    owns: 'whether an applicant tracking system can parse the resume (columns, tables, graphics, headings it recognises, contact details written as plain text, consistent date formats, standard job titles) and whether the resume uses the keywords the target role is searched by',
+  },
+  toneAndStyle: {
+    name: 'Tone and style',
+    owns: 'word choice inside bullets and lines: action verbs, vague or trailing phrases, buzzwords and filler, self-praise in place of evidence, tense and person consistency, spelling and grammar of ordinary words',
+  },
+  content: {
+    name: 'Content',
+    owns: 'the substance of experience and projects: achievements against duties, measurable impact, credibility of the claims and metrics, scope and seniority, relevance to the target role, and the career timeline (gaps, overlaps, short tenures)',
+  },
+  structure: {
+    name: 'Structure',
+    owns: 'how the page is laid out for a human reader: section order, page length, whitespace, bolding and visual hierarchy, bullet length and density, consistency of formatting between entries, and how fast a recruiter can scan it',
+  },
+  skills: {
+    name: 'Skills',
+    owns: 'the skills section itself: which skills are listed, whether the experience proves each one, important skills missing for the target role, and how the skills are grouped and labelled',
+  },
 };
+
+/** The user-message brief for one section: what it owns, and what it must leave alone. */
+function sectionBrief(key: SectionKey): string {
+  const others = (Object.keys(SECTION_BRIEFS) as SectionKey[])
+    .filter(k => k !== key)
+    .map(k => `- ${SECTION_BRIEFS[k].name}: ${SECTION_BRIEFS[k].owns}`)
+    .join('\n');
+  return `DIMENSION TO SCORE: ${SECTION_BRIEFS[key].name}.\nIt owns: ${SECTION_BRIEFS[key].owns}.\n\nDo NOT raise points on these topics. Other reviewers own them:\n${others}`;
+}
+
+const REVIEW_SYSTEM = `You check resume feedback before the candidate sees it. Five reviewers each scored one dimension of the same resume, and their tips are listed below with ids. Your job is to catch tips that would make the feedback look careless.
+
+Flag a tip ONLY if one of these is clearly true:
+- WRONG: it misstates the resume. It quotes text that is not there, says something is missing or misspelled when it is not, calls a company, product, school or person's name a typo, claims a date gap or overlap that the dates do not show, gives a count that is not exact, or contradicts its own solution. For every tip that says a skill, tool or keyword is missing, unused, "only in the skills list" or unproven, search the plain-text copy of the resume for it before deciding.
+- REPEAT: it makes the same point as a tip earlier in the list. Flag the later one, unless the later one sits in the dimension that owns the topic, in which case flag the earlier one.
+- NO FIX: it is an "improve" tip whose "solution" is missing, is advice instead of replacement text, or adds a number, skill, tool, method or result the resume does not show without marking it as a [placeholder].
+
+Do not flag a tip because you would have phrased it differently or because you disagree with a judgement call. When in doubt, keep it.
+
+Dimension ownership:
+${(Object.keys(SECTION_BRIEFS) as SectionKey[]).map(k => `- ${k}: ${SECTION_BRIEFS[k].owns}`).join('\n')}
+
+Return ONLY JSON: { "remove": [{ "id": "<tip id>", "reason": "<WRONG|REPEAT|NO FIX>: <a few words>" }] }. If nothing qualifies, return { "remove": [] }.`;
 
 const FIX_SYSTEM = `You are an expert resume editor. Give specific, copy-pasteable improvements - not encouragement.
 
@@ -368,20 +433,29 @@ async function handleResumeAnalysis(request: NextRequest, userId: string) {
     resumeBlock = { type: 'text', text: `RESUME TEXT:\n<resume>\n${resumeText}\n</resume>` };
   }
 
-  // The plain-text copy runs alongside the analysis rather than after it, and
-  // for an ordinary PDF it is read locally in well under a second. It stays
-  // optional: if it fails the analysis is still returned.
-  const extractionPromise: Promise<string> = resumeText
-    ? Promise.resolve(resumeText)
-    : extractResumeText(kind === 'image' ? 'image' : 'pdf', resumeBlock, buffer);
+  // A PDF's text layer is read locally first (~0.1s) and sent next to the PDF
+  // itself. The model reads layout from the PDF but checks claims against the
+  // text: measured, most wrong tips were "X is never used" or "N bullets" calls
+  // the rendered page alone got wrong. Scanned PDFs and images have no text
+  // layer, so they are transcribed by Claude alongside the analysis instead.
+  const plainText = resumeText || (kind === 'pdf' ? await readPdfTextLocally(buffer) : '');
+  const extractionPromise: Promise<string> = plainText
+    ? Promise.resolve(plainText)
+    : transcribeResume(kind === 'image' ? 'image' : 'pdf', resumeBlock);
+  const resumeContent: Anthropic.ContentBlockParam[] = kind !== 'word' && plainText
+    ? [resumeBlock, { type: 'text', text: `The same resume as plain text, for exact quoting and for checking what it does and does not contain:\n<resume_text>\n${plainText}\n</resume_text>` }]
+    : [resumeBlock];
 
   try {
     const sectionKeys = Object.keys(SCORE_WEIGHTS) as SectionKey[];
-    const sections = await Promise.all(sectionKeys.map(key => analyseSection(key, resumeBlock, jobContext)));
+    const sections = await Promise.all(sectionKeys.map(key => analyseSection(key, resumeContent, jobContext)));
     if (sections.some(sec => sec === null)) {
       return NextResponse.json({ error: 'AI returned unexpected format. Try again.', isMock: false }, { status: 422 });
     }
-    const bySection = Object.fromEntries(sectionKeys.map((key, i) => [key, sections[i]])) as Record<SectionKey, z.infer<typeof sectionSchema>>;
+    const bySection = await reviewTips(
+      Object.fromEntries(sectionKeys.map((key, i) => [key, sections[i]])) as Record<SectionKey, z.infer<typeof sectionSchema>>,
+      resumeContent,
+    );
 
     // overallScore is recomputed from the section scores by applyWeightedScore.
     const processed = applyWeightedScore(stripDashesDeep({ overallScore: 0, ...bySection }));
@@ -419,20 +493,24 @@ async function handleResumeAnalysis(request: NextRequest, userId: string) {
 }
 
 /** Request options shared by the fast analysis calls: Sonnet 5.5, thinking off. */
-function fastParams(params: Omit<Anthropic.MessageCreateParamsNonStreaming, 'model'>): Anthropic.MessageCreateParamsNonStreaming {
+function fastParams(params: Omit<Anthropic.MessageCreateParamsNonStreaming, 'model'>, effort: 'low' | 'medium'): Anthropic.MessageCreateParamsNonStreaming {
   // `between_tools` is Sonnet 5.5's thinking-off mode. It is newer than the
   // installed SDK's types, hence the cast; the API accepts it.
   return {
     ...params,
     model: ANALYSIS_MODEL,
     thinking: { type: 'between_tools' },
-    output_config: { effort: 'low' },
+    output_config: { effort },
   } as unknown as Anthropic.MessageCreateParamsNonStreaming;
 }
 
 /** Call Sonnet 5.5, falling back to CLAUDE_MODEL if it declines the request. */
-async function createFast(params: Omit<Anthropic.MessageCreateParamsNonStreaming, 'model'>, maxRetries = 2): Promise<Anthropic.Message> {
-  const response = await callClaude(() => anthropic!.messages.create(fastParams(params)), maxRetries);
+async function createFast(
+  params: Omit<Anthropic.MessageCreateParamsNonStreaming, 'model'>,
+  maxRetries = 2,
+  effort: 'low' | 'medium' = 'low',
+): Promise<Anthropic.Message> {
+  const response = await callClaude(() => anthropic!.messages.create(fastParams(params, effort)), maxRetries);
   if ((response.stop_reason as string) !== 'refusal') return response;
   console.warn(`⚠️ ${ANALYSIS_MODEL} declined, retrying on ${CLAUDE_MODEL}`);
   return callClaude(() => anthropic!.messages.create({ ...params, model: CLAUDE_MODEL }), maxRetries);
@@ -441,48 +519,124 @@ async function createFast(params: Omit<Anthropic.MessageCreateParamsNonStreaming
 /** Score one dimension of the resume. Returns null if the output is unusable twice. */
 async function analyseSection(
   key: SectionKey,
-  resumeBlock: Anthropic.ContentBlockParam,
+  resumeContent: Anthropic.ContentBlockParam[],
   jobContext: string,
 ): Promise<z.infer<typeof sectionSchema> | null> {
-  const instruction = `${jobContext ? jobContext + '\n\n' : ''}DIMENSION TO SCORE: ${SECTION_BRIEFS[key]}\n\nAnalyse only this dimension of the resume now.`;
+  const instruction = `${jobContext ? jobContext + '\n\n' : ''}${sectionBrief(key)}\n\nAnalyse only this dimension of the resume now.`;
   for (let attempt = 1; attempt <= 2; attempt++) {
     const response = await createFast({
       max_tokens: 2500,
       system: cachedSystem(ANALYSIS_SYSTEM),
-      messages: [{ role: 'user', content: [resumeBlock, { type: 'text', text: instruction }] }],
+      messages: [{ role: 'user', content: [...resumeContent, { type: 'text', text: instruction }] }],
     });
     logUsage(`analyze-resume:${key}`, response);
-    const cleaned = extractJsonString(extractText(response));
-    try {
-      // Trim rather than reject an extra tip: a retry for that alone would
-      // double the wait.
-      const raw = JSON.parse(cleaned) as { tips?: unknown };
-      if (Array.isArray(raw.tips)) raw.tips = raw.tips.slice(0, 6);
-      return sectionSchema.parse(raw);
-    } catch (err) {
-      console.error(`❌ Invalid ${key} section (attempt ${attempt}):`, cleaned.slice(0, 300), err);
+    const text = extractText(response);
+    // Occasionally the model writes an object, decides it was incomplete and
+    // writes a corrected one after it. The last complete object is the answer.
+    for (const candidate of topLevelJsonObjects(text).reverse()) {
+      try {
+        // Trim rather than reject an extra tip: a retry for that alone would
+        // double the wait.
+        const raw = JSON.parse(candidate) as { tips?: unknown };
+        if (Array.isArray(raw.tips)) raw.tips = raw.tips.slice(0, 6);
+        return sectionSchema.parse(raw);
+      } catch { /* try the previous object */ }
     }
+    console.error(`❌ Invalid ${key} section (attempt ${attempt}):`, text.slice(0, 300));
   }
   return null;
 }
 
-async function extractResumeText(kind: 'pdf' | 'image', resumeBlock: Anthropic.ContentBlockParam, buffer: Buffer): Promise<string> {
-  // A PDF with a text layer is read locally: ~0.1s against ~30s for asking
-  // Claude to transcribe it. Scanned PDFs and images have no text layer, so
-  // those still go to Claude.
-  if (kind === 'pdf') {
-    try {
-      const pdfParse = (await import('pdf-parse')).default;
-      const text = cleanResumeText((await pdfParse(buffer)).text);
-      if (text.length >= 200) {
-        console.log(`📝 Text extracted locally: ${text.length} chars`);
-        return text;
-      }
-    } catch (err) {
-      console.warn('⚠️ Local PDF text extraction failed, asking Claude:', err);
+/** Every complete top-level {...} in a string, in order. Braces inside JSON strings are ignored. */
+function topLevelJsonObjects(text: string): string[] {
+  const found: string[] = [];
+  let depth = 0, start = -1, inString = false, escaped = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
     }
+    if (ch === '"' && depth > 0) inString = true;
+    else if (ch === '{') { if (depth++ === 0) start = i; }
+    else if (ch === '}' && depth > 0 && --depth === 0) found.push(text.slice(start, i + 1));
   }
+  return found;
+}
 
+const MIN_TIPS_PER_SECTION = 3;
+const REVIEW_TIMEOUT_MS = 12_000;
+
+/**
+ * One last pass over all five sections together, which no single section call
+ * can do: it drops tips that misstate the resume, repeat another section, or
+ * lack a usable fix. It only removes, never rewrites, and never takes a
+ * section below MIN_TIPS_PER_SECTION. If it fails or runs long, the tips go
+ * out unreviewed rather than the user waiting or getting an error.
+ */
+async function reviewTips(
+  bySection: Record<SectionKey, z.infer<typeof sectionSchema>>,
+  resumeContent: Anthropic.ContentBlockParam[],
+): Promise<Record<SectionKey, z.infer<typeof sectionSchema>>> {
+  const keys = Object.keys(bySection) as SectionKey[];
+  const listing = keys.flatMap(k => bySection[k].tips.map((t, i) => ({ id: `${k}-${i + 1}`, dimension: k, ...t })));
+
+  const review = (async () => {
+    const response = await createFast({
+      max_tokens: 1000,
+      system: cachedSystem(REVIEW_SYSTEM),
+      messages: [{ role: 'user', content: [...resumeContent, { type: 'text', text: `TIPS:\n${JSON.stringify(listing, null, 1)}\n\nCheck the tips now.` }] }],
+    }, 1, 'medium');
+    logUsage('analyze-resume:review', response);
+    const objects = topLevelJsonObjects(extractText(response));
+    if (!objects.length) throw new Error('review returned no JSON');
+    return JSON.parse(objects[objects.length - 1]) as { remove?: { id: string; reason?: string }[] };
+  })();
+
+  let flagged: { id: string; reason?: string }[];
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const timeout = new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('review timed out')), REVIEW_TIMEOUT_MS); });
+    flagged = (await Promise.race([review, timeout])).remove ?? [];
+  } catch (err) {
+    review.catch(() => {}); // a late failure after the timeout is not worth an unhandled rejection
+    console.warn('⚠️ Tip review skipped:', (err as Error).message);
+    return bySection;
+  } finally {
+    clearTimeout(timer);
+  }
+  if (flagged.length) console.log('🧹 Review removed:', flagged.map(f => `${f.id} (${f.reason ?? '?'})`).join(', '));
+
+  const drop = new Set(flagged.map(f => f.id));
+  return Object.fromEntries(keys.map(k => {
+    const tips = bySection[k].tips;
+    // Never strip a section bare: if too many were flagged, the earliest
+    // flagged ones stay so the section keeps MIN_TIPS_PER_SECTION.
+    let spare = tips.filter((_, i) => !drop.has(`${k}-${i + 1}`)).length - MIN_TIPS_PER_SECTION;
+    const kept = tips.filter((_, i) => !drop.has(`${k}-${i + 1}`) || spare++ < 0);
+    return [k, { ...bySection[k], tips: kept }];
+  })) as Record<SectionKey, z.infer<typeof sectionSchema>>;
+}
+
+/** A PDF's text layer, read locally (~0.1s). Empty when there is none, e.g. a scan. */
+async function readPdfTextLocally(buffer: Buffer): Promise<string> {
+  try {
+    const pdfParse = (await import('pdf-parse')).default;
+    const text = cleanResumeText((await pdfParse(buffer)).text).slice(0, MAX_RESUME_CHARS);
+    if (text.length >= 200) {
+      console.log(`📝 Text extracted locally: ${text.length} chars`);
+      return text;
+    }
+  } catch (err) {
+    console.warn('⚠️ Local PDF text extraction failed, asking Claude:', err);
+  }
+  return '';
+}
+
+/** Ask Claude to transcribe a resume that has no text layer (scanned PDF or image). */
+async function transcribeResume(kind: 'pdf' | 'image', resumeBlock: Anthropic.ContentBlockParam): Promise<string> {
   try {
     const extractResponse = await createFast({
       max_tokens: 4000,
