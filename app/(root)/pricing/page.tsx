@@ -904,7 +904,7 @@ export default function PricingPage() {
             this section on its own. */}
         <div className="text-center mb-10">
           <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4 leading-tight">
-            We only win when <span style={{ background: "linear-gradient(135deg,#6366f1,#a855f7)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>you do.</span>
+            We only win when <span className="text-[var(--accent)]">you do.</span>
           </h1>
           <p className="text-slate-400 text-base sm:text-lg max-w-3xl mx-auto leading-relaxed">
             {/* Deliberately no refund terms here: they live in the Terms and
@@ -969,13 +969,12 @@ export default function PricingPage() {
                 </svg>
               </div>
               <div>
-                <p className="text-sm font-semibold text-white">University student? Get Pro free for 1 month 🎓</p>
+                <p className="text-sm font-semibold text-white">University student? Get Pro free for 1 month</p>
                 <p className="text-xs text-slate-400">Verify your .edu email. Nothing is charged for 30 days.</p>
               </div>
             </div>
             <button onClick={() => user ? setShowStudent(true) : (window.location.href = "/sign-in?redirect=/pricing")}
-              className="px-4 py-2 rounded-xl text-sm font-semibold text-white whitespace-nowrap flex-shrink-0 cursor-pointer transition-opacity hover:opacity-90"
-              style={{ background: "linear-gradient(135deg,#6366f1,#a855f7)" }}>
+              className="btn-primary flex-shrink-0 cursor-pointer">
               Claim student deal
             </button>
           </div>
@@ -998,12 +997,11 @@ export default function PricingPage() {
             const displayPrice = plan.monthlyPrice;
             return (
               <div key={plan.id}
-                className={`relative flex flex-col rounded-2xl border bg-gradient-to-b ${plan.gradient} ${plan.border} p-6 transition-all duration-200 ${plan.popular ? "ring-1 ring-indigo-500/30" : ""}`}>
+                className={`relative flex flex-col rounded-2xl border bg-[var(--bg-surface)] ${plan.popular ? "border-[var(--accent-border)]" : "border-white/[0.08]"} p-6 transition-colors duration-200`}>
 
                 {plan.badge && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span className="px-3 py-1 text-xs font-semibold text-white rounded-full whitespace-nowrap"
-                      style={{ background: "linear-gradient(135deg,#6366f1,#a855f7)" }}>
+                    <span className="px-2.5 py-1 text-[11px] font-semibold text-indigo-100 rounded-md whitespace-nowrap bg-[#1d2140] border border-[var(--accent-border)]">
                       {plan.badge}
                     </span>
                   </div>
@@ -1030,21 +1028,14 @@ export default function PricingPage() {
                 {plan.enterprise ? (
                   <div className="mb-6">
                     <a href="mailto:support@preciprocal.com?subject=Enterprise%20Plan%20Enquiry"
-                      className="w-full py-2.5 rounded-xl text-sm font-semibold text-center text-white block transition-opacity hover:opacity-90"
-                      style={{ background: "linear-gradient(135deg,#334155,#1e293b)", border: "1px solid rgba(255,255,255,0.12)" }}>
+                      className="btn-secondary w-full">
                       Contact us
                     </a>
                     <p className="text-center text-xs text-slate-500 mt-2 invisible">placeholder</p>
                   </div>
                 ) : (
                   <button onClick={() => handleSelectPlan(plan)} disabled={isCurrent}
-                    className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-all mb-6 cursor-pointer disabled:cursor-default
-                      ${isCurrent
-                        ? "bg-white/5 text-slate-400 border border-white/10"
-                        : plan.popular
-                          ? "text-white"
-                          : "bg-white/5 text-white border border-white/10 hover:bg-white/10"}`}
-                    style={!isCurrent && plan.popular ? { background: "linear-gradient(135deg,#6366f1,#a855f7)" } : {}}>
+                    className={`w-full mb-6 cursor-pointer disabled:cursor-default ${isCurrent ? "btn-secondary opacity-60" : plan.popular ? "btn-primary" : "btn-secondary"}`}>
                     {isCurrent ? "Current plan" : plan.cta}
                   </button>
                 )}

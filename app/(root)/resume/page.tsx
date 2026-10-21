@@ -375,24 +375,11 @@ export default function ResumeDashboard() {
           <div className="w-16 h-16 bg-white/[0.03] border border-white/[0.07] rounded-2xl flex items-center justify-center mx-auto mb-6"><FileText className="w-7 h-7 text-slate-600" /></div>
           <h3 className="text-xl font-bold text-white mb-2">Welcome to Resume Analysis</h3>
           <p className="text-sm text-slate-500 max-w-md mx-auto mb-8 leading-relaxed">Get AI-powered insights, ATS optimization, and personalized recommendations to improve your resume</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8 max-w-3xl mx-auto">
-            {[
-              { icon: CheckCircle, color: 'blue', label: 'ATS Score' },
-              { icon: Zap, color: 'purple', label: 'AI Analysis' },
-              { icon: CheckCircle, color: 'emerald', label: 'Track Progress' },
-              { icon: Zap, color: 'amber', label: 'Instant Feedback' },
-            ].map(({ icon: Icon, color, label }) => (
-              <div key={label} className="text-center">
-                <div className={`w-10 h-10 bg-${color}-500/10 rounded-lg flex items-center justify-center mx-auto mb-2`}><Icon className={`w-5 h-5 text-${color}-400`} /></div>
-                <p className="text-xs text-slate-500">{label}</p>
-              </div>
-            ))}
-          </div>
           <div className="flex flex-wrap items-center justify-center gap-3">
-            <Link href="/resume/upload" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-semibold   transition-all duration-200">
+            <Link href="/resume/upload" className="btn-primary">
               <Upload className="w-4 h-4" /><span>Upload Resume</span>
             </Link>
-            <SeeExampleButton serviceId="resume" className="!px-5 !py-2.5 !text-sm !font-semibold" />
+            <SeeExampleButton serviceId="resume" />
           </div>
           <p className="text-xs text-slate-600 mt-4">Supports PDF, DOC, and DOCX formats</p>
         </div>

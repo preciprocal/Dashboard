@@ -1,5 +1,5 @@
 'use client';
-import { Breadcrumbs, crumbsFor } from '@/components/PageHeader';
+import PageHeader, { Breadcrumbs, crumbsFor } from '@/components/PageHeader';
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -778,19 +778,17 @@ export default function CareerToolsPage() {
     <>
       {/* MOBILE */}
       <div className="lg:hidden py-4 space-y-5">
-        <div>
-          <Breadcrumbs crumbs={crumbsFor('/career-tools', 'Career Tools')} />
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-[10px] bg-[var(--accent-subtle)] border border-[var(--accent-border)] flex items-center justify-center flex-shrink-0"><Sparkles className="w-5 h-5 text-indigo-200" strokeWidth={1.75} /></div>
-              <div>
-                <h1 className="text-[20px] font-semibold text-white tracking-tight leading-tight">Career Tools</h1>
-                <p className="text-[13px] text-slate-400 mt-0.5">LinkedIn profile and outreach, written by AI</p>
-              </div>
-            </div>
-            <SeeExampleButton serviceId="career-tools" className="flex-shrink-0" />
-          </div>
-        </div>
+        <PageHeader
+          title="Career Tools" description="LinkedIn profile and outreach" icon={Sparkles}
+          actions={<>
+            <span className="btn-pill"><Shield />
+              {usageLoading ? <span aria-hidden="true" className="inline-block w-10 h-3 rounded bg-current opacity-25 animate-pulse" /> : isLI
+                ? (liUnlimited ? 'Unlimited' : `${liLeft} left`)
+                : (orUnlimited ? 'Unlimited' : `${orLeft} left`)}
+            </span>
+            <SeeExampleButton serviceId="career-tools" />
+          </>}
+        />
         <ToolTabs active={activeTool} setActive={handleToolChange} /> {/* ← handleToolChange */}
         {isLI ? <LinkedInForm {...liFormProps} /> : <OutreachForm {...orFormProps} />}
         {isLI ? renderLIResults() : renderORResults()}

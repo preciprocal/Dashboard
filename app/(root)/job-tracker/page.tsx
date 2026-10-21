@@ -522,12 +522,12 @@ function CustomSelect<T extends string>({ value, onChange, options, icon: Icon }
   const active = options.find(o => o.value === value);
   useEffect(() => { if (!open) return; const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); }; document.addEventListener('mousedown', handler); return () => document.removeEventListener('mousedown', handler); }, [open]);
   return (
-    <div className="relative" ref={ref}>
-      <button type="button" onClick={() => setOpen(!open)} className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-400 bg-white/[0.04] border transition-all min-w-[130px] ${open ? 'border-purple-500/40 text-slate-200' : 'border-white/[0.07] hover:border-white/[0.12] hover:text-slate-200'}`}>
+    <div className="relative min-w-0 sm:w-auto" ref={ref}>
+      <button type="button" onClick={() => setOpen(!open)} className={`w-full flex items-center gap-2 h-11 px-3.5 rounded-[10px] text-[13px] font-medium text-slate-400 bg-white/[0.04] border transition-all min-w-[130px] ${open ? 'border-purple-500/40 text-slate-200' : 'border-white/[0.07] hover:border-white/[0.12] hover:text-slate-200'}`}>
         {Icon && <Icon className="w-3.5 h-3.5 flex-shrink-0" />}<span className="flex-1 text-left truncate">{active?.label}</span><ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 transition-transform duration-150 ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
-        <div className="absolute left-0 top-full mt-2 z-50 bg-[#0d1526]/98 border border-white/[0.08] rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.5)] py-1 min-w-full">
+        <div className="absolute left-0 top-full mt-2 z-50 bg-[var(--bg-raised)] border border-white/[0.1] rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.5)] py-1 min-w-full">
           {options.map(opt => (<button key={opt.value} type="button" onClick={() => { onChange(opt.value); setOpen(false); }} className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-xs transition-colors ${value === opt.value ? 'text-purple-300 bg-purple-500/[0.10] font-semibold' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'}`}>{opt.label}{value === opt.value && <Check className="w-3.5 h-3.5 opacity-70 flex-shrink-0" />}</button>))}
         </div>
       )}
@@ -721,8 +721,8 @@ export default function JobTrackerPage() {
             )}
 
             {/* Search + filters */}
-            <div className="flex flex-col sm:flex-row gap-2.5 animate-fade-in-up" style={{ animationDelay: '180ms' }}>
-              <div className="relative flex-1"><Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none" /><input type="text" placeholder="Search by company, role, or location…" value={search} onChange={e => setSearch(e.target.value)} className={`${inp} pl-10`} /></div>
+            <div className="grid grid-cols-3 sm:flex sm:flex-row gap-2.5 animate-fade-in-up" style={{ animationDelay: '180ms' }}>
+              <div className="relative col-span-3 sm:flex-1"><Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none" /><input type="text" placeholder="Search by company, role, or location…" value={search} onChange={e => setSearch(e.target.value)} className={`${inp} pl-10`} /></div>
               <CustomSelect<AppStatus | 'all'> value={filterStatus} onChange={setFilterStatus} icon={Filter} options={[{ value: 'all', label: `All (${apps.length})` }, ...(Object.keys(STATUS_CONFIG) as AppStatus[]).map(s => ({ value: s, label: STATUS_CONFIG[s].label }))]} />
               <CustomSelect<WorkType | 'all'> value={filterWork} onChange={setFilterWork} options={[{ value: 'all', label: 'All Types' }, ...(Object.keys(WORK_TYPE_CONFIG) as WorkType[]).map(w => ({ value: w, label: WORK_TYPE_CONFIG[w].label }))]} />
               <CustomSelect<'date' | 'company' | 'status'> value={sortBy} onChange={setSortBy} icon={SlidersHorizontal} options={[{ value: 'date', label: 'Recent First' }, { value: 'company', label: 'By Company' }, { value: 'status', label: 'By Status' }]} />

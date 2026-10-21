@@ -13,7 +13,6 @@ import { toast } from 'sonner';
 
 import {
   FileText,
-  Sparkles,
   Zap,
   LayoutGrid,
   List,
@@ -423,36 +422,16 @@ function EmptyDashboard() {
         Generate professional, personalised cover letters powered by AI. Stand out from the competition.
       </p>
 
-      {/* Feature pills */}
-      <div className="flex flex-wrap justify-center gap-2 mb-8">
-        {[
-          { icon: Sparkles, label: 'AI-Powered',    color: 'text-blue-400   bg-blue-500/10   border-blue-500/20'   },
-          { icon: Zap,      label: 'Fast',          color: 'text-violet-400 bg-violet-500/10 border-violet-500/20' },
-          { icon: CheckCircle, label: 'Professional', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' },
-          { icon: FileText, label: 'Customisable',  color: 'text-amber-400  bg-amber-500/10  border-amber-500/20'  },
-        ].map(({ icon: Icon, label, color }) => (
-          <div key={label} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium ${color}`}>
-            <Icon className="w-3.5 h-3.5" /> {label}
-          </div>
-        ))}
-      </div>
 
       <div className="flex flex-wrap items-center justify-center gap-3">
         <Link
           href="/cover-letter/create"
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl whitespace-nowrap shrink-0
-                     bg-[var(--accent)]
-                     hover:bg-[var(--accent-hover)]
-                     text-white text-sm font-semibold
-                     
-                     
-                     transition-all duration-200"
+          className="btn-primary"
         >
           <Plus className="w-4 h-4 shrink-0" /> Generate First Letter
         </Link>
         <SeeExampleButton
           serviceId="cover-letter"
-          className="!px-5 !py-2.5 !text-sm !font-semibold"
         />
       </div>
       <p className="text-[11px] text-slate-700 mt-4">Upload your resume for personalised letters</p>
