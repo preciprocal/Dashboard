@@ -18,32 +18,40 @@ function normalizeCreatedAt(value: unknown): Date {
 
 // ─── Resume Functions ─────────────────────────────────────────────────────────
 
+/**
+ * Upload the resume PDF to Storage and return its bare path. Separate from
+ * saving the record so the upload page can run it while the analysis is in
+ * progress instead of after it (~2s saved per upload).
+ */
+export async function uploadResumePdf(pdfFile: File, resumeId: string): Promise<string> {
+  const uploadForm = new FormData();
+  uploadForm.append('file', pdfFile);
+  uploadForm.append('kind', 'resume-pdf');
+  uploadForm.append('resumeId', resumeId);
+  // No Authorization header needed - the Supabase session cookie is sent
+  // automatically for this same-origin request.
+  const uploadRes = await fetch('/api/storage/upload', { method: 'POST', body: uploadForm });
+  if (!uploadRes.ok) {
+    const e = await uploadRes.json().catch(() => ({ error: 'Upload failed' }));
+    throw new Error(e.error || 'Failed to upload PDF');
+  }
+  // Bare Supabase Storage path (private bucket) - resolved to a signed
+  // URL on read via /api/resume/proxy-pdf, not stored as a permanent URL.
+  const { path } = await uploadRes.json() as { path: string };
+  return path;
+}
+
 export async function saveResumeWithFiles(
   resume: Omit<Resume, 'imagePath' | 'resumePath'>,
   pdfFile: File,
+  /** An upload already started with uploadResumePdf, to reuse instead of uploading again. */
+  uploading?: Promise<string>,
 ): Promise<string> {
   try {
     const { id } = resume;
 
     console.log('📤 Uploading PDF to Storage:', id);
-    const uploadForm = new FormData();
-    uploadForm.append('file', pdfFile);
-    uploadForm.append('kind', 'resume-pdf');
-    uploadForm.append('resumeId', id);
-
-    // No Authorization header needed - the Supabase session cookie is sent
-    // automatically for this same-origin request.
-    const uploadRes = await fetch('/api/storage/upload', {
-      method: 'POST',
-      body: uploadForm,
-    });
-    if (!uploadRes.ok) {
-      const e = await uploadRes.json().catch(() => ({ error: 'Upload failed' }));
-      throw new Error(e.error || 'Failed to upload PDF');
-    }
-    // Bare Supabase Storage path (private bucket) - resolved to a signed
-    // URL on read via /api/resume/proxy-pdf, not stored as a permanent URL.
-    const { path: resumePath } = await uploadRes.json() as { path: string };
+    const resumePath = await (uploading ?? uploadResumePdf(pdfFile, id));
     console.log('✅ PDF uploaded');
 
     const saveRes = await fetch('/api/resume', {
@@ -130,6 +138,7 @@ export class ResumeService {
   static saveResumeWithFiles = saveResumeWithFiles;
   static getResume           = getResume;
   static getUserResumes      = getUserResumes;
+  static uploadResumePdf     = uploadResumePdf;
 }
 
 export default ResumeService;

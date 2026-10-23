@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
-import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, createMessage } from '@/lib/ai/claude';
+import { anthropic, extractText, extractJsonString, createMessage } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 
@@ -62,13 +62,6 @@ interface DailyPlan {
 
 interface GeneratedPlan {
   dailyPlans: DailyPlan[];
-}
-
-// ─── Dynamic max_tokens based on plan length ──────────────────────────────────
-// Each day = ~400-550 tokens (focus + topics + 3 resources + behavioral + 3-5 tasks + tips)
-// Formula: base 200 + (days × 500) capped at 8000
-function getMaxTokens(days: number): number {
-  return Math.min(8000, 200 + days * 500);
 }
 
 // ─── System prompt ────────────────────────────────────────────────────────────
@@ -144,6 +137,52 @@ CRITICAL: Return ONLY valid JSON. No markdown fences, no preamble, no explanatio
   ]
 }`;
 
+// ─── Generation helpers ───────────────────────────────────────────────────────
+
+// 3 compact days is ~2,500 tokens, ~17s on the fast model; every group runs
+// at once, so a plan of any length takes about one group's time.
+const DAYS_PER_CALL = 3;
+// Measured ~800 output tokens per compact day; the margin keeps a verbose day
+// from cutting the group's JSON off (the cause of the original failures).
+const TOKENS_PER_DAY = 1100;
+
+/** One focus line per day, so parallel groups build on each other. */
+async function outlinePlan(userPrompt: string, total: number): Promise<string> {
+  const response = await createMessage({
+    max_tokens: 200 + total * 40,
+    system: 'You outline interview preparation plans. Return ONLY JSON: {"days":[{"day":1,"focus":"..."}]} with exactly one entry per day. Progress from fundamentals to advanced topics; for plans longer than 14 days include revision days and mock interview days.',
+    messages: [{ role: 'user', content: `${userPrompt}\n\nOutline all ${total} days now.` }],
+  });
+  try {
+    const { days } = JSON.parse(extractJsonString(extractText(response))) as { days: { day: number; focus: string }[] };
+    return days.map(d => `Day ${d.day}: ${d.focus}`).join('\n');
+  } catch {
+    return ''; // groups still work without it, just less coordinated
+  }
+}
+
+/** Days `from`..`to` of the plan, following the outline. Retried once if the JSON is unusable. */
+async function writeDays(userPrompt: string, outline: string | null, from: number, to: number, total: number): Promise<DailyPlan[]> {
+  const count = to - from + 1;
+  const scope = (total > count
+    ? `\n\n${outline ? `PLAN OUTLINE:\n${outline}\n\n` : ''}Write ONLY days ${from}-${to} of this ${total}-day plan: exactly ${count} entries in "dailyPlans", in order${outline ? ', each following its outline focus' : ''}.`
+    : '') + '\n\nKeep each day compact: 3 tasks, 2-3 resources, and one-sentence descriptions and tips.';
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const response = await createMessage({
+      max_tokens: 400 + count * TOKENS_PER_DAY,
+      system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
+      messages: [{ role: 'user', content: userPrompt + scope }],
+    });
+    try {
+      const plan = JSON.parse(extractJsonString(extractText(response))) as GeneratedPlan;
+      if (Array.isArray(plan.dailyPlans) && plan.dailyPlans.length) return plan.dailyPlans.slice(0, count);
+    } catch (err) {
+      console.error(`❌ Days ${from}-${to} JSON unusable (attempt ${attempt}):`, (err as Error).message);
+    }
+  }
+  throw new Error(`Failed to generate days ${from}-${to}`);
+}
+
 // ─── POST handler ─────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
@@ -201,37 +240,22 @@ ${weakAreas?.length ? `Areas Needing Improvement: ${weakAreas.join(', ')}` : ''}
 
 Create a detailed, day-by-day plan with specific resources, practice problems, and behavioral questions for each day.`;
 
-    // ── Call Claude with dynamic max_tokens ───────────────────────
-    const tokenBudget = getMaxTokens(daysUntilInterview);
-    console.log(`   Calling Claude AI... (max_tokens: ${tokenBudget} for ${daysUntilInterview} days)`);
+    // ── Generate ──────────────────────────────────────────────────
+    // A whole plan in one response was ~7,000 tokens of JSON: about 70s to
+    // write, and one malformed character anywhere failed the entire plan.
+    // Now an outline call fixes each day's focus (small, fast), then the days
+    // are written in groups of DAYS_PER_CALL at once from that outline, each
+    // group parsed (and retried once) on its own.
+    const total = Math.max(1, Math.min(60, Number(daysUntilInterview) || 1));
+    const outline = total > DAYS_PER_CALL ? await outlinePlan(userPrompt, total) : null;
+    const groups: Array<[number, number]> = [];
+    for (let from = 1; from <= total; from += DAYS_PER_CALL) groups.push([from, Math.min(total, from + DAYS_PER_CALL - 1)]);
+    console.log(`   Calling Claude AI... (${total} days, ${groups.length} parallel group(s))`);
 
-    const response = await createMessage({
-      model:      CLAUDE_MODEL,
-      max_tokens: tokenBudget,
-      system:     [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
-      messages:   [{ role: 'user', content: userPrompt }],
-    });
+    const written = await Promise.all(groups.map(([from, to]) => writeDays(userPrompt, outline, from, to, total)));
+    const generatedPlan: GeneratedPlan = { dailyPlans: written.flat() };
 
-    const raw = extractText(response);
-    console.log('   ✅ AI response received, length:', raw.length);
-
-    const cleaned = extractJsonString(raw);
-
-    if (!cleaned) {
-      console.error('❌ No JSON found in response');
-      throw new Error('Failed to parse AI response - no JSON found');
-    }
-
-    let generatedPlan: GeneratedPlan;
-    try {
-      generatedPlan = JSON.parse(cleaned) as GeneratedPlan;
-    } catch (parseError) {
-      console.error('❌ JSON parsing error:', parseError);
-      console.error('   First 500 chars:', cleaned.slice(0, 500));
-      throw new Error('Failed to parse AI response - invalid JSON');
-    }
-
-    if (!generatedPlan.dailyPlans || !Array.isArray(generatedPlan.dailyPlans)) {
+    if (generatedPlan.dailyPlans.length === 0) {
       console.error('❌ Invalid plan structure');
       throw new Error('Invalid plan structure from AI');
     }

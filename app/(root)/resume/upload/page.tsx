@@ -260,6 +260,12 @@ export default function UploadResume() {
       apiForm.append('jobDescription', formData.jobDescription);
       apiForm.append('companyName',    formData.companyName);
 
+      // The file upload does not depend on the analysis, so it runs alongside
+      // it. The catch keeps a failed analysis from leaving an unhandled
+      // rejection; the error still surfaces when the save awaits it.
+      const uploading = ResumeService.uploadResumePdf(pdfFile, resumeId);
+      uploading.catch(() => {});
+
       const res = await fetch('/api/analyze-resume', {
         method: 'POST', body: apiForm,
       });
@@ -289,7 +295,7 @@ export default function UploadResume() {
         ...(cacheHash ? { cacheHash } : {}),
       };
 
-      await ResumeService.saveResumeWithFiles(resumeToSave, pdfFile);
+      await ResumeService.saveResumeWithFiles(resumeToSave, pdfFile, uploading);
 
       await refetchUsage();
 
