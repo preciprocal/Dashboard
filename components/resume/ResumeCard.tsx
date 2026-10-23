@@ -336,8 +336,8 @@ const ResumeCardInner = memo(function ResumeCard({
               <button onClick={handleDeleteClick} title="Delete" className="w-7 h-7 rounded-lg flex items-center justify-center bg-slate-800/60 border border-white/10 text-slate-400 hover:text-red-400 hover:border-red-500/30 transition-colors duration-150 cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button>
             </div>
           </div>
-          <Link href={`/resume/${resume.id}`} className="flex items-center justify-between w-full px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600/80 to-violet-600/80 hover:bg-[var(--accent-hover)] border border-indigo-500/30 text-white text-sm font-medium transition-all duration-200 cursor-pointer">
-            <span>View analysis</span><ArrowRight className="w-4 h-4 text-indigo-300" />
+          <Link href={`/resume/${resume.id}`} className="btn-primary w-full justify-between">
+            <span>View analysis</span><ArrowRight />
           </Link>
         </div>
       </div>

@@ -22,7 +22,7 @@ import { useNotifications } from '@/lib/hooks/useNotifications';
 import NotificationCenter from '@/components/Notifications';
 import type { LucideIcon } from 'lucide-react';
 import { Toaster } from 'sonner';
-import AnimatedLoader from '@/components/loader/AnimatedLoader';
+import AnimatedLoader, { LoaderInlineContext } from '@/components/loader/AnimatedLoader';
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -827,7 +827,8 @@ function LayoutContent({ children, user }: LayoutClientProps) {
           {mainNavItems.map(item => {
             const Icon   = item.icon;
             const active = isActive(item.href);
-            const isNew  = ['debrief', 'career-tools', 'job-tracker', 'extension'].includes(item.id);
+            // One "New" tag at a time, so it still means something.
+            const isNew  = item.id === 'extension';
             return (
               <Link key={item.id} href={item.href} onClick={handleLinkClick}
                 aria-current={active ? 'page' : undefined}
@@ -1072,7 +1073,10 @@ function LayoutContent({ children, user }: LayoutClientProps) {
         {/* Fills the window below the header; see .app-main in globals.css
             for how a page's last section stretches to the bottom edge. */}
         <main className="app-main p-4 sm:p-6 mt-[65px] flex-1 flex flex-col min-h-0" id="main-content">
-          {children}
+          {/* Page loaders render inside this area, not over the whole app. */}
+          <LoaderInlineContext.Provider value={true}>
+            {children}
+          </LoaderInlineContext.Provider>
         </main>
       </div>
     </div>
