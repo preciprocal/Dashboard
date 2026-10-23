@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
-import { anthropic, CLAUDE_MODEL, extractText, extractJsonString } from '@/lib/ai/claude';
+import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, createMessage } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 
@@ -205,7 +205,7 @@ Create a detailed, day-by-day plan with specific resources, practice problems, a
     const tokenBudget = getMaxTokens(daysUntilInterview);
     console.log(`   Calling Claude AI... (max_tokens: ${tokenBudget} for ${daysUntilInterview} days)`);
 
-    const response = await anthropic.messages.create({
+    const response = await createMessage({
       model:      CLAUDE_MODEL,
       max_tokens: tokenBudget,
       system:     [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],

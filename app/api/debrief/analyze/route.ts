@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUserId } from '@/lib/auth/verify-request';
 import { getUserAIContext, buildUserContextPrompt } from '@/lib/ai/user-context';
-import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
+import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, LANGUAGE_MATCH_INSTRUCTION, createMessage } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
     let userContext = '';
     try { const ctx = await getUserAIContext(userId); userContext = buildUserContextPrompt(ctx); console.log(`🎯 Debrief: ${entries.length} entries | resume: ${!!ctx.resumeText}`); } catch {}
 
-    const response = await anthropic.messages.create({ model: CLAUDE_MODEL, max_tokens: MAX_TOKENS, system: cachedSystem(DEBRIEF_SYSTEM), messages: [{ role: 'user', content: buildPrompt(entries, userContext) }] });
+    const response = await createMessage({ model: CLAUDE_MODEL, max_tokens: MAX_TOKENS, system: cachedSystem(DEBRIEF_SYSTEM), messages: [{ role: 'user', content: buildPrompt(entries, userContext) }] });
     logUsage('debrief-analyze', response);
 
     const data = JSON.parse(extractJsonString(extractText(response)));

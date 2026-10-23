@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { getAuthedUserId } from '@/lib/auth/verify-request';
-import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, stripDashesDeep, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
+import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, stripDashesDeep, LANGUAGE_MATCH_INSTRUCTION, createMessage } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 
@@ -95,7 +95,7 @@ async function generateSuggestions({ section, originalText, tone, context, fileB
 
   try {
     const content: Anthropic.MessageCreateParams['messages'][0]['content'] = fileBlock ? [fileBlock, { type: 'text', text: prompt }] : prompt;
-    const response = await anthropic!.messages.create({ model: CLAUDE_MODEL, max_tokens: maxTokens, system: cachedSystem(REWRITE_SYSTEM), messages: [{ role: 'user', content: content }] });
+    const response = await createMessage({ model: CLAUDE_MODEL, max_tokens: maxTokens, system: cachedSystem(REWRITE_SYSTEM), messages: [{ role: 'user', content: content }] });
     logUsage('resume-rewrite', response);
     const data = stripDashesDeep(JSON.parse(extractJsonString(extractText(response)))) as RewriteResponse;
 

@@ -1,7 +1,7 @@
 // lib/ai/cross-validate.ts
 // Adversarial AI peer-review. Non-blocking - failures never block the main response.
 
-import { anthropic, CLAUDE_MODEL, extractText, logUsage } from '@/lib/ai/claude';
+import { anthropic, CLAUDE_MODEL, extractText, logUsage, createMessage } from '@/lib/ai/claude';
 
 // 1200 tokens - the JSON with 2-3 issues + assessment needs ~800-1000.
 // Previous 600 was truncating every single time.
@@ -106,7 +106,7 @@ export async function crossValidateBenchmark(
       ?.map(d => `${d.name}: user=${d.userScore} peer=${d.peerMedian} hired=${d.hiredMedian}`)
       .join('; ') ?? 'none';
 
-    const response = await anthropic.messages.create({
+    const response = await createMessage({
       model: CLAUDE_MODEL,
       max_tokens: V_TOKENS,
       messages: [{
@@ -152,7 +152,7 @@ export async function crossValidateIntel(
     const ip = intelJson.interviewProcess as Record<string, unknown> | undefined;
     const qCount = (intelJson.topQuestions as unknown[] | null)?.length ?? 0;
 
-    const response = await anthropic.messages.create({
+    const response = await createMessage({
       model: CLAUDE_MODEL,
       max_tokens: V_TOKENS,
       messages: [{
@@ -198,7 +198,7 @@ export async function crossValidateRecruiterSim(
     const heatmap = simJson.eyeTrackingHeatmap as Array<Record<string, unknown>> | undefined;
     const heatmapStr = heatmap?.map(h => `${h.section}:${h.timeSpent}s`).join(', ') ?? 'none';
 
-    const response = await anthropic.messages.create({
+    const response = await createMessage({
       model: CLAUDE_MODEL,
       max_tokens: V_TOKENS,
       messages: [{

@@ -6,7 +6,49 @@ import Anthropic from '@anthropic-ai/sdk';
 const apiKey = process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY;
 
 export const anthropic = apiKey ? new Anthropic({ apiKey }) : null;
+/** Fallback model, and the one older call sites still name. */
 export const CLAUDE_MODEL = 'claude-sonnet-4-6';
+
+// ─── Fast generation ─────────────────────────────────────────────────────────
+
+/**
+ * Model for candidate-facing generation (analysis, fixes, rewrites, tailoring,
+ * cover letters, plans...). Measured on the same resume: ~156 output tokens/s
+ * with thinking off, against ~45 for Sonnet 4.6, at a lower price; quality was
+ * judged equal or better on resume analysis (Opus 5.5 as judge, 3 resumes).
+ */
+export const FAST_MODEL = 'claude-sonnet-5-5';
+
+type CreateParams = Omit<Anthropic.MessageCreateParamsNonStreaming, 'model'> & { model?: string };
+
+/**
+ * messages.create on FAST_MODEL with thinking off. Callers keep passing their
+ * old `model`; it is ignored here so one import change moves a route over.
+ * If FAST_MODEL declines (stop_reason "refusal"), the same request is sent
+ * once to CLAUDE_MODEL, which has no such classifier on these prompts.
+ */
+export async function createMessage(params: CreateParams): Promise<Anthropic.Message> {
+  if (!anthropic) throw new Error('AI not configured');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { model: _callerModel, ...rest } = params;
+  // `between_tools` (Sonnet 5.5's thinking-off mode) is newer than the
+  // installed SDK's types, hence the cast; the API accepts it.
+  const fast = {
+    ...rest,
+    // Caps were sized for CLAUDE_MODEL. FAST_MODEL writes ~35% more for the
+    // same task (measured on fix generation: 5,054 vs 3,775 tokens), so the
+    // old cap cut its JSON off mid-object. A cap only bounds length; it
+    // costs nothing unless the model uses it.
+    max_tokens: Math.ceil(rest.max_tokens * 1.5),
+    model: FAST_MODEL,
+    thinking: { type: 'between_tools' },
+    output_config: { effort: 'low' },
+  } as unknown as Anthropic.MessageCreateParamsNonStreaming;
+  const response = await anthropic.messages.create(fast);
+  if ((response.stop_reason as string) !== 'refusal') return response;
+  console.warn(`⚠️ ${FAST_MODEL} declined, retrying on ${CLAUDE_MODEL}`);
+  return anthropic.messages.create({ ...rest, model: CLAUDE_MODEL });
+}
 
 // ─── Extract helpers ─────────────────────────────────────────────────────────
 

@@ -5,7 +5,7 @@ import { supabaseAdmin } from '@/supabase/admin';
 import { hashResumeContent } from '@/lib/redis/resume-cache';
 import { redis, RedisKeys } from '@/lib/redis/redis-client';
 import { getUserAIContext } from '@/lib/ai/user-context';
-import { anthropic, CLAUDE_MODEL, extractText, cachedSystem, logUsage, stripDashes, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
+import { anthropic, CLAUDE_MODEL, extractText, cachedSystem, logUsage, stripDashes, LANGUAGE_MATCH_INSTRUCTION, createMessage } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 
@@ -31,7 +31,7 @@ async function researchCompany(companyName: string, jobRole: string): Promise<st
   const cached = await getCachedCompanyResearch(companyName);
   if (cached) return cached;
   try {
-    const r = await anthropic.messages.create({ model: CLAUDE_MODEL, max_tokens: MAX_TOKENS_RESEARCH, messages: [{ role: 'user', content: `Research ${companyName} for a ${jobRole} cover letter. 2-3 sentences: mission, recent news, culture. If unknown say "Company information not available".` }] });
+    const r = await createMessage({ model: CLAUDE_MODEL, max_tokens: MAX_TOKENS_RESEARCH, messages: [{ role: 'user', content: `Research ${companyName} for a ${jobRole} cover letter. 2-3 sentences: mission, recent news, culture. If unknown say "Company information not available".` }] });
     const research = extractText(r);
     await cacheCompanyResearch(companyName, research);
     return research;
@@ -60,7 +60,7 @@ async function cacheCoverLetter(key: string, data: CoverLetterCache): Promise<vo
 async function extractRelevantCourses(transcriptText: string, jobRole: string, jobDescription?: string): Promise<string> {
   if (!transcriptText || transcriptText.length < 50 || !anthropic) return '';
   try {
-    const r = await anthropic.messages.create({ model: CLAUDE_MODEL, max_tokens: MAX_TOKENS_COURSES, messages: [{ role: 'user', content: `From this transcript, identify 4-6 courses relevant to a ${jobRole} position.\n${jobDescription ? `JOB:\n${jobDescription.substring(0, 1500)}\n` : ''}TRANSCRIPT:\n${transcriptText.substring(0, 3000)}\n\nFormat: "Course X: [CODE]: [NAME] - [RELEVANCE]"` }] });
+    const r = await createMessage({ model: CLAUDE_MODEL, max_tokens: MAX_TOKENS_COURSES, messages: [{ role: 'user', content: `From this transcript, identify 4-6 courses relevant to a ${jobRole} position.\n${jobDescription ? `JOB:\n${jobDescription.substring(0, 1500)}\n` : ''}TRANSCRIPT:\n${transcriptText.substring(0, 3000)}\n\nFormat: "Course X: [CODE]: [NAME] - [RELEVANCE]"` }] });
     const result = extractText(r);
     return (result.includes('Course') || result.includes('RELEVANT')) ? result : '';
   } catch { return ''; }
@@ -71,7 +71,7 @@ async function extractRelevantCourses(transcriptText: string, jobRole: string, j
 async function extractRelevantProjects(resumeText: string, jobRole: string, jobDescription?: string): Promise<string> {
   if (!resumeText || resumeText.length < 50 || !anthropic) return '';
   try {
-    const r = await anthropic.messages.create({
+    const r = await createMessage({
       model: CLAUDE_MODEL,
       max_tokens: MAX_TOKENS_PROJECTS,
       messages: [{
@@ -215,7 +215,7 @@ Dear Hiring Team,
 Best regards,
 ${ctx.profile.name}`;
 
-    const response = await anthropic.messages.create({
+    const response = await createMessage({
       model: CLAUDE_MODEL,
       max_tokens: MAX_TOKENS_MAIN,
       system: cachedSystem(SYSTEM_PROMPT),

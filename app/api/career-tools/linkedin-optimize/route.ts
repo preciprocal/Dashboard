@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
 import { getUserAIContext, buildUserContextPrompt } from '@/lib/ai/user-context';
-import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
+import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, LANGUAGE_MATCH_INSTRUCTION, createMessage } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 
@@ -62,7 +62,7 @@ Return JSON:
   "sectionRecommendations": { "featuredSection": "...", "skills": ["x10"], "openToWork": "...", "profilePhoto": "..." }
 }`;
 
-    const response = await anthropic.messages.create({ model: CLAUDE_MODEL, max_tokens: MAX_TOKENS, system: cachedSystem(LI_SYSTEM), messages: [{ role: 'user', content: prompt }] });
+    const response = await createMessage({ model: CLAUDE_MODEL, max_tokens: MAX_TOKENS, system: cachedSystem(LI_SYSTEM), messages: [{ role: 'user', content: prompt }] });
     logUsage('linkedin-optimize', response);
 
     const data = JSON.parse(extractJsonString(extractText(response)));

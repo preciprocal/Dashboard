@@ -20,8 +20,10 @@ export const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_R
  *     about summary / objective / profile sections.
  * v3: no em/en dashes in written text, and shorter tips so analysis returns
  *     faster.
+ * v4: per-section analysis with ownership briefs and a review pass; fixes
+ *     written as two scoped halves.
  */
-export const ANALYSIS_PROMPT_VERSION = 3;
+export const ANALYSIS_PROMPT_VERSION = 4;
 
 // Helper functions for key generation
 export const RedisKeys = {

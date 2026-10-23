@@ -307,7 +307,7 @@ RULES:
 CRITICAL: Return ONLY valid JSON. No markdown, no preamble. Start with { end with }.
 { "fixes": [{ "id": "fix-1", "category": "...", "issue": "...", "originalText": "...", "improvedText": "...", "explanation": "...", "priority": "high"|"medium"|"low", "impact": "...", "location": "..." }] }
 
-Provide 10-15 fixes. Prioritise high-impact content and ATS fixes first.${LANGUAGE_MATCH_INSTRUCTION}`;
+Write the number of fixes the request asks for, within the scope it gives. Prioritise high-impact fixes first.${LANGUAGE_MATCH_INSTRUCTION}`;
 
 const JOB_ANALYSIS_SYSTEM = `You are a career coach. Analyse job postings and identify what a candidate must emphasise to be competitive. Be specific, no generic advice.
 
@@ -698,29 +698,40 @@ ${feedback ? `Current scores - Overall: ${feedback.overallScore}/100, ATS: ${fee
 
 Generate fixes now.`;
 
-  try {
-    const response = await callClaude(() =>
-      anthropic!.messages.create({
-        model: CLAUDE_MODEL,
-        max_tokens: 4096,
-        system: cachedSystem(FIX_SYSTEM),
-        messages: [{ role: 'user', content: userPrompt }],
-      }),
-    );
-    logUsage('generate-fixes', response);
+  // Two halves written at once, each owning its own kinds of fix, then
+  // merged: one call writing all 10-15 took ~32s on the fast model (66s on
+  // the old one), and generation time is the whole cost.
+  const HALVES = [
+    'Write 6-8 fixes, ONLY for content and impact: experience and project bullets, measurable results, weak verbs inside bullets, vague claims. Do not write ATS, formatting, skills-section or heading fixes; another editor covers those.',
+    'Write 5-7 fixes, ONLY for ATS, structure and skills: job titles, headings, dates, contact line, section order, the skills section, keywords for the target role. Do not rewrite experience or project bullets; another editor covers those.',
+  ];
 
-    const raw = extractJsonString(extractText(response));
+  try {
+    const responses = await Promise.all(HALVES.map(scope => createFast({
+      max_tokens: 6000,
+      system: cachedSystem(FIX_SYSTEM),
+      messages: [{ role: 'user', content: `${userPrompt}
+
+SCOPE: ${scope}` }],
+    })));
+    responses.forEach(r => logUsage('generate-fixes', r));
+
     let parsedFixes: ResumeFix[];
     try {
-      const { fixes } = stripDashesDeep(resumeFixSchema.parse(JSON.parse(raw)));
-      parsedFixes = fixes
-        .filter(f => f.id && f.originalText && f.improvedText)
+      const seen = new Set<string>();
+      parsedFixes = responses
+        .flatMap(r => stripDashesDeep(resumeFixSchema.parse(JSON.parse(extractJsonString(extractText(r))))).fixes)
+        .filter(f => f.originalText && f.improvedText)
+        // Both halves can still land on the same line; keep the first.
+        .filter(f => { const k = f.originalText.trim().toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; })
+        .sort((x, y) => ({ high: 0, medium: 1, low: 2 }[x.priority] - { high: 0, medium: 1, low: 2 }[y.priority]))
         .map((f, i) => ({
           ...f,
-          id: f.id || `fix-${i + 1}`,
+          id: `fix-${i + 1}`,
           priority: f.priority || 'medium',
           impact: f.impact || 'Improves resume quality',
         }));
+      if (!parsedFixes.length) throw new Error('no fixes');
     } catch {
       return NextResponse.json({ error: 'AI returned unexpected format. Try again.' }, { status: 422 });
     }
@@ -728,7 +739,7 @@ Generate fixes now.`;
     await cacheResumeFixes(cacheKey, parsedFixes);
     return NextResponse.json({
       fixes: parsedFixes,
-      meta: { model: CLAUDE_MODEL, count: parsedFixes.length, cached: false },
+      meta: { model: ANALYSIS_MODEL, count: parsedFixes.length, cached: false },
     });
   } catch (err) {
     const e = err as Error & { status?: number };
@@ -763,14 +774,11 @@ Context: ${resumeContent.slice(0, 600)}
 Return ONLY JSON: { "improvedText": "...", "explanation": "...", "impact": "..." }`;
 
   try {
-    const response = await callClaude(() =>
-      anthropic!.messages.create({
-        model: CLAUDE_MODEL,
+    const response = await createFast({
         max_tokens: 400,
         system: cachedSystem(`You are an expert resume editor. Provide alternative rewrites. Return ONLY valid JSON.${LANGUAGE_MATCH_INSTRUCTION}`),
         messages: [{ role: 'user', content: prompt }],
-      }),
-    );
+      });
     logUsage('regenerate-fix', response);
 
     const alt = stripDashesDeep(JSON.parse(extractJsonString(extractText(response)))) as {
@@ -800,14 +808,11 @@ async function handleExtensionJobAnalysis(data: z.infer<typeof extensionJobBodyS
   const prompt = `Job Title: ${jobData.title}\nCompany: ${jobData.company}\n<job>\n${jobData.description.slice(0, MAX_JOB_DESC_CHARS)}\n</job>\n\nAnalyse now.`;
 
   try {
-    const response = await callClaude(() =>
-      anthropic!.messages.create({
-        model: CLAUDE_MODEL,
+    const response = await createFast({
         max_tokens: 600,
         system: cachedSystem(JOB_ANALYSIS_SYSTEM),
         messages: [{ role: 'user', content: prompt }],
-      }),
-    );
+      });
     logUsage('extension-job-analysis', response);
 
     const result = stripDashesDeep(JSON.parse(extractJsonString(extractText(response)))) as Record<string, unknown>;

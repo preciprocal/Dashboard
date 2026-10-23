@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUserId } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
-import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, stripDashesDeep, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
+import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, stripDashesDeep, LANGUAGE_MATCH_INSTRUCTION, createMessage } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 
@@ -71,7 +71,7 @@ Deep line-by-line analysis. JSON structure:
 RULES: originalText MUST be EXACT verbatim. Only accomplishment bullets. Rewrites start with strong verbs. 5 quickWins max.`;
 
   try {
-    const response = await anthropic.messages.create({ model: CLAUDE_MODEL, max_tokens: MAX_TOKENS_DEEP, system: cachedSystem(DEEP_SYSTEM), messages: [{ role: 'user', content: prompt }] });
+    const response = await createMessage({ model: CLAUDE_MODEL, max_tokens: MAX_TOKENS_DEEP, system: cachedSystem(DEEP_SYSTEM), messages: [{ role: 'user', content: prompt }] });
     logUsage('deep-analysis', response);
 
     const cleaned = extractJsonString(extractText(response));
@@ -119,7 +119,7 @@ Return JSON: { "recommendations": [{ "id": "rec-1", "type": "weak_verb"|"missing
 6-8 recommendations. targetLine = exact verbatim text.`;
 
   try {
-    const response = await anthropic.messages.create({ model: CLAUDE_MODEL, max_tokens: MAX_TOKENS_LEGACY, system: cachedSystem(LEGACY_SYSTEM), messages: [{ role: 'user', content: prompt }] });
+    const response = await createMessage({ model: CLAUDE_MODEL, max_tokens: MAX_TOKENS_LEGACY, system: cachedSystem(LEGACY_SYSTEM), messages: [{ role: 'user', content: prompt }] });
     logUsage('legacy-analysis', response);
 
     const cleaned = extractJsonString(extractText(response));
