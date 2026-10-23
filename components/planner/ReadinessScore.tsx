@@ -153,10 +153,10 @@ export default function ReadinessScore({ planId }: Props) {
             style={{
               width: `${data.overallScore}%`,
               background: data.overallScore >= 70
-                ? 'linear-gradient(90deg, #10b981, #34d399)'
+                ? '#10b981'
                 : data.overallScore >= 40
-                ? 'linear-gradient(90deg, #6366f1, #8b5cf6)'
-                : 'linear-gradient(90deg, #f59e0b, #fbbf24)',
+                ? 'var(--accent)'
+                : '#f59e0b',
             }} />
         </div>
 
