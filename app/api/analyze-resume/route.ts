@@ -207,6 +207,14 @@ RULES:
    that tip on experience, skills, or measurable impact instead.
 8. You will be asked to score ONE dimension of the resume. Stay strictly inside
    it. The other dimensions are reviewed separately, so do not repeat their points.
+9. NEVER invent facts in a "solution". A rewrite may only use what the resume
+   actually says: do not add numbers, percentages, dollar amounts, time savings,
+   team sizes, user counts, tools, employers or outcomes that are not already
+   in it. Where a stronger bullet needs a figure the resume does not give, put
+   a clearly marked placeholder in square brackets for the candidate to fill
+   with their real number, such as "[X]%", "[number of] users" or "from [before]
+   to [after]", and never a made-up value. A recruiter can ask about every
+   number on a resume, so a fabricated one hurts the candidate.
 
 IMPORTANT: Read the ENTIRE resume thoroughly before scoring.
 
