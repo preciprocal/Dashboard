@@ -513,6 +513,19 @@ html {
   }
 }
 
+/* Pointer cursor on everything clickable. Tailwind's base styles reset
+   buttons to the default arrow, so only buttons that remembered
+   `cursor-pointer` showed a hand. In the base layer, so a utility such as
+   cursor-wait or cursor-default on a specific element still wins. */
+@layer base {
+  button:not(:disabled), [role="button"]:not([aria-disabled="true"]), [role="tab"], [role="radio"],
+  [role="option"], [role="menuitem"], a[href], select:not(:disabled), summary, label[for],
+  input[type="checkbox"]:not(:disabled), input[type="radio"]:not(:disabled), input[type="file"]:not(:disabled) {
+    cursor: pointer;
+  }
+  button:disabled, select:disabled, [aria-disabled="true"] { cursor: not-allowed; }
+}
+
 /* Native <select> fallback. App screens use AppSelect (components/ui/select),
    whose list follows the theme. The few native ones left (the resume editor's
    font pickers, which must not steal focus from the text) at least open a dark
