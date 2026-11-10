@@ -1119,6 +1119,11 @@ Left to do:
 1. Add repository secrets `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`
    (Settings > Secrets and variables > Actions).
 2. Merge to the default branch (scheduled workflows only run from it).
+3. Submit extension 1.7.0 (extension.zip) to the Chrome Web Store. It shows
+   the same status as a chip while applying: in the LinkedIn banner and in
+   the sidebar on application portals (/api/extension/everify). On portals
+   it only appears when the company name is read off the page, never when
+   it is guessed from the web address.
 
 The source is sometimes down (on 2026-11-10 the embedded dashboard returned
 HTTP 404 for most of the day); a run then fails safely and the next one

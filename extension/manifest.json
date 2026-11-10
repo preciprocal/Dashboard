@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Preciprocal",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "Autofill job applications without guessing sensitive answers. Ghost-job warnings, reply odds and a job tracker.",
   "permissions": [
     "storage",
@@ -31,6 +31,7 @@
       ],
       "js": [
         "sensitive-answers.js",
+        "everify-badge.js",
         "upsell.js",
         "banner.js"
       ],
@@ -92,6 +93,7 @@
       ],
       "js": [
         "sensitive-answers.js",
+        "everify-badge.js",
         "upsell.js",
         "external-apply.js"
       ],
