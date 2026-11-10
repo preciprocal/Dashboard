@@ -115,9 +115,9 @@ export default function ReadinessScore({ planId }: Props) {
     return (
       <div className="glass-card p-3">
         <div className="flex items-center gap-2">
-          <AlertTriangle className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
-          <span className="flex-1 text-[11px] text-slate-600">Readiness score unavailable</span>
-          <button onClick={fetchReadiness} className="text-slate-600 hover:text-slate-400 transition-colors p-0.5">
+          <AlertTriangle className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+          <span className="flex-1 text-xs text-slate-500">Readiness score unavailable</span>
+          <button onClick={fetchReadiness} className="text-slate-500 hover:text-slate-400 transition-colors p-0.5">
             <RefreshCw className="w-3 h-3" />
           </button>
         </div>
@@ -143,7 +143,7 @@ export default function ReadinessScore({ planId }: Props) {
           </div>
           <div className="text-right">
             <p className={`text-3xl font-bold tabular-nums ${cfg.color}`}>{data.overallScore}</p>
-            <p className="text-[10px] text-slate-600">/ 100</p>
+            <p className="text-[11px] text-slate-500">/ 100</p>
           </div>
         </div>
 
@@ -175,14 +175,14 @@ export default function ReadinessScore({ planId }: Props) {
                 </div>
                 <span className="text-lg font-bold text-white tabular-nums">{cat.score}%</span>
               </div>
-              <p className="text-[11px] text-slate-500 uppercase tracking-widest font-medium mb-1.5">
-                {label} <span className="text-slate-700">({cat.weight}%)</span>
+              <p className="text-xs text-slate-400 uppercase tracking-widest font-medium mb-1.5">
+                {label} <span className="text-slate-500">({cat.weight}%)</span>
               </p>
               <div className="h-1 bg-white/[0.05] rounded-full overflow-hidden mb-1.5">
                 <div className={`h-full rounded-full bg-${accent}-500 transition-all duration-500`}
                   style={{ width: `${cat.score}%` }} />
               </div>
-              <p className="text-[10px] text-slate-600 leading-relaxed line-clamp-2">{cat.detail}</p>
+              <p className="text-[11px] text-slate-500 leading-relaxed line-clamp-2">{cat.detail}</p>
             </div>
           );
         })}
@@ -194,24 +194,24 @@ export default function ReadinessScore({ planId }: Props) {
           <div className="flex gap-4">
             {data.strongAreas.length > 0 && (
               <div className="flex-1">
-                <p className="text-[11px] text-emerald-400 font-semibold uppercase tracking-widest mb-2 flex items-center gap-1">
+                <p className="text-xs text-emerald-400 font-semibold uppercase tracking-widest mb-2 flex items-center gap-1">
                   <CheckCircle2 className="w-3 h-3" /> Strong
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {data.strongAreas.map(a => (
-                    <span key={a} className="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded text-[10px] text-emerald-400 capitalize">{a}</span>
+                    <span key={a} className="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded text-[11px] text-emerald-400 capitalize">{a}</span>
                   ))}
                 </div>
               </div>
             )}
             {data.weakAreas.length > 0 && (
               <div className="flex-1">
-                <p className="text-[11px] text-amber-400 font-semibold uppercase tracking-widest mb-2 flex items-center gap-1">
+                <p className="text-xs text-amber-400 font-semibold uppercase tracking-widest mb-2 flex items-center gap-1">
                   <AlertTriangle className="w-3 h-3" /> Needs work
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {data.weakAreas.map(a => (
-                    <span key={a} className="px-2 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded text-[10px] text-amber-400 capitalize">{a}</span>
+                    <span key={a} className="px-2 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded text-[11px] text-amber-400 capitalize">{a}</span>
                   ))}
                 </div>
               </div>

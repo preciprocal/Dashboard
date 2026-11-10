@@ -186,10 +186,10 @@ function CustomDropdown({
             ? 'border-purple-500/50 text-white'
             : 'border-white/[0.08] text-slate-300 hover:border-white/[0.15] hover:text-white'}`}
       >
-        <span className={`truncate ${!selected && !value ? 'text-slate-500' : ''}`}>
+        <span className={`truncate ${!selected && !value ? 'text-slate-400' : ''}`}>
           {displayLabel}
         </span>
-        <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 ml-2 text-slate-500 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 ml-2 text-slate-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
       </button>
       {panel}
     </div>
@@ -215,9 +215,9 @@ function F({ label, hint, span, children }: {
 }) {
   return (
     <div className={span ?? ''}>
-      <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-2">
+      <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">
         {label}
-        {hint && <span className="text-slate-600 normal-case tracking-normal font-normal ml-1.5">· {hint}</span>}
+        {hint && <span className="text-slate-500 normal-case tracking-normal font-normal ml-1.5">· {hint}</span>}
       </label>
       {children}
     </div>
@@ -280,7 +280,7 @@ function FToggle({ value, onChange, label, desc }: {
     >
       <div>
         <p className={`text-sm font-medium transition-colors ${value ? 'text-white' : 'text-slate-300 group-hover:text-white'}`}>{label}</p>
-        {desc && <p className="text-xs text-slate-500 mt-0.5">{desc}</p>}
+        {desc && <p className="text-xs text-slate-400 mt-0.5">{desc}</p>}
       </div>
       <div className={`relative w-10 h-5 rounded-full flex-shrink-0 transition-colors duration-200 ${value ? 'bg-purple-600' : 'bg-slate-700'}`}>
         <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-all duration-200 ${value ? 'translate-x-5' : 'translate-x-0.5'}`} />
@@ -308,9 +308,9 @@ function Section({ label, icon: Icon, gradient, desc, children, defaultOpen = tr
         </div>
         <div className="flex-1 text-left min-w-0">
           <p className="text-sm font-semibold text-white">{label}</p>
-          <p className="text-xs text-slate-500 truncate">{desc}</p>
+          <p className="text-xs text-slate-400 truncate">{desc}</p>
         </div>
-        <ChevronDown className={`w-4 h-4 text-slate-500 flex-shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-4 h-4 text-slate-400 flex-shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
         <div className="px-6 pb-6 pt-1 border-t border-white/[0.05]">
@@ -379,7 +379,7 @@ function LocationPicker({ value, onChange }: { value: string[]; onChange: (v: st
         })}
       </div>
       {value.length > 0 && (
-        <p className="text-[11px] text-slate-600 mt-2">{value.length} location{value.length !== 1 ? 's' : ''} selected</p>
+        <p className="text-xs text-slate-500 mt-2">{value.length} location{value.length !== 1 ? 's' : ''} selected</p>
       )}
     </F>
   );
@@ -428,8 +428,8 @@ function CompletionBar({ pct, filled, total }: { pct: number; filled: number; to
         />
       </div>
       <div className="flex items-center justify-between">
-        <p className="text-xs text-slate-500">{label}</p>
-        <p className="text-xs text-slate-600">{filled}/{total} key fields</p>
+        <p className="text-xs text-slate-400">{label}</p>
+        <p className="text-xs text-slate-500">{filled}/{total} key fields</p>
       </div>
     </div>
   );
@@ -586,10 +586,10 @@ export default function JobApplicationProfile() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <div className="w-1 h-4 gradient-primary rounded-full" />
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Chrome Extension</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Chrome Extension</span>
           </div>
           <h2 className="text-2xl font-bold text-white tracking-tight">Job Application Profile</h2>
-          <p className="text-slate-500 text-sm mt-1">Fill once · the extension answers every question automatically</p>
+          <p className="text-slate-400 text-sm mt-1">Fill once · the extension answers every question automatically</p>
         </div>
         <button
           type="button"
@@ -699,14 +699,14 @@ export default function JobApplicationProfile() {
           {p.education.map((edu, i) => (
             <div key={i} className="rounded-xl p-5 space-y-4 bg-white/[0.03] border border-white/[0.06]">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
                   {p.education.length > 1 ? `Education #${i + 1}` : 'Education'}
                 </span>
                 {p.education.length > 1 && (
                   <button
                     type="button"
                     onClick={() => removeEdu(i)}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-400/10 transition-all"
+                    className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-all"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -739,14 +739,14 @@ export default function JobApplicationProfile() {
           {p.experience.map((exp, i) => (
             <div key={i} className="rounded-xl p-5 space-y-4 bg-white/[0.03] border border-white/[0.06]">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
                   {p.experience.length > 1 ? `Position #${i + 1}` : 'Position'}
                 </span>
                 {p.experience.length > 1 && (
                   <button
                     type="button"
                     onClick={() => removeExp(i)}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-400/10 transition-all"
+                    className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-all"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -777,7 +777,7 @@ export default function JobApplicationProfile() {
 
       {/* ── 7. Standard Questions ── */}
       <Section label="Standard Questions" icon={FileText} gradient="gradient-primary" desc="Common yes/no questions on every portal" defaultOpen={false}>
-        <p className="text-xs text-slate-500 mt-5">Left as &ldquo;Not set&rdquo;, autofill leaves the question for you to answer on each application.</p>
+        <p className="text-xs text-slate-400 mt-5">Left as &ldquo;Not set&rdquo;, autofill leaves the question for you to answer on each application.</p>
         <div className="grid grid-cols-2 gap-4 mt-3">
           <FTri label="18 years or older?"           value={p.over18}          onChange={set('over18')} />
           <FTri label="Valid driver's license?"      value={p.driverLicense}   onChange={set('driverLicense')} />

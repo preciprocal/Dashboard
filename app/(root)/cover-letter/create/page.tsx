@@ -117,7 +117,7 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
           <h2 className="text-2xl sm:text-3xl font-bold text-white leading-snug mb-2">
             Your next interview is one letter away.
           </h2>
-          <p className="text-sm text-slate-500 mb-6 max-w-md">
+          <p className="text-sm text-slate-400 mb-6 max-w-md">
             You&apos;ve built momentum - don&apos;t let a limit decide where your job search stops.
           </p>
           <div className="flex items-center gap-4 bg-white/[0.03] border border-white/[0.06]
@@ -143,7 +143,7 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
               Get More
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </Link>
-            <span className="text-[10px] text-slate-600">Cancel anytime · Instant access</span>
+            <span className="text-[11px] text-slate-500">Cancel anytime · Instant access</span>
           </div>
         </div>
       </div>
@@ -155,7 +155,7 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
         ].map(s => (
           <div key={s.num} className="glass-card py-4 text-center">
             <p className="text-xl font-black text-indigo-400">{s.num}</p>
-            <p className="text-xs text-slate-500 mt-1">{s.label}</p>
+            <p className="text-xs text-slate-400 mt-1">{s.label}</p>
           </div>
         ))}
       </div>
@@ -176,7 +176,7 @@ function AuthenticityPanel({ a, companyName }: { a: Authenticity; companyName: s
   return (
     <div className={`rounded-xl border p-3 ${head.cls}`}>
       <p className="text-xs font-semibold">{head.text}</p>
-      <ul className="mt-2 space-y-1.5 text-[11px] text-slate-300 leading-relaxed">
+      <ul className="mt-2 space-y-1.5 text-xs text-slate-300 leading-relaxed">
         {numbers.length > 0 && (
           <li><span className="font-semibold text-red-300">Not in your resume: </span>{numbers.map(n => n.text).join(', ')}. Remove these numbers or add them to your resume if they are true. A recruiter will ask.</li>
         )}
@@ -511,10 +511,10 @@ export default function CoverLetterGeneratorPage() {
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold text-blue-400 mb-1">Job imported from LinkedIn</p>
                   <p className="text-sm text-white font-medium">{linkedInJobData.title}</p>
-                  <p className="text-xs text-slate-500">{linkedInJobData.company} · {linkedInJobData.location}</p>
+                  <p className="text-xs text-slate-400">{linkedInJobData.company} · {linkedInJobData.location}</p>
                   {linkedInJobData.url && (
                     <a href={linkedInJobData.url} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 mt-1.5 text-[11px] text-blue-400 hover:text-blue-300 transition-colors">
+                      className="inline-flex items-center gap-1 mt-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors">
                       View on LinkedIn <ExternalLink className="w-3 h-3" />
                     </a>
                   )}
@@ -532,7 +532,7 @@ export default function CoverLetterGeneratorPage() {
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold text-blue-400 mb-1">Job imported from LinkedIn</p>
                   <p className="text-sm text-white font-medium">{jobRole}</p>
-                  {companyName && <p className="text-xs text-slate-500">{companyName}</p>}
+                  {companyName && <p className="text-xs text-slate-400">{companyName}</p>}
                 </div>
               </div>
             </div>
@@ -580,12 +580,12 @@ export default function CoverLetterGeneratorPage() {
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-blue-400 mb-1">Enhance your cover letters</p>
-                  <p className="text-xs text-slate-500 mb-2.5 leading-relaxed">
+                  <p className="text-xs text-slate-400 mb-2.5 leading-relaxed">
                     Adding these fields to your profile generates more personalised letters:
                   </p>
                   <div className="space-y-1 mb-3">
                     {profileStatus.missingFields.map((f, i) => (
-                      <div key={i} className="flex items-center gap-2 text-xs text-slate-500">
+                      <div key={i} className="flex items-center gap-2 text-xs text-slate-400">
                         <div className="w-1.5 h-1.5 rounded-full bg-blue-400/40 flex-shrink-0" />
                         {f}
                       </div>
@@ -611,7 +611,7 @@ export default function CoverLetterGeneratorPage() {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-emerald-400">Profile ready</p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-400">
                     Using {profileStatus.userName}&apos;s profile
                     {profileStatus.resumeCount > 0 && ` and ${profileStatus.resumeCount} resume${profileStatus.resumeCount > 1 ? 's' : ''}`}
                   </p>
@@ -643,23 +643,23 @@ export default function CoverLetterGeneratorPage() {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                      Company Name <span className="text-slate-700 font-normal">optional</span>
+                      Company Name <span className="text-slate-500 font-normal">optional</span>
                     </label>
                     <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)}
                       placeholder="e.g. Google" className={inp} />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                      Job Description <span className="text-slate-700 font-normal">optional</span>
+                      Job Description <span className="text-slate-500 font-normal">optional</span>
                     </label>
                     <textarea value={jobDescription} onChange={e => setJobDescription(e.target.value)}
                       placeholder="Paste the job description here…" rows={6}
                       className={`${inp} resize-none`} />
                     <div className="flex items-center justify-between mt-1.5">
-                      <span className="text-[11px] text-slate-600">{jobDescription.length} chars</span>
+                      <span className="text-xs text-slate-500">{jobDescription.length} chars</span>
                       {jobDescription.length > 0 && (
                         <button onClick={() => setJobDescription('')}
-                          className="text-[11px] text-slate-600 hover:text-slate-400 transition-colors">
+                          className="text-xs text-slate-500 hover:text-slate-400 transition-colors">
                           Clear
                         </button>
                       )}
@@ -673,7 +673,7 @@ export default function CoverLetterGeneratorPage() {
                       <button type="button" onClick={() => setShowToneMenu(v => !v)}
                         className={`${inp} flex items-center justify-between cursor-pointer`}>
                         <span className="capitalize">{tone}</span>
-                        <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-150 ${showToneMenu ? 'rotate-180' : ''}`} />
+                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-150 ${showToneMenu ? 'rotate-180' : ''}`} />
                       </button>
                       {showToneMenu && (
                         <div className="absolute left-0 right-0 top-full mt-2
@@ -700,17 +700,17 @@ export default function CoverLetterGeneratorPage() {
                       <span className="text-xs font-medium text-slate-300">
                         Write like me {savedSample && <span className="ml-1.5 text-emerald-400 font-normal">on</span>}
                       </span>
-                      <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform ${showVoice ? 'rotate-180' : ''}`} />
+                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${showVoice ? 'rotate-180' : ''}`} />
                     </button>
                     {showVoice && (
                       <div className="px-3 pb-3 space-y-2">
-                        <p className="text-[11px] text-slate-500 leading-relaxed">
+                        <p className="text-xs text-slate-400 leading-relaxed">
                           Paste a few paragraphs you wrote yourself: an email, a post, a past cover letter. Letters will match how you sound. Only the voice is used, never the content.
                         </p>
                         <textarea value={writingSample} onChange={e => setWritingSample(e.target.value)} rows={5} maxLength={2500}
                           placeholder="Something you wrote, in your own words…" className={`${inp} resize-y`} />
                         <div className="flex items-center justify-between">
-                          <span className="text-[11px] text-slate-600">{writingSample.length}/2500</span>
+                          <span className="text-xs text-slate-500">{writingSample.length}/2500</span>
                           <button type="button" onClick={saveWritingSample} disabled={savingSample || writingSample.trim() === savedSample.trim()}
                             className="btn-pill disabled:opacity-40">
                             {savingSample ? 'Saving…' : writingSample.trim() ? 'Save my voice' : 'Remove'}
@@ -775,7 +775,7 @@ export default function CoverLetterGeneratorPage() {
                             <Icon className={`w-3.5 h-3.5 ${color}`} />
                           </div>
                           <p className="text-xs font-semibold text-white mb-0.5">{title}</p>
-                          <p className="text-[11px] text-slate-600 leading-relaxed">{desc}</p>
+                          <p className="text-xs text-slate-500 leading-relaxed">{desc}</p>
                         </div>
                       ))}
                     </div>
@@ -817,7 +817,7 @@ export default function CoverLetterGeneratorPage() {
                       )}
                       <button onClick={handleCopy}
                         className="p-2 rounded-xl bg-white/[0.04] border border-white/[0.07]
-                                   text-slate-500 hover:text-white hover:bg-white/[0.08] transition-all"
+                                   text-slate-400 hover:text-white hover:bg-white/[0.08] transition-all"
                         title="Copy">
                         {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
                       </button>
@@ -825,7 +825,7 @@ export default function CoverLetterGeneratorPage() {
                         <button onClick={() => setShowDownloadMenu(v => !v)}
                           className="flex items-center gap-1 p-2 rounded-xl
                                      bg-white/[0.04] border border-white/[0.07]
-                                     text-slate-500 hover:text-white hover:bg-white/[0.08] transition-all"
+                                     text-slate-400 hover:text-white hover:bg-white/[0.08] transition-all"
                           title="Download">
                           <Download className="w-4 h-4" />
                           <ChevronDown className="w-3 h-3" />
@@ -862,7 +862,7 @@ export default function CoverLetterGeneratorPage() {
                     </div>
                     <p className="text-sm font-semibold text-white mb-3">Crafting your cover letter…</p>
                     <div className="max-w-sm min-h-[48px] flex items-center justify-center px-4">
-                      <p className="text-xs text-slate-500 leading-relaxed animate-fade-in-up">
+                      <p className="text-xs text-slate-400 leading-relaxed animate-fade-in-up">
                         {COVER_LETTER_FACTS[factIdx]}
                       </p>
                     </div>
@@ -874,10 +874,10 @@ export default function CoverLetterGeneratorPage() {
                   <div className="flex-1 flex flex-col items-center justify-center py-8 text-center">
                     <div className="w-12 h-12 bg-white/[0.03] border border-white/[0.07] rounded-2xl
                                    flex items-center justify-center mb-4">
-                      <FileText className="w-5 h-5 text-slate-600" />
+                      <FileText className="w-5 h-5 text-slate-500" />
                     </div>
                     <p className="text-sm font-bold text-slate-400 mb-1">Your letter will appear here</p>
-                    <p className="text-xs text-slate-600">Fill in the details on the left and click Generate</p>
+                    <p className="text-xs text-slate-500">Fill in the details on the left and click Generate</p>
                   </div>
                 )}
 
@@ -898,7 +898,7 @@ export default function CoverLetterGeneratorPage() {
                           { label: 'Time',   value: `${(metadata.responseTime / 1000).toFixed(1)}s` },
                         ].map(m => (
                           <div key={m.label} className="glass-card p-2.5 text-center">
-                            <p className="text-[10px] text-slate-600 uppercase tracking-wide font-semibold mb-1">{m.label}</p>
+                            <p className="text-[11px] text-slate-500 uppercase tracking-wide font-semibold mb-1">{m.label}</p>
                             <p className="text-sm font-bold text-white">{m.value}</p>
                           </div>
                         ))}
@@ -941,7 +941,7 @@ export default function CoverLetterGeneratorPage() {
                   </div>
                   <div>
                     <p className="text-xs font-semibold text-white mb-0.5">{tip.title}</p>
-                    <p className="text-[11px] text-slate-600 leading-relaxed">{tip.desc}</p>
+                    <p className="text-xs text-slate-500 leading-relaxed">{tip.desc}</p>
                   </div>
                 </div>
               ))}

@@ -191,7 +191,7 @@ export default function RefundPanel() {
             <p className="text-sm text-slate-300">
               You already have a request for this billing period.
             </p>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-400">
               Status: <span className="text-slate-300 capitalize">{sub.existingRequest.status}</span>
               {" · "}submitted {new Date(sub.existingRequest.createdAt).toLocaleDateString()}
             </p>
@@ -199,7 +199,7 @@ export default function RefundPanel() {
         ) : !sub.eligible ? (
           <div className="space-y-2">
             <p className="text-sm text-slate-300 leading-relaxed">{sub.reason}</p>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-400">
               You can still cancel any time and keep your plan to the end of the month. If something went
               wrong on our side, email support@preciprocal.com.
             </p>
@@ -208,7 +208,7 @@ export default function RefundPanel() {
           <div className="space-y-4">
             <div className="flex items-baseline gap-2 flex-wrap">
               <span className="text-2xl font-bold text-white">{money(sub.refundCents)}</span>
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-slate-400">
                 {sub.type === "full"
                   ? "back from your first payment"
                   : `back from your ${money(sub.amountPaidCents)} payment this month`}
@@ -216,7 +216,7 @@ export default function RefundPanel() {
             </div>
             {/* The deduction is shown before anyone asks, never discovered after. */}
             {typeof sub.feeCents === "number" && typeof sub.grossCents === "number" && (
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-400">
                 {money(sub.grossCents)} {sub.type === "full" ? "paid" : "unused"} &minus; {money(sub.feeCents)} in card and billing
                 fees, which our payment provider keeps on every payment and does not return on a refund.
               </p>
@@ -242,7 +242,7 @@ export default function RefundPanel() {
               <div className="flex flex-col gap-2">
               <textarea value={refundReason} onChange={e => setRefundReason(e.target.value)} rows={2} maxLength={1000}
                 placeholder="Optional: what could we have done better?"
-                className="w-full px-3.5 py-2.5 bg-slate-800/50 border border-white/[0.08] rounded-xl text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/30 resize-none" />
+                className="w-full px-3.5 py-2.5 bg-slate-800/50 border border-white/[0.08] rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-indigo-500/30 resize-none" />
               <div className="flex flex-col sm:flex-row gap-2">
                 <button
                   onClick={requestSubscriptionRefund}
@@ -281,7 +281,7 @@ export default function RefundPanel() {
             <Package className="w-4 h-4 text-purple-400 flex-shrink-0" />
             <h3 className="text-white font-semibold text-sm sm:text-base">Credit packs</h3>
           </div>
-          <p className="text-xs text-slate-500 mb-4">
+          <p className="text-xs text-slate-400 mb-4">
             Unused packs can be returned within {windowDays} days, minus the card processing fee. We send
             the money back straight away; your bank usually takes 5 to 10 business days to show it.
           </p>
@@ -292,7 +292,7 @@ export default function RefundPanel() {
                 <div className="flex items-start justify-between gap-3 flex-wrap">
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-white">{p.name}</p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-400">
                       {money(p.priceCents)} · bought {new Date(p.purchasedAt).toLocaleDateString()}
                     </p>
                   </div>
@@ -332,7 +332,7 @@ export default function RefundPanel() {
                     // a narrow screen the row wraps and the reason lands under
                     // the name, where right-alignment reads as a stray
                     // fragment rather than a sentence about the row above it.
-                    <span className="text-xs text-slate-500 leading-relaxed text-left sm:text-right w-full sm:w-auto sm:max-w-[16rem]">
+                    <span className="text-xs text-slate-400 leading-relaxed text-left sm:text-right w-full sm:w-auto sm:max-w-[16rem]">
                       {p.reason}
                     </span>
                   )}
@@ -344,7 +344,7 @@ export default function RefundPanel() {
       )}
 
       {!sub && refundablePacks.length === 0 && (
-        <p className="text-sm text-slate-500">There is nothing on your account to refund right now.</p>
+        <p className="text-sm text-slate-400">There is nothing on your account to refund right now.</p>
       )}
     </div>
   );

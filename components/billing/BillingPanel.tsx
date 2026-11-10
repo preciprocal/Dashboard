@@ -133,9 +133,9 @@ export default function BillingPanel() {
     }
   };
 
-  if (!data) return <div className="flex justify-center py-6 text-slate-500"><Loader2 className="w-4 h-4 animate-spin" /></div>;
+  if (!data) return <div className="flex justify-center py-6 text-slate-400"><Loader2 className="w-4 h-4 animate-spin" /></div>;
   if (!data.hasBilling) {
-    return <p className="text-sm text-slate-500">No billing yet. Your card and invoices will appear here once you subscribe to a plan.</p>;
+    return <p className="text-sm text-slate-400">No billing yet. Your card and invoices will appear here once you subscribe to a plan.</p>;
   }
 
   const sub = data.subscription;
@@ -154,7 +154,7 @@ export default function BillingPanel() {
               <h4 className="text-white text-sm font-medium">
                 {data.card ? `${brandName(data.card.brand)} ending ${data.card.last4}` : 'No card saved'}
               </h4>
-              <p className="text-slate-500 text-xs mt-0.5">
+              <p className="text-slate-400 text-xs mt-0.5">
                 {data.card ? `Expires ${String(data.card.expMonth).padStart(2, '0')}/${data.card.expYear}` : 'Add a card to use auto pay.'}
               </p>
             </div>
@@ -220,9 +220,9 @@ export default function BillingPanel() {
 
       {/* Invoices */}
       <div>
-        <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Invoices</p>
+        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Invoices</p>
         {(data.invoices ?? []).length === 0 ? (
-          <p className="text-sm text-slate-500">No invoices yet.</p>
+          <p className="text-sm text-slate-400">No invoices yet.</p>
         ) : (
           <div className="divide-y divide-white/[0.04] rounded-xl border border-white/[0.05]">
             {data.invoices!.map(inv => {
@@ -230,16 +230,16 @@ export default function BillingPanel() {
               return (
                 <div key={inv.id} className="flex items-center justify-between gap-3 px-3.5 py-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <FileText className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                    <FileText className="w-4 h-4 text-slate-400 flex-shrink-0" />
                     <div className="min-w-0">
                       <p className="text-sm text-white">{day(inv.created)} &middot; {money(inv.total, inv.currency)}</p>
-                      <p className="text-[11px] text-slate-500 truncate">
+                      <p className="text-xs text-slate-400 truncate">
                         {inv.number ?? inv.id}{inv.status === 'open' && inv.dueDate ? ` · due ${day(inv.dueDate)}` : ''}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md border ${st.cls}`}>{st.label}</span>
+                    <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-md border ${st.cls}`}>{st.label}</span>
                     {inv.status === 'open' && (
                       <Link href={`/billing/invoice/${inv.id}`}
                         className="text-xs font-medium px-2.5 py-1 rounded-lg bg-indigo-500/20 text-indigo-200 hover:bg-indigo-500/30">

@@ -316,7 +316,7 @@ const ForgotPasswordPage = () => {
                 <p className="text-slate-400 text-sm mb-2">
                   Didn&apos;t receive the email?
                 </p>
-                <p className="text-slate-500 text-xs">
+                <p className="text-slate-400 text-xs">
                   Check your spam folder or try again in a few minutes
                 </p>
               </div>
@@ -324,7 +324,7 @@ const ForgotPasswordPage = () => {
           )}
 
           {/* Help Text */}
-          <p className="mt-8 text-center text-xs text-slate-500">
+          <p className="mt-8 text-center text-xs text-slate-400">
             Having trouble? Contact our{" "}
             <Link href="/help" className="text-slate-400 hover:text-slate-300 underline">
               support team

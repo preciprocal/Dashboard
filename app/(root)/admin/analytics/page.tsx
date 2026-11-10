@@ -17,7 +17,7 @@ export default async function AdminAnalyticsPage() {
     <div className="w-full px-4 py-10 max-w-6xl mx-auto">
       <div className="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
-          <p className="text-[11px] font-semibold text-indigo-400 uppercase tracking-widest mb-2">Admin</p>
+          <p className="text-xs font-semibold text-indigo-400 uppercase tracking-widest mb-2">Admin</p>
           <h1 className="text-2xl font-bold text-white">Analytics</h1>
           <p className="text-sm text-slate-400 mt-1">
             What people use, for how long, what they click, and what the emails lead to. Time is engaged

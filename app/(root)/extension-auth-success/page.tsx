@@ -92,7 +92,7 @@ export default function ExtensionAuthSuccess() {
               Close Window
             </button>
             
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-400">
               {closeBlocked
                 ? 'You are signed in. You can close this tab and go back to the extension.'
                 : `Or wait ${countdown} second${countdown !== 1 ? 's' : ''} for auto-close`}

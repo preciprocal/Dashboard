@@ -146,10 +146,10 @@ function NotAvailable({ message = 'Data not available', sub }: { message?: strin
   return (
     <div className="bg-slate-800/30 border border-white/[0.05] rounded-xl p-6 text-center">
       <div className="w-10 h-10 bg-slate-800/60 border border-white/[0.06] rounded-xl flex items-center justify-center mx-auto mb-3">
-        <HelpCircle className="w-5 h-5 text-slate-600" />
+        <HelpCircle className="w-5 h-5 text-slate-500" />
       </div>
       <p className="text-slate-400 text-sm font-medium">{message}</p>
-      {sub && <p className="text-slate-600 text-xs mt-1">{sub}</p>}
+      {sub && <p className="text-slate-500 text-xs mt-1">{sub}</p>}
     </div>
   );
 }
@@ -157,14 +157,14 @@ function NotAvailable({ message = 'Data not available', sub }: { message?: strin
 function StatCard({ label, value, sub, color }: { label: string; value: string | number | null; sub?: string; color?: string }) {
   return (
     <div className="bg-slate-800/40 border border-white/[0.06] rounded-xl p-3 text-center">
-      <div className="text-[10px] text-slate-500 font-medium mb-1">{label}</div>
+      <div className="text-[11px] text-slate-400 font-medium mb-1">{label}</div>
       {value !== null && value !== undefined ? (
         <>
           <div className={`text-lg font-bold ${color || 'text-white'}`}>{value}</div>
-          {sub && <div className="text-[10px] text-slate-500 mt-0.5">{sub}</div>}
+          {sub && <div className="text-[11px] text-slate-400 mt-0.5">{sub}</div>}
         </>
       ) : (
-        <div className="text-sm text-slate-600 italic">N/A</div>
+        <div className="text-sm text-slate-500 italic">N/A</div>
       )}
     </div>
   );
@@ -344,14 +344,14 @@ export default function InterviewIntelligence({
         <div className={`rounded-xl p-3 border mb-4 flex items-center gap-2 ${confidenceBadge.bg}`}>
           <Info className={`w-3.5 h-3.5 flex-shrink-0 ${confidenceBadge.text}`} />
           <span className={`text-xs font-medium ${confidenceBadge.text}`}>{confidenceBadge.label}</span>
-          <span className="text-xs text-slate-600 hidden sm:inline">- {intel.dataNote}</span>
+          <span className="text-xs text-slate-500 hidden sm:inline">- {intel.dataNote}</span>
         </div>
 
         {co.sources?.length > 0 && (
           <div className="flex items-center gap-2 mb-4 flex-wrap">
-            <span className="text-[10px] text-slate-600">Sources:</span>
+            <span className="text-[11px] text-slate-500">Sources:</span>
             {co.sources.map((s: string) => (
-              <span key={s} className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800/50 border border-white/[0.05] text-slate-500">{s}</span>
+              <span key={s} className="text-[11px] px-2 py-0.5 rounded-full bg-slate-800/50 border border-white/[0.05] text-slate-400">{s}</span>
             ))}
           </div>
         )}
@@ -375,16 +375,16 @@ export default function InterviewIntelligence({
                 ? 'bg-[var(--accent)] text-white shadow-sm'
                 : tab.hasData
                 ? 'text-slate-400 hover:text-white hover:bg-white/[0.05]'
-                : 'text-slate-600 hover:text-slate-400 hover:bg-white/[0.04]'
+                : 'text-slate-500 hover:text-slate-400 hover:bg-white/[0.04]'
             }`}>
             {tab.icon}
             <span className="hidden sm:inline">{tab.label}</span>
             {tab.count !== undefined && tab.count > 0 && (
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${activeTab === tab.id ? 'bg-white/20' : 'bg-white/[0.06]'}`}>
+              <span className={`text-[11px] px-1.5 py-0.5 rounded-full ${activeTab === tab.id ? 'bg-white/20' : 'bg-white/[0.06]'}`}>
                 {tab.count}
               </span>
             )}
-            {!tab.hasData && tab.id !== 'overview' && <span className="text-[10px] text-slate-700">-</span>}
+            {!tab.hasData && tab.id !== 'overview' && <span className="text-[11px] text-slate-500">-</span>}
           </button>
         ))}
       </div>
@@ -400,7 +400,7 @@ export default function InterviewIntelligence({
             <div className="glass-card p-5">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2"><Star className="w-4 h-4 text-amber-400" /><h3 className="text-sm font-semibold text-white">Interview Experience</h3></div>
-                {co.glassdoorRating && <span className="text-xs text-slate-500">Glassdoor: {co.glassdoorRating}/5</span>}
+                {co.glassdoorRating && <span className="text-xs text-slate-400">Glassdoor: {co.glassdoorRating}/5</span>}
               </div>
               <div className="flex items-center gap-1 mb-3 h-2.5 rounded-full overflow-hidden">
                 {[
@@ -411,7 +411,7 @@ export default function InterviewIntelligence({
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-emerald-400">{co.interviewExperience.positive}% Positive</span>
-                <span className="text-slate-500">{co.interviewExperience.neutral ?? '?'}% Neutral</span>
+                <span className="text-slate-400">{co.interviewExperience.neutral ?? '?'}% Neutral</span>
                 <span className="text-red-400">{co.interviewExperience.negative ?? '?'}% Negative</span>
               </div>
             </div>
@@ -426,7 +426,7 @@ export default function InterviewIntelligence({
                   <div className="h-1.5 bg-slate-700/60 rounded-full overflow-hidden">
                     <div className="h-full bg-[var(--accent)] rounded-full transition-all duration-1000" style={{ width: `${Math.min(ip.overallPassRate, 100)}%` }} />
                   </div>
-                  <p className="text-[10px] text-slate-500 mt-1.5 text-right">{ip.overallPassRate}% overall pass rate</p>
+                  <p className="text-[11px] text-slate-400 mt-1.5 text-right">{ip.overallPassRate}% overall pass rate</p>
                 </>
               )}
             </div>
@@ -449,10 +449,10 @@ export default function InterviewIntelligence({
               <div className="space-y-2">
                 {cc.map((comp: CompetitorComparison, i: number) => (
                   <div key={i} className="bg-slate-800/40 border border-white/[0.06] rounded-xl p-3 flex items-center justify-between">
-                    <div><p className="text-sm font-medium text-white">{comp.company}</p><p className="text-xs text-slate-500 mt-0.5">{comp.note}</p></div>
+                    <div><p className="text-sm font-medium text-white">{comp.company}</p><p className="text-xs text-slate-400 mt-0.5">{comp.note}</p></div>
                     <div className="text-right flex-shrink-0 ml-3">
                       {comp.compDifference     && <p className="text-xs font-bold text-emerald-400">{comp.compDifference}</p>}
-                      {comp.interviewDifficulty && <p className="text-xs text-slate-500">{comp.interviewDifficulty}</p>}
+                      {comp.interviewDifficulty && <p className="text-xs text-slate-400">{comp.interviewDifficulty}</p>}
                     </div>
                   </div>
                 ))}
@@ -469,18 +469,18 @@ export default function InterviewIntelligence({
             <div className="flex items-center gap-2 mb-4"><Briefcase className="w-4 h-4 text-purple-400" /><h3 className="text-sm font-semibold text-white">Your Target Role</h3></div>
             <div className="bg-slate-800/40 border border-white/[0.06] rounded-xl p-4">
               <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                <div><p className="text-sm font-semibold text-white">{jobTitle || customRole || 'Target Role'}</p><p className="text-xs text-slate-500 mt-0.5">at {co.name}</p></div>
+                <div><p className="text-sm font-semibold text-white">{jobTitle || customRole || 'Target Role'}</p><p className="text-xs text-slate-400 mt-0.5">at {co.name}</p></div>
                 {jo.targetRoleAvailable !== null && (
                   <span className={`text-xs px-3 py-1 rounded-lg font-medium ${jo.targetRoleAvailable ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border border-red-500/20 text-red-400'}`}>
                     {jo.targetRoleAvailable ? 'Openings Available' : 'Not Currently Open'}
                   </span>
                 )}
               </div>
-              {jo.lastSeenPosted && <p className="text-xs text-slate-500 flex items-center gap-1.5"><CalendarDays className="w-3 h-3 flex-shrink-0" /> Last seen: {jo.lastSeenPosted}</p>}
+              {jo.lastSeenPosted && <p className="text-xs text-slate-400 flex items-center gap-1.5"><CalendarDays className="w-3 h-3 flex-shrink-0" /> Last seen: {jo.lastSeenPosted}</p>}
             </div>
             {jo.hiringTeams && jo.hiringTeams.length > 0 && (
               <div className="mt-4">
-                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Teams Currently Hiring</p>
+                <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Teams Currently Hiring</p>
                 <div className="flex flex-wrap gap-1.5">
                   {jo.hiringTeams.map((team: string, i: number) => (
                     <span key={i} className="text-xs px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/15 text-purple-300 font-medium">{team}</span>
@@ -491,16 +491,16 @@ export default function InterviewIntelligence({
             {jo.hiringCycleTrend && (
               <div className="mt-4 bg-slate-800/40 border border-white/[0.06] rounded-xl p-3 flex items-start gap-2">
                 <TrendingUp className="w-3.5 h-3.5 text-blue-400 mt-0.5 flex-shrink-0" />
-                <div><p className="text-xs font-medium text-slate-300 mb-0.5">Hiring Cycle Trend</p><p className="text-xs text-slate-500 leading-relaxed">{jo.hiringCycleTrend}</p></div>
+                <div><p className="text-xs font-medium text-slate-300 mb-0.5">Hiring Cycle Trend</p><p className="text-xs text-slate-400 leading-relaxed">{jo.hiringCycleTrend}</p></div>
               </div>
             )}
-            {jo.source && <p className="text-[10px] text-slate-600 mt-3 flex items-center gap-1"><Info className="w-3 h-3" />{jo.source}</p>}
+            {jo.source && <p className="text-[11px] text-slate-500 mt-3 flex items-center gap-1"><Info className="w-3 h-3" />{jo.source}</p>}
           </div>
 
           {jo.otherOpenRoles && jo.otherOpenRoles.length > 0 ? (
             <div className="glass-card p-5">
               <div className="flex items-center gap-2 mb-1"><Layers className="w-4 h-4 text-indigo-400" /><h3 className="text-sm font-semibold text-white">Other Roles to Consider</h3></div>
-              <p className="text-xs text-slate-500 mb-4">Roles at {co.name} that may match your profile</p>
+              <p className="text-xs text-slate-400 mb-4">Roles at {co.name} that may match your profile</p>
               <div className="space-y-2">
                 {jo.otherOpenRoles.map((role: OpenRole, i: number) => {
                   const badge = getRelevanceBadge(role.relevance);
@@ -509,9 +509,9 @@ export default function InterviewIntelligence({
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-semibold text-white">{role.title}</p>
-                          {role.level && <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-700/60 text-slate-400 font-medium">{role.level}</span>}
+                          {role.level && <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-slate-700/60 text-slate-400 font-medium">{role.level}</span>}
                         </div>
-                        {role.department && <p className="text-xs text-slate-500 mt-0.5">{role.department}</p>}
+                        {role.department && <p className="text-xs text-slate-400 mt-0.5">{role.department}</p>}
                       </div>
                       <span className={`text-xs px-2.5 py-1 rounded-lg font-medium capitalize flex-shrink-0 ${badge.bg} ${badge.text}`}>{role.relevance} fit</span>
                     </div>
@@ -527,7 +527,7 @@ export default function InterviewIntelligence({
       {activeTab === 'rounds' && (ip?.rounds && ip.rounds.length > 0 ? (
         <div className="glass-card p-5">
           <div className="flex items-center gap-2 mb-1"><Target className="w-4 h-4 text-purple-400" /><h3 className="text-sm font-semibold text-white">Interview Pipeline</h3></div>
-          <p className="text-xs text-slate-500 mb-4">Based on candidate reports</p>
+          <p className="text-xs text-slate-400 mb-4">Based on candidate reports</p>
           <div className="space-y-2.5">
             {ip.rounds.map((round: InterviewRound, i: number) => {
               const isExp = expandedRound === i;
@@ -538,11 +538,11 @@ export default function InterviewIntelligence({
                     <div className="w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm flex-shrink-0" style={{ backgroundColor: `${rc}25`, color: rc }}>{i + 1}</div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-white">{round.name}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">{round.duration || 'Duration N/A'}{round.passRate !== null ? ` · Pass Rate: ${round.passRate}%` : ''}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">{round.duration || 'Duration N/A'}{round.passRate !== null ? ` · Pass Rate: ${round.passRate}%` : ''}</p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {round.passRate !== null && <div className="w-16 h-1.5 bg-slate-700 rounded-full overflow-hidden hidden sm:block"><div className="h-full rounded-full" style={{ width: `${round.passRate}%`, backgroundColor: rc }} /></div>}
-                      <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${isExp ? 'rotate-180' : ''}`} />
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isExp ? 'rotate-180' : ''}`} />
                     </div>
                   </button>
                   {isExp && (
@@ -550,7 +550,7 @@ export default function InterviewIntelligence({
                       <p className="text-xs text-slate-400 leading-relaxed mb-3">{round.description}</p>
                       {round.tips?.length > 0 && (
                         <div className="space-y-1.5">
-                          <p className="text-[10px] font-semibold text-purple-400 uppercase tracking-wider mb-1">Tips:</p>
+                          <p className="text-[11px] font-semibold text-purple-400 uppercase tracking-wider mb-1">Tips:</p>
                           {round.tips.map((tip: string, j: number) => (
                             <div key={j} className="flex items-start gap-2"><CheckCircle2 className="w-3 h-3 text-emerald-400 mt-0.5 flex-shrink-0" /><p className="text-xs text-slate-300">{tip}</p></div>
                           ))}
@@ -569,7 +569,7 @@ export default function InterviewIntelligence({
       {activeTab === 'questions' && (tq && tq.length > 0 ? (
         <div className="glass-card p-5">
           <div className="flex items-center gap-2 mb-1"><MessageSquare className="w-4 h-4 text-purple-400" /><h3 className="text-sm font-semibold text-white">Reported Interview Questions</h3></div>
-          <p className="text-xs text-slate-500 mb-4">Real questions reported by candidates</p>
+          <p className="text-xs text-slate-400 mb-4">Real questions reported by candidates</p>
           <div className="space-y-2.5">
             {tq.map((q: TopQuestion, i: number) => {
               const isExp = expandedQuestion === i;
@@ -580,13 +580,13 @@ export default function InterviewIntelligence({
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-white leading-snug">{q.question}</p>
                       <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                        <span className="text-[10px] px-2 py-0.5 rounded-md bg-purple-500/15 text-purple-400 font-medium">{q.type}</span>
-                        {q.frequency  && <span className={`text-[10px] px-2 py-0.5 rounded-md font-medium ${getFrequencyColor(q.frequency)}`}>{q.frequency}</span>}
-                        {q.difficulty && <span className={`text-[10px] px-2 py-0.5 rounded-md font-medium ${getDifficultyColor(q.difficulty)}`}>{q.difficulty}</span>}
-                        {q.source     && <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-700/60 text-slate-500">{q.source}</span>}
+                        <span className="text-[11px] px-2 py-0.5 rounded-md bg-purple-500/15 text-purple-400 font-medium">{q.type}</span>
+                        {q.frequency  && <span className={`text-[11px] px-2 py-0.5 rounded-md font-medium ${getFrequencyColor(q.frequency)}`}>{q.frequency}</span>}
+                        {q.difficulty && <span className={`text-[11px] px-2 py-0.5 rounded-md font-medium ${getDifficultyColor(q.difficulty)}`}>{q.difficulty}</span>}
+                        {q.source     && <span className="text-[11px] px-2 py-0.5 rounded-md bg-slate-700/60 text-slate-400">{q.source}</span>}
                       </div>
                     </div>
-                    <ChevronDown className={`w-4 h-4 text-slate-500 flex-shrink-0 mt-1 transition-transform ${isExp ? 'rotate-180' : ''}`} />
+                    <ChevronDown className={`w-4 h-4 text-slate-400 flex-shrink-0 mt-1 transition-transform ${isExp ? 'rotate-180' : ''}`} />
                   </button>
                   {isExp && q.tip && (
                     <div className="px-3.5 pb-3.5 border-t border-white/[0.05] pt-3 flex items-start gap-2">
@@ -607,12 +607,12 @@ export default function InterviewIntelligence({
           {si.baseSalary ? (
             <div className="glass-card p-5">
               <div className="flex items-center gap-2 mb-4"><DollarSign className="w-4 h-4 text-emerald-400" /><h3 className="text-sm font-semibold text-white">Base Salary</h3></div>
-              <div className="text-center mb-4"><div className="text-3xl font-bold text-white">{formatCurrency(si.baseSalary.median)}</div><p className="text-xs text-slate-500 mt-1">Median Base</p></div>
+              <div className="text-center mb-4"><div className="text-3xl font-bold text-white">{formatCurrency(si.baseSalary.median)}</div><p className="text-xs text-slate-400 mt-1">Median Base</p></div>
               <div className="relative h-2 bg-slate-700/60 rounded-full overflow-hidden mb-2">
                 <div className="absolute top-0 h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full"
                   style={{ left: `${((si.baseSalary.min - si.baseSalary.min * 0.8) / (si.baseSalary.max * 1.1 - si.baseSalary.min * 0.8)) * 100}%`, right: `${100 - ((si.baseSalary.max - si.baseSalary.min * 0.8) / (si.baseSalary.max * 1.1 - si.baseSalary.min * 0.8)) * 100}%` }} />
               </div>
-              <div className="flex justify-between text-xs text-slate-500">
+              <div className="flex justify-between text-xs text-slate-400">
                 <span>{formatCurrency(si.baseSalary.min)}</span>
                 <span>{formatCurrency(si.baseSalary.median)}</span>
                 <span>{formatCurrency(si.baseSalary.max)}</span>
@@ -622,20 +622,20 @@ export default function InterviewIntelligence({
           {si.totalComp && (
             <div className="glass-card p-5">
               <div className="flex items-center gap-2 mb-4"><Trophy className="w-4 h-4 text-amber-400" /><h3 className="text-sm font-semibold text-white">Total Compensation</h3></div>
-              <div className="text-center mb-4"><div className="text-3xl font-bold text-emerald-400">{formatCurrency(si.totalComp.median)}</div><p className="text-xs text-slate-500 mt-1">Median TC</p></div>
+              <div className="text-center mb-4"><div className="text-3xl font-bold text-emerald-400">{formatCurrency(si.totalComp.median)}</div><p className="text-xs text-slate-400 mt-1">Median TC</p></div>
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-slate-800/40 border border-white/[0.06] rounded-xl p-3"><p className="text-[10px] text-slate-500 mb-1">Range</p><p className="text-sm font-bold text-white">{formatCurrency(si.totalComp.min)} - {formatCurrency(si.totalComp.max)}</p></div>
-                <div className="bg-slate-800/40 border border-white/[0.06] rounded-xl p-3"><p className="text-[10px] text-slate-500 mb-1">Negotiation Room</p><p className="text-sm font-bold text-emerald-400">{si.negotiationRoom || 'N/A'}</p></div>
+                <div className="bg-slate-800/40 border border-white/[0.06] rounded-xl p-3"><p className="text-[11px] text-slate-400 mb-1">Range</p><p className="text-sm font-bold text-white">{formatCurrency(si.totalComp.min)} - {formatCurrency(si.totalComp.max)}</p></div>
+                <div className="bg-slate-800/40 border border-white/[0.06] rounded-xl p-3"><p className="text-[11px] text-slate-400 mb-1">Negotiation Room</p><p className="text-sm font-bold text-emerald-400">{si.negotiationRoom || 'N/A'}</p></div>
               </div>
             </div>
           )}
           {(si.equity || si.signingBonus) && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {si.equity      && <div className="glass-card p-4"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Equity</p><p className="text-sm text-slate-300">{si.equity}</p></div>}
-              {si.signingBonus && <div className="glass-card p-4"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Signing Bonus</p><p className="text-sm text-slate-300">{si.signingBonus}</p></div>}
+              {si.equity      && <div className="glass-card p-4"><p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Equity</p><p className="text-sm text-slate-300">{si.equity}</p></div>}
+              {si.signingBonus && <div className="glass-card p-4"><p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Signing Bonus</p><p className="text-sm text-slate-300">{si.signingBonus}</p></div>}
             </div>
           )}
-          <div className="bg-slate-800/30 border border-white/[0.04] rounded-xl p-3 flex items-center gap-2 text-xs text-slate-600"><Info className="w-3 h-3 flex-shrink-0" />{si.source}</div>
+          <div className="bg-slate-800/30 border border-white/[0.04] rounded-xl p-3 flex items-center gap-2 text-xs text-slate-500"><Info className="w-3 h-3 flex-shrink-0" />{si.source}</div>
         </div>
       ) : <NotAvailable message="Salary data not available" />)}
 
@@ -676,16 +676,16 @@ export default function InterviewIntelligence({
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-slate-200 leading-relaxed">{review.summary}</p>
                         <div className="flex items-center gap-1.5 mt-2.5 flex-wrap">
-                          <span className="text-[10px] px-2 py-0.5 rounded-md bg-indigo-500/10 border border-indigo-500/15 text-indigo-400 font-medium">{getTopicLabel(review.topic)}</span>
-                          <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-700/60 text-slate-500">{review.subreddit}</span>
-                          {review.upvoteContext && <span className="text-[10px] text-slate-600 capitalize">{review.upvoteContext}</span>}
-                          <span className={`text-[10px] px-2 py-0.5 rounded-md font-medium capitalize ${style.bg} ${style.text}`}>{review.sentiment}</span>
+                          <span className="text-[11px] px-2 py-0.5 rounded-md bg-indigo-500/10 border border-indigo-500/15 text-indigo-400 font-medium">{getTopicLabel(review.topic)}</span>
+                          <span className="text-[11px] px-2 py-0.5 rounded-md bg-slate-700/60 text-slate-400">{review.subreddit}</span>
+                          {review.upvoteContext && <span className="text-[11px] text-slate-500 capitalize">{review.upvoteContext}</span>}
+                          <span className={`text-[11px] px-2 py-0.5 rounded-md font-medium capitalize ${style.bg} ${style.text}`}>{review.sentiment}</span>
                           {review.threadUrl && (
                             <a
                               href={review.threadUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="ml-auto flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md
+                              className="ml-auto flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md
                                          bg-orange-500/10 border border-orange-500/20 text-orange-400
                                          hover:bg-orange-500/20 transition-colors font-medium"
                               onClick={e => e.stopPropagation()}
@@ -719,8 +719,8 @@ export default function InterviewIntelligence({
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-white leading-relaxed">{tip.tip}</p>
                     <div className="flex items-center gap-2 mt-2">
-                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-700/60 text-slate-400">{tip.source}</span>
-                      <span className={`text-[10px] px-2 py-0.5 rounded-md font-medium capitalize ${tip.importance === 'critical' ? 'bg-red-500/10 text-red-400' : tip.importance === 'high' ? 'bg-amber-500/10 text-amber-400' : 'bg-blue-500/10 text-blue-400'}`}>{tip.importance}</span>
+                      <span className="text-[11px] px-2 py-0.5 rounded-md bg-slate-700/60 text-slate-400">{tip.source}</span>
+                      <span className={`text-[11px] px-2 py-0.5 rounded-md font-medium capitalize ${tip.importance === 'critical' ? 'bg-red-500/10 text-red-400' : tip.importance === 'high' ? 'bg-amber-500/10 text-amber-400' : 'bg-blue-500/10 text-blue-400'}`}>{tip.importance}</span>
                     </div>
                   </div>
                 </div>
@@ -744,7 +744,7 @@ export default function InterviewIntelligence({
             <div className="h-1.5 bg-slate-700/60 rounded-full overflow-hidden">
               <div className={`h-full rounded-full transition-all duration-1000 ${cfa.fitScore >= 80 ? 'bg-emerald-500' : cfa.fitScore >= 60 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${cfa.fitScore}%` }} />
             </div>
-            {cfa.estimatedPrepTime && <p className="text-[10px] text-slate-500 mt-2">Estimated prep time: {cfa.estimatedPrepTime}</p>}
+            {cfa.estimatedPrepTime && <p className="text-[11px] text-slate-400 mt-2">Estimated prep time: {cfa.estimatedPrepTime}</p>}
           </div>
 
           {(cfa.strengths || cfa.gaps) && (
@@ -772,12 +772,12 @@ export default function InterviewIntelligence({
                   <div key={i} className="bg-slate-800/40 border border-white/[0.06] rounded-xl p-3.5">
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="text-sm font-semibold text-white">{p.area}</h4>
-                      <span className="text-[10px] px-2 py-0.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 font-medium flex items-center gap-1"><Clock className="w-3 h-3" />{p.timeNeeded}</span>
+                      <span className="text-[11px] px-2 py-0.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 font-medium flex items-center gap-1"><Clock className="w-3 h-3" />{p.timeNeeded}</span>
                     </div>
-                    <p className="text-xs text-slate-500 mb-2">{p.reason}</p>
+                    <p className="text-xs text-slate-400 mb-2">{p.reason}</p>
                     {p.resources?.length > 0 && (
                       <div className="flex flex-wrap gap-1.5">
-                        {p.resources.map((r: string, j: number) => <span key={j} className="text-[10px] px-2 py-1 rounded-lg bg-slate-700/50 border border-white/[0.05] text-slate-400">{r}</span>)}
+                        {p.resources.map((r: string, j: number) => <span key={j} className="text-[11px] px-2 py-1 rounded-lg bg-slate-700/50 border border-white/[0.05] text-slate-400">{r}</span>)}
                       </div>
                     )}
                   </div>

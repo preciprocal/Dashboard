@@ -72,7 +72,7 @@ export default function NotificationCenter({
         {unreadCount > 0 && (
           <span
             className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1
-                       rounded-full bg-purple-600 text-white text-[9px]
+                       rounded-full bg-purple-600 text-white text-[11px]
                        font-bold flex items-center justify-center
                        border-2 border-[#090d1a] leading-none"
           >
@@ -97,7 +97,7 @@ export default function NotificationCenter({
               </span>
               {unreadCount > 0 && (
                 <span
-                  className="text-[10px] font-medium px-2 py-0.5 rounded-full
+                  className="text-[11px] font-medium px-2 py-0.5 rounded-full
                              bg-purple-500/10 text-purple-400 border border-purple-500/20"
                 >
                   {unreadCount}
@@ -108,7 +108,7 @@ export default function NotificationCenter({
             {unreadCount > 0 && (
               <button
                 onClick={onMarkAllAsRead}
-                className="flex items-center gap-1 text-[11px] text-slate-500
+                className="flex items-center gap-1 text-xs text-slate-400
                            hover:text-white transition-colors cursor-pointer"
               >
                 <CheckCheck className="w-3.5 h-3.5" />
@@ -128,9 +128,9 @@ export default function NotificationCenter({
             ) : isEmpty ? (
               <div className="flex flex-col items-center justify-center py-14 gap-2.5">
                 <div className="w-10 h-10 rounded-full bg-white/[0.04] flex items-center justify-center">
-                  <Bell className="w-4 h-4 text-slate-600" />
+                  <Bell className="w-4 h-4 text-slate-500" />
                 </div>
-                <p className="text-[13px] text-slate-500">No notifications</p>
+                <p className="text-[13px] text-slate-400">No notifications</p>
               </div>
             ) : (
               <>
@@ -188,8 +188,8 @@ function Section({
   return (
     <div className={dimmed ? "border-t border-white/[0.04]" : ""}>
       <p
-        className={`px-5 pt-3 pb-1.5 text-[10px] font-semibold uppercase tracking-widest
-                    ${dimmed ? "text-slate-600" : "text-slate-500"}`}
+        className={`px-5 pt-3 pb-1.5 text-[11px] font-semibold uppercase tracking-widest
+                    ${dimmed ? "text-slate-500" : "text-slate-400"}`}
       >
         {label}
       </p>
@@ -245,12 +245,12 @@ function Row({
         >
           {n.title}
         </p>
-        <p className="text-[11px] text-slate-500 leading-relaxed line-clamp-2 mt-0.5">
+        <p className="text-xs text-slate-400 leading-relaxed line-clamp-2 mt-0.5">
           {n.message}
         </p>
 
         <div className="flex items-center gap-2.5 mt-1.5">
-          <span className="text-[10px] text-slate-600 tabular-nums">
+          <span className="text-[11px] text-slate-500 tabular-nums">
             {formatDistanceToNow(n.createdAt, { addSuffix: true })}
           </span>
           {n.actionUrl && (
@@ -260,7 +260,7 @@ function Row({
                 if (!n.isRead) onRead(n.id);
                 onClose();
               }}
-              className="text-[11px] font-medium text-purple-400 hover:text-purple-300
+              className="text-xs font-medium text-purple-400 hover:text-purple-300
                          transition-colors cursor-pointer"
             >
               View
@@ -290,7 +290,7 @@ function Row({
           className="w-6 h-6 rounded-md flex items-center justify-center
                      bg-white/[0.04] hover:bg-red-500/10 transition-colors cursor-pointer"
         >
-          <Trash2 className="w-3 h-3 text-slate-500 hover:text-red-400" />
+          <Trash2 className="w-3 h-3 text-slate-400 hover:text-red-400" />
         </button>
       </div>
     </div>

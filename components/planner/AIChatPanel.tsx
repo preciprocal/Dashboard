@@ -130,12 +130,12 @@ function FormattedMessage({ content }: { content: string }) {
           return (
             <div key={idx} className="relative group">
               <div className="flex items-center justify-between px-4 py-2 bg-slate-800/90 rounded-t-lg border border-slate-700">
-                <span className="text-xs font-mono text-slate-500 uppercase">
+                <span className="text-xs font-mono text-slate-400 uppercase">
                   {segment.language}
                 </span>
                 <button
                   onClick={() => copyToClipboard(segment.content, segment.blockIndex)}
-                  className="flex items-center gap-1 px-2 py-1 text-xs text-slate-500 hover:text-slate-300 transition-colors rounded"
+                  className="flex items-center gap-1 px-2 py-1 text-xs text-slate-400 hover:text-slate-300 transition-colors rounded"
                 >
                   {isCopied ? (
                     <>
@@ -347,7 +347,7 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
           </div>
           <div>
             <h3 className="font-medium text-white">AI Interview Coach</h3>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-400">
               Powered by Gemini 2.0 Flash
             </p>
           </div>
@@ -390,7 +390,7 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
               {message.metadata?.responseTime && (
                 <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-700">
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-                  <p className="text-xs text-slate-600">
+                  <p className="text-xs text-slate-500">
                     {((message.metadata.responseTime as number) / 1000).toFixed(2)}s
                   </p>
                 </div>
@@ -408,7 +408,7 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
                   <span className="text-sm font-medium text-white">
                     Analyzing...
                   </span>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-400">
                     This may take a few seconds
                   </p>
                 </div>
@@ -423,7 +423,7 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
       {/* Suggested Prompts - Dark Mode */}
       {messages.length === 1 && (
         <div className="p-4 border-t border-slate-800 bg-slate-800/30">
-          <p className="text-xs font-medium text-slate-500 mb-3 uppercase tracking-wider">
+          <p className="text-xs font-medium text-slate-400 mb-3 uppercase tracking-wider">
             Quick Start
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -482,11 +482,11 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
             )}
           </button>
         </div>
-        <p className="text-xs text-slate-600 mt-2 flex items-center gap-1">
+        <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
           <span>Press</span>
-          <kbd className="px-1.5 py-0.5 bg-slate-800/60 border border-slate-700 rounded text-xs font-mono text-slate-500">Enter</kbd>
+          <kbd className="px-1.5 py-0.5 bg-slate-800/60 border border-slate-700 rounded text-xs font-mono text-slate-400">Enter</kbd>
           <span>to send,</span>
-          <kbd className="px-1.5 py-0.5 bg-slate-800/60 border border-slate-700 rounded text-xs font-mono text-slate-500">Shift+Enter</kbd>
+          <kbd className="px-1.5 py-0.5 bg-slate-800/60 border border-slate-700 rounded text-xs font-mono text-slate-400">Shift+Enter</kbd>
           <span>for new line</span>
         </p>
       </div>

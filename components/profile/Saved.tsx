@@ -138,7 +138,7 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
               <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-1">
                 Saved Content
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 text-sm">
+              <p className="text-gray-500 dark:text-gray-400 text-sm">
                 Manage your bookmarked templates, articles, and custom content
               </p>
             </div>
@@ -150,7 +150,7 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
               <div className="text-xl font-semibold text-gray-900 dark:text-white">
                 {savedTemplates.length + userCreatedContent.templates.length}
               </div>
-              <div className="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+              <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                 Templates
               </div>
             </div>
@@ -159,7 +159,7 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
               <div className="text-xl font-semibold text-gray-900 dark:text-white">
                 {bookmarkedBlogs.length + userCreatedContent.blogs.length}
               </div>
-              <div className="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+              <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                 Articles
               </div>
             </div>
@@ -168,7 +168,7 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
               <div className="text-xl font-semibold text-gray-900 dark:text-white">
                 {userCreatedContent.customInterviews.length}
               </div>
-              <div className="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+              <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                 Custom
               </div>
             </div>
@@ -217,7 +217,7 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
                   className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
                     savedContentFilter === filter.id
                       ? "bg-blue-600 text-white shadow-sm"
-                      : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
+                      : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
                   }`}
                 >
                   {filter.label}
@@ -246,7 +246,7 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
                 />
                 <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
                   <svg
-                    className="w-4 h-4 text-gray-500 dark:text-gray-400"
+                    className="w-4 h-4 text-gray-400 dark:text-gray-400"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -294,24 +294,24 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
                         <div className="flex items-start space-x-3">
                           <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0">
                             {isTemplate(item) ? (
-                              <Target className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                              <Target className="w-5 h-5 text-gray-400 dark:text-gray-400" />
                             ) : (
-                              <BookOpen className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                              <BookOpen className="w-5 h-5 text-gray-400 dark:text-gray-400" />
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
                             <h4 className="text-gray-900 dark:text-white font-medium text-sm group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-1">
                               {getItemTitle(item)}
                             </h4>
-                            <p className="text-gray-600 dark:text-gray-400 text-xs mt-1">
+                            <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">
                               {getItemMeta(item)}
                             </p>
                             <div className="flex items-center space-x-2 mt-2">
-                              <span className="text-xs text-gray-500 dark:text-gray-500">
+                              <span className="text-xs text-gray-400 dark:text-gray-400">
                                 {getItemDuration(item)}
                               </span>
                               <span className="w-1 h-1 bg-gray-400 dark:bg-gray-600 rounded-full"></span>
-                              <span className="text-xs text-gray-500 dark:text-gray-500">
+                              <span className="text-xs text-gray-400 dark:text-gray-400">
                                 Saved
                               </span>
                             </div>
@@ -347,7 +347,7 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
                           <div className="text-gray-900 dark:text-white font-medium text-sm">
                             {category.name}
                           </div>
-                          <div className="text-gray-600 dark:text-gray-400 text-xs">
+                          <div className="text-gray-500 dark:text-gray-400 text-xs">
                             {category.count} items
                           </div>
                         </div>
@@ -367,7 +367,7 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
                   <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-1">
                     Saved Templates
                   </h3>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm">
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">
                     {savedTemplates.length} interview templates ready for practice
                   </p>
                 </div>
@@ -409,11 +409,11 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
                                 </span>
                               </div>
                             </div>
-                            <p className="text-gray-600 dark:text-gray-400 text-sm line-clamp-1">
+                            <p className="text-gray-500 dark:text-gray-400 text-sm line-clamp-1">
                               {template.description ||
                                 "Professional interview template for skill assessment"}
                             </p>
-                            <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500 dark:text-gray-500">
+                            <div className="flex items-center space-x-4 mt-2 text-xs text-gray-400 dark:text-gray-400">
                               <span className="flex items-center">
                                 <Clock className="w-3 h-3 mr-1" />
                                 {template.duration || "45 min"}
@@ -447,12 +447,12 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
               ) : (
                 <div className="text-center py-12">
                   <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-xl flex items-center justify-center mx-auto mb-4">
-                    <Target className="w-8 h-8 text-gray-500 dark:text-gray-400" />
+                    <Target className="w-8 h-8 text-gray-400 dark:text-gray-400" />
                   </div>
                   <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
                     No Templates Saved
                   </h4>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm mb-6 max-w-sm mx-auto">
+                  <p className="text-gray-500 dark:text-gray-400 text-sm mb-6 max-w-sm mx-auto">
                     Start building your template library by saving interview templates
                     that match your goals.
                   </p>
@@ -478,7 +478,7 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
                   <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-1">
                     Bookmarked Articles
                   </h3>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm">
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">
                     {bookmarkedBlogs.length} articles saved for learning
                   </p>
                 </div>
@@ -512,10 +512,10 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
                                 ))}
                               </div>
                             </div>
-                            <p className="text-gray-600 dark:text-gray-400 text-sm line-clamp-1 mb-2">
+                            <p className="text-gray-500 dark:text-gray-400 text-sm line-clamp-1 mb-2">
                               {blog.excerpt}
                             </p>
-                            <div className="flex items-center space-x-4 text-xs text-gray-500 dark:text-gray-500">
+                            <div className="flex items-center space-x-4 text-xs text-gray-400 dark:text-gray-400">
                               <span>By {blog.author || 'Unknown'}</span>
                               <span className="w-1 h-1 bg-gray-400 dark:bg-gray-600 rounded-full"></span>
                               <span>{blog.readTime}</span>
@@ -555,12 +555,12 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
               ) : (
                 <div className="text-center py-12">
                   <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-xl flex items-center justify-center mx-auto mb-4">
-                    <BookOpen className="w-8 h-8 text-gray-500 dark:text-gray-400" />
+                    <BookOpen className="w-8 h-8 text-gray-400 dark:text-gray-400" />
                   </div>
                   <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
                     No Articles Bookmarked
                   </h4>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm mb-6 max-w-sm mx-auto">
+                  <p className="text-gray-500 dark:text-gray-400 text-sm mb-6 max-w-sm mx-auto">
                     Save insightful articles to create your personal knowledge library.
                   </p>
                 </div>
@@ -600,10 +600,10 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
                                   Published
                                 </span>
                               </div>
-                              <p className="text-gray-600 dark:text-gray-400 text-sm line-clamp-1 mb-2">
+                              <p className="text-gray-500 dark:text-gray-400 text-sm line-clamp-1 mb-2">
                                 {blog.excerpt}
                               </p>
-                              <div className="flex items-center space-x-4 text-xs text-gray-500 dark:text-gray-500">
+                              <div className="flex items-center space-x-4 text-xs text-gray-400 dark:text-gray-400">
                                 <span>{blog.publishDate}</span>
                                 <span className="w-1 h-1 bg-gray-400 dark:bg-gray-600 rounded-full"></span>
                                 <span>{blog.readTime}</span>
@@ -637,11 +637,11 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
                   </div>
                 ) : (
                   <div className="text-center py-8 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">
-                    <Edit className="w-10 h-10 text-gray-500 dark:text-gray-400 mx-auto mb-3" />
+                    <Edit className="w-10 h-10 text-gray-400 dark:text-gray-400 mx-auto mb-3" />
                     <h4 className="text-gray-900 dark:text-white font-medium mb-1">
                       No Articles Created
                     </h4>
-                    <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
+                    <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">
                       Share your knowledge with the community
                     </p>
                   </div>
@@ -682,10 +682,10 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
                               <h4 className="text-gray-900 dark:text-white font-medium group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors mb-1">
                                 {template.title || `Template ${template.id}`}
                               </h4>
-                              <p className="text-gray-600 dark:text-gray-400 text-sm line-clamp-1 mb-2">
+                              <p className="text-gray-500 dark:text-gray-400 text-sm line-clamp-1 mb-2">
                                 {template.description || "Custom template"}
                               </p>
-                              <div className="flex items-center space-x-4 text-xs text-gray-500 dark:text-gray-500">
+                              <div className="flex items-center space-x-4 text-xs text-gray-400 dark:text-gray-400">
                                 <span>{template.category || "Custom"}</span>
                                 <span className="w-1 h-1 bg-gray-400 dark:bg-gray-600 rounded-full"></span>
                                 <span>{template.difficulty || "Intermediate"}</span>
@@ -716,11 +716,11 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
                   </div>
                 ) : (
                   <div className="text-center py-8 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">
-                    <FileText className="w-10 h-10 text-gray-500 dark:text-gray-400 mx-auto mb-3" />
+                    <FileText className="w-10 h-10 text-gray-400 dark:text-gray-400 mx-auto mb-3" />
                     <h4 className="text-gray-900 dark:text-white font-medium mb-1">
                       No Templates Created
                     </h4>
-                    <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
+                    <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">
                       Build custom interview templates
                     </p>
                     <Button
@@ -747,7 +747,7 @@ const ProfileSaved: React.FC<ProfileSavedProps> = ({
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
             Expand Your Knowledge Base
           </h3>
-          <p className="text-gray-600 dark:text-gray-400 text-sm mb-6 max-w-2xl mx-auto">
+          <p className="text-gray-500 dark:text-gray-400 text-sm mb-6 max-w-2xl mx-auto">
             Discover more high-quality content to accelerate your interview
             preparation and professional development.
           </p>

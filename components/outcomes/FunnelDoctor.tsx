@@ -123,7 +123,7 @@ export default function FunnelDoctor({ refreshKey, topRole }: { refreshKey: stri
 
   if (error) return null;
   if (!data) {
-    return <div className="glass-card px-4 py-3 text-xs text-slate-500">Reading your results…</div>;
+    return <div className="glass-card px-4 py-3 text-xs text-slate-400">Reading your results…</div>;
   }
 
   const { funnel, resumes, followUps, minApplicationsForRate } = data;
@@ -146,10 +146,10 @@ export default function FunnelDoctor({ refreshKey, topRole }: { refreshKey: stri
           <Stethoscope className="w-4 h-4 text-violet-400 mt-0.5 shrink-0" />
           <div className="min-w-0">
             <h2 id="funnel-doctor" className="text-sm font-bold text-white">{d.headline}</h2>
-            {collapsed && <p className="text-xs text-slate-500 mt-0.5">Funnel doctor. Open to see why and what to do.</p>}
+            {collapsed && <p className="text-xs text-slate-400 mt-0.5">Funnel doctor. Open to see why and what to do.</p>}
           </div>
         </div>
-        <ChevronDown className={`w-4 h-4 text-slate-500 shrink-0 transition-transform ${collapsed ? '' : 'rotate-180'}`} />
+        <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${collapsed ? '' : 'rotate-180'}`} />
       </button>
 
       {!collapsed && (
@@ -164,9 +164,9 @@ export default function FunnelDoctor({ refreshKey, topRole }: { refreshKey: stri
               return (
                 <li key={s.label} className={`rounded-lg px-2 py-2 border ${isLeak ? 'border-amber-500/40 bg-amber-500/[0.06]' : 'border-white/[0.06] bg-white/[0.02]'}`}>
                   <p className="text-lg font-bold text-white tabular-nums leading-none">{s.n}</p>
-                  <p className="text-[10px] text-slate-500 mt-1 leading-tight">{s.label}</p>
+                  <p className="text-[11px] text-slate-400 mt-1 leading-tight">{s.label}</p>
                   {step && (
-                    <p className={`text-[10px] mt-1 tabular-nums ${isLeak ? 'text-amber-300' : 'text-slate-400'}`}
+                    <p className={`text-[11px] mt-1 tabular-nums ${isLeak ? 'text-amber-300' : 'text-slate-400'}`}
                        title={step.rate === null ? `Shown once ${step.minDecided} applications have an outcome at this step` : `${step.passed} of ${step.decided} got through${step.pending ? `, ${step.pending} still waiting` : ''}`}>
                       {step.rate === null ? 'not enough yet' : `${step.rate}% got through`}
                     </p>
@@ -186,7 +186,7 @@ export default function FunnelDoctor({ refreshKey, topRole }: { refreshKey: stri
 
           {takeaways.length > 0 && (
             <div>
-              <h3 className="text-[11px] uppercase tracking-wide font-semibold text-slate-500 mb-1.5">What your results show</h3>
+              <h3 className="text-xs uppercase tracking-wide font-semibold text-slate-400 mb-1.5">What your results show</h3>
               <ul className="space-y-1">
                 {takeaways.map(c => <li key={c.id} className="text-xs text-slate-300 leading-relaxed">{c.takeaway}</li>)}
               </ul>
@@ -195,11 +195,11 @@ export default function FunnelDoctor({ refreshKey, topRole }: { refreshKey: stri
 
           {resumeRows.length > 0 && (
             <div id="funnel-resumes">
-              <h3 className="text-[11px] uppercase tracking-wide font-semibold text-slate-500 mb-1.5">Which resume gets interviews</h3>
+              <h3 className="text-xs uppercase tracking-wide font-semibold text-slate-400 mb-1.5">Which resume gets interviews</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="text-slate-500 text-left">
+                    <tr className="text-slate-400 text-left">
                       <th className="font-medium py-1 pr-3">Resume</th>
                       <th className="font-medium py-1 pr-3 text-right">Sent</th>
                       <th className="font-medium py-1 pr-3 text-right">Interviews</th>
@@ -216,7 +216,7 @@ export default function FunnelDoctor({ refreshKey, topRole }: { refreshKey: stri
                         <td className="py-1.5 pr-3 text-right tabular-nums text-slate-400">{r.sent}</td>
                         <td className="py-1.5 pr-3 text-right tabular-nums text-slate-400">{r.interviews}</td>
                         <td className="py-1.5 text-right tabular-nums text-slate-300">
-                          {r.interviewRate === null ? <span className="text-slate-600" title={`Shown after ${minApplicationsForRate} applications`}>too few</span> : `${r.interviewRate}%`}
+                          {r.interviewRate === null ? <span className="text-slate-500" title={`Shown after ${minApplicationsForRate} applications`}>too few</span> : `${r.interviewRate}%`}
                         </td>
                       </tr>
                     ))}
@@ -224,19 +224,19 @@ export default function FunnelDoctor({ refreshKey, topRole }: { refreshKey: stri
                 </table>
               </div>
               {resumeRows.some(r => r.resumeId === null) && (
-                <p className="text-[11px] text-slate-600 mt-1">Pick the resume you sent when you add or edit an application to see how each version performs.</p>
+                <p className="text-xs text-slate-500 mt-1">Pick the resume you sent when you add or edit an application to see how each version performs.</p>
               )}
             </div>
           )}
 
           {followUps.length > 0 && (
             <div>
-              <h3 className="text-[11px] uppercase tracking-wide font-semibold text-slate-500 mb-1.5">Gone quiet, worth a follow-up</h3>
+              <h3 className="text-xs uppercase tracking-wide font-semibold text-slate-400 mb-1.5">Gone quiet, worth a follow-up</h3>
               <ul className="space-y-1.5">
                 {followUps.map(f => (
                   <li key={f.id} className="flex items-center justify-between gap-3">
                     <span className="text-xs text-slate-300 min-w-0 truncate">
-                      {f.jobTitle} at {f.company} <span className="text-slate-500">· {f.daysSilent} days, no reply</span>
+                      {f.jobTitle} at {f.company} <span className="text-slate-400">· {f.daysSilent} days, no reply</span>
                     </span>
                     <CopyFollowUp f={f} />
                   </li>

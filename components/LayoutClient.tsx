@@ -434,14 +434,14 @@ const SearchDropdown = () => {
                         <HelpCircle className="w-3.5 h-3.5 text-purple-400" />
                       </div>
                       <span className="text-sm text-slate-300">{item.label}</span>
-                      <ChevronRight className="w-3.5 h-3.5 text-slate-600 ml-auto flex-shrink-0" />
+                      <ChevronRight className="w-3.5 h-3.5 text-slate-500 ml-auto flex-shrink-0" />
                     </button>
                   ))}
               </div>
             </div>
           ) : !hasResults ? (
             <div className="p-8 text-center">
-              <Search className="w-8 h-8 text-slate-700 mx-auto mb-3" />
+              <Search className="w-8 h-8 text-slate-500 mx-auto mb-3" />
               <p className="text-slate-400 text-sm">No results for &ldquo;{searchQuery}&rdquo;</p>
             </div>
           ) : (
@@ -813,7 +813,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-white font-semibold text-[13px] truncate">{safeUser?.name || 'User'}</p>
-              <p className="text-slate-500 text-[11px] truncate mt-0.5" title={safeUser?.email || ''}>{safeUser?.email || ''}</p>
+              <p className="text-slate-400 text-xs truncate mt-0.5" title={safeUser?.email || ''}>{safeUser?.email || ''}</p>
             </div>
           </Link>
         </div>
@@ -821,7 +821,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
         {/* Navigation */}
         <nav className="px-3 pb-3 pt-1 space-y-0.5 flex-1" aria-label="App sections">
           <div className="px-3 pt-3 pb-2">
-            <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-[0.16em]">Menu</p>
+            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.16em]">Menu</p>
           </div>
           {mainNavItems.map(item => {
             const Icon   = item.icon;
@@ -835,11 +835,11 @@ function LayoutContent({ children, user }: LayoutClientProps) {
                              ${active ? 'bg-white/[0.06] text-white' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-100'}`}>
                 {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-[var(--accent)]" aria-hidden="true" />}
                 <div className="flex items-center gap-3">
-                  <Icon className={`w-[18px] h-[18px] ${active ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'}`} strokeWidth={1.75} />
+                  <Icon className={`w-[18px] h-[18px] ${active ? 'text-white' : 'text-slate-400 group-hover:text-slate-300'}`} strokeWidth={1.75} />
                   <span className="font-medium text-[13px]">{item.label}</span>
                 </div>
                 {isNew && !active && (
-                  <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-300 border border-indigo-400/20 font-semibold uppercase tracking-wider leading-none">
+                  <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-300 border border-indigo-400/20 font-semibold uppercase tracking-wider leading-none">
                     New
                   </span>
                 )}
@@ -850,7 +850,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
           {/* Resources */}
           <div className="pt-4">
             <div className="px-3 pt-3 pb-2">
-              <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-[0.16em]">Resources</p>
+              <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.16em]">Resources</p>
             </div>
             {teamSpaces.map(item => {
               const Icon = item.icon;
@@ -860,7 +860,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
                   aria-current={active ? 'page' : undefined}
                   className={`group flex items-center gap-3 px-3 py-2 rounded-lg transition-colors
                               ${active ? 'bg-white/[0.06] text-white' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-100'}`}>
-                  <Icon className={`w-[18px] h-[18px] ${active ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'}`} strokeWidth={1.75} />
+                  <Icon className={`w-[18px] h-[18px] ${active ? 'text-white' : 'text-slate-400 group-hover:text-slate-300'}`} strokeWidth={1.75} />
                   <span className="font-medium text-[13px]">{item.label}</span>
                 </Link>
               );
@@ -875,7 +875,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
             return (
               <div className="pt-4">
                 <div className="px-3 pt-3 pb-2">
-                  <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-[0.16em]">Recent</p>
+                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.16em]">Recent</p>
                 </div>
                 <Link href={isResume && latestResume ? `/resume/${latestResume.id}` : item.href}
                   onClick={handleLinkClick}
@@ -888,7 +888,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
                       <p className="text-sm font-medium text-white truncate">
                         {isResume && latestResume ? (latestResume.companyName || latestResume.jobTitle || 'Resume') : item.label}
                       </p>
-                      <p className="text-xs text-slate-500 mt-0.5">
+                      <p className="text-xs text-slate-400 mt-0.5">
                         {isResume && latestResume ? `Score: ${latestResume.feedback?.overallScore ?? '…'}%` : 'Recently visited'}
                       </p>
                     </div>
@@ -901,7 +901,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
           {/* Other */}
           <div className="pt-4">
             <div className="px-3 pt-3 pb-2">
-              <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-[0.16em]">Other</p>
+              <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.16em]">Other</p>
             </div>
             {otherItems.map(item => {
               const Icon  = item.icon;
@@ -913,14 +913,14 @@ function LayoutContent({ children, user }: LayoutClientProps) {
                   className={`group flex items-center justify-between px-3 py-2 rounded-lg transition-colors
                               ${active ? 'bg-white/[0.06] text-white' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-100'}`}>
                   <div className="flex items-center gap-3">
-                    <Icon className={`w-[18px] h-[18px] ${active ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'}`} strokeWidth={1.75} />
+                    <Icon className={`w-[18px] h-[18px] ${active ? 'text-white' : 'text-slate-400 group-hover:text-slate-300'}`} strokeWidth={1.75} />
                     <span className="font-medium text-[13px]">{item.label}</span>
                   </div>
                   {badge > 0 && (
                     <span
                       aria-label={`${badge} ticket${badge === 1 ? '' : 's'} with a new reply`}
                       className="min-w-[18px] h-[18px] px-1.5 rounded-full bg-purple-500/20 border border-purple-500/30
-                                 text-purple-300 text-[10px] font-semibold leading-none
+                                 text-purple-300 text-[11px] font-semibold leading-none
                                  flex items-center justify-center"
                     >
                       {badge > 9 ? '9+' : badge}
@@ -943,7 +943,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
               </div>
             </div>
 
-            <p className="text-[11px] text-slate-500 leading-snug">{planInfo.description}</p>
+            <p className="text-xs text-slate-400 leading-snug">{planInfo.description}</p>
 
             {planInfo.showUpgrade && (
               <Link href="/pricing" onClick={handleLinkClick}
@@ -962,7 +962,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
         <div className="px-4 pb-4">
           <button onClick={handleLogout} disabled={isLoggingOut}
             className="w-full flex items-center gap-3 px-3 py-2 rounded-lg
-                       text-slate-500 hover:bg-red-500/[0.08] hover:text-red-300
+                       text-slate-400 hover:bg-red-500/[0.08] hover:text-red-300
                        transition-colors text-[13px] disabled:opacity-50">
             <LogOut className="w-[18px] h-[18px]" strokeWidth={1.75} />
             <span className="font-medium">{isLoggingOut ? 'Signing out…' : 'Sign out'}</span>
@@ -1010,7 +1010,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
                                bg-[var(--bg-raised)] border border-white/[0.1]
                                rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.45)] z-50 overflow-hidden animate-fade-in-up">
                     <div className="px-4 pt-4 pb-3 border-b border-white/10">
-                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Current Account</p>
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Current Account</p>
                       <div className="flex items-center gap-3">
                         <UserAvatar photoURL={photoURL} initials={userInitials} size="md" />
                         <div className="flex-1 min-w-0">

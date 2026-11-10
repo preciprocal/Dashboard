@@ -250,7 +250,7 @@ export default function ResumeDashboard() {
         <div className="glass-card p-10 text-center max-w-sm w-full">
           <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-white mb-2">Sign in required</h2>
-          <p className="text-sm text-slate-500 mb-6">Please sign in to view your resumes</p>
+          <p className="text-sm text-slate-400 mb-6">Please sign in to view your resumes</p>
           <Link href="/sign-in" className="inline-flex items-center justify-center gap-2 w-full px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white text-sm font-semibold hover:bg-[var(--accent-hover)] transition-all duration-150">
             Go to sign in
           </Link>
@@ -296,21 +296,21 @@ export default function ResumeDashboard() {
                 <div className="w-8 h-8 bg-blue-500/10 rounded-lg flex items-center justify-center"><FileText className="w-4 h-4 text-blue-400" /></div>
                 <span className="text-2xl font-bold text-white tabular-nums">{stats.totalResumes}</span>
               </div>
-              <p className="text-[11px] text-slate-500 uppercase tracking-wide font-semibold">Total Resumes</p>
+              <p className="text-xs text-slate-400 uppercase tracking-wide font-semibold">Total Resumes</p>
             </div>
             <div className="glass-card p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="w-8 h-8 bg-emerald-500/10 rounded-lg flex items-center justify-center"><CheckCircle className="w-4 h-4 text-emerald-400" /></div>
                 <span className="text-2xl font-bold text-white tabular-nums">{stats.averageScore}%</span>
               </div>
-              <p className="text-[11px] text-slate-500 uppercase tracking-wide font-semibold">Average Score</p>
+              <p className="text-xs text-slate-400 uppercase tracking-wide font-semibold">Average Score</p>
             </div>
             <div className="glass-card p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="w-8 h-8 bg-amber-500/10 rounded-lg flex items-center justify-center"><Zap className="w-4 h-4 text-amber-400" /></div>
                 <span className="text-2xl font-bold text-white tabular-nums">{stats.improvementTips}</span>
               </div>
-              <p className="text-[11px] text-slate-500 uppercase tracking-wide font-semibold">Improvements</p>
+              <p className="text-xs text-slate-400 uppercase tracking-wide font-semibold">Improvements</p>
             </div>
           </div>
 
@@ -319,7 +319,7 @@ export default function ResumeDashboard() {
             <div className="flex items-center justify-between gap-4">
               <div>
                 <h2 className="text-sm font-bold text-white">Your Resumes</h2>
-                <p className="text-[11px] text-slate-600 mt-0.5">{filteredResumes.length} of {resumes.length} resumes</p>
+                <p className="text-xs text-slate-500 mt-0.5">{filteredResumes.length} of {resumes.length} resumes</p>
               </div>
               <div className="flex items-center gap-2">
                 <div className="relative filter-dropdown">
@@ -340,8 +340,8 @@ export default function ResumeDashboard() {
                   )}
                 </div>
                 <div className="flex items-center gap-0.5 p-1 bg-white/[0.03] border border-white/[0.07] rounded-lg">
-                  <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded transition-all duration-150 ${viewMode === 'grid' ? 'bg-white/[0.10] text-white' : 'text-slate-600 hover:text-slate-300'}`} aria-label="Grid view"><LayoutGrid className="w-3.5 h-3.5" /></button>
-                  <button onClick={() => setViewMode('list')} className={`p-1.5 rounded transition-all duration-150 ${viewMode === 'list' ? 'bg-white/[0.10] text-white' : 'text-slate-600 hover:text-slate-300'}`} aria-label="List view"><List className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded transition-all duration-150 ${viewMode === 'grid' ? 'bg-white/[0.10] text-white' : 'text-slate-500 hover:text-slate-300'}`} aria-label="Grid view"><LayoutGrid className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => setViewMode('list')} className={`p-1.5 rounded transition-all duration-150 ${viewMode === 'list' ? 'bg-white/[0.10] text-white' : 'text-slate-500 hover:text-slate-300'}`} aria-label="List view"><List className="w-3.5 h-3.5" /></button>
                 </div>
               </div>
             </div>
@@ -363,25 +363,25 @@ export default function ResumeDashboard() {
             </div>
           ) : (
             <div className="glass-card p-12 text-center">
-              <div className="w-12 h-12 bg-white/[0.03] border border-white/[0.07] rounded-2xl flex items-center justify-center mx-auto mb-4"><FileText className="w-5 h-5 text-slate-600" /></div>
+              <div className="w-12 h-12 bg-white/[0.03] border border-white/[0.07] rounded-2xl flex items-center justify-center mx-auto mb-4"><FileText className="w-5 h-5 text-slate-500" /></div>
               <h3 className="text-sm font-bold text-slate-400 mb-2">No resumes match this filter</h3>
-              <p className="text-xs text-slate-600 mb-5">Try adjusting your filter or upload a new resume</p>
+              <p className="text-xs text-slate-500 mb-5">Try adjusting your filter or upload a new resume</p>
               <button onClick={() => setSortFilter('all')} className="text-xs text-slate-400 hover:text-white underline transition-colors">Clear filter</button>
             </div>
           )}
         </div>
       ) : !resumesError ? (
         <div className="glass-card p-12 text-center">
-          <div className="w-16 h-16 bg-white/[0.03] border border-white/[0.07] rounded-2xl flex items-center justify-center mx-auto mb-6"><FileText className="w-7 h-7 text-slate-600" /></div>
+          <div className="w-16 h-16 bg-white/[0.03] border border-white/[0.07] rounded-2xl flex items-center justify-center mx-auto mb-6"><FileText className="w-7 h-7 text-slate-500" /></div>
           <h3 className="text-xl font-bold text-white mb-2">Welcome to Resume Analysis</h3>
-          <p className="text-sm text-slate-500 max-w-md mx-auto mb-8 leading-relaxed">Get AI-powered insights, ATS optimization, and personalized recommendations to improve your resume</p>
+          <p className="text-sm text-slate-400 max-w-md mx-auto mb-8 leading-relaxed">Get AI-powered insights, ATS optimization, and personalized recommendations to improve your resume</p>
           <div className="flex flex-wrap items-center justify-center gap-3">
             <Link href="/resume/upload" className="btn-primary">
               <Upload className="w-4 h-4" /><span>Upload Resume</span>
             </Link>
             <SeeExampleButton serviceId="resume" />
           </div>
-          <p className="text-xs text-slate-600 mt-4">Supports PDF, DOC, and DOCX formats</p>
+          <p className="text-xs text-slate-500 mt-4">Supports PDF, DOC, and DOCX formats</p>
         </div>
       ) : null}
 

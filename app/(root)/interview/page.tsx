@@ -110,7 +110,7 @@ function StatCard({ icon: Icon, value, label, accentClass }: {
         </div>
         <span className="text-2xl font-bold text-white tabular-nums">{value}</span>
       </div>
-      <p className="text-[11px] text-slate-500 uppercase tracking-wide font-semibold">{label}</p>
+      <p className="text-xs text-slate-400 uppercase tracking-wide font-semibold">{label}</p>
     </div>
   );
 }
@@ -120,10 +120,10 @@ function EmptyFiltered({ onClear }: { onClear: () => void }) {
     <div className="glass-card p-12 text-center">
       <div className="w-12 h-12 bg-white/[0.03] border border-white/[0.07] rounded-2xl
                       flex items-center justify-center mx-auto mb-4">
-        <Target className="w-5 h-5 text-slate-600" />
+        <Target className="w-5 h-5 text-slate-500" />
       </div>
       <p className="text-[14px] font-semibold text-slate-400 mb-2">No interviews match this filter</p>
-      <p className="text-[12px] text-slate-600 mb-5">Try a different filter or start a new session</p>
+      <p className="text-[12px] text-slate-500 mb-5">Try a different filter or start a new session</p>
       <button
         onClick={onClear}
         className="text-[12px] text-slate-400 hover:text-white underline transition-colors"
@@ -139,10 +139,10 @@ function EmptyDashboard() {
     <div className="glass-card p-12 text-center">
       <div className="w-16 h-16 bg-white/[0.03] border border-white/[0.07] rounded-2xl
                       flex items-center justify-center mx-auto mb-6">
-        <Target className="w-7 h-7 text-slate-600" />
+        <Target className="w-7 h-7 text-slate-500" />
       </div>
       <h3 className="text-[17px] font-bold text-white mb-2">Welcome to Interview Practice</h3>
-      <p className="text-[13px] text-slate-500 max-w-md mx-auto mb-8 leading-relaxed">
+      <p className="text-[13px] text-slate-400 max-w-md mx-auto mb-8 leading-relaxed">
         Get AI-powered mock interviews, personalised feedback, and track your progress to ace your next interview.
       </p>
 
@@ -158,7 +158,7 @@ function EmptyDashboard() {
           serviceId="interview"
         />
       </div>
-      <p className="text-[11px] text-slate-700 mt-4">
+      <p className="text-xs text-slate-500 mt-4">
         Choose from Technical, Behavioral, or System Design interviews
       </p>
     </div>
@@ -338,7 +338,7 @@ export default function InterviewsDashboard() {
         <div className="glass-card p-10 text-center max-w-sm w-full">
           <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-4" />
           <h2 className="text-[17px] font-bold text-white mb-2">Sign in required</h2>
-          <p className="text-[13px] text-slate-500 mb-6">Please sign in to view your interviews</p>
+          <p className="text-[13px] text-slate-400 mb-6">Please sign in to view your interviews</p>
           <Link
             href="/sign-in"
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
@@ -401,7 +401,7 @@ export default function InterviewsDashboard() {
             <div className="flex items-center justify-between gap-4">
               <div>
                 <h2 className="text-[14px] font-bold text-white">Your Interviews</h2>
-                <p className="text-[11px] text-slate-600 mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   {filteredInterviews.length} of {interviews.length}
                 </p>
               </div>
@@ -456,7 +456,7 @@ export default function InterviewsDashboard() {
                       className={`p-1.5 rounded transition-all duration-150
                                   ${viewMode === mode
                                     ? 'bg-white/[0.10] text-white'
-                                    : 'text-slate-600 hover:text-slate-300'}`}
+                                    : 'text-slate-500 hover:text-slate-300'}`}
                     >
                       {mode === 'grid'
                         ? <LayoutGrid className="w-3.5 h-3.5" />

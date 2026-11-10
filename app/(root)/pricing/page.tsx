@@ -237,7 +237,7 @@ function CheckoutFormInner({ plan, user, billedAmount, onSuccess, onClose }: Che
           <span className="text-white font-bold text-xl" style={{ letterSpacing: "-0.02em" }}>Preciprocal</span>
         </div>
         <div className="flex items-center gap-5">
-          <span className="flex items-center gap-1.5 text-xs text-slate-500">
+          <span className="flex items-center gap-1.5 text-xs text-slate-400">
             <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
             </svg>
@@ -293,7 +293,7 @@ function CheckoutFormInner({ plan, user, billedAmount, onSuccess, onClose }: Che
             </div>
             <div className="relative z-10 flex items-center justify-between pt-6">
               {[{ icon: "🔒", text: "SSL encrypted" }, { icon: "↩", text: "Refunds for unused credits" }, { icon: "✕", text: "Cancel anytime" }].map(t => (
-                <span key={t.text} className="flex items-center gap-1.5 text-[11px] text-slate-600">
+                <span key={t.text} className="flex items-center gap-1.5 text-xs text-slate-500">
                   <span>{t.icon}</span>{t.text}
                 </span>
               ))}
@@ -307,11 +307,11 @@ function CheckoutFormInner({ plan, user, billedAmount, onSuccess, onClose }: Che
             <div className="flex items-center justify-between mb-8">
               <div>
                 <p className="text-white font-semibold text-base">{plan.name} plan</p>
-                <p className="text-slate-500 text-xs mt-0.5">Billed monthly</p>
+                <p className="text-slate-400 text-xs mt-0.5">Billed monthly</p>
               </div>
               <div className="text-right">
                 <p className="text-white font-bold text-xl">${billedAmount.toFixed(2)}</p>
-                <p className="text-slate-500 text-xs mt-0.5">per month</p>
+                <p className="text-slate-400 text-xs mt-0.5">per month</p>
               </div>
             </div>
             <div style={{ height: "1px", background: "rgba(255,255,255,0.06)", marginBottom: "28px" }}/>
@@ -328,7 +328,7 @@ function CheckoutFormInner({ plan, user, billedAmount, onSuccess, onClose }: Che
 
               {/* Country dropdown */}
               <div className="relative">
-                <p className="text-[11px] text-slate-600 uppercase tracking-widest mb-2">Country</p>
+                <p className="text-xs text-slate-500 uppercase tracking-widest mb-2">Country</p>
                 <button type="button" onClick={() => setCountryOpen(o => !o)}
                   className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm text-white transition-all cursor-pointer"
                   style={{
@@ -387,7 +387,7 @@ function CheckoutFormInner({ plan, user, billedAmount, onSuccess, onClose }: Che
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7"/>
                   </svg>}
                 </button>
-                <p className="text-xs text-slate-500 leading-relaxed">
+                <p className="text-xs text-slate-400 leading-relaxed">
                   I agree to the{" "}
                   <a href="https://preciprocal.com/terms" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-white transition-colors underline underline-offset-2">Terms</a>
                   {" "}&amp;{" "}
@@ -406,7 +406,7 @@ function CheckoutFormInner({ plan, user, billedAmount, onSuccess, onClose }: Che
                 ) : `Pay $${billedAmount.toFixed(2)} USD`}
               </button>
 
-              <p className="text-center text-[11px] text-slate-600 flex items-center justify-center gap-1.5">
+              <p className="text-center text-xs text-slate-500 flex items-center justify-center gap-1.5">
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
                 </svg>
@@ -485,7 +485,7 @@ function AutoPayCheckbox({ checked, onChange, amount, firstChargeLabel }: {
         <p className="text-slate-200 font-medium cursor-pointer" onClick={() => onChange(!checked)}>
           Pay automatically each month
         </p>
-        <p className="text-slate-500 mt-0.5">
+        <p className="text-slate-400 mt-0.5">
           {checked
             ? <>Your card is charged {amount} automatically {firstChargeLabel}, and every month after. Turn it off any time in Settings.</>
             : <>Off: {firstChargeLabel}, we email you an invoice for {amount} each month instead. Pay it within 7 days to keep your plan. You can turn auto pay on any time in Settings.</>}
@@ -644,7 +644,7 @@ function StudentModal({ onVerified, onClose }: StudentModalProps) {
         style={{ background: "#0a0c12", border: "1px solid rgba(255,255,255,0.07)" }}>
 
         <button onClick={onClose}
-          className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-300 transition-colors cursor-pointer"
+          className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
           style={{ background: "rgba(255,255,255,0.04)" }}>
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
@@ -653,9 +653,9 @@ function StudentModal({ onVerified, onClose }: StudentModalProps) {
 
         <div className="px-7 py-7 space-y-6">
           <div>
-            <p className="text-[11px] font-semibold text-indigo-400 uppercase tracking-widest mb-2">Student offer</p>
+            <p className="text-xs font-semibold text-indigo-400 uppercase tracking-widest mb-2">Student offer</p>
             <h3 className="text-lg font-bold text-white leading-snug">Get Pro free for 30 days</h3>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-slate-400 mt-1">
               {cardSecret
                 ? "Email verified. Add a card to start your free month - you won't be charged today."
                 : "Verify your .edu email, then add a card to start. Nothing is charged for 30 days."}
@@ -667,7 +667,7 @@ function StudentModal({ onVerified, onClose }: StudentModalProps) {
           ) : !sent ? (
             <div className="space-y-3">
               <div>
-                <label className="block text-[11px] text-slate-500 uppercase tracking-widest mb-2">University email</label>
+                <label className="block text-xs text-slate-400 uppercase tracking-widest mb-2">University email</label>
                 <input
                   type="email" value={eduEmail}
                   onChange={e => { setEduEmail(e.target.value); setError(null); }}
@@ -694,10 +694,10 @@ function StudentModal({ onVerified, onClose }: StudentModalProps) {
             <div className="space-y-4">
               <div className="px-4 py-3 rounded-xl" style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.15)" }}>
                 <p className="text-xs text-slate-400">Code sent to <span className="text-white font-medium">{eduEmail}</span></p>
-                <p className="text-[11px] text-slate-600 mt-0.5">Expires in 15 minutes · Check your inbox</p>
+                <p className="text-xs text-slate-500 mt-0.5">Expires in 15 minutes · Check your inbox</p>
               </div>
               <div>
-                <label className="block text-[11px] text-slate-500 uppercase tracking-widest mb-2">Verification code</label>
+                <label className="block text-xs text-slate-400 uppercase tracking-widest mb-2">Verification code</label>
                 <input
                   type="text" value={code}
                   onChange={e => { setCode(e.target.value.replace(/\D/g, "").slice(0, 6)); setError(null); }}
@@ -776,7 +776,7 @@ function SuccessOverlay({ plan, isStudent, onDone }: { plan: Plan; isStudent: bo
 
 function Check({ highlight }: { highlight?: boolean }) {
   return (
-    <svg className={`w-4 h-4 flex-shrink-0 mt-0.5 ${highlight ? "text-indigo-400" : "text-slate-500"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg className={`w-4 h-4 flex-shrink-0 mt-0.5 ${highlight ? "text-indigo-400" : "text-slate-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/>
     </svg>
   );
@@ -951,7 +951,7 @@ export default function PricingPage() {
               )}
             </div>
             <button onClick={() => setPackResult(null)}
-              className="ml-auto text-slate-500 hover:text-slate-300 transition-colors cursor-pointer flex-shrink-0"
+              className="ml-auto text-slate-400 hover:text-slate-300 transition-colors cursor-pointer flex-shrink-0"
               aria-label="Dismiss">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
@@ -1002,7 +1002,7 @@ export default function PricingPage() {
 
                 {plan.badge && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span className="px-2.5 py-1 text-[11px] font-semibold text-indigo-100 rounded-md whitespace-nowrap bg-[#1d2140] border border-[var(--accent-border)]">
+                    <span className="px-2.5 py-1 text-xs font-semibold text-indigo-100 rounded-md whitespace-nowrap bg-[#1d2140] border border-[var(--accent-border)]">
                       {plan.badge}
                     </span>
                   </div>
@@ -1032,7 +1032,7 @@ export default function PricingPage() {
                       className="btn-secondary w-full">
                       Contact us
                     </a>
-                    <p className="text-center text-xs text-slate-500 mt-2 invisible">placeholder</p>
+                    <p className="text-center text-xs text-slate-400 mt-2 invisible">placeholder</p>
                   </div>
                 ) : (
                   <button onClick={() => handleSelectPlan(plan)} disabled={isCurrent}
@@ -1072,7 +1072,7 @@ export default function PricingPage() {
         </div>
 
         {/* Tax-inclusive pricing (lib/stripe/tax.ts): what is shown is what is paid. */}
-        <p className="text-center text-xs text-slate-500 mt-6">
+        <p className="text-center text-xs text-slate-400 mt-6">
           Prices are in US dollars and include any applicable sales tax or VAT. What you see is what you pay.
         </p>
 

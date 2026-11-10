@@ -39,7 +39,7 @@ function StatCard({ icon: Icon, value, label, accentClass }: {
         </div>
         <span className="text-2xl font-bold text-white tabular-nums">{value}</span>
       </div>
-      <p className="text-[11px] text-slate-500 uppercase tracking-wide font-semibold">{label}</p>
+      <p className="text-xs text-slate-400 uppercase tracking-wide font-semibold">{label}</p>
     </div>
   );
 }
@@ -178,7 +178,7 @@ export default function PlannerPage() {
         <div className="glass-card p-10 text-center max-w-sm w-full">
           <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-white mb-2">Sign in required</h2>
-          <p className="text-sm text-slate-500 mb-6">Please sign in to access your preparation plans</p>
+          <p className="text-sm text-slate-400 mb-6">Please sign in to access your preparation plans</p>
           <Link href="/sign-in"
             className="inline-flex items-center justify-center gap-2 w-full px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white text-sm font-semibold hover:bg-[var(--accent-hover)] transition-all duration-150">
             Go to sign in
@@ -234,7 +234,7 @@ export default function PlannerPage() {
               <p className="text-xs text-amber-300">{statsError}</p>
             </div>
             <button onClick={() => { setStatsError(''); loadUserStats(); }}
-              className="text-xs text-slate-500 hover:text-slate-300 transition-colors whitespace-nowrap flex-shrink-0">
+              className="text-xs text-slate-400 hover:text-slate-300 transition-colors whitespace-nowrap flex-shrink-0">
               Retry
             </button>
           </div>
@@ -246,7 +246,7 @@ export default function PlannerPage() {
         <div className="glass-card p-4">
           <div className="flex flex-col sm:flex-row gap-2.5 mb-4">
             <div className="relative flex-1">
-              <Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none" />
+              <Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
               <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search by role or company…"
                 className="w-full pl-10 pr-3 py-2.5 rounded-xl text-sm text-white bg-white/[0.04] border border-white/[0.08] placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/40 focus:border-indigo-500/40 transition-all duration-150" />
@@ -277,7 +277,7 @@ export default function PlannerPage() {
               <button key={tab.value} onClick={() => setFilter(tab.value)}
                 className={`px-3.5 py-2 rounded-lg text-xs font-semibold whitespace-nowrap flex-shrink-0 transition-all duration-150 ${filter === tab.value
                   ? 'bg-[var(--accent)] text-white '
-                  : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'}`}>
+                  : 'text-slate-400 hover:text-slate-300 hover:bg-white/[0.04]'}`}>
                 {tab.label} <span className={`ml-1 ${filter === tab.value ? 'opacity-70' : 'opacity-40'}`}>({tab.count})</span>
               </button>
             ))}
@@ -306,12 +306,12 @@ export default function PlannerPage() {
       {filteredPlans.length === 0 ? (
         <div className="glass-card p-12 text-center">
           <div className="w-12 h-12 bg-white/[0.03] border border-white/[0.07] rounded-2xl flex items-center justify-center mx-auto mb-4">
-            {searchQuery ? <Search className="w-5 h-5 text-slate-600" /> : <Calendar className="w-5 h-5 text-slate-600" />}
+            {searchQuery ? <Search className="w-5 h-5 text-slate-500" /> : <Calendar className="w-5 h-5 text-slate-500" />}
           </div>
           <h3 className="text-sm font-bold text-slate-400 mb-2">
             {searchQuery ? 'No matching plans' : filter === 'all' ? 'No plans yet' : `No ${filter} plans`}
           </h3>
-          <p className="text-xs text-slate-600 mb-6 max-w-xs mx-auto leading-relaxed">
+          <p className="text-xs text-slate-500 mb-6 max-w-xs mx-auto leading-relaxed">
             {searchQuery ? 'Try adjusting your search criteria' : filter === 'all' ? 'Create your first preparation plan to get started' : `You have no ${filter} plans at the moment`}
           </p>
           {filter === 'all' && !searchQuery && (
@@ -347,10 +347,10 @@ export default function PlannerPage() {
             ].map(({ icon: Icon, title, desc }) => (
               <div key={title} className="text-center">
                 <div className="w-10 h-10 bg-white/[0.03] border border-white/[0.07] rounded-xl flex items-center justify-center mx-auto mb-3">
-                  <Icon className="w-5 h-5 text-slate-600" />
+                  <Icon className="w-5 h-5 text-slate-500" />
                 </div>
                 <p className="text-sm font-semibold text-white mb-1">{title}</p>
-                <p className="text-xs text-slate-600 leading-relaxed">{desc}</p>
+                <p className="text-xs text-slate-500 leading-relaxed">{desc}</p>
               </div>
             ))}
           </div>

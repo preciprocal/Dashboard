@@ -29,7 +29,7 @@ export default function ExtensionBanner() {
   return (
     <aside aria-label="Chrome extension"
       className="flex items-center gap-3 rounded-xl border border-white/[0.08] bg-[var(--bg-surface)] pl-4 pr-2 py-2 animate-fade-in-up">
-      <span className="hidden sm:inline-block flex-shrink-0 rounded-md border border-[var(--accent-border)] bg-[var(--accent-subtle)] px-1.5 py-0.5 text-[11px] font-semibold text-indigo-200">
+      <span className="hidden sm:inline-block flex-shrink-0 rounded-md border border-[var(--accent-border)] bg-[var(--accent-subtle)] px-1.5 py-0.5 text-xs font-semibold text-indigo-200">
         New
       </span>
       <p className="flex-1 min-w-0 text-[13px] text-slate-300 truncate">
@@ -45,7 +45,7 @@ export default function ExtensionBanner() {
         Add to Chrome
       </a>
       <button onClick={dismiss} aria-label="Dismiss"
-        className="flex-shrink-0 w-8 h-8 rounded-md flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/[0.05] transition-colors">
+        className="flex-shrink-0 w-8 h-8 rounded-md flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/[0.05] transition-colors">
         <X className="w-4 h-4" />
       </button>
     </aside>

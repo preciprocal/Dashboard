@@ -132,7 +132,7 @@ export default function PlanCard({ plan, onUpdate }: PlanCardProps) {
               <Briefcase className="w-3.5 h-3.5" style={{ color: cfg.accent }} />
             </div>
             <div className="min-w-0">
-              <p className="text-[11px] text-slate-500 uppercase tracking-widest font-medium mb-0.5">
+              <p className="text-xs text-slate-400 uppercase tracking-widest font-medium mb-0.5">
                 {plan.company || 'General'}
               </p>
             </div>
@@ -140,7 +140,7 @@ export default function PlanCard({ plan, onUpdate }: PlanCardProps) {
 
           {/* Status badge + menu */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border ${cfg.badge}`}>
+            <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${cfg.badge}`}>
               <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
               {statusLabel()}
             </span>
@@ -148,7 +148,7 @@ export default function PlanCard({ plan, onUpdate }: PlanCardProps) {
             <div className="relative">
               <button
                 onClick={() => setShowMenu(!showMenu)}
-                className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-600 hover:text-slate-300 hover:bg-white/5 border border-transparent hover:border-white/8 transition-all"
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-300 hover:bg-white/5 border border-transparent hover:border-white/8 transition-all"
               >
                 <MoreVertical className="w-3.5 h-3.5" />
               </button>
@@ -178,17 +178,17 @@ export default function PlanCard({ plan, onUpdate }: PlanCardProps) {
         <h3 className="text-[15px] font-semibold text-white leading-snug mb-1 line-clamp-2">
           {plan.role}
         </h3>
-        <p className="text-[11px] text-slate-500 capitalize mb-5">
+        <p className="text-xs text-slate-400 capitalize mb-5">
           {plan.skillLevel} level · {plan.dailyPlans.length}-day plan
         </p>
 
         {/* Progress section */}
         <div className="mb-5">
           <div className="flex items-end justify-between mb-2.5">
-            <span className="text-[11px] text-slate-500 uppercase tracking-widest font-medium">Progress</span>
+            <span className="text-xs text-slate-400 uppercase tracking-widest font-medium">Progress</span>
             <div className="flex items-baseline gap-1">
               <span className="text-xl font-bold text-white tabular-nums leading-none">{pct}</span>
-              <span className="text-xs text-slate-500 font-medium">%</span>
+              <span className="text-xs text-slate-400 font-medium">%</span>
             </div>
           </div>
 
@@ -201,17 +201,17 @@ export default function PlanCard({ plan, onUpdate }: PlanCardProps) {
           </div>
 
           <div className="flex items-center justify-between mt-2">
-            <span className="text-[11px] text-slate-600">
+            <span className="text-xs text-slate-500">
               {plan.progress.completedTasks} of {plan.progress.totalTasks} tasks done
             </span>
             {pct >= 75 && !isCompleted && (
-              <span className="flex items-center gap-1 text-[11px] text-violet-400 font-medium">
+              <span className="flex items-center gap-1 text-xs text-violet-400 font-medium">
                 <Sparkles className="w-3 h-3" />
                 Almost ready
               </span>
             )}
             {isCompleted && (
-              <span className="text-[11px] text-emerald-400 font-medium">All done ✓</span>
+              <span className="text-xs text-emerald-400 font-medium">All done ✓</span>
             )}
           </div>
         </div>
@@ -219,16 +219,16 @@ export default function PlanCard({ plan, onUpdate }: PlanCardProps) {
         {/* Meta chips */}
         <div className="mt-auto flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.03] border border-white/6">
-            <Calendar className="w-3 h-3 text-slate-500" />
-            <span className="text-[11px] text-slate-400">
+            <Calendar className="w-3 h-3 text-slate-400" />
+            <span className="text-xs text-slate-400">
               {interviewDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
             </span>
           </div>
 
           {plan.progress.totalStudyHours > 0 && (
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.03] border border-white/6">
-              <Clock className="w-3 h-3 text-slate-500" />
-              <span className="text-[11px] text-slate-400">
+              <Clock className="w-3 h-3 text-slate-400" />
+              <span className="text-xs text-slate-400">
                 {plan.progress.totalStudyHours}h study
               </span>
             </div>

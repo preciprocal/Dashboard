@@ -182,7 +182,7 @@ export default async function InterviewResultsPage({ params }: Props) {
               Sign in
             </Link>
           </div>
-          <p className="text-[11px] text-slate-600">Free to start · No credit card needed</p>
+          <p className="text-xs text-slate-500">Free to start · No credit card needed</p>
         </div>
 
       </div>

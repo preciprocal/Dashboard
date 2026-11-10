@@ -72,7 +72,7 @@ export default function TaskList({ plan, onTaskUpdate }: TaskListProps) {
           {task.status === 'done' ? (
             <CheckCircle2 className="w-6 h-6 text-emerald-400" />
           ) : (
-            <Circle className="w-6 h-6 text-slate-500 hover:text-blue-400 transition-colors" />
+            <Circle className="w-6 h-6 text-slate-400 hover:text-blue-400 transition-colors" />
           )}
         </button>
 
@@ -80,7 +80,7 @@ export default function TaskList({ plan, onTaskUpdate }: TaskListProps) {
           <div className="flex items-start justify-between mb-2">
             <h3 className={`font-medium text-base ${
               task.status === 'done'
-                ? 'line-through text-slate-500'
+                ? 'line-through text-slate-400'
                 : 'text-white'
             }`}>
               {task.title}
@@ -141,7 +141,7 @@ export default function TaskList({ plan, onTaskUpdate }: TaskListProps) {
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             {/* Search */}
             <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
                 type="text"
                 value={searchQuery}

@@ -19,7 +19,7 @@ export default async function AdminReviewPage() {
   return (
     <div className="w-full px-4 py-10 max-w-6xl mx-auto">
       <div className="mb-8">
-        <p className="text-[11px] font-semibold text-indigo-400 uppercase tracking-widest mb-2">
+        <p className="text-xs font-semibold text-indigo-400 uppercase tracking-widest mb-2">
           Admin
         </p>
         <h1 className="text-2xl font-bold text-white">Review queue</h1>

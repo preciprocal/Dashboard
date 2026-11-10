@@ -150,8 +150,8 @@ export default function RecruiterEyePage() {
             <p className="text-sm sm:text-base text-slate-400 mb-4">{error}</p>
             {debugInfo && process.env.NODE_ENV === 'development' && (
               <details className="text-left mb-6">
-                <summary className="text-xs text-slate-500 cursor-pointer mb-2">Debug Info</summary>
-                <pre className="text-xs text-slate-500 bg-slate-900/50 p-3 rounded overflow-auto max-h-32">
+                <summary className="text-xs text-slate-400 cursor-pointer mb-2">Debug Info</summary>
+                <pre className="text-xs text-slate-400 bg-slate-900/50 p-3 rounded overflow-auto max-h-32">
                   {debugInfo}
                 </pre>
               </details>

@@ -158,7 +158,7 @@ function ServiceExampleModal({ serviceId, isOpen, onClose, initialTab }: Service
               <p className="text-slate-400 text-xs">{service.subtitle}</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-slate-500 hover:text-white p-1.5 rounded-lg hover:bg-white/[0.06] transition-colors">
+          <button onClick={onClose} className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-white/[0.06] transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -175,7 +175,7 @@ function ServiceExampleModal({ serviceId, isOpen, onClose, initialTab }: Service
                 }}
               />
             </div>
-            <span className="text-[10px] text-slate-500 min-w-[140px] text-right">{stepLabel}</span>
+            <span className="text-[11px] text-slate-400 min-w-[140px] text-right">{stepLabel}</span>
           </div>
         </div>
 

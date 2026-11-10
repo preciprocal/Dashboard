@@ -76,7 +76,7 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
         </div>
         <div>
           <h2 className="text-xl font-bold text-white mb-2">Study Plan Limit Reached</h2>
-          <p className="text-sm text-slate-500 max-w-xs mx-auto leading-relaxed">
+          <p className="text-sm text-slate-400 max-w-xs mx-auto leading-relaxed">
             You&apos;ve used {used} of {limit} free study plans this month. Upgrade to Pro for 10 a month, or Premium for 25.
           </p>
         </div>
@@ -84,7 +84,7 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-semibold transition-all">
           Upgrade to Pro <ArrowRight className="w-4 h-4" />
         </Link>
-        <Link href="/planner" className="block text-sm text-slate-500 hover:text-slate-300 transition-colors">
+        <Link href="/planner" className="block text-sm text-slate-400 hover:text-slate-300 transition-colors">
           ← Back to Plans
         </Link>
       </div>
@@ -324,7 +324,7 @@ export default function CreatePlanPage() {
               </div>
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1.5">
-                  Company / Institution <span className="text-slate-600 text-xs">(Optional)</span>
+                  Company / Institution <span className="text-slate-500 text-xs">(Optional)</span>
                 </label>
                 <input type="text" value={formData.company}
                   onChange={e => setFormData({ ...formData, company: e.target.value })}
@@ -336,7 +336,7 @@ export default function CreatePlanPage() {
                   Target Date <span className="text-red-400">*</span>
                 </label>
                 <div className="relative group">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none z-10 group-focus-within:text-indigo-400 transition-colors" />
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none z-10 group-focus-within:text-indigo-400 transition-colors" />
                   <input type="date" value={formData.interviewDate}
                     onChange={e => setFormData({ ...formData, interviewDate: e.target.value })}
                     min={new Date().toISOString().split('T')[0]}
@@ -349,13 +349,13 @@ export default function CreatePlanPage() {
                       <Calendar className="w-4 h-4 text-white" />
                     </div>
                     <div className="flex-1">
-                      <p className="text-xs text-slate-500 mb-0.5">Time until target</p>
+                      <p className="text-xs text-slate-400 mb-0.5">Time until target</p>
                       <p className="text-sm font-semibold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
                         {calculateDaysUntilInterview()} {calculateDaysUntilInterview() === 1 ? 'day' : 'days'} to prepare
                       </p>
                     </div>
                     <div className="flex-shrink-0 text-right">
-                      <p className="text-xs text-slate-600 mb-0.5">Target Date</p>
+                      <p className="text-xs text-slate-500 mb-0.5">Target Date</p>
                       <p className="text-xs font-medium text-slate-300">
                         {new Date(formData.interviewDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                       </p>
@@ -388,21 +388,21 @@ export default function CreatePlanPage() {
               </div>
               <h2 className="text-sm sm:text-base font-semibold text-white">Focus Areas</h2>
             </div>
-            <p className="text-xs sm:text-sm text-slate-500 mb-3 sm:mb-4">Select topics you&apos;d like to prioritize in your preparation</p>
+            <p className="text-xs sm:text-sm text-slate-400 mb-3 sm:mb-4">Select topics you&apos;d like to prioritize in your preparation</p>
             <div className="relative mb-4">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search focus areas..."
                 className="w-full pl-10 pr-10 py-2.5 bg-white/[0.03] border border-white/[0.08] rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/40 transition-all text-sm" />
               {searchQuery && (
-                <button type="button" onClick={clearSearch} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors">
+                <button type="button" onClick={clearSearch} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors">
                   <X className="w-4 h-4" />
                 </button>
               )}
             </div>
             {formData.focusAreas.length > 0 && (
               <div className="mb-3 flex items-center gap-2 text-sm">
-                <span className="text-slate-500">Selected:</span>
+                <span className="text-slate-400">Selected:</span>
                 <span className="px-2 py-0.5 bg-indigo-500/20 border border-indigo-500/30 rounded text-indigo-400 font-medium">{formData.focusAreas.length}</span>
               </div>
             )}
@@ -427,8 +427,8 @@ export default function CreatePlanPage() {
                 ))
               ) : (
                 <div className="text-center py-8">
-                  <Target className="w-12 h-12 text-slate-700 mx-auto mb-3" />
-                  <p className="text-slate-500 text-sm">No focus areas found matching &quot;{searchQuery}&quot;</p>
+                  <Target className="w-12 h-12 text-slate-500 mx-auto mb-3" />
+                  <p className="text-slate-400 text-sm">No focus areas found matching &quot;{searchQuery}&quot;</p>
                   <button type="button" onClick={clearSearch} className="mt-3 text-indigo-400 hover:text-indigo-300 text-sm font-medium">Clear search</button>
                 </div>
               )}
@@ -446,7 +446,7 @@ export default function CreatePlanPage() {
             <div className="space-y-3 sm:space-y-4">
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1.5">
-                  Existing Skills <span className="text-slate-600 text-xs">(Optional)</span>
+                  Existing Skills <span className="text-slate-500 text-xs">(Optional)</span>
                 </label>
                 <input type="text" value={formData.existingSkills}
                   onChange={e => setFormData({ ...formData, existingSkills: e.target.value })}
@@ -455,7 +455,7 @@ export default function CreatePlanPage() {
               </div>
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1.5">
-                  Areas to Improve <span className="text-slate-600 text-xs">(Optional)</span>
+                  Areas to Improve <span className="text-slate-500 text-xs">(Optional)</span>
                 </label>
                 <input type="text" value={formData.weakAreas}
                   onChange={e => setFormData({ ...formData, weakAreas: e.target.value })}

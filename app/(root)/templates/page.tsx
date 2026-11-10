@@ -142,7 +142,7 @@ const TemplateCard: React.FC<{ template: Template }> = ({ template }) => {
           className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all cursor-pointer ${
             isBookmarked
               ? 'bg-purple-500/15 border border-purple-500/25 text-purple-400'
-              : 'bg-slate-800/60 border border-white/[0.06] text-slate-500 hover:text-slate-300'
+              : 'bg-slate-800/60 border border-white/[0.06] text-slate-400 hover:text-slate-300'
           }`}
         >
           {isBookmarked ? <BookmarkCheck className="w-3.5 h-3.5" /> : <Bookmark className="w-3.5 h-3.5" />}
@@ -150,7 +150,7 @@ const TemplateCard: React.FC<{ template: Template }> = ({ template }) => {
       </div>
 
       {/* Stats row */}
-      <div className="px-5 pb-4 flex items-center gap-3 text-xs text-slate-500 flex-wrap">
+      <div className="px-5 pb-4 flex items-center gap-3 text-xs text-slate-400 flex-wrap">
         {/* The rating and completion figures in the template list are not
             measured from real use, so they are not shown. */}
         <div className="flex items-center gap-1">
@@ -165,10 +165,10 @@ const TemplateCard: React.FC<{ template: Template }> = ({ template }) => {
 
       {/* Badges */}
       <div className="px-5 pb-4 flex flex-wrap gap-1.5">
-        <span className={`inline-flex items-center px-2.5 py-1 rounded-lg border text-[10px] font-semibold ${difficultyStyle(template.difficulty)}`}>
+        <span className={`inline-flex items-center px-2.5 py-1 rounded-lg border text-[11px] font-semibold ${difficultyStyle(template.difficulty)}`}>
           {template.difficulty}
         </span>
-        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-semibold ${typeStyle(template.type)}`}>
+        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-semibold ${typeStyle(template.type)}`}>
           <TypeIcon type={template.type} />
           {template.type}
         </span>
@@ -177,10 +177,10 @@ const TemplateCard: React.FC<{ template: Template }> = ({ template }) => {
       {/* Tech stack */}
       <div className="px-5 pb-4 flex flex-wrap gap-1.5">
         {template.techstack.slice(0, 4).map((tech, i) => (
-          <span key={i} className="px-2 py-0.5 bg-blue-500/10 border border-blue-500/15 text-blue-400 rounded-md text-[10px] font-medium">{tech}</span>
+          <span key={i} className="px-2 py-0.5 bg-blue-500/10 border border-blue-500/15 text-blue-400 rounded-md text-[11px] font-medium">{tech}</span>
         ))}
         {template.techstack.length > 4 && (
-          <span className="px-2 py-0.5 bg-slate-800/60 border border-white/[0.06] text-slate-500 rounded-md text-[10px]">+{template.techstack.length - 4} more</span>
+          <span className="px-2 py-0.5 bg-slate-800/60 border border-white/[0.06] text-slate-400 rounded-md text-[11px]">+{template.techstack.length - 4} more</span>
         )}
       </div>
 
@@ -188,7 +188,7 @@ const TemplateCard: React.FC<{ template: Template }> = ({ template }) => {
       {template.tags && template.tags.length > 0 && (
         <div className="px-5 pb-4 flex flex-wrap gap-1.5">
           {template.tags.slice(0, 3).map((tag, i) => (
-            <span key={i} className="px-2 py-0.5 bg-purple-500/10 border border-purple-500/15 text-purple-400 rounded-md text-[10px] font-medium">{tag}</span>
+            <span key={i} className="px-2 py-0.5 bg-purple-500/10 border border-purple-500/15 text-purple-400 rounded-md text-[11px] font-medium">{tag}</span>
           ))}
         </div>
       )}
@@ -244,7 +244,7 @@ function FilterDropdown({
 
   return (
     <div className={`filter-dd-${label.replace(/\s+/g, '-')} ${className ?? ''}`}>
-      <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">{label}</p>
+      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">{label}</p>
       <div className="relative">
         <button
           type="button"
@@ -408,7 +408,7 @@ export default function TemplatesPage() {
                   view === id ? 'bg-[var(--accent-subtle)] text-white border-[var(--accent-border)]' : 'text-slate-400 hover:text-white border-transparent'}`}>
                 {id === 'saved' && <BookmarkCheck className="w-3.5 h-3.5" />}
                 {label}
-                <span className={`text-xs tabular-nums ${view === id ? 'text-indigo-200' : 'text-slate-500'}`}>{n}</span>
+                <span className={`text-xs tabular-nums ${view === id ? 'text-indigo-200' : 'text-slate-400'}`}>{n}</span>
               </button>
             ))}
           </div>
@@ -426,14 +426,14 @@ export default function TemplatesPage() {
               <div className="flex items-center gap-1 mb-0.5">
                 <span className="text-xl font-bold text-white">{s.value}</span>
               </div>
-              <p className="text-xs text-slate-500">{s.label}</p>
+              <p className="text-xs text-slate-400">{s.label}</p>
             </div>
           ))}
         </div>
 
         {/* Search */}
         <div className="relative mb-4">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
             placeholder="Search by role, tech stack, or keywords…"
@@ -443,7 +443,7 @@ export default function TemplatesPage() {
           />
           {searchQuery && (
             <button onClick={() => setSearchQuery('')}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-md flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer">
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-md flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer">
               <X className="w-3.5 h-3.5" />
             </button>
           )}
@@ -479,7 +479,7 @@ export default function TemplatesPage() {
       </div>
 
       {/* ── Results count ── */}
-      <p className="text-slate-500 text-sm px-1">
+      <p className="text-slate-400 text-sm px-1">
         Showing <span className="text-white font-semibold">{filteredTemplates.length}</span> of{' '}
         <span className="text-white font-semibold">{view === 'saved' ? savedIds.size : templateData.length}</span> {view === 'saved' ? 'saved templates' : 'templates'}
       </p>
@@ -488,7 +488,7 @@ export default function TemplatesPage() {
       {view === 'saved' && savedIds.size === 0 ? (
         <div className="glass-card p-12 text-center">
           <div className="w-14 h-14 bg-slate-800/60 border border-white/[0.06] rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <Bookmark className="w-7 h-7 text-slate-500" />
+            <Bookmark className="w-7 h-7 text-slate-400" />
           </div>
           <h3 className="text-lg font-semibold text-white mb-2">No saved templates yet</h3>
           <p className="text-slate-400 text-sm mb-5 max-w-xs mx-auto">
@@ -504,7 +504,7 @@ export default function TemplatesPage() {
       ) : filteredTemplates.length === 0 ? (
         <div className="glass-card p-12 text-center">
           <div className="w-14 h-14 bg-slate-800/60 border border-white/[0.06] rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <AlertCircle className="w-7 h-7 text-slate-500" />
+            <AlertCircle className="w-7 h-7 text-slate-400" />
           </div>
           <h3 className="text-lg font-semibold text-white mb-2">No templates found</h3>
           <p className="text-slate-400 text-sm mb-5 max-w-xs mx-auto">
@@ -531,7 +531,7 @@ export default function TemplatesPage() {
           <button onClick={() => setShown(n => n + PAGE_SIZE)} className="btn-secondary">
             Show more <ChevronDown />
           </button>
-          <span className="text-[13px] text-slate-500 tabular-nums">{visibleTemplates.length} of {filteredTemplates.length}</span>
+          <span className="text-[13px] text-slate-400 tabular-nums">{visibleTemplates.length} of {filteredTemplates.length}</span>
         </div>
       )}
     </div>

@@ -135,10 +135,10 @@ export default async function CreateInterviewPage({
             <div className="text-center mb-6">
               <div className="w-14 h-14 bg-white/[0.03] border border-white/[0.07] rounded-2xl
                              flex items-center justify-center mx-auto mb-4">
-                <Shield className="w-6 h-6 text-slate-600" />
+                <Shield className="w-6 h-6 text-slate-500" />
               </div>
               <h2 className="text-xl font-bold text-white mb-2">Interview Limit Reached</h2>
-              <p className="text-sm text-slate-500 leading-relaxed max-w-sm mx-auto">
+              <p className="text-sm text-slate-400 leading-relaxed max-w-sm mx-auto">
                 You&apos;ve used all {interviewsLimit} mock interviews in your plan this month.
                 Upgrade for a higher limit, or wait for your next reset.
               </p>
@@ -173,10 +173,10 @@ export default async function CreateInterviewPage({
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-white/[0.04] border border-white/[0.07] rounded-xl
                                  flex items-center justify-center flex-shrink-0">
-                    <Calendar className="w-4 h-4 text-slate-500" />
+                    <Calendar className="w-4 h-4 text-slate-400" />
                   </div>
                   <div>
-                    <p className="text-[10px] text-slate-600 uppercase tracking-wide font-semibold">
+                    <p className="text-[11px] text-slate-500 uppercase tracking-wide font-semibold">
                       Next reset
                     </p>
                     <p className="text-sm font-semibold text-white">
@@ -186,7 +186,7 @@ export default async function CreateInterviewPage({
                 </div>
                 <div className="text-right">
                   <p className="text-2xl font-bold text-white tabular-nums">{daysUntilReset}</p>
-                  <p className="text-[10px] text-slate-600">days left</p>
+                  <p className="text-[11px] text-slate-500">days left</p>
                 </div>
               </div>
             )}

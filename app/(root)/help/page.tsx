@@ -113,7 +113,7 @@ function statusMeta(status: string): { label: string; dot: string; text: string 
     case 'open':        return { label: 'Open',        dot: 'bg-emerald-400', text: 'text-emerald-300/90' };
     case 'in-progress': return { label: 'In progress', dot: 'bg-amber-400',   text: 'text-amber-300/90'   };
     case 'resolved':    return { label: 'Resolved',    dot: 'bg-slate-500',   text: 'text-slate-400'      };
-    case 'closed':      return { label: 'Closed',      dot: 'bg-slate-600',   text: 'text-slate-500'      };
+    case 'closed':      return { label: 'Closed',      dot: 'bg-slate-600',   text: 'text-slate-400'      };
     default:            return { label: status,        dot: 'bg-slate-500',   text: 'text-slate-400'      };
   }
 }
@@ -140,7 +140,7 @@ function Message({
     <div className="px-5 py-4">
       <div className="flex items-baseline gap-2 mb-1.5">
         <span className={`text-sm font-semibold ${isStaff ? 'text-purple-300' : 'text-slate-300'}`}>{author}</span>
-        <span className="text-xs text-slate-600">{at ? new Date(at).toLocaleString() : ''}</span>
+        <span className="text-xs text-slate-500">{at ? new Date(at).toLocaleString() : ''}</span>
       </div>
       <p className="text-base text-slate-300 leading-relaxed whitespace-pre-wrap">{body}</p>
       {attachments && attachments.length > 0 && (
@@ -152,7 +152,7 @@ function Message({
                          text-sm text-slate-400 hover:text-slate-200 transition-colors">
               <FileTypeIcon type={att.type} />
               <span className="truncate max-w-[160px]">{att.name}</span>
-              <span className="text-slate-600">{formatBytes(att.size)}</span>
+              <span className="text-slate-500">{formatBytes(att.size)}</span>
             </button>
           ))}
         </div>
@@ -704,7 +704,7 @@ function HelpSupportContent() {
                     aria-current={on ? 'page' : undefined}
                     className={`relative flex items-center gap-2 pb-3 pt-1 text-sm font-medium border-b-2 transition-colors
                       focus:outline-none focus-visible:text-white
-                      ${on ? 'border-[var(--accent)] text-white' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>
+                      ${on ? 'border-[var(--accent)] text-white' : 'border-transparent text-slate-400 hover:text-slate-300'}`}>
                     <tab.icon className="w-4 h-4" />
                     <span>{tab.label}</span>
                     {tab.badge !== undefined && tab.badge > 0 && (
@@ -743,7 +743,7 @@ function HelpSupportContent() {
                 </h2>
 
                 <div className={`relative mx-auto ${browsing ? 'mt-8 max-w-2xl' : 'mt-6 max-w-xl'}`}>
-                  <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-600" />
+                  <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
                   <input
                     type="text"
                     value={searchQuery}
@@ -757,11 +757,11 @@ function HelpSupportContent() {
                 </div>
 
                 {browsing && (
-                  <p className="mt-5 text-sm text-slate-600">
+                  <p className="mt-5 text-sm text-slate-500">
                     Popular:{' '}
                     {['billing', 'interviews', 'resume', 'cancel'].map((term, i) => (
                       <span key={term}>
-                        {i > 0 && <span className="text-slate-700"> · </span>}
+                        {i > 0 && <span className="text-slate-500"> · </span>}
                         <button onClick={() => { setSearchQuery(term); setOpenFaq(null); }}
                           className="text-slate-400 hover:text-white underline underline-offset-4 decoration-white/20 hover:decoration-white/60 transition-colors">
                           {term}
@@ -783,9 +783,9 @@ function HelpSupportContent() {
                         <button key={cat.value} onClick={() => setSelectedCategory(cat.value)}
                           className="group text-left p-6 rounded-2xl border border-white/[0.06] bg-white/[0.02]
                                      hover:bg-white/[0.04] hover:border-white/[0.12] transition-all">
-                          <cat.icon className="w-5 h-5 text-slate-500 group-hover:text-purple-400 transition-colors" />
+                          <cat.icon className="w-5 h-5 text-slate-400 group-hover:text-purple-400 transition-colors" />
                           <h3 className="text-base font-semibold text-white mt-4">{cat.label}</h3>
-                          <p className="text-sm text-slate-600 mt-1">
+                          <p className="text-sm text-slate-500 mt-1">
                             {n} {n === 1 ? 'article' : 'articles'}
                           </p>
                         </button>
@@ -796,7 +796,7 @@ function HelpSupportContent() {
                   {/* Closing CTA, the way a real help centre ends a page. */}
                   <div className="mt-16 py-12 text-center border-t border-white/[0.06]">
                     <h3 className="text-xl font-semibold text-white">Still stuck?</h3>
-                    <p className="text-sm text-slate-500 mt-2">
+                    <p className="text-sm text-slate-400 mt-2">
                       Send us a ticket and we will reply by email.
                     </p>
                     <button onClick={() => setActiveSection('contact')}
@@ -810,10 +810,10 @@ function HelpSupportContent() {
                 <div className="max-w-3xl mx-auto">
                   <div className="flex items-center justify-between gap-4 mb-6">
                     <button onClick={() => { setSelectedCategory('all'); setSearchQuery(''); setOpenFaq(null); }}
-                      className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-300 transition-colors">
+                      className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-300 transition-colors">
                       <ArrowLeft className="w-3.5 h-3.5" /> All topics
                     </button>
-                    <span className="text-sm text-slate-600">
+                    <span className="text-sm text-slate-500">
                       {searchQuery
                         ? `${filteredFaqs.length} ${filteredFaqs.length === 1 ? 'result' : 'results'}`
                         : `${filteredFaqs.length} in ${current?.label ?? ''}`}
@@ -832,7 +832,7 @@ function HelpSupportContent() {
                                 {faq.question}
                               </h3>
                               <ChevronRight className={`w-4 h-4 mt-1 flex-shrink-0 transition-transform duration-200
-                                ${open ? 'rotate-90 text-purple-400' : 'text-slate-700 group-hover:text-slate-500'}`} />
+                                ${open ? 'rotate-90 text-purple-400' : 'text-slate-500 group-hover:text-slate-400'}`} />
                             </button>
                             {open && (
                               <p className="text-base text-slate-400 leading-relaxed pb-6 pr-10">{faq.answer}</p>
@@ -865,7 +865,7 @@ function HelpSupportContent() {
               <div className="p-4 sm:p-6">
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold text-white">Submit a ticket</h3>
-                  <p className="text-sm text-slate-500 mt-1">We reply by email. Premium plans include a reply within 24 hours.</p>
+                  <p className="text-sm text-slate-400 mt-1">We reply by email. Premium plans include a reply within 24 hours.</p>
                 </div>
 
                 {submitSuccess ? (
@@ -881,7 +881,7 @@ function HelpSupportContent() {
                     </div>
                     <div>
                       <h4 className="text-base font-semibold text-white mb-1">Sign in to submit a ticket</h4>
-                      <p className="text-slate-500 text-sm">You need to be signed in to contact support and track your tickets.</p>
+                      <p className="text-slate-400 text-sm">You need to be signed in to contact support and track your tickets.</p>
                     </div>
                     <Link href="/sign-in" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-medium shadow-md hover:shadow-lg transition-all">
                       <LogOut className="w-4 h-4 rotate-180" />Sign In
@@ -947,7 +947,7 @@ function HelpSupportContent() {
                     <div>
                       <label className="block text-sm font-medium text-slate-400 mb-2">
                         Attachments{' '}
-                        <span className="text-slate-600 font-normal">(optional · up to {MAX_FILES} files · 10 MB each)</span>
+                        <span className="text-slate-500 font-normal">(optional · up to {MAX_FILES} files · 10 MB each)</span>
                       </label>
 
                       <button type="button" onClick={() => fileInputRef.current?.click()}
@@ -981,9 +981,9 @@ function HelpSupportContent() {
                             <li key={idx} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg glass-morphism border border-white/8">
                               <FileTypeIcon type={file.type} />
                               <span className="flex-1 text-xs text-slate-300 truncate min-w-0">{file.name}</span>
-                              <span className="text-xs text-slate-500 flex-shrink-0">{formatBytes(file.size)}</span>
+                              <span className="text-xs text-slate-400 flex-shrink-0">{formatBytes(file.size)}</span>
                               <button type="button" onClick={() => removeAttachment(idx)}
-                                className="flex-shrink-0 text-slate-600 hover:text-red-400 transition-colors ml-0.5"
+                                className="flex-shrink-0 text-slate-500 hover:text-red-400 transition-colors ml-0.5"
                                 aria-label={`Remove ${file.name}`}>
                                 <X className="w-3.5 h-3.5" />
                               </button>
@@ -1013,14 +1013,14 @@ function HelpSupportContent() {
                     <div className="glass-morphism p-2.5 sm:p-3 rounded-lg border border-white/5 flex items-center gap-2 sm:gap-3">
                       <Mail className="w-4 h-4 text-blue-400 flex-shrink-0" />
                       <div className="min-w-0">
-                        <p className="text-xs text-slate-500">Email</p>
+                        <p className="text-xs text-slate-400">Email</p>
                         <p className="text-white font-medium text-xs sm:text-sm truncate">support@preciprocal.com</p>
                       </div>
                     </div>
                     <div className="glass-morphism p-2.5 sm:p-3 rounded-lg border border-white/5 flex items-center gap-2 sm:gap-3">
                       <Clock className="w-4 h-4 text-green-400 flex-shrink-0" />
                       <div>
-                        <p className="text-xs text-slate-500">Response Time</p>
+                        <p className="text-xs text-slate-400">Response Time</p>
                         <p className="text-white font-medium text-xs sm:text-sm">Within 24 hours on Premium</p>
                       </div>
                     </div>
@@ -1052,7 +1052,7 @@ function HelpSupportContent() {
                     <Lock className="w-4 h-4 text-slate-400" />
                   </div>
                   <h3 className="text-base font-semibold text-white mb-1">Sign in to view tickets</h3>
-                  <p className="text-slate-500 text-sm mb-5">Your support history is tied to your account.</p>
+                  <p className="text-slate-400 text-sm mb-5">Your support history is tied to your account.</p>
                   <Link href="/sign-in"
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold transition-colors">
                     Sign in
@@ -1062,8 +1062,8 @@ function HelpSupportContent() {
             ) : loadingTickets ? (
               <div className="glass-card">
                 <div className="text-center py-14 px-6">
-                  <Loader2 className="w-5 h-5 text-slate-500 animate-spin mx-auto mb-3" />
-                  <p className="text-slate-500 text-sm">Loading tickets</p>
+                  <Loader2 className="w-5 h-5 text-slate-400 animate-spin mx-auto mb-3" />
+                  <p className="text-slate-400 text-sm">Loading tickets</p>
                 </div>
               </div>
             ) : selectedTicket ? (
@@ -1075,7 +1075,7 @@ function HelpSupportContent() {
                 return (
                   <div className="space-y-4">
                     <button onClick={() => { setSelectedTicket(null); setTicketReplies([]); }}
-                      className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-300 transition-colors">
+                      className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-300 transition-colors">
                       <ArrowLeft className="w-3.5 h-3.5" /> All tickets
                     </button>
 
@@ -1098,7 +1098,7 @@ function HelpSupportContent() {
                         />
                         {loadingReplies ? (
                           <div className="px-5 py-8 text-center">
-                            <Loader2 className="w-4 h-4 text-slate-600 animate-spin mx-auto" />
+                            <Loader2 className="w-4 h-4 text-slate-500 animate-spin mx-auto" />
                           </div>
                         ) : (
                           ticketReplies.map(reply => (
@@ -1127,13 +1127,13 @@ function HelpSupportContent() {
                                          focus:outline-none focus:border-purple-500/40 transition-colors glass-scrollbar"
                             />
                             <div className="flex items-center justify-between mt-2.5">
-                              <p className="text-sm text-slate-600">We reply by email. Premium plans get a reply within 24 hours.</p>
+                              <p className="text-sm text-slate-500">We reply by email. Premium plans get a reply within 24 hours.</p>
                               <button
                                 onClick={handleUserReply}
                                 disabled={isReplying || !replyText.trim()}
                                 className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg
                                            bg-purple-600 hover:bg-purple-500 disabled:bg-white/[0.06]
-                                           disabled:text-slate-600 text-white text-sm font-semibold
+                                           disabled:text-slate-500 text-white text-sm font-semibold
                                            transition-colors disabled:cursor-not-allowed">
                                 {isReplying
                                   ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Sending</>
@@ -1142,8 +1142,8 @@ function HelpSupportContent() {
                             </div>
                           </>
                         ) : (
-                          <div className="flex items-center gap-2.5 text-sm text-slate-500">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
+                          <div className="flex items-center gap-2.5 text-sm text-slate-400">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
                             This ticket is closed. Start a new one if you still need help.
                           </div>
                         )}
@@ -1165,7 +1165,7 @@ function HelpSupportContent() {
                           { k: 'Replies',  v: <span className="text-slate-400">{ticket.replyCount ?? 0}</span> },
                         ].map(row => (
                           <div key={row.k} className="flex items-center justify-between gap-3">
-                            <dt className="text-sm text-slate-600">{row.k}</dt>
+                            <dt className="text-sm text-slate-500">{row.k}</dt>
                             <dd className="text-sm">{row.v}</dd>
                           </div>
                         ))}
@@ -1184,7 +1184,7 @@ function HelpSupportContent() {
                 <div className="hidden md:grid grid-cols-[minmax(0,1fr)_120px_100px_150px_32px] gap-4
                                 px-5 py-2.5 border-b border-white/[0.06] bg-white/[0.02]">
                   {['Subject', 'Status', 'Replies', 'Last activity', ''].map((h, i) => (
-                    <span key={i} className="text-xs font-semibold text-slate-600 uppercase tracking-wider">{h}</span>
+                    <span key={i} className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{h}</span>
                   ))}
                 </div>
 
@@ -1204,7 +1204,7 @@ function HelpSupportContent() {
                             <div className={`text-base truncate ${unread ? 'text-white font-semibold' : 'text-slate-200 font-medium'}`}>
                               {ticket.subject}
                             </div>
-                            <div className="flex items-center gap-2 text-sm text-slate-600 mt-0.5">
+                            <div className="flex items-center gap-2 text-sm text-slate-500 mt-0.5">
                               <span className="font-mono">#{ticket.id.slice(0, 8)}</span>
                               <span>·</span>
                               <span className="capitalize">{ticket.category}</span>
@@ -1221,17 +1221,17 @@ function HelpSupportContent() {
                         </div>
 
                         {/* Replies - labelled on mobile, where the header is hidden */}
-                        <div className="text-sm text-slate-500 mt-1 md:mt-0">
-                          <span className="md:hidden text-slate-600">Replies: </span>
+                        <div className="text-sm text-slate-400 mt-1 md:mt-0">
+                          <span className="md:hidden text-slate-500">Replies: </span>
                           {ticket.replyCount ?? 0}
                         </div>
 
                         {/* Last activity */}
-                        <div className="text-sm text-slate-500 mt-1 md:mt-0">
+                        <div className="text-sm text-slate-400 mt-1 md:mt-0">
                           {relTime(ticket.lastReplyAt ?? ticket.createdAt)}
                         </div>
 
-                        <ChevronRight className="hidden md:block w-4 h-4 text-slate-700 group-hover:text-slate-500 transition-colors" />
+                        <ChevronRight className="hidden md:block w-4 h-4 text-slate-500 group-hover:text-slate-400 transition-colors" />
                       </button>
                     );
                   })}
@@ -1241,10 +1241,10 @@ function HelpSupportContent() {
               <div className="glass-card">
                 <div className="text-center py-14 px-6">
                   <div className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mx-auto mb-4">
-                    <FileText className="w-4 h-4 text-slate-500" />
+                    <FileText className="w-4 h-4 text-slate-400" />
                   </div>
                   <h3 className="text-base font-semibold text-white mb-1">No tickets yet</h3>
-                  <p className="text-slate-500 text-sm mb-5">When you contact support, the conversation appears here.</p>
+                  <p className="text-slate-400 text-sm mb-5">When you contact support, the conversation appears here.</p>
                   <button onClick={() => setActiveSection('contact')}
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold transition-colors">
                     <MessageSquare className="w-3.5 h-3.5" /> Contact support
@@ -1262,19 +1262,19 @@ function HelpSupportContent() {
           SITE.marketing so they keep working wherever the app is deployed. */}
       <footer className="border-t border-white/[0.06] mt-8">
         <div className="px-4 sm:px-6 lg:px-10 xl:px-16 py-6 flex flex-wrap items-center gap-x-6 gap-y-2">
-          <span className="text-sm text-slate-600">
+          <span className="text-sm text-slate-500">
             &copy; {new Date().getFullYear()} {SITE.name}
           </span>
           <a href={`${SITE.marketing}/terms`} target="_blank" rel="noopener noreferrer"
-            className="text-sm text-slate-500 hover:text-slate-300 transition-colors">
+            className="text-sm text-slate-400 hover:text-slate-300 transition-colors">
             Terms of Service
           </a>
           <a href={`${SITE.marketing}/privacy`} target="_blank" rel="noopener noreferrer"
-            className="text-sm text-slate-500 hover:text-slate-300 transition-colors">
+            className="text-sm text-slate-400 hover:text-slate-300 transition-colors">
             Privacy Policy
           </a>
           <a href={SITE.marketing} target="_blank" rel="noopener noreferrer"
-            className="text-sm text-slate-500 hover:text-slate-300 transition-colors">
+            className="text-sm text-slate-400 hover:text-slate-300 transition-colors">
             preciprocal.com
           </a>
         </div>
@@ -1291,7 +1291,7 @@ function HelpSupportFallback() {
         <div className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center">
           <HelpCircle className="w-4 h-4 text-slate-400" />
         </div>
-        <p className="text-slate-500 text-sm">Loading</p>
+        <p className="text-slate-400 text-sm">Loading</p>
       </div>
     </div>
   );

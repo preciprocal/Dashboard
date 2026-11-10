@@ -59,7 +59,7 @@ const PACK_STYLE: Record<
 
 function Tick({ highlight }: { highlight?: boolean }) {
   return (
-    <svg className={`w-4 h-4 flex-shrink-0 mt-0.5 ${highlight ? "text-indigo-400" : "text-slate-500"}`}
+    <svg className={`w-4 h-4 flex-shrink-0 mt-0.5 ${highlight ? "text-indigo-400" : "text-slate-400"}`}
       fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/>
     </svg>
@@ -126,7 +126,7 @@ export default function CreditPacks({ user }: CreditPacksProps) {
             <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 bg-white border-b border-slate-200">
               <p className="text-sm font-semibold text-slate-900">{PACKS[checkout.key].name}</p>
               <button type="button" onClick={() => setCheckout(null)} aria-label="Close checkout"
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 cursor-pointer">
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-100 cursor-pointer">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
                 </svg>
@@ -196,7 +196,7 @@ export default function CreditPacks({ user }: CreditPacksProps) {
                   <span className="text-4xl font-bold text-white">${pack.priceUsd}</span>
                   <span className="text-slate-400 text-sm mb-1.5">one time</span>
                 </div>
-                <p className="text-xs text-slate-500 mt-1">No subscription, never expires</p>
+                <p className="text-xs text-slate-400 mt-1">No subscription, never expires</p>
               </div>
 
               {/* The list sits ABOVE the button here, unlike the plan cards
@@ -236,7 +236,7 @@ export default function CreditPacks({ user }: CreditPacksProps) {
         })}
       </div>
 
-      <p className="mt-6 text-center text-xs text-slate-500 max-w-2xl mx-auto leading-relaxed">
+      <p className="mt-6 text-center text-xs text-slate-400 max-w-2xl mx-auto leading-relaxed">
         Pack credits are used only after your plan&apos;s monthly allowance is gone, so buying one
         never wastes what you already pay for. Mock interview length follows your current plan.
       </p>

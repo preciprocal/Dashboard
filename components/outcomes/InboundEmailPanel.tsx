@@ -102,10 +102,10 @@ export default function InboundEmailPanel({ apps, onChanged }: { apps: AppOption
             <h2 id="inbound-email" className="text-sm font-bold text-white">
               Update from email {pending > 0 && <span className="ml-1.5 text-amber-300 font-semibold">{pending} to check</span>}
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">Forward recruiter emails to your private address and the tracker moves the card for you.</p>
+            <p className="text-xs text-slate-400 mt-0.5">Forward recruiter emails to your private address and the tracker moves the card for you.</p>
           </div>
         </div>
-        <ChevronDown className={`w-4 h-4 text-slate-500 shrink-0 transition-transform ${collapsed ? '' : 'rotate-180'}`} />
+        <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${collapsed ? '' : 'rotate-180'}`} />
       </button>
 
       {!collapsed && (
@@ -129,7 +129,7 @@ export default function InboundEmailPanel({ apps, onChanged }: { apps: AppOption
               <li>
                 Then create a filter (Settings, Filters, Create new filter) with this search, and choose &ldquo;Forward it to&rdquo; your address:
                 <div className="mt-1 flex items-start gap-2">
-                  <code className="text-[11px] text-slate-300 bg-white/[0.04] border border-white/[0.08] rounded px-2 py-1 break-all">{GMAIL_FILTER}</code>
+                  <code className="text-xs text-slate-300 bg-white/[0.04] border border-white/[0.08] rounded px-2 py-1 break-all">{GMAIL_FILTER}</code>
                   <button type="button" className="btn-pill shrink-0" onClick={() => copy('filter', GMAIL_FILTER)}>{copied === 'filter' ? <Check /> : <Copy />}</button>
                 </div>
               </li>
@@ -138,7 +138,7 @@ export default function InboundEmailPanel({ apps, onChanged }: { apps: AppOption
           )}
 
           {visible.length === 0 ? (
-            <p className="text-xs text-slate-500">Nothing forwarded yet.</p>
+            <p className="text-xs text-slate-400">Nothing forwarded yet.</p>
           ) : (
             <ul className="space-y-2">
               {visible.map(e => (
@@ -146,8 +146,8 @@ export default function InboundEmailPanel({ apps, onChanged }: { apps: AppOption
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-xs text-slate-200 truncate">{e.company || e.subject || 'Email'}{e.job_title ? ` · ${e.job_title}` : ''}</p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">{describe(e)}</p>
-                      {e.evidence && e.kind !== 'forwarding_confirmation' && <p className="text-[11px] text-slate-600 mt-0.5 italic line-clamp-2">&ldquo;{e.evidence}&rdquo;</p>}
+                      <p className="text-xs text-slate-400 mt-0.5">{describe(e)}</p>
+                      {e.evidence && e.kind !== 'forwarding_confirmation' && <p className="text-xs text-slate-500 mt-0.5 italic line-clamp-2">&ldquo;{e.evidence}&rdquo;</p>}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {e.kind === 'forwarding_confirmation' && e.confirmation?.startsWith('https://') && (

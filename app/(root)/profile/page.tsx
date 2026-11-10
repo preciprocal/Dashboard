@@ -108,7 +108,7 @@ function StatCard({ icon: Icon, value, label, accentClass }: {
         </div>
         <span className="text-2xl font-bold text-white tabular-nums">{value}</span>
       </div>
-      <p className="text-[11px] text-slate-500 uppercase tracking-wide font-semibold">{label}</p>
+      <p className="text-xs text-slate-400 uppercase tracking-wide font-semibold">{label}</p>
     </div>
   );
 }
@@ -130,7 +130,7 @@ function FileRow({
     <div>
       <label className="block text-xs font-medium text-slate-400 mb-1.5">
         {label}
-        {hint && <span className="text-[10px] text-slate-700 ml-1.5 font-normal">{hint}</span>}
+        {hint && <span className="text-[11px] text-slate-500 ml-1.5 font-normal">{hint}</span>}
       </label>
       {fileName ? (
         <div className={`${inp} flex items-center justify-between`}>
@@ -139,7 +139,7 @@ function FileRow({
             <span className="text-white text-sm truncate">{fileName}</span>
           </div>
           <button type="button" onClick={onDelete} disabled={isUploading}
-            className="ml-2 p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/[0.08]
+            className="ml-2 p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/[0.08]
                        transition-all flex-shrink-0 disabled:opacity-40">
             <Trash2 className="w-3.5 h-3.5" />
           </button>
@@ -157,7 +157,7 @@ function FileRow({
             ) : (
               <>
                 <Upload className={`w-3.5 h-3.5 ${accentClass}`} />
-                <span className="text-sm text-slate-400">{label} <span className="text-slate-600">(PDF, max 5 MB)</span></span>
+                <span className="text-sm text-slate-400">{label} <span className="text-slate-500">(PDF, max 5 MB)</span></span>
               </>
             )}
           </label>
@@ -427,7 +427,7 @@ const ProfilePage = () => {
         <div className="glass-card p-10 text-center max-w-sm w-full">
           <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-white mb-2">Sign in required</h2>
-          <p className="text-sm text-slate-500 mb-6">Please sign in to view your profile</p>
+          <p className="text-sm text-slate-400 mb-6">Please sign in to view your profile</p>
           <Link href="/sign-in" className="inline-flex items-center justify-center gap-2 w-full px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white text-sm font-semibold hover:bg-[var(--accent-hover)] transition-all">
             Go to sign in
           </Link>
@@ -442,7 +442,7 @@ const ProfilePage = () => {
         <div className="glass-card p-10 text-center max-w-sm w-full">
           <AlertCircle className="w-10 h-10 text-amber-400 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-white mb-2">Failed to load profile</h2>
-          <p className="text-sm text-slate-500 mb-6">{profileError}</p>
+          <p className="text-sm text-slate-400 mb-6">{profileError}</p>
           <button onClick={handleRetry} className="inline-flex items-center justify-center gap-2 w-full px-5 py-2.5 rounded-xl bg-white/[0.05] border border-white/[0.09] text-white text-sm font-semibold hover:bg-white/[0.08] transition-all">
             <RefreshCw className="w-4 h-4" /> Try again
           </button>
@@ -457,7 +457,7 @@ const ProfilePage = () => {
         <div className="glass-card p-10 text-center max-w-sm w-full">
           <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-white mb-2">Profile not found</h2>
-          <p className="text-sm text-slate-500 mb-6">Unable to load your profile data</p>
+          <p className="text-sm text-slate-400 mb-6">Unable to load your profile data</p>
           <button onClick={() => window.location.reload()} className="inline-flex items-center justify-center gap-2 w-full px-5 py-2.5 rounded-xl bg-white/[0.05] border border-white/[0.09] text-white text-sm font-semibold hover:bg-white/[0.08] transition-all">
             <RefreshCw className="w-4 h-4" /> Reload page
           </button>
@@ -487,7 +487,7 @@ const ProfilePage = () => {
                           text-xs font-semibold whitespace-nowrap transition-all duration-150
                           ${activeTab === tab.id
                             ? 'bg-[var(--accent)] text-white '
-                            : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'}`}
+                            : 'text-slate-400 hover:text-slate-300 hover:bg-white/[0.04]'}`}
             >
               <tab.icon className="w-3.5 h-3.5" /> {tab.label}
             </button>
@@ -509,7 +509,7 @@ const ProfilePage = () => {
                 </div>
                 <div className="min-w-0 flex-1">
                   <h2 className="text-xl font-bold text-white truncate">{userProfile.name}</h2>
-                  <p className="text-xs text-slate-500 truncate mt-0.5">{userProfile.email}</p>
+                  <p className="text-xs text-slate-400 truncate mt-0.5">{userProfile.email}</p>
                   {userProfile.targetRole && (
                     <div className="flex items-center gap-1.5 mt-1.5">
                       <Briefcase className="w-3 h-3 text-blue-400 flex-shrink-0" />
@@ -549,7 +549,7 @@ const ProfilePage = () => {
                     disabled={isSaving}
                     className="w-10 h-10 flex items-center justify-center rounded-xl
                                bg-white/[0.05] border border-white/[0.08]
-                               text-slate-500 hover:text-white hover:bg-white/[0.08] transition-all"
+                               text-slate-400 hover:text-white hover:bg-white/[0.08] transition-all"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -566,13 +566,13 @@ const ProfilePage = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-4 border-t border-white/[0.05]">
                   {userProfile.phone && (
                     <div className="flex items-center gap-2 text-xs">
-                      <Phone className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
+                      <Phone className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
                       <span className="text-slate-400">{userProfile.phone}</span>
                     </div>
                   )}
                   {(userProfile.streetAddress || userProfile.city || userProfile.state) && (
                     <div className="flex items-start gap-2 text-xs">
-                      <MapPin className="w-3.5 h-3.5 text-slate-600 flex-shrink-0 mt-0.5" />
+                      <MapPin className="w-3.5 h-3.5 text-slate-500 flex-shrink-0 mt-0.5" />
                       <div className="text-slate-400">
                         {userProfile.streetAddress && <div>{userProfile.streetAddress}</div>}
                         {(userProfile.city || userProfile.state) && <div>{userProfile.city}{userProfile.city && userProfile.state ? ', ' : ''}{userProfile.state}</div>}
@@ -581,25 +581,25 @@ const ProfilePage = () => {
                   )}
                   {userProfile.linkedIn && (
                     <div className="flex items-center gap-2 text-xs">
-                      <svg className="w-3.5 h-3.5 flex-shrink-0 text-slate-600" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+                      <svg className="w-3.5 h-3.5 flex-shrink-0 text-slate-500" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
                       <a href={userProfile.linkedIn} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 transition-colors">LinkedIn</a>
                     </div>
                   )}
                   {userProfile.github && (
                     <div className="flex items-center gap-2 text-xs">
-                      <svg className="w-3.5 h-3.5 flex-shrink-0 text-slate-600" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                      <svg className="w-3.5 h-3.5 flex-shrink-0 text-slate-500" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
                       <a href={userProfile.github} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 transition-colors">GitHub</a>
                     </div>
                   )}
                   {userProfile.website && (
                     <div className="flex items-center gap-2 text-xs">
-                      <Globe className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
+                      <Globe className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
                       <a href={userProfile.website} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 transition-colors truncate">Website</a>
                     </div>
                   )}
                   {userProfile.resume && (
                     <div className="flex items-center gap-2 text-xs">
-                      <FileBadge className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
+                      <FileBadge className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
                       <button onClick={() => handleOpenFile(userProfile.resume!, 'resume')} className="text-blue-400 hover:text-blue-300 transition-colors truncate text-left">
                         {userProfile.resumeFileName || 'Resume.pdf'}
                       </button>
@@ -607,7 +607,7 @@ const ProfilePage = () => {
                   )}
                   {userProfile.transcript && (
                     <div className="flex items-center gap-2 text-xs">
-                      <FileText className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
+                      <FileText className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
                        <button onClick={() => handleOpenFile(userProfile.transcript!, 'transcript')} className="text-blue-400 hover:text-blue-300 transition-colors truncate text-left">
                         {userProfile.transcriptFileName || 'Transcript.pdf'}
                       </button>
@@ -707,7 +707,7 @@ const ProfilePage = () => {
               ].map(m => (
                 <div key={m.label} className="text-center">
                   <p className={`text-2xl font-bold tabular-nums ${m.accentClass}`}>{m.value}</p>
-                  <p className="text-[11px] text-slate-500 mt-1 uppercase tracking-wide font-semibold">{m.label}</p>
+                  <p className="text-xs text-slate-400 mt-1 uppercase tracking-wide font-semibold">{m.label}</p>
                 </div>
               ))}
             </div>

@@ -140,7 +140,7 @@ function StatCard({
         </div>
         <span className="text-2xl font-bold text-white tabular-nums">{value}</span>
       </div>
-      <p className="text-[11px] text-slate-500 uppercase tracking-wide font-semibold">{label}</p>
+      <p className="text-xs text-slate-400 uppercase tracking-wide font-semibold">{label}</p>
     </div>
   );
 }
@@ -213,7 +213,7 @@ function LetterCard({
             <FileText className="w-3.5 h-3.5" style={{ color: cfg.accent }} />
           </div>
           <div className="min-w-0">
-            <p className="text-[10px] text-slate-600 uppercase tracking-widest font-semibold truncate">
+            <p className="text-[11px] text-slate-500 uppercase tracking-widest font-semibold truncate">
               {letter.companyName || 'General'}
             </p>
           </div>
@@ -225,7 +225,7 @@ function LetterCard({
             {letter.jobRole}
           </h3>
           {!isList && (
-            <p className="text-[11px] text-slate-600 mb-4">
+            <p className="text-xs text-slate-500 mb-4">
               {letter.wordCount} words · {dateFull}
             </p>
           )}
@@ -235,10 +235,10 @@ function LetterCard({
         {!isList && (
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] text-slate-600 uppercase tracking-widest font-semibold">Length</span>
+              <span className="text-[11px] text-slate-500 uppercase tracking-widest font-semibold">Length</span>
               <div className="flex items-baseline gap-0.5">
                 <span className="text-lg font-bold text-white tabular-nums leading-none">{letter.wordCount}</span>
-                <span className="text-[10px] text-slate-600 ml-0.5">words</span>
+                <span className="text-[11px] text-slate-500 ml-0.5">words</span>
               </div>
             </div>
             <div className="h-1 w-full rounded-full overflow-hidden bg-white/[0.05]">
@@ -250,7 +250,7 @@ function LetterCard({
             {letter.usedResume && (
               <div className="flex items-center gap-1 mt-2">
                 <CheckCircle className="w-3 h-3 text-emerald-400" />
-                <span className="text-[10px] text-emerald-400 font-medium">Resume-personalized</span>
+                <span className="text-[11px] text-emerald-400 font-medium">Resume-personalized</span>
               </div>
             )}
           </div>
@@ -258,7 +258,7 @@ function LetterCard({
 
         {/* Tone badge */}
         <div className={`${isList ? 'flex-shrink-0' : 'mt-auto mb-4'}`}>
-          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border ${cfg.badge}`}>
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${cfg.badge}`}>
             <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${cfg.dot}`} />
             {cfg.label ?? letter.tone}
           </span>
@@ -267,8 +267,8 @@ function LetterCard({
         {/* Date chip - list only */}
         {isList && (
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.03] border border-white/[0.06] flex-shrink-0">
-            <Calendar className="w-3 h-3 text-slate-600" />
-            <span className="text-[10px] text-slate-500">{dateShort}</span>
+            <Calendar className="w-3 h-3 text-slate-500" />
+            <span className="text-[11px] text-slate-400">{dateShort}</span>
           </div>
         )}
       </div>
@@ -349,8 +349,8 @@ function IconAction({
       className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-150
                   border border-white/[0.07]
                   ${danger
-                    ? 'text-slate-600 hover:text-red-400 hover:border-red-500/20 hover:bg-red-500/[0.08] bg-white/[0.03]'
-                    : 'text-slate-500 hover:text-white hover:border-white/[0.12] hover:bg-white/[0.06] bg-white/[0.03]'}
+                    ? 'text-slate-500 hover:text-red-400 hover:border-red-500/20 hover:bg-red-500/[0.08] bg-white/[0.03]'
+                    : 'text-slate-400 hover:text-white hover:border-white/[0.12] hover:bg-white/[0.06] bg-white/[0.03]'}
                   ${className}`}
     >
       {icon}
@@ -399,10 +399,10 @@ function EmptyFiltered({ onClear }: { onClear: () => void }) {
     <div className="glass-card p-12 text-center">
       <div className="w-12 h-12 bg-white/[0.03] border border-white/[0.07] rounded-2xl
                       flex items-center justify-center mx-auto mb-4">
-        <FileText className="w-5 h-5 text-slate-600" />
+        <FileText className="w-5 h-5 text-slate-500" />
       </div>
       <p className="text-sm font-semibold text-slate-400 mb-2">No letters match this filter</p>
-      <p className="text-xs text-slate-600 mb-5">Try a different filter or generate a new letter</p>
+      <p className="text-xs text-slate-500 mb-5">Try a different filter or generate a new letter</p>
       <button onClick={onClear} className="text-xs text-slate-400 hover:text-white underline transition-colors">
         Clear filter
       </button>
@@ -415,10 +415,10 @@ function EmptyDashboard() {
     <div className="glass-card p-12 text-center">
       <div className="w-16 h-16 bg-white/[0.03] border border-white/[0.07] rounded-2xl
                       flex items-center justify-center mx-auto mb-6">
-        <FileText className="w-7 h-7 text-slate-600" />
+        <FileText className="w-7 h-7 text-slate-500" />
       </div>
       <h3 className="text-xl font-bold text-white mb-2">Welcome to Cover Letter Generator</h3>
-      <p className="text-sm text-slate-500 max-w-md mx-auto mb-8 leading-relaxed">
+      <p className="text-sm text-slate-400 max-w-md mx-auto mb-8 leading-relaxed">
         Generate professional, personalised cover letters powered by AI. Stand out from the competition.
       </p>
 
@@ -434,7 +434,7 @@ function EmptyDashboard() {
           serviceId="cover-letter"
         />
       </div>
-      <p className="text-[11px] text-slate-700 mt-4">Upload your resume for personalised letters</p>
+      <p className="text-xs text-slate-500 mt-4">Upload your resume for personalised letters</p>
     </div>
   );
 }
@@ -475,12 +475,12 @@ function PreviewModal({
           <div className="min-w-0">
             <h2 className="text-base font-bold text-white truncate">{letter.jobRole}</h2>
             {letter.companyName && (
-              <p className="text-xs text-slate-500 mt-0.5 truncate">{letter.companyName}</p>
+              <p className="text-xs text-slate-400 mt-0.5 truncate">{letter.companyName}</p>
             )}
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-500 hover:text-white
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white
                        hover:bg-white/[0.05] transition-colors flex-shrink-0"
           >
             <X className="w-4 h-4" />
@@ -717,7 +717,7 @@ export default function CoverLetterDashboard() {
         <div className="glass-card p-10 text-center max-w-sm w-full">
           <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-white mb-2">Sign in required</h2>
-          <p className="text-sm text-slate-500 mb-6">Please sign in to view your cover letters</p>
+          <p className="text-sm text-slate-400 mb-6">Please sign in to view your cover letters</p>
           <Link
             href="/sign-in"
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
@@ -782,7 +782,7 @@ export default function CoverLetterDashboard() {
             <div className="flex items-center justify-between gap-4">
               <div>
                 <h2 className="text-sm font-bold text-white">Your Letters</h2>
-                <p className="text-[11px] text-slate-600 mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   {filteredLetters.length} of {coverLetters.length}
                 </p>
               </div>
@@ -836,7 +836,7 @@ export default function CoverLetterDashboard() {
                       className={`p-1.5 rounded transition-all duration-150
                                   ${viewMode === mode
                                     ? 'bg-white/[0.10] text-white'
-                                    : 'text-slate-600 hover:text-slate-300'}`}
+                                    : 'text-slate-500 hover:text-slate-300'}`}
                     >
                       {mode === 'grid'
                         ? <LayoutGrid className="w-3.5 h-3.5" />
