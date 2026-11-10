@@ -4,8 +4,14 @@ import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
 import { checkJobTrackerCapacity } from '@/lib/ai/job-tracker-capacity';
 import { recordStatusChange } from '@/lib/applications/status-events';
+import { parsePosting } from '@/lib/jobs/posting-signals';
 
 export const runtime = 'nodejs';
+
+/** Postgres undefined_column, or PostgREST's schema-cache miss for a column. */
+function isMissingColumn(err: { code?: string; message?: string }): boolean {
+  return err.code === '42703' || err.code === 'PGRST204' || /column .* does not exist|Could not find the .* column/i.test(err.message ?? '');
+}
 
 // ── GET /api/extension/track-job ─────────────────────────────────────────────
 // Returns { success: true, jobIds: { "linkedInJobId": "saved" | "applied" } }
@@ -150,25 +156,50 @@ export async function POST(request: NextRequest) {
       }, { status: 403 });
     }
 
-    const { data: created, error } = await supabaseAdmin
+    const baseRow = {
+      user_id:         uid,
+      company:         company.slice(0, 100),
+      job_title:       jobTitle.slice(0, 150),
+      job_url:         jobUrl ?? null,
+      linkedin_job_id: linkedInJobId ?? null,
+      location:        location ?? null,
+      salary:          null,
+      work_type:       'onsite',
+      source:          jobBoard !== 'Other' ? jobBoard : source,
+      notes:           null,
+      status:          'applied',
+      applied_date:    appliedDate,
+    };
+
+    // What the posting looked like when saved (migration 0055), so the funnel
+    // report can later compare callbacks on fresh postings against stale ones.
+    const posting = parsePosting({
+      postedText:     typeof body.postedText === 'string' ? body.postedText.slice(0, 300) : null,
+      applicantsText: typeof body.applicantsText === 'string' ? body.applicantsText.slice(0, 300) : null,
+    });
+    const postingCols = {
+      posted_days_ago: posting.postedDaysAgo,
+      reposted:        typeof body.postedText === 'string' ? posting.reposted : null,
+      applicant_count: posting.applicantCount,
+    };
+
+    let { data: created, error } = await supabaseAdmin
       .from('job_applications')
-      .insert({
-        user_id:         uid,
-        company:         company.slice(0, 100),
-        job_title:       jobTitle.slice(0, 150),
-        job_url:         jobUrl ?? null,
-        linkedin_job_id: linkedInJobId ?? null,
-        location:        location ?? null,
-        salary:          null,
-        work_type:       'onsite',
-        source:          jobBoard !== 'Other' ? jobBoard : source,
-        notes:           null,
-        status:          'applied',
-        applied_date:    appliedDate,
-      })
+      .insert({ ...baseRow, ...postingCols })
       .select('id')
       .single();
+    // Before 0055 is applied those columns do not exist. Saving the job
+    // matters far more than the posting details, so retry without them
+    // rather than losing the application.
+    if (error && isMissingColumn(error)) {
+      ({ data: created, error } = await supabaseAdmin
+        .from('job_applications')
+        .insert(baseRow)
+        .select('id')
+        .single());
+    }
     if (error) throw error;
+    if (!created) throw new Error('Insert returned no row');
 
     await recordStatusChange(uid, created.id, null, 'applied');
 

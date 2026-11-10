@@ -971,3 +971,29 @@ route takes the user from the session; the unused `getLatestInterviews`
 (other users' interviews) is gone. Verified by replaying the dashboard's
 server action call as another account and with no session (both refused),
 and the interview pages as owner (load) and as another account (404).
+
+---
+
+## 31. OPEN - apply migration 0055 and update the privacy policy for pooled reply rates
+
+**Severity: medium. Blocks pooled company odds from showing, nothing else.**
+
+The extension's job signals (ghost-job risk, reply odds) shipped in the
+1.6.0 extension. Posting-based signals work without the migration; pooled
+company reply rates and "you applied here before" need
+`supabase/migrations/0055_job_signals.sql`. Until it is applied those two
+degrade to nothing and track-job saves without the posting columns.
+
+Pooled reply rates use other users' application outcomes in aggregate. The
+privacy policy on preciprocal.com (separate site) should say so before the
+first company crosses the threshold. Suggested wording:
+
+> **Aggregated job insights.** When you track applications, we combine their
+> outcomes (for example, whether and how quickly a company replied) with those
+> of other Preciprocal users to show reply rates for employers. These figures
+> are counts across many people. We only show a company's figures once at least
+> ten different users have applied there, we never show what happened to any
+> one person's application, and we never share your individual applications
+> with employers or anyone else.
+
+**Unblocked by** the owner applying 0055 and publishing the wording.
