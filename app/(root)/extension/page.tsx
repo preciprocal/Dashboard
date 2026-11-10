@@ -2,7 +2,7 @@
 // app/(root)/extension/page.tsx
 // The Chrome extension's home in the app: whether it is installed here, how
 // to get it, and what it has done for this account.
-import { GoogleIcon } from '@/components/icons/BrandIcons';
+import { ChromeIcon } from '@/components/icons/BrandIcons';
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
@@ -57,7 +57,7 @@ export default function ExtensionPage() {
       <PageHeader
         title="Chrome Extension"
         description="Your extension activity"
-        icon={<GoogleIcon />}
+        icon={<ChromeIcon />}
         actions={<>
           <StatusPill status={ext.status} version={ext.version} />
           {installed

@@ -22,6 +22,19 @@ export function GoogleIcon({ className, ...props }: BrandIconProps) {
   );
 }
 
+export function ChromeIcon({ className, ...props }: BrandIconProps) {
+  return (
+    <svg viewBox="4 4 40 40" className={className} aria-hidden="true" {...props}>
+      {/* Green lower-left, yellow right, red top, then the white ring and blue centre. */}
+      <path fill="#34A853" d="M44 24c0 11.04-8.96 20-20 20S4 35.04 4 24 12.96 4 24 4s20 8.96 20 20Z" />
+      <path fill="#FBBC05" d="M24 4v20l8 4-8.84 16H24c11.05 0 20-8.95 20-20S35.05 4 24 4Z" />
+      <path fill="#EA4335" d="M41.84 15H24v13l-3-1L7.16 13.26C10.68 7.69 16.91 4 24 4c7.8 0 14.55 4.48 17.84 11Z" />
+      <circle cx="24" cy="24" r="9" fill="#fff" />
+      <circle cx="24" cy="24" r="7" fill="#4285F4" />
+    </svg>
+  );
+}
+
 export function LinkedInIcon({ className, ...props }: BrandIconProps) {
   return (
     <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...props}>
