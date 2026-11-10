@@ -24,6 +24,11 @@ import {
   ArrowLeft
 } from "lucide-react";
 import NextStepPrompt from "@/components/NextStepPrompt";
+import TranscriptReview from "@/components/interview/TranscriptReview";
+import JournalSyncButton from "@/components/interview/JournalSyncButton";
+import { loadInterviewForReview } from "@/lib/interview/transcript-review";
+import { findSyncedEntry } from "@/lib/interview/journal-sync";
+import type { Turn } from "@/lib/interview/transcript-analysis";
 // import ShareScoreCard from "@/components/ShareScoreCard"; // ← temporarily disabled
 
 interface CategoryScore {
@@ -151,6 +156,22 @@ export default async function InterviewFeedbackPage({ params }: Props) {
     );
   }
 
+  // The annotated transcript and the journal link. Both are extras on top of
+  // the report, so a failure loading either hides that piece rather than
+  // taking the whole results page down with it.
+  let transcriptTurns: Turn[] = [];
+  try {
+    transcriptTurns = (await loadInterviewForReview(id, viewerId))?.turns ?? [];
+  } catch (err) {
+    console.warn("⚠️ Could not load transcript for review:", err);
+  }
+  let journalEntryId: string | null = null;
+  try {
+    journalEntryId = await findSyncedEntry(id, viewerId);
+  } catch (err) {
+    console.warn("⚠️ Could not check Interview Journal link:", err);
+  }
+
   const getScoreColor = (score: number): string => {
     if (score >= 85) return "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
     if (score >= 70) return "text-blue-400 bg-blue-500/10 border-blue-500/20";
@@ -238,7 +259,7 @@ export default async function InterviewFeedbackPage({ params }: Props) {
               <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-2" />
               Analysis Complete
             </div>
-            <span className="text-slate-500 text-xs sm:text-sm">{new Date().toLocaleDateString()}</span>
+            <span className="text-slate-400 text-xs sm:text-sm">{new Date().toLocaleDateString()}</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-semibold text-white mb-1 sm:mb-2">
             Interview Performance Report
@@ -247,6 +268,9 @@ export default async function InterviewFeedbackPage({ params }: Props) {
             Analysis for <span className="font-medium text-blue-400">{interview.role}</span>
             {interview.company && <span> at {interview.company}</span>}
           </p>
+          <div className="mt-4">
+            <JournalSyncButton interviewId={id} initialEntryId={journalEntryId} />
+          </div>
         </div>
       </div>
 
@@ -258,7 +282,7 @@ export default async function InterviewFeedbackPage({ params }: Props) {
               <div className="relative inline-block mb-4 sm:mb-6">
                 <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-slate-800/50 border-4 border-slate-700 flex items-center justify-center relative">
                   <svg className="absolute inset-0 w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                    <circle cx="50" cy="50" r="42" stroke="currentColor" strokeWidth="4" fill="none" className="text-slate-700" />
+                    <circle cx="50" cy="50" r="42" stroke="currentColor" strokeWidth="4" fill="none" className="text-slate-500" />
                     <circle cx="50" cy="50" r="42"
                       stroke={`${feedback.totalScore >= 85 ? '#10b981' : feedback.totalScore >= 70 ? '#3b82f6' : feedback.totalScore >= 55 ? '#f59e0b' : '#ef4444'}`}
                       strokeWidth="4" fill="none"
@@ -572,6 +596,9 @@ export default async function InterviewFeedbackPage({ params }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Annotated transcript */}
+      <TranscriptReview interviewId={id} turns={transcriptTurns} />
 
       {/* NextStepPrompt */}
       <NextStepPrompt

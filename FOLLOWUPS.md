@@ -1065,3 +1065,30 @@ arrive with their text. Not changed here because it writes into live support
 threads and deserves its own test.
 
 **Unblocked by** the owner doing steps 1 to 4.
+
+---
+
+## 34. OPEN - apply migration 0059 (annotated transcript cache, journal link)
+
+**Severity: low. Everything works without it; this makes it cheaper and tidier.**
+
+`supabase/migrations/0059_transcript_review_journal_link.sql` adds two
+nullable columns:
+
+1. `interview_feedback.transcript_review` (jsonb): where the annotated
+   transcript on the interview results page is cached. Until it exists the
+   review is cached in Redis for 30 days instead
+   (lib/interview/transcript-review.ts), so after that a revisit pays for one
+   more Claude call, and without Redis every visit does.
+2. `interview_debriefs.source_interview_id` (uuid) plus a unique index: which
+   mock interview a "Save to Interview Journal" entry came from. Until it
+   exists, entries are found again by the results link written into their
+   notes (lib/interview/journal-sync.ts), which works but is not protected
+   against a double click from two tabs at once.
+
+Check after applying: open a mock interview's results, let the annotated
+transcript load, and confirm `transcript_review` is filled on its
+`interview_feedback` row; then press "Save to Interview Journal" and confirm
+the new `interview_debriefs` row has `source_interview_id` set.
+
+**Unblocked by** the owner applying the migration in the Supabase SQL editor.

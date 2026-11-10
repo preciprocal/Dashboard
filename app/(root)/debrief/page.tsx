@@ -28,7 +28,10 @@ import NextStepPrompt from '@/components/NextStepPrompt'; // ← NEW
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type InterviewStage   = 'phone-screen' | 'technical' | 'behavioral' | 'system-design' | 'final' | 'onsite';
-type InterviewOutcome = 'pending' | 'moved-forward' | 'rejected' | 'ghosted' | 'withdrew' | 'offer';
+// 'practice' marks an entry copied from a Preciprocal mock interview ("Save to
+// Interview Journal" on the results page, lib/interview/journal-sync.ts). It is
+// not a real-interview outcome, so it stays out of the advance rate.
+type InterviewOutcome = 'pending' | 'moved-forward' | 'rejected' | 'ghosted' | 'withdrew' | 'offer' | 'practice';
 type EmotionalState   = 'confident' | 'nervous' | 'neutral' | 'excited' | 'anxious' | 'exhausted';
 type DifficultyRating = 1 | 2 | 3 | 4 | 5;
 
@@ -125,6 +128,7 @@ const OUTCOME_COLORS: Record<InterviewOutcome, string> = {
   ghosted:         'text-slate-400  bg-slate-400/10  border-slate-400/20',
   withdrew:        'text-purple-400 bg-purple-400/10 border-purple-400/20',
   offer:           'text-blue-400   bg-blue-400/10   border-blue-400/20',
+  practice:        'text-sky-300    bg-sky-400/10    border-sky-400/20',
 };
 
 const OUTCOME_LABELS: Record<InterviewOutcome, string> = {
@@ -134,6 +138,7 @@ const OUTCOME_LABELS: Record<InterviewOutcome, string> = {
   ghosted:         'Ghosted',
   withdrew:        'Withdrew',
   offer:           '🎉 Offer!',
+  practice:        'Practice',
 };
 
 const EMOTIONAL_EMOJIS: Record<EmotionalState, string> = {
@@ -176,8 +181,8 @@ function StatCard({ icon: Icon, label, value, sub, accentClass }: {
         </div>
         <span className="text-2xl font-bold text-white tabular-nums">{value}</span>
       </div>
-      <p className="text-[11px] text-slate-500 uppercase tracking-wide font-semibold">{label}</p>
-      {sub && <p className="text-[11px] text-slate-600 mt-0.5">{sub}</p>}
+      <p className="text-xs text-slate-400 uppercase tracking-wide font-semibold">{label}</p>
+      {sub && <p className="text-xs text-slate-500 mt-0.5">{sub}</p>}
     </div>
   );
 }
@@ -188,7 +193,7 @@ function ProgressBar({ label, value, sub }: { label: string; value: number; sub?
     <div>
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-[12px] text-slate-400 truncate pr-2">{label}</span>
-        <span className="text-[11px] text-slate-500 flex-shrink-0">{sub || `${value}%`}</span>
+        <span className="text-xs text-slate-400 flex-shrink-0">{sub || `${value}%`}</span>
       </div>
       <div className="h-1 bg-white/[0.06] rounded-full overflow-hidden">
         <div className={`h-full ${color} rounded-full transition-[width] duration-700`} style={{ width: `${value}%` }} />
@@ -216,7 +221,7 @@ function ReadinessGauge({ score, label }: { score: number; label: string }) {
         </svg>
       </div>
       <p className="text-2xl font-bold -mt-1 tabular-nums" style={{ color }}>{score}</p>
-      <p className="text-[11px] font-semibold mt-0.5" style={{ color }}>{label}</p>
+      <p className="text-xs font-semibold mt-0.5" style={{ color }}>{label}</p>
     </div>
   );
 }
@@ -235,7 +240,7 @@ function SectionHeader({ icon: Icon, title, sub, accentClass }: {
       </div>
       <div>
         <h4 className="text-[13px] font-bold text-white">{title}</h4>
-        {sub && <p className="text-[11px] text-slate-600 mt-0.5">{sub}</p>}
+        {sub && <p className="text-xs text-slate-500 mt-0.5">{sub}</p>}
       </div>
     </div>
   );
@@ -253,7 +258,7 @@ function TabBar<T extends string>({ tabs, active, onChange }: {
           className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12px] font-semibold whitespace-nowrap transition-all duration-150
                       ${active === t.id
                         ? 'bg-[var(--accent)] text-white '
-                        : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'}`}
+                        : 'text-slate-400 hover:text-slate-300 hover:bg-white/[0.04]'}`}
         >
           <t.icon className="w-3.5 h-3.5" />{t.label}
         </button>
@@ -297,7 +302,7 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
           <h2 className="text-2xl sm:text-3xl font-bold text-white leading-snug mb-2">
             The interview isn&apos;t over when you walk out.
           </h2>
-          <p className="text-sm text-slate-500 mb-6 max-w-md">
+          <p className="text-sm text-slate-400 mb-6 max-w-md">
             Every interview you don&apos;t debrief is a lesson wasted. The candidates who
             reflect, track patterns, and fix weaknesses are the ones who convert rejections into offers.
           </p>
@@ -314,7 +319,7 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
             <Link href="/pricing" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-[var(--accent)] hover:bg-[var(--accent-hover)]   transition-all group">
               Get More <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </Link>
-            <span className="text-[10px] text-slate-600">Cancel anytime · Instant access</span>
+            <span className="text-[11px] text-slate-500">Cancel anytime · Instant access</span>
           </div>
         </div>
       </div>
@@ -326,7 +331,7 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
         ].map(s => (
           <div key={s.num} className="glass-card py-4 text-center">
             <p className="text-xl font-black text-violet-400">{s.num}</p>
-            <p className="text-xs text-slate-500 mt-1">{s.label}</p>
+            <p className="text-xs text-slate-400 mt-1">{s.label}</p>
           </div>
         ))}
       </div>
@@ -374,7 +379,7 @@ function AIInsightsPanel({ entries }: { entries: DebriefEntry[] }) {
           </div>
           <div className="text-center">
             <p className="text-[14px] font-semibold text-white mb-1">Analysing your interview history…</p>
-            <p className="text-[12px] text-slate-500">Identifying patterns across {entries.length} entries</p>
+            <p className="text-[12px] text-slate-400">Identifying patterns across {entries.length} entries</p>
           </div>
         </div>
       </SectionCard>
@@ -386,7 +391,7 @@ function AIInsightsPanel({ entries }: { entries: DebriefEntry[] }) {
       <SectionCard className="text-center">
         <XCircle className="w-9 h-9 text-red-400 mx-auto mb-4" />
         <p className="text-[14px] font-semibold text-white mb-1">Analysis failed</p>
-        <p className="text-[12px] text-slate-500 mb-5">{error}</p>
+        <p className="text-[12px] text-slate-400 mb-5">{error}</p>
         <button onClick={runAnalysis} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white text-[13px] font-semibold transition-all">
           <RefreshCw className="w-3.5 h-3.5" /> Retry
         </button>
@@ -401,10 +406,10 @@ function AIInsightsPanel({ entries }: { entries: DebriefEntry[] }) {
           <Brain className="w-6 h-6 text-violet-400" />
         </div>
         <h3 className="text-[15px] font-bold text-white mb-2">AI Pattern Analysis</h3>
-        <p className="text-[13px] text-slate-500 mb-1.5 max-w-sm mx-auto leading-relaxed">
+        <p className="text-[13px] text-slate-400 mb-1.5 max-w-sm mx-auto leading-relaxed">
           Analyse all {entries.length} debrief entries and identify what&apos;s actually holding you back.
         </p>
-        <p className="text-[11px] text-amber-400 mb-6">Brutally honest. No sugarcoating.</p>
+        <p className="text-xs text-amber-400 mb-6">Brutally honest. No sugarcoating.</p>
         <button onClick={runAnalysis} className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-[13px] font-semibold  transition-all duration-200">
           <Zap className="w-4 h-4" /> Analyse My Interviews
         </button>
@@ -425,9 +430,9 @@ function AIInsightsPanel({ entries }: { entries: DebriefEntry[] }) {
         <div className="flex items-start justify-between mb-4">
           <div>
             <h3 className="text-[13px] font-bold text-white">AI Career Coach Analysis</h3>
-            <p className="text-[11px] text-slate-600 mt-0.5">Based on {entries.length} entries</p>
+            <p className="text-xs text-slate-500 mt-0.5">Based on {entries.length} entries</p>
           </div>
-          <button onClick={runAnalysis} title="Re-run analysis" className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:text-violet-400 hover:bg-white/[0.05] transition-all">
+          <button onClick={runAnalysis} title="Re-run analysis" className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-violet-400 hover:bg-white/[0.05] transition-all">
             <RefreshCw className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -435,7 +440,7 @@ function AIInsightsPanel({ entries }: { entries: DebriefEntry[] }) {
           <ReadinessGauge score={analysis.overallReadiness} label={analysis.readinessLabel} />
           <div className="flex-1 w-full">
             <div className="p-3 bg-white/[0.03] border border-white/[0.07] rounded-xl">
-              <p className="text-[10px] text-slate-600 uppercase tracking-widest font-semibold mb-1.5">Coach&apos;s Verdict</p>
+              <p className="text-[11px] text-slate-500 uppercase tracking-widest font-semibold mb-1.5">Coach&apos;s Verdict</p>
               <p className="text-[13px] text-white leading-relaxed italic">&ldquo;{analysis.oneLinerVerdict}&rdquo;</p>
             </div>
           </div>
@@ -453,7 +458,7 @@ function AIInsightsPanel({ entries }: { entries: DebriefEntry[] }) {
                 {analysis.strengthMap.map((s, i) => (
                   <div key={i} className="p-3 bg-emerald-500/[0.06] border border-emerald-500/15 rounded-xl">
                     <p className="text-[13px] font-semibold text-emerald-300 mb-1">{s.area}</p>
-                    <p className="text-[12px] text-slate-500 mb-2">{s.evidence}</p>
+                    <p className="text-[12px] text-slate-400 mb-2">{s.evidence}</p>
                     <div className="flex items-start gap-1.5">
                       <ArrowRight className="w-3 h-3 text-emerald-400 flex-shrink-0 mt-0.5" />
                       <p className="text-[12px] text-emerald-400">{s.howToLeverage}</p>
@@ -472,11 +477,11 @@ function AIInsightsPanel({ entries }: { entries: DebriefEntry[] }) {
                     <div className="flex items-center justify-between mb-1.5">
                       <p className="text-[13px] font-semibold">{w.area}</p>
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] opacity-60">{w.frequency}× seen</span>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/[0.08] font-semibold capitalize">{w.severity}</span>
+                        <span className="text-[11px] opacity-60">{w.frequency}× seen</span>
+                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/[0.08] font-semibold capitalize">{w.severity}</span>
                       </div>
                     </div>
-                    <p className="text-[12px] text-slate-500 mb-2 italic">&ldquo;{w.specificExample}&rdquo;</p>
+                    <p className="text-[12px] text-slate-400 mb-2 italic">&ldquo;{w.specificExample}&rdquo;</p>
                     <div className="flex items-start gap-1.5">
                       <Zap className="w-3 h-3 flex-shrink-0 mt-0.5 opacity-70" />
                       <p className="text-[12px] opacity-90">{w.fix}</p>
@@ -495,18 +500,18 @@ function AIInsightsPanel({ entries }: { entries: DebriefEntry[] }) {
                   { label: 'Usually after',  val: analysis.emotionalProfile.dominantStateAfter  },
                 ].map((x, i) => (
                   <div key={i} className="p-3 bg-white/[0.03] border border-white/[0.07] rounded-xl text-center">
-                    <p className="text-[10px] text-slate-600 mb-1">{x.label}</p>
+                    <p className="text-[11px] text-slate-500 mb-1">{x.label}</p>
                     <p className="text-[13px] text-white font-semibold capitalize">{x.val}</p>
                   </div>
                 ))}
               </div>
               <div className="space-y-2">
                 <div className="p-2.5 bg-white/[0.03] border border-white/[0.07] rounded-xl">
-                  <p className="text-[10px] text-slate-600 uppercase tracking-wide font-semibold mb-1">Anxiety impact</p>
+                  <p className="text-[11px] text-slate-500 uppercase tracking-wide font-semibold mb-1">Anxiety impact</p>
                   <p className="text-[12px] text-slate-300">{analysis.emotionalProfile.anxietyImpact}</p>
                 </div>
                 <div className="p-2.5 bg-violet-500/[0.06] border border-violet-500/15 rounded-xl">
-                  <p className="text-[10px] text-violet-400 uppercase tracking-wide font-semibold mb-1">Recommendation</p>
+                  <p className="text-[11px] text-violet-400 uppercase tracking-wide font-semibold mb-1">Recommendation</p>
                   <p className="text-[12px] text-slate-300">{analysis.emotionalProfile.recommendation}</p>
                 </div>
               </div>
@@ -517,16 +522,16 @@ function AIInsightsPanel({ entries }: { entries: DebriefEntry[] }) {
               <SectionHeader icon={MapPin} title="Stage Analysis" accentClass="text-blue-400" />
               <div className="grid grid-cols-2 gap-2.5 mb-3">
                 <div className="p-2.5 bg-emerald-500/[0.06] border border-emerald-500/15 rounded-xl">
-                  <p className="text-[10px] text-emerald-400 uppercase tracking-wide font-semibold mb-1">Strongest</p>
+                  <p className="text-[11px] text-emerald-400 uppercase tracking-wide font-semibold mb-1">Strongest</p>
                   <p className="text-[13px] text-white">{analysis.stageAnalysis.strongestStage}</p>
                 </div>
                 <div className="p-2.5 bg-red-500/[0.06] border border-red-500/15 rounded-xl">
-                  <p className="text-[10px] text-red-400 uppercase tracking-wide font-semibold mb-1">Weakest</p>
+                  <p className="text-[11px] text-red-400 uppercase tracking-wide font-semibold mb-1">Weakest</p>
                   <p className="text-[13px] text-white">{analysis.stageAnalysis.weakestStage}</p>
                 </div>
               </div>
               <div className="p-2.5 bg-amber-500/[0.06] border border-amber-500/15 rounded-xl">
-                <p className="text-[10px] text-amber-400 uppercase tracking-wide font-semibold mb-1 flex items-center gap-1">
+                <p className="text-[11px] text-amber-400 uppercase tracking-wide font-semibold mb-1 flex items-center gap-1">
                   <Flame className="w-3 h-3" /> Bottleneck
                 </p>
                 <p className="text-[12px] text-slate-300">{analysis.stageAnalysis.bottleneck}</p>
@@ -556,16 +561,16 @@ function AIInsightsPanel({ entries }: { entries: DebriefEntry[] }) {
               <div className="flex items-center gap-2 mb-3">
                 <span className={`w-2 h-2 rounded-full flex-shrink-0 ${p.impact === 'positive' ? 'bg-emerald-400' : p.impact === 'negative' ? 'bg-red-400' : 'bg-amber-400'}`} />
                 <h4 className="text-[13px] font-bold text-white flex-1">{p.pattern}</h4>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold capitalize ${p.impact === 'positive' ? 'bg-emerald-500/15 text-emerald-400' : p.impact === 'negative' ? 'bg-red-500/15 text-red-400' : 'bg-amber-500/15 text-amber-400'}`}>
+                <span className={`text-[11px] px-2 py-0.5 rounded-full font-semibold capitalize ${p.impact === 'positive' ? 'bg-emerald-500/15 text-emerald-400' : p.impact === 'negative' ? 'bg-red-500/15 text-red-400' : 'bg-amber-500/15 text-amber-400'}`}>
                   {p.impact}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-600 mb-2 italic">Evidence: {p.evidence}</p>
+              <p className="text-xs text-slate-500 mb-2 italic">Evidence: {p.evidence}</p>
               <p className="text-[13px] text-slate-300 leading-relaxed">{p.explanation}</p>
             </SectionCard>
           )) : (
             <SectionCard className="text-center py-8">
-              <p className="text-[13px] text-slate-500">No patterns detected yet.</p>
+              <p className="text-[13px] text-slate-400">No patterns detected yet.</p>
             </SectionCard>
           )}
         </div>
@@ -576,11 +581,11 @@ function AIInsightsPanel({ entries }: { entries: DebriefEntry[] }) {
           {analysis.next30DayPlan?.length > 0 ? analysis.next30DayPlan.map((week, i) => (
             <SectionCard key={i}>
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-8 h-8 bg-[var(--accent)] rounded-lg flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0">
+                <div className="w-8 h-8 bg-[var(--accent)] rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                   W{week.week}
                 </div>
                 <div>
-                  <p className="text-[10px] text-slate-600">Week {week.week}</p>
+                  <p className="text-[11px] text-slate-500">Week {week.week}</p>
                   <p className="text-[13px] font-bold text-white">{week.focus}</p>
                 </div>
               </div>
@@ -593,14 +598,14 @@ function AIInsightsPanel({ entries }: { entries: DebriefEntry[] }) {
                 ))}
               </div>
               <div className="p-2.5 bg-violet-500/[0.06] border border-violet-500/15 rounded-lg">
-                <p className="text-[11px] text-violet-400 font-semibold flex items-center gap-1">
+                <p className="text-xs text-violet-400 font-semibold flex items-center gap-1">
                   <Target className="w-3 h-3" /> {week.successMetric}
                 </p>
               </div>
             </SectionCard>
           )) : (
             <SectionCard className="text-center py-8">
-              <p className="text-[13px] text-slate-500">No plan generated. Re-run the analysis.</p>
+              <p className="text-[13px] text-slate-400">No plan generated. Re-run the analysis.</p>
             </SectionCard>
           )}
         </div>
@@ -611,25 +616,25 @@ function AIInsightsPanel({ entries }: { entries: DebriefEntry[] }) {
           {analysis.questionsToMaster?.length > 0 ? analysis.questionsToMaster.map((q, i) => (
             <SectionCard key={i}>
               <div className="flex items-start gap-3 mb-3">
-                <div className="w-7 h-7 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0 mt-0.5">
+                <div className="w-7 h-7 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5">
                   {i + 1}
                 </div>
                 <p className="text-[13px] font-semibold text-white leading-relaxed">&ldquo;{q.question}&rdquo;</p>
               </div>
               <div className="space-y-2">
                 <div className="p-2.5 bg-amber-500/[0.06] border border-amber-500/15 rounded-lg">
-                  <p className="text-[10px] text-amber-400 uppercase tracking-wide font-semibold mb-1">Why it matters</p>
+                  <p className="text-[11px] text-amber-400 uppercase tracking-wide font-semibold mb-1">Why it matters</p>
                   <p className="text-[12px] text-slate-300">{q.whyItMatters}</p>
                 </div>
                 <div className="p-2.5 bg-emerald-500/[0.06] border border-emerald-500/15 rounded-lg">
-                  <p className="text-[10px] text-emerald-400 uppercase tracking-wide font-semibold mb-1">How to answer</p>
+                  <p className="text-[11px] text-emerald-400 uppercase tracking-wide font-semibold mb-1">How to answer</p>
                   <p className="text-[12px] text-slate-300">{q.howToAnswer}</p>
                 </div>
               </div>
             </SectionCard>
           )) : (
             <SectionCard className="text-center py-8">
-              <p className="text-[13px] text-slate-500">No questions identified. Run the analysis to get personalised questions.</p>
+              <p className="text-[13px] text-slate-400">No questions identified. Run the analysis to get personalised questions.</p>
             </SectionCard>
           )}
         </div>
@@ -704,6 +709,27 @@ export default function InterviewDebriefPage() {
 
   useEffect(() => { if (user) fetchEntries(); }, [user, fetchEntries]);
 
+  // /debrief?entry=<id> opens that entry: "Save to Interview Journal" on a
+  // mock interview's results page lands here. Read once from the URL rather
+  // than through useSearchParams, which would need a Suspense boundary
+  // around the whole page.
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [deepLinkDone, setDeepLinkDone] = useState(false);
+  useEffect(() => {
+    if (deepLinkDone || loadingEntries || entries.length === 0) return;
+    setDeepLinkDone(true);
+    const target = new URLSearchParams(window.location.search).get('entry');
+    if (!target || !entries.some(e => e.id === target)) return;
+    setActiveView('log');
+    setSearchTerm('');
+    setFilterOutcome('all');
+    setExpandedId(target);
+    setHighlightId(target);
+    requestAnimationFrame(() => {
+      document.getElementById(`entry-${target}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, [deepLinkDone, loadingEntries, entries]);
+
   const handleSave = async () => {
     if (!user) return;
     if (!formData.companyName.trim() || !formData.jobTitle.trim()) {
@@ -744,6 +770,7 @@ export default function InterviewDebriefPage() {
           ghosted:         `Debrief logged for ${formData.jobTitle} at ${formData.companyName}. Ghosted - their loss.`,
           withdrew:        `Debrief logged for ${formData.jobTitle} at ${formData.companyName}. You withdrew - good self-awareness.`,
           pending:         `Debrief logged for ${formData.jobTitle} at ${formData.companyName}. Awaiting outcome.`,
+          practice:        `Practice session logged for ${formData.jobTitle} at ${formData.companyName}.`,
         };
         await NotificationService.createNotification(
           user.id,
@@ -784,7 +811,10 @@ export default function InterviewDebriefPage() {
   const handleEdit = (entry: DebriefEntry) => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id, userId, createdAt, ...rest } = entry;
-    setFormData({ ...rest });
+    // Entries saved from a mock interview leave emotional state, difficulty
+    // and the like empty for the user to fill in; the form needs values.
+    const filled = Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== null && v !== undefined));
+    setFormData({ ...EMPTY_FORM, ...filled });
     setEditingId(id); setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -800,9 +830,12 @@ export default function InterviewDebriefPage() {
   };
 
   const totalEntries  = entries.length;
-  const avgSelfScore  = totalEntries > 0 ? Math.round(entries.reduce((s, e) => s + e.selfScore, 0) / totalEntries) : 0;
-  const advancedCount = entries.filter(e => e.outcome === 'moved-forward' || e.outcome === 'offer').length;
-  const advanceRate   = totalEntries > 0 ? Math.round((advancedCount / totalEntries) * 100) : 0;
+  // Practice entries carry the AI interviewer's score and have no outcome, so
+  // the self-score average and advance rate are over real interviews only.
+  const realEntries   = entries.filter(e => e.outcome !== 'practice');
+  const avgSelfScore  = realEntries.length > 0 ? Math.round(realEntries.reduce((s, e) => s + (e.selfScore ?? 0), 0) / realEntries.length) : 0;
+  const advancedCount = realEntries.filter(e => e.outcome === 'moved-forward' || e.outcome === 'offer').length;
+  const advanceRate   = realEntries.length > 0 ? Math.round((advancedCount / realEntries.length) * 100) : 0;
   const offerCount    = entries.filter(e => e.outcome === 'offer').length;
 
   const filtered = entries.filter(e => {
@@ -858,7 +891,7 @@ export default function InterviewDebriefPage() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 animate-fade-in-up" style={{ animationDelay: '60ms' }}>
             <StatCard icon={BookOpen}   label="Total Logged"   value={totalEntries}        accentClass="text-violet-400" />
             <StatCard icon={Star}       label="Avg Self-Score" value={`${avgSelfScore}%`}  accentClass="text-amber-400" />
-            <StatCard icon={TrendingUp} label="Advance Rate"   value={`${advanceRate}%`}   sub={`${advancedCount} of ${totalEntries}`} accentClass="text-emerald-400" />
+            <StatCard icon={TrendingUp} label="Advance Rate"   value={`${advanceRate}%`}   sub={`${advancedCount} of ${realEntries.length}`} accentClass="text-emerald-400" />
             <StatCard icon={Award}      label="Offers"         value={offerCount}           accentClass="text-blue-400" />
           </div>
 
@@ -879,7 +912,7 @@ export default function InterviewDebriefPage() {
                   <Edit3 className="w-4 h-4 text-violet-400" />
                   {editingId ? 'Edit Entry' : 'New Debrief Entry'}
                 </h2>
-                <p className="text-[11px] text-slate-600 mt-0.5">The more detail you log, the better the AI insights.</p>
+                <p className="text-xs text-slate-500 mt-0.5">The more detail you log, the better the AI insights.</p>
               </div>
 
               <div className="p-5 space-y-5">
@@ -935,7 +968,7 @@ export default function InterviewDebriefPage() {
                       <div className="grid grid-cols-3 gap-1.5">
                         {(Object.keys(EMOTIONAL_EMOJIS) as EmotionalState[]).map(e => (
                           <button key={e} type="button" onClick={() => setFormData(p => ({ ...p, [field]: e }))}
-                            className={`p-2 rounded-xl text-center text-[10px] transition-all duration-150
+                            className={`p-2 rounded-xl text-center text-[11px] transition-all duration-150
                                         ${formData[field] === e
                                           ? 'bg-[var(--accent-subtle)] border border-[var(--accent-border)] text-white'
                                           : 'bg-[var(--bg-subtle)] border border-white/[0.08] text-slate-400 hover:text-white hover:border-white/[0.14]'}`}>
@@ -963,7 +996,7 @@ export default function InterviewDebriefPage() {
                         {([1, 2, 3, 4, 5] as DifficultyRating[]).map(n => (
                           <button key={n} type="button"
                             onClick={() => setFormData(p => ({ ...p, difficultyRating: n }))}
-                            className={`text-xl transition-colors ${n <= formData.difficultyRating ? 'text-amber-400' : 'text-slate-700'}`}>
+                            className={`text-xl transition-colors ${n <= formData.difficultyRating ? 'text-amber-400' : 'text-slate-500'}`}>
                             ★
                           </button>
                         ))}
@@ -989,7 +1022,7 @@ export default function InterviewDebriefPage() {
                             const arr = formData.questionsAsked.filter((_, i) => i !== idx);
                             setFormData(p => ({ ...p, questionsAsked: arr.length ? arr : [''] }));
                           }}
-                          className="w-9 h-10 flex items-center justify-center rounded-xl text-slate-600 hover:text-red-400 hover:bg-red-500/[0.08] border border-white/[0.07] transition-all flex-shrink-0">
+                          className="w-9 h-10 flex items-center justify-center rounded-xl text-slate-500 hover:text-red-400 hover:bg-red-500/[0.08] border border-white/[0.07] transition-all flex-shrink-0">
                           <X className="w-3.5 h-3.5" />
                         </button>
                       </div>
@@ -1065,7 +1098,7 @@ export default function InterviewDebriefPage() {
                     return (
                       <div key={o} className={`p-3 rounded-xl border text-center ${OUTCOME_COLORS[o]}`}>
                         <p className="text-lg font-bold tabular-nums">{count}</p>
-                        <p className="text-[10px] opacity-70 mt-0.5 leading-tight">{OUTCOME_LABELS[o]}</p>
+                        <p className="text-[11px] opacity-70 mt-0.5 leading-tight">{OUTCOME_LABELS[o]}</p>
                       </div>
                     );
                   })}
@@ -1083,7 +1116,7 @@ export default function InterviewDebriefPage() {
                       <div key={emotion} className="p-3 bg-white/[0.03] border border-white/[0.07] rounded-xl">
                         <div className="text-2xl mb-1">{EMOTIONAL_EMOJIS[emotion]}</div>
                         <p className={`text-[14px] font-bold ${clr}`}>{avg}%</p>
-                        <p className="text-[11px] text-slate-600 capitalize">{emotion} ({relevant.length}×)</p>
+                        <p className="text-xs text-slate-500 capitalize">{emotion} ({relevant.length}×)</p>
                       </div>
                     );
                   })}
@@ -1111,7 +1144,7 @@ export default function InterviewDebriefPage() {
               {entries.length > 0 && (
                 <div className="flex flex-col sm:flex-row gap-2.5">
                   <div className="relative flex-1">
-                    <Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none" />
+                    <Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
                     <input type="text" placeholder="Search by company or role…" value={searchTerm}
                       onChange={e => setSearchTerm(e.target.value)} className={`${inp} pl-9`} />
                   </div>
@@ -1127,12 +1160,12 @@ export default function InterviewDebriefPage() {
               {filtered.length === 0 ? (
                 <div className="glass-card p-12 text-center">
                   <div className="w-12 h-12 bg-white/[0.03] border border-white/[0.07] rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <BookOpen className="w-5 h-5 text-slate-600" />
+                    <BookOpen className="w-5 h-5 text-slate-500" />
                   </div>
                   <h3 className="text-[14px] font-bold text-slate-400 mb-2">
                     {entries.length === 0 ? 'Your journal is empty' : 'No results found'}
                   </h3>
-                  <p className="text-[12px] text-slate-600 mb-6 max-w-xs mx-auto leading-relaxed">
+                  <p className="text-[12px] text-slate-500 mb-6 max-w-xs mx-auto leading-relaxed">
                     {entries.length === 0
                       ? 'Log your first real interview to start tracking patterns and getting AI insights.'
                       : 'Try adjusting your search or filter.'}
@@ -1152,7 +1185,7 @@ export default function InterviewDebriefPage() {
                       ? new Date(entry.interviewDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                       : '';
                     return (
-                      <div key={entry.id} className="glass-card overflow-hidden">
+                      <div key={entry.id} id={`entry-${entry.id}`} className={`glass-card overflow-hidden scroll-mt-24 ${highlightId === entry.id ? 'ring-1 ring-[var(--accent-border)]' : ''}`}>
                         <div className="p-4 cursor-pointer hover:bg-white/[0.02] transition-colors"
                           onClick={() => setExpandedId(isExpanded ? null : entry.id)}>
                           <div className="flex items-start justify-between gap-3">
@@ -1163,40 +1196,42 @@ export default function InterviewDebriefPage() {
                               <div className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center gap-2 mb-1">
                                   <h3 className="text-[14px] font-bold text-white break-words min-w-0">{entry.companyName}</h3>
-                                  <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${OUTCOME_COLORS[entry.outcome]}`}>
+                                  <span className={`text-[11px] px-2 py-0.5 rounded-full border font-semibold ${OUTCOME_COLORS[entry.outcome]}`}>
                                     {OUTCOME_LABELS[entry.outcome]}
                                   </span>
                                 </div>
-                                <p className="text-[12px] text-slate-500">{entry.jobTitle} · {STAGE_LABELS[entry.stage]}</p>
+                                <p className="text-[12px] text-slate-400">{entry.jobTitle} · {STAGE_LABELS[entry.stage]}</p>
                                 <div className="flex items-center gap-3 mt-2 flex-wrap">
-                                  <span className="flex items-center gap-1 text-[11px] text-slate-600">
+                                  <span className="flex items-center gap-1 text-xs text-slate-500">
                                     <Calendar className="w-3 h-3" />{dateStr}
                                   </span>
-                                  <span className="flex items-center gap-1 text-[11px] text-slate-600">
-                                    <Clock className="w-3 h-3" />{entry.durationMinutes}m
+                                  <span className="flex items-center gap-1 text-xs text-slate-500">
+                                    <Clock className="w-3 h-3" />{entry.durationMinutes ? `${entry.durationMinutes}m` : '-'}
                                   </span>
-                                  <span className="flex items-center gap-1 text-[11px] text-slate-600">
+                                  <span className="flex items-center gap-1 text-xs text-slate-500">
                                     <Star className="w-3 h-3" />{entry.selfScore}%
                                   </span>
-                                  <span className="text-[13px]">
-                                    {EMOTIONAL_EMOJIS[entry.emotionalStateBefore]} → {EMOTIONAL_EMOJIS[entry.emotionalStateAfter]}
-                                  </span>
-                                  <span className="text-amber-400 text-[11px]">{'★'.repeat(entry.difficultyRating)}</span>
+                                  {entry.emotionalStateBefore && entry.emotionalStateAfter && (
+                                    <span className="text-[13px]">
+                                      {EMOTIONAL_EMOJIS[entry.emotionalStateBefore]} → {EMOTIONAL_EMOJIS[entry.emotionalStateAfter]}
+                                    </span>
+                                  )}
+                                  {entry.difficultyRating > 0 && <span className="text-amber-400 text-xs">{'★'.repeat(entry.difficultyRating)}</span>}
                                 </div>
                               </div>
                             </div>
                             <div className="flex items-center gap-0.5 flex-shrink-0">
                               <button onClick={ev => { ev.stopPropagation(); handleEdit(entry); }}
-                                className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-600 hover:text-violet-400 hover:bg-violet-500/[0.08] transition-all">
+                                className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-violet-400 hover:bg-violet-500/[0.08] transition-all">
                                 <Edit3 className="w-3.5 h-3.5" />
                               </button>
                               <button onClick={ev => { ev.stopPropagation(); handleDelete(entry.id); }}
-                                className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/[0.08] transition-all">
+                                className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/[0.08] transition-all">
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
                               {isExpanded
-                                ? <ChevronUp className="w-4 h-4 text-slate-600 ml-1" />
-                                : <ChevronDown className="w-4 h-4 text-slate-600 ml-1" />}
+                                ? <ChevronUp className="w-4 h-4 text-slate-500 ml-1" />
+                                : <ChevronDown className="w-4 h-4 text-slate-500 ml-1" />}
                             </div>
                           </div>
                         </div>
@@ -1205,7 +1240,7 @@ export default function InterviewDebriefPage() {
                           <div className="border-t border-white/[0.05] px-4 pb-4 pt-4 space-y-4">
                             {entry.questionsAsked.filter(Boolean).length > 0 && (
                               <div>
-                                <p className="text-[11px] text-slate-600 uppercase tracking-wide font-semibold mb-2 flex items-center gap-1">
+                                <p className="text-xs text-slate-500 uppercase tracking-wide font-semibold mb-2 flex items-center gap-1">
                                   <MessageSquare className="w-3.5 h-3.5" /> Questions Asked
                                 </p>
                                 <ul className="space-y-1">
@@ -1220,48 +1255,52 @@ export default function InterviewDebriefPage() {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                               {entry.whatWentWell && (
                                 <div className="p-3 bg-emerald-500/[0.06] border border-emerald-500/15 rounded-xl">
-                                  <p className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wide mb-1.5 flex items-center gap-1">
+                                  <p className="text-[11px] text-emerald-400 font-semibold uppercase tracking-wide mb-1.5 flex items-center gap-1">
                                     <CheckCircle2 className="w-3.5 h-3.5" /> What Went Well
                                   </p>
-                                  <p className="text-[13px] text-slate-300 leading-relaxed">{entry.whatWentWell}</p>
+                                  <p className="text-[13px] text-slate-300 leading-relaxed whitespace-pre-line break-words">{entry.whatWentWell}</p>
                                 </div>
                               )}
                               {entry.whatWentPoorly && (
                                 <div className="p-3 bg-red-500/[0.06] border border-red-500/15 rounded-xl">
-                                  <p className="text-[10px] text-red-400 font-semibold uppercase tracking-wide mb-1.5 flex items-center gap-1">
+                                  <p className="text-[11px] text-red-400 font-semibold uppercase tracking-wide mb-1.5 flex items-center gap-1">
                                     <AlertTriangle className="w-3.5 h-3.5" /> What Went Poorly
                                   </p>
-                                  <p className="text-[13px] text-slate-300 leading-relaxed">{entry.whatWentPoorly}</p>
+                                  <p className="text-[13px] text-slate-300 leading-relaxed whitespace-pre-line break-words">{entry.whatWentPoorly}</p>
                                 </div>
                               )}
                               {entry.surprises && (
                                 <div className="p-3 bg-amber-500/[0.06] border border-amber-500/15 rounded-xl">
-                                  <p className="text-[10px] text-amber-400 font-semibold uppercase tracking-wide mb-1.5 flex items-center gap-1">
+                                  <p className="text-[11px] text-amber-400 font-semibold uppercase tracking-wide mb-1.5 flex items-center gap-1">
                                     <Lightbulb className="w-3.5 h-3.5" /> Surprises
                                   </p>
-                                  <p className="text-[13px] text-slate-300 leading-relaxed">{entry.surprises}</p>
+                                  <p className="text-[13px] text-slate-300 leading-relaxed whitespace-pre-line break-words">{entry.surprises}</p>
                                 </div>
                               )}
                               {entry.followUpActions && (
                                 <div className="p-3 bg-blue-500/[0.06] border border-blue-500/15 rounded-xl">
-                                  <p className="text-[10px] text-blue-400 font-semibold uppercase tracking-wide mb-1.5 flex items-center gap-1">
+                                  <p className="text-[11px] text-blue-400 font-semibold uppercase tracking-wide mb-1.5 flex items-center gap-1">
                                     <Target className="w-3.5 h-3.5" /> Follow-up Actions
                                   </p>
-                                  <p className="text-[13px] text-slate-300 leading-relaxed">{entry.followUpActions}</p>
+                                  <p className="text-[13px] text-slate-300 leading-relaxed whitespace-pre-line break-words">{entry.followUpActions}</p>
                                 </div>
                               )}
                             </div>
                             {entry.overallNotes && (
                               <div className="p-3 bg-white/[0.03] border border-white/[0.07] rounded-xl">
-                                <p className="text-[10px] text-slate-600 uppercase tracking-wide font-semibold mb-1.5 flex items-center gap-1">
+                                <p className="text-[11px] text-slate-500 uppercase tracking-wide font-semibold mb-1.5 flex items-center gap-1">
                                   <Eye className="w-3.5 h-3.5" /> Overall Notes
                                 </p>
-                                <p className="text-[13px] text-slate-300 leading-relaxed">{entry.overallNotes}</p>
+                                <p className="text-[13px] text-slate-300 leading-relaxed whitespace-pre-line break-words">{entry.overallNotes}</p>
                               </div>
                             )}
-                            <p className="text-[11px] text-slate-600">
-                              Difficulty: <span className="text-amber-400">{'★'.repeat(entry.difficultyRating)}{'☆'.repeat(5 - entry.difficultyRating)}</span>
-                              <span className="mx-2">·</span>
+                            <p className="text-xs text-slate-500">
+                              {entry.difficultyRating > 0 && (
+                                <>
+                                  Difficulty: <span className="text-amber-400">{'★'.repeat(entry.difficultyRating)}{'☆'.repeat(5 - entry.difficultyRating)}</span>
+                                  <span className="mx-2">·</span>
+                                </>
+                              )}
                               {entry.interviewerCount} interviewer{entry.interviewerCount > 1 ? 's' : ''}
                             </p>
                           </div>

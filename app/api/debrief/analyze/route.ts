@@ -27,7 +27,7 @@ interface DebriefEntry { companyName: string; jobTitle: string; stage: string; o
 
 function buildPrompt(entries: DebriefEntry[], userContext: string): string {
   const text = entries.map((e, i) => `--- Entry ${i + 1} ---
-Company: ${e.companyName} | Role: ${e.jobTitle} | Stage: ${e.stage} | Outcome: ${e.outcome}
+Company: ${e.companyName} | Role: ${e.jobTitle} | Stage: ${e.stage} | Outcome: ${e.outcome === 'practice' ? 'practice (an AI mock interview, not a real one; score was given by the AI interviewer, not self-rated)' : e.outcome}
 Date: ${e.interviewDate} | ${e.durationMinutes}min | Self: ${e.selfScore}/100 | Difficulty: ${e.difficultyRating}/5
 Emotional: ${e.emotionalStateBefore} → ${e.emotionalStateAfter}
 Questions: ${e.questionsAsked.filter(Boolean).join('; ') || 'not recorded'}

@@ -24,6 +24,7 @@
     "verify:funnel": "tsx scripts/verify-funnel.ts",
     "verify:practice": "tsx --env-file=.env.local scripts/verify-practice.ts",
     "verify:writing-check": "tsx scripts/verify-writing-check.ts",
+    "verify:transcript-analysis": "tsx scripts/verify-transcript-analysis.ts",
     "verify:inbound": "tsx scripts/verify-inbound.ts",
     "verify:inbound-webhook": "tsx --env-file=.env.local scripts/verify-inbound-webhook.ts"
   },
