@@ -663,20 +663,33 @@ function HelpSupportContent() {
       {/* Masthead - full bleed, so the page reads as a section of the product
           rather than a card floating in the middle of a very wide screen. */}
       <header className="border-b border-white/[0.07] bg-[var(--bg)]/90 backdrop-blur-xl sticky top-0 z-20">
-        {/* Title and tabs are one column so the Dashboard button can centre
-            against the masthead as a whole. It used to live inside the title
-            row, which centred it on that row only and left it sitting high
-            against the two-row header. */}
-        <div className="px-4 sm:px-6 lg:px-10 xl:px-16 flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <div className="pt-3"><Breadcrumbs crumbs={crumbsFor('/help', 'Support')} className="mb-2" /></div>
-            <div className="flex items-center gap-3 pb-3">
-              <div className="w-10 h-10 rounded-[10px] bg-[var(--accent-subtle)] border border-[var(--accent-border)] flex items-center justify-center flex-shrink-0">
-                <HelpCircle className="w-5 h-5 text-indigo-200" strokeWidth={1.75} />
-              </div>
-              <h1 className="text-[20px] font-semibold text-white tracking-tight truncate">Help &amp; Support</h1>
-            </div>
+        {/* Three rows, like every other page's header: the trail on its own
+            divided row, then the title with its action, then the tabs. The
+            trail used to sit 12px from the top edge and 8px from the title,
+            so the masthead read as one cramped block. */}
+        <div className="px-4 sm:px-6 lg:px-10 xl:px-16 py-2 border-b border-white/[0.06] bg-white/[0.015]">
+          <Breadcrumbs crumbs={crumbsFor('/help', 'Support')} className="" />
+        </div>
 
+        <div className="px-4 sm:px-6 lg:px-10 xl:px-16 pt-6 pb-5 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className="w-11 h-11 rounded-[12px] bg-[var(--accent-subtle)] border border-[var(--accent-border)] flex items-center justify-center flex-shrink-0">
+              <HelpCircle className="w-5 h-5 text-indigo-200" strokeWidth={1.75} />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-[22px] font-semibold text-white tracking-tight leading-tight truncate">Help &amp; Support</h1>
+              <p className="text-[13px] text-slate-400 mt-1 leading-snug">Answers to common questions, or a direct line to our team</p>
+            </div>
+          </div>
+
+          <Link href={user ? '/' : '/sign-in'} className="btn-secondary flex-shrink-0">
+            {user
+              ? <><Home /><span className="hidden sm:inline">Dashboard</span></>
+              : <><LogOut className="rotate-180" /><span className="hidden sm:inline">Sign in</span></>}
+          </Link>
+        </div>
+
+        <div className="px-4 sm:px-6 lg:px-10 xl:px-16">
             {/* Underline tabs. A filled gradient pill reads as a call to action;
                 these are navigation, and should sit quietly until chosen. */}
             <nav className="flex gap-6 -mb-px" aria-label="Help sections">
@@ -705,15 +718,6 @@ function HelpSupportContent() {
                 );
               })}
             </nav>
-          </div>
-
-          <Link href={user ? '/' : '/sign-in'}
-            className="flex-shrink-0 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/[0.08]
-                       text-sm text-slate-400 hover:text-white hover:border-white/[0.16] transition-colors">
-            {user
-              ? <><Home className="w-4 h-4" /><span className="hidden sm:inline">Dashboard</span></>
-              : <><LogOut className="w-4 h-4 rotate-180" /><span className="hidden sm:inline">Sign in</span></>}
-          </Link>
         </div>
       </header>
 
