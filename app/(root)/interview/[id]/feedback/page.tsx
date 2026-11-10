@@ -167,13 +167,16 @@ export default async function InterviewFeedbackPage({ params }: Props) {
     return "Needs Improvement";
   };
 
+  // Full class names, never `bg-${color}-500`: Tailwind only generates
+  // classes it can find written out, so the built string had no background
+  // and the grade letter floated over the ring unreadable.
   const getGradeBadge = (score: number): { grade: string; color: string } => {
-    if (score >= 95) return { grade: "A+", color: "emerald" };
-    if (score >= 85) return { grade: "A", color: "blue" };
-    if (score >= 75) return { grade: "B+", color: "purple" };
-    if (score >= 65) return { grade: "B", color: "amber" };
-    if (score >= 55) return { grade: "C", color: "orange" };
-    return { grade: "D", color: "red" };
+    if (score >= 95) return { grade: "A+", color: "bg-emerald-500 shadow-emerald-500/30" };
+    if (score >= 85) return { grade: "A", color: "bg-blue-500 shadow-blue-500/30" };
+    if (score >= 75) return { grade: "B+", color: "bg-violet-500 shadow-violet-500/30" };
+    if (score >= 65) return { grade: "B", color: "bg-amber-500 shadow-amber-500/30" };
+    if (score >= 55) return { grade: "C", color: "bg-orange-500 shadow-orange-500/30" };
+    return { grade: "D", color: "bg-red-500 shadow-red-500/30" };
   };
 
   const gradeBadge = getGradeBadge(feedback.totalScore);
@@ -269,8 +272,8 @@ export default async function InterviewFeedbackPage({ params }: Props) {
                     <div className="text-xs sm:text-sm text-slate-400">/100</div>
                   </div>
                 </div>
-                <div className="absolute -top-2 -right-2">
-                  <div className={`w-12 h-12 sm:w-14 sm:h-14 bg-${gradeBadge.color}-500 rounded-full flex items-center justify-center text-white font-semibold text-base sm:text-lg border-4 border-slate-900`}>
+                <div className="absolute -top-1 -right-1" aria-label={`Grade ${gradeBadge.grade}`}>
+                  <div className={`w-11 h-11 sm:w-12 sm:h-12 ${gradeBadge.color} rounded-full flex items-center justify-center text-white font-bold text-base sm:text-lg ring-4 ring-[var(--bg)] shadow-lg`}>
                     {gradeBadge.grade}
                   </div>
                 </div>

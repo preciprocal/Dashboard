@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+/* Safelist for colour classes built at runtime (`bg-${accent}-500/20`).
+   Tailwind only generates classes it can see written out, so these were
+   silently missing: the solutions page and the planner's progress and
+   readiness cards rendered their icon tiles with no colour at all. Prefer
+   full class names in new code; this keeps the existing ones working. */
+@source inline("{bg,border,text}-{blue,emerald,indigo,orange,purple,red,violet}-{300,500,600,700,900}");
+@source inline("{bg,border}-{blue,emerald,indigo,orange,purple,red,violet}-{500,600,900}/{20,30,50}");
+@source inline("bg-{blue,emerald,indigo,orange,purple,red,violet}-500/[0.08]");
+@source inline("hover:bg-{blue,emerald,indigo,orange,purple,red,violet}-700");
+
 /* ─── Design Tokens ─────────────────────────────────────────────────────────
    Single source of truth for the entire app. The direction is a calm,
    product-grade dark UI: a lifted graphite base, solid surfaces separated by

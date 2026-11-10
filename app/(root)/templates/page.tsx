@@ -384,15 +384,31 @@ export default function TemplatesPage() {
       <div className="glass-card p-5 sm:p-6">
         {/* Same breadcrumb bar as every other page header (PageHeader). */}
         <div className="-mx-5 sm:-mx-6 -mt-5 sm:-mt-6 mb-5 px-5 sm:px-6 rounded-t-[var(--r-2xl)] border-b border-white/[0.06] bg-white/[0.015] py-2"><Breadcrumbs crumbs={crumbsFor('/templates', 'Templates')} className="" /></div>
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-10 h-10 rounded-[10px] bg-[var(--accent-subtle)] border border-[var(--accent-border)] flex items-center justify-center flex-shrink-0">
-            <BookOpen className="w-5 h-5 text-indigo-200" strokeWidth={1.75} />
+        {/* Title on the left, the All / Saved switch on the right end of the
+            same row (stacked under the title on phones). */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 mb-5">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="w-10 h-10 rounded-[10px] bg-[var(--accent-subtle)] border border-[var(--accent-border)] flex items-center justify-center flex-shrink-0">
+              <BookOpen className="w-5 h-5 text-indigo-200" strokeWidth={1.75} />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-[20px] font-semibold text-white tracking-tight leading-tight">Interview Templates</h1>
+              <p className="text-[13px] text-slate-400 mt-0.5">
+                {stats.total}+ ready-made interviews across every field
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-[20px] font-semibold text-white tracking-tight leading-tight">Interview Templates</h1>
-            <p className="text-[13px] text-slate-400 mt-0.5">
-              {stats.total}+ ready-made interviews across every field
-            </p>
+
+          <div role="tablist" aria-label="Templates" className="inline-flex self-start sm:self-auto flex-shrink-0 gap-1 p-1 rounded-[var(--r-md)] bg-[var(--bg-subtle)] border border-[var(--border)]">
+            {([['all', 'All templates', templateData.length], ['saved', 'Saved', savedIds.size]] as const).map(([id, label, n]) => (
+              <button key={id} role="tab" aria-selected={view === id} onClick={() => setView(id)}
+                className={`inline-flex items-center gap-2 h-8 px-3.5 rounded-[calc(var(--r-md)-3px)] text-[13px] font-medium transition-colors cursor-pointer border ${
+                  view === id ? 'bg-[var(--accent-subtle)] text-white border-[var(--accent-border)]' : 'text-slate-400 hover:text-white border-transparent'}`}>
+                {id === 'saved' && <BookmarkCheck className="w-3.5 h-3.5" />}
+                {label}
+                <span className={`text-xs tabular-nums ${view === id ? 'text-indigo-200' : 'text-slate-500'}`}>{n}</span>
+              </button>
+            ))}
           </div>
         </div>
 
@@ -410,19 +426,6 @@ export default function TemplatesPage() {
               </div>
               <p className="text-xs text-slate-500">{s.label}</p>
             </div>
-          ))}
-        </div>
-
-        {/* All / Saved */}
-        <div role="tablist" aria-label="Templates" className="inline-flex gap-1 p-1 mb-4 rounded-xl bg-slate-800/50 border border-white/[0.06]">
-          {([['all', 'All templates', templateData.length], ['saved', 'Saved', savedIds.size]] as const).map(([id, label, n]) => (
-            <button key={id} role="tab" aria-selected={view === id} onClick={() => setView(id)}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                view === id ? 'bg-purple-600/25 text-white border border-purple-500/30' : 'text-slate-400 hover:text-white border border-transparent'}`}>
-              {id === 'saved' && <BookmarkCheck className="w-3.5 h-3.5" />}
-              {label}
-              <span className={`text-xs tabular-nums ${view === id ? 'text-purple-200' : 'text-slate-500'}`}>{n}</span>
-            </button>
           ))}
         </div>
 
