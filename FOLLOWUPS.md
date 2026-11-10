@@ -974,7 +974,7 @@ and the interview pages as owner (load) and as another account (404).
 
 ---
 
-## 31. OPEN - apply migrations 0055 and 0056, and update the privacy policy for pooled reply rates
+## 31. OPEN - apply migrations 0055 and 0056, and update the privacy policy and Terms of Service
 
 **Severity: medium. Blocks pooled company odds from showing, nothing else.**
 
@@ -1001,7 +1001,38 @@ Without it, "Practise this interview" still works from the role, company and
 stage, but not from the saved posting, and descriptions typed into the
 tracker form are dropped (logged, never a failed save).
 
-**Unblocked by** the owner applying 0055 and 0056 and publishing the wording.
+The Terms of Service on preciprocal.com should cover the new features too.
+Suggested wording (check it against the current Terms first):
+
+> **Job insights.** Reply rates, ghost-job warnings, funnel diagnoses and
+> similar insights are estimates based on job postings and on the combined,
+> anonymous results of Preciprocal users. They are for information only. They
+> are not a guarantee of how any employer will respond, and you decide where
+> and whether to apply.
+>
+> **Autofill and applications.** Preciprocal fills application forms from the
+> profile you provide. You are responsible for reviewing every application and
+> submitting it yourself; we never submit an application for you. We do not
+> answer demographic, work-authorization, citizenship, criminal-record or
+> certification questions unless you have saved an answer, and you are
+> responsible for making sure every answer you submit is true.
+>
+> **AI-generated content.** Cover letters, resume suggestions and other text we
+> generate are drafts. We design them to use only the information you give us,
+> but you are responsible for checking them for accuracy before you use them.
+>
+> **Forwarded emails.** If you forward emails to your Preciprocal address, you
+> authorize us to read them in order to update your job tracker. Only forward
+> emails about your own job applications. We keep the subject line and what we
+> found in it, not the email itself. You can change your address at any time,
+> which stops us accepting mail sent to the old one.
+>
+> **Interview practice.** Mock interviews are for preparation before an
+> interview. Do not use Preciprocal to get help during a live interview or
+> assessment where the employer has not allowed it.
+
+**Unblocked by** the owner applying 0055 and 0056 and publishing both the
+privacy and the Terms wording.
 
 ---
 
