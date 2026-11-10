@@ -77,7 +77,7 @@ function TemplateDetail({ t, onBack }: { t: OutreachTemplate; onBack: () => void
           className="lg:hidden inline-flex items-center gap-1.5 text-[13px] text-slate-400 hover:text-white mb-3 cursor-pointer">
           <ArrowLeft className="w-3.5 h-3.5" /> All templates
         </button>
-        <div className="flex items-center gap-2 text-[12px] text-slate-500 mb-2">
+        <div className="flex items-center gap-2 text-[12px] text-slate-400 mb-2">
           <ChannelIcon channel={t.channel} className="w-3.5 h-3.5" />
           <span>{t.channel === 'linkedin' ? 'LinkedIn message' : 'Email'}</span>
           <span aria-hidden="true">·</span>
@@ -85,7 +85,7 @@ function TemplateDetail({ t, onBack }: { t: OutreachTemplate; onBack: () => void
         </div>
         <h2 className="text-[18px] font-semibold text-white leading-snug">{t.title}</h2>
         <p className="text-[13px] text-slate-400 mt-1.5 leading-relaxed">
-          <span className="text-slate-500">When to use it:</span> {t.situation}
+          <span className="text-slate-400">When to use it:</span> {t.situation}
         </p>
       </div>
 
@@ -93,7 +93,7 @@ function TemplateDetail({ t, onBack }: { t: OutreachTemplate; onBack: () => void
       <div className="px-5 sm:px-6 py-5 space-y-4">
         {t.subject && (
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500 mb-1.5">Subject</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-400 mb-1.5">Subject</p>
             <div className="rounded-[var(--r-md)] border border-[var(--border)] bg-[var(--bg-subtle)] px-4 py-3 text-[14px] text-white">
               <Highlighted text={t.subject} />
             </div>
@@ -101,9 +101,9 @@ function TemplateDetail({ t, onBack }: { t: OutreachTemplate; onBack: () => void
         )}
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500">Message</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-400">Message</p>
             {t.channel === 'linkedin' && (
-              <p className={`text-[11px] tabular-nums ${overLimit ? 'text-slate-500' : 'text-emerald-400'}`}>
+              <p className={`text-xs tabular-nums ${overLimit ? 'text-slate-400' : 'text-emerald-400'}`}>
                 {t.body.length} characters{overLimit ? ' (send as a message, not a connection note)' : ` · fits a ${LINKEDIN_NOTE_LIMIT}-character note`}
               </p>
             )}
@@ -125,7 +125,7 @@ function TemplateDetail({ t, onBack }: { t: OutreachTemplate; onBack: () => void
       {/* Fields and tips */}
       <div className="grid sm:grid-cols-2 gap-px bg-white/[0.06] border-t border-white/[0.06]">
         <div className="bg-[var(--bg-surface)] px-5 sm:px-6 py-5">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500 mb-3">Fill in before sending ({fields.length})</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-400 mb-3">Fill in before sending ({fields.length})</p>
           <ul className="flex flex-wrap gap-1.5">
             {fields.map(f => (
               <li key={f} className="rounded-md px-2 py-1 text-[12px] bg-[var(--accent-subtle)] text-indigo-200 border border-[var(--accent-border)]">
@@ -135,7 +135,7 @@ function TemplateDetail({ t, onBack }: { t: OutreachTemplate; onBack: () => void
           </ul>
         </div>
         <div className="bg-[var(--bg-surface)] px-5 sm:px-6 py-5">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500 mb-3 flex items-center gap-1.5">
+          <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-400 mb-3 flex items-center gap-1.5">
             <Lightbulb className="w-3.5 h-3.5 text-amber-400" /> Why it works
           </p>
           <ul className="space-y-2">
@@ -195,13 +195,13 @@ export default function OutreachTemplatesPage() {
       <div className="glass-card p-4 space-y-3">
         <div className="flex flex-col sm:flex-row gap-2.5">
           <div className="relative flex-1">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <input type="text" value={query} onChange={e => setQuery(e.target.value)}
               placeholder="Search: referral, salary, thank you, visa…" aria-label="Search templates"
               className="field pl-10 pr-10" />
             {query && (
               <button type="button" onClick={() => setQuery('')} aria-label="Clear search"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white cursor-pointer">
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             )}
@@ -225,7 +225,7 @@ export default function OutreachTemplatesPage() {
                 className={`flex-shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[13px] font-medium border transition-colors cursor-pointer ${
                   on ? 'bg-[var(--accent-subtle)] border-[var(--accent-border)] text-white' : 'border-[var(--border)] text-slate-400 hover:text-white hover:border-[var(--border-hover)]'}`}>
                 {c.label}
-                <span className={`text-[11px] tabular-nums ${on ? 'text-indigo-200' : 'text-slate-600'}`}>{countFor(c.id)}</span>
+                <span className={`text-xs tabular-nums ${on ? 'text-indigo-200' : 'text-slate-500'}`}>{countFor(c.id)}</span>
               </button>
             );
           })}
@@ -235,7 +235,7 @@ export default function OutreachTemplatesPage() {
       {filtered.length === 0 ? (
         <div className="glass-card p-10 text-center">
           <p className="text-white font-medium">No templates match that search</p>
-          <p className="text-[13px] text-slate-500 mt-1">Try a broader word, or let the AI write one for your exact situation.</p>
+          <p className="text-[13px] text-slate-400 mt-1">Try a broader word, or let the AI write one for your exact situation.</p>
           <div className="mt-4 flex justify-center gap-2">
             <button type="button" className="btn-secondary" onClick={() => { setQuery(''); setCategory('all'); setChannel('all'); }}>Clear filters</button>
             <Link href="/career-tools?tool=outreach" className="btn-primary"><Sparkles /> Write with AI</Link>
@@ -247,7 +247,7 @@ export default function OutreachTemplatesPage() {
           <nav aria-label="Templates" className={`glass-card overflow-hidden ${mobileDetail ? 'hidden lg:block' : ''}`}>
             {grouped.map((g, gi) => (
               <div key={g.id} className={gi > 0 ? 'border-t border-white/[0.06]' : ''}>
-                <p className="px-4 pt-4 pb-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500">{g.label}</p>
+                <p className="px-4 pt-4 pb-2 text-xs font-semibold uppercase tracking-[0.1em] text-slate-400">{g.label}</p>
                 <ul className="pb-2">
                   {g.items.map(t => {
                     const on = selected?.id === t.id;
@@ -260,7 +260,7 @@ export default function OutreachTemplatesPage() {
                           <ChannelIcon channel={t.channel} className="w-4 h-4 mt-0.5 flex-shrink-0" />
                           <span className="min-w-0">
                             <span className={`block text-[14px] leading-snug ${on ? 'text-white font-medium' : 'text-slate-300'}`}>{t.title}</span>
-                            <span className="block text-[12px] text-slate-500 mt-0.5 line-clamp-1">{t.situation}</span>
+                            <span className="block text-[12px] text-slate-400 mt-0.5 line-clamp-1">{t.situation}</span>
                           </span>
                         </button>
                       </li>

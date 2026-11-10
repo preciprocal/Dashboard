@@ -355,7 +355,7 @@ const ResetPasswordPage = () => {
           </div>
 
           {/* Help Text */}
-          <p className="mt-8 text-center text-xs text-slate-500">
+          <p className="mt-8 text-center text-xs text-slate-400">
             Having trouble? Contact our{" "}
             <Link href="/help" className="text-slate-400 hover:text-slate-300 underline">
               support team

@@ -246,7 +246,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
 
           {/* Hero */}
           <div className="max-w-xl py-12">
-            <p className="mb-6 text-[11px] font-semibold uppercase tracking-[0.2em] text-indigo-400/80">
+            <p className="mb-6 text-xs font-semibold uppercase tracking-[0.2em] text-indigo-400/80">
               AI interview preparation
             </p>
 
@@ -288,7 +288,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
                   </div>
                   <div>
                     <h3 className="text-[14px] font-semibold text-white tracking-tight">{title}</h3>
-                    <p className="mt-1 text-[13px] text-slate-500 leading-relaxed">{body}</p>
+                    <p className="mt-1 text-[13px] text-slate-400 leading-relaxed">{body}</p>
                   </div>
                 </div>
               ))}
@@ -296,7 +296,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between text-[11px] text-slate-600 tracking-wide">
+          <div className="flex items-center justify-between text-xs text-slate-500 tracking-wide">
             <span>&copy; {new Date().getFullYear()} Preciprocal</span>
             <div className="flex items-center gap-5">
               <a href={`${SITE.marketing}/terms`} target="_blank" rel="noopener noreferrer" className="hover:text-slate-400 transition-colors">
@@ -359,7 +359,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
                 {isGoogleLoading ? "Connecting..." : "Continue with Google"}
               </span>
             </button>
-            <p className="text-[11px] leading-relaxed text-slate-500 text-center">
+            <p className="text-xs leading-relaxed text-slate-400 text-center">
               By continuing with Google, you agree to our{" "}
               <a href={`${SITE.marketing}/terms`} target="_blank" rel="noopener noreferrer" className="text-slate-400 underline underline-offset-2 hover:text-slate-300">Terms of Service</a>
               {" "}and{" "}
@@ -372,7 +372,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
               <div className="w-full border-t border-slate-800"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-[#050810] text-slate-500 font-medium">
+              <span className="px-4 bg-[#050810] text-slate-400 font-medium">
                 Or continue with email
               </span>
             </div>
@@ -435,7 +435,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
                   </button>
                 </div>
                 {!isSignIn && (
-                  <p className="text-xs text-slate-500 mt-2">
+                  <p className="text-xs text-slate-400 mt-2">
                     Must be at least 6 characters
                   </p>
                 )}

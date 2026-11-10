@@ -74,7 +74,7 @@ export function Breadcrumbs({ crumbs, className = "mb-3" }: { crumbs: Crumb[]; c
               {c.href && !last
                 ? <Link href={c.href} className="inline-flex items-center gap-1.5 h-7 px-1.5 rounded-md text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors min-w-0">{content}</Link>
                 : <span aria-current={last ? "page" : undefined} className="inline-flex items-center gap-1.5 h-7 px-1.5 text-white font-medium min-w-0">{content}</span>}
-              {!last && <ChevronRight className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" aria-hidden="true" />}
+              {!last && <ChevronRight className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" aria-hidden="true" />}
             </li>
           );
         })}

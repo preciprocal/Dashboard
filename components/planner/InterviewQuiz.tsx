@@ -235,7 +235,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
           <p className="text-lg text-slate-400 mb-3">
             Our AI is analyzing your preparation plan
           </p>
-          <p className="text-sm text-slate-500 mb-6">
+          <p className="text-sm text-slate-400 mb-6">
             Creating personalized questions based on your study content
           </p>
           <div className="flex justify-center space-x-2">
@@ -457,7 +457,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
           <div className="relative w-64 h-64">
             <svg className="transform -rotate-90 w-64 h-64">
               <circle cx="128" cy="128" r="120" stroke="currentColor" strokeWidth="16" fill="transparent" 
-                className="text-slate-700" />
+                className="text-slate-500" />
               <circle cx="128" cy="128" r="120" stroke="url(#gradient)" strokeWidth="16" fill="transparent"
                 strokeDasharray={`${2 * Math.PI * 120}`}
                 strokeDashoffset={`${2 * Math.PI * 120 * (1 - percentage / 100)}`}
@@ -584,7 +584,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
               <p className="text-sm font-semibold text-slate-400">
                 Question {currentQuestion + 1} of {questions.length}
               </p>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-400">
                 {Math.round(((currentQuestion + 1) / questions.length) * 100)}% Complete
               </p>
             </div>
@@ -729,7 +729,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
             disabled={selectedAnswer === null}
             className={`w-full py-6 px-6 rounded-2xl font-bold text-lg transition-all duration-200 flex items-center justify-center space-x-3 ${
               selectedAnswer === null
-                ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
                 : 'bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white shadow-xl hover:shadow-2xl transform hover:scale-[1.02]'
             }`}
           >

@@ -71,7 +71,7 @@ function Card({ title, subtitle, children }: { title: string; subtitle?: string;
     <section className="glass-card overflow-hidden">
       <div className="px-5 py-4 border-b border-white/[0.06]">
         <h2 className="text-sm font-semibold text-white">{title}</h2>
-        {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
+        {subtitle && <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>}
       </div>
       <div className="p-5">{children}</div>
     </section>
@@ -81,12 +81,12 @@ function Card({ title, subtitle, children }: { title: string; subtitle?: string;
 function Stat({ icon: Icon, label, value, hint }: { icon: React.ElementType; label: string; value: string; hint?: string }) {
   return (
     <div className="glass-card p-4">
-      <div className="flex items-center gap-2 text-slate-500 text-xs">
+      <div className="flex items-center gap-2 text-slate-400 text-xs">
         <Icon className="w-3.5 h-3.5" />
         <span>{label}</span>
       </div>
       <div className="text-2xl font-bold text-white mt-2 tabular-nums">{value}</div>
-      {hint && <div className="text-[11px] text-slate-500 mt-1">{hint}</div>}
+      {hint && <div className="text-xs text-slate-400 mt-1">{hint}</div>}
     </div>
   );
 }
@@ -106,7 +106,7 @@ function Table({ head, children }: { head: string[]; children: React.ReactNode }
     <div className="overflow-x-auto -mx-5 px-5">
       <table className="w-full text-sm">
         <thead>
-          <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500">
+          <tr className="text-left text-xs uppercase tracking-wider text-slate-400">
             {head.map((h, i) => <th key={h} className={`pb-2 font-semibold ${i > 0 ? 'text-right pl-4' : ''}`}>{h}</th>)}
           </tr>
         </thead>
@@ -119,7 +119,7 @@ function Table({ head, children }: { head: string[]; children: React.ReactNode }
 const td = 'py-2.5 text-right pl-4 tabular-nums text-slate-300 whitespace-nowrap';
 
 function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="text-sm text-slate-500">{children}</p>;
+  return <p className="text-sm text-slate-400">{children}</p>;
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────────
@@ -184,7 +184,7 @@ export default function AnalyticsDashboard() {
         </div>
         <form className="flex gap-2 sm:w-96" onSubmit={e => { e.preventDefault(); openUser(query, days); }}>
           <div className="relative flex-1">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Find a user by email or id"
               className="w-full pl-8 pr-3 py-2 rounded-xl text-sm text-white bg-white/[0.04] border border-white/[0.08] placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/40" />
           </div>
@@ -203,7 +203,7 @@ export default function AnalyticsDashboard() {
         ? <UserView detail={detail} onBack={() => setDetail(null)} />
         : overview
           ? <OverviewView data={overview} onOpenUser={id => openUser(id, days)} />
-          : !error && <div className="flex justify-center py-16 text-slate-500"><Loader2 className="w-5 h-5 animate-spin" /></div>}
+          : !error && <div className="flex justify-center py-16 text-slate-400"><Loader2 className="w-5 h-5 animate-spin" /></div>}
     </div>
   );
 }
@@ -256,7 +256,7 @@ function OverviewView({ data, onOpenUser }: { data: Overview; onOpenUser: (id: s
                 <td className="py-2.5 pr-4 text-white whitespace-nowrap">{e.email_type}</td>
                 <td className={td}>{num(e.sent)}</td>
                 <td className={td}>{num(e.delivered)}</td>
-                <td className={td}>{num(e.opened)} <span className="text-slate-500">({pct(e.opened, e.delivered)})</span></td>
+                <td className={td}>{num(e.opened)} <span className="text-slate-400">({pct(e.opened, e.delivered)})</span></td>
                 <td className={td}>{num(e.clicked)}</td>
                 <td className={td}>{pct(e.clicked, e.delivered)}</td>
                 <td className={td}>{num(e.bounced)}</td>
@@ -275,7 +275,7 @@ function OverviewView({ data, onOpenUser }: { data: Overview; onOpenUser: (id: s
                 <tr key={`${c.feature}-${c.label}-${c.target}-${i}`}>
                   <td className="py-2.5 pr-4 min-w-[200px]">
                     <div className="text-white truncate max-w-[260px]" title={c.label}>{c.label}</div>
-                    <div className="text-[11px] text-slate-500 truncate max-w-[260px]">{featureLabel(c.feature)}{c.target ? ` -> ${c.target}` : ''}</div>
+                    <div className="text-xs text-slate-400 truncate max-w-[260px]">{featureLabel(c.feature)}{c.target ? ` -> ${c.target}` : ''}</div>
                     <div className="mt-1.5"><Bar value={c.clicks} max={maxClicks} title={`${c.label}: ${c.clicks} clicks`} /></div>
                   </td>
                   <td className={td}>{num(c.clicks)}</td>
@@ -308,15 +308,15 @@ function OverviewView({ data, onOpenUser }: { data: Overview; onOpenUser: (id: s
                 <tr key={`${e.sentAt}-${i}`} onClick={() => e.userId && onOpenUser(e.userId)} className={e.userId ? 'cursor-pointer hover:bg-white/[0.02]' : ''}>
                   <td className="py-2.5 pr-4">
                     <div className="text-white truncate max-w-[220px]">{e.name || e.recipient || 'Deleted account'}</div>
-                    {e.name && <div className="text-[11px] text-slate-500 truncate max-w-[220px]">{e.recipient}</div>}
+                    {e.name && <div className="text-xs text-slate-400 truncate max-w-[220px]">{e.recipient}</div>}
                   </td>
                   <td className="py-2.5 pr-4">
                     <div className="text-slate-300 whitespace-nowrap">{e.type}</div>
-                    <div className="text-[11px] text-slate-500 truncate max-w-[240px]" title={e.subject ?? ''}>{e.subject}</div>
+                    <div className="text-xs text-slate-400 truncate max-w-[240px]" title={e.subject ?? ''}>{e.subject}</div>
                   </td>
                   <td className={td}>{when(e.sentAt)}</td>
-                  <td className={td}>{e.bounced ? <span className="text-red-300">Bounced</span> : e.deliveredAt ? 'Yes' : <span className="text-slate-500">Pending</span>}</td>
-                  <td className={td}>{e.readAt ? <span className="text-emerald-300" title={format(new Date(e.readAt), 'd MMM HH:mm')}>Read {when(e.readAt)}</span> : <span className="text-slate-500">Not yet</span>}</td>
+                  <td className={td}>{e.bounced ? <span className="text-red-300">Bounced</span> : e.deliveredAt ? 'Yes' : <span className="text-slate-400">Pending</span>}</td>
+                  <td className={td}>{e.readAt ? <span className="text-emerald-300" title={format(new Date(e.readAt), 'd MMM HH:mm')}>Read {when(e.readAt)}</span> : <span className="text-slate-400">Not yet</span>}</td>
                   <td className={td}>{e.clickedAt ? 'Yes' : '-'}{e.complained ? <span className="text-red-300"> Spam report</span> : null}</td>
                 </tr>
               ))}
@@ -332,7 +332,7 @@ function OverviewView({ data, onOpenUser }: { data: Overview; onOpenUser: (id: s
               <tr key={u.user_id} onClick={() => onOpenUser(u.user_id)} className="cursor-pointer hover:bg-white/[0.02]">
                 <td className="py-2.5 pr-4">
                   <div className="text-white">{u.name || 'Unnamed'}</div>
-                  <div className="text-[11px] text-slate-500">{u.email}</div>
+                  <div className="text-xs text-slate-400">{u.email}</div>
                 </td>
                 <td className={td}>{duration(u.engaged_ms)}</td>
                 <td className={td}>{num(u.page_views)}</td>
@@ -352,7 +352,7 @@ function OverviewView({ data, onOpenUser }: { data: Overview; onOpenUser: (id: s
 const KIND_STYLE: Record<string, string> = {
   page: 'text-slate-300',
   click: 'text-indigo-300',
-  time: 'text-slate-500',
+  time: 'text-slate-400',
   email: 'text-amber-200',
   tracker: 'text-emerald-300',
 };
@@ -372,15 +372,15 @@ function UserView({ detail, onBack }: { detail: UserDetail; onBack: () => void }
         <div>
           <h2 className="text-lg font-semibold text-white">{p.name || 'Unnamed'}</h2>
           <p className="text-sm text-slate-400">{p.email}</p>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-slate-400 mt-1">
             {p.plan}{p.planStatus && p.planStatus !== 'active' ? ` (${p.planStatus})` : ''}
             {' '}&middot; joined {format(new Date(p.createdAt), 'd MMM yyyy')}
             {p.targetRole ? ` · aiming for ${p.targetRole}` : ''}
           </p>
         </div>
-        <div className="text-xs text-slate-500 sm:text-right">
+        <div className="text-xs text-slate-400 sm:text-right">
           Last active {p.lastSeen ? when(p.lastSeen) : 'never recorded'}
-          <div className="font-mono text-[10px] mt-1 text-slate-600">{p.userId}</div>
+          <div className="font-mono text-[11px] mt-1 text-slate-500">{p.userId}</div>
         </div>
       </div>
 
@@ -432,12 +432,12 @@ function UserView({ detail, onBack }: { detail: UserDetail; onBack: () => void }
               <tr key={`${e.sentAt}-${i}`}>
                 <td className="py-2.5 pr-4">
                   <div className="text-white">{e.type}</div>
-                  <div className="text-[11px] text-slate-500 truncate max-w-[280px]" title={e.subject ?? ''}>{e.subject}</div>
-                  {e.links.length > 0 && <div className="text-[11px] text-indigo-300 truncate max-w-[280px]" title={e.links.join('\n')}>Clicked: {e.links[0]}{e.links.length > 1 ? ` +${e.links.length - 1}` : ''}</div>}
+                  <div className="text-xs text-slate-400 truncate max-w-[280px]" title={e.subject ?? ''}>{e.subject}</div>
+                  {e.links.length > 0 && <div className="text-xs text-indigo-300 truncate max-w-[280px]" title={e.links.join('\n')}>Clicked: {e.links[0]}{e.links.length > 1 ? ` +${e.links.length - 1}` : ''}</div>}
                 </td>
                 <td className={td}>{when(e.sentAt)}</td>
                 <td className={td}>{e.bounced ? <span className="text-red-300">Bounced</span> : e.delivered ? 'Yes' : '-'}</td>
-                <td className={td}>{e.opened ? <span className="text-emerald-300">Read</span> : <span className="text-slate-500">Not yet</span>}</td>
+                <td className={td}>{e.opened ? <span className="text-emerald-300">Read</span> : <span className="text-slate-400">Not yet</span>}</td>
                 <td className={td}>{e.clicked ? 'Yes' : '-'}{e.complained ? <span className="text-red-300"> Spam report</span> : null}</td>
                 <td className={td}>{num(e.visitsFromEmail)}</td>
               </tr>
@@ -454,7 +454,7 @@ function UserView({ detail, onBack }: { detail: UserDetail; onBack: () => void }
                 <tr key={v.start}>
                   <td className="py-2.5 pr-4 text-slate-300 whitespace-nowrap">
                     {format(new Date(v.start), 'd MMM, HH:mm')}
-                    {v.source && <div className="text-[11px] text-amber-200">from {v.source}</div>}
+                    {v.source && <div className="text-xs text-amber-200">from {v.source}</div>}
                   </td>
                   <td className={td}>{duration(v.engagedMs)}</td>
                   <td className={td}>{num(v.pages)}</td>
@@ -472,7 +472,7 @@ function UserView({ detail, onBack }: { detail: UserDetail; onBack: () => void }
                 <tr key={`${c.label}-${i}`}>
                   <td className="py-2.5 pr-4">
                     <div className="text-white truncate max-w-[260px]" title={c.label}>{c.label}</div>
-                    <div className="text-[11px] text-slate-500">{featureLabel(c.feature)}{c.target ? ` -> ${c.target}` : ''}</div>
+                    <div className="text-xs text-slate-400">{featureLabel(c.feature)}{c.target ? ` -> ${c.target}` : ''}</div>
                   </td>
                   <td className={td}>{num(c.clicks)}</td>
                 </tr>
@@ -487,10 +487,10 @@ function UserView({ detail, onBack }: { detail: UserDetail; onBack: () => void }
           <ol className="space-y-2 max-h-[520px] overflow-y-auto pr-2">
             {detail.timeline.map((item, i) => (
               <li key={`${item.at}-${i}`} className="flex gap-3 text-sm">
-                <span className="text-[11px] text-slate-500 w-28 flex-shrink-0 tabular-nums pt-0.5">{format(new Date(item.at), 'd MMM HH:mm:ss')}</span>
+                <span className="text-xs text-slate-400 w-28 flex-shrink-0 tabular-nums pt-0.5">{format(new Date(item.at), 'd MMM HH:mm:ss')}</span>
                 <span className="min-w-0">
                   <span className={KIND_STYLE[item.kind] ?? 'text-slate-300'}>{item.text}</span>
-                  {item.detail && <span className="block text-[11px] text-slate-500 truncate">{item.detail}</span>}
+                  {item.detail && <span className="block text-xs text-slate-400 truncate">{item.detail}</span>}
                 </span>
               </li>
             ))}
@@ -498,7 +498,7 @@ function UserView({ detail, onBack }: { detail: UserDetail; onBack: () => void }
         )}
       </Card>
 
-      <p className="text-[11px] text-slate-600 flex items-center gap-1.5">
+      <p className="text-xs text-slate-500 flex items-center gap-1.5">
         <Mail className="w-3 h-3" /> Opens are approximate: some mail apps block tracking pixels, and some load them automatically.
       </p>
     </div>

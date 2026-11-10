@@ -62,8 +62,8 @@ function RoleBadge({ position }: { position: string; tier?: number }) {
   else if (/director|vp /.test(pos))                                                                              { label = 'Director/VP'; cls = 'bg-indigo-500/15 text-indigo-400 border-indigo-500/25'; }
   else if (/team lead|tech lead|lead data|lead ml|lead ai|lead software|lead engineer|technical lead/.test(pos)) { label = 'Team Lead';   cls = 'bg-cyan-500/15 text-cyan-400 border-cyan-500/25'; }
   else if (/manager|principal|staff/.test(pos))                                                                   { label = 'Manager';     cls = 'bg-slate-500/15 text-slate-400 border-slate-500/25'; }
-  else                                                                                                            { label = 'Contact';     cls = 'bg-slate-500/15 text-slate-500 border-slate-600/25'; }
-  return <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border ${cls}`}>{label}</span>;
+  else                                                                                                            { label = 'Contact';     cls = 'bg-slate-500/15 text-slate-400 border-slate-600/25'; }
+  return <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold border ${cls}`}>{label}</span>;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -147,7 +147,7 @@ function UpgradeGate({ feature }: { feature: 'jobs' | 'contacts' }) {
             <span className="text-xs font-semibold text-amber-400">{isJobs ? 'Job tracker limit reached' : 'Find contacts limit reached'}</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-bold text-white leading-snug mb-2">{HEADLINE_MAP[feature]}</h2>
-          <p className="text-sm text-slate-500 mb-6 max-w-md">{SUB_MAP[feature]}</p>
+          <p className="text-sm text-slate-400 mb-6 max-w-md">{SUB_MAP[feature]}</p>
           <div className="flex items-center gap-4 bg-white/[0.03] border border-white/[0.06] rounded-xl px-5 py-4 mb-6 min-h-[64px]">
             <span className={`text-3xl font-black flex-shrink-0 w-16 text-center ${isJobs ? 'text-purple-400' : 'text-indigo-400'}`}>{STATS[activeStat].num}</span>
             <span className="text-sm text-slate-400 leading-snug">{STATS[activeStat].line}</span>
@@ -156,7 +156,7 @@ function UpgradeGate({ feature }: { feature: 'jobs' | 'contacts' }) {
             <Link href="/pricing" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all group bg-[var(--accent)] hover:bg-[var(--accent-hover)]  ">
               Go Unlimited <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </Link>
-            <span className="text-[10px] text-slate-600">Cancel anytime · Instant access</span>
+            <span className="text-[11px] text-slate-500">Cancel anytime · Instant access</span>
           </div>
         </div>
       </div>
@@ -164,7 +164,7 @@ function UpgradeGate({ feature }: { feature: 'jobs' | 'contacts' }) {
         {STRIP.map(s => (
           <div key={s.num} className="glass-card py-4 text-center">
             <p className={`text-xl font-black ${isJobs ? 'text-purple-400' : 'text-indigo-400'}`}>{s.num}</p>
-            <p className="text-xs text-slate-500 mt-1">{s.label}</p>
+            <p className="text-xs text-slate-400 mt-1">{s.label}</p>
           </div>
         ))}
       </div>
@@ -176,15 +176,15 @@ function UpgradeGate({ feature }: { feature: 'jobs' | 'contacts' }) {
 
 function StatusBadge({ status }: { status: AppStatus }) {
   const cfg = STATUS_CONFIG[status];
-  return <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${cfg.color} ${cfg.bg} ${cfg.border}`}><span className={`w-1.5 h-1.5 rounded-full ${cfg.dot} flex-shrink-0`} />{cfg.label}</span>;
+  return <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${cfg.color} ${cfg.bg} ${cfg.border}`}><span className={`w-1.5 h-1.5 rounded-full ${cfg.dot} flex-shrink-0`} />{cfg.label}</span>;
 }
 
 function StatCard({ label, value, sub, accentClass }: { label: string; value: string | number; sub?: string; accentClass: string }) {
   return (
     <div className="glass-card p-4">
-      <div className="flex items-center justify-between mb-2"><span className="text-[11px] text-slate-500 uppercase tracking-wide font-semibold">{label}</span></div>
+      <div className="flex items-center justify-between mb-2"><span className="text-xs text-slate-400 uppercase tracking-wide font-semibold">{label}</span></div>
       <p className={`text-2xl font-bold leading-none tabular-nums ${accentClass}`}>{value}</p>
-      {sub && <p className="text-[11px] text-slate-600 mt-1">{sub}</p>}
+      {sub && <p className="text-xs text-slate-500 mt-1">{sub}</p>}
     </div>
   );
 }
@@ -198,8 +198,8 @@ function PipelineFunnel({ apps }: { apps: Application[] }) {
         {hasAny ? PIPELINE_STAGES.map(stage => {
           const cfg = STATUS_CONFIG[stage]; const count = counts[stage];
           if (!count) return null;
-          return <div key={stage} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold ${cfg.bg} ${cfg.border} ${cfg.color}`}><span className={`w-1.5 h-1.5 rounded-full ${cfg.dot} flex-shrink-0`} />{cfg.label} <span className="font-bold ml-0.5">{count}</span></div>;
-        }) : <span className="text-xs text-slate-600">No active applications in pipeline</span>}
+          return <div key={stage} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold ${cfg.bg} ${cfg.border} ${cfg.color}`}><span className={`w-1.5 h-1.5 rounded-full ${cfg.dot} flex-shrink-0`} />{cfg.label} <span className="font-bold ml-0.5">{count}</span></div>;
+        }) : <span className="text-xs text-slate-500">No active applications in pipeline</span>}
       </div>
     </div>
   );
@@ -218,7 +218,7 @@ function FormModal({ form, setForm, onSave, onCancel, saving, isEdit, resumes }:
       <div className="relative bg-[#0d1526]/98 border border-white/[0.09] rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-[0_32px_64px_rgba(0,0,0,0.6)]">
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06] flex-shrink-0">
           <div className="flex items-center gap-2.5"><div className="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center"><Briefcase className="w-4 h-4 text-white" /></div><h2 className="text-sm font-bold text-white">{isEdit ? 'Edit Application' : 'Add Application'}</h2></div>
-          <button onClick={onCancel} className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-white hover:bg-white/[0.05] transition-all"><X className="w-4 h-4" /></button>
+          <button onClick={onCancel} className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.05] transition-all"><X className="w-4 h-4" /></button>
         </div>
         <div className="overflow-y-auto flex-1 px-6 py-5 space-y-4 glass-scrollbar">
           <div className="grid grid-cols-2 gap-3">
@@ -236,7 +236,7 @@ function FormModal({ form, setForm, onSave, onCancel, saving, isEdit, resumes }:
               <div className="flex gap-1.5">
                 {(Object.keys(WORK_TYPE_CONFIG) as WorkType[]).map(wt => { const WIcon = WORK_TYPE_CONFIG[wt].icon; return (
                   <button key={wt} type="button" onClick={() => setForm(p => ({ ...p, workType: wt }))}
-                    className={`flex-1 flex items-center justify-center gap-1 py-2.5 rounded-xl text-xs font-semibold transition-all border ${form.workType === wt ? 'bg-purple-500/20 border-purple-500/40 text-purple-300' : 'bg-white/[0.03] border-white/[0.07] text-slate-500 hover:text-slate-300 hover:border-white/[0.12]'}`}>
+                    className={`flex-1 flex items-center justify-center gap-1 py-2.5 rounded-xl text-xs font-semibold transition-all border ${form.workType === wt ? 'bg-purple-500/20 border-purple-500/40 text-purple-300' : 'bg-white/[0.03] border-white/[0.07] text-slate-400 hover:text-slate-300 hover:border-white/[0.12]'}`}>
                     <WIcon className="w-3.5 h-3.5" />{WORK_TYPE_CONFIG[wt].label}
                   </button>); })}
               </div>
@@ -251,12 +251,12 @@ function FormModal({ form, setForm, onSave, onCancel, saving, isEdit, resumes }:
               <label className="block text-xs font-medium text-slate-400 mb-1.5">Resume sent</label>
               <AppSelect value={form.resumeId ?? ''} onValueChange={v => setForm(p => ({ ...p, resumeId: v || null }))} aria-label="Resume used"
                 options={[{ value: '', label: 'Not recorded' }, ...resumes.map(r => ({ value: r.id, label: r.fileName }))]} />
-              <p className="text-[11px] text-slate-600 mt-1">Lets the funnel show which version of your resume gets interviews.</p>
+              <p className="text-xs text-slate-500 mt-1">Lets the funnel show which version of your resume gets interviews.</p>
             </div>
           )}
           <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Job URL</label><input type="url" value={form.jobUrl || ''} onChange={e => f('jobUrl', e.target.value)} placeholder="https://…" className={inp} /></div>
           <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1.5">Job description <span className="text-slate-600 font-normal">(optional)</span></label>
+            <label className="block text-xs font-medium text-slate-400 mb-1.5">Job description <span className="text-slate-500 font-normal">(optional)</span></label>
             <textarea rows={3} value={form.jobDescription || ''} onChange={e => setForm(p => ({ ...p, jobDescription: e.target.value || null }))} placeholder="Paste the posting. Practice interviews for this application will be built from it." className={`${inp} resize-y`} maxLength={12000} />
           </div>
           <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Notes</label><textarea rows={3} value={form.notes || ''} onChange={e => f('notes', e.target.value)} placeholder="Interview details, recruiter name, key contacts, follow-up dates…" className={`${inp} resize-none`} /></div>
@@ -295,25 +295,25 @@ function AppCard({ app, onEdit, onDelete, onStatusChange, onCreatePlan, onFindCo
         <div className="flex items-start justify-between gap-2 mb-3">
           <div className="flex items-start gap-2.5 flex-1 min-w-0">
             <div className="w-9 h-9 bg-white/[0.07] border border-white/[0.09] rounded-xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0">{app.company.charAt(0).toUpperCase()}</div>
-            <div className="min-w-0 flex-1"><p className="text-sm text-white font-bold truncate leading-tight">{app.company}</p><p className="text-xs text-slate-500 truncate mt-0.5">{app.jobTitle}</p></div>
+            <div className="min-w-0 flex-1"><p className="text-sm text-white font-bold truncate leading-tight">{app.company}</p><p className="text-xs text-slate-400 truncate mt-0.5">{app.jobTitle}</p></div>
           </div>
           <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-            {app.jobUrl && <a href={app.jobUrl} target="_blank" rel="noopener noreferrer" className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:text-blue-400 hover:bg-blue-500/[0.08] transition-all"><ExternalLink className="w-3.5 h-3.5" /></a>}
-            <button onClick={onEdit} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:text-purple-400 hover:bg-purple-500/[0.08] transition-all"><Edit3 className="w-3.5 h-3.5" /></button>
-            <button onClick={onDelete} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/[0.08] transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
+            {app.jobUrl && <a href={app.jobUrl} target="_blank" rel="noopener noreferrer" className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-blue-400 hover:bg-blue-500/[0.08] transition-all"><ExternalLink className="w-3.5 h-3.5" /></a>}
+            <button onClick={onEdit} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-purple-400 hover:bg-purple-500/[0.08] transition-all"><Edit3 className="w-3.5 h-3.5" /></button>
+            <button onClick={onDelete} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/[0.08] transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
           </div>
         </div>
         <div className="flex items-center gap-2.5 flex-wrap mb-3">
-          {app.location && <span className="flex items-center gap-1 text-[11px] text-slate-600"><MapPin className="w-3 h-3" /> {app.location}</span>}
-          <span className="flex items-center gap-1 text-[11px] text-slate-600"><WIcon className="w-3 h-3" /> {WORK_TYPE_CONFIG[app.workType]?.label}</span>
-          <span className="flex items-center gap-1 text-[11px] text-slate-600"><Calendar className="w-3 h-3" /> {daysSince}</span>
-          {app.salary && <span className="flex items-center gap-1 text-[11px] text-slate-600"><DollarSign className="w-3 h-3" /> {app.salary}</span>}
+          {app.location && <span className="flex items-center gap-1 text-xs text-slate-500"><MapPin className="w-3 h-3" /> {app.location}</span>}
+          <span className="flex items-center gap-1 text-xs text-slate-500"><WIcon className="w-3 h-3" /> {WORK_TYPE_CONFIG[app.workType]?.label}</span>
+          <span className="flex items-center gap-1 text-xs text-slate-500"><Calendar className="w-3 h-3" /> {daysSince}</span>
+          {app.salary && <span className="flex items-center gap-1 text-xs text-slate-500"><DollarSign className="w-3 h-3" /> {app.salary}</span>}
         </div>
         <div className="flex items-center justify-between gap-2">
           <div className="relative" ref={menuRef}>
             <button onClick={() => setShowStatusMenu(!showStatusMenu)} className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
               <StatusBadge status={app.status} />
-              <ChevronDown className={`w-3 h-3 text-slate-600 transition-transform duration-150 ${showStatusMenu ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`w-3 h-3 text-slate-500 transition-transform duration-150 ${showStatusMenu ? 'rotate-180' : ''}`} />
             </button>
             {showStatusMenu && (
               <div className="absolute left-0 top-full mt-2 z-50 bg-[#0d1526]/98 border border-white/[0.08] rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.5)] py-1 min-w-[175px]">
@@ -327,21 +327,21 @@ function AppCard({ app, onEdit, onDelete, onStatusChange, onCreatePlan, onFindCo
               </div>
             )}
           </div>
-          {app.source && <span className="text-[11px] text-slate-600 truncate">{app.source}</span>}
+          {app.source && <span className="text-xs text-slate-500 truncate">{app.source}</span>}
         </div>
-        {app.notes && <p className="mt-2.5 text-[11px] text-slate-600 line-clamp-2 border-t border-white/[0.05] pt-2.5 leading-relaxed">{app.notes}</p>}
+        {app.notes && <p className="mt-2.5 text-xs text-slate-500 line-clamp-2 border-t border-white/[0.05] pt-2.5 leading-relaxed">{app.notes}</p>}
       </div>
       {(['phone-screen', 'technical', 'final'] as AppStatus[]).includes(app.status) && (
         <div className="px-4 pb-2">
           {/* Practice built from this application's stage, company and saved posting. */}
-          <Link href={`/interview/create?application=${app.id}`} className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-semibold text-emerald-300 bg-emerald-500/[0.07] border border-emerald-500/20 hover:bg-emerald-500/15 hover:border-emerald-500/35 transition-all duration-150">
+          <Link href={`/interview/create?application=${app.id}`} className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold text-emerald-300 bg-emerald-500/[0.07] border border-emerald-500/20 hover:bg-emerald-500/15 hover:border-emerald-500/35 transition-all duration-150">
             <Mic className="w-3.5 h-3.5" /> Practise this interview
           </Link>
         </div>
       )}
       <div className="px-4 pb-4 grid grid-cols-2 gap-2">
-        <button onClick={onFindContacts} className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-semibold text-purple-400 bg-purple-500/[0.07] border border-purple-500/20 hover:bg-purple-500/15 hover:border-purple-500/35 hover:text-purple-300 transition-all duration-150"><UserSearch className="w-3.5 h-3.5" /> Find Contacts</button>
-        <button onClick={onCreatePlan} className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-semibold text-violet-400 bg-violet-500/[0.07] border border-violet-500/20 hover:bg-violet-500/15 hover:border-violet-500/35 hover:text-violet-300 transition-all duration-150"><CalendarPlus className="w-3.5 h-3.5" /> Create Plan</button>
+        <button onClick={onFindContacts} className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold text-purple-400 bg-purple-500/[0.07] border border-purple-500/20 hover:bg-purple-500/15 hover:border-purple-500/35 hover:text-purple-300 transition-all duration-150"><UserSearch className="w-3.5 h-3.5" /> Find Contacts</button>
+        <button onClick={onCreatePlan} className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold text-violet-400 bg-violet-500/[0.07] border border-violet-500/20 hover:bg-violet-500/15 hover:border-violet-500/35 hover:text-violet-300 transition-all duration-150"><CalendarPlus className="w-3.5 h-3.5" /> Create Plan</button>
       </div>
     </div>
   );
@@ -351,12 +351,12 @@ function AppCard({ app, onEdit, onDelete, onStatusChange, onCreatePlan, onFindCo
 
 function CopyBtn({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
-  return <button onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:text-white hover:bg-white/[0.05] transition-all flex-shrink-0" title="Copy">{copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}</button>;
+  return <button onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-white hover:bg-white/[0.05] transition-all flex-shrink-0" title="Copy">{copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}</button>;
 }
 
 function ConfidenceDot({ score }: { score: number }) {
   const color = score >= 80 ? 'bg-emerald-400' : score >= 60 ? 'bg-amber-400' : 'bg-red-400';
-  return <div className="flex items-center gap-1.5" title={`${score}% email verified`}><div className={`w-1.5 h-1.5 rounded-full ${color}`} /><span className="text-[11px] text-slate-500">{score}% verified</span></div>;
+  return <div className="flex items-center gap-1.5" title={`${score}% email verified`}><div className={`w-1.5 h-1.5 rounded-full ${color}`} /><span className="text-xs text-slate-400">{score}% verified</span></div>;
 }
 
 function buildSubject(jobTitle: string, company: string): string { return `${jobTitle} Role at ${company} - Reaching Out`; }
@@ -367,12 +367,12 @@ function SendEmailButtons({ recipientEmail, emailBody, jobTitle, company }: { re
   const subject = buildSubject(jobTitle, company);
   return (
     <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/[0.06]">
-      <span className="text-[11px] text-slate-600 flex-shrink-0">Send via</span>
-      <button onClick={() => openInGmail(recipientEmail, subject, emailBody)} className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-[11px] font-semibold transition-all border border-red-500/20 bg-red-500/[0.07] text-red-400 hover:bg-red-500/15 hover:border-red-500/35 hover:text-red-300">
+      <span className="text-xs text-slate-500 flex-shrink-0">Send via</span>
+      <button onClick={() => openInGmail(recipientEmail, subject, emailBody)} className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all border border-red-500/20 bg-red-500/[0.07] text-red-400 hover:bg-red-500/15 hover:border-red-500/35 hover:text-red-300">
         <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 6.5A2.5 2.5 0 0 1 4.5 4h15A2.5 2.5 0 0 1 22 6.5v11A2.5 2.5 0 0 1 19.5 20h-15A2.5 2.5 0 0 1 2 17.5v-11Z" stroke="currentColor" strokeWidth="1.5"/><path d="M2 7l10 7 10-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
         Gmail <ExternalLink className="w-3 h-3 opacity-50" />
       </button>
-      <button onClick={() => openInOutlook(recipientEmail, subject, emailBody)} className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-[11px] font-semibold transition-all border border-blue-500/20 bg-blue-500/[0.07] text-blue-400 hover:bg-blue-500/15 hover:border-blue-500/35 hover:text-blue-300">
+      <button onClick={() => openInOutlook(recipientEmail, subject, emailBody)} className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all border border-blue-500/20 bg-blue-500/[0.07] text-blue-400 hover:bg-blue-500/15 hover:border-blue-500/35 hover:text-blue-300">
         <Mail className="w-3.5 h-3.5 flex-shrink-0" /> Outlook <ExternalLink className="w-3 h-3 opacity-50" />
       </button>
     </div>
@@ -420,9 +420,9 @@ function ContactsModal({ app, onClose, onContactsFound }: { app: Application; on
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06] flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 gradient-primary rounded-xl flex items-center justify-center"><UserSearch className="w-4 h-4 text-white" /></div>
-            <div><h2 className="text-sm font-bold text-white">Find Contacts</h2><p className="text-[11px] text-slate-500">{app.company} · {app.jobTitle}{app.jobUrl && <span className="ml-2 text-slate-700">· {(() => { try { return new URL(app.jobUrl).hostname.replace(/^www\./, ''); } catch { return ''; } })()}</span>}</p></div>
+            <div><h2 className="text-sm font-bold text-white">Find Contacts</h2><p className="text-xs text-slate-400">{app.company} · {app.jobTitle}{app.jobUrl && <span className="ml-2 text-slate-500">· {(() => { try { return new URL(app.jobUrl).hostname.replace(/^www\./, ''); } catch { return ''; } })()}</span>}</p></div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-white hover:bg-white/[0.05] transition-all"><X className="w-4 h-4" /></button>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.05] transition-all"><X className="w-4 h-4" /></button>
         </div>
 
         {((contacts.length > 0 && foundDomain) || showDomainOverride) && (
@@ -430,12 +430,12 @@ function ContactsModal({ app, onClose, onContactsFound }: { app: Application; on
             {contacts.length > 0 && foundDomain && !showDomainOverride ? (
               <div className="flex items-center justify-between">
                 <p className="text-xs text-slate-400">Found <span className="text-white font-semibold">{contacts.length}</span> contacts at <span className="text-purple-400 font-semibold">{foundDomain}</span></p>
-                <button onClick={() => { setContacts([]); setFoundDomain(''); setError(''); setShowDomainOverride(true); }} className="text-[11px] text-slate-600 hover:text-slate-300 transition-colors flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Wrong company?</button>
+                <button onClick={() => { setContacts([]); setFoundDomain(''); setError(''); setShowDomainOverride(true); }} className="text-xs text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Wrong company?</button>
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <div className="flex-1 relative"><Globe className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none" /><input type="text" value={domain} onChange={e => setDomain(e.target.value)} onKeyDown={e => e.key === 'Enter' && fetchContacts()} placeholder="Enter domain manually (e.g. stripe.com)" autoFocus className={`${inp} pl-9`} /></div>
-                <button onClick={() => fetchContacts()} disabled={loading || !domain.trim()} className="w-9 h-10 flex items-center justify-center rounded-xl bg-white/[0.04] border border-white/[0.08] hover:border-purple-500/40 hover:bg-purple-500/[0.08] text-slate-500 hover:text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0">{loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserSearch className="w-4 h-4" />}</button>
+                <div className="flex-1 relative"><Globe className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" /><input type="text" value={domain} onChange={e => setDomain(e.target.value)} onKeyDown={e => e.key === 'Enter' && fetchContacts()} placeholder="Enter domain manually (e.g. stripe.com)" autoFocus className={`${inp} pl-9`} /></div>
+                <button onClick={() => fetchContacts()} disabled={loading || !domain.trim()} className="w-9 h-10 flex items-center justify-center rounded-xl bg-white/[0.04] border border-white/[0.08] hover:border-purple-500/40 hover:bg-purple-500/[0.08] text-slate-400 hover:text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0">{loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserSearch className="w-4 h-4" />}</button>
               </div>
             )}
           </div>
@@ -445,24 +445,24 @@ function ContactsModal({ app, onClose, onContactsFound }: { app: Application; on
           {error && (
             <div className="flex-1 flex items-center justify-center p-8"><div className="text-center max-w-xs">
               <div className="w-12 h-12 bg-red-500/[0.08] border border-red-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4"><AlertTriangle className="w-5 h-5 text-red-400" /></div>
-              <p className="text-sm font-bold text-white mb-2">Couldn&apos;t find contacts</p><p className="text-xs text-slate-500 mb-5 leading-relaxed">{error}</p>
+              <p className="text-sm font-bold text-white mb-2">Couldn&apos;t find contacts</p><p className="text-xs text-slate-400 mb-5 leading-relaxed">{error}</p>
               <button onClick={() => { setShowDomainOverride(true); setError(''); }} className="w-full px-4 py-2.5 bg-white/[0.04] border border-white/[0.08] hover:border-purple-500/40 hover:bg-purple-500/[0.08] rounded-xl text-xs font-semibold text-slate-300 hover:text-white transition-all flex items-center justify-center gap-2"><Globe className="w-3.5 h-3.5" /> Enter domain manually</button>
-              <button onClick={() => fetchContacts()} className="mt-3 text-[11px] text-slate-600 hover:text-slate-300 flex items-center gap-1 mx-auto transition-colors"><RefreshCw className="w-3 h-3" /> Retry</button>
+              <button onClick={() => fetchContacts()} className="mt-3 text-xs text-slate-500 hover:text-slate-300 flex items-center gap-1 mx-auto transition-colors"><RefreshCw className="w-3 h-3" /> Retry</button>
             </div></div>
           )}
           {!loading && !error && contacts.length === 0 && (
             <div className="flex-1 flex items-center justify-center p-8"><div className="text-center">
-              <div className="w-12 h-12 bg-white/[0.03] border border-white/[0.07] rounded-2xl flex items-center justify-center mx-auto mb-4"><UserSearch className="w-5 h-5 text-slate-600" /></div>
+              <div className="w-12 h-12 bg-white/[0.03] border border-white/[0.07] rounded-2xl flex items-center justify-center mx-auto mb-4"><UserSearch className="w-5 h-5 text-slate-500" /></div>
               <p className="text-base font-bold text-white mb-2">Stop cold-applying. Start warm outreach.</p>
-              <p className="text-xs text-slate-500 max-w-xs leading-relaxed mb-6">Find the recruiter, hiring manager, and decision-makers at <span className="text-slate-300 font-semibold">{app.company}</span> and get a personalised email ready to send.</p>
+              <p className="text-xs text-slate-400 max-w-xs leading-relaxed mb-6">Find the recruiter, hiring manager, and decision-makers at <span className="text-slate-300 font-semibold">{app.company}</span> and get a personalised email ready to send.</p>
               <button onClick={() => fetchContacts()} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-semibold  transition-all duration-200"><UserSearch className="w-4 h-4" /> Find Contacts at {app.company}</button>
-              <button onClick={() => setShowDomainOverride(true)} className="mt-3 text-[11px] text-slate-600 hover:text-slate-400 transition-colors flex items-center gap-1 mx-auto"><Globe className="w-3 h-3" /> Enter domain manually</button>
+              <button onClick={() => setShowDomainOverride(true)} className="mt-3 text-xs text-slate-500 hover:text-slate-400 transition-colors flex items-center gap-1 mx-auto"><Globe className="w-3 h-3" /> Enter domain manually</button>
             </div></div>
           )}
           {loading && (
             <div className="flex-1 flex items-center justify-center p-8"><div className="text-center">
               <div className="relative w-10 h-10 mx-auto mb-4"><Loader2 className="w-10 h-10 text-purple-400 animate-spin" /><UserSearch className="w-4 h-4 text-purple-300 absolute inset-0 m-auto" /></div>
-              <p className="text-sm font-semibold text-white mb-1">Finding contacts…</p><p className="text-xs text-slate-500">Searching and writing personalised emails…</p>
+              <p className="text-sm font-semibold text-white mb-1">Finding contacts…</p><p className="text-xs text-slate-400">Searching and writing personalised emails…</p>
             </div></div>
           )}
           {!loading && contacts.length > 0 && (
@@ -471,8 +471,8 @@ function ContactsModal({ app, onClose, onContactsFound }: { app: Application; on
                 {contacts.map((c, i) => (
                   <button key={c.email} onClick={() => setActiveIdx(i)} className={`w-full text-left px-4 py-3 border-b border-white/[0.04] transition-colors ${activeIdx === i ? 'bg-purple-500/[0.10] border-l-2 border-l-purple-500' : 'hover:bg-white/[0.03]'}`}>
                     <div className="flex items-start gap-2.5">
-                      <div className="w-7 h-7 bg-white/[0.07] rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0 mt-0.5">{(c.firstName?.[0] || c.fullName?.[0] || '?').toUpperCase()}</div>
-                      <div className="min-w-0 flex-1"><p className="text-xs font-semibold text-white truncate">{c.fullName}</p><p className="text-[10px] text-slate-500 truncate mb-1">{c.position}</p><RoleBadge position={c.position} tier={c.tier} /></div>
+                      <div className="w-7 h-7 bg-white/[0.07] rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5">{(c.firstName?.[0] || c.fullName?.[0] || '?').toUpperCase()}</div>
+                      <div className="min-w-0 flex-1"><p className="text-xs font-semibold text-white truncate">{c.fullName}</p><p className="text-[11px] text-slate-400 truncate mb-1">{c.position}</p><RoleBadge position={c.position} tier={c.tier} /></div>
                     </div>
                   </button>
                 ))}
@@ -481,15 +481,15 @@ function ContactsModal({ app, onClose, onContactsFound }: { app: Application; on
                 <div className="flex-1 overflow-y-auto glass-scrollbar p-5 space-y-4">
                   <div className="glass-card p-4">
                     <div className="flex items-start justify-between gap-3 mb-3">
-                      <div className="flex-1 min-w-0"><div className="flex items-center gap-2 flex-wrap mb-1"><h3 className="text-sm font-bold text-white">{activeContact.fullName}</h3><RoleBadge position={activeContact.position} tier={activeContact.tier} /></div><p className="text-xs text-slate-400">{activeContact.position}</p>{activeContact.department && <p className="text-[11px] text-slate-600">{activeContact.department}</p>}</div>
+                      <div className="flex-1 min-w-0"><div className="flex items-center gap-2 flex-wrap mb-1"><h3 className="text-sm font-bold text-white">{activeContact.fullName}</h3><RoleBadge position={activeContact.position} tier={activeContact.tier} /></div><p className="text-xs text-slate-400">{activeContact.position}</p>{activeContact.department && <p className="text-xs text-slate-500">{activeContact.department}</p>}</div>
                       <ConfidenceDot score={activeContact.confidence} />
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <div className="flex items-center gap-2 px-3 py-2 bg-white/[0.04] border border-white/[0.07] rounded-xl flex-1 min-w-0">
-                        <Mail className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" /><span className="text-sm text-white truncate font-medium">{activeContact.email}</span>
-                        <button onClick={() => copyEmail(activeContact.email)} className="flex-shrink-0 text-slate-600 hover:text-white transition-colors">{copiedEmail === activeContact.email ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}</button>
+                        <Mail className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" /><span className="text-sm text-white truncate font-medium">{activeContact.email}</span>
+                        <button onClick={() => copyEmail(activeContact.email)} className="flex-shrink-0 text-slate-500 hover:text-white transition-colors">{copiedEmail === activeContact.email ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}</button>
                       </div>
-                      {activeContact.linkedin && <a href={activeContact.linkedin} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 py-2 bg-blue-500/[0.08] border border-blue-500/20 rounded-xl text-blue-400 text-[11px] font-semibold hover:bg-blue-500/15 transition-colors flex-shrink-0"><Linkedin className="w-3.5 h-3.5" /> LinkedIn</a>}
+                      {activeContact.linkedin && <a href={activeContact.linkedin} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 py-2 bg-blue-500/[0.08] border border-blue-500/20 rounded-xl text-blue-400 text-xs font-semibold hover:bg-blue-500/15 transition-colors flex-shrink-0"><Linkedin className="w-3.5 h-3.5" /> LinkedIn</a>}
                     </div>
                   </div>
                   {activeContact.generatedEmail ? (
@@ -497,7 +497,7 @@ function ContactsModal({ app, onClose, onContactsFound }: { app: Application; on
                       <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06]"><div className="flex items-center gap-2"><Sparkles className="w-3.5 h-3.5 text-violet-400" /><span className="text-xs font-bold text-white">AI-Written Outreach</span></div><CopyBtn text={activeContact.generatedEmail} /></div>
                       <div className="p-4"><p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{activeContact.generatedEmail}</p><SendEmailButtons recipientEmail={activeContact.email} emailBody={activeContact.generatedEmail} jobTitle={app.jobTitle} company={app.company} /></div>
                     </div>
-                  ) : <div className="glass-card p-6 text-center"><p className="text-xs text-slate-600">Could not generate email for this contact - try again</p></div>}
+                  ) : <div className="glass-card p-6 text-center"><p className="text-xs text-slate-500">Could not generate email for this contact - try again</p></div>}
                 </div>
               )}
             </div>
@@ -522,14 +522,14 @@ function CreatePlanModal({ app, onConfirm, onClose }: { app: Application; onConf
       <div className="absolute inset-0 bg-[#090d1a]/85 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-[#0d1526]/98 border border-white/[0.09] rounded-2xl w-full max-w-sm shadow-[0_32px_64px_rgba(0,0,0,0.6)] overflow-hidden">
         <div className="px-5 py-4 border-b border-white/[0.06] flex items-center justify-between">
-          <div className="flex items-center gap-2.5"><div className="w-8 h-8 bg-[var(--accent)] rounded-lg flex items-center justify-center"><CalendarPlus className="w-4 h-4 text-white" /></div><div><p className="text-sm font-bold text-white">Create Prep Plan</p><p className="text-[11px] text-slate-500 truncate max-w-[180px]">{app.jobTitle} @ {app.company}</p></div></div>
-          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-white hover:bg-white/[0.05] transition-all"><X className="w-4 h-4" /></button>
+          <div className="flex items-center gap-2.5"><div className="w-8 h-8 bg-[var(--accent)] rounded-lg flex items-center justify-center"><CalendarPlus className="w-4 h-4 text-white" /></div><div><p className="text-sm font-bold text-white">Create Prep Plan</p><p className="text-xs text-slate-400 truncate max-w-[180px]">{app.jobTitle} @ {app.company}</p></div></div>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.05] transition-all"><X className="w-4 h-4" /></button>
         </div>
         <div className="p-5 space-y-4">
-          <p className="text-xs text-slate-500 leading-relaxed">When is your interview? We&apos;ll build a day-by-day plan to get you ready.</p>
+          <p className="text-xs text-slate-400 leading-relaxed">When is your interview? We&apos;ll build a day-by-day plan to get you ready.</p>
           <div className="grid grid-cols-3 gap-2">
-            {PLAN_PRESETS.map(p => (<button key={p.days} type="button" onClick={() => { setSelected(p.days); setCustom(false); }} className={`py-2.5 rounded-xl text-xs font-semibold transition-all border ${!custom && selected === p.days ? 'bg-[var(--accent)] border-violet-500 text-white ' : 'bg-white/[0.03] border-white/[0.07] text-slate-500 hover:border-violet-500/40 hover:text-white'}`}>{p.label}</button>))}
-            <button type="button" onClick={() => setCustom(true)} className={`py-2.5 rounded-xl text-xs font-semibold transition-all border ${custom ? 'bg-[var(--accent)] border-violet-500 text-white ' : 'bg-white/[0.03] border-white/[0.07] text-slate-500 hover:border-violet-500/40 hover:text-white'}`}>Custom</button>
+            {PLAN_PRESETS.map(p => (<button key={p.days} type="button" onClick={() => { setSelected(p.days); setCustom(false); }} className={`py-2.5 rounded-xl text-xs font-semibold transition-all border ${!custom && selected === p.days ? 'bg-[var(--accent)] border-violet-500 text-white ' : 'bg-white/[0.03] border-white/[0.07] text-slate-400 hover:border-violet-500/40 hover:text-white'}`}>{p.label}</button>))}
+            <button type="button" onClick={() => setCustom(true)} className={`py-2.5 rounded-xl text-xs font-semibold transition-all border ${custom ? 'bg-[var(--accent)] border-violet-500 text-white ' : 'bg-white/[0.03] border-white/[0.07] text-slate-400 hover:border-violet-500/40 hover:text-white'}`}>Custom</button>
           </div>
           {custom && <div><label className="block text-xs text-slate-400 mb-1.5">Days until interview (1-90)</label><input type="number" min={1} max={90} value={customVal} onChange={e => setCustomVal(e.target.value)} className={inp} autoFocus /></div>}
           <div className="flex gap-2 pt-1">
@@ -732,7 +732,7 @@ export default function JobTrackerPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#090d1a]/70 backdrop-blur-sm">
           <div className="glass-card p-8 text-center">
             <div className="relative w-12 h-12 mx-auto mb-4"><Loader2 className="w-12 h-12 text-violet-400 animate-spin" /><Sparkles className="w-4 h-4 text-violet-300 absolute inset-0 m-auto" /></div>
-            <p className="text-sm font-bold text-white mb-1">Generating your prep plan…</p><p className="text-xs text-slate-500">Building your personalised prep roadmap</p>
+            <p className="text-sm font-bold text-white mb-1">Generating your prep plan…</p><p className="text-xs text-slate-400">Building your personalised prep roadmap</p>
           </div>
         </div>
       )}
@@ -782,7 +782,7 @@ export default function JobTrackerPage() {
 
             {/* Search + filters */}
             <div className="grid grid-cols-3 sm:flex sm:flex-row gap-2.5 animate-fade-in-up" style={{ animationDelay: '180ms' }}>
-              <div className="relative col-span-3 sm:flex-1"><Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none" /><input type="text" placeholder="Search by company, role, or location…" value={search} onChange={e => setSearch(e.target.value)} className={`${inp} pl-10`} /></div>
+              <div className="relative col-span-3 sm:flex-1"><Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" /><input type="text" placeholder="Search by company, role, or location…" value={search} onChange={e => setSearch(e.target.value)} className={`${inp} pl-10`} /></div>
               <CustomSelect<AppStatus | 'all'> value={filterStatus} onChange={setFilterStatus} icon={Filter} options={[{ value: 'all', label: `All (${apps.length})` }, ...(Object.keys(STATUS_CONFIG) as AppStatus[]).map(s => ({ value: s, label: STATUS_CONFIG[s].label }))]} />
               <CustomSelect<WorkType | 'all'> value={filterWork} onChange={setFilterWork} options={[{ value: 'all', label: 'All Types' }, ...(Object.keys(WORK_TYPE_CONFIG) as WorkType[]).map(w => ({ value: w, label: WORK_TYPE_CONFIG[w].label }))]} />
               <CustomSelect<'date' | 'company' | 'status'> value={sortBy} onChange={setSortBy} icon={SlidersHorizontal} options={[{ value: 'date', label: 'Recent First' }, { value: 'company', label: 'By Company' }, { value: 'status', label: 'By Status' }]} />
@@ -791,9 +791,9 @@ export default function JobTrackerPage() {
             {/* Grid / empty */}
             {filtered.length === 0 ? (
               <div className="glass-card p-12 text-center">
-                <div className="w-12 h-12 bg-white/[0.03] border border-white/[0.07] rounded-2xl flex items-center justify-center mx-auto mb-4"><Briefcase className="w-5 h-5 text-slate-600" /></div>
+                <div className="w-12 h-12 bg-white/[0.03] border border-white/[0.07] rounded-2xl flex items-center justify-center mx-auto mb-4"><Briefcase className="w-5 h-5 text-slate-500" /></div>
                 <h3 className="text-sm font-bold text-slate-400 mb-2">{apps.length === 0 ? 'No applications yet' : 'No results match your filters'}</h3>
-                <p className="text-xs text-slate-600 mb-6 max-w-xs mx-auto leading-relaxed">{apps.length === 0 ? 'Start tracking your job search. Add your first application to see it here.' : 'Try adjusting your search or filters.'}</p>
+                <p className="text-xs text-slate-500 mb-6 max-w-xs mx-auto leading-relaxed">{apps.length === 0 ? 'Start tracking your job search. Add your first application to see it here.' : 'Try adjusting your search or filters.'}</p>
                 {apps.length === 0 && canAddJob && (
                   <div className="flex flex-wrap items-center justify-center gap-3">
                     <button onClick={() => { setForm({ ...EMPTY_FORM }); setShowForm(true); }} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white text-sm font-semibold transition-all duration-150"><Plus className="w-4 h-4" /> Add First Application</button>
@@ -803,7 +803,7 @@ export default function JobTrackerPage() {
               </div>
             ) : (
               <>
-                <p className="text-[11px] text-slate-600">{filtered.length} application{filtered.length !== 1 ? 's' : ''}{(search || filterStatus !== 'all' || filterWork !== 'all') ? ' matching filters' : ''}</p>
+                <p className="text-xs text-slate-500">{filtered.length} application{filtered.length !== 1 ? 's' : ''}{(search || filterStatus !== 'all' || filterWork !== 'all') ? ' matching filters' : ''}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {filtered.map(app => (
                     <AppCard key={app.id} app={app} onEdit={() => handleEdit(app)} onDelete={() => handleDelete(app.id)}

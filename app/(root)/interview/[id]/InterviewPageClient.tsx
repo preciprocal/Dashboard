@@ -37,7 +37,7 @@ export { panelFor as generatePanelNames };
 // ─── Tech stack badges ────────────────────────────────────────────────────────
 const TechStackDisplay = ({ techStack }: { techStack: string[] }) => {
   if (!techStack || techStack.length === 0) {
-    return <span className="text-slate-500 text-xs sm:text-sm">No technologies specified</span>;
+    return <span className="text-slate-400 text-xs sm:text-sm">No technologies specified</span>;
   }
   return (
     <div className="flex flex-wrap gap-1.5 sm:gap-2">
@@ -451,12 +451,12 @@ const InterviewDetailsClient = ({
       {/* Breadcrumb. Kept, but as ordinary content rather than a bar spanning
           a width this component does not own. */}
       <div className="flex items-center justify-between gap-3 min-w-0">
-        <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-500 min-w-0">
+        <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-400 min-w-0">
           <Link href="/" className="hover:text-slate-300 transition-colors flex-shrink-0">Dashboard</Link>
           <span className="flex-shrink-0">/</span>
           <span className="text-slate-300 truncate">Waiting Room</span>
         </div>
-        <div className="text-xs sm:text-sm text-slate-500 hidden sm:block flex-shrink-0">
+        <div className="text-xs sm:text-sm text-slate-400 hidden sm:block flex-shrink-0">
           {currentTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
         </div>
       </div>
@@ -470,7 +470,7 @@ const InterviewDetailsClient = ({
               <div className="p-4 sm:p-6">
                 <Link
                   href="/interview"
-                  className="inline-flex items-center text-xs sm:text-sm text-slate-500 hover:text-slate-300 mb-3 sm:mb-4 transition-colors"
+                  className="inline-flex items-center text-xs sm:text-sm text-slate-400 hover:text-slate-300 mb-3 sm:mb-4 transition-colors"
                 >
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Back to Interviews
@@ -484,7 +484,7 @@ const InterviewDetailsClient = ({
                     <h1 className="text-xl sm:text-2xl font-semibold text-white mb-0.5 sm:mb-1 truncate">
                       {interview.role}
                     </h1>
-                    <p className="text-slate-500 text-xs sm:text-sm truncate">
+                    <p className="text-slate-400 text-xs sm:text-sm truncate">
                       Panel Interview • {interview.questions.length} Questions • {Math.ceil(interview.questions.length * 3)} min
                     </p>
                   </div>
@@ -501,7 +501,7 @@ const InterviewDetailsClient = ({
 
                 <div className="mt-3 sm:mt-4 bg-slate-800/60 backdrop-blur-xl rounded-xl p-3 sm:p-4 border border-slate-700">
                   <div className="flex flex-col xs:flex-row items-start xs:items-center gap-2 xs:gap-3 min-w-0">
-                    <span className="text-slate-500 text-xs sm:text-sm flex-shrink-0">Technologies:</span>
+                    <span className="text-slate-400 text-xs sm:text-sm flex-shrink-0">Technologies:</span>
                     <div className="min-w-0 w-full xs:flex-1">
                       <TechStackDisplay techStack={interview.techstack} />
                     </div>
@@ -622,14 +622,14 @@ const InterviewDetailsClient = ({
                       className={`w-full py-2.5 sm:py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 sm:gap-3 text-sm sm:text-base ${
                         !joinDisabledReason
                           ? 'bg-emerald-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-lg '
-                          : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                          : 'bg-slate-800 text-slate-400 cursor-not-allowed'
                       }`}
                     >
                       <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" /><span>Join Interview</span>
                     </button>
                     {/* Show reason tooltip when disabled */}
                     {joinDisabledReason && (
-                      <p className="mt-2 text-xs text-center text-slate-500 leading-relaxed">
+                      <p className="mt-2 text-xs text-center text-slate-400 leading-relaxed">
                         {joinDisabledReason}
                       </p>
                     )}
@@ -659,7 +659,7 @@ const InterviewDetailsClient = ({
                           <p className="text-white font-medium text-xs sm:text-sm truncate">{panelist.name}</p>
                           {panelist.isLead && <Crown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500 flex-shrink-0" />}
                         </div>
-                        <p className="text-slate-500 text-xs truncate">{panelist.role}</p>
+                        <p className="text-slate-400 text-xs truncate">{panelist.role}</p>
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-amber-500 rounded-full animate-pulse"></div>

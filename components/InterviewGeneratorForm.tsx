@@ -256,18 +256,18 @@ export default function InterviewGeneratorForm({ userId, initialRole, initialTyp
             </div>
             <div>
               <p className="text-[13px] font-bold text-white">AI Job Analysis</p>
-              <p className="text-[10px] text-indigo-400">Powered by AI</p>
+              <p className="text-[11px] text-indigo-400">Powered by AI</p>
             </div>
           </div>
           {(uploadedFile || formData.jobDescription) && (
             <button type="button" onClick={clearFile}
-              className="px-2.5 py-1 rounded-lg bg-red-500/[0.08] border border-red-500/20 text-red-400 hover:bg-red-500/15 text-[11px] font-semibold transition-all">
+              className="px-2.5 py-1 rounded-lg bg-red-500/[0.08] border border-red-500/20 text-red-400 hover:bg-red-500/15 text-xs font-semibold transition-all">
               Clear
             </button>
           )}
         </div>
 
-        <p className="text-[12px] text-slate-500 mb-4">Upload your job description or paste it below for intelligent AI analysis</p>
+        <p className="text-[12px] text-slate-400 mb-4">Upload your job description or paste it below for intelligent AI analysis</p>
 
         <div className="grid lg:grid-cols-2 gap-4">
           {/* File upload */}
@@ -281,7 +281,7 @@ export default function InterviewGeneratorForm({ userId, initialRole, initialTyp
               </div>
               <div className="text-center">
                 <p className="text-[12px] font-semibold text-white">{uploadedFile ? 'Change file' : 'Drop file or browse'}</p>
-                <p className="text-[11px] text-slate-600">PDF, DOCX, TXT · max 5 MB</p>
+                <p className="text-xs text-slate-500">PDF, DOCX, TXT · max 5 MB</p>
               </div>
             </label>
             {uploadedFile && (
@@ -289,7 +289,7 @@ export default function InterviewGeneratorForm({ userId, initialRole, initialTyp
                 <span className="text-emerald-400 text-sm">✅</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-[12px] font-semibold text-emerald-300 truncate">{uploadedFile.name}</p>
-                  <p className="text-[10px] text-emerald-500">{Math.round(uploadedFile.size / 1024)} KB</p>
+                  <p className="text-[11px] text-emerald-500">{Math.round(uploadedFile.size / 1024)} KB</p>
                 </div>
               </div>
             )}
@@ -301,7 +301,7 @@ export default function InterviewGeneratorForm({ userId, initialRole, initialTyp
               <p className="text-[12px] font-semibold text-slate-400">Paste manually</p>
               {formData.jobDescription.length > 20 && (
                 <button type="button" onClick={handleManualAnalysis} disabled={isAnalyzing}
-                  className="px-2.5 py-1 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-[11px] font-semibold disabled:opacity-50 transition-all">
+                  className="px-2.5 py-1 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs font-semibold disabled:opacity-50 transition-all">
                   {isAnalyzing
                     ? <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 border border-current border-t-transparent rounded-full animate-spin" />Analysing…</span>
                     : 'Analyse'}
@@ -333,7 +333,7 @@ export default function InterviewGeneratorForm({ userId, initialRole, initialTyp
             </div>
             <div>
               <p className="text-[13px] font-bold text-white">Analysis complete</p>
-              <p className="text-[10px] text-emerald-400">{Math.round(aiAnalysis.confidence * 100)}% confidence</p>
+              <p className="text-[11px] text-emerald-400">{Math.round(aiAnalysis.confidence * 100)}% confidence</p>
             </div>
           </div>
           <div className="grid grid-cols-3 gap-2 mb-3">
@@ -345,21 +345,21 @@ export default function InterviewGeneratorForm({ userId, initialRole, initialTyp
               <div key={item.label} className="flex items-center gap-2 p-2.5 bg-emerald-500/[0.05] border border-emerald-500/15 rounded-xl">
                 <span>{item.emoji}</span>
                 <div>
-                  <p className="text-[10px] text-emerald-400 font-semibold">{item.label}</p>
-                  <p className="text-[11px] text-white font-bold truncate">{item.value}</p>
+                  <p className="text-[11px] text-emerald-400 font-semibold">{item.label}</p>
+                  <p className="text-xs text-white font-bold truncate">{item.value}</p>
                 </div>
               </div>
             ))}
           </div>
           {aiAnalysis.techstack.length > 0 && (
             <div>
-              <p className="text-[10px] text-emerald-400 font-semibold mb-2">Technologies detected</p>
+              <p className="text-[11px] text-emerald-400 font-semibold mb-2">Technologies detected</p>
               <div className="flex flex-wrap gap-1.5">
                 {aiAnalysis.techstack.slice(0, 6).map(tech => (
-                  <span key={tech} className="px-2 py-0.5 bg-indigo-500/15 border border-indigo-500/25 text-indigo-300 rounded-lg text-[11px] font-semibold">{tech}</span>
+                  <span key={tech} className="px-2 py-0.5 bg-indigo-500/15 border border-indigo-500/25 text-indigo-300 rounded-lg text-xs font-semibold">{tech}</span>
                 ))}
                 {aiAnalysis.techstack.length > 6 && (
-                  <span className="px-2 py-0.5 bg-white/[0.04] text-slate-500 rounded-lg text-[11px]">+{aiAnalysis.techstack.length - 6}</span>
+                  <span className="px-2 py-0.5 bg-white/[0.04] text-slate-400 rounded-lg text-xs">+{aiAnalysis.techstack.length - 6}</span>
                 )}
               </div>
             </div>
@@ -374,7 +374,7 @@ export default function InterviewGeneratorForm({ userId, initialRole, initialTyp
           <div>
             <label className="flex items-center gap-1.5 text-[12px] font-medium text-slate-400 mb-1.5">
               Job Role <span className="text-red-400">*</span>
-              {aiAnalysis && <span className="px-1.5 py-0.5 bg-emerald-500/15 text-emerald-400 text-[10px] rounded-full font-semibold">AI</span>}
+              {aiAnalysis && <span className="px-1.5 py-0.5 bg-emerald-500/15 text-emerald-400 text-[11px] rounded-full font-semibold">AI</span>}
             </label>
             <input type="text" name="role" required value={formData.role} onChange={handleInputChange}
               placeholder="e.g. Senior Frontend Developer" className={inp} />
@@ -383,13 +383,13 @@ export default function InterviewGeneratorForm({ userId, initialRole, initialTyp
           <div>
             <label className="flex items-center gap-1.5 text-[12px] font-medium text-slate-400 mb-1.5">
               Experience Level <span className="text-red-400">*</span>
-              {aiAnalysis && <span className="px-1.5 py-0.5 bg-emerald-500/15 text-emerald-400 text-[10px] rounded-full font-semibold">AI</span>}
+              {aiAnalysis && <span className="px-1.5 py-0.5 bg-emerald-500/15 text-emerald-400 text-[11px] rounded-full font-semibold">AI</span>}
             </label>
             <div className="relative level-dropdown">
               <button type="button" onClick={() => setShowLevelMenu(v => !v)}
                 className={`${inp} flex items-center justify-between cursor-pointer`}>
                 <span>{levelLabel[formData.level]}</span>
-                <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-150 ${showLevelMenu ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-150 ${showLevelMenu ? 'rotate-180' : ''}`} />
               </button>
               {showLevelMenu && (
                 <div className="absolute left-0 right-0 top-full mt-2 bg-[#0d1526]/98 border border-white/[0.08] rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.5)] z-20 overflow-hidden">
@@ -410,7 +410,7 @@ export default function InterviewGeneratorForm({ userId, initialRole, initialTyp
             </label>
             <input type="number" name="amount" required min="1" max="10" value={formData.amount} onChange={handleInputChange}
               className={inp} />
-            <p className="text-[11px] text-slate-600 mt-1.5">
+            <p className="text-xs text-slate-500 mt-1.5">
               {formData.type === 'mixed'
                 ? `${Math.ceil(formData.amount / 2)} technical + ${Math.floor(formData.amount / 2)} behavioral`
                 : 'Recommended: 5-10 questions'}
@@ -423,13 +423,13 @@ export default function InterviewGeneratorForm({ userId, initialRole, initialTyp
           <div>
             <label className="flex items-center gap-1.5 text-[12px] font-medium text-slate-400 mb-1.5">
               Interview Type <span className="text-red-400">*</span>
-              {aiAnalysis && <span className="px-1.5 py-0.5 bg-emerald-500/15 text-emerald-400 text-[10px] rounded-full font-semibold">AI</span>}
+              {aiAnalysis && <span className="px-1.5 py-0.5 bg-emerald-500/15 text-emerald-400 text-[11px] rounded-full font-semibold">AI</span>}
             </label>
             <div className="relative type-dropdown">
               <button type="button" onClick={() => setShowTypeMenu(v => !v)}
                 className={`${inp} flex items-center justify-between cursor-pointer`}>
                 <span>{typeLabel[formData.type]}</span>
-                <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-150 ${showTypeMenu ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-150 ${showTypeMenu ? 'rotate-180' : ''}`} />
               </button>
               {showTypeMenu && (
                 <div className="absolute left-0 right-0 top-full mt-2 bg-[#0d1526]/98 border border-white/[0.08] rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.5)] z-20 overflow-hidden">
@@ -447,12 +447,12 @@ export default function InterviewGeneratorForm({ userId, initialRole, initialTyp
           <div>
             <label className="flex items-center gap-1.5 text-[12px] font-medium text-slate-400 mb-1.5">
               Technologies &amp; Skills <span className="text-red-400">*</span>
-              {aiAnalysis && <span className="px-1.5 py-0.5 bg-emerald-500/15 text-emerald-400 text-[10px] rounded-full font-semibold">AI</span>}
+              {aiAnalysis && <span className="px-1.5 py-0.5 bg-emerald-500/15 text-emerald-400 text-[11px] rounded-full font-semibold">AI</span>}
             </label>
             <textarea name="techstack" required value={formData.techstack} onChange={handleInputChange}
               placeholder="e.g. React, Node.js, TypeScript, PostgreSQL, AWS" rows={3}
               className={`${inp} resize-none`} />
-            <p className="text-[11px] text-slate-600 mt-1.5">Separate technologies with commas</p>
+            <p className="text-xs text-slate-500 mt-1.5">Separate technologies with commas</p>
           </div>
         </div>
       </div>

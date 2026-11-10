@@ -224,7 +224,7 @@ export default function RecruiterEyeSimulation({
             <div>
               <p className="text-xs font-semibold text-blue-400 mb-1">Research-Calibrated Analysis</p>
               <p className="text-xs text-slate-400 leading-relaxed">{baseline.note}</p>
-              <p className="text-[10px] text-slate-600 mt-1">Source: {baseline.source} · Avg scan: {baseline.avgScanTime}s</p>
+              <p className="text-[11px] text-slate-500 mt-1">Source: {baseline.source} · Avg scan: {baseline.avgScanTime}s</p>
             </div>
           </div>
         </div>
@@ -239,31 +239,31 @@ export default function RecruiterEyeSimulation({
             </div>
             <div>
               <h3 className="text-sm font-semibold text-white">Hiring Manager Profile</h3>
-              <p className="text-slate-500 text-[11px] mt-0.5">How recruiters at this company evaluate candidates</p>
+              <p className="text-slate-400 text-xs mt-0.5">How recruiters at this company evaluate candidates</p>
             </div>
           </div>
           <div className="space-y-3">
             <div className="bg-slate-800/40 border border-white/[0.06] rounded-xl p-3.5">
-              <p className="text-[10px] text-purple-400 font-semibold uppercase tracking-wider mb-1.5">Company Hiring Culture</p>
+              <p className="text-[11px] text-purple-400 font-semibold uppercase tracking-wider mb-1.5">Company Hiring Culture</p>
               <p className="text-xs text-slate-300 leading-relaxed">{sim.companyProfile.hiringCulture}</p>
             </div>
             <div className="bg-slate-800/40 border border-white/[0.06] rounded-xl p-3.5">
-              <p className="text-[10px] text-purple-400 font-semibold uppercase tracking-wider mb-1.5">Hiring Manager Persona</p>
+              <p className="text-[11px] text-purple-400 font-semibold uppercase tracking-wider mb-1.5">Hiring Manager Persona</p>
               <p className="text-xs text-slate-300 leading-relaxed">{sim.companyProfile.hiringManagerPersona}</p>
             </div>
             <div>
-              <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider mb-1.5">What They Screen For</p>
+              <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mb-1.5">What They Screen For</p>
               <div className="flex flex-wrap gap-1.5">
                 {sim.companyProfile.keyTraits.map((trait, i) => (
-                  <span key={i} className="text-[10px] px-2 py-0.5 rounded-lg bg-purple-500/10 border border-purple-500/15 text-purple-300 font-medium">{trait}</span>
+                  <span key={i} className="text-[11px] px-2 py-0.5 rounded-lg bg-purple-500/10 border border-purple-500/15 text-purple-300 font-medium">{trait}</span>
                 ))}
               </div>
             </div>
             {sim.companyProfile.sources.length > 0 && (
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[10px] text-slate-600">Sources:</span>
+                <span className="text-[11px] text-slate-500">Sources:</span>
                 {sim.companyProfile.sources.map((s, i) => (
-                  <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800/50 border border-white/[0.05] text-slate-500">{s}</span>
+                  <span key={i} className="text-[11px] px-1.5 py-0.5 rounded bg-slate-800/50 border border-white/[0.05] text-slate-400">{s}</span>
                 ))}
               </div>
             )}
@@ -300,7 +300,7 @@ export default function RecruiterEyeSimulation({
             {sim.researchInsights && sim.researchInsights.length > 0 && (
               <div className="mt-2.5 space-y-1">
                 {sim.researchInsights.slice(0, 3).map((insight, i) => (
-                  <p key={i} className="text-[11px] text-slate-400 flex items-start gap-1.5">
+                  <p key={i} className="text-xs text-slate-400 flex items-start gap-1.5">
                     <span className="text-purple-400 flex-shrink-0">•</span>{insight}
                   </p>
                 ))}
@@ -336,7 +336,7 @@ export default function RecruiterEyeSimulation({
                       isPass ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : isMaybe ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-red-500/10 border-red-500/20 text-red-400'
                     }`}>{p.decision}</span>
                   </div>
-                  <div className="text-right flex-shrink-0"><div className="text-2xl font-bold text-white">{p.firstImpression.score}</div><div className="text-[10px] text-slate-500">Initial score</div></div>
+                  <div className="text-right flex-shrink-0"><div className="text-2xl font-bold text-white">{p.firstImpression.score}</div><div className="text-[11px] text-slate-400">Initial score</div></div>
                 </div>
                 {p.keyObservations.length > 0 && (
                   <div className="bg-emerald-500/[0.05] border border-emerald-500/20 rounded-xl p-4">
@@ -369,16 +369,16 @@ export default function RecruiterEyeSimulation({
                 <p className={`text-xs mt-0.5 ${sim.passScreening ? 'text-emerald-400' : 'text-red-400'}`}>{sim.passScreening ? 'Likely to pass initial screening' : 'May not pass initial screening'}</p>
               </div>
             </div>
-            <div className="text-right flex-shrink-0"><div className="text-2xl font-bold text-white">{sim.firstImpression.score}</div><div className="text-[10px] text-slate-500">Score</div></div>
+            <div className="text-right flex-shrink-0"><div className="text-2xl font-bold text-white">{sim.firstImpression.score}</div><div className="text-[11px] text-slate-400">Score</div></div>
           </div>
           <div className="grid grid-cols-2 gap-2.5">
             <div className="bg-slate-800/50 border border-white/[0.06] rounded-xl p-3 flex items-center gap-2.5">
               <Clock className="w-4 h-4 text-indigo-400 flex-shrink-0" />
-              <div><p className="text-[10px] text-slate-500">Total review time</p><p className="text-sm font-semibold text-white">{sim.timeToReview}s</p></div>
+              <div><p className="text-[11px] text-slate-400">Total review time</p><p className="text-sm font-semibold text-white">{sim.timeToReview}s</p></div>
             </div>
             <div className="bg-slate-800/50 border border-white/[0.06] rounded-xl p-3 flex items-center gap-2.5">
               <Eye className="w-4 h-4 text-indigo-400 flex-shrink-0" />
-              <div><p className="text-[10px] text-slate-500">First glance</p><p className="text-sm font-semibold text-white">{sim.firstImpression.timeSpentInSeconds}s</p></div>
+              <div><p className="text-[11px] text-slate-400">First glance</p><p className="text-sm font-semibold text-white">{sim.firstImpression.timeSpentInSeconds}s</p></div>
             </div>
           </div>
         </div>
@@ -410,10 +410,10 @@ export default function RecruiterEyeSimulation({
               </div>
               <div>
                 <h4 className="text-sm font-semibold text-white">Attention Heatmap</h4>
-                <p className="text-slate-500 text-[11px] mt-0.5">Time spent per section vs. research baseline</p>
+                <p className="text-slate-400 text-xs mt-0.5">Time spent per section vs. research baseline</p>
               </div>
             </div>
-            <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
               <span>Low</span>
               <div className="flex gap-0.5"><div className="w-3 h-3 bg-red-500/40 rounded" /><div className="w-3 h-3 bg-amber-500/60 rounded" /><div className="w-3 h-3 bg-emerald-500/80 rounded" /></div>
               <span>High</span>
@@ -429,28 +429,28 @@ export default function RecruiterEyeSimulation({
                     <span className="text-sm font-medium text-white">{pt.section}</span>
                     <div className="flex items-center gap-3">
                       <div className="text-right">
-                        <p className="text-[10px] text-slate-500">Time</p>
+                        <p className="text-[11px] text-slate-400">Time</p>
                         <p className="text-xs font-semibold text-white">{pt.timeSpent}s</p>
                       </div>
                       {cal && (
                         <div className="text-right">
-                          <p className="text-[10px] text-slate-600">Baseline</p>
-                          <p className="text-[10px] text-slate-500">{cal.baselineAttention}%</p>
+                          <p className="text-[11px] text-slate-500">Baseline</p>
+                          <p className="text-[11px] text-slate-400">{cal.baselineAttention}%</p>
                         </div>
                       )}
                       <div className={`w-2.5 h-8 rounded-full ${getAttentionColor(pt.attentionScore)}`} />
                     </div>
                   </div>
-                  <p className={`text-[11px] mb-2 ${getAttentionText(pt.attentionScore)}`}>{pt.notes}</p>
+                  <p className={`text-xs mb-2 ${getAttentionText(pt.attentionScore)}`}>{pt.notes}</p>
                   <div className="h-1.5 bg-slate-700/60 rounded-full overflow-hidden">
                     <div className={`h-full ${getAttentionColor(pt.attentionScore)} rounded-full transition-all duration-500`} style={{ width: `${pt.attentionScore}%` }} />
                   </div>
                   {cal && (
                     <div className="flex items-center gap-1.5 mt-2">
-                      <BookOpen className="w-2.5 h-2.5 text-slate-600 flex-shrink-0" />
-                      <p className="text-[10px] text-slate-600 leading-relaxed">{cal.researchNote}</p>
+                      <BookOpen className="w-2.5 h-2.5 text-slate-500 flex-shrink-0" />
+                      <p className="text-[11px] text-slate-500 leading-relaxed">{cal.researchNote}</p>
                       {cal.deviation !== 'Normal' && (
-                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ml-auto flex-shrink-0 ${
+                        <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-medium ml-auto flex-shrink-0 ${
                           cal.deviation.includes('Above') ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'
                         }`}>{cal.deviation}</span>
                       )}

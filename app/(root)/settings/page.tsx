@@ -93,7 +93,7 @@ function SectionHeader({
       </div>
       <div>
         <h3 className="text-sm font-semibold text-white">{title}</h3>
-        <p className="text-slate-500 text-xs mt-0.5">{subtitle}</p>
+        <p className="text-slate-400 text-xs mt-0.5">{subtitle}</p>
       </div>
     </div>
   );
@@ -121,7 +121,7 @@ function Toggle({
 function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-slate-500 mb-1.5">{label}</label>
+      <label className="block text-xs font-medium text-slate-400 mb-1.5">{label}</label>
       {children}
     </div>
   );
@@ -132,7 +132,7 @@ function Input({ ...props }: React.InputHTMLAttributes<HTMLInputElement> & { cla
     <input
       {...props}
       className={`w-full px-3.5 py-2.5 bg-slate-800/50 border border-white/[0.08] rounded-xl text-sm text-white
-                  placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/40 focus:border-indigo-500/30
+                  placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/40 focus:border-indigo-500/30
                   disabled:opacity-40 disabled:cursor-not-allowed transition-all ${props.className ?? ''}`}
     />
   );
@@ -426,9 +426,9 @@ export default function SettingsPage() {
 
           <div className="flex-1 min-w-0">
             <h1 className="text-base font-semibold text-white truncate">{(user.user_metadata?.name as string) || (user.user_metadata?.full_name as string) || 'Your Account'}</h1>
-            <p className="text-slate-500 text-xs truncate mt-0.5">{user.email}</p>
+            <p className="text-slate-400 text-xs truncate mt-0.5">{user.email}</p>
             <div className="flex items-center flex-wrap gap-1.5 mt-2">
-              <span className={`inline-flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full font-medium border ${
+              <span className={`inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full font-medium border ${
                 plan.tier === 'free'
                   ? 'bg-slate-800/60 text-slate-400 border-slate-700/50'
                   : plan.tier === 'pro'
@@ -440,7 +440,7 @@ export default function SettingsPage() {
                 {plan.name}
               </span>
               {isGoogleUser && (
-                <span className="inline-flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full bg-slate-800/60 text-slate-400 border border-slate-700/50 font-medium">Google</span>
+                <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full bg-slate-800/60 text-slate-400 border border-slate-700/50 font-medium">Google</span>
               )}
             </div>
           </div>
@@ -459,12 +459,12 @@ export default function SettingsPage() {
                 className={`relative flex-shrink-0 flex items-center gap-2 px-4 py-3.5 text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
                   isActive
                     ? s.danger ? 'text-red-400' : 'text-white'
-                    : s.danger ? 'text-slate-500 hover:text-red-400' : 'text-slate-500 hover:text-slate-300'
+                    : s.danger ? 'text-slate-400 hover:text-red-400' : 'text-slate-400 hover:text-slate-300'
                 }`}>
                 <s.icon className={`w-3.5 h-3.5 flex-shrink-0 ${isActive && !s.danger ? 'text-indigo-400' : ''}`} />
                 <span>{s.label}</span>
                 {s.badge && (
-                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-indigo-600 text-white font-bold leading-none">{s.badge}</span>
+                  <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-indigo-600 text-white font-bold leading-none">{s.badge}</span>
                 )}
                 {isActive && (
                   <span className={`absolute bottom-0 left-0 right-0 h-0.5 rounded-full ${s.danger ? 'bg-red-400' : 'bg-[var(--accent)]'}`} />
@@ -496,7 +496,7 @@ export default function SettingsPage() {
                   <p className="text-white font-semibold text-sm truncate">{profileName || (user.user_metadata?.name as string) || (user.user_metadata?.full_name as string) || 'No name set'}</p>
                   <p className="text-slate-400 text-xs mt-0.5 truncate">{user.email}</p>
                   <div className="flex items-center gap-2 mt-2">
-                    <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium border ${
+                    <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium border ${
                       plan.tier === 'free'
                         ? 'bg-slate-800/60 text-slate-400 border-slate-700/50'
                         : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
@@ -507,7 +507,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <Link href="/profile"
-                  className="flex-shrink-0 inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-white
+                  className="flex-shrink-0 inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white
                              border border-white/[0.06] hover:border-white/10 px-3 py-2 rounded-xl transition-all">
                   <Link2 className="w-3.5 h-3.5" /> Edit Profile
                 </Link>
@@ -538,9 +538,9 @@ export default function SettingsPage() {
                   },
                 ].map(({ label, value, mono, badge }) => (
                   <div key={label} className="flex flex-col gap-1.5 p-3.5 rounded-xl bg-slate-800/30 border border-white/[0.05] hover:border-white/[0.08] transition-colors">
-                    <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">{label}</span>
+                    <span className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">{label}</span>
                     {badge ? (
-                      <span className={`self-start inline-flex items-center gap-1.5 text-[10px] font-medium px-2.5 py-1 rounded-full border ${badge.color}`}>
+                      <span className={`self-start inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full border ${badge.color}`}>
                         <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />{badge.text}
                       </span>
                     ) : (
@@ -574,7 +574,7 @@ export default function SettingsPage() {
                     className="flex items-center justify-between p-3.5 rounded-xl border border-white/[0.05] bg-slate-800/20 hover:bg-slate-800/40 transition-colors gap-4">
                     <div className="flex-1 min-w-0">
                       <h4 className="text-white text-sm font-medium">{item.label}</h4>
-                      <p className="text-slate-500 text-xs mt-0.5 leading-relaxed">{item.desc}</p>
+                      <p className="text-slate-400 text-xs mt-0.5 leading-relaxed">{item.desc}</p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {isSaving && <Loader2 className="w-3 h-3 text-emerald-400 animate-spin" />}
@@ -583,7 +583,7 @@ export default function SettingsPage() {
                   </div>
                 );
               })}
-              <p className="text-xs text-slate-600 leading-relaxed px-1 pt-1">
+              <p className="text-xs text-slate-500 leading-relaxed px-1 pt-1">
                 Security and account email - password resets, new-device alerts and
                 billing receipts - is always sent and cannot be turned off.
               </p>
@@ -605,7 +605,7 @@ export default function SettingsPage() {
                     <AlertCircle className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
                     <div>
                       <p className="text-blue-300 text-sm font-medium">Managed by Google</p>
-                      <p className="text-slate-500 text-xs mt-1 leading-relaxed">
+                      <p className="text-slate-400 text-xs mt-1 leading-relaxed">
                         Your account is signed in with Google. Password and email changes are managed through your Google account settings.
                       </p>
                       <a href="https://myaccount.google.com/security" target="_blank" rel="noopener noreferrer"
@@ -633,7 +633,7 @@ export default function SettingsPage() {
                         <Input type={showEmailPassword ? 'text' : 'password'} value={emailPassword}
                           onChange={e => setEmailPassword(e.target.value)} placeholder="Your current password" className="pr-9" />
                         <button type="button" onClick={() => setShowEmailPassword(p => !p)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 cursor-pointer">
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-300 cursor-pointer">
                           {showEmailPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                         </button>
                       </div>
@@ -662,7 +662,7 @@ export default function SettingsPage() {
                           <Input type={field.show ? 'text' : 'password'} value={field.value}
                             onChange={e => field.setter(e.target.value)} placeholder={field.ph} className="pr-9" />
                           <button type="button" onClick={field.toggle}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 cursor-pointer">
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-300 cursor-pointer">
                             {field.show ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                           </button>
                         </div>
@@ -680,7 +680,7 @@ export default function SettingsPage() {
                             }`} />
                           ))}
                         </div>
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-slate-400">
                           {newPassword.length < 8 ? 'Too short' : newPassword.length < 12 ? 'Fair - consider longer' : 'Strong password'}
                         </p>
                       </div>
@@ -718,7 +718,7 @@ export default function SettingsPage() {
                       <>
                         <div className="flex items-center gap-2">
                           <p className="text-white font-semibold text-sm">{plan.name}</p>
-                          <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium border ${
+                          <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium border ${
                             plan.tier === 'free'
                               ? 'bg-slate-700/60 text-slate-400 border-slate-600/50'
                               : plan.tier === 'pro'
@@ -739,7 +739,7 @@ export default function SettingsPage() {
                         {/* Was hardcoded to "Unlimited interviews and advanced
                             analytics" for every paid tier, directly above a
                             meter reading the real cap. Derived now. */}
-                        <p className="text-slate-500 text-xs mt-1">
+                        <p className="text-slate-400 text-xs mt-1">
                           {plan.tier === 'admin'
                             ? 'Uncapped on every feature, granted by admin status rather than a subscription'
                             : `${plan.limits.interviews} mock interview${plan.limits.interviews === 1 ? '' : 's'} · ${plan.limits.resumes} resume analys${plan.limits.resumes === 1 ? 'is' : 'es'} per month`}
@@ -747,13 +747,13 @@ export default function SettingsPage() {
                       </>
                     )}
                   </div>
-                  <span className="flex-shrink-0 inline-flex items-center gap-1.5 bg-slate-700/50 border border-white/[0.06] text-slate-300 text-[10px] font-medium px-3 py-1.5 rounded-full ml-3">
+                  <span className="flex-shrink-0 inline-flex items-center gap-1.5 bg-slate-700/50 border border-white/[0.06] text-slate-300 text-[11px] font-medium px-3 py-1.5 rounded-full ml-3">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Active
                   </span>
                 </div>
 
                 <div className="space-y-3">
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Monthly Usage</p>
+                  <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Monthly Usage</p>
                   {statsLoading ? (
                     <div className="space-y-3">
                       {[1, 2, 3, 4].map(n => (
@@ -780,10 +780,10 @@ export default function SettingsPage() {
                               {/* -1 is the uncapped sentinel and must never reach
                                   the screen. It used to render as "0 / -1". */}
                               {isUnlimited(limit) ? (
-                                <span className="text-slate-500">Unlimited</span>
+                                <span className="text-slate-400">Unlimited</span>
                               ) : (
-                                <span className={near ? 'text-amber-400 font-medium tabular-nums' : 'text-slate-500 tabular-nums'}>
-                                  {used} <span className="text-slate-700">/</span> {limit}
+                                <span className={near ? 'text-amber-400 font-medium tabular-nums' : 'text-slate-400 tabular-nums'}>
+                                  {used} <span className="text-slate-500">/</span> {limit}
                                 </span>
                               )}
                             </div>
@@ -871,7 +871,7 @@ export default function SettingsPage() {
                     { step: 4, text: <span>Open any <strong className="text-white">LinkedIn job posting</strong> and click the <strong className="text-white">Preciprocal icon</strong> in your toolbar</span> },
                                     ].map(({ step, text }) => (
                     <li key={step} className="flex items-start gap-3 text-xs text-slate-400">
-                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-indigo-500/15 border border-indigo-500/20 text-indigo-400 flex items-center justify-center text-[10px] font-bold mt-0.5">{step}</span>
+                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-indigo-500/15 border border-indigo-500/20 text-indigo-400 flex items-center justify-center text-[11px] font-bold mt-0.5">{step}</span>
                       <span className="leading-relaxed pt-0.5">{text}</span>
                     </li>
                   ))}
@@ -892,7 +892,7 @@ export default function SettingsPage() {
                     <f.icon className="w-4 h-4 text-indigo-300 flex-shrink-0 mt-0.5" strokeWidth={1.75} />
                     <div>
                       <p className="text-white text-xs font-semibold">{f.title}</p>
-                      <p className="text-slate-500 text-xs mt-0.5">{f.desc}</p>
+                      <p className="text-slate-400 text-xs mt-0.5">{f.desc}</p>
                     </div>
                   </div>
                 ))}
@@ -914,7 +914,7 @@ export default function SettingsPage() {
                     <p className="text-slate-300 text-sm leading-relaxed">
                       Request a full data export including your interview history, resume analyses, session transcripts, and account metadata. We&apos;ll email it to you as a JSON file, usually within a minute.
                     </p>
-                    <p className="text-slate-500 text-xs mt-2">Your right under GDPR / CCPA.</p>
+                    <p className="text-slate-400 text-xs mt-2">Your right under GDPR / CCPA.</p>
                   </div>
                   <button
                     onClick={async () => {
@@ -964,14 +964,14 @@ export default function SettingsPage() {
                     placeholder="e.g. No longer job searching, switching to a different tool, missing a feature…"
                     rows={3}
                     className="w-full px-3.5 py-2.5 bg-slate-800/50 border border-white/[0.08] rounded-xl text-sm text-white
-                               placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-red-500/30 focus:border-red-500/20
+                               placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-red-500/30 focus:border-red-500/20
                                transition-all resize-none"
                   />
-                  <p className="text-slate-600 text-xs mt-1">Your feedback helps us improve Preciprocal.</p>
+                  <p className="text-slate-500 text-xs mt-1">Your feedback helps us improve Preciprocal.</p>
                 </FieldRow>
 
                 <div className="flex items-center justify-between gap-4 pt-1">
-                  <p className="text-slate-500 text-xs">
+                  <p className="text-slate-400 text-xs">
                     {closureSent
                       ? 'Request received. It is in Help & Support > Tickets, and we will email you to confirm each step.'
                       : 'Sends a closure request to our team. You will get an email confirming we received it.'}

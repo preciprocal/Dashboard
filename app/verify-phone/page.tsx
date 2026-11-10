@@ -95,13 +95,13 @@ export default function VerifyPhonePage() {
           </div>
 
           <div>
-            <p className="text-[11px] font-semibold text-indigo-400 uppercase tracking-widest mb-2">
+            <p className="text-xs font-semibold text-indigo-400 uppercase tracking-widest mb-2">
               One last step
             </p>
             <h1 className="text-lg font-bold text-white leading-snug">
               {sentTo ? "Enter your code" : "Verify your phone number"}
             </h1>
-            <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+            <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
               {sentTo
                 ? <>We sent a code to <span className="text-slate-300">{sentTo}</span>. It expires in 10 minutes.</>
                 : "We verify one phone number per account to keep Preciprocal free of spam accounts. We only do this once, and we won't text you again."}
@@ -111,7 +111,7 @@ export default function VerifyPhonePage() {
           {!sentTo ? (
             <div className="space-y-3">
               <div>
-                <label className="block text-[11px] text-slate-500 uppercase tracking-widest mb-2">
+                <label className="block text-xs text-slate-400 uppercase tracking-widest mb-2">
                   Phone number
                 </label>
                 <input
@@ -125,7 +125,7 @@ export default function VerifyPhonePage() {
                     border: error ? "1px solid rgba(239,68,68,0.35)" : "1px solid rgba(255,255,255,0.07)",
                   }}
                 />
-                <p className="text-[11px] text-slate-600 mt-1.5">Include your country code.</p>
+                <p className="text-xs text-slate-500 mt-1.5">Include your country code.</p>
               </div>
               {error && <p className="text-xs text-red-400">{error}</p>}
               <button onClick={sendCode} disabled={sending || phone.trim().length < 6}
@@ -139,7 +139,7 @@ export default function VerifyPhonePage() {
           ) : (
             <div className="space-y-4">
               <div>
-                <label className="block text-[11px] text-slate-500 uppercase tracking-widest mb-2">
+                <label className="block text-xs text-slate-400 uppercase tracking-widest mb-2">
                   Verification code
                 </label>
                 <input
@@ -184,7 +184,7 @@ export default function VerifyPhonePage() {
 
           <div className="pt-1 border-t border-white/[0.06]">
             <button onClick={signOut}
-              className="text-[11px] text-slate-600 hover:text-slate-400 transition-colors cursor-pointer pt-4">
+              className="text-xs text-slate-500 hover:text-slate-400 transition-colors cursor-pointer pt-4">
               Sign out
             </button>
           </div>

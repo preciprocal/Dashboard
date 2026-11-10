@@ -93,7 +93,7 @@ export default function BillingPromises() {
         ))}
       </ul>
 
-      <p className="text-center text-xs text-slate-500 mt-6">
+      <p className="text-center text-xs text-slate-400 mt-6">
         Free plan, no card required. Your data is never sold.
       </p>
     </section>

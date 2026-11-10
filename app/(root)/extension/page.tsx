@@ -112,10 +112,10 @@ export default function ExtensionPage() {
                 <li key={j.id} className="flex items-center gap-3 py-2.5">
                   <div className="min-w-0 flex-1">
                     <p className="text-[13px] font-medium text-white truncate">{j.jobTitle || 'Untitled role'}</p>
-                    <p className="text-xs text-slate-500 truncate">{j.company || 'Unknown company'} · {j.platform} · {fmtDate(j.createdAt)}</p>
+                    <p className="text-xs text-slate-400 truncate">{j.company || 'Unknown company'} · {j.platform} · {fmtDate(j.createdAt)}</p>
                   </div>
-                  <span className="text-[11px] font-medium text-slate-300 bg-white/[0.05] border border-white/[0.08] px-2 py-0.5 rounded-md flex-shrink-0">{STATUS_LABEL[j.status ?? ''] ?? 'Applied'}</span>
-                  {j.url && <a href={j.url} target="_blank" rel="noopener noreferrer" aria-label="Open job posting" className="text-slate-500 hover:text-white flex-shrink-0"><ExternalLink className="w-3.5 h-3.5" /></a>}
+                  <span className="text-xs font-medium text-slate-300 bg-white/[0.05] border border-white/[0.08] px-2 py-0.5 rounded-md flex-shrink-0">{STATUS_LABEL[j.status ?? ''] ?? 'Applied'}</span>
+                  {j.url && <a href={j.url} target="_blank" rel="noopener noreferrer" aria-label="Open job posting" className="text-slate-400 hover:text-white flex-shrink-0"><ExternalLink className="w-3.5 h-3.5" /></a>}
                 </li>
               ))}
             </ul>
@@ -133,7 +133,7 @@ export default function ExtensionPage() {
                 <li key={l.id} className="py-2.5">
                   <Link href={`/cover-letter?open=${l.id}`} className="block group">
                     <p className="text-[13px] font-medium text-white truncate group-hover:text-indigo-200">{l.jobRole || 'Cover letter'}</p>
-                    <p className="text-xs text-slate-500 truncate">{l.company || 'Unknown company'} · {fmtDate(l.createdAt)}</p>
+                    <p className="text-xs text-slate-400 truncate">{l.company || 'Unknown company'} · {fmtDate(l.createdAt)}</p>
                   </Link>
                 </li>
               ))}
@@ -160,13 +160,13 @@ function Stat({ icon: Icon, label, value, sub, loading }: { icon: React.ElementT
   return (
     <div className="glass-card p-4">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.12em] leading-tight">{label}</span>
-        <Icon className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" strokeWidth={1.75} />
+        <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-[0.12em] leading-tight">{label}</span>
+        <Icon className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" strokeWidth={1.75} />
       </div>
       {loading
         ? <div className="mt-3 h-7 w-12 rounded-md bg-white/[0.05] animate-pulse" />
         : <p className="mt-2 text-2xl font-semibold text-white tabular-nums leading-none">{value ?? 0}</p>}
-      {sub && <p className="text-[11px] text-slate-500 mt-1.5">{sub}</p>}
+      {sub && <p className="text-xs text-slate-400 mt-1.5">{sub}</p>}
     </div>
   );
 }
@@ -194,7 +194,7 @@ function WeeklyChart({ weeks }: { weeks: Usage['weekly'] }) {
         {/* y axis */}
         <div className="relative w-7 flex-shrink-0" style={{ height: H }} aria-hidden="true">
           {ticks.map(t => (
-            <span key={t} className="absolute right-2 text-[10px] text-slate-600 tabular-nums -translate-y-1/2" style={{ top: H - (t / max) * H }}>{t}</span>
+            <span key={t} className="absolute right-2 text-[11px] text-slate-500 tabular-nums -translate-y-1/2" style={{ top: H - (t / max) * H }}>{t}</span>
           ))}
         </div>
         <div className="relative flex-1" role="img" aria-label="Weekly jobs tracked and cover letters, last 12 weeks. Table follows.">
@@ -212,7 +212,7 @@ function WeeklyChart({ weeks }: { weeks: Usage['weekly'] }) {
                 ))}
                 {hover === i && (
                   <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-10 whitespace-nowrap rounded-lg bg-[var(--bg-raised)] border border-white/[0.1] px-3 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.4)] pointer-events-none">
-                    <p className="text-[11px] text-slate-400 mb-1">Week of {fmtDate(w.weekStart)}</p>
+                    <p className="text-xs text-slate-400 mb-1">Week of {fmtDate(w.weekStart)}</p>
                     <p className="text-xs text-slate-200 flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm" style={{ background: SERIES.jobs }} />{w.jobs} jobs tracked</p>
                     <p className="text-xs text-slate-200 flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm" style={{ background: SERIES.coverLetters }} />{w.coverLetters} cover letters</p>
                   </div>
@@ -220,11 +220,11 @@ function WeeklyChart({ weeks }: { weeks: Usage['weekly'] }) {
               </div>
             ))}
           </div>
-          {empty && <p className="absolute inset-0 flex items-center justify-center text-sm text-slate-500" style={{ height: H }}>No activity in the last 12 weeks</p>}
+          {empty && <p className="absolute inset-0 flex items-center justify-center text-sm text-slate-400" style={{ height: H }}>No activity in the last 12 weeks</p>}
           {/* x labels: every 3rd week, to avoid crowding */}
           <div className="absolute inset-x-0 flex" style={{ top: H + 6 }} aria-hidden="true">
             {weeks.map((w, i) => (
-              <span key={w.weekStart} className="flex-1 text-center text-[10px] text-slate-600 whitespace-nowrap">{i % 3 === 0 || i === weeks.length - 1 ? fmtDate(w.weekStart) : ''}</span>
+              <span key={w.weekStart} className="flex-1 text-center text-[11px] text-slate-500 whitespace-nowrap">{i % 3 === 0 || i === weeks.length - 1 ? fmtDate(w.weekStart) : ''}</span>
             ))}
           </div>
         </div>
@@ -262,5 +262,5 @@ function ListSkeleton() {
 }
 
 function EmptyList({ text }: { text: string }) {
-  return <p className="text-sm text-slate-500 py-6 text-center max-w-sm mx-auto leading-relaxed">{text}</p>;
+  return <p className="text-sm text-slate-400 py-6 text-center max-w-sm mx-auto leading-relaxed">{text}</p>;
 }

@@ -56,12 +56,12 @@ export default function AutoPayPanel() {
   };
 
   if (!state) {
-    return <div className="flex justify-center py-6 text-slate-500"><Loader2 className="w-4 h-4 animate-spin" /></div>;
+    return <div className="flex justify-center py-6 text-slate-400"><Loader2 className="w-4 h-4 animate-spin" /></div>;
   }
 
   if (!state.available) {
     return (
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-slate-400">
         Auto pay applies to paid plans. When you subscribe, you choose whether each month is charged
         automatically or sent to you as an invoice.
       </p>
@@ -82,7 +82,7 @@ export default function AutoPayPanel() {
           </div>
           <div className="min-w-0">
             <h4 className="text-white text-sm font-medium">Pay automatically each month</h4>
-            <p className="text-slate-500 text-xs mt-0.5 leading-relaxed">
+            <p className="text-slate-400 text-xs mt-0.5 leading-relaxed">
               {ending
                 ? `Your plan is set to end${next ? ` on ${next}` : ''}, so nothing more will be charged or invoiced.`
                 : on

@@ -210,7 +210,7 @@ const ProfileInterviewCard: React.FC<ProfileInterviewCardProps> = ({
         {/* Tech Stack */}
         {techstack && Array.isArray(techstack) && techstack.length > 0 && (
           <div className="mb-4 flex-shrink-0">
-            <div className="text-xs text-slate-500 mb-2">
+            <div className="text-xs text-slate-400 mb-2">
               Tech Stack
             </div>
             <div className="flex flex-wrap gap-2">
@@ -264,10 +264,10 @@ const ProfileInterviewCard: React.FC<ProfileInterviewCardProps> = ({
         {isCompleted && finalScore !== undefined && (
           <div className="mb-5 p-5 glass-card border border-white/5 flex-shrink-0">
             <div className="flex items-center justify-between mb-4">
-              <div className="text-xs text-slate-500">
+              <div className="text-xs text-slate-400">
                 Your Performance
               </div>
-              <div className="text-xs text-slate-500">{formattedDate}</div>
+              <div className="text-xs text-slate-400">{formattedDate}</div>
             </div>
             
             <div className="flex items-end justify-between mb-4">
@@ -276,7 +276,7 @@ const ProfileInterviewCard: React.FC<ProfileInterviewCardProps> = ({
                   <span className={cn("text-3xl font-semibold", scoreStatus?.color || "text-emerald-400")}>
                     {finalScore}
                   </span>
-                  <span className="text-base text-slate-500">/100</span>
+                  <span className="text-base text-slate-400">/100</span>
                 </div>
                 <div className="text-xs text-slate-400">Overall Score</div>
               </div>

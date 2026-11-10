@@ -123,7 +123,7 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
     );
   }
   if (error) return <div className="max-w-md mx-auto px-4 py-16 text-center text-slate-300">{error}</div>;
-  if (!inv) return <div className="flex justify-center py-24 text-slate-500"><Loader2 className="w-5 h-5 animate-spin" /></div>;
+  if (!inv) return <div className="flex justify-center py-24 text-slate-400"><Loader2 className="w-5 h-5 animate-spin" /></div>;
 
   const paid = inv.status === 'paid';
   const open = inv.status === 'open';
@@ -148,7 +148,7 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
             )}
             {open && <span className="text-xs font-semibold text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md">Payment due</span>}
           </div>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-slate-400 mt-1">
             {paid ? `Paid ${longDay(inv.paidAt)}` : `Issued ${longDay(inv.created)}${open && inv.dueDate ? ` · due ${longDay(inv.dueDate)}` : ''}`}
           </p>
         </div>
@@ -175,9 +175,9 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
         {open && (
           <aside id="pay" className="glass-card p-6 xl:sticky xl:top-6 space-y-4">
             <div>
-              <p className="text-[11px] font-semibold text-indigo-400 uppercase tracking-widest">Pay this invoice</p>
+              <p className="text-xs font-semibold text-indigo-400 uppercase tracking-widest">Pay this invoice</p>
               <p className="text-3xl font-bold text-white mt-1 tabular-nums">{amount}</p>
-              {inv.dueDate && <p className="text-xs text-slate-500 mt-1">Due {longDay(inv.dueDate)}</p>}
+              {inv.dueDate && <p className="text-xs text-slate-400 mt-1">Due {longDay(inv.dueDate)}</p>}
             </div>
             {inv.savedCard && !showCardEntry && (
               <button type="button" onClick={payWithSaved} disabled={paying}
@@ -196,14 +196,14 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
                 Pay with a different card
               </button>
             )}
-            <p className="flex items-center gap-1.5 text-[11px] text-slate-500 pt-2 border-t border-white/[0.06]">
+            <p className="flex items-center gap-1.5 text-xs text-slate-400 pt-2 border-t border-white/[0.06]">
               <Lock className="w-3 h-3" /> Payments are processed securely by Stripe.
             </p>
           </aside>
         )}
       </div>
 
-      <p className="flex items-center justify-center gap-1.5 text-xs text-slate-500 mt-8">
+      <p className="flex items-center justify-center gap-1.5 text-xs text-slate-400 mt-8">
         <Mail className="w-3.5 h-3.5" /> Questions about this {kind.toLowerCase()}? <a href="mailto:support@preciprocal.com" className="text-indigo-300 hover:text-indigo-200">support@preciprocal.com</a>
       </p>
     </div>

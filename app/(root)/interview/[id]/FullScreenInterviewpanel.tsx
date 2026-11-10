@@ -1019,7 +1019,7 @@ const FullScreenInterviewPanel = ({
             </div>
 
             <div className="space-y-3">
-              <p className="text-xs text-slate-500 leading-relaxed">
+              <p className="text-xs text-slate-400 leading-relaxed">
                 Before trying again: check that your microphone is unmuted here and in your
                 operating system, and that the browser has permission to use it.
               </p>
@@ -1059,7 +1059,7 @@ const FullScreenInterviewPanel = ({
             </div>
             <div className="min-w-0 flex-1">
               <h1 className="text-white font-medium text-xs sm:text-sm md:text-base truncate">Interview Conference</h1>
-              <p className="text-slate-500 text-xs truncate">
+              <p className="text-slate-400 text-xs truncate">
                 {interviewRole} {interviewType && `• ${interviewType === "system-design" ? "System Design" : interviewType.charAt(0).toUpperCase() + interviewType.slice(1)}`}
                 {interviewType === "mixed" && currentInterviewPhase && (
                   <span className="hidden sm:inline"> • {currentInterviewPhase === "behavioral" ? "Behavioral (1/2)" : "Technical (2/2)"}</span>
@@ -1073,7 +1073,7 @@ const FullScreenInterviewPanel = ({
 
           {/* Connection quality + timer - only shown when call is active */}
           {callStatus === CallStatus.ACTIVE && (
-            <div className="hidden lg:flex items-center gap-3 xl:gap-4 text-xs xl:text-sm text-slate-500 flex-shrink-0">
+            <div className="hidden lg:flex items-center gap-3 xl:gap-4 text-xs xl:text-sm text-slate-400 flex-shrink-0">
               {getConnectionIcon()}
               <span className="capitalize hidden xl:inline text-slate-400">{connectionQuality}</span>
               <div className="flex items-center gap-1.5 sm:gap-2 text-slate-400">
@@ -1151,7 +1151,7 @@ const FullScreenInterviewPanel = ({
                   <h3 className={`text-white font-medium text-sm sm:text-base md:text-lg mb-0.5 sm:mb-1 ${isCurrentSpeaker ? "text-blue-300" : ""}`}>
                     {participant.name}
                   </h3>
-                  <p className="text-slate-500 text-xs sm:text-sm mb-1.5 sm:mb-2">{participant.role}</p>
+                  <p className="text-slate-400 text-xs sm:text-sm mb-1.5 sm:mb-2">{participant.role}</p>
                   <div className={`inline-flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs ${
                     statusInfo.color.includes("emerald") ? "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20"
                       : statusInfo.color.includes("blue")   ? "text-blue-400 bg-blue-500/10 border border-blue-500/20"
@@ -1160,9 +1160,9 @@ const FullScreenInterviewPanel = ({
                   }`}>
                     <span>{statusInfo.text}</span>
                   </div>
-                  <div className="mt-1.5 sm:mt-2 text-xs text-slate-600">{participant.experience}</div>
+                  <div className="mt-1.5 sm:mt-2 text-xs text-slate-500">{participant.experience}</div>
                   {isSelf && callStatus === CallStatus.ACTIVE && !isVideoOn && (
-                    <div className="mt-2 inline-flex items-center gap-1.5 text-xs text-slate-500">
+                    <div className="mt-2 inline-flex items-center gap-1.5 text-xs text-slate-400">
                       <VideoOff className="w-3.5 h-3.5" /> Camera off
                     </div>
                   )}
@@ -1204,7 +1204,7 @@ const FullScreenInterviewPanel = ({
                     : "Ready"}
                 </span>
               </div>
-              <div className="text-slate-500">
+              <div className="text-slate-400">
                 Q {callStatus === CallStatus.ACTIVE ? currentQuestionIndex : 1}/{totalQuestions}
               </div>
               {currentSpeaker && (

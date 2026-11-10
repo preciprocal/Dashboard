@@ -144,7 +144,7 @@ export default function PlanDetailPage() {
           <div className="flex items-center gap-3">
             <div className="text-right">
               <p className={`text-xl font-semibold tabular-nums leading-none ${allTasksComplete ? 'text-emerald-400' : 'text-white'}`}>{percentage}%</p>
-              <p className="text-[11px] text-slate-500 mt-1">Complete</p>
+              <p className="text-xs text-slate-400 mt-1">Complete</p>
             </div>
             <ProgressRing pct={percentage} complete={allTasksComplete} />
           </div>

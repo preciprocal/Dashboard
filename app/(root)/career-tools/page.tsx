@@ -77,9 +77,9 @@ function Collapsible({ title, children, badge }: { title: string; children: Reac
       <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between px-4 py-3 bg-white/[0.03] hover:bg-white/[0.05] transition-colors duration-150">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-slate-300">{title}</span>
-          {badge && <span className="text-[10px] px-2 py-0.5 bg-violet-500/15 text-violet-400 border border-violet-500/25 rounded-full font-medium">{badge}</span>}
+          {badge && <span className="text-[11px] px-2 py-0.5 bg-violet-500/15 text-violet-400 border border-violet-500/25 rounded-full font-medium">{badge}</span>}
         </div>
-        {open ? <ChevronUp className="w-3.5 h-3.5 text-slate-500" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-500" />}
+        {open ? <ChevronUp className="w-3.5 h-3.5 text-slate-400" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
       </button>
       {open && <div className="px-4 pb-4 pt-3 bg-white/[0.02] border-t border-white/[0.05]">{children}</div>}
     </div>
@@ -92,7 +92,7 @@ function ResultCard({ children, className = '' }: { children: React.ReactNode; c
 
 function ScoreChip({ score }: { score: number }) {
   const color = score >= 75 ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : score >= 50 ? 'text-amber-400 bg-amber-500/10 border-amber-500/20' : 'text-red-400 bg-red-500/10 border-red-500/20';
-  return <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${color}`}>{score}/100</span>;
+  return <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${color}`}>{score}/100</span>;
 }
 
 // ─── LinkedIn Results ─────────────────────────────────────────────────────────
@@ -104,21 +104,21 @@ function LinkedInResults({ data }: { data: LinkedInResult }) {
         <div className="flex items-center gap-4">
           <ScoreRing score={data.overallScore} />
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold mb-1">Profile Strength</p>
+            <p className="text-[11px] text-slate-400 uppercase tracking-widest font-semibold mb-1">Profile Strength</p>
             <p className="text-base font-bold text-white leading-tight">{data.overallScore >= 75 ? 'Strong' : data.overallScore >= 50 ? 'Needs Work' : 'Weak'}</p>
             <p className="text-xs text-slate-400 mt-1 leading-relaxed italic line-clamp-2">&ldquo;{data.overallVerdict}&rdquo;</p>
           </div>
         </div>
         <div className="mt-4 pt-4 border-t border-white/[0.05]">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] text-slate-500 flex items-center gap-1.5"><Search className="w-3 h-3" /> Search visibility</span>
-            <span className="text-[11px] text-white font-medium">{data.seoScore.current}<span className="text-slate-600 mx-1">→</span><span className="text-emerald-400">{data.seoScore.potential}</span></span>
+            <span className="text-xs text-slate-400 flex items-center gap-1.5"><Search className="w-3 h-3" /> Search visibility</span>
+            <span className="text-xs text-white font-medium">{data.seoScore.current}<span className="text-slate-500 mx-1">→</span><span className="text-emerald-400">{data.seoScore.potential}</span></span>
           </div>
           <div className="relative h-1 bg-white/[0.06] rounded-full overflow-hidden">
             <div className="absolute inset-y-0 left-0 bg-white/10 rounded-full" style={{ width: `${data.seoScore.current}%` }} />
             <div className="absolute inset-y-0 left-0 bg-emerald-500 rounded-full opacity-60" style={{ width: `${data.seoScore.potential}%` }} />
           </div>
-          <p className="text-[11px] text-slate-600 mt-2 leading-relaxed">{data.seoScore.explanation}</p>
+          <p className="text-xs text-slate-500 mt-2 leading-relaxed">{data.seoScore.explanation}</p>
         </div>
       </ResultCard>
 
@@ -129,16 +129,16 @@ function LinkedInResults({ data }: { data: LinkedInResult }) {
         </div>
         <div className="space-y-2.5">
           <div className="p-3 bg-red-500/[0.06] border border-red-500/15 rounded-xl">
-            <p className="text-[10px] text-red-400 font-semibold uppercase tracking-wide mb-1">Problem</p>
+            <p className="text-[11px] text-red-400 font-semibold uppercase tracking-wide mb-1">Problem</p>
             <p className="text-xs text-slate-300 leading-relaxed">{data.headline.problem}</p>
           </div>
           <div className="p-3 bg-emerald-500/[0.06] border border-emerald-500/15 rounded-xl">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wide">Optimised</p>
+              <p className="text-[11px] text-emerald-400 font-semibold uppercase tracking-wide">Optimised</p>
               <CopyButton text={data.headline.rewritten} />
             </div>
             <p className="text-sm text-white font-medium leading-relaxed">{data.headline.rewritten}</p>
-            <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">{data.headline.whyItWorks}</p>
+            <p className="text-xs text-slate-400 mt-2 leading-relaxed">{data.headline.whyItWorks}</p>
           </div>
         </div>
         {data.headline.alternatives?.length > 0 && (
@@ -174,17 +174,17 @@ function LinkedInResults({ data }: { data: LinkedInResult }) {
         )}
         <div className="p-3 bg-emerald-500/[0.06] border border-emerald-500/15 rounded-xl">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wide">Optimised About</p>
+            <p className="text-[11px] text-emerald-400 font-semibold uppercase tracking-wide">Optimised About</p>
             <CopyButton text={data.about.rewritten} label="Copy all" />
           </div>
           <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">{data.about.rewritten}</p>
         </div>
         {data.about.keywordsAdded?.length > 0 && (
           <div className="mt-3">
-            <p className="text-[10px] text-slate-600 uppercase tracking-wide font-semibold mb-2">Keywords added</p>
+            <p className="text-[11px] text-slate-500 uppercase tracking-wide font-semibold mb-2">Keywords added</p>
             <div className="flex flex-wrap gap-1.5">
               {data.about.keywordsAdded.map((kw, i) => (
-                <span key={i} className="text-[11px] px-2 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full">{kw}</span>
+                <span key={i} className="text-xs px-2 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full">{kw}</span>
               ))}
             </div>
           </div>
@@ -197,11 +197,11 @@ function LinkedInResults({ data }: { data: LinkedInResult }) {
           <div className="space-y-2.5">
             {data.quickWins.map((win, i) => (
               <div key={i} className="flex items-start gap-3 p-3 bg-amber-500/[0.05] border border-amber-500/10 rounded-xl">
-                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5 text-white ${win.impact === 'high' ? 'bg-red-500/80' : 'bg-amber-500/80'}`}>{i + 1}</div>
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 mt-0.5 text-white ${win.impact === 'high' ? 'bg-red-500/80' : 'bg-amber-500/80'}`}>{i + 1}</div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-0.5">
                     <p className="text-sm font-medium text-white">{win.action}</p>
-                    <span className="text-[10px] text-slate-600">{win.timeRequired}</span>
+                    <span className="text-[11px] text-slate-500">{win.timeRequired}</span>
                   </div>
                   <p className="text-xs text-slate-400 leading-relaxed">{win.reason}</p>
                 </div>
@@ -214,7 +214,7 @@ function LinkedInResults({ data }: { data: LinkedInResult }) {
       <Collapsible title="Missing Keywords" badge={`${data.seoScore.missingKeywords?.length || 0}`}>
         <div className="flex flex-wrap gap-1.5">
           {data.seoScore.missingKeywords?.map((kw, i) => (
-            <span key={i} className="text-[11px] px-2.5 py-1 bg-white/[0.04] text-slate-400 border border-white/[0.08] rounded-full">{kw}</span>
+            <span key={i} className="text-xs px-2.5 py-1 bg-white/[0.04] text-slate-400 border border-white/[0.08] rounded-full">{kw}</span>
           ))}
         </div>
       </Collapsible>
@@ -223,7 +223,7 @@ function LinkedInResults({ data }: { data: LinkedInResult }) {
         <div className="space-y-3">
           <div className="flex flex-wrap gap-1.5">
             {data.sectionRecommendations?.skills?.map((s, i) => (
-              <span key={i} className="text-[11px] px-2 py-0.5 bg-violet-500/10 text-violet-400 border border-violet-500/20 rounded-full">{s}</span>
+              <span key={i} className="text-xs px-2 py-0.5 bg-violet-500/10 text-violet-400 border border-violet-500/20 rounded-full">{s}</span>
             ))}
           </div>
           {[
@@ -232,7 +232,7 @@ function LinkedInResults({ data }: { data: LinkedInResult }) {
             { label: 'Featured Section', val: data.sectionRecommendations?.featuredSection },
           ].filter(x => x.val).map((x, i) => (
             <div key={i} className="p-2.5 bg-white/[0.03] border border-white/[0.06] rounded-lg">
-              <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide mb-0.5">{x.label}</p>
+              <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-0.5">{x.label}</p>
               <p className="text-xs text-slate-300 leading-relaxed">{x.val}</p>
             </div>
           ))}
@@ -257,7 +257,7 @@ function OutreachResults({ data, platform }: { data: OutreachResult; platform: s
       <ResultCard>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-bold text-white flex items-center gap-2"><MessageSquare className="w-3.5 h-3.5 text-emerald-400" />{platform === 'linkedin' ? 'LinkedIn Messages' : 'Cold Emails'}</h3>
-          <span className="text-[11px] text-slate-600">{versions.length} versions</span>
+          <span className="text-xs text-slate-500">{versions.length} versions</span>
         </div>
         <div className="flex gap-1.5 flex-wrap mb-4">
           {versions.map(tab => (
@@ -284,7 +284,7 @@ function OutreachResults({ data, platform }: { data: OutreachResult; platform: s
             {platform === 'email' && activeMsg.subject && (
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <p className="text-[10px] text-slate-600 uppercase tracking-wide font-semibold">Subject line</p>
+                  <p className="text-[11px] text-slate-500 uppercase tracking-wide font-semibold">Subject line</p>
                   <CopyButton text={activeMsg.subject} />
                 </div>
                 <div className="px-3 py-2.5 bg-white/[0.03] rounded-lg border border-white/[0.07]">
@@ -294,7 +294,7 @@ function OutreachResults({ data, platform }: { data: OutreachResult; platform: s
             )}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <p className="text-[10px] text-slate-600 uppercase tracking-wide font-semibold">Message</p>
+                <p className="text-[11px] text-slate-500 uppercase tracking-wide font-semibold">Message</p>
                 <CopyButton text={activeMsg.body} label="Copy message" />
               </div>
               <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.07]">
@@ -320,7 +320,7 @@ function OutreachResults({ data, platform }: { data: OutreachResult; platform: s
           </div>
           {platform === 'email' && data.followUpTemplate.subject && (
             <div className="px-3 py-2.5 bg-white/[0.03] rounded-lg border border-white/[0.07] mb-3">
-              <p className="text-[10px] text-slate-600 uppercase tracking-wide font-semibold mb-0.5">Subject</p>
+              <p className="text-[11px] text-slate-500 uppercase tracking-wide font-semibold mb-0.5">Subject</p>
               <p className="text-sm text-white">{data.followUpTemplate.subject}</p>
             </div>
           )}
@@ -336,7 +336,7 @@ function OutreachResults({ data, platform }: { data: OutreachResult; platform: s
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {data.personalizationTips?.length > 0 && (
           <ResultCard>
-            <h4 className="text-[11px] font-bold text-emerald-400 flex items-center gap-1.5 mb-3 uppercase tracking-wide"><CheckCircle2 className="w-3.5 h-3.5" /> Personalisation Tips</h4>
+            <h4 className="text-xs font-bold text-emerald-400 flex items-center gap-1.5 mb-3 uppercase tracking-wide"><CheckCircle2 className="w-3.5 h-3.5" /> Personalisation Tips</h4>
             <ul className="space-y-2">
               {data.personalizationTips.map((tip, i) => (
                 <li key={i} className="flex items-start gap-2 text-xs text-slate-300 leading-relaxed"><ArrowRight className="w-3 h-3 text-emerald-400 flex-shrink-0 mt-0.5" />{tip}</li>
@@ -346,7 +346,7 @@ function OutreachResults({ data, platform }: { data: OutreachResult; platform: s
         )}
         {data.doNotDo?.length > 0 && (
           <ResultCard>
-            <h4 className="text-[11px] font-bold text-red-400 flex items-center gap-1.5 mb-3 uppercase tracking-wide"><XCircle className="w-3.5 h-3.5" /> Don&apos;t Do This</h4>
+            <h4 className="text-xs font-bold text-red-400 flex items-center gap-1.5 mb-3 uppercase tracking-wide"><XCircle className="w-3.5 h-3.5" /> Don&apos;t Do This</h4>
             <ul className="space-y-2">
               {data.doNotDo.map((dont, i) => (
                 <li key={i} className="flex items-start gap-2 text-xs text-slate-300 leading-relaxed"><AlertTriangle className="w-3 h-3 text-red-400 flex-shrink-0 mt-0.5" />{dont}</li>
@@ -358,7 +358,7 @@ function OutreachResults({ data, platform }: { data: OutreachResult; platform: s
 
       {data.responseRateAdvice && (
         <ResultCard>
-          <h4 className="text-[11px] font-bold text-slate-500 flex items-center gap-1.5 mb-2 uppercase tracking-wide"><TrendingUp className="w-3.5 h-3.5" /> Response Rate Reality Check</h4>
+          <h4 className="text-xs font-bold text-slate-400 flex items-center gap-1.5 mb-2 uppercase tracking-wide"><TrendingUp className="w-3.5 h-3.5" /> Response Rate Reality Check</h4>
           <p className="text-sm text-slate-300 leading-relaxed">{data.responseRateAdvice}</p>
         </ResultCard>
       )}
@@ -373,7 +373,7 @@ function LoadingCard({ icon: Icon, message, sub, color }: { icon: React.ElementT
     <ResultCard>
       <div className="flex flex-col items-center justify-center py-16 gap-4">
         <div className="relative"><Loader2 className={`w-9 h-9 ${color} animate-spin`} /><div className="absolute inset-0 flex items-center justify-center"><Icon className={`w-3.5 h-3.5 ${color} opacity-60`} /></div></div>
-        <div className="text-center"><p className="text-sm font-semibold text-white mb-1">{message}</p><p className="text-xs text-slate-500">{sub}</p></div>
+        <div className="text-center"><p className="text-sm font-semibold text-white mb-1">{message}</p><p className="text-xs text-slate-400">{sub}</p></div>
       </div>
     </ResultCard>
   );
@@ -382,9 +382,9 @@ function LoadingCard({ icon: Icon, message, sub, color }: { icon: React.ElementT
 function EmptyState({ icon: Icon, title, sub }: { icon: React.ElementType; title: string; sub: string }) {
   return (
     <div className="flex flex-col items-center justify-center h-full min-h-[360px] text-center px-8">
-      <div className="w-12 h-12 bg-white/[0.03] border border-white/[0.07] rounded-2xl flex items-center justify-center mb-4"><Icon className="w-5 h-5 text-slate-600" /></div>
+      <div className="w-12 h-12 bg-white/[0.03] border border-white/[0.07] rounded-2xl flex items-center justify-center mb-4"><Icon className="w-5 h-5 text-slate-500" /></div>
       <p className="text-sm font-semibold text-slate-400 mb-2">{title}</p>
-      <p className="text-xs text-slate-600 max-w-[260px] leading-relaxed">{sub}</p>
+      <p className="text-xs text-slate-500 max-w-[260px] leading-relaxed">{sub}</p>
     </div>
   );
 }
@@ -434,7 +434,7 @@ function UpgradeGate({ feature, used, limit }: { feature: 'linkedin' | 'outreach
           <h2 className="text-2xl sm:text-3xl font-bold text-white leading-snug mb-2">
             {isLI ? "Your profile is your pitch. Make recruiters stop scrolling." : "The best opportunities don't get posted. They get messaged."}
           </h2>
-          <p className="text-sm text-slate-500 mb-6 max-w-md">
+          <p className="text-sm text-slate-400 mb-6 max-w-md">
             {isLI ? "You've used your free LinkedIn optimisations. Recruiters spend 6 seconds on your profile - an AI-optimised one makes every second count." : "You've used your free outreach messages. 80% of jobs are filled through networking - don't go silent now."}
           </p>
           <div className="flex items-center gap-4 bg-white/[0.03] border border-white/[0.06] rounded-xl px-5 py-4 mb-6 min-h-[64px]">
@@ -445,7 +445,7 @@ function UpgradeGate({ feature, used, limit }: { feature: 'linkedin' | 'outreach
             <Link href="/pricing" className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all group ${isLI ? 'bg-[var(--accent)] hover:bg-[var(--accent-hover)] ' : 'bg-emerald-600 hover:bg-emerald-500 '}`}>
               Get More <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </Link>
-            <span className="text-[10px] text-slate-600">Cancel anytime · Instant access</span>
+            <span className="text-[11px] text-slate-500">Cancel anytime · Instant access</span>
           </div>
         </div>
       </div>
@@ -453,7 +453,7 @@ function UpgradeGate({ feature, used, limit }: { feature: 'linkedin' | 'outreach
         {STRIP_MAP[feature].map(s => (
           <div key={s.num} className="glass-card py-4 text-center">
             <p className={`text-xl font-black ${isLI ? 'text-blue-400' : 'text-emerald-400'}`}>{s.num}</p>
-            <p className="text-xs text-slate-500 mt-1">{s.label}</p>
+            <p className="text-xs text-slate-400 mt-1">{s.label}</p>
           </div>
         ))}
       </div>
@@ -469,7 +469,7 @@ function ToolTabs({ active, setActive }: { active: 'linkedin' | 'outreach'; setA
     <div className="flex gap-1 p-1 bg-white/[0.03] border border-white/[0.06] rounded-xl">
       {tabs.map(t => (
         <button key={t.id} onClick={() => setActive(t.id)}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all duration-150 ${active === t.id ? 'bg-[var(--accent)] text-white ' : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'}`}>
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all duration-150 ${active === t.id ? 'bg-[var(--accent)] text-white ' : 'text-slate-400 hover:text-slate-300 hover:bg-white/[0.04]'}`}>
           <t.icon className="w-3.5 h-3.5" />{t.label}
         </button>
       ))}
@@ -489,9 +489,9 @@ function FormField({ label, children, optional, required, hint }: { label: strin
     <div>
       <label className="flex items-baseline gap-1.5 text-xs font-medium text-slate-400 mb-1.5">
         {label}
-        {optional && <span className="text-[10px] text-slate-700 font-normal">optional</span>}
-        {required && <span className="text-[10px] text-red-500/70 font-normal">*</span>}
-        {hint && <span className="text-[10px] text-slate-700 font-normal">{hint}</span>}
+        {optional && <span className="text-[11px] text-slate-500 font-normal">optional</span>}
+        {required && <span className="text-[11px] text-red-500/70 font-normal">*</span>}
+        {hint && <span className="text-[11px] text-slate-500 font-normal">{hint}</span>}
       </label>
       {children}
     </div>
@@ -584,7 +584,7 @@ function OutreachForm({ type, setType, recipName, setRecipName, recipRole, setRe
         </div>
       </FormField>
       <div className="space-y-2.5">
-        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Recipient</p>
+        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Recipient</p>
         <div className="grid grid-cols-2 gap-2.5">
           <FormField label="Name" optional><input type="text" value={recipName} onChange={e => setRecipName(e.target.value)} placeholder="Sarah Chen" className={inp} /></FormField>
           <FormField label="Their Role"><input type="text" value={recipRole} onChange={e => setRecipRole(e.target.value)} placeholder="Engineering Manager" className={inp} /></FormField>
@@ -596,7 +596,7 @@ function OutreachForm({ type, setType, recipName, setRecipName, recipRole, setRe
       </div>
       {(type === 'job-inquiry' || type === 'follow-up') && (
         <div className="space-y-2.5">
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Job Context</p>
+          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Job Context</p>
           <FormField label="Job Title"><input type="text" value={jobTitle} onChange={e => setJobTitle(e.target.value)} placeholder="Senior Backend Engineer" className={inp} /></FormField>
           <FormField label="Job Description" optional hint="excerpt or key requirements"><textarea rows={3} value={jobDesc} onChange={e => setJobDesc(e.target.value)} placeholder="Paste key requirements or responsibilities…" className={ta} /></FormField>
         </div>

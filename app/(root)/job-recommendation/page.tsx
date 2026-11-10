@@ -729,7 +729,7 @@ function JobRecommendationsPage() {
                       ? 'text-emerald-400' 
                       : idx === loadingStep 
                       ? 'text-blue-400' 
-                      : 'text-slate-600'
+                      : 'text-slate-500'
                   }`}
                 >
                   {idx < loadingStep ? (
@@ -908,7 +908,7 @@ function JobRecommendationsPage() {
                         </span>
                       ))}
                       {job.requirements.length > 6 && (
-                        <span className="px-3 py-1 text-slate-500 text-xs">
+                        <span className="px-3 py-1 text-slate-400 text-xs">
                           +{job.requirements.length - 6} more
                         </span>
                       )}

@@ -373,7 +373,7 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
             aria-atomic="true"
           >
             {roundedProgress}
-            <span className="text-2xl text-slate-500 ml-0.5">%</span>
+            <span className="text-2xl text-slate-400 ml-0.5">%</span>
           </span>
         </div>
 
@@ -386,7 +386,7 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
 
           {/* Sub-label (generic "Loading" when steps mode active) */}
           {subLabel && (
-            <p className="text-xs text-slate-500 -mt-2">{subLabel}</p>
+            <p className="text-xs text-slate-400 -mt-2">{subLabel}</p>
           )}
 
           {/* Stepped progress dots */}

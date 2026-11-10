@@ -88,7 +88,7 @@ function VerifyEmailContent() {
               {email}
             </p>
           )}
-          <p className="text-slate-500 text-center text-xs mb-8">
+          <p className="text-slate-400 text-center text-xs mb-8">
             Click the link in that email to verify your address - it will sign you in and take you straight into the app.
           </p>
 
@@ -117,18 +117,18 @@ function VerifyEmailContent() {
 
           {/* Tips */}
           <div className="mt-6 p-4 bg-slate-800/40 border border-slate-700/40 rounded-xl">
-            <p className="text-xs text-slate-500 font-medium mb-2">Didn&apos;t receive it?</p>
-            <ul className="text-xs text-slate-500 space-y-1">
+            <p className="text-xs text-slate-400 font-medium mb-2">Didn&apos;t receive it?</p>
+            <ul className="text-xs text-slate-400 space-y-1">
               <li className="flex items-start space-x-2">
-                <span className="text-slate-600 mt-0.5">•</span>
+                <span className="text-slate-500 mt-0.5">•</span>
                 <span>Check your spam or junk folder</span>
               </li>
               <li className="flex items-start space-x-2">
-                <span className="text-slate-600 mt-0.5">•</span>
+                <span className="text-slate-500 mt-0.5">•</span>
                 <span>Make sure {email ? `${email} is correct` : "the email address is correct"}</span>
               </li>
               <li className="flex items-start space-x-2">
-                <span className="text-slate-600 mt-0.5">•</span>
+                <span className="text-slate-500 mt-0.5">•</span>
                 <span>Links expire after 24 hours - use the resend button above</span>
               </li>
             </ul>
@@ -136,7 +136,7 @@ function VerifyEmailContent() {
         </div>
 
         {/* Back link */}
-        <p className="text-center mt-6 text-sm text-slate-500">
+        <p className="text-center mt-6 text-sm text-slate-400">
           Wrong email?{" "}
           <Link href="/sign-up" className="text-purple-400 hover:text-purple-300 font-medium transition-colors">
             Sign up again

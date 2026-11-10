@@ -76,10 +76,10 @@ export default function DevicesPanel() {
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="text-sm font-semibold text-white">Devices</h3>
-          <p className="text-slate-500 text-xs mt-0.5">Where your account is signed in. Remove anything you do not recognise.</p>
+          <p className="text-slate-400 text-xs mt-0.5">Where your account is signed in. Remove anything you do not recognise.</p>
         </div>
         <button type="button" onClick={load} aria-label="Refresh devices"
-          className="p-2 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-white/[0.04] transition-colors cursor-pointer">
+          className="p-2 rounded-lg text-slate-400 hover:text-slate-300 hover:bg-white/[0.04] transition-colors cursor-pointer">
           <RefreshCw className="w-3.5 h-3.5" />
         </button>
       </div>
@@ -93,13 +93,13 @@ export default function DevicesPanel() {
         )}
 
         {!devices && !loadError && (
-          <div className="flex items-center justify-center py-8 text-slate-500">
+          <div className="flex items-center justify-center py-8 text-slate-400">
             <Loader2 className="w-4 h-4 animate-spin" />
           </div>
         )}
 
         {devices?.length === 0 && (
-          <p className="text-sm text-slate-500 py-4 text-center">No devices yet. This one will appear after your next page load.</p>
+          <p className="text-sm text-slate-400 py-4 text-center">No devices yet. This one will appear after your next page load.</p>
         )}
 
         {devices?.map(d => {
@@ -116,16 +116,16 @@ export default function DevicesPanel() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <h4 className="text-white text-sm font-medium">{d.label}</h4>
                     {d.current && (
-                      <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                         This device
                       </span>
                     )}
                   </div>
-                  <p className="text-slate-500 text-xs mt-1 flex items-center gap-1 flex-wrap">
+                  <p className="text-slate-400 text-xs mt-1 flex items-center gap-1 flex-wrap">
                     {d.location && (<><MapPin className="w-3 h-3" />{d.location}<span className="mx-1">&middot;</span></>)}
                     {d.current ? 'Active now' : `Active ${formatDistanceToNow(new Date(d.lastSeenAt), { addSuffix: true })}`}
                   </p>
-                  <p className="text-slate-600 text-[11px] mt-0.5">Signed in {format(new Date(d.createdAt), 'd MMM yyyy')}</p>
+                  <p className="text-slate-500 text-xs mt-0.5">Signed in {format(new Date(d.createdAt), 'd MMM yyyy')}</p>
                 </div>
               </div>
 
@@ -168,7 +168,7 @@ export default function DevicesPanel() {
           </div>
         )}
 
-        <p className="text-slate-600 text-[11px] leading-relaxed pt-2">
+        <p className="text-slate-500 text-xs leading-relaxed pt-2">
           Removing a device signs it out straight away. If you do not recognise one, remove it and then change your password.
         </p>
       </div>

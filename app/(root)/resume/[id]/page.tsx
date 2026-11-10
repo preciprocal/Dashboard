@@ -57,10 +57,10 @@ function OverallScoreHero({ score }: { score: number }) {
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-end gap-3">
           <div className="text-5xl font-bold text-white leading-none">{score}</div>
-          <div className="mb-1"><span className={`text-sm font-semibold ${getScoreColor(score)}`}>{getScoreLabel(score)}</span><p className="text-slate-500 text-xs">out of 100</p></div>
+          <div className="mb-1"><span className={`text-sm font-semibold ${getScoreColor(score)}`}>{getScoreLabel(score)}</span><p className="text-slate-400 text-xs">out of 100</p></div>
         </div>
         <div className="flex-1 max-w-[160px]">
-          <div className="flex justify-between text-xs text-slate-500 mb-1.5"><span>Current</span><span>Potential</span></div>
+          <div className="flex justify-between text-xs text-slate-400 mb-1.5"><span>Current</span><span>Potential</span></div>
           <div className="h-2 bg-slate-800 rounded-full overflow-hidden"><div className={`h-full rounded-full transition-all duration-1000 ${score >= 80 ? 'bg-emerald-500' : score >= 60 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${score}%` }} /></div>
           <div className="flex justify-between text-xs mt-1.5"><span className={`font-semibold ${getScoreColor(score)}`}>{score}%</span><span className="text-emerald-400 font-semibold">+{pot}%</span></div>
         </div>
@@ -84,16 +84,16 @@ function DetailedAnalysisSection({ title, description, score, tips, icon }: { ti
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2 mb-1">
             <h3 className="text-sm font-semibold text-white truncate">{title}</h3>
-            <div className="flex items-center gap-2 flex-shrink-0"><span className={`text-sm font-bold ${getScoreColor(score)}`}>{score}</span><div className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${getScoreBg(score)}`}>{getScoreLabel(score)}</div></div>
+            <div className="flex items-center gap-2 flex-shrink-0"><span className={`text-sm font-bold ${getScoreColor(score)}`}>{score}</span><div className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${getScoreBg(score)}`}>{getScoreLabel(score)}</div></div>
           </div>
-          <p className="text-slate-500 text-xs">{description}</p>
+          <p className="text-slate-400 text-xs">{description}</p>
           <div className="mt-2 h-1 bg-slate-800 rounded-full overflow-hidden"><div className={`h-full rounded-full transition-all duration-700 ${score >= 80 ? 'bg-emerald-500' : score >= 60 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${score}%` }} /></div>
         </div>
-        <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform flex-shrink-0 ${expanded ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 ${expanded ? 'rotate-180' : ''}`} />
       </button>
       {expanded && (
         <div className="px-4 sm:px-5 pb-4 sm:pb-5 space-y-2 border-t border-white/[0.06] pt-4">
-          {tips.length === 0 ? <p className="text-slate-500 text-sm">No tips available.</p>
+          {tips.length === 0 ? <p className="text-slate-400 text-sm">No tips available.</p>
             : [...improveTips, ...goodTips].map((tip, i) => {
               const isGood = tip.type === 'good';
               const text = tip.tip || tip.message || '';
@@ -102,10 +102,10 @@ function DetailedAnalysisSection({ title, description, score, tips, icon }: { ti
                   <div className="flex-shrink-0 mt-0.5">{isGood ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <AlertTriangle className="w-4 h-4 text-amber-400" />}</div>
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm ${isGood ? 'text-emerald-300' : 'text-slate-200'}`}>{text}</p>
-                    {tip.explanation && <p className="text-xs text-slate-500 mt-1 leading-relaxed">{tip.explanation}</p>}
+                    {tip.explanation && <p className="text-xs text-slate-400 mt-1 leading-relaxed">{tip.explanation}</p>}
                     {tip.solution && <div className="mt-2 p-2.5 bg-indigo-500/[0.08] border border-indigo-500/20 rounded-lg"><p className="text-xs text-indigo-300 leading-relaxed"><span className="font-semibold">Fix: </span>{tip.solution}</p></div>}
                   </div>
-                  {!isGood && tip.priority && <span className={`flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border self-start ${tip.priority === 'high' ? 'bg-red-500/10 border-red-500/20 text-red-400' : tip.priority === 'medium' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-slate-500/10 border-slate-500/20 text-slate-400'}`}>{tip.priority}</span>}
+                  {!isGood && tip.priority && <span className={`flex-shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-full border self-start ${tip.priority === 'high' ? 'bg-red-500/10 border-red-500/20 text-red-400' : tip.priority === 'medium' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-slate-500/10 border-slate-500/20 text-slate-400'}`}>{tip.priority}</span>}
                 </div>
               );
             })}
@@ -133,18 +133,18 @@ function ImprovementRoadmap({ roadmap }: { roadmap: ImprovementRoadmapData }) {
     <div className="glass-card p-4 sm:p-5">
       <div className="flex items-center gap-3 mb-4">
         <div className="w-9 h-9 gradient-primary rounded-lg flex items-center justify-center shadow-glass flex-shrink-0"><Activity className="w-4 h-4 text-white" /></div>
-        <div><h3 className="text-sm font-semibold text-white">Improvement Roadmap</h3><p className="text-slate-500 text-xs">Prioritised action plan</p></div>
+        <div><h3 className="text-sm font-semibold text-white">Improvement Roadmap</h3><p className="text-slate-400 text-xs">Prioritised action plan</p></div>
       </div>
       <div className="flex gap-1 p-1 bg-slate-900/50 rounded-xl mb-4">
-        {tabs.map(t => <button key={t.key} onClick={() => setActiveTab(t.key)} className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-medium transition-all ${activeTab === t.key ? 'bg-white/[0.08] text-white' : 'text-slate-500 hover:text-slate-300'}`}>{t.icon}{t.label}</button>)}
+        {tabs.map(t => <button key={t.key} onClick={() => setActiveTab(t.key)} className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-medium transition-all ${activeTab === t.key ? 'bg-white/[0.08] text-white' : 'text-slate-400 hover:text-slate-300'}`}>{t.icon}{t.label}</button>)}
       </div>
       <div className="space-y-2">
-        {activeData.length === 0 ? <p className="text-slate-500 text-sm text-center py-4">No items.</p>
+        {activeData.length === 0 ? <p className="text-slate-400 text-sm text-center py-4">No items.</p>
           : activeData.map((item, i) => (
             <div key={i} className="flex gap-3 p-3 bg-slate-800/40 rounded-xl border border-white/[0.06]">
               <div className={`w-1.5 rounded-full flex-shrink-0 ${item.impact === 'high' ? 'bg-red-400' : item.impact === 'medium' ? 'bg-amber-400' : 'bg-emerald-400'}`} />
-              <div className="flex-1 min-w-0"><p className="text-sm text-slate-200">{item.action}</p><p className="text-xs text-slate-500 mt-0.5">{item.timeToComplete}</p></div>
-              <span className={`flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border self-start capitalize ${item.impact === 'high' ? 'bg-red-500/10 border-red-500/20 text-red-400' : item.impact === 'medium' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'}`}>{item.impact}</span>
+              <div className="flex-1 min-w-0"><p className="text-sm text-slate-200">{item.action}</p><p className="text-xs text-slate-400 mt-0.5">{item.timeToComplete}</p></div>
+              <span className={`flex-shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-full border self-start capitalize ${item.impact === 'high' ? 'bg-red-500/10 border-red-500/20 text-red-400' : item.impact === 'medium' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'}`}>{item.impact}</span>
             </div>
           ))}
       </div>
@@ -277,7 +277,7 @@ function InlineResumeEditor({ resumeId, initialHtml, onContentChange, highlightT
         <div className="flex items-center justify-between px-3 py-2 border-b border-white/[0.04]">
           <div className="flex items-center gap-2"><PenTool className="w-3.5 h-3.5 text-indigo-400" /><span className="text-xs font-medium text-slate-300">Editable Resume</span></div>
           <div className="flex items-center gap-2">
-            <button onClick={handleSaveNow} disabled={isSaving || !hasChanges} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${saveStatus === 'saved' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : hasChanges ? 'bg-indigo-600/70 hover:bg-indigo-600 text-white cursor-pointer' : 'bg-slate-700/40 text-slate-600 cursor-not-allowed'}`}>
+            <button onClick={handleSaveNow} disabled={isSaving || !hasChanges} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${saveStatus === 'saved' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : hasChanges ? 'bg-indigo-600/70 hover:bg-indigo-600 text-white cursor-pointer' : 'bg-slate-700/40 text-slate-500 cursor-not-allowed'}`}>
               {isSaving ? <><Loader2 className="w-3 h-3 animate-spin" /> Saving…</> : saveStatus === 'saved' ? <><Check className="w-3 h-3" /> Saved</> : <><Save className="w-3 h-3" /> Save</>}
             </button>
             <div ref={downloadBtnRef} className="relative">
@@ -296,17 +296,17 @@ function InlineResumeEditor({ resumeId, initialHtml, onContentChange, highlightT
         </div>
         {/* Toolbar Row 2 */}
         <div className="flex items-center gap-1 px-2 py-1.5 flex-wrap">
-          <select onChange={e => { editorRef.current?.focus(); document.execCommand('fontName', false, e.target.value); }} className="bg-slate-800 text-slate-300 text-[11px] rounded px-1.5 py-1 border border-white/[0.08] cursor-pointer outline-none" defaultValue="Calibri">
+          <select onChange={e => { editorRef.current?.focus(); document.execCommand('fontName', false, e.target.value); }} className="bg-slate-800 text-slate-300 text-xs rounded px-1.5 py-1 border border-white/[0.08] cursor-pointer outline-none" defaultValue="Calibri">
             {['Calibri','Arial','Times New Roman','Georgia','Verdana','Helvetica','Garamond'].map(f => (<option key={f} value={f}>{f}</option>))}
           </select>
-          <select onChange={e => { editorRef.current?.focus(); document.execCommand('fontSize', false, e.target.value); }} className="bg-slate-800 text-slate-300 text-[11px] rounded px-1.5 py-1 border border-white/[0.08] w-14 cursor-pointer outline-none" defaultValue="3">
+          <select onChange={e => { editorRef.current?.focus(); document.execCommand('fontSize', false, e.target.value); }} className="bg-slate-800 text-slate-300 text-xs rounded px-1.5 py-1 border border-white/[0.08] w-14 cursor-pointer outline-none" defaultValue="3">
             {[['1','8pt'],['2','10pt'],['3','11pt'],['4','12pt'],['5','14pt'],['6','18pt'],['7','24pt']].map(([v, label]) => (<option key={v} value={v}>{label}</option>))}
           </select>
           <div className="w-px h-4 bg-white/10 mx-0.5" />
-          <ToolBtn title="Bold" onClick={() => document.execCommand('bold')}><span className="font-bold text-[11px]">B</span></ToolBtn>
-          <ToolBtn title="Italic" onClick={() => document.execCommand('italic')}><span className="italic text-[11px]">I</span></ToolBtn>
-          <ToolBtn title="Underline" onClick={() => document.execCommand('underline')}><span className="underline text-[11px]">U</span></ToolBtn>
-          <ToolBtn title="Strikethrough" onClick={() => document.execCommand('strikeThrough')}><span className="line-through text-[11px]">S</span></ToolBtn>
+          <ToolBtn title="Bold" onClick={() => document.execCommand('bold')}><span className="font-bold text-xs">B</span></ToolBtn>
+          <ToolBtn title="Italic" onClick={() => document.execCommand('italic')}><span className="italic text-xs">I</span></ToolBtn>
+          <ToolBtn title="Underline" onClick={() => document.execCommand('underline')}><span className="underline text-xs">U</span></ToolBtn>
+          <ToolBtn title="Strikethrough" onClick={() => document.execCommand('strikeThrough')}><span className="line-through text-xs">S</span></ToolBtn>
           <div className="w-px h-4 bg-white/10 mx-0.5" />
           <ToolBtn title="Align Left" onClick={() => document.execCommand('justifyLeft')}><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path d="M2 3.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zm0 4a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm0 4a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/></svg></ToolBtn>
           <ToolBtn title="Align Center" onClick={() => document.execCommand('justifyCenter')}><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path d="M4 3.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-2 4a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zm2 4a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5z"/></svg></ToolBtn>
@@ -318,11 +318,11 @@ function InlineResumeEditor({ resumeId, initialHtml, onContentChange, highlightT
           <ToolBtn title="Outdent" onClick={() => document.execCommand('outdent')}><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path d="M2 3.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zm3.5 4a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-3.5 4a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zM4 8l-2 2V6z"/></svg></ToolBtn>
           <div className="w-px h-4 bg-white/10 mx-0.5" />
           <label title="Text Color" className="relative flex items-center justify-center w-6 h-6 rounded hover:bg-white/10 cursor-pointer transition-colors">
-            <span className="text-[11px] font-bold text-slate-300" style={{ textDecoration: 'underline 2px solid #6366f1' }}>A</span>
+            <span className="text-xs font-bold text-slate-300" style={{ textDecoration: 'underline 2px solid #6366f1' }}>A</span>
             <input type="color" defaultValue="#000000" onChange={e => { editorRef.current?.focus(); document.execCommand('foreColor', false, e.target.value); }} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
           </label>
           <label title="Highlight Color" className="relative flex items-center justify-center w-6 h-6 rounded hover:bg-white/10 cursor-pointer transition-colors">
-            <span className="text-[11px] font-bold" style={{ background: '#fde68a', padding: '0 2px', borderRadius: 2 }}>H</span>
+            <span className="text-xs font-bold" style={{ background: '#fde68a', padding: '0 2px', borderRadius: 2 }}>H</span>
             <input type="color" defaultValue="#fde68a" onChange={e => { editorRef.current?.focus(); document.execCommand('hiliteColor', false, e.target.value); }} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
           </label>
           <div className="w-px h-4 bg-white/10 mx-0.5" />
@@ -346,7 +346,7 @@ function InlineResumeEditor({ resumeId, initialHtml, onContentChange, highlightT
           </div>
         </div>
       </div>
-      <div className="flex-shrink-0 flex items-center justify-center py-2 bg-slate-900/40 border-t border-white/[0.05]"><p className="text-[10px] text-slate-600">Auto-saves 3 s after typing</p></div>
+      <div className="flex-shrink-0 flex items-center justify-center py-2 bg-slate-900/40 border-t border-white/[0.05]"><p className="text-[11px] text-slate-500">Auto-saves 3 s after typing</p></div>
     </div>
   );
 }
@@ -508,8 +508,8 @@ export default function ResumeDetailsPage() {
 
   const MetaBadge = () => (
     <div className="flex items-center gap-2 flex-wrap">
-      {resume.jobTitle && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/[0.05] border border-white/[0.08] text-xs text-slate-300"><Briefcase className="w-3 h-3 text-slate-500" />{resume.jobTitle}</span>}
-      {resume.companyName && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/[0.05] border border-white/[0.08] text-xs text-slate-300"><Building2 className="w-3 h-3 text-slate-500" />{resume.companyName}</span>}
+      {resume.jobTitle && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/[0.05] border border-white/[0.08] text-xs text-slate-300"><Briefcase className="w-3 h-3 text-slate-400" />{resume.jobTitle}</span>}
+      {resume.companyName && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/[0.05] border border-white/[0.08] text-xs text-slate-300"><Building2 className="w-3 h-3 text-slate-400" />{resume.companyName}</span>}
       {resume.score != null && <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-semibold ${getScoreBg(resume.score)}`}><Star className="w-3 h-3" />{resume.score}/100</span>}
     </div>
   );
@@ -554,7 +554,7 @@ export default function ResumeDetailsPage() {
   const MobilePreviewPanel = () => (
     <div className="space-y-3">
       {imageUrl ? <Image src={imageUrl} alt="Resume" width={800} height={1000} className="w-full rounded-xl shadow-glass border border-white/10 object-contain" />
-        : <div className="w-full aspect-[3/4] bg-slate-800/40 border border-dashed border-white/10 rounded-xl flex items-center justify-center"><div className="text-center p-6"><FileText className="w-10 h-10 text-slate-600 mx-auto mb-2" /><p className="text-slate-500 text-sm">Preview unavailable</p></div></div>}
+        : <div className="w-full aspect-[3/4] bg-slate-800/40 border border-dashed border-white/10 rounded-xl flex items-center justify-center"><div className="text-center p-6"><FileText className="w-10 h-10 text-slate-500 mx-auto mb-2" /><p className="text-slate-400 text-sm">Preview unavailable</p></div></div>}
       <div className="grid grid-cols-2 gap-2.5">
         <button onClick={handleViewPdf} disabled={!resume.resumePath} className="glass-card hover-lift text-white px-4 py-2.5 rounded-xl text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-40 cursor-pointer"><Eye className="w-4 h-4" /> View PDF</button>
         <button onClick={handleDownloadPdf} disabled={!resume.resumePath} className="glass-card hover-lift text-white px-4 py-2.5 rounded-xl text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-40 cursor-pointer"><Download className="w-4 h-4" /> Download</button>
@@ -587,7 +587,7 @@ export default function ResumeDetailsPage() {
         {activeTab === 'writer' && (
           <div className="space-y-4">
             <div className="glass-card overflow-hidden" style={{ minHeight: 600 }}>
-              {isLoadingEditor ? <div className="h-full flex flex-col items-center justify-center gap-3 py-16 text-slate-500"><Loader2 className="w-6 h-6 animate-spin text-indigo-400" /><p className="text-xs">Converting…</p></div>
+              {isLoadingEditor ? <div className="h-full flex flex-col items-center justify-center gap-3 py-16 text-slate-400"><Loader2 className="w-6 h-6 animate-spin text-indigo-400" /><p className="text-xs">Converting…</p></div>
                 : <InlineResumeEditor resumeId={resume.id} initialHtml={editorHtml} onContentChange={setEditorHtml} highlightText={highlightText} />}
             </div>
             <div className="glass-card overflow-hidden"><IntelligentAIPanel {...aiPanelProps} /></div>
@@ -612,10 +612,10 @@ export default function ResumeDetailsPage() {
         <div className="w-[42%] flex-shrink-0 h-full p-4 pr-2">
           <div className="glass-card h-full overflow-hidden" style={{ maxHeight: 'calc(100dvh - 113px)' }}>
             {activeTab === 'writer' ? (
-              isLoadingEditor ? <div className="h-full flex flex-col items-center justify-center gap-3 text-slate-500"><Loader2 className="w-6 h-6 animate-spin text-indigo-400" /><p className="text-xs">Converting PDF…</p></div>
+              isLoadingEditor ? <div className="h-full flex flex-col items-center justify-center gap-3 text-slate-400"><Loader2 className="w-6 h-6 animate-spin text-indigo-400" /><p className="text-xs">Converting PDF…</p></div>
                 : <InlineResumeEditor resumeId={resume.id} initialHtml={editorHtml} onContentChange={setEditorHtml} highlightText={highlightText} />
             ) : resume.resumePath ? <ResumePreview resumePath={resume.resumePath} onViewPdf={handleViewPdf} onDownloadPdf={handleDownloadPdf} />
-              : <div className="h-full flex flex-col items-center justify-center gap-3 p-6"><div className="w-12 h-12 rounded-xl bg-slate-800/60 flex items-center justify-center"><FileText className="w-6 h-6 text-slate-600" /></div><p className="text-slate-500 text-sm text-center">No PDF available</p>{imageUrl && <Image src={imageUrl} alt="Resume" width={600} height={800} className="w-full rounded-xl shadow-glass border border-white/10 object-contain mt-2" />}</div>}
+              : <div className="h-full flex flex-col items-center justify-center gap-3 p-6"><div className="w-12 h-12 rounded-xl bg-slate-800/60 flex items-center justify-center"><FileText className="w-6 h-6 text-slate-500" /></div><p className="text-slate-400 text-sm text-center">No PDF available</p>{imageUrl && <Image src={imageUrl} alt="Resume" width={600} height={800} className="w-full rounded-xl shadow-glass border border-white/10 object-contain mt-2" />}</div>}
           </div>
         </div>
 

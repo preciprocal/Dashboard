@@ -312,7 +312,7 @@ function JobToolsContent() {
         <div className="text-center">
           <Loader2 className="w-10 h-10 sm:w-12 sm:h-12 text-purple-500 animate-spin mx-auto mb-3 sm:mb-4" />
           <p className="text-slate-400 text-sm sm:text-base">Loading job data...</p>
-          <p className="text-slate-500 text-xs mt-2">This may take a few seconds</p>
+          <p className="text-slate-400 text-xs mt-2">This may take a few seconds</p>
         </div>
       </div>
     );
@@ -402,49 +402,49 @@ function JobToolsContent() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
               {jobData.location && jobData.location !== 'Not specified' && (
                 <div className="glass-morphism p-3 rounded-lg border border-white/5">
-                  <div className="flex items-center gap-2 mb-1"><MapPin className="w-4 h-4 text-purple-400" /><span className="text-xs text-slate-500 font-medium">Location</span></div>
+                  <div className="flex items-center gap-2 mb-1"><MapPin className="w-4 h-4 text-purple-400" /><span className="text-xs text-slate-400 font-medium">Location</span></div>
                   <p className="text-sm text-white font-medium">{jobData.location}</p>
                 </div>
               )}
               {jobData.salary && jobData.salary !== 'Not specified' && (
                 <div className="glass-morphism p-3 rounded-lg border border-white/5">
-                  <div className="flex items-center gap-2 mb-1"><DollarSign className="w-4 h-4 text-emerald-400" /><span className="text-xs text-slate-500 font-medium">Compensation</span></div>
+                  <div className="flex items-center gap-2 mb-1"><DollarSign className="w-4 h-4 text-emerald-400" /><span className="text-xs text-slate-400 font-medium">Compensation</span></div>
                   <p className="text-sm text-white font-medium">{jobData.salary}</p>
                 </div>
               )}
               {jobData.seniority && jobData.seniority !== 'Not specified' && (
                 <div className="glass-morphism p-3 rounded-lg border border-white/5">
-                  <div className="flex items-center gap-2 mb-1"><TrendingUp className="w-4 h-4 text-blue-400" /><span className="text-xs text-slate-500 font-medium">Seniority Level</span></div>
+                  <div className="flex items-center gap-2 mb-1"><TrendingUp className="w-4 h-4 text-blue-400" /><span className="text-xs text-slate-400 font-medium">Seniority Level</span></div>
                   <p className="text-sm text-white font-medium">{jobData.seniority}</p>
                 </div>
               )}
               {jobData.applicants && jobData.applicants !== 'Not specified' && (
                 <div className="glass-morphism p-3 rounded-lg border border-white/5">
-                  <div className="flex items-center gap-2 mb-1"><Users className="w-4 h-4 text-amber-400" /><span className="text-xs text-slate-500 font-medium">Applicants</span></div>
+                  <div className="flex items-center gap-2 mb-1"><Users className="w-4 h-4 text-amber-400" /><span className="text-xs text-slate-400 font-medium">Applicants</span></div>
                   <p className="text-sm text-white font-medium">{jobData.applicants}</p>
                 </div>
               )}
               {jobData.postedDate && jobData.postedDate !== 'Not specified' && (
                 <div className="glass-morphism p-3 rounded-lg border border-white/5">
-                  <div className="flex items-center gap-2 mb-1"><Clock className="w-4 h-4 text-slate-400" /><span className="text-xs text-slate-500 font-medium">Posted</span></div>
+                  <div className="flex items-center gap-2 mb-1"><Clock className="w-4 h-4 text-slate-400" /><span className="text-xs text-slate-400 font-medium">Posted</span></div>
                   <p className="text-sm text-white font-medium">{jobData.postedDate}</p>
                 </div>
               )}
               {jobData.companySize && jobData.companySize !== 'Not specified' && (
                 <div className="glass-morphism p-3 rounded-lg border border-white/5">
-                  <div className="flex items-center gap-2 mb-1"><Building2 className="w-4 h-4 text-indigo-400" /><span className="text-xs text-slate-500 font-medium">Company Size</span></div>
+                  <div className="flex items-center gap-2 mb-1"><Building2 className="w-4 h-4 text-indigo-400" /><span className="text-xs text-slate-400 font-medium">Company Size</span></div>
                   <p className="text-sm text-white font-medium">{jobData.companySize}</p>
                 </div>
               )}
               {jobData.industry && jobData.industry !== 'Not specified' && (
                 <div className="glass-morphism p-3 rounded-lg border border-white/5">
-                  <div className="flex items-center gap-2 mb-1"><Globe className="w-4 h-4 text-cyan-400" /><span className="text-xs text-slate-500 font-medium">Industry</span></div>
+                  <div className="flex items-center gap-2 mb-1"><Globe className="w-4 h-4 text-cyan-400" /><span className="text-xs text-slate-400 font-medium">Industry</span></div>
                   <p className="text-sm text-white font-medium">{jobData.industry}</p>
                 </div>
               )}
               {jobData.jobFunction && jobData.jobFunction !== 'Not specified' && (
                 <div className="glass-morphism p-3 rounded-lg border border-white/5">
-                  <div className="flex items-center gap-2 mb-1"><Award className="w-4 h-4 text-pink-400" /><span className="text-xs text-slate-500 font-medium">Job Function</span></div>
+                  <div className="flex items-center gap-2 mb-1"><Award className="w-4 h-4 text-pink-400" /><span className="text-xs text-slate-400 font-medium">Job Function</span></div>
                   <p className="text-sm text-white font-medium">{jobData.jobFunction}</p>
                 </div>
               )}

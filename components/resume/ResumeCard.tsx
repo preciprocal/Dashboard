@@ -112,7 +112,7 @@ const PdfThumbnail = memo(function PdfThumbnail({ resumePath, small = false }: {
   if (status === 'error') {
     return (
       <div className="absolute inset-0 flex items-center justify-center">
-        <FileText className={`${small ? 'w-5 h-5' : 'w-10 h-10'} text-slate-700`} />
+        <FileText className={`${small ? 'w-5 h-5' : 'w-10 h-10'} text-slate-500`} />
       </div>
     );
   }
@@ -219,7 +219,7 @@ const ResumeCardInner = memo(function ResumeCard({
     }
     return (
       <div className="absolute inset-0 flex items-center justify-center">
-        <FileText className={`${small ? 'w-5 h-5' : 'w-10 h-10'} text-slate-700`} />
+        <FileText className={`${small ? 'w-5 h-5' : 'w-10 h-10'} text-slate-500`} />
       </div>
     );
   };
@@ -250,11 +250,11 @@ const ResumeCardInner = memo(function ResumeCard({
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
       <div className="relative w-full max-w-sm rounded-2xl border border-white/[0.08] p-6 animate-fade-in-up"
         style={{ background: '#0d1526', boxShadow: '0 24px 64px rgba(0,0,0,0.7)' }} onClick={e => e.stopPropagation()}>
-        <button onClick={handleDeleteCancel} className="absolute top-4 right-4 w-7 h-7 rounded-lg flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"><X className="w-3.5 h-3.5" /></button>
+        <button onClick={handleDeleteCancel} className="absolute top-4 right-4 w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"><X className="w-3.5 h-3.5" /></button>
         <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4 bg-red-500/10 border border-red-500/20"><Trash2 className="w-5 h-5 text-red-400" /></div>
         <h3 className="text-base font-semibold text-white mb-1">Delete Resume</h3>
         <p className="text-sm text-slate-400 mb-1 leading-relaxed">Are you sure you want to delete <span className="text-white font-medium">&ldquo;{resumeLabel}&rdquo;</span>?</p>
-        <p className="text-xs text-slate-600 mb-5">This permanently removes the resume and all its analysis data. This action cannot be undone.</p>
+        <p className="text-xs text-slate-500 mb-5">This permanently removes the resume and all its analysis data. This action cannot be undone.</p>
         <div className="flex gap-2.5">
           <button onClick={handleDeleteCancel} className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/[0.05] border border-white/[0.08] text-slate-300 hover:text-white hover:bg-white/[0.08] transition-all cursor-pointer">Cancel</button>
           <button onClick={handleDeleteConfirm} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-red-500/15 hover:bg-red-500/25 border border-red-500/25 hover:border-red-500/40 text-red-300 hover:text-red-200 transition-all cursor-pointer"><Trash2 className="w-3.5 h-3.5" />Delete</button>
@@ -277,12 +277,12 @@ const ResumeCardInner = memo(function ResumeCard({
             <Link href={`/resume/${resume.id}`} className="flex-1 min-w-0">
               <h3 className="text-sm font-semibold text-white truncate hover:text-purple-300 transition-colors duration-200">{resume.companyName || resume.jobTitle || 'Resume Analysis'}</h3>
               {resume.jobTitle && resume.companyName && <p className="text-xs text-slate-400 truncate mt-0.5">{resume.jobTitle}</p>}
-              <div className="flex items-center gap-1 mt-1.5 text-slate-600 text-[11px]"><Calendar className="w-3 h-3" /><span>{formatDate(resume.createdAt)}</span></div>
+              <div className="flex items-center gap-1 mt-1.5 text-slate-500 text-xs"><Calendar className="w-3 h-3" /><span>{formatDate(resume.createdAt)}</span></div>
             </Link>
             <div className="flex items-center gap-6 flex-shrink-0">
-              <div className="text-center"><p className={`text-xl font-bold leading-none ${scoreFg(overallScore)}`}>{overallScore}%</p><p className="text-[10px] text-slate-500 mt-1">Overall</p></div>
-              <div className="text-center"><p className="text-base font-semibold text-emerald-400 leading-none">{strengths}</p><p className="text-[10px] text-slate-500 mt-1">Strengths</p></div>
-              <div className="text-center"><p className="text-base font-semibold text-amber-400 leading-none">{improvements}</p><p className="text-[10px] text-slate-500 mt-1">To fix</p></div>
+              <div className="text-center"><p className={`text-xl font-bold leading-none ${scoreFg(overallScore)}`}>{overallScore}%</p><p className="text-[11px] text-slate-400 mt-1">Overall</p></div>
+              <div className="text-center"><p className="text-base font-semibold text-emerald-400 leading-none">{strengths}</p><p className="text-[11px] text-slate-400 mt-1">Strengths</p></div>
+              <div className="text-center"><p className="text-base font-semibold text-amber-400 leading-none">{improvements}</p><p className="text-[11px] text-slate-400 mt-1">To fix</p></div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               <button onClick={handleDownload} title="Download" className="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-800/60 border border-white/10 text-slate-400 hover:text-blue-400 hover:border-blue-500/30 transition-colors duration-150 cursor-pointer"><Download className="w-3.5 h-3.5" /></button>
@@ -320,17 +320,17 @@ const ResumeCardInner = memo(function ResumeCard({
         </div>
         <div className="px-5 pb-4 grid grid-cols-2 gap-2">
           <div className="bg-slate-800/40 border border-white/[5%] rounded-lg px-3 py-2">
-            <div className="flex items-center gap-1.5 mb-1"><div className={`w-1.5 h-1.5 rounded-full ${dotColor(atsScore)}`} /><span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">ATS</span></div>
+            <div className="flex items-center gap-1.5 mb-1"><div className={`w-1.5 h-1.5 rounded-full ${dotColor(atsScore)}`} /><span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">ATS</span></div>
             <p className={`text-sm font-bold ${scoreFg(atsScore)}`}>{atsScore}%</p>
           </div>
           <div className="bg-slate-800/40 border border-white/[5%] rounded-lg px-3 py-2">
-            <div className="flex items-center gap-1.5 mb-1"><div className={`w-1.5 h-1.5 rounded-full ${dotColor(contentScore)}`} /><span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Content</span></div>
+            <div className="flex items-center gap-1.5 mb-1"><div className={`w-1.5 h-1.5 rounded-full ${dotColor(contentScore)}`} /><span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Content</span></div>
             <p className={`text-sm font-bold ${scoreFg(contentScore)}`}>{contentScore}%</p>
           </div>
         </div>
         <div className="px-5 pb-5 pt-3 border-t border-white/[5%] space-y-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-[11px] text-slate-500"><Calendar className="w-3 h-3" /><span>{formatDate(resume.createdAt)}</span></div>
+            <div className="flex items-center gap-1.5 text-xs text-slate-400"><Calendar className="w-3 h-3" /><span>{formatDate(resume.createdAt)}</span></div>
             <div className="flex items-center gap-1.5">
               <button onClick={handleDownload} title="Download" className="w-7 h-7 rounded-lg flex items-center justify-center bg-slate-800/60 border border-white/10 text-slate-400 hover:text-blue-400 hover:border-blue-500/30 transition-colors duration-150 cursor-pointer"><Download className="w-3.5 h-3.5" /></button>
               <button onClick={handleDeleteClick} title="Delete" className="w-7 h-7 rounded-lg flex items-center justify-center bg-slate-800/60 border border-white/10 text-slate-400 hover:text-red-400 hover:border-red-500/30 transition-colors duration-150 cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button>

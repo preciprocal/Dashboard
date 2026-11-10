@@ -185,16 +185,16 @@ function ReadinessRing({ score }: { score: number }) {
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-2xl font-bold text-white leading-none">{score}</span>
-          <span className="text-[10px] text-slate-500 mt-0.5">/100</span>
+          <span className="text-[11px] text-slate-400 mt-0.5">/100</span>
         </div>
       </div>
       <span
-        className="text-[11px] font-semibold mt-2 px-3 py-1 rounded-full"
+        className="text-xs font-semibold mt-2 px-3 py-1 rounded-full"
         style={{ background: bgColor, color }}
       >
         {label}
       </span>
-      <span className="text-[11px] text-slate-500 mt-1">Career readiness</span>
+      <span className="text-xs text-slate-400 mt-1">Career readiness</span>
     </div>
   );
 }
@@ -208,13 +208,13 @@ function StatPill({ label, value, sub, trend }: {
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-[10px] text-slate-500 uppercase tracking-[0.14em] font-semibold">{label}</span>
+      <span className="text-[11px] text-slate-400 uppercase tracking-[0.14em] font-semibold">{label}</span>
       <div className="flex items-baseline gap-1">
         <span className="text-white font-semibold text-xl leading-none tabular-nums">{value}</span>
-        {sub && <span className="text-slate-500 text-xs">{sub}</span>}
+        {sub && <span className="text-slate-400 text-xs">{sub}</span>}
       </div>
       {trend !== undefined && (
-        <div className={`flex items-center gap-0.5 text-[11px] font-semibold ${trend >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+        <div className={`flex items-center gap-0.5 text-xs font-semibold ${trend >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
           {trend >= 0
             ? <ArrowUpRight className="w-3 h-3" aria-hidden="true" />
             : <ArrowDownRight className="w-3 h-3" aria-hidden="true" />}
@@ -254,12 +254,12 @@ function MetricCard({ icon: Icon, label, value, sub, accentClass, children }: {
   return (
     <div className="glass-card p-4 flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.14em]">{label}</span>
+        <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-[0.14em]">{label}</span>
         <Icon className={`w-3.5 h-3.5 ${accentClass} opacity-70`} aria-hidden="true" strokeWidth={1.75} />
       </div>
       <div className="flex items-baseline gap-1.5">
         <span className={`text-2xl font-semibold leading-none tabular-nums ${accentClass}`}>{value}</span>
-        {sub && <span className="text-slate-500 text-[11px]">{sub}</span>}
+        {sub && <span className="text-slate-400 text-xs">{sub}</span>}
       </div>
       {children}
     </div>
@@ -288,11 +288,11 @@ function ActionCard({ icon: Icon, label, description, href, primary }: {
       </div>
       <div className="flex-1 min-w-0">
         <p className={`text-sm font-semibold ${primary ? 'text-white' : 'text-slate-200'}`}>{label}</p>
-        <p className={`text-[11px] truncate mt-0.5 ${primary ? 'text-indigo-200/80' : 'text-slate-500'}`}>{description}</p>
+        <p className={`text-xs truncate mt-0.5 ${primary ? 'text-indigo-200/80' : 'text-slate-400'}`}>{description}</p>
       </div>
       <ChevronRight
         className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 group-hover:translate-x-0.5
-          ${primary ? 'text-white/60' : 'text-slate-600'}`}
+          ${primary ? 'text-white/60' : 'text-slate-500'}`}
         aria-hidden="true"
       />
     </Link>
@@ -667,7 +667,7 @@ export default function Dashboard() {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center glass-card p-10 max-w-sm w-full mx-4">
-          <AlertCircle className="w-8 h-8 text-slate-500 mx-auto mb-4" aria-hidden="true" />
+          <AlertCircle className="w-8 h-8 text-slate-400 mx-auto mb-4" aria-hidden="true" />
           <p className="text-slate-400 text-sm mb-6">Failed to load dashboard data</p>
           <Button
             onClick={() => window.location.reload()}
@@ -744,7 +744,7 @@ export default function Dashboard() {
                 <h1 className="text-lg sm:text-xl font-semibold text-white leading-tight tracking-tight">
                   {getGreeting()}, {userProfile.name.split(' ')[0]}
                 </h1>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs text-slate-400 mt-0.5">
                   {currentTime.toLocaleDateString('en-US', {
                     weekday: 'long', month: 'long', day: 'numeric',
                   })}
@@ -809,7 +809,7 @@ export default function Dashboard() {
           icon={FileText} label="Resume quality"
           value={hasResume ? `${stats.averageResumeScore ?? 0}%` : '-'}
           sub={hasResume ? `${stats.totalResumes} file${stats.totalResumes !== 1 ? 's' : ''}` : 'No resume yet'}
-          accentClass={!hasResume ? 'text-slate-600' : (stats.averageResumeScore ?? 0) >= 70 ? 'text-emerald-400' : 'text-amber-400'}
+          accentClass={!hasResume ? 'text-slate-500' : (stats.averageResumeScore ?? 0) >= 70 ? 'text-emerald-400' : 'text-amber-400'}
         >
           {hasResume && (
             <ProgressBar value={stats.averageResumeScore ?? 0} color={(stats.averageResumeScore ?? 0) >= 70 ? 'bg-emerald-500' : 'bg-amber-500'} />
@@ -820,14 +820,14 @@ export default function Dashboard() {
           icon={Brain} label="Technical depth"
           value={stats.technicalDepth ? `${stats.technicalDepth}/5` : '-'}
           sub={stats.technicalDepth ? 'rating' : 'No tech sessions'}
-          accentClass={!stats.technicalDepth ? 'text-slate-600' : 'text-violet-400'}
+          accentClass={!stats.technicalDepth ? 'text-slate-500' : 'text-violet-400'}
         >
           {!!stats.technicalDepth && (
             <div className="flex gap-0.5" aria-label={`${Math.round(stats.technicalDepth)} out of 5 stars`}>
               {[1, 2, 3, 4, 5].map(n => (
                 <Star
                   key={n}
-                  className={`w-3 h-3 ${n <= Math.round(stats.technicalDepth ?? 0) ? 'text-violet-400 fill-violet-400' : 'text-slate-700'}`}
+                  className={`w-3 h-3 ${n <= Math.round(stats.technicalDepth ?? 0) ? 'text-violet-400 fill-violet-400' : 'text-slate-500'}`}
                   aria-hidden="true"
                 />
               ))}
@@ -839,7 +839,7 @@ export default function Dashboard() {
           icon={Users} label="Communication"
           value={stats.communicationScore ? `${stats.communicationScore}` : '-'}
           sub={stats.communicationScore ? '/100' : 'No data yet'}
-          accentClass={!stats.communicationScore ? 'text-slate-600' : stats.communicationScore >= 70 ? 'text-sky-400' : 'text-amber-400'}
+          accentClass={!stats.communicationScore ? 'text-slate-500' : stats.communicationScore >= 70 ? 'text-sky-400' : 'text-amber-400'}
         >
           {!!stats.communicationScore && (
             <ProgressBar value={stats.communicationScore} color={stats.communicationScore >= 70 ? 'bg-sky-500' : 'bg-amber-500'} />

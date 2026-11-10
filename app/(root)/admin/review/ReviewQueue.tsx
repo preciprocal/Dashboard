@@ -94,7 +94,7 @@ export default function ReviewQueue() {
     }
   };
 
-  if (loading) return <p className="text-sm text-slate-500">Loading queue…</p>;
+  if (loading) return <p className="text-sm text-slate-400">Loading queue…</p>;
 
   const empty = flags.length === 0 && refunds.length === 0;
   if (empty) {
@@ -111,7 +111,7 @@ export default function ReviewQueue() {
       {refunds.length > 0 && (
         <section>
           <h2 className="text-sm font-semibold text-white mb-3">
-            Refund requests <span className="text-slate-500 font-normal">({refunds.length})</span>
+            Refund requests <span className="text-slate-400 font-normal">({refunds.length})</span>
           </h2>
           <div className="space-y-3">
             {refunds.map(r => (
@@ -119,7 +119,7 @@ export default function ReviewQueue() {
                 <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
                   <div>
                     <p className="text-sm font-medium text-white">{r.email}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p className="text-xs text-slate-400 mt-0.5">
                       Requested {new Date(r.created_at).toLocaleDateString()}
                       {r.billing_period_start &&
                         ` · period started ${new Date(r.billing_period_start).toLocaleDateString()}`}
@@ -147,7 +147,7 @@ export default function ReviewQueue() {
                       {money(r.quoted_refund_cents)}
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-1">
+                  <p className="text-xs text-slate-400 mt-1">
                     {money(r.amount_paid_cents)} paid · {money(r.quoted_gross_cents)} prorated
                     · less {money(r.quoted_fee_cents)} processing fee
                   </p>
@@ -164,7 +164,7 @@ export default function ReviewQueue() {
                     .filter(([, v]) => v.used > 0)
                     .map(([feature, v]) => (
                       <span key={feature}
-                        className="px-2 py-1 rounded-lg text-[11px] text-slate-400 bg-white/[0.04] border border-white/[0.06]">
+                        className="px-2 py-1 rounded-lg text-xs text-slate-400 bg-white/[0.04] border border-white/[0.06]">
                         {feature}: {v.used}/{v.limit === -1 ? "∞" : v.limit}
                         {v.pct !== null && ` (${v.pct}%)`}
                       </span>
@@ -179,9 +179,9 @@ export default function ReviewQueue() {
                     onClick={() => decide("refund", r.id, "deny", "Deny this refund? The customer will be emailed that it was not approved.")}/>
                 </div>
                 {r.refund_error && (
-                  <p className="text-[11px] text-red-300 mt-2.5">Last attempt failed: {r.refund_error}</p>
+                  <p className="text-xs text-red-300 mt-2.5">Last attempt failed: {r.refund_error}</p>
                 )}
-                <p className="text-[11px] text-slate-600 mt-2.5">
+                <p className="text-xs text-slate-500 mt-2.5">
                   Approving refunds the quoted amount in Stripe, ends the plan, and emails the customer.
                   Denying emails them that it was not approved; their plan is unchanged.
                 </p>
@@ -195,7 +195,7 @@ export default function ReviewQueue() {
       {flags.length > 0 && (
         <section>
           <h2 className="text-sm font-semibold text-white mb-3">
-            Flagged accounts <span className="text-slate-500 font-normal">({flags.length})</span>
+            Flagged accounts <span className="text-slate-400 font-normal">({flags.length})</span>
           </h2>
           <div className="space-y-3">
             {flags.map(f => (
@@ -203,7 +203,7 @@ export default function ReviewQueue() {
                 <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
                   <div>
                     <p className="text-sm font-medium text-white">{f.email}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p className="text-xs text-slate-400 mt-0.5">
                       {REASON_LABELS[f.reason] ?? f.reason} ·{" "}
                       {new Date(f.created_at).toLocaleDateString()}
                     </p>
@@ -215,7 +215,7 @@ export default function ReviewQueue() {
                   )}
                 </div>
 
-                <pre className="text-[11px] text-slate-500 bg-black/30 rounded-lg p-3 overflow-x-auto mb-4">
+                <pre className="text-xs text-slate-400 bg-black/30 rounded-lg p-3 overflow-x-auto mb-4">
                   {JSON.stringify(f.details, null, 2)}
                 </pre>
 

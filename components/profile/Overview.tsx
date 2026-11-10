@@ -157,7 +157,7 @@ const ProfileOverview: React.FC<ProfileOverviewProps> = ({
             </div>
             <h3 id="focus-heading" className="text-sm font-semibold text-white">Today&apos;s focus</h3>
           </div>
-          <span className="text-[11px] font-medium text-slate-500 tabular-nums">
+          <span className="text-xs font-medium text-slate-400 tabular-nums">
             {doneCount}/{dailyFocus.length} done
           </span>
         </div>
@@ -186,17 +186,17 @@ const ProfileOverview: React.FC<ProfileOverviewProps> = ({
                     <p className={`text-[13px] font-medium leading-snug ${focus.completed ? "text-slate-400" : "text-white"}`}>
                       {focus.text}
                     </p>
-                    <p className="text-xs text-slate-500 mt-0.5 truncate">{focus.description}</p>
+                    <p className="text-xs text-slate-400 mt-0.5 truncate">{focus.description}</p>
                   </div>
                   {focus.completed
                     ? <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                    : <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-slate-300 group-hover:translate-x-0.5 transition-all flex-shrink-0" />}
+                    : <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 group-hover:translate-x-0.5 transition-all flex-shrink-0" />}
                 </Link>
               );
             })}
           </div>
         ) : (
-          <p className="flex-1 flex items-center justify-center text-sm text-slate-500 text-center py-6">
+          <p className="flex-1 flex items-center justify-center text-sm text-slate-400 text-center py-6">
             Nothing due today. Start a mock interview to set your first goal.
           </p>
         )}
@@ -242,10 +242,10 @@ const ProfileOverview: React.FC<ProfileOverviewProps> = ({
                       <p className="text-[13px] font-medium text-white capitalize truncate">
                         {interview.role || interview.type} interview
                       </p>
-                      <p className="text-xs text-slate-500 mt-0.5">{date}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">{date}</p>
                     </div>
                     {score > 0 && <span className={`text-sm font-semibold tabular-nums flex-shrink-0 ${scoreColor}`}>{score}%</span>}
-                    <ChevronRight className="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-300 group-hover:translate-x-0.5 transition-all flex-shrink-0" />
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-300 group-hover:translate-x-0.5 transition-all flex-shrink-0" />
                   </Link>
                 );
               })}
@@ -253,7 +253,7 @@ const ProfileOverview: React.FC<ProfileOverviewProps> = ({
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-center py-6">
             <p className="text-sm text-slate-300 font-medium">No sessions yet</p>
-            <p className="text-xs text-slate-500 mt-1 max-w-[16rem]">Your mock interviews and their scores will show up here.</p>
+            <p className="text-xs text-slate-400 mt-1 max-w-[16rem]">Your mock interviews and their scores will show up here.</p>
             <Link href="/interview" className="mt-4 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold text-white glass-button-primary">
               <Mic className="w-3.5 h-3.5" /> Start your first interview
             </Link>

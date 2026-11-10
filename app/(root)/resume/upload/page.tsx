@@ -127,7 +127,7 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
           <h2 className="text-2xl sm:text-3xl font-bold text-white leading-snug mb-2">
             Don&apos;t apply blind. Know your score first.
           </h2>
-          <p className="text-sm text-slate-500 mb-6 max-w-md">
+          <p className="text-sm text-slate-400 mb-6 max-w-md">
             You&apos;ve already tested {used} resume{used !== 1 ? 's' : ''} - every fix you make before hitting &ldquo;Apply&rdquo; is one less reason to get filtered out.
           </p>
           <div className="flex items-center gap-4 bg-white/[0.03] border border-white/[0.06]
@@ -153,7 +153,7 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
               Get More
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </Link>
-            <span className="text-[10px] text-slate-600">
+            <span className="text-[11px] text-slate-500">
               Cancel anytime · Instant access
             </span>
           </div>
@@ -167,7 +167,7 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
         ].map(s => (
           <div key={s.num} className="glass-card py-4 text-center">
             <p className="text-xl font-black text-indigo-400">{s.num}</p>
-            <p className="text-xs text-slate-500 mt-1">{s.label}</p>
+            <p className="text-xs text-slate-400 mt-1">{s.label}</p>
           </div>
         ))}
       </div>
@@ -374,7 +374,7 @@ export default function UploadResume() {
                 <Sparkles className="w-5 h-5 text-white" />
               </div>
               <p className="text-[15px] font-bold text-white mb-2">{PROCESSING_STEPS[currentStep]?.message}</p>
-              <p className="text-[12px] text-slate-500 leading-relaxed min-h-[36px]">{RESUME_FACTS[currentFactIndex]}</p>
+              <p className="text-[12px] text-slate-400 leading-relaxed min-h-[36px]">{RESUME_FACTS[currentFactIndex]}</p>
             </div>
             <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden mb-5">
               <div className="h-full bg-[var(--accent)] rounded-full transition-all duration-500"
@@ -383,7 +383,7 @@ export default function UploadResume() {
             <div className="space-y-2.5">
               {PROCESSING_STEPS.map((step, i) => (
                 <div key={i} className={`flex items-center gap-3 text-[12px] font-medium ${
-                  i < currentStep ? 'text-emerald-400' : i === currentStep ? 'text-indigo-400' : 'text-slate-700'
+                  i < currentStep ? 'text-emerald-400' : i === currentStep ? 'text-indigo-400' : 'text-slate-500'
                 }`}>
                   {i < currentStep
                     ? <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
@@ -423,7 +423,7 @@ export default function UploadResume() {
                   <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
                     <p className="text-[12px] font-semibold text-red-400 mb-0.5">Analysis failed</p>
-                    <p className="text-[11px] text-red-400/70 break-words">{error}</p>
+                    <p className="text-xs text-red-400/70 break-words">{error}</p>
                   </div>
                   <button onClick={() => setError('')} className="text-red-400/60 hover:text-red-300 transition-colors flex-shrink-0">
                     <X className="w-4 h-4" />
@@ -434,20 +434,20 @@ export default function UploadResume() {
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="grid sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[12px] font-medium text-slate-400 mb-1.5">Company <span className="text-slate-700 font-normal">optional</span></label>
+                    <label className="block text-[12px] font-medium text-slate-400 mb-1.5">Company <span className="text-slate-500 font-normal">optional</span></label>
                     <input type="text" value={formData.companyName}
                       onChange={e => setFormData(p => ({ ...p, companyName: e.target.value }))}
                       placeholder="e.g. Google" className={inp} />
                   </div>
                   <div>
-                    <label className="block text-[12px] font-medium text-slate-400 mb-1.5">Job Title <span className="text-slate-700 font-normal">optional</span></label>
+                    <label className="block text-[12px] font-medium text-slate-400 mb-1.5">Job Title <span className="text-slate-500 font-normal">optional</span></label>
                     <input type="text" value={formData.jobTitle}
                       onChange={e => setFormData(p => ({ ...p, jobTitle: e.target.value }))}
                       placeholder="e.g. Software Engineer" className={inp} />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[12px] font-medium text-slate-400 mb-1.5">Job Description <span className="text-slate-700 font-normal">optional</span></label>
+                  <label className="block text-[12px] font-medium text-slate-400 mb-1.5">Job Description <span className="text-slate-500 font-normal">optional</span></label>
                   <textarea rows={3} value={formData.jobDescription}
                     onChange={e => setFormData(p => ({ ...p, jobDescription: e.target.value }))}
                     placeholder="Paste the job description for better keyword matching…"
@@ -463,7 +463,7 @@ export default function UploadResume() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[12px] font-semibold text-white truncate">{file.name}</p>
-                        <p className="text-[11px] text-slate-600">{(file.size / 1024).toFixed(1)} KB · {fileKindLabel}</p>
+                        <p className="text-xs text-slate-500">{(file.size / 1024).toFixed(1)} KB · {fileKindLabel}</p>
                       </div>
                       <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
                     </div>
@@ -478,7 +478,7 @@ export default function UploadResume() {
                       ? <><Loader2 className="w-4 h-4 animate-spin" /> Analysing…</>
                       : <><Upload className="w-4 h-4" /> Analyse Resume</>}
                   </button>
-                  <p className="text-center text-[11px] text-slate-600">
+                  <p className="text-center text-xs text-slate-500">
                     PDF or Word (.docx, .doc) · Max 10 MB · Takes 10-20 seconds
                   </p>
                 </div>
@@ -493,7 +493,7 @@ export default function UploadResume() {
                 </p>
                 <div className="space-y-2">
                   {['ATS compatibility and keywords', 'Content quality and metrics', 'Structure and formatting', 'Skills alignment'].map(item => (
-                    <div key={item} className="flex items-center gap-2 text-[12px] text-slate-500">
+                    <div key={item} className="flex items-center gap-2 text-[12px] text-slate-400">
                       <div className="w-1.5 h-1.5 rounded-full bg-emerald-400/40 flex-shrink-0" /> {item}
                     </div>
                   ))}
@@ -505,7 +505,7 @@ export default function UploadResume() {
                 </p>
                 <div className="space-y-2">
                   {['PDF or Word (.docx, .doc)', 'Maximum size: 10 MB', 'Text-based files work best', 'Takes 10-20 seconds'].map(item => (
-                    <div key={item} className="flex items-center gap-2 text-[12px] text-slate-500">
+                    <div key={item} className="flex items-center gap-2 text-[12px] text-slate-400">
                       <div className="w-1.5 h-1.5 rounded-full bg-blue-400/40 flex-shrink-0" /> {item}
                     </div>
                   ))}

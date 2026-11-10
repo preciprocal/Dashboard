@@ -74,7 +74,7 @@ export default function DayView({ dailyPlan, onTaskUpdate }: DayViewProps) {
                 <h3 className="text-lg font-semibold text-white mb-2">
                   {dailyPlan.focus}
                 </h3>
-                <div className="flex items-center gap-2 text-sm text-slate-500">
+                <div className="flex items-center gap-2 text-sm text-slate-400">
                   <Clock className="w-4 h-4" />
                   <span>
                     {new Date(dailyPlan.date).toLocaleDateString('en-US', {
@@ -168,18 +168,18 @@ export default function DayView({ dailyPlan, onTaskUpdate }: DayViewProps) {
                     {task.status === 'done' ? (
                       <CheckCircle2 className="w-5 h-5 text-emerald-400" />
                     ) : (
-                      <Circle className="w-5 h-5 text-slate-600 hover:text-blue-400 transition-colors" />
+                      <Circle className="w-5 h-5 text-slate-500 hover:text-blue-400 transition-colors" />
                     )}
                   </button>
                   <div className="flex-1">
                     <p className={`font-medium text-sm mb-1 ${
                       task.status === 'done' 
-                        ? 'line-through text-slate-600' 
+                        ? 'line-through text-slate-500' 
                         : 'text-white'
                     }`}>
                       {task.title}
                     </p>
-                    <p className="text-sm text-slate-500 mb-2">
+                    <p className="text-sm text-slate-400 mb-2">
                       {task.description}
                     </p>
                     <div className="flex items-center flex-wrap gap-2">
@@ -188,7 +188,7 @@ export default function DayView({ dailyPlan, onTaskUpdate }: DayViewProps) {
                           ? 'bg-red-500/10 border-red-500/20 text-red-400'
                           : task.priority === 'medium'
                           ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
-                          : 'bg-slate-500/10 border-slate-700 text-slate-500'
+                          : 'bg-slate-500/10 border-slate-700 text-slate-400'
                       }`}>
                         {task.priority}
                       </span>
@@ -232,10 +232,10 @@ export default function DayView({ dailyPlan, onTaskUpdate }: DayViewProps) {
                           {resource.title}
                         </p>
                         {resource.duration && (
-                          <p className="text-xs text-slate-500">{resource.duration}</p>
+                          <p className="text-xs text-slate-400">{resource.duration}</p>
                         )}
                       </div>
-                      <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-blue-400 flex-shrink-0 transition-colors" />
+                      <ExternalLink className="w-4 h-4 text-slate-400 group-hover:text-blue-400 flex-shrink-0 transition-colors" />
                     </a>
                   );
                 })}

@@ -213,7 +213,7 @@ export default function ServiceFeedback({
             </div>
             <button
               onClick={dismissFeedback}
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-300 hover:bg-white/5 transition-all duration-150 mt-0.5"
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-300 hover:bg-white/5 transition-all duration-150 mt-0.5"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -257,7 +257,7 @@ export default function ServiceFeedback({
                 </span>
               </div>
 
-              <p className="text-xs text-slate-500">Select a star to continue →</p>
+              <p className="text-xs text-slate-400">Select a star to continue →</p>
             </div>
           )}
 
@@ -364,8 +364,8 @@ export default function ServiceFeedback({
                   ))}
                 </div>
                 <div className="flex justify-between mt-1.5">
-                  <span className="text-xs text-slate-600">Not likely</span>
-                  <span className="text-xs text-slate-600">Very likely</span>
+                  <span className="text-xs text-slate-500">Not likely</span>
+                  <span className="text-xs text-slate-500">Very likely</span>
                 </div>
               </div>
 
@@ -392,7 +392,7 @@ export default function ServiceFeedback({
                   }}
                 />
                 {comment.length > 0 && (
-                  <p className="text-right text-xs text-slate-600 mt-1">{comment.length}/500</p>
+                  <p className="text-right text-xs text-slate-500 mt-1">{comment.length}/500</p>
                 )}
               </div>
 
@@ -423,7 +423,7 @@ export default function ServiceFeedback({
                 )}
               </button>
 
-              <p className="text-center text-xs text-slate-600">
+              <p className="text-center text-xs text-slate-500">
                 Your feedback helps us improve Preciprocal for everyone
               </p>
             </div>

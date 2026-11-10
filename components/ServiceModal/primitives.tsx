@@ -154,7 +154,7 @@ export function PercentileGauge({ percentile }: { percentile: number }) {
       </svg>
       <div className="absolute bottom-0 left-1/2 -translate-x-1/2 text-center">
         <p className="text-[16px] font-bold leading-none" style={{ color }}>{animatedPct}th</p>
-        <p className="text-[7px] text-slate-500">percentile</p>
+        <p className="text-[7px] text-slate-400">percentile</p>
       </div>
     </div>
   );

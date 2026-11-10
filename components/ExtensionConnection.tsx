@@ -139,10 +139,10 @@ export default function ExtensionConnection() {
             <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
             <div className="min-w-0">
               <p className="text-[13px] font-medium text-emerald-300">Extension connected</p>
-              {email && <p className="text-xs text-slate-500 mt-0.5 truncate">{email}</p>}
+              {email && <p className="text-xs text-slate-400 mt-0.5 truncate">{email}</p>}
             </div>
           </div>
-          <p className="text-xs text-slate-500 leading-relaxed">
+          <p className="text-xs text-slate-400 leading-relaxed">
             Your session is synced. Open the extension on LinkedIn or any job application to start.
           </p>
           <button onClick={reconnect} className="inline-flex items-center gap-2 text-xs text-slate-400 hover:text-white transition-colors">
@@ -163,7 +163,7 @@ export default function ExtensionConnection() {
               <div className="rounded-[10px] p-4 space-y-3 border border-white/[0.08] bg-[var(--bg-subtle)]">
                 <div>
                   <p className="text-xs font-semibold text-slate-200 mb-0.5">Manual connection</p>
-                  <p className="text-xs text-slate-500 leading-relaxed">Generate a token here, copy it, then paste it inside the extension popup.</p>
+                  <p className="text-xs text-slate-400 leading-relaxed">Generate a token here, copy it, then paste it inside the extension popup.</p>
                 </div>
                 {!manualToken ? (
                   <button onClick={generateManualToken} className="btn-secondary w-full"><Plug /> Generate Token</button>
@@ -172,7 +172,7 @@ export default function ExtensionConnection() {
                     <button onClick={copyToken} className="btn-secondary w-full">
                       {copied ? <><CheckCircle2 className="text-emerald-400" /><span className="text-emerald-400">Token copied</span></> : <><Copy /> Copy Token</>}
                     </button>
-                    <p className="text-[11px] text-slate-500 text-center leading-relaxed">
+                    <p className="text-xs text-slate-400 text-center leading-relaxed">
                       Paste it in the extension popup under &quot;Having trouble?&quot;
                     </p>
                   </div>
@@ -182,7 +182,7 @@ export default function ExtensionConnection() {
           )}
 
           {status === 'idle' && (
-            <p className="text-xs text-slate-500 leading-relaxed">The extension is installed. Connect it and your account syncs automatically.</p>
+            <p className="text-xs text-slate-400 leading-relaxed">The extension is installed. Connect it and your account syncs automatically.</p>
           )}
         </div>
       )}
@@ -193,10 +193,10 @@ export default function ExtensionConnection() {
 function ExtensionBadge({ status, version, connected }: { status: string; version?: string; connected: boolean }) {
   if (status === 'checking') return null;
   if (status !== 'installed') {
-    return <span className="flex-shrink-0 text-[11px] font-medium text-slate-400 bg-white/[0.04] border border-white/[0.08] px-2.5 py-1 rounded-full">Not installed</span>;
+    return <span className="flex-shrink-0 text-xs font-medium text-slate-400 bg-white/[0.04] border border-white/[0.08] px-2.5 py-1 rounded-full">Not installed</span>;
   }
   return (
-    <span className="flex-shrink-0 flex items-center gap-1.5 text-[11px] font-medium text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full">
+    <span className="flex-shrink-0 flex items-center gap-1.5 text-xs font-medium text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full">
       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
       {connected ? 'Connected' : 'Installed'}{version ? ` · v${version}` : ''}
     </span>
