@@ -1102,6 +1102,11 @@ To turn it on:
    (Settings > Secrets and variables > Actions).
 3. Merge to the default branch (scheduled workflows only run from it), then
    run the workflow once from the Actions tab to fill the table.
+4. Submit extension 1.7.0 (extension.zip) to the Chrome Web Store. It shows
+   the same status as a chip while applying: in the LinkedIn banner and in
+   the sidebar on application portals (/api/extension/everify). On portals
+   it only appears when the company name is read off the page, never when
+   it is guessed from the web address.
 
 The badge stays hidden until the first successful sync, so "not found" is
 never shown on an empty table. Matching is on the normalised legal name or

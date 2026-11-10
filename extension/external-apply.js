@@ -267,6 +267,10 @@ function extractJobInfoFromPage() {
       if (el) { const t = (el.textContent||'').trim(); if (t && t.length < 100) { company = t; break; } }
     } catch {}
   }
+  // Read off the page, as opposed to guessed from the hostname below. Only a
+  // name read off the page is used for the E-Verify lookup: a guess like
+  // "Jobs" or "Careers" would show some other employer's status.
+  const companyFromPage = !!company;
   if (!company) {
     const host = window.location.hostname; const parts = host.split('.');
     const atsPlatforms = ['greenhouse','lever','workday','indeed','ashby','icims','jobvite','smartrecruiters','taleo','bamboohr','recruitee','wellfound','angel','myworkdayjobs'];
@@ -325,7 +329,7 @@ function extractJobInfoFromPage() {
   else if (/\bintern\b/.test(titleLower))                                     seniority = 'Intern';
   else                                                                        seniority = 'Mid-level';
 
-  return { jobTitle, company, location:location||null, salary:salary||null, jobType:employmentType||null,
+  return { jobTitle, company, companyFromPage, location:location||null, salary:salary||null, jobType:employmentType||null,
     workArrangement:workArrangement||null, department:department||null, postedDate:postedDate||null,
     description:description||null, seniority:seniority||null, jobUrl:window.location.href };
 }
@@ -3094,6 +3098,23 @@ class PreciprocalSidebar {
     return fields;
   }
 
+  // E-Verify chip under the job title. Looked up once per company and reused
+  // across re-renders; only for a company name read off the page.
+  async _fillEverify(job) {
+    if (!window.PreciprocalEverify || !this.isAuth || !this.authToken || !job.companyFromPage) return;
+    if (!this._everify || this._everify.company !== job.company) {
+      this._everify = { company: job.company, data: undefined };
+      this._everify.data = await window.PreciprocalEverify.fetchStatus({
+        company: job.company, token: this.authToken, userId: this.authUserId, email: this.authEmail, baseUrl: PRECIPROCAL_URL,
+      });
+    }
+    if (this._everify.data === undefined) return;
+    const slot = document.getElementById('prc-everify-slot');
+    if (!slot || slot.childElementCount) return;
+    const el = window.PreciprocalEverify.chip(this._everify.data, { size: 'sm', theme: 'light' });
+    if (el) { slot.style.setProperty('margin-top', '8px', 'important'); slot.appendChild(el); }
+  }
+
   _render() {
     document.getElementById('prc-sidebar')?.remove();
     const sidebar   = document.createElement('div');
@@ -3161,6 +3182,7 @@ class PreciprocalSidebar {
           </div>
           <div class="prc-job-title">${title}</div>
           ${pills ? `<div class="prc-pills">${pills}</div>` : ''}
+          <div id="prc-everify-slot"></div>
         </div>
 
         <!-- Body -->
@@ -3237,6 +3259,7 @@ class PreciprocalSidebar {
 
     document.body.appendChild(sidebar);
     this._listen();
+    this._fillEverify(job);
   }
 
   _updateCompletion(pct) {

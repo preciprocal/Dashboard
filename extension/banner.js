@@ -716,7 +716,7 @@ class PreciprocalBanner {
       await this._delay(400);
       if (this.isAuthenticated) await this._syncTrackedJobsFromDB();
       this.injectBanner();
-      if (this.isAuthenticated) await Promise.all([this.fetchMatchScore(), this.prefetchApplyProfile(), this.fetchJobSignals()]);
+      if (this.isAuthenticated) await Promise.all([this.fetchMatchScore(), this.prefetchApplyProfile(), this.fetchJobSignals(), this.fetchEverify()]);
       this.observeJobChanges();
     } catch (err) { console.error('[PRC] Banner init error:', err); }
   }
@@ -1134,6 +1134,28 @@ class PreciprocalBanner {
     } catch {}
   }
 
+  // E-Verify enrolment for this company (STEM OPT needs it). Shared chip in
+  // everify-badge.js; nothing renders when the daily copy isn't available.
+  async fetchEverify() {
+    if (!window.PreciprocalEverify || !this.isAuthenticated || !this.authToken || !this.jobData?.company) return;
+    const jobId = this.jobData.jobId;
+    const data = await window.PreciprocalEverify.fetchStatus({
+      company: this.jobData.company, token: this.authToken, userId: this.authUserId, email: this.authEmail, baseUrl: PRECIPROCAL_URL,
+    });
+    // Same stale-reply guard as the signals strip.
+    if (this.currentJobId !== jobId) return;
+    const host = this.banner?.querySelector('.preciprocal-banner-compact');
+    if (!host) return;
+    host.querySelector('.prc-everify-row')?.remove();
+    const el = window.PreciprocalEverify.chip(data, { tipMode: 'data-tip', theme: this.banner?.classList.contains('prc-light') ? 'light' : 'dark' });
+    if (!el) return;
+    const row = document.createElement('div');
+    row.className = 'prc-everify-row';
+    row.appendChild(el);
+    host.appendChild(row);
+    this._attachTooltips(row);
+  }
+
   renderJobSignals(data) {
     const host = this.banner?.querySelector('.preciprocal-banner-compact');
     if (!host) return;
@@ -1338,6 +1360,7 @@ class PreciprocalBanner {
       /* ── Job signals strip (ghost risk + reply odds) ── */
       .prc-signals { margin-top:12px; padding-top:12px; border-top:1px solid rgba(148,163,184,0.18); }
       .prc-signals-head { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:6px; }
+      .prc-everify-row { display:flex; margin-top:8px; }
       .prc-risk-pill { font-size:12px; font-weight:700; padding:3px 9px; border-radius:999px; border:1px solid; }
       .prc-risk-low .prc-risk-pill { color:#34d399; border-color:rgba(52,211,153,0.35); background:rgba(52,211,153,0.08); }
       .prc-risk-medium .prc-risk-pill { color:#fbbf24; border-color:rgba(251,191,36,0.35); background:rgba(251,191,36,0.08); }
