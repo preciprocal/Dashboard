@@ -60,6 +60,9 @@ const TELLS: { re: RegExp; phrase: string; suggestion: string }[] = [
   { re: /—|–/, phrase: 'em or en dash', suggestion: 'Use a comma, a full stop or a hyphen.' },
 ];
 
+/** The flagged phrases, for prompts that should avoid them (lib/ai/email-writing.ts). */
+export const AI_TELL_PHRASES: string[] = TELLS.map((t) => t.phrase).filter((p) => !p.includes('...') && p !== 'em or en dash');
+
 export function findAiTells(text: string): AiTell[] {
   const out: AiTell[] = [];
   for (const t of TELLS) if (t.re.test(text)) out.push({ phrase: t.phrase, suggestion: t.suggestion });
