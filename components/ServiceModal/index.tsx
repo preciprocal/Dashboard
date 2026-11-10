@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Play, ArrowRight } from 'lucide-react';
 
 import type { ServiceId, ServiceExampleModalProps, ResumeInitialTab } from './types';
@@ -128,14 +129,17 @@ function ServiceExampleModal({ serviceId, isOpen, onClose, initialTab }: Service
     isPlaying
   );
 
-  if (!isOpen || !service) return null;
+  if (!isOpen || !service || typeof document === 'undefined') return null;
 
   const Icon = service.icon;
   const stepLabel = currentStep < service.steps.length
     ? service.steps[currentStep].label
     : service.steps[service.steps.length - 1].label;
 
-  return (
+  // Portalled to <body>. The trigger sits inside PageHeader, whose fade-in
+  // transform makes `fixed` resolve against the header instead of the window
+  // and whose overflow-hidden then clipped the modal to a thin strip.
+  return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
@@ -206,7 +210,8 @@ function ServiceExampleModal({ serviceId, isOpen, onClose, initialTab }: Service
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
