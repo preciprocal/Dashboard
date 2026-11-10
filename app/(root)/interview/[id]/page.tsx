@@ -38,6 +38,7 @@ export default async function InterviewDetailsPage({ params }: RouteParams) {
           type: interview.type,
           level: interview.level ?? "mid",
           techstack: interview.techstack,
+          company: interview.company,
           questions: interview.questions ?? [],
           // The generator's own technical/behavioural split, for mixed
           // interviews. Omitting these is what made the panel fall back to

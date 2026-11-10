@@ -10,7 +10,7 @@ import {
   Edit3, Trash2, X, Save, Search, Filter, ChevronDown,
   CheckCircle2, AlertTriangle, DollarSign, Globe, Laptop,
   SlidersHorizontal, CalendarPlus, Sparkles, Mail, UserSearch, Copy,
-  Check, RefreshCw, Linkedin, Shield, ArrowRight,
+  Check, RefreshCw, Linkedin, Shield, ArrowRight, Mic,
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -36,6 +36,8 @@ interface Application {
   status: AppStatus; appliedDate: string; createdAt: unknown; updatedAt: unknown;
   /** Which resume was sent, for the "which resume gets interviews" report. */
   resumeId?: string | null;
+  /** The posting, so "Practise this interview" can build from it. */
+  jobDescription?: string | null;
 }
 
 type AppForm = Omit<Application, 'id' | 'userId' | 'createdAt' | 'updatedAt'>;
@@ -85,7 +87,7 @@ const PIPELINE_STAGES: AppStatus[] = ['wishlist', 'applied', 'phone-screen', 'te
 const EMPTY_FORM: AppForm = {
   company: '', jobTitle: '', jobUrl: null, location: null, salary: null,
   workType: 'onsite', source: null, notes: null, status: 'applied',
-  appliedDate: new Date().toISOString().split('T')[0], resumeId: null,
+  appliedDate: new Date().toISOString().split('T')[0], resumeId: null, jobDescription: null,
 };
 
 // Shared form-control size and style (globals.css .field), so every input,
@@ -253,6 +255,10 @@ function FormModal({ form, setForm, onSave, onCancel, saving, isEdit, resumes }:
             </div>
           )}
           <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Job URL</label><input type="url" value={form.jobUrl || ''} onChange={e => f('jobUrl', e.target.value)} placeholder="https://…" className={inp} /></div>
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1.5">Job description <span className="text-slate-600 font-normal">(optional)</span></label>
+            <textarea rows={3} value={form.jobDescription || ''} onChange={e => setForm(p => ({ ...p, jobDescription: e.target.value || null }))} placeholder="Paste the posting. Practice interviews for this application will be built from it." className={`${inp} resize-y`} maxLength={12000} />
+          </div>
           <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Notes</label><textarea rows={3} value={form.notes || ''} onChange={e => f('notes', e.target.value)} placeholder="Interview details, recruiter name, key contacts, follow-up dates…" className={`${inp} resize-none`} /></div>
         </div>
         <div className="flex gap-3 px-6 py-4 border-t border-white/[0.06] flex-shrink-0">
@@ -325,6 +331,14 @@ function AppCard({ app, onEdit, onDelete, onStatusChange, onCreatePlan, onFindCo
         </div>
         {app.notes && <p className="mt-2.5 text-[11px] text-slate-600 line-clamp-2 border-t border-white/[0.05] pt-2.5 leading-relaxed">{app.notes}</p>}
       </div>
+      {(['phone-screen', 'technical', 'final'] as AppStatus[]).includes(app.status) && (
+        <div className="px-4 pb-2">
+          {/* Practice built from this application's stage, company and saved posting. */}
+          <Link href={`/interview/create?application=${app.id}`} className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-semibold text-emerald-300 bg-emerald-500/[0.07] border border-emerald-500/20 hover:bg-emerald-500/15 hover:border-emerald-500/35 transition-all duration-150">
+            <Mic className="w-3.5 h-3.5" /> Practise this interview
+          </Link>
+        </div>
+      )}
       <div className="px-4 pb-4 grid grid-cols-2 gap-2">
         <button onClick={onFindContacts} className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-semibold text-purple-400 bg-purple-500/[0.07] border border-purple-500/20 hover:bg-purple-500/15 hover:border-purple-500/35 hover:text-purple-300 transition-all duration-150"><UserSearch className="w-3.5 h-3.5" /> Find Contacts</button>
         <button onClick={onCreatePlan} className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-semibold text-violet-400 bg-violet-500/[0.07] border border-violet-500/20 hover:bg-violet-500/15 hover:border-violet-500/35 hover:text-violet-300 transition-all duration-150"><CalendarPlus className="w-3.5 h-3.5" /> Create Plan</button>
@@ -668,7 +682,7 @@ export default function JobTrackerPage() {
   };
 
   const handleEdit = (app: Application) => {
-    setForm({ company: app.company, jobTitle: app.jobTitle, jobUrl: app.jobUrl, location: app.location, salary: app.salary, workType: app.workType, source: app.source, notes: app.notes, status: app.status, appliedDate: app.appliedDate, resumeId: app.resumeId ?? null });
+    setForm({ company: app.company, jobTitle: app.jobTitle, jobUrl: app.jobUrl, location: app.location, salary: app.salary, workType: app.workType, source: app.source, notes: app.notes, status: app.status, appliedDate: app.appliedDate, resumeId: app.resumeId ?? null, jobDescription: app.jobDescription ?? null });
     setEditingId(app.id); setShowForm(true);
   };
 

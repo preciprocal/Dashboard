@@ -14,6 +14,10 @@ interface InterviewGeneratorFormProps {
   /** Pre-fill from a link, e.g. "Practise for this screen" in a coaching email. */
   initialRole?: string;
   initialType?: "behavioural" | "technical" | "mixed";
+  /** The posting, when practising for a tracked application. */
+  initialJobDescription?: string;
+  /** A tracked application to practise for. The server reads its company and stage itself. */
+  applicationId?: string;
 }
 
 interface FormData {
@@ -47,7 +51,7 @@ const inp = 'field';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function InterviewGeneratorForm({ userId, initialRole, initialType }: InterviewGeneratorFormProps) {
+export default function InterviewGeneratorForm({ userId, initialRole, initialType, initialJobDescription, applicationId }: InterviewGeneratorFormProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   // `userId` above is the legacy-resolved id (server-passed, correct for the
@@ -65,7 +69,7 @@ export default function InterviewGeneratorForm({ userId, initialRole, initialTyp
   const [showTypeMenu,     setShowTypeMenu]     = useState(false);
 
   const [formData, setFormData] = useState<FormData>({
-    role: initialRole ?? '', level: 'mid', type: initialType ?? 'technical', amount: 5, techstack: '', jobDescription: '',
+    role: initialRole ?? '', level: 'mid', type: initialType ?? 'technical', amount: 5, techstack: '', jobDescription: initialJobDescription ?? '',
   });
 
   const { canUseFeature } = useUsageTracking();
@@ -169,13 +173,13 @@ export default function InterviewGeneratorForm({ userId, initialRole, initialTyp
             body: JSON.stringify({ message: { function_call: { name: 'generate_interview', parameters: {
               role: formData.role, level: formData.level, type: 'technical',
               amount: Math.ceil(formData.amount / 2), techstack: formData.techstack,
-              jobDescription: formData.jobDescription, userid: userId,
+              jobDescription: formData.jobDescription, userid: userId, applicationId,
             }}}}) }),
           fetch('/api/vapi/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ message: { function_call: { name: 'generate_interview', parameters: {
               role: formData.role, level: formData.level, type: 'behavioural',
               amount: Math.floor(formData.amount / 2), techstack: formData.techstack,
-              jobDescription: formData.jobDescription, userid: userId,
+              jobDescription: formData.jobDescription, userid: userId, applicationId,
               skipUsageIncrement: true,
             }}}}) }),
         ]);
@@ -206,7 +210,7 @@ export default function InterviewGeneratorForm({ userId, initialRole, initialTyp
           body: JSON.stringify({ message: { function_call: { name: 'generate_interview', parameters: {
             role: formData.role, level: formData.level, type: formData.type,
             amount: formData.amount, techstack: formData.techstack,
-            jobDescription: formData.jobDescription, userid: userId,
+            jobDescription: formData.jobDescription, userid: userId, applicationId,
           }}}}) });
         if (!res.ok) { const e = await res.json() as APIResponse; throw new Error(e.error || 'Failed to generate interview'); }
         const data = await res.json() as APIResponse;

@@ -59,6 +59,8 @@ interface FullScreenInterviewPanelProps {
   userName: string;
   userId: string;
   interviewRole: string;
+  /** The real employer when practising for a tracked application. */
+  companyName?: string;
   interviewType: "technical" | "behavioral" | "mixed" | "system-design";
   questions: string[];
   technicalQuestions?: string[];
@@ -174,7 +176,7 @@ const ExitConfirmDialog = ({
 // ─── Main component ───────────────────────────────────────────────────────────
 
 const FullScreenInterviewPanel = ({
-  interviewId, userName, userId, interviewRole, interviewType,
+  interviewId, userName, userId, interviewRole, companyName, interviewType,
   questions, technicalQuestions, behavioralQuestions, feedbackId,
   initialVideoOn = true, initialAudioOn = true, initialSpeakerOn = true,
   onExit,
@@ -484,7 +486,9 @@ const FullScreenInterviewPanel = ({
           // gender matching the voice. See lib/config/interview-personas.ts.
           interviewer_name:       isBehavioral ? names.hr.name : names.lead.name,
           interviewer_role:       isBehavioral ? "Director of People Operations"  : "Senior Software Architect",
-          company_name:           "TechCorp",
+          // The real company when practising for a tracked application, so
+          // the interviewer says they work where the candidate is interviewing.
+          company_name:           companyName?.trim() || "TechCorp",
           department:             isBehavioral ? "talent acquisition and employee development" : "engineering and infrastructure",
           years_at_company:       isBehavioral ? "four years"                     : "six years",
           brief_role_description: isBehavioral
@@ -520,7 +524,7 @@ const FullScreenInterviewPanel = ({
     }
   }, [
     interviewId, userId, questions, phaseQuestions, technicalQuestions, behavioralQuestions,
-    interviewType, currentInterviewPhase, userName, interviewRole, names,
+    interviewType, currentInterviewPhase, userName, interviewRole, companyName, names,
   ]);
 
   // ── Auto-start ─────────────────────────────────────────────────────────────

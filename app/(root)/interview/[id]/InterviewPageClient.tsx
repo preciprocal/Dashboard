@@ -64,6 +64,8 @@ interface InterviewDetailsClientProps {
     level: string;
     techstack: string[];
     questions: string[];
+    /** Set when practising for a tracked application. */
+    company?: string;
     /** Present on mixed interviews the generator split. See toInterview(). */
     technicalQuestions?: string[];
     behavioralQuestions?: string[];
@@ -389,6 +391,7 @@ const InterviewDetailsClient = ({
         userName={userName}
         userId={userId}
         interviewRole={interview.role}
+        companyName={interview.company}
         interviewType={normalizedType}
         questions={interview.questions}
         // The semantic split, when the generator produced one. Without these

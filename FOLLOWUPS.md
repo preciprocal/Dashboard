@@ -974,7 +974,7 @@ and the interview pages as owner (load) and as another account (404).
 
 ---
 
-## 31. OPEN - apply migration 0055 and update the privacy policy for pooled reply rates
+## 31. OPEN - apply migrations 0055 and 0056, and update the privacy policy for pooled reply rates
 
 **Severity: medium. Blocks pooled company odds from showing, nothing else.**
 
@@ -996,4 +996,9 @@ first company crosses the threshold. Suggested wording:
 > one person's application, and we never share your individual applications
 > with employers or anyone else.
 
-**Unblocked by** the owner applying 0055 and publishing the wording.
+Also apply `supabase/migrations/0056_application_job_description.sql`.
+Without it, "Practise this interview" still works from the role, company and
+stage, but not from the saved posting, and descriptions typed into the
+tracker form are dropped (logged, never a failed save).
+
+**Unblocked by** the owner applying 0055 and 0056 and publishing the wording.

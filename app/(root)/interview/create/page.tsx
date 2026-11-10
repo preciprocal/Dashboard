@@ -7,6 +7,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Shield, ArrowRight, Calendar, Sparkles, History } from "lucide-react";
 import { USAGE_LIMITS, normalisePlan, isUnlimited } from "@/lib/config/usage-limits";
+import { toSupabaseUserId } from "@/lib/auth/verify-request";
+import { loadPracticeApplication, typeForStage, stageLabel } from "@/lib/interview/practice-context";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -69,6 +71,14 @@ export default async function CreateInterviewPage({
   const user = await getCurrentUser();
   if (!user?.id) redirect('/sign-in');
 
+  // ?application=<id>: practise for one tracked application. Its role, stage
+  // and posting prefill the form; the generator re-reads it server-side.
+  const applicationParam = typeof params.application === 'string' ? params.application : '';
+  const practiceApp = applicationParam
+    ? await loadPracticeApplication(await toSupabaseUserId(user.id), applicationParam)
+    : null;
+  const practiceStage = practiceApp ? stageLabel(practiceApp.status) : null;
+
   const subscription    = user.subscription;
   const usage           = (user as unknown as UserWithUsage).usage;
   const interviewsUsed  = usage?.interviewsUsed || 0;
@@ -96,7 +106,23 @@ export default async function CreateInterviewPage({
           {/* Form */}
           <div className="overflow-y-auto glass-scrollbar pb-4">
             <div className="glass-card p-5 sm:p-6">
-              <InterviewGeneratorForm userId={user.id} initialRole={roleParam || undefined} initialType={typeParam} />
+              {practiceApp && (
+                <div className="mb-5 rounded-xl border border-violet-500/25 bg-violet-500/[0.06] px-4 py-3">
+                  <p className="text-sm font-semibold text-white">
+                    Practising for your {practiceStage ?? 'interview'}{practiceApp.company ? ` at ${practiceApp.company}` : ''}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Questions are built for this stage{practiceApp.jobDescription ? ' from the job posting you saved' : ''}, plus anything you logged in past debriefs with this company. The interviewer will introduce themselves as working there.
+                  </p>
+                </div>
+              )}
+              <InterviewGeneratorForm
+                userId={user.id}
+                initialRole={practiceApp?.jobTitle || roleParam || undefined}
+                initialType={practiceApp ? typeForStage(practiceApp.status) : typeParam}
+                initialJobDescription={practiceApp?.jobDescription ?? undefined}
+                applicationId={practiceApp?.id}
+              />
             </div>
           </div>
         </>

@@ -141,6 +141,21 @@ function toColumns(fields: Partial<AppFields>): Record<string, unknown> {
   return out;
 }
 
+/**
+ * The posting text, written separately from the main insert/update so that
+ * before migration 0056 adds the column, saving an application still works.
+ * Best effort: practice falls back to the role title without it.
+ */
+async function saveJobDescription(id: string, body: Record<string, unknown>): Promise<void> {
+  if (!('jobDescription' in body)) return;
+  const v = typeof body.jobDescription === 'string' ? body.jobDescription.trim().slice(0, 12000) : '';
+  const { error } = await supabaseAdmin
+    .from('job_applications')
+    .update({ job_description: v || null })
+    .eq('id', id);
+  if (error) console.error('⚠️ job description not saved (is 0056 applied?):', error.message);
+}
+
 // ─── GET - list applications ──────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
@@ -156,7 +171,8 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error;
 
-    const result = (data as JobApplicationRow[]).map(normaliseRow);
+    const result = (data as (JobApplicationRow & { job_description?: string | null })[])
+      .map(row => ({ ...normaliseRow(row), jobDescription: row.job_description ?? null }));
     console.log(`[job-tracker GET] uid=${authedUser.supabaseUserId} found=${result.length}`);
 
     return NextResponse.json({ success: true, data: result });
@@ -236,6 +252,7 @@ export async function POST(request: NextRequest) {
     if (error) throw error;
 
     await recordStatusChange(uid, created.id, null, data.status ?? 'applied');
+    await saveJobDescription(created.id, body);
 
     return NextResponse.json({ success: true, id: created.id }, { status: 201 });
   } catch (error) {
@@ -297,6 +314,7 @@ export async function PATCH(request: NextRequest) {
       })
       .eq('id', id);
     if (error) throw error;
+    await saveJobDescription(id, body);
 
     // Only a real move between columns. Editing notes or the salary is not
     // a stage of the search, and must not trigger coaching about one.

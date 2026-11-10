@@ -177,10 +177,13 @@ export async function POST(request: NextRequest) {
       postedText:     typeof body.postedText === 'string' ? body.postedText.slice(0, 300) : null,
       applicantsText: typeof body.applicantsText === 'string' ? body.applicantsText.slice(0, 300) : null,
     });
+    const description = typeof body.description === 'string' ? body.description.trim().slice(0, 12000) : '';
     const postingCols = {
       posted_days_ago: posting.postedDaysAgo,
       reposted:        typeof body.postedText === 'string' ? posting.reposted : null,
       applicant_count: posting.applicantCount,
+      // Migration 0056: lets "Practise this interview" use the real posting.
+      job_description: description || null,
     };
 
     let { data: created, error } = await supabaseAdmin
@@ -188,7 +191,7 @@ export async function POST(request: NextRequest) {
       .insert({ ...baseRow, ...postingCols })
       .select('id')
       .single();
-    // Before 0055 is applied those columns do not exist. Saving the job
+    // Before 0055/0056 are applied those columns do not exist. Saving the job
     // matters far more than the posting details, so retry without them
     // rather than losing the application.
     if (error && isMissingColumn(error)) {
