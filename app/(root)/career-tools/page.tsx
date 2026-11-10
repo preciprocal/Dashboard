@@ -19,6 +19,7 @@ import { isUnlimited } from '@/lib/config/usage-limits';
 import { SeeExampleButton } from '@/components/ServiceModal';
 import { AppSelect } from '@/components/ui/select';
 import { LinkedInIcon, OutlookIcon } from '@/components/icons/BrandIcons';
+import { OUTREACH_TEMPLATES } from '@/lib/outreach/templates';
 import NextStepPrompt from '@/components/NextStepPrompt'; // ← NEW
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -544,6 +545,11 @@ interface ORFormProps { type: string; setType: (v: string) => void; recipName: s
 function OutreachForm({ type, setType, recipName, setRecipName, recipRole, setRecipRole, company, setCompany, context, setContext, background, setBackground, jobTitle, setJobTitle, jobDesc, setJobDesc, platform, setPlatform, tone, setTone, onSubmit, loading, error, ready }: ORFormProps) {
   return (
     <div className="space-y-4">
+      <Link href="/templates/outreach"
+        className="flex items-center justify-between gap-3 rounded-[var(--r-md)] border border-[var(--border)] bg-[var(--bg-subtle)] px-3.5 py-2.5 text-[13px] text-slate-300 hover:text-white hover:border-[var(--border-hover)] transition-colors">
+        <span>Prefer a proven starting point? Browse {OUTREACH_TEMPLATES.length} ready-to-send templates</span>
+        <ArrowRight className="w-4 h-4 flex-shrink-0" />
+      </Link>
       {error && <ErrorBanner message={error} />}
       {/* Platform gets its own row. Sharing a row with Tone squeezed the two
           buttons below their text width, and "LinkedIn" ran under the
@@ -623,6 +629,11 @@ export default function CareerToolsPage() {
   const orUnlimited = isUnlimited(orLimit);
 
   const [activeTool, setActiveTool] = useState<'linkedin' | 'outreach'>('linkedin');
+  // ?tool=outreach opens Cold Outreach directly (the outreach template
+  // library links here). Read after mount so the server render matches.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('tool') === 'outreach') setActiveTool('outreach');
+  }, []);
 
   const [liHeadline, setLiHeadline] = useState('');
   const [liAbout, setLiAbout] = useState('');

@@ -5,6 +5,7 @@ import { BookOpen } from 'lucide-react';
 
 import React, { useState, useMemo, useEffect } from "react";
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import {
@@ -394,7 +395,8 @@ export default function TemplatesPage() {
             <div className="min-w-0">
               <h1 className="text-[20px] font-semibold text-white tracking-tight leading-tight">Interview Templates</h1>
               <p className="text-[13px] text-slate-400 mt-0.5">
-                {stats.total}+ ready-made interviews across every field
+                {stats.total}+ ready-made interviews across every field ·{' '}
+                <Link href="/templates/outreach" className="text-indigo-300 hover:text-indigo-200 underline-offset-2 hover:underline">Outreach templates</Link>
               </p>
             </div>
           </div>
