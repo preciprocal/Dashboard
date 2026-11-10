@@ -33,6 +33,15 @@ const nextConfig: NextConfig = {
 
   reactStrictMode: true,
 
+  // Next 16.3 turned on Turbopack's build cache by default, and Vercel
+  // restores .next/cache before every build. The restored cache kept serving
+  // the Oct 20 globals.css: production got today's JavaScript with a stylesheet
+  // that had no .btn-primary, .btn-secondary, .field or .choice, so every
+  // button and input in the app rendered unstyled. Builds start cold instead.
+  experimental: {
+    turbopackFileSystemCacheForBuild: false,
+  },
+
   // Dev-only build-activity indicator defaults to bottom-left, where it
   // overlaps the sidebar's nav/plan badge - move it out of the way. Never
   // shown in production builds.
