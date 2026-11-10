@@ -138,8 +138,10 @@ async function readEmployerList(onRows) {
         try { return !!viz?.workbook?.activeSheet?.worksheets?.length; } catch { return false; }
       },
       null,
-      { timeout: 120_000, polling: 1000 },
-    );
+      { timeout: 180_000, polling: 1000 },
+    ).catch(() => {
+      throw new Error("the E-Verify Employer Search dashboard did not load in 3 minutes; the USCIS source is probably down (it has shown 'HTTP Status 404' during outages). Yesterday's data stays live.");
+    });
 
     // Open a reader on the Employer List, with every account status included
     // (the dashboard may default to open accounts only).
@@ -198,9 +200,6 @@ if (dry) {
 
 const runId = await startRun();
 try {
-  const { error: resetErr } = await db.rpc("everify_staging_reset");
-  if (resetErr) throw new Error(`staging reset failed: ${resetErr.message}`);
-
   let staged = 0;
   let newest = null;
   let buffer = [];
@@ -211,16 +210,34 @@ try {
     buffer = [];
   };
 
-  const { reported, read } = await readEmployerList(async (cols, rows) => {
-    for (const row of rows) {
-      const rec = toRecord(cols, row);
-      if (!rec) continue;
-      if (rec.source_updated && (!newest || rec.source_updated > newest)) newest = rec.source_updated;
-      buffer.push(rec);
-      if (buffer.length >= INSERT_CHUNK) await flush();
+  // The dashboard occasionally loads slowly. A failed read empties staging
+  // and tries once more before the run is marked failed.
+  let reported = 0;
+  let read = 0;
+  for (let attempt = 1; ; attempt++) {
+    const { error: resetErr } = await db.rpc("everify_staging_reset");
+    if (resetErr) throw new Error(`staging reset failed: ${resetErr.message}`);
+    staged = 0;
+    newest = null;
+    buffer = [];
+    try {
+      ({ reported, read } = await readEmployerList(async (cols, rows) => {
+        for (const row of rows) {
+          const rec = toRecord(cols, row);
+          if (!rec) continue;
+          if (rec.source_updated && (!newest || rec.source_updated > newest)) newest = rec.source_updated;
+          buffer.push(rec);
+          if (buffer.length >= INSERT_CHUNK) await flush();
+        }
+      }));
+      await flush();
+      break;
+    } catch (err) {
+      if (attempt >= 2) throw err;
+      console.warn(`read failed (${err instanceof Error ? err.message : err}); retrying in 30s`);
+      await sleep(30_000);
     }
-  });
-  await flush();
+  }
 
   if (read < reported * MIN_COMPLETE) {
     throw new Error(`incomplete read: ${read} of ${reported} rows`);
