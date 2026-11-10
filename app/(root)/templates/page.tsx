@@ -1,11 +1,12 @@
 // app/(root)/templates/page.tsx
 "use client";
 import { Breadcrumbs, crumbsFor } from '@/components/PageHeader';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, Send } from 'lucide-react';
 
 import React, { useState, useMemo, useEffect } from "react";
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { useOutreachFilters, OutreachFilters, OutreachGrid } from '@/components/templates/OutreachTemplateGrid';
+import { OUTREACH_TEMPLATES } from '@/lib/outreach/templates';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import {
@@ -288,8 +289,9 @@ export default function TemplatesPage() {
   const [selectedType,       setSelectedType]       = useState('All');
   const [selectedDuration,   setSelectedDuration]   = useState('All');
   const [showFilters,        setShowFilters]        = useState(false);
-  const [view,               setView]               = useState<'all' | 'saved'>('all');
+  const [view,               setView]               = useState<'all' | 'saved' | 'outreach'>('all');
   const [savedIds,           setSavedIds]           = useState<Set<string>>(() => new Set());
+  const outreach = useOutreachFilters();
 
   // Read after mount (no localStorage on the server), and again whenever a
   // card is saved or removed, here or in another tab.
@@ -298,7 +300,7 @@ export default function TemplatesPage() {
     void Promise.resolve().then(sync);
     window.addEventListener(SAVED_EVENT, sync);
     window.addEventListener('storage', sync);
-    if (new URLSearchParams(window.location.search).get('view') === 'saved') void Promise.resolve().then(() => setView('saved'));
+    { const v = new URLSearchParams(window.location.search).get('view'); if (v === 'saved' || v === 'outreach') void Promise.resolve().then(() => setView(v)); }
     return () => { window.removeEventListener(SAVED_EVENT, sync); window.removeEventListener('storage', sync); };
   }, []);
 
@@ -393,20 +395,22 @@ export default function TemplatesPage() {
               <BookOpen className="w-5 h-5 text-indigo-200" strokeWidth={1.75} />
             </div>
             <div className="min-w-0">
-              <h1 className="text-[20px] font-semibold text-white tracking-tight leading-tight">Interview Templates</h1>
+              <h1 className="text-[20px] font-semibold text-white tracking-tight leading-tight">{view === 'outreach' ? 'Outreach Templates' : 'Interview Templates'}</h1>
               <p className="text-[13px] text-slate-400 mt-0.5">
-                {stats.total}+ ready-made interviews across every field ·{' '}
-                <Link href="/templates/outreach" className="text-indigo-300 hover:text-indigo-200 underline-offset-2 hover:underline">Outreach templates</Link>
+                {view === 'outreach'
+                  ? `${OUTREACH_TEMPLATES.length} ready-to-send emails and LinkedIn messages for every stage of your search`
+                  : `${stats.total}+ ready-made interviews across every field`}
               </p>
             </div>
           </div>
 
           <div role="tablist" aria-label="Templates" className="inline-flex self-start sm:self-auto flex-shrink-0 gap-1 p-1 rounded-[var(--r-md)] bg-[var(--bg-subtle)] border border-[var(--border)]">
-            {([['all', 'All templates', templateData.length], ['saved', 'Saved', savedIds.size]] as const).map(([id, label, n]) => (
+            {([['all', 'All templates', templateData.length], ['outreach', 'Outreach', OUTREACH_TEMPLATES.length], ['saved', 'Saved', savedIds.size]] as const).map(([id, label, n]) => (
               <button key={id} role="tab" aria-selected={view === id} onClick={() => setView(id)}
                 className={`inline-flex items-center gap-2 h-8 px-3.5 rounded-[calc(var(--r-md)-3px)] text-[13px] font-medium transition-colors cursor-pointer border ${
                   view === id ? 'bg-[var(--accent-subtle)] text-white border-[var(--accent-border)]' : 'text-slate-400 hover:text-white border-transparent'}`}>
                 {id === 'saved' && <BookmarkCheck className="w-3.5 h-3.5" />}
+                {id === 'outreach' && <Send className="w-3.5 h-3.5" />}
                 {label}
                 <span className={`text-xs tabular-nums ${view === id ? 'text-indigo-200' : 'text-slate-400'}`}>{n}</span>
               </button>
@@ -414,6 +418,7 @@ export default function TemplatesPage() {
           </div>
         </div>
 
+        {view === 'outreach' ? <OutreachFilters f={outreach} /> : (<>
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
           {[
@@ -476,8 +481,10 @@ export default function TemplatesPage() {
             </button>
           </div>
         )}
+        </>)}
       </div>
 
+      {view === 'outreach' ? <OutreachGrid f={outreach} /> : (<>
       {/* ── Results count ── */}
       <p className="text-slate-400 text-sm px-1">
         Showing <span className="text-white font-semibold">{filteredTemplates.length}</span> of{' '}
@@ -534,6 +541,7 @@ export default function TemplatesPage() {
           <span className="text-[13px] text-slate-400 tabular-nums">{visibleTemplates.length} of {filteredTemplates.length}</span>
         </div>
       )}
+      </>)}
     </div>
   );
 }

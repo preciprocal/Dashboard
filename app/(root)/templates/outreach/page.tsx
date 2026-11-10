@@ -10,7 +10,7 @@
 // message goes out. The AI writer in Career Tools is one click away for a
 // version written from scratch for a specific person.
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { Copy, Check, Search, X, Send, Sparkles, Lightbulb, ArrowLeft, BookOpen } from 'lucide-react';
@@ -159,6 +159,13 @@ export default function OutreachTemplatesPage() {
   const [selectedId, setSelectedId] = useState<string>(OUTREACH_TEMPLATES[0].id);
   // Phones show the list or the open template, not both.
   const [mobileDetail, setMobileDetail] = useState(false);
+  // ?t=<id> (the cards on /templates link here) opens that template.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('t');
+    if (id && OUTREACH_TEMPLATES.some(t => t.id === id)) {
+      void Promise.resolve().then(() => { setSelectedId(id); setMobileDetail(true); });
+    }
+  }, []);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -186,7 +193,7 @@ export default function OutreachTemplatesPage() {
         description={`${OUTREACH_TEMPLATES.length} ready-to-send emails and LinkedIn messages for every stage of your search`}
         icon={Send}
         actions={<>
-          <Link href="/templates" className="btn-secondary"><BookOpen /> Interview templates</Link>
+          <Link href="/templates?view=outreach" className="btn-secondary"><BookOpen /> All template cards</Link>
           <Link href="/career-tools?tool=outreach" className="btn-primary"><Sparkles /> Write with AI</Link>
         </>}
       />
