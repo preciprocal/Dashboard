@@ -22,6 +22,7 @@ import { useUsageTracking } from '@/lib/hooks/useUsageTracking';
 import { isUnlimited } from '@/lib/config/usage-limits';
 import { SeeExampleButton } from '@/components/ServiceModal';
 import NextStepPrompt from '@/components/NextStepPrompt'; // ← ADDED
+import FunnelDoctor from '@/components/outcomes/FunnelDoctor';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -33,6 +34,8 @@ interface Application {
   jobUrl: string | null; location: string | null; salary: string | null;
   workType: WorkType; source: string | null; notes: string | null;
   status: AppStatus; appliedDate: string; createdAt: unknown; updatedAt: unknown;
+  /** Which resume was sent, for the "which resume gets interviews" report. */
+  resumeId?: string | null;
 }
 
 type AppForm = Omit<Application, 'id' | 'userId' | 'createdAt' | 'updatedAt'>;
@@ -82,7 +85,7 @@ const PIPELINE_STAGES: AppStatus[] = ['wishlist', 'applied', 'phone-screen', 'te
 const EMPTY_FORM: AppForm = {
   company: '', jobTitle: '', jobUrl: null, location: null, salary: null,
   workType: 'onsite', source: null, notes: null, status: 'applied',
-  appliedDate: new Date().toISOString().split('T')[0],
+  appliedDate: new Date().toISOString().split('T')[0], resumeId: null,
 };
 
 // Shared form-control size and style (globals.css .field), so every input,
@@ -200,9 +203,10 @@ function PipelineFunnel({ apps }: { apps: Application[] }) {
 
 // ─── Form modal ───────────────────────────────────────────────────────────────
 
-interface FormModalProps { form: AppForm; setForm: React.Dispatch<React.SetStateAction<AppForm>>; onSave: () => void; onCancel: () => void; saving: boolean; isEdit: boolean; }
+interface ResumeOption { id: string; fileName: string }
+interface FormModalProps { form: AppForm; setForm: React.Dispatch<React.SetStateAction<AppForm>>; onSave: () => void; onCancel: () => void; saving: boolean; isEdit: boolean; resumes: ResumeOption[]; }
 
-function FormModal({ form, setForm, onSave, onCancel, saving, isEdit }: FormModalProps) {
+function FormModal({ form, setForm, onSave, onCancel, saving, isEdit, resumes }: FormModalProps) {
   const f = (key: keyof AppForm, val: string | null) => setForm(p => ({ ...p, [key]: val || null }));
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -238,6 +242,16 @@ function FormModal({ form, setForm, onSave, onCancel, saving, isEdit }: FormModa
             <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Salary / Range</label><input type="text" value={form.salary || ''} onChange={e => f('salary', e.target.value)} placeholder="e.g. $140k-$170k" className={inp} /></div>
             <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Source</label><input type="text" value={form.source || ''} onChange={e => f('source', e.target.value)} placeholder="e.g. LinkedIn, referral" className={inp} /></div>
           </div>
+          {resumes.length > 0 && (
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1.5">Resume sent</label>
+              <select value={form.resumeId ?? ''} onChange={e => setForm(p => ({ ...p, resumeId: e.target.value || null }))} className={`${inp} appearance-none cursor-pointer`}>
+                <option value="">Not recorded</option>
+                {resumes.map(r => <option key={r.id} value={r.id}>{r.fileName}</option>)}
+              </select>
+              <p className="text-[11px] text-slate-600 mt-1">Lets the funnel show which version of your resume gets interviews.</p>
+            </div>
+          )}
           <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Job URL</label><input type="url" value={form.jobUrl || ''} onChange={e => f('jobUrl', e.target.value)} placeholder="https://…" className={inp} /></div>
           <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Notes</label><textarea rows={3} value={form.notes || ''} onChange={e => f('notes', e.target.value)} placeholder="Interview details, recruiter name, key contacts, follow-up dates…" className={`${inp} resize-none`} /></div>
         </div>
@@ -579,6 +593,13 @@ export default function JobTrackerPage() {
   }, []);
 
   useEffect(() => { if (user) fetchApps(); }, [user, fetchApps]);
+
+  // For the "Resume sent" picker. Optional: without resumes the field hides.
+  const [resumes, setResumes] = useState<ResumeOption[]>([]);
+  useEffect(() => {
+    if (!user) return;
+    fetch('/api/resume/list').then(r => (r.ok ? r.json() : null)).then(j => { if (j?.resumes) setResumes(j.resumes); }).catch(() => {});
+  }, [user]);
   useEffect(() => { if (!loading && !user) router.push('/sign-in'); }, [user, loading, router]);
 
   const handleAddApp = () => {
@@ -647,9 +668,19 @@ export default function JobTrackerPage() {
   };
 
   const handleEdit = (app: Application) => {
-    setForm({ company: app.company, jobTitle: app.jobTitle, jobUrl: app.jobUrl, location: app.location, salary: app.salary, workType: app.workType, source: app.source, notes: app.notes, status: app.status, appliedDate: app.appliedDate });
+    setForm({ company: app.company, jobTitle: app.jobTitle, jobUrl: app.jobUrl, location: app.location, salary: app.salary, workType: app.workType, source: app.source, notes: app.notes, status: app.status, appliedDate: app.appliedDate, resumeId: app.resumeId ?? null });
     setEditingId(app.id); setShowForm(true);
   };
+
+  // Changes whenever a card is added, removed or moves, so the funnel doctor
+  // re-reads the diagnosis after every board change.
+  const funnelKey = apps.map(a => `${a.id}:${a.status}:${a.resumeId ?? ''}`).join('|');
+  // The role they apply for most, to prefill practice interviews.
+  const topRole = (() => {
+    const n = new Map<string, number>();
+    for (const a of apps) { const t = a.jobTitle.trim(); if (t) n.set(t, (n.get(t) ?? 0) + 1); }
+    return [...n.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
+  })();
 
   const total = apps.length;
   const activeCount = apps.filter(a => !['rejected', 'ghosted', 'withdrew', 'offer'].includes(a.status)).length;
@@ -674,7 +705,7 @@ export default function JobTrackerPage() {
   return (
     <>
       <ConfirmDialog />
-      {showForm && <FormModal form={form} setForm={setForm} onSave={handleSave} onCancel={() => { setShowForm(false); setEditingId(null); setForm({ ...EMPTY_FORM }); }} saving={saving} isEdit={!!editingId} />}
+      {showForm && <FormModal form={form} setForm={setForm} onSave={handleSave} onCancel={() => { setShowForm(false); setEditingId(null); setForm({ ...EMPTY_FORM }); }} saving={saving} isEdit={!!editingId} resumes={resumes} />}
       {contactsModal && <ContactsModal app={contactsModal} onClose={() => setContactsModal(null)} onContactsFound={async () => { await refetchUsage(); }} />}
       {planModal && <CreatePlanModal app={planModal} onConfirm={days => handleCreatePlan(planModal, days)} onClose={() => setPlanModal(null)} />}
       {creatingPlan && (
@@ -710,6 +741,12 @@ export default function JobTrackerPage() {
             </div>
 
             <div className="animate-fade-in-up" style={{ animationDelay: '120ms' }}><PipelineFunnel apps={apps} /></div>
+
+            {apps.length > 0 && (
+              <div className="animate-fade-in-up" style={{ animationDelay: '150ms' }}>
+                <FunnelDoctor refreshKey={funnelKey} topRole={topRole} />
+              </div>
+            )}
 
             {/* ← ADDED: NextStepPrompt after adding a new application */}
             {nextStepCtx && (

@@ -20,7 +20,8 @@
     "verify:pack-refund": "tsx --env-file=.env.local scripts/verify-pack-refund.ts",
     "verify:job-tracker-capacity": "tsx --env-file=.env.local scripts/verify-job-tracker-capacity.ts",
     "verify:support-tickets": "tsx --env-file=.env.local scripts/verify-support-tickets.ts",
-    "verify:job-signals": "tsx scripts/verify-job-signals.ts"
+    "verify:job-signals": "tsx scripts/verify-job-signals.ts",
+    "verify:funnel": "tsx scripts/verify-funnel.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
