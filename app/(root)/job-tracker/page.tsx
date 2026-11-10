@@ -23,6 +23,7 @@ import { isUnlimited } from '@/lib/config/usage-limits';
 import { SeeExampleButton } from '@/components/ServiceModal';
 import NextStepPrompt from '@/components/NextStepPrompt'; // ← ADDED
 import FunnelDoctor from '@/components/outcomes/FunnelDoctor';
+import InboundEmailPanel from '@/components/outcomes/InboundEmailPanel';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -608,6 +609,12 @@ export default function JobTrackerPage() {
 
   useEffect(() => { if (user) fetchApps(); }, [user, fetchApps]);
 
+  // Re-read the board without the full-page loader, for changes made from a
+  // panel (undoing an emailed update) where the page should stay put.
+  const refreshApps = useCallback(async () => {
+    try { const res = await fetch('/api/job-tracker'); if (res.ok) { const json = await res.json(); setApps(json.data || []); } } catch { /* next load will catch up */ }
+  }, []);
+
   // For the "Resume sent" picker. Optional: without resumes the field hides.
   const [resumes, setResumes] = useState<ResumeOption[]>([]);
   useEffect(() => {
@@ -761,6 +768,9 @@ export default function JobTrackerPage() {
                 <FunnelDoctor refreshKey={funnelKey} topRole={topRole} />
               </div>
             )}
+
+            {/* Hidden until inbound email is configured (INBOUND_EMAIL_DOMAIN). */}
+            <InboundEmailPanel apps={apps.map(a => ({ id: a.id, company: a.company, jobTitle: a.jobTitle }))} onChanged={refreshApps} />
 
             {/* ← ADDED: NextStepPrompt after adding a new application */}
             {nextStepCtx && (

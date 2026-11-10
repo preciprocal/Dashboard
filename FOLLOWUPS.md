@@ -1002,3 +1002,35 @@ stage, but not from the saved posting, and descriptions typed into the
 tracker form are dropped (logged, never a failed save).
 
 **Unblocked by** the owner applying 0055 and 0056 and publishing the wording.
+
+---
+
+## 32. OPEN - turn on "Update from email" (inbound recruiter emails)
+
+**Severity: medium. The feature is built and hidden until these are done.**
+
+Users forward recruiter emails to a private address and the tracker updates
+itself (lib/inbound/process.ts). The tracker panel renders nothing until:
+
+1. Migration `supabase/migrations/0057_inbound_application_email.sql` is
+   applied (it needs 0055 first).
+2. DNS: the MX record Resend shows for receiving, on a subdomain such as
+   `in.preciprocal.com`, so mail for the main domain is untouched.
+3. Resend: verify that subdomain for receiving, then add a webhook for the
+   `email.received` event pointing at
+   `https://app.preciprocal.com/api/webhooks/inbound-email`.
+4. Env: `INBOUND_EMAIL_DOMAIN=in.preciprocal.com` and
+   `RESEND_INBOUND_WEBHOOK_SECRET=<that webhook's whsec_ secret>`.
+
+Then forward a real rejection to your own address from the tracker panel and
+check it appears with an Undo button.
+
+**Related, found while building this:** `app/api/support/inbound-email/route.ts`
+reads `from`, `subject` and `text` straight off the webhook body. Resend's
+current `email.received` event carries only metadata (`data.email_id`, `to`,
+`from`, `subject`); the body has to be fetched with
+`resend.emails.receiving.get(id)`. Worth checking that support replies still
+arrive with their text. Not changed here because it writes into live support
+threads and deserves its own test.
+
+**Unblocked by** the owner doing steps 1 to 4.

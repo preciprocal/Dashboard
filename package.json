@@ -23,7 +23,9 @@
     "verify:job-signals": "tsx scripts/verify-job-signals.ts",
     "verify:funnel": "tsx scripts/verify-funnel.ts",
     "verify:practice": "tsx --env-file=.env.local scripts/verify-practice.ts",
-    "verify:writing-check": "tsx scripts/verify-writing-check.ts"
+    "verify:writing-check": "tsx scripts/verify-writing-check.ts",
+    "verify:inbound": "tsx scripts/verify-inbound.ts",
+    "verify:inbound-webhook": "tsx --env-file=.env.local scripts/verify-inbound-webhook.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
