@@ -352,15 +352,26 @@ class EasyApplyEngine {
   }
 
   async _processAllSteps() {
+    const S = window.PreciprocalSensitive;
+    S?.reset();
     while (this.stepCount < this.maxSteps) {
       this.stepCount++; await this._delay(600);
       const modal = this._getModal(); if (!modal) break;
       this._attachUserTypingGuard(modal);
       await this._waitForUserToFinishTyping();
+      const flaggedBefore = S ? S.pendingList().length : 0;
       await this._fillCurrentStep(modal); await this._delay(400);
+      // A question we will not answer for them is on this step. Stop here
+      // rather than clicking Next past it, so they see it and answer it.
+      if (S && S.pendingList().length > flaggedBefore) {
+        this._updateBanner('Answer the outlined question, then click Next', 'ready');
+        this.onStatus('Some questions need your own answer. They are outlined in amber.', 'success');
+        S.showSummary();
+        break;
+      }
       const action = this._detectNextAction(modal);
       if (action === 'none') break;
-      if (action === 'submit') { this._updateBanner('All done - click Submit when ready', 'ready'); this.onStatus('All fields filled! Review and click Submit.', 'success'); break; }
+      if (action === 'submit') { this._updateBanner('All done - review, then click Submit yourself', 'ready'); this.onStatus('Filled from your profile. Review everything, then click Submit.', 'success'); S?.showSummary(); break; }
       if (action === 'review') { this._updateBanner('📋 Auto-clicking Review…', 'filling'); const rb = this._findButton(modal, ['review']); if (rb) { rb.click(); await this._delay(1200); continue; } this._updateBanner('📋 Review your application then submit', 'ready'); this.onStatus('Please review and submit your application.', 'success'); break; }
       const nb = this._findButton(modal, ['next', 'continue']); if (nb) { this._updateBanner(`Step ${this.stepCount} - moving to next…`, 'filling'); nb.click(); await this._delay(900); } else break;
     }
@@ -405,8 +416,11 @@ class EasyApplyEngine {
   async _fillSelect(select, p) {
     if (!this._selectIsEmpty(select)) return;
     const hint = `${this._getLabel(select)} ${select.id || ''} ${select.name || ''}`.toLowerCase();
-    if (/authoriz|visa|work permit|eligible|legally/i.test(hint)) { this._selectByText(select, p.workAuthorization || 'Yes'); return; }
-    if (/sponsor/i.test(hint)) { this._selectByText(select, p.requireSponsorship ? 'Yes' : 'No'); return; }
+    // Demographic, authorization and legal questions: only the user's saved
+    // answer, otherwise left blank and flagged (extension/sensitive-answers.js).
+    const S = window.PreciprocalSensitive;
+    const sk = S?.kindOf(hint);
+    if (sk) { const a = S.answer(p, sk); if (a) this._selectByText(select, a); else S.flag(select, hint, sk); return; }
     if (/relocat/i.test(hint)) { this._selectByText(select, p.willingToRelocate ? 'Yes' : 'No'); return; }
     if (/country/i.test(hint)) {
       // Only fill when we actually know the candidate's country - guessing
@@ -418,11 +432,6 @@ class EasyApplyEngine {
     if (/province/i.test(hint)) { if (p.state) this._selectByText(select, p.state); return; }
     if (/year.*exp|exp.*year/i.test(hint)) { this._selectClosestNumber(select, p.yearsOfExperience || ''); return; }
     if (/notice|start/i.test(hint)) { this._selectByText(select, p.noticePeriod || '2 weeks'); return; }
-    if (/over.*18|18.*older|age.*18|18.*age/i.test(hint)) { this._selectByText(select, p.over18 ? 'Yes' : 'No'); return; }
-    if (/driver.?s?\s*licen[sc]e/i.test(hint)) { this._selectByText(select, p.driverLicense ? 'Yes' : 'No'); return; }
-    if (/background\s*check/i.test(hint)) { this._selectByText(select, p.backgroundCheck ? 'Yes' : 'No'); return; }
-    if (/drug\s*test/i.test(hint)) { this._selectByText(select, p.drugTest ? 'Yes' : 'No'); return; }
-    if (/criminal|felony|conviction/i.test(hint)) { this._selectByText(select, p.criminalRecord ? 'Yes' : 'No'); return; }
     if (/currently employ/i.test(hint)) { this._selectByText(select, p.currentlyEmployed ? 'Yes' : 'No'); return; }
     if (/have you ever worked|previously worked|worked (at|for|with)|previous.*employ|former.*employ/i.test(hint)) { this._selectByText(select, 'No'); return; }
     if (/do you currently work for|currently work (at|for)|work.*currently/i.test(hint)) { this._selectByText(select, p.currentlyEmployed ? 'Yes' : 'No'); return; }
@@ -431,11 +440,6 @@ class EasyApplyEngine {
     if (/schedule.*work|available.*schedule|this schedule/i.test(hint)) { this._selectByText(select, 'Yes'); return; }
     if (/employ.*type|job.*type|position.*type|full.?time|part.?time/i.test(hint)) { this._selectByText(select, p.employmentType || 'Full-time'); return; }
     if (/work.*arrang|remote|hybrid|on.?site/i.test(hint)) { this._selectByText(select, p.workType || 'Remote'); return; }
-    if (/gender/i.test(hint)) { this._selectByText(select, p.gender || 'Prefer not to say'); return; }
-    if (/pronoun/i.test(hint)) { this._selectByText(select, p.pronouns || 'Prefer not to say'); return; }
-    if (/race|ethnicity/i.test(hint)) { this._selectByText(select, p.race || 'Prefer not to say'); return; }
-    if (/veteran/i.test(hint)) { this._selectByText(select, p.veteranStatus || 'I am not a protected veteran'); return; }
-    if (/disability/i.test(hint)) { this._selectByText(select, p.disabilityStatus || 'I do not have a disability'); return; }
     if (/salary|compensation|pay/i.test(hint)) { if (p.desiredSalary) this._selectClosestNumber(select, p.desiredSalary); return; }
     if (/how.*hear|referr|source/i.test(hint)) { this._selectByText(select, p.howDidYouHear || 'LinkedIn'); return; }
   }
@@ -471,13 +475,22 @@ class EasyApplyEngine {
       if (/drug\s*test/i.test(legend)) answer = p.drugTest ? 'yes' : 'no';
       if (/criminal\s*record|felony|conviction/i.test(legend)) answer = p.criminalRecord ? 'yes' : 'no';
       if (/18\s*years?\s*(of age|or older|and over)|at least\s*18|must be\s*18/i.test(legend)) answer = p.over18 ? 'yes' : 'no';
+      // Sensitive questions override every rule above: the saved answer or nothing.
+      const S = window.PreciprocalSensitive;
+      const sk = S?.kindOf(legend);
+      if (sk) {
+        const a = S.answer(p, sk);
+        if (!a) { S.flag(group, legend, sk); continue; }
+        answer = a;
+      }
       if (!answer) continue;
       const radios = Array.from(group.querySelectorAll('input[type="radio"]'));
       const target = answer.toLowerCase();
-      const match = radios.find(r => {
+      const isYesNo = target === 'yes' || target === 'no';
+      const match = (isYesNo ? radios.find(r => {
         const lab = (this._getLabel(r) + ' ' + r.value).toLowerCase();
         return target === 'yes' ? /\byes\b/.test(lab) : /\bno\b/.test(lab);
-      }) || radios.find(r => (this._getLabel(r) + r.value).toLowerCase().includes(target));
+      }) : null) || radios.find(r => (this._getLabel(r) + ' ' + r.value).toLowerCase().includes(target));
       if (match && !match.checked) { match.click(); await this._delay(100); }
     }
   }
@@ -512,8 +525,10 @@ class EasyApplyEngine {
       ? p.skills.map(s => s.toLowerCase())
       : (p.skills || '').split(',').map(s => s.trim().toLowerCase());
 
-    const matchedSkills = jdSkills.filter(s => userSkillsRaw.some(us => us.includes(s) || s.includes(us)));
-    const highlightSkills = matchedSkills.length >= 2 ? matchedSkills : jdSkills.length ? jdSkills : userSkillsRaw.slice(0, 3);
+    // Only skills the user actually listed. Naming a skill that appears only in
+    // the job description would claim experience they may not have.
+    const matchedSkills = jdSkills.filter(s => userSkillsRaw.some(us => us && (us.includes(s) || s.includes(us))));
+    const highlightSkills = matchedSkills.length ? matchedSkills : userSkillsRaw.filter(Boolean).slice(0, 3);
     const skillsStr = highlightSkills.slice(0, 3).join(', ');
 
     const exp = p.experience?.[0];
@@ -521,12 +536,12 @@ class EasyApplyEngine {
       ? `my experience as a ${exp.title} at ${exp.company}`
       : `my background in ${p.headline || 'software engineering'}`;
 
-    const yoe = p.yearsOfExperience ? `${p.yearsOfExperience} years of` : 'years of';
-
-    return `The ${roleTitle} role at ${company} stands out because the core challenges map directly onto problems I have spent ${yoe} experience solving. `
-      + `${backgroundStr.charAt(0).toUpperCase() + backgroundStr.slice(1)} has given me deep, hands-on proficiency in ${skillsStr || p.headline || 'this domain'}, `
-      + `which aligns closely with what the team is looking for. `
-      + `I am drawn to ${company} because of the scale and ambition of the work, and I am confident I can contribute meaningfully from day one while continuing to grow alongside the team.`;
+    // Plain and true: what the user has done, in their own profile's terms.
+    // A draft for them to edit, never a claim the profile does not support.
+    const background = backgroundStr.charAt(0).toUpperCase() + backgroundStr.slice(1);
+    return `I am interested in the ${roleTitle} role at ${company}. `
+      + (skillsStr ? `${background} has given me hands-on experience with ${skillsStr}, which is close to the work this team does. ` : `${background} is a good fit for the work this team does. `)
+      + `I would welcome the chance to talk about how I could help.`;
   }
 
   _matchProfileField(hint, p) {

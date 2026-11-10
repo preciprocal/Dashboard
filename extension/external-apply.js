@@ -769,6 +769,11 @@ function matchByLabel(label, p) {
   if (!label) return null;
   // Strip required-field markers (* ✱ † ‡) and surrounding whitespace before matching
   const L = label.replace(/[\s*✱✳†‡★•·]+$/, '').trim().toLowerCase();
+  // Demographic, authorization and legal questions: the user's saved answer
+  // or nothing, never a default (extension/sensitive-answers.js).
+  const __S = window.PreciprocalSensitive;
+  const __sk = __S?.kindOf(L);
+  if (__sk) { const a = __S.answer(p, __sk); if (!a) __S.flag(null, L, __sk); return a; }
   // Specific multi-word patterns FIRST — before greedy single-word checks
   if (/legal.*first.*last|first.*and.*last.*name|full.*legal|legal.*full/i.test(L)) return p.fullName;
   if (/full.?name|your name|^name$|legal name/i.test(L))     return p.fullName;
@@ -821,6 +826,11 @@ function matchByLabel(label, p) {
 
 function matchSelectByLabel(label, p) {
   const L = label.replace(/[\s*✱✳†‡★•·]+$/, '').trim().toLowerCase();
+  // Demographic, authorization and legal questions: the user's saved answer
+  // or nothing, never a default (extension/sensitive-answers.js).
+  const __S = window.PreciprocalSensitive;
+  const __sk = __S?.kindOf(L);
+  if (__sk) { const a = __S.answer(p, __sk); if (!a) __S.flag(null, L, __sk); return a; }
   if (/country/i.test(L))                                    return p.country || '';
   if (/\bstate\b|\bprovince\b/i.test(L))                     return p.state || '';
   if (/\bcity\b/i.test(L))                                    return p.city  || '';
@@ -828,7 +838,8 @@ function matchSelectByLabel(label, p) {
   if (/\bcounty\b/i.test(L))                                   return p.county || p.city || '';
   if (/^address\s*1$|^addr\s*1$|street.*address|address.?line.*1/i.test(L)) return p.streetAddress || p.location || '';
   if (/^address\s*2$|^addr\s*2$|address.?line.*2|apartment|suite|unit/i.test(L)) return '';
-  if (/authorized|eligible|visa|work permit|legally.*work/i.test(L)) return 'Yes';
+  // "What is your visa status?" is answered from the profile or left alone.
+  if (/visa|work permit/i.test(L))                            return p.visaType || null;
   if (/sponsor/i.test(L))                                    return p.requireSponsorship ? 'Yes' : 'No';
   if (/relocat/i.test(L))                                    return p.willingToRelocate  ? 'Yes' : 'No';
   if (/notice|start date|available/i.test(L))                return p.noticePeriod || '';
@@ -843,45 +854,24 @@ function matchSelectByLabel(label, p) {
   }
   if (/employment type|job type|work type/i.test(L))          return p.employmentType || 'Full-time';
   if (/remote|hybrid|on.?site|work.*arrangement/i.test(L))    return p.workType || 'Remote';
-  if (/pronoun/i.test(L))                                     return p.pronouns || 'Prefer not to say';
-  if (/race|ethnicit/i.test(L))                               return p.race || 'Prefer not to say';
-  if (/veteran|military/i.test(L))                            return p.veteranStatus || 'I am not a protected veteran';
-  if (/disabilit/i.test(L))                                   return p.disabilityStatus || 'I do not have a disability';
   if (/how.*hear|referral|source.*job|learn.*about/i.test(L)) return p.howDidYouHear || 'LinkedIn';
   if (/currently.*employ/i.test(L))                           return p.currentlyEmployed ? 'Yes' : 'No';
   if (/previously.*applied|applied.*before|prior.*applic/i.test(L)) return 'No';
-  if (/served.*military|military.*service/i.test(L))          return 'No';
   if (/privacy|consent.*collect|data.*collection/i.test(L))   return 'Yes';
   if (/background.?check/i.test(L))                           return p.backgroundCheck  ? 'Yes' : 'No';
   if (/drug.?test/i.test(L))                                  return p.drugTest         ? 'Yes' : 'No';
   if (/criminal/i.test(L))                                    return p.criminalRecord   ? 'Yes' : 'No';
   if (/driver.?licen/i.test(L))                               return p.driverLicense    ? 'Yes' : 'No';
-  if (/18.*years|legal.*age|of age/i.test(L))                 return 'Yes';
   if (/language/i.test(L))                                    return p.languages || 'English';
   if (/salary|compensation/i.test(L))                         return p.desiredSalary || '';
   if (/state|province/i.test(L))                              return p.state || '';
   if (/city/i.test(L))                                        return p.city  || '';
-  // ── Gender: normalize profile value → canonical option so fuzzy match is safe ──
-  if (/\bgender\b|\bsex\b/i.test(L)) {
-    const g = (p.gender || '').trim().toLowerCase();
-    if (!g || /prefer not|decline|not (to say|disclose)|choose not|no answer|n\/a/i.test(g)) return 'Prefer not to say';
-    if (/^m(ale)?$|^man$|^boy$|^he\b/i.test(g)) return 'Male';
-    if (/^f(emale)?$|^woman$|^girl$|^she\b/i.test(g)) return 'Female';
-    if (/non.?binary|non.?conform|genderqueer|genderfluid|agender|two.?spirit|other/i.test(g)) return 'Non-binary / gender non-conforming';
-    return 'Prefer not to say';
-  }
+  // Gender, race, veteran, disability, pronouns, authorization, age and
+  // citizenship are answered by the guard at the top of this function.
   // ── Common company-specific Yes/No questions ──
   if (/employee of|are you.*employee|currently.*employee.*at/i.test(L))      return 'No';
   if (/former employee|previously.*employed.*at|ex.?employee/i.test(L))      return 'No';
   if (/non.?compete|restrictive.*covenant|agreement.*prohibit/i.test(L))     return 'No';
-  if (/security clearance/i.test(L))                                          return 'No';
-  // Only claim US citizenship when the candidate's country is actually the US
-  // (or unset) - this used to unconditionally answer "Yes" to ANY citizenship
-  // question, which misrepresented every international applicant.
-  if (/us citizen|american citizen|citizenship/i.test(L)) {
-    const c = (p.country || '').trim().toLowerCase();
-    return (!c || /^(united states|usa|u\.s\.a?\.?|us)$/.test(c)) ? 'Yes' : 'No';
-  }
   if (/willing.*overtime|open.*overtime|overtime.*requir/i.test(L))           return 'Yes';
   if (/within.*miles|within.*distance|near.*office|commute.*distance|office.*proximity/i.test(L)) return 'None';
   if (/willing.*travel|open.*travel|travel.*requir/i.test(L))                 return p.openToTravel || 'No';
@@ -1802,9 +1792,14 @@ async function fillWorkdayRadios(p) {
     if (/sponsor/i.test(questionText))                     answer = p.requireSponsorship ? 'yes' : 'no';
     if (/relocat/i.test(questionText))                     answer = p.willingToRelocate  ? 'yes' : 'no';
     if (/currently.*employ/i.test(questionText))           answer = 'no';
-    if (/authorized|legally.*work|eligible.*work/i.test(questionText)) answer = 'yes';
-    if (/18.*year|over.*18/i.test(questionText))           answer = 'yes';
-    if (/background.*check/i.test(questionText))           answer = 'yes';
+    // Saved answer or nothing (extension/sensitive-answers.js).
+    const wdS  = window.PreciprocalSensitive;
+    const wdSk = wdS?.kindOf(questionText);
+    if (wdSk) {
+      const a = wdS.answer(p, wdSk);
+      if (!a) { wdS.flag(container, questionText, wdSk); continue; }
+      answer = a.toLowerCase();
+    }
     if (!answer) continue;
     const radios = container.querySelectorAll('input[type="radio"]');
     let clicked = false;
@@ -1880,13 +1875,17 @@ async function fillIndeedScreeners(p) {
   for (const group of groups) {
     const text = (group.querySelector('legend,[class*="title"],p,label')?.textContent||'').toLowerCase();
     let answer = null;
-    if (/authorized|legally.*work|eligible.*work/i.test(text))  answer = 'yes';
     if (/require.*sponsor|need.*sponsor/i.test(text))           answer = p.requireSponsorship ? 'yes' : 'no';
     if (/relocat/i.test(text))                                  answer = p.willingToRelocate  ? 'yes' : 'no';
-    if (/18.*year|over.*18|adult/i.test(text))                  answer = 'yes';
-    if (/background.*check/i.test(text))                        answer = 'yes';
     if (/full.?time/i.test(text))                               answer = 'yes';
-    if (/driver.?licen/i.test(text))                            answer = 'yes';
+    // Saved answer or nothing (extension/sensitive-answers.js).
+    const inS  = window.PreciprocalSensitive;
+    const inSk = inS?.kindOf(text);
+    if (inSk) {
+      const a = inS.answer(p, inSk);
+      if (!a) { inS.flag(group, text, inSk); continue; }
+      answer = a.toLowerCase();
+    }
     if (!answer) continue;
     const radios = group.querySelectorAll('input[type="radio"]');
     for (const r of radios) {
@@ -2415,21 +2414,28 @@ async function smartScan(p) {
     }
     if (/pronouns?/i.test(legend))     desiredAnswer = p.pronouns || 'prefer not to say';
     if (/race|ethnicit/i.test(legend)) desiredAnswer = p.race     || 'prefer not to say';
+    // Sensitive questions override every rule above: the user's saved answer,
+    // or the question is left blank and outlined (extension/sensitive-answers.js).
+    const S  = window.PreciprocalSensitive;
+    const sk = S?.kindOf(legend);
+    if (sk) {
+      const a = S.answer(p, sk);
+      if (!a) { S.flag(g, legend, sk); continue; }
+      desiredAnswer = a.toLowerCase();
+    }
     if (!desiredAnswer) continue;
 
-    const radios  = Array.from(g.querySelectorAll('input[type="radio"]'));
-    const DECLINE = /prefer not|decline|choose not|not to say|not wish|not disclose|i am not|i do not/i;
-    const isEEO   = /veteran|disabilit|gender|race|pronoun/i.test(legend);
-
-    if (isEEO && DECLINE.test(desiredAnswer)) {
-      const opt = radios.find(r => DECLINE.test((getLabel(r)+' '+r.value).toLowerCase()));
-      if (opt && !opt.checked) { opt.click(); opt.dispatchEvent(new Event('change',{bubbles:true})); }
-      continue;
-    }
-
+    const radios    = Array.from(g.querySelectorAll('input[type="radio"]'));
     const radioOpts = radios.map(r => ({ text:(getLabel(r)+' '+(r.value||'')).toLowerCase(), _el:r }));
-    const match     = bestMatch(radioOpts, desiredAnswer, 0.35);
+    // The user's own wording first. "I am not a protected veteran" is an
+    // answer, not a refusal, and must not be swapped for "I decline".
+    let match = bestMatch(radioOpts, desiredAnswer, sk ? 0.5 : 0.35);
+    const WANTS_DECLINE = /prefer not|decline|choose not|not to say|not wish|not disclose/i;
+    if (!match && sk && WANTS_DECLINE.test(desiredAnswer)) {
+      match = radioOpts.find(o => WANTS_DECLINE.test(o.text)) || null;
+    }
     if (match && !match._el.checked) { match._el.click(); match._el.dispatchEvent(new Event('change',{bubbles:true})); }
+    else if (!match && sk) S.flag(g, legend, sk);
   }
 
   // ── Checkboxes ──
@@ -2440,6 +2446,40 @@ async function smartScan(p) {
     const questionLabel = getCheckboxGroupLabel(cb).toLowerCase().trim();
     const fullText      = (questionLabel+' '+cbLbl).trim();
 
+    // A checkbox that carries its own full statement ("I agree to the privacy
+    // policy", "I am authorized to work in the US") is judged by that
+    // statement alone. The nearest heading often belongs to a different
+    // question, and reading it here once made a privacy box an age question.
+    const ownStatement = cbLbl.length >= 12 && !/^(yes|no)\b/i.test(cbLbl);
+    if (ownStatement) {
+      if (/i certify|i attest|under penalty|true,? (accurate|complete) and|true and (accurate|complete)|i confirm that (all|the) information/i.test(cbLbl)) {
+        window.PreciprocalSensitive?.flag(cb, 'Certification that your answers are true', null);
+        continue;
+      }
+      const ownSk = window.PreciprocalSensitive?.kindOf(cbLbl);
+      if (ownSk) {
+        const a = window.PreciprocalSensitive.answer(p, ownSk);
+        if (!a) window.PreciprocalSensitive.flag(cb, cbLbl, ownSk);
+        // Tick only a saved yes. A saved no means leaving the statement unticked.
+        else if (/^yes$/i.test(a) && !/\bnot\b|\bno\b/i.test(cbLbl)) { cb.click(); cb.dispatchEvent(new Event('change',{bubbles:true})); filled++; }
+        continue;
+      }
+      if (/i agree|i consent|i acknowledge|i understand|i accept|terms.*(service|use)|privacy.?polic/i.test(cbLbl)) {
+        cb.click(); cb.dispatchEvent(new Event('change',{bubbles:true})); filled++;
+        continue;
+      }
+    }
+    // Sensitive checkbox questions: the user's saved answer or nothing.
+    const cbS  = window.PreciprocalSensitive;
+    const cbSk = cbS?.kindOf(questionLabel);
+    if (cbSk && !cbS.answer(p, cbSk)) { cbS.flag(cb, questionLabel, cbSk); continue; }
+    if (cbSk === 'veteran' || cbSk === 'disability') {
+      const target = cbS.answer(p, cbSk).toLowerCase();
+      const wantsDecline = /prefer not|decline|not to say|choose not|not wish/i.test(target);
+      const ok = wantsDecline ? /prefer not|decline|not to say|choose not|opt out|not wish/i.test(cbLbl) : scoreMatch(target, cbLbl) >= 0.6;
+      if (ok) { cb.click(); cb.dispatchEvent(new Event('change',{bubbles:true})); filled++; }
+      continue;
+    }
     if (/pronoun/i.test(questionLabel)) {
       const target = (p.pronouns||'Prefer not to say').toLowerCase();
       if (/prefer not|decline|not to say/i.test(target)) { if (/prefer not|decline|not to say|choose not|opt out/i.test(cbLbl)) { cb.click(); cb.dispatchEvent(new Event('change',{bubbles:true})); filled++; } }
@@ -2464,14 +2504,6 @@ async function smartScan(p) {
       else { if (scoreMatch(target, cbLbl) >= 0.5 || cbLbl.includes(target.split(' ')[0])) { cb.click(); cb.dispatchEvent(new Event('change',{bubbles:true})); filled++; } }
       continue;
     }
-    if (/veteran|military/i.test(questionLabel)) {
-      if (/not a.*veteran|not.*protected|prefer not|decline|choose not|i don|i am not/i.test(cbLbl)) { cb.click(); cb.dispatchEvent(new Event('change',{bubbles:true})); filled++; }
-      continue;
-    }
-    if (/disabilit/i.test(questionLabel)) {
-      if (/no.*disab|i do not|prefer not|decline|choose not|not.*disab|i am not|do not have/i.test(cbLbl)) { cb.click(); cb.dispatchEvent(new Event('change',{bubbles:true})); filled++; }
-      continue;
-    }
     if (/skills?|technologies|tech.?stack|expertise/i.test(questionLabel) && p.skills?.length) {
       const skillList = p.skills.map(s => s.trim().toLowerCase());
       if (skillList.some(s => s && cbLbl && (s === cbLbl || cbLbl.includes(s) || s.includes(cbLbl) || scoreMatch(s,cbLbl) >= 0.7))) { cb.click(); cb.dispatchEvent(new Event('change',{bubbles:true})); filled++; }
@@ -2484,14 +2516,16 @@ async function smartScan(p) {
     }
     if (questionLabel && questionLabel.length >= 3) {
       let screenerAnswer = null;
-      if (/authorized|legally.*work|eligible.*work|right.*work|work.*authoriz/i.test(fullText)) screenerAnswer = true;
-      if (/require.*sponsor|need.*sponsor/i.test(fullText))              screenerAnswer = p.requireSponsorship ?? false;
       if (/willing.*relocat|open.*relocat/i.test(fullText))              screenerAnswer = p.willingToRelocate  ?? false;
-      if (/18.*year|over.*18|legal.*age|\bof age\b/i.test(fullText))     screenerAnswer = true;
-      if (/background.?check/i.test(fullText))                           screenerAnswer = p.backgroundCheck ?? true;
-      if (/drug.?test|substance/i.test(fullText))                        screenerAnswer = p.drugTest ?? true;
-      if (/driver.?licen/i.test(fullText))                               screenerAnswer = p.driverLicense ?? true;
       if (/full.?time/i.test(fullText))                                  screenerAnswer = true;
+      // Authorization, sponsorship, age, consent and licence: saved answer only.
+      const scS  = window.PreciprocalSensitive;
+      const scSk = scS?.kindOf(questionLabel) || scS?.kindOf(fullText);
+      if (scSk) {
+        const a = scS.answer(p, scSk);
+        if (!a) { scS.flag(cb, questionLabel || fullText, scSk); continue; }
+        screenerAnswer = /^yes$/i.test(a) ? true : /^no$/i.test(a) ? false : null;
+      }
       if (/currently.*employ/i.test(fullText))                           screenerAnswer = p.currentlyEmployed ?? false;
       if (/previously.*applied|applied.*before/i.test(fullText))         screenerAnswer = false;
       if (screenerAnswer !== null) {
@@ -2504,7 +2538,13 @@ async function smartScan(p) {
       }
     }
     let shouldCheck = null;
-    if (/i agree|i consent|i acknowledge|i certify|i confirm|i understand|i accept/i.test(fullText)) shouldCheck = true;
+    // "I certify the information is true" is a sworn statement: never ticked
+    // for the user. Plain agreement to terms and privacy notices still is.
+    if (/i certify|i attest|under penalty|true,? (accurate|complete) and|true and (accurate|complete)|i confirm that (all|the) information/i.test(fullText)) {
+      window.PreciprocalSensitive?.flag(cb, 'Certification that your answers are true', null);
+      continue;
+    }
+    if (/i agree|i consent|i acknowledge|i understand|i accept/i.test(fullText)) shouldCheck = true;
     else if (/terms.*service|terms.*use|privacy.?polic|data.*polic|eula|cookie.*polic/i.test(fullText)) shouldCheck = true;
     else if (/background.?check/i.test(fullText))             shouldCheck = p.backgroundCheck  ?? true;
     else if (/drug.?test|substance/i.test(fullText))          shouldCheck = p.drugTest         ?? true;
@@ -2577,6 +2617,7 @@ function waitForSelector(selector, timeout = 6000) {
 
 async function fillForm(profile, platform) {
   profile = normalizeProfile(profile);
+  window.PreciprocalSensitive?.reset();
   console.log(`🤖 Filling ${platform} form…`);
   let result;
   switch (platform) {
@@ -2601,6 +2642,8 @@ async function fillForm(profile, platform) {
     default:                result = { filled: await smartScan(profile) };
   }
   console.log(`✅ Filled ${result.filled} fields on ${platform}`);
+  // List anything left for the user (demographic, authorization, legal).
+  window.PreciprocalSensitive?.showSummary();
   return result;
 }
 

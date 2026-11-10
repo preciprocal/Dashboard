@@ -126,7 +126,8 @@ async function _dynamicInject(tabId, url) {
   if (_isStaticDomain(url) || !_looksLikeJobPage(url)) return;
   try {
     await chrome.scripting.insertCSS({ target: { tabId }, files: ['content.css'] });
-    await chrome.scripting.executeScript({ target: { tabId }, files: ['external-apply.js'] });
+    // sensitive-answers.js first: external-apply.js reads window.PreciprocalSensitive.
+    await chrome.scripting.executeScript({ target: { tabId }, files: ['sensitive-answers.js', 'external-apply.js'] });
     _injectedTabs.add(tabId);
     console.log('[BG] ✅ Dynamically injected on custom job portal:', url);
   } catch (err) {

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
+import { sensitiveValue, SENSITIVE_ANSWERS_VERSION } from '@/lib/config/sensitive-answers';
 import {
   User, Briefcase, GraduationCap, Shield, Users,
   Save, CheckCircle, AlertCircle, Plus, Trash2,
@@ -26,13 +27,14 @@ interface JobAppProfile {
   linkedInUrl: string; githubUrl: string; portfolioUrl: string;
   desiredSalary: string; salaryType: string; noticePeriod: string;
   workType: string; employmentType: string; willingToRelocate: boolean;
-  openToTravel: string; workAuthorization: string; requireSponsorship: boolean;
+  // null / '' = not set: autofill leaves that question for the user.
+  openToTravel: string; workAuthorization: string; requireSponsorship: boolean | null;
   visaType: string; education: EducationEntry[]; experience: ExperienceEntry[];
   gender: string; pronouns: string; race: string;
   veteranStatus: string; disabilityStatus: string;
-  howDidYouHear: string; driverLicense: boolean; backgroundCheck: boolean;
-  drugTest: boolean; over18: boolean; currentlyEmployed: boolean;
-  reasonForLeaving: string; criminalRecord: boolean;
+  howDidYouHear: string; driverLicense: boolean | null; backgroundCheck: boolean | null;
+  drugTest: boolean | null; over18: boolean | null; currentlyEmployed: boolean;
+  reasonForLeaving: string; criminalRecord: boolean | null;
   languages: string; certifications: string;
   coverLetterIntro: string; coverLetterBody: string;
   preferredLocations: string[];
@@ -47,13 +49,15 @@ const DEFAULT_PROFILE: JobAppProfile = {
   desiredSalary:'', salaryType:'yearly', noticePeriod:'2 weeks',
   workType:'Remote', employmentType:'Full-time',
   willingToRelocate:false, openToTravel:'No',
-  workAuthorization:'Yes', requireSponsorship:false, visaType:'',
+  // Sensitive answers start unset. They used to default to "Yes" / "not a
+  // veteran" / "no disability" and were saved as if the user had said so.
+  workAuthorization:'', requireSponsorship:null, visaType:'',
   education:[{...DEFAULT_EDU}], experience:[{...DEFAULT_EXP}],
-  gender:'Prefer not to say', pronouns:'Prefer not to say', race:'Prefer not to say',
-  veteranStatus:'I am not a protected veteran', disabilityStatus:'I do not have a disability',
-  howDidYouHear:'LinkedIn', driverLicense:true, backgroundCheck:true,
-  drugTest:true, over18:true, currentlyEmployed:false,
-  reasonForLeaving:'', criminalRecord:false, languages:'English', certifications:'',
+  gender:'', pronouns:'', race:'',
+  veteranStatus:'', disabilityStatus:'',
+  howDidYouHear:'LinkedIn', driverLicense:null, backgroundCheck:null,
+  drugTest:null, over18:null, currentlyEmployed:false,
+  reasonForLeaving:'', criminalRecord:null, languages:'English', certifications:'',
   coverLetterIntro:'', coverLetterBody:'', preferredLocations:[],
 };
 
@@ -194,8 +198,9 @@ function CustomDropdown({
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+const NOT_SET_LABEL = 'Not set: I will answer myself';
 function opts(arr: string[]): DropdownOption[] {
-  return arr.map(v => ({ value: v, label: v }));
+  return arr.map(v => ({ value: v, label: v || NOT_SET_LABEL }));
 }
 function optsKV(arr: [string, string][]): DropdownOption[] {
   return arr.map(([v, l]) => ({ value: v, label: l }));
@@ -251,6 +256,15 @@ function FTextarea({ label, hint, span, value, onChange, placeholder, rows = 3 }
       <textarea value={value} onChange={e => onChange(e.target.value)}
         placeholder={placeholder} rows={rows} className={fieldCls + ' resize-none'} />
     </F>
+  );
+}
+
+/** Yes / No / Not set, for questions autofill must never assume. */
+function FTri({ label, value, onChange }: { label: string; value: boolean | null; onChange: (v: boolean | null) => void }) {
+  return (
+    <FSelect label={label} value={value === true ? 'yes' : value === false ? 'no' : ''}
+      onChange={v => onChange(v === 'yes' ? true : v === 'no' ? false : null)}
+      options={[{ value: '', label: NOT_SET_LABEL }, { value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }]} />
   );
 }
 
@@ -380,15 +394,16 @@ const WORK_TYPE  = opts(['Remote','Hybrid','On-site','Flexible']);
 const EMP_TYPE   = opts(['Full-time','Part-time','Contract','Internship','Freelance','Temporary']);
 const TRAVEL     = opts(['No','Occasionally (up to 10%)','Sometimes (10-25%)','Frequently (25-50%)','Yes, as needed']);
 const REFERRAL   = opts(['LinkedIn','Indeed','Glassdoor','Company Website','Referral','Job Board','Google','Other']);
-const WORK_AUTH  = optsKV([['Yes','Yes - I am authorized'],['No','No - I need authorization']]);
+// "Not set" is a real choice: autofill then leaves the question for the user.
+const WORK_AUTH  = optsKV([['', NOT_SET_LABEL], ['Yes','Yes - I am authorized'],['No','No - I need authorization']]);
 const VISA       = opts(['','US Citizen','Permanent Resident (Green Card)','H-1B Visa','H-4 EAD','L-1 Visa','OPT / STEM OPT','CPT','TN Visa (Canada/Mexico)','E-3 (Australian)','Other Work Visa','Not applicable']);
 const DEGREE     = opts(['','High School Diploma / GED',"Associate's Degree","Bachelor's Degree","Master's Degree",'MBA','Doctoral Degree (PhD)','JD (Law)','MD (Medicine)','Professional Certificate','Bootcamp Certificate','Other']);
 const GRAD_YEARS = optsKV([['','Year…'], ...Array.from({ length: 30 }, (_, k) => { const y = String(2026 - k); return [y, y] as [string, string]; }), ['In Progress', 'In Progress']]);
-const GENDER     = opts(['Prefer not to say','Male','Female','Non-binary','Transgender','Genderqueer / Gender non-conforming','Another gender identity']);
-const PRONOUNS   = opts(['Prefer not to say','He / Him','She / Her','They / Them','He / They','She / They','Ze / Zir']);
-const RACE       = opts(['Prefer not to say','American Indian or Alaska Native','Asian','Black or African American','Hispanic or Latino','Native Hawaiian or Other Pacific Islander','White','Two or more races','Other']);
-const VETERAN    = opts(['I am not a protected veteran','I am a protected veteran','I am a disabled veteran','I am a recently separated veteran','Prefer not to say']);
-const DISABILITY = opts(['I do not have a disability','I have a disability','I have a history of disability','Prefer not to say']);
+const GENDER     = opts(['', 'Prefer not to say','Male','Female','Non-binary','Transgender','Genderqueer / Gender non-conforming','Another gender identity']);
+const PRONOUNS   = opts(['', 'Prefer not to say','He / Him','She / Her','They / Them','He / They','She / They','Ze / Zir']);
+const RACE       = opts(['', 'Prefer not to say','American Indian or Alaska Native','Asian','Black or African American','Hispanic or Latino','Native Hawaiian or Other Pacific Islander','White','Two or more races','Other']);
+const VETERAN    = opts(['', 'I am not a protected veteran','I am a protected veteran','I am a disabled veteran','I am a recently separated veteran','Prefer not to say']);
+const DISABILITY = opts(['', 'I do not have a disability','I have a disability','I have a history of disability','Prefer not to say']);
 
 // ─── Completion bar ───────────────────────────────────────────────────────────
 
@@ -465,24 +480,26 @@ export default function JobApplicationProfile() {
             employmentType:     (ext.employmentType as string)    || prev.employmentType,
             willingToRelocate:  (ext.willingToRelocate as boolean) ?? prev.willingToRelocate,
             openToTravel:       (ext.openToTravel as string)      || prev.openToTravel,
-            workAuthorization:  (ext.workAuthorization as string) || prev.workAuthorization,
-            requireSponsorship: (ext.requireSponsorship as boolean) ?? prev.requireSponsorship,
+            workAuthorization:  (sensitiveValue(ext, 'workAuthorization') as string | null) ?? '',
+            requireSponsorship: sensitiveValue(ext, 'requireSponsorship') as boolean | null,
             visaType:           (ext.visaType as string)          || prev.visaType,
             education:  Array.isArray(ext.education)  && (ext.education as unknown[]).length  ? ext.education  as EducationEntry[]  : prev.education,
             experience: Array.isArray(ext.experience) && (ext.experience as unknown[]).length ? ext.experience as ExperienceEntry[] : prev.experience,
-            gender:           (ext.gender as string)           || prev.gender,
-            pronouns:         (ext.pronouns as string)         || prev.pronouns,
-            race:             (ext.race as string)             || prev.race,
-            veteranStatus:    (ext.veteranStatus as string)    || prev.veteranStatus,
-            disabilityStatus: (ext.disabilityStatus as string) || prev.disabilityStatus,
+            // An old default saved before v2 shows as "Not set", so the user
+            // decides it (lib/config/sensitive-answers.ts).
+            gender:           (sensitiveValue(ext, 'gender') as string | null)           ?? '',
+            pronouns:         (sensitiveValue(ext, 'pronouns') as string | null)         ?? '',
+            race:             (sensitiveValue(ext, 'race') as string | null)             ?? '',
+            veteranStatus:    (sensitiveValue(ext, 'veteranStatus') as string | null)    ?? '',
+            disabilityStatus: (sensitiveValue(ext, 'disabilityStatus') as string | null) ?? '',
             howDidYouHear:    (ext.howDidYouHear as string)    || prev.howDidYouHear,
-            driverLicense:    (ext.driverLicense as boolean)   ?? prev.driverLicense,
-            backgroundCheck:  (ext.backgroundCheck as boolean) ?? prev.backgroundCheck,
-            drugTest:         (ext.drugTest as boolean)        ?? prev.drugTest,
-            over18:           (ext.over18 as boolean)          ?? prev.over18,
+            driverLicense:    sensitiveValue(ext, 'driverLicense') as boolean | null,
+            backgroundCheck:  sensitiveValue(ext, 'backgroundCheck') as boolean | null,
+            drugTest:         sensitiveValue(ext, 'drugTest') as boolean | null,
+            over18:           sensitiveValue(ext, 'over18') as boolean | null,
             currentlyEmployed:(ext.currentlyEmployed as boolean) ?? prev.currentlyEmployed,
             reasonForLeaving: (ext.reasonForLeaving as string) || prev.reasonForLeaving,
-            criminalRecord:   (ext.criminalRecord as boolean)  ?? prev.criminalRecord,
+            criminalRecord:   sensitiveValue(ext, 'criminalRecord') as boolean | null,
             languages:        (ext.languages as string)        || prev.languages,
             certifications:   (ext.certifications as string)   || prev.certifications,
             coverLetterIntro: (ext.coverLetterIntro as string) || prev.coverLetterIntro,
@@ -539,6 +556,9 @@ export default function JobApplicationProfile() {
           criminalRecord: p.criminalRecord, languages: p.languages, certifications: p.certifications,
           coverLetterIntro: p.coverLetterIntro, coverLetterBody: p.coverLetterBody,
           preferredLocations: p.preferredLocations,
+          // Everything sensitive in this save was chosen in a form where it
+          // started as "Not set" (lib/config/sensitive-answers.ts).
+          sensitiveAnswersVersion: SENSITIVE_ANSWERS_VERSION,
         }),
       });
       if (!res.ok) {
@@ -669,8 +689,7 @@ export default function JobApplicationProfile() {
             <FSelect label="Authorized to work in the US?" value={p.workAuthorization} onChange={set('workAuthorization')} options={WORK_AUTH} />
             <FSelect label="Visa / Work Status" value={p.visaType} onChange={set('visaType')} options={VISA} />
           </div>
-          <FToggle value={p.requireSponsorship} onChange={set('requireSponsorship')}
-            label="Require visa sponsorship" desc="Now or in the future" />
+          <FTri label="Require visa sponsorship (now or in the future)?" value={p.requireSponsorship} onChange={set('requireSponsorship')} />
         </div>
       </Section>
 
@@ -758,12 +777,13 @@ export default function JobApplicationProfile() {
 
       {/* ── 7. Standard Questions ── */}
       <Section label="Standard Questions" icon={FileText} gradient="gradient-primary" desc="Common yes/no questions on every portal" defaultOpen={false}>
-        <div className="grid grid-cols-2 gap-2 mt-5">
-          <FToggle value={p.over18}          onChange={set('over18')}          label="18 years or older" />
-          <FToggle value={p.driverLicense}   onChange={set('driverLicense')}   label="Valid driver's license" />
-          <FToggle value={p.backgroundCheck} onChange={set('backgroundCheck')} label="Consent to background check" />
-          <FToggle value={p.drugTest}        onChange={set('drugTest')}        label="Consent to drug test" />
-          <FToggle value={p.criminalRecord}  onChange={set('criminalRecord')}  label="Have a criminal record" />
+        <p className="text-xs text-slate-500 mt-5">Left as &ldquo;Not set&rdquo;, autofill leaves the question for you to answer on each application.</p>
+        <div className="grid grid-cols-2 gap-4 mt-3">
+          <FTri label="18 years or older?"           value={p.over18}          onChange={set('over18')} />
+          <FTri label="Valid driver's license?"      value={p.driverLicense}   onChange={set('driverLicense')} />
+          <FTri label="Consent to background check?" value={p.backgroundCheck} onChange={set('backgroundCheck')} />
+          <FTri label="Consent to drug test?"        value={p.drugTest}        onChange={set('drugTest')} />
+          <FTri label="Have a criminal record?"      value={p.criminalRecord}  onChange={set('criminalRecord')} />
         </div>
       </Section>
 
@@ -771,7 +791,7 @@ export default function JobApplicationProfile() {
       <Section label="EEO & Diversity" icon={Users} gradient="gradient-primary" desc="Optional - voluntary diversity questions" defaultOpen={false}>
         <div className="space-y-4 mt-5">
           <div className="px-4 py-3 rounded-xl bg-blue-500/[0.08] border border-blue-500/[0.15]">
-            <p className="text-xs text-blue-400/80">Only used to auto-fill voluntary EEO sections. Never shared for any other purpose.</p>
+            <p className="text-xs text-blue-400/80">Only used to auto-fill voluntary EEO sections. Never shared for any other purpose. Anything left as &ldquo;Not set&rdquo; is never answered for you.</p>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <FSelect label="Gender"   value={p.gender}   onChange={set('gender')}   options={GENDER} />

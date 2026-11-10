@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Preciprocal",
   "version": "1.6.0",
-  "description": "Apply to 50+ jobs with one click. AI cover letters in 10 seconds. Track every application.",
+  "description": "Autofill job applications without guessing sensitive answers. Ghost-job warnings, reply odds and a job tracker.",
   "permissions": [
     "storage",
     "activeTab",
@@ -30,6 +30,7 @@
         "https://www.linkedin.com/*"
       ],
       "js": [
+        "sensitive-answers.js",
         "upsell.js",
         "banner.js"
       ],
@@ -90,6 +91,7 @@
         "https://*.oracle.com/*"
       ],
       "js": [
+        "sensitive-answers.js",
         "upsell.js",
         "external-apply.js"
       ],
