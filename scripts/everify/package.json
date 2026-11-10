@@ -1,0 +1,13 @@
+{
+  "name": "everify-sync",
+  "private": true,
+  "description": "Daily sync of the public E-Verify Employer Search into Supabase. Run by .github/workflows/everify-sync.yml.",
+  "type": "module",
+  "scripts": {
+    "sync": "node sync.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.112.3",
+    "playwright": "1.48.2"
+  }
+}

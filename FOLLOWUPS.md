@@ -1065,3 +1065,45 @@ arrive with their text. Not changed here because it writes into live support
 threads and deserves its own test.
 
 **Unblocked by** the owner doing steps 1 to 4.
+
+---
+
+## 33. OPEN - turn on the E-Verify badge in the job tracker
+
+**Severity: low. The feature is built and shows nothing until these are done.**
+
+Each tracked application gets an E-Verify badge (enrolled, enrolled until a
+date, ended, or not found), because STEM OPT needs an E-Verify employer. The
+data is the public E-Verify Employer Search
+(https://www.e-verify.gov/e-verify-employer-search), copied every day by a
+GitHub Actions workflow, so nobody has to run anything once it is on:
+
+- `supabase/migrations/0058_everify_employers.sql`: the table, a staging
+  table, a sync log, `everify_swap()` (refuses a load under 80% of the live
+  row count, so a broken read never reaches users) and `everify_lookup()`.
+- `scripts/everify/sync.mjs`: one normal page load of the dashboard, then the
+  "Employer List" worksheet read through the Tableau Embedding API, 10,000
+  rows a page with pauses. Dry run on 2026-11-10: 91,196 of 91,196 rows read
+  and parsed (89,212 Open, 1,984 Terminated), source updated 2026-11-08.
+  `DRY_RUN=1 node sync.mjs` checks the source without writing.
+- `.github/workflows/everify-sync.yml`: daily at 09:30 UTC, after USCIS's
+  ~2 a.m. ET refresh. A failed run keeps yesterday's data and makes GitHub
+  email the repo owner.
+- `lib/jobs/everify.ts` and `app/api/job-tracker/everify/route.ts`: lookup
+  for the signed-in user's own tracked companies only.
+- Badge in `app/(root)/job-tracker/page.tsx`, linking to the official
+  search, with "employer-reported" and the check date in its tooltip.
+
+To turn it on:
+
+1. Apply migration 0055 if it is not yet applied (0058 uses its
+   `normalize_company`), then 0058.
+2. Add repository secrets `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`
+   (Settings > Secrets and variables > Actions).
+3. Merge to the default branch (scheduled workflows only run from it), then
+   run the workflow once from the Actions tab to fill the table.
+
+The badge stays hidden until the first successful sync, so "not found" is
+never shown on an empty table. Matching is on the normalised legal name or
+the doing-business-as name; a company enrolled under a different legal name
+shows "not found", and the badge links to the official search for that case.
