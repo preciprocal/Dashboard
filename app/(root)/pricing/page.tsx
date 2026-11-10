@@ -17,6 +17,7 @@ import AnimatedLoader from "@/components/loader/AnimatedLoader";
 import { getDeviceFingerprint } from "@/lib/fingerprint";
 import { planFeatureLines } from "@/lib/config/plan-features";
 import CreditPacks from "@/components/pricing/CreditPacks";
+import BillingPromises from "@/components/pricing/BillingPromises";
 import { PACKS, type PackKey } from "@/lib/config/packs";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
@@ -1078,26 +1079,9 @@ export default function PricingPage() {
         {/* One-time credit packs */}
         <CreditPacks user={user}/>
 
-        {/* Trust signals */}
-        <div className="mt-12 pt-8 border-t border-white/[0.06]">
-          <div className="flex flex-wrap justify-center gap-8 text-sm text-slate-400">
-            {/* Every claim here has to be one we can actually stand behind.
-                The refund policy is enforced in code (lib/config/refund.ts) and the
-                data promise matches the Enterprise column. The invented
-                satisfaction stat that used to sit in the third slot was
-                replaced because it was unverifiable, and an unsubstantiated
-                number on a pricing page is a liability rather than an asset. */}
-            {[
-              { icon: "↩", text: "Refund what you do not use" },
-              { icon: "⚡", text: "Free plan, no card required" },
-              { icon: "🛡️", text: "Your data is never sold" },
-            ].map(t => (
-              <span key={t.text} className="flex items-center gap-2">
-                <span>{t.icon}</span>{t.text}
-              </span>
-            ))}
-          </div>
-        </div>
+        {/* Trust signals. Every claim has to be one the code enforces; each
+            line in BillingPromises names its source. */}
+        <BillingPromises/>
 
       </div>
     </>
