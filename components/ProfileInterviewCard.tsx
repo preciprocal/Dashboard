@@ -7,9 +7,6 @@ import { cn } from "@/lib/utils";
 import {
   Play,
   Eye,
-  Zap,
-  Users,
-  Layers,
   CheckCircle,
   ChevronRight,
   RotateCcw,
@@ -17,7 +14,6 @@ import {
   Target,
   Clock,
   Award,
-  Code,
   Lightbulb,
   BarChart3,
 } from "lucide-react";
@@ -72,37 +68,22 @@ const ProfileInterviewCard: React.FC<ProfileInterviewCardProps> = ({
 
   const typeConfig = {
     Behavioral: {
-      icon: Users,
-      iconBg: "bg-blue-500/10",
-      iconColor: "text-blue-400",
       badge: "bg-blue-500/10 text-blue-400 border-blue-500/20",
       description: "Leadership, communication, and cultural fit assessment",
     },
     Mixed: {
-      icon: Layers,
-      iconBg: "bg-purple-500/10",
-      iconColor: "text-purple-400",
       badge: "bg-purple-500/10 text-purple-400 border-purple-500/20",
       description: "Combined technical and behavioral evaluation",
     },
     Technical: {
-      icon: Zap,
-      iconBg: "bg-emerald-500/10",
-      iconColor: "text-emerald-400",
       badge: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
       description: "Technical knowledge and problem-solving assessment",
     },
     "System-design": {
-      icon: Layers,
-      iconBg: "bg-purple-500/10",
-      iconColor: "text-purple-400",
       badge: "bg-purple-500/10 text-purple-400 border-purple-500/20",
       description: "System architecture and scalability design",
     },
     Coding: {
-      icon: Code,
-      iconBg: "bg-amber-500/10",
-      iconColor: "text-amber-400",
       badge: "bg-amber-500/10 text-amber-400 border-amber-500/20",
       description: "Algorithm and data structure implementation",
     },
@@ -111,7 +92,6 @@ const ProfileInterviewCard: React.FC<ProfileInterviewCardProps> = ({
   const config =
     typeConfig[normalizedType as keyof typeof typeConfig] || typeConfig.Mixed;
 
-  const IconComponent = config.icon;
 
   const formattedDate = dayjs(createdAt).format("MMM D, YYYY");
 
@@ -218,17 +198,6 @@ const ProfileInterviewCard: React.FC<ProfileInterviewCardProps> = ({
             </div>
           </div>
 
-          {/* Icon */}
-          <div className="relative flex-shrink-0">
-            <div className={cn("w-12 h-12 rounded-lg flex items-center justify-center", config.iconBg)}>
-              <IconComponent className={cn("w-6 h-6", config.iconColor)} />
-            </div>
-            {isCompleted && (
-              <div className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center border-2 border-slate-900">
-                <CheckCircle className="w-3 h-3 text-white" />
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Description */}

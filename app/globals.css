@@ -483,9 +483,11 @@ html {
 }
 
 /* ─── Full-height pages ──────────────────────────────────────────────────────
-   The main column fills the window below the header (LayoutClient), and a
-   page's last section grows to the bottom edge, so a page that fits the
-   window never ends in a dead band of background. Roots that already lay
+   The main column fills the window below the header (LayoutClient). A page's
+   last section is NOT stretched to the bottom edge any more: on short pages
+   that turned a three-line card (the planner's "What you can do", empty
+   states) into a tall box that was mostly empty. Sections are as tall as
+   their content. Roots that already lay
    themselves out are left alone, at any breakpoint: Career Tools' desktop
    view is `hidden lg:flex`, and giving it flex-direction: column stacked its
    results panel under the form instead of beside it. */
@@ -499,10 +501,14 @@ html {
     flex-direction: column;
     flex: 1 0 auto;
   }
-  .app-main > :not([class*="flex"]):not([class*="grid"]):not(.fixed) > :last-child:not(.fixed) {
-    flex-grow: 1;
-  }
 }
+
+/* Native <select> fallback. App screens use AppSelect (components/ui/select),
+   whose list follows the theme. The few native ones left (the resume editor's
+   font pickers, which must not steal focus from the text) at least open a dark
+   list instead of the OS default white one with a bright blue bar. */
+select { color-scheme: dark; }
+select option { background-color: var(--bg-raised); color: var(--text-1); }
 
 /* ─── Form controls: one size everywhere ─────────────────────────────────────
    Inputs, selects and choice buttons share one height (44px), text size,

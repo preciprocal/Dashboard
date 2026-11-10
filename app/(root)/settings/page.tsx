@@ -1,5 +1,6 @@
 // app/(root)/settings/page.tsx
 'use client';
+import { GoogleIcon } from '@/components/icons/BrandIcons';
 import { extensionStoreUrl } from '@/lib/extension';
 import { Target as ExtTarget, ShieldCheck as ExtShield, Lightbulb as ExtBulb, Zap as ExtZap } from 'lucide-react';
 import { Breadcrumbs, crumbsFor } from '@/components/PageHeader';
@@ -400,7 +401,7 @@ export default function SettingsPage() {
     { id: 'security',      label: 'Security',         icon: Shield,        danger: false, badge: null },
     { id: 'devices',       label: 'Devices',          icon: MonitorSmartphone, danger: false, badge: null },
     { id: 'billing',       label: 'Plan & Billing',   icon: CreditCard,    danger: false, badge: plan.tier === 'free' ? 'Upgrade' : null },
-    { id: 'extension',     label: 'Extension',        icon: Chrome,        danger: false, badge: null },
+    { id: 'extension',     label: 'Extension',        icon: GoogleIcon,    danger: false, badge: null },
     { id: 'danger',        label: 'Danger Zone',      icon: AlertTriangle, danger: true,  badge: null },
   ];
 

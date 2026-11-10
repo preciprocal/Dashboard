@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import {
-  Linkedin, Mail, Loader2, Copy, Check, RefreshCw, XCircle, Zap,
+  Loader2, Copy, Check, RefreshCw, XCircle, Zap,
   Star, AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Sparkles, TrendingUp,
   Search, MessageSquare, Target, Info, ArrowRight, Users, Edit3, Send, Shield,
 } from 'lucide-react';
@@ -17,6 +17,8 @@ import UsersFeedback from '@/components/UserFeedback';
 import { useUsageTracking } from '@/lib/hooks/useUsageTracking';
 import { isUnlimited } from '@/lib/config/usage-limits';
 import { SeeExampleButton } from '@/components/ServiceModal';
+import { AppSelect } from '@/components/ui/select';
+import { LinkedInIcon, OutlookIcon } from '@/components/icons/BrandIcons';
 import NextStepPrompt from '@/components/NextStepPrompt'; // ← NEW
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -461,7 +463,7 @@ function UpgradeGate({ feature, used, limit }: { feature: 'linkedin' | 'outreach
 // ─── Tool tabs ────────────────────────────────────────────────────────────────
 
 function ToolTabs({ active, setActive }: { active: 'linkedin' | 'outreach'; setActive: (v: 'linkedin' | 'outreach') => void }) {
-  const tabs = [{ id: 'linkedin' as const, label: 'LinkedIn', icon: Linkedin }, { id: 'outreach' as const, label: 'Cold Outreach', icon: Send }];
+  const tabs = [{ id: 'linkedin' as const, label: 'LinkedIn', icon: LinkedInIcon }, { id: 'outreach' as const, label: 'Cold Outreach', icon: Send }];
   return (
     <div className="flex gap-1 p-1 bg-white/[0.03] border border-white/[0.06] rounded-xl">
       {tabs.map(t => (
@@ -543,24 +545,27 @@ function OutreachForm({ type, setType, recipName, setRecipName, recipRole, setRe
   return (
     <div className="space-y-4">
       {error && <ErrorBanner message={error} />}
-      <div className="grid grid-cols-2 gap-3">
-        <FormField label="Platform">
-          <div className="flex gap-2">
-            {[{ id: 'email', label: 'Email', icon: Mail }, { id: 'linkedin', label: 'LinkedIn', icon: Linkedin }].map(p => (
+      {/* Platform gets its own row. Sharing a row with Tone squeezed the two
+          buttons below their text width, and "LinkedIn" ran under the
+          dropdown. */}
+      <FormField label="Platform">
+        <div className="grid grid-cols-2 gap-2">
+            {[{ id: 'email', label: 'Email', icon: OutlookIcon }, { id: 'linkedin', label: 'LinkedIn', icon: LinkedInIcon }].map(p => (
               <button key={p.id} type="button" onClick={() => setPlatform(p.id)}
                 aria-pressed={platform === p.id}
-                className={`choice flex-1 ${platform === p.id ? 'choice-active' : ''}`}>
-                <p.icon /> {p.label}
+                className={`choice min-w-0 ${platform === p.id ? 'choice-active' : ''}`}>
+                <p.icon /> <span className="truncate">{p.label}</span>
               </button>
             ))}
-          </div>
-        </FormField>
-        <FormField label="Tone">
-          <select value={tone} onChange={e => setTone(e.target.value)} className={`${inp} appearance-none cursor-pointer`}>
-            <option value="professional">Professional</option><option value="casual">Casual</option><option value="bold">Bold / Direct</option>
-          </select>
-        </FormField>
-      </div>
+        </div>
+      </FormField>
+      <FormField label="Tone">
+        <AppSelect value={tone} onValueChange={setTone} aria-label="Tone" options={[
+          { value: 'professional', label: 'Professional' },
+          { value: 'casual', label: 'Casual' },
+          { value: 'bold', label: 'Bold / Direct' },
+        ]} />
+      </FormField>
       <FormField label="Outreach Type">
         <div className="grid grid-cols-2 gap-2">
           {[{ id: 'job-inquiry', label: 'Job Inquiry' }, { id: 'referral-request', label: 'Referral Request' }, { id: 'networking', label: 'Networking' }, { id: 'follow-up', label: 'After Applying' }].map(t => (
@@ -734,7 +739,7 @@ export default function CareerToolsPage() {
     if (!canUseFeature('linkedinOptimisations') && !liResult)
       return <UpgradeGate feature="linkedin" used={liUsed} limit={liLimit} />;
     if (liLoading)
-      return <LoadingCard icon={Linkedin} message="Analysing your LinkedIn profile…" sub="Checking keyword density, rewriting headline & about section" color="text-blue-400" />;
+      return <LoadingCard icon={LinkedInIcon} message="Analysing your LinkedIn profile…" sub="Checking keyword density, rewriting headline & about section" color="text-blue-400" />;
     if (liResult) return (
       <>
         <LinkedInResults data={liResult} />
@@ -827,7 +832,7 @@ export default function CareerToolsPage() {
           {/* min-h-full so the empty state centres in the panel, not its top */}
           <div className="p-6 space-y-3 min-h-full flex flex-col [&>*:only-child]:flex-1">
             {isLI ? (
-              renderLIResults() || <EmptyState icon={Linkedin} title="Results appear here" sub="Paste your current headline or about section on the left and click Optimise." />
+              renderLIResults() || <EmptyState icon={LinkedInIcon} title="Results appear here" sub="Paste your current headline or about section on the left and click Optimise." />
             ) : (
               renderORResults() || <EmptyState icon={Send} title="Messages appear here" sub="Fill in the recipient details on the left. The context field is the most important - it makes messages feel personal." />
             )}

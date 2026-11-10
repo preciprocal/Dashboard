@@ -1,6 +1,7 @@
 // app/(dashboard)/job-recommendations/page.tsx
 'use client';
 
+import { AppSelect } from '@/components/ui/select';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Target, Briefcase, MapPin, DollarSign, Building2, ExternalLink, Loader2, AlertCircle, TrendingUp, Award, Search, Filter, Sparkles, Upload, FileText, ArrowLeft, RefreshCw, Calendar, X, Clock, GraduationCap, Zap, CheckCircle2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -533,27 +534,16 @@ function JobRecommendationsPage() {
             </label>
             {resumes.length > 0 ? (
               <div className="relative">
-                <select
+                <AppSelect
                   value={selectedResumeId || ''}
-                  onChange={(e) => handleResumeChange(e.target.value)}
-                  className="w-full px-4 py-3 glass-input border border-white/10 rounded-xl text-white focus:ring-2 focus:ring-blue-500 cursor-pointer appearance-none pr-10"
-                >
-                  <option value="" className="bg-slate-900 text-slate-400">Select resume...</option>
-                  {resumes.map((resume, index) => (
-                    <option 
-                      key={resume.id ? `resume-${resume.id}` : `resume-index-${index}`} 
-                      value={resume.id}
-                      className="bg-slate-900 text-white"
-                    >
-                      {resume.fileName} • {formatResumeDate(resume.createdAt)}
-                    </option>
-                  ))}
-                </select>
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                  <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
+                  onValueChange={handleResumeChange}
+                  aria-label="Resume"
+                  placeholder="Select resume..."
+                  options={resumes.filter(r => r.id).map(resume => ({
+                    value: resume.id,
+                    label: `${resume.fileName} • ${formatResumeDate(resume.createdAt)}`,
+                  }))}
+                />
               </div>
             ) : (
               <div className="glass-input rounded-xl p-4 border border-amber-500/30">
@@ -659,22 +649,18 @@ function JobRecommendationsPage() {
                 <div className="space-y-2">
                   <label className="text-xs font-semibold text-slate-300">Minimum Match Score</label>
                   <div className="relative">
-                    <select
-                      value={filters.minMatchScore}
-                      onChange={(e) => setFilters({ ...filters, minMatchScore: Number(e.target.value) })}
-                      className="w-full px-3 py-2 glass-input border border-white/10 rounded-lg text-white focus:ring-2 focus:ring-blue-500 cursor-pointer appearance-none pr-8"
-                    >
-                      <option value={50} className="bg-slate-900 text-white">50%+ (Show All)</option>
-                      <option value={60} className="bg-slate-900 text-white">60%+ (Good Match)</option>
-                      <option value={70} className="bg-slate-900 text-white">70%+ (Strong Match)</option>
-                      <option value={80} className="bg-slate-900 text-white">80%+ (Very Strong)</option>
-                      <option value={85} className="bg-slate-900 text-white">85%+ (Excellent Match)</option>
-                    </select>
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                      <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
+                    <AppSelect
+                      value={String(filters.minMatchScore)}
+                      onValueChange={v => setFilters({ ...filters, minMatchScore: Number(v) })}
+                      aria-label="Minimum match score"
+                      options={[
+                        { value: '50', label: '50%+ (Show All)' },
+                        { value: '60', label: '60%+ (Good Match)' },
+                        { value: '70', label: '70%+ (Strong Match)' },
+                        { value: '80', label: '80%+ (Very Strong)' },
+                        { value: '85', label: '85%+ (Excellent Match)' },
+                      ]}
+                    />
                   </div>
                 </div>
 

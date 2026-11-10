@@ -2,10 +2,11 @@
 // app/(root)/extension/page.tsx
 // The Chrome extension's home in the app: whether it is installed here, how
 // to get it, and what it has done for this account.
+import { GoogleIcon } from '@/components/icons/BrandIcons';
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
-  Chrome, Download, RefreshCw, Settings as SettingsIcon, Briefcase, Linkedin,
+  Download, RefreshCw, Settings as SettingsIcon, Briefcase, Linkedin,
   MousePointerClick, PenLine, ExternalLink, CheckCircle2,
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
@@ -56,7 +57,7 @@ export default function ExtensionPage() {
       <PageHeader
         title="Chrome Extension"
         description="Your extension activity"
-        icon={Chrome}
+        icon={<GoogleIcon />}
         actions={<>
           <StatusPill status={ext.status} version={ext.version} />
           {installed

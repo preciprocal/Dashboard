@@ -1,4 +1,5 @@
 'use client';
+import { AppSelect } from '@/components/ui/select';
 import PageHeader from '@/components/PageHeader';
 import { Briefcase as HeaderIcon } from 'lucide-react';
 
@@ -225,7 +226,7 @@ function FormModal({ form, setForm, onSave, onCancel, saving, isEdit, resumes }:
             <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Job Title *</label><input type="text" value={form.jobTitle} onChange={e => setForm(p => ({ ...p, jobTitle: e.target.value }))} placeholder="e.g. Senior SWE" className={inp} /></div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Status</label><select value={form.status} onChange={e => setForm(p => ({ ...p, status: e.target.value as AppStatus }))} className={`${inp} appearance-none cursor-pointer`}>{(Object.keys(STATUS_CONFIG) as AppStatus[]).map(s => <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>)}</select></div>
+            <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Status</label><AppSelect value={form.status} onValueChange={v => setForm(p => ({ ...p, status: v as AppStatus }))} aria-label="Status" options={(Object.keys(STATUS_CONFIG) as AppStatus[]).map(s => ({ value: s, label: STATUS_CONFIG[s].label }))} /></div>
             <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Applied Date</label><input type="date" value={form.appliedDate} onChange={e => setForm(p => ({ ...p, appliedDate: e.target.value }))} className={inp} /></div>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -248,10 +249,8 @@ function FormModal({ form, setForm, onSave, onCancel, saving, isEdit, resumes }:
           {resumes.length > 0 && (
             <div>
               <label className="block text-xs font-medium text-slate-400 mb-1.5">Resume sent</label>
-              <select value={form.resumeId ?? ''} onChange={e => setForm(p => ({ ...p, resumeId: e.target.value || null }))} className={`${inp} appearance-none cursor-pointer`}>
-                <option value="">Not recorded</option>
-                {resumes.map(r => <option key={r.id} value={r.id}>{r.fileName}</option>)}
-              </select>
+              <AppSelect value={form.resumeId ?? ''} onValueChange={v => setForm(p => ({ ...p, resumeId: v || null }))} aria-label="Resume used"
+                options={[{ value: '', label: 'Not recorded' }, ...resumes.map(r => ({ value: r.id, label: r.fileName }))]} />
               <p className="text-[11px] text-slate-600 mt-1">Lets the funnel show which version of your resume gets interviews.</p>
             </div>
           )}

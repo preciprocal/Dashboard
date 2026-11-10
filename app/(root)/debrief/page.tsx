@@ -1,4 +1,5 @@
 'use client';
+import { AppSelect } from '@/components/ui/select';
 import PageHeader from '@/components/PageHeader';
 import { NotebookPen as HeaderIcon } from 'lucide-react';
 
@@ -826,7 +827,6 @@ export default function InterviewDebriefPage() {
   }
   if (!user) { router.push('/sign-in'); return null; }
 
-  const sel = `${inp} appearance-none cursor-pointer`;
 
   const mainTabs = [
     { id: 'log'      as const, label: 'Journal Log', icon: BookOpen  },
@@ -906,15 +906,13 @@ export default function InterviewDebriefPage() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   <div>
                     <label className="block text-[12px] font-medium text-slate-400 mb-1.5">Stage</label>
-                    <select value={formData.stage} onChange={e => setFormData(p => ({ ...p, stage: e.target.value as InterviewStage }))} className={sel}>
-                      {Object.entries(STAGE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                    </select>
+                    <AppSelect value={formData.stage} onValueChange={v => setFormData(p => ({ ...p, stage: v as InterviewStage }))} aria-label="Stage"
+                      options={Object.entries(STAGE_LABELS).map(([k, v]) => ({ value: k, label: v }))} />
                   </div>
                   <div>
                     <label className="block text-[12px] font-medium text-slate-400 mb-1.5">Outcome</label>
-                    <select value={formData.outcome} onChange={e => setFormData(p => ({ ...p, outcome: e.target.value as InterviewOutcome }))} className={sel}>
-                      {Object.entries(OUTCOME_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                    </select>
+                    <AppSelect value={formData.outcome} onValueChange={v => setFormData(p => ({ ...p, outcome: v as InterviewOutcome }))} aria-label="Outcome"
+                      options={Object.entries(OUTCOME_LABELS).map(([k, v]) => ({ value: k, label: v }))} />
                   </div>
                   <div>
                     <label className="block text-[12px] font-medium text-slate-400 mb-1.5">Duration (min)</label>
@@ -1117,15 +1115,11 @@ export default function InterviewDebriefPage() {
                     <input type="text" placeholder="Search by company or role…" value={searchTerm}
                       onChange={e => setSearchTerm(e.target.value)} className={`${inp} pl-9`} />
                   </div>
-                  <div className="relative sm:w-48">
-                    <Filter className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none" />
-                    <select value={filterOutcome} onChange={e => setFilterOutcome(e.target.value as InterviewOutcome | 'all')}
-                      className={`${sel} pl-9`}>
-                      <option value="all">All Outcomes</option>
-                      {(Object.entries(OUTCOME_LABELS) as [InterviewOutcome, string][]).map(([k, v]) => (
-                        <option key={k} value={k}>{v}</option>
-                      ))}
-                    </select>
+                  <div className="sm:w-48">
+                    <AppSelect value={filterOutcome} onValueChange={v => setFilterOutcome(v as InterviewOutcome | 'all')}
+                      aria-label="Filter by outcome" icon={<Filter />}
+                      options={[{ value: 'all', label: 'All Outcomes' },
+                        ...(Object.entries(OUTCOME_LABELS) as [InterviewOutcome, string][]).map(([k, v]) => ({ value: k, label: v }))]} />
                   </div>
                 </div>
               )}

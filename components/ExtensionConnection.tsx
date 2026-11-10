@@ -1,9 +1,10 @@
 // components/ExtensionConnection.tsx
 'use client';
 
+import { GoogleIcon } from '@/components/icons/BrandIcons';
 import { useState } from 'react';
 import { supabase } from '@/supabase/client';
-import { Chrome, CheckCircle2, RefreshCw, Plug, PlugZap, Copy, Download, Loader2, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, RefreshCw, Plug, PlugZap, Copy, Download, Loader2, AlertTriangle } from 'lucide-react';
 import { useExtensionStatus, extensionStoreUrl } from '@/lib/extension';
 
 type Status = 'idle' | 'loading' | 'connected' | 'error';
@@ -96,7 +97,7 @@ export default function ExtensionConnection() {
       {/* Header */}
       <div className="flex items-start gap-3 mb-5">
         <div className="w-10 h-10 rounded-[10px] bg-[var(--accent-subtle)] border border-[var(--accent-border)] flex items-center justify-center flex-shrink-0">
-          <Chrome className="w-5 h-5 text-indigo-200" strokeWidth={1.75} />
+          <GoogleIcon className="w-5 h-5" />
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="text-[15px] font-semibold text-white">Chrome Extension</h3>

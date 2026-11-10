@@ -10,6 +10,7 @@
 // Renders nothing until the feature is configured (INBOUND_EMAIL_DOMAIN) and
 // migration 0057 is applied, so it can ship ahead of the DNS setup.
 
+import { AppSelect } from '@/components/ui/select';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { ChevronDown, Copy, Check, Inbox, RotateCcw } from 'lucide-react';
@@ -162,10 +163,9 @@ export default function InboundEmailPanel({ apps, onChanged }: { apps: AppOption
                   </div>
                   {e.outcome === 'unmatched' && e.new_status && apps.length > 0 && (
                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <select className="field !py-1 !text-xs max-w-[260px]" value={assign[e.id] ?? ''} onChange={ev => setAssign(a => ({ ...a, [e.id]: ev.target.value }))}>
-                        <option value="">Which application is this?</option>
-                        {apps.map(a => <option key={a.id} value={a.id}>{a.company} · {a.jobTitle}</option>)}
-                      </select>
+                      <AppSelect className="!h-9 !text-xs max-w-[260px]" value={assign[e.id] ?? ''} onValueChange={v => setAssign(a => ({ ...a, [e.id]: v }))}
+                        aria-label="Application" placeholder="Which application is this?"
+                        options={apps.map(a => ({ value: a.id, label: `${a.company} · ${a.jobTitle}` }))} />
                       <button type="button" className="btn-pill" disabled={!assign[e.id] || busy === e.id}
                         onClick={() => act({ action: 'apply', id: e.id, applicationId: assign[e.id] }, 'Updated')}>
                         Move to {label(e.new_status)}
