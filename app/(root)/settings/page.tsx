@@ -1,5 +1,8 @@
 // app/(root)/settings/page.tsx
 'use client';
+import { extensionStoreUrl } from '@/lib/extension';
+import { Target as ExtTarget, ShieldCheck as ExtShield, Lightbulb as ExtBulb, Zap as ExtZap } from 'lucide-react';
+import { Breadcrumbs, crumbsFor } from '@/components/PageHeader';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -16,7 +19,7 @@ import {
   USAGE_LIMITS, FEATURE_NAMES, isUnlimited, type FeatureType,
 } from '@/lib/config/usage-limits';
 import {
-  Bell, User, Shield, CreditCard, Chrome, ArrowLeft, Loader2,
+  Bell, User, Shield, CreditCard, Chrome, Loader2,
   AlertTriangle, Check, Eye, EyeOff, Trash2, Mail, Lock, Zap,
   Star, AlertCircle, RefreshCw, ExternalLink, Building2, Link2, RotateCcw, MonitorSmartphone,
 } from 'lucide-react';
@@ -406,16 +409,15 @@ export default function SettingsPage() {
 
       {/* ── Page Header ── */}
       <div className="glass-card p-5">
-        <Link href="/" className="inline-flex items-center text-xs text-slate-500 hover:text-slate-300 mb-4 transition-colors gap-1.5">
-          <ArrowLeft className="w-3.5 h-3.5" /> Back to Dashboard
-        </Link>
+        {/* Same breadcrumb bar as every other page header (PageHeader). */}
+        <div className="-mx-5 -mt-5 mb-5 px-5 rounded-t-[var(--r-2xl)] border-b border-white/[0.06] bg-white/[0.015] py-2"><Breadcrumbs crumbs={crumbsFor('/settings', 'Settings')} className="" /></div>
 
         <div className="flex items-center gap-4">
           <div className="relative flex-shrink-0">
             {avatarUrl ? (
               <Image src={avatarUrl} alt="Profile" width={52} height={52} className="rounded-xl object-cover" />
             ) : (
-              <div className="w-[52px] h-[52px] rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white font-semibold text-lg">
+              <div className="w-[52px] h-[52px] rounded-xl bg-[var(--accent)] flex items-center justify-center text-white font-semibold text-lg">
                 {userInitials}
               </div>
             )}
@@ -465,7 +467,7 @@ export default function SettingsPage() {
                   <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-indigo-600 text-white font-bold leading-none">{s.badge}</span>
                 )}
                 {isActive && (
-                  <span className={`absolute bottom-0 left-0 right-0 h-0.5 rounded-full ${s.danger ? 'bg-red-400' : 'bg-gradient-to-r from-indigo-500 to-purple-500'}`} />
+                  <span className={`absolute bottom-0 left-0 right-0 h-0.5 rounded-full ${s.danger ? 'bg-red-400' : 'bg-[var(--accent)]'}`} />
                 )}
               </button>
             );
@@ -486,7 +488,7 @@ export default function SettingsPage() {
                 {avatarUrl ? (
                   <Image src={avatarUrl} alt="Avatar" width={56} height={56} className="rounded-xl flex-shrink-0" />
                 ) : (
-                  <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white font-bold text-xl flex-shrink-0">
+                  <div className="w-14 h-14 rounded-xl bg-[var(--accent)] flex items-center justify-center text-white font-bold text-xl flex-shrink-0">
                     {userInitials}
                   </div>
                 )}
@@ -638,7 +640,7 @@ export default function SettingsPage() {
                     </FieldRow>
                     <div className="flex justify-end">
                       <button onClick={handleUpdateEmail} disabled={savingEmail}
-                        className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500
+                        className="inline-flex items-center gap-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)]
                                    disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-xl transition-all cursor-pointer">
                         {savingEmail ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Updating…</> : <><Check className="w-3.5 h-3.5" />Update Email</>}
                       </button>
@@ -807,7 +809,7 @@ export default function SettingsPage() {
             {plan.tier === 'free' && (
               <SectionCard>
                 <div className="p-5 text-center">
-                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-purple-900/30">
+                  <div className="w-11 h-11 rounded-xl bg-[var(--accent)] flex items-center justify-center mx-auto mb-4 shadow-lg ">
                     <Zap className="w-5 h-5 text-white" />
                   </div>
                   <h3 className="text-white font-semibold text-sm mb-1">Need more than the Free plan?</h3>
@@ -815,7 +817,7 @@ export default function SettingsPage() {
                     Pro and Premium raise every monthly limit. Cancel any time, and unused credits can be refunded on request.
                   </p>
                   <Link href="/pricing"
-                    className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-xs font-semibold text-white bg-gradient-to-r from-indigo-500 to-purple-500 hover:opacity-90 transition-opacity">
+                    className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-xs font-semibold text-white bg-[var(--accent)] hover:opacity-90 transition-opacity">
                     See plans
                   </Link>
                 </div>
@@ -859,16 +861,15 @@ export default function SettingsPage() {
             <ExtensionConnection />
             <SectionCard>
               <SectionHeader icon={AlertCircle} iconColor="text-blue-400" iconBg="bg-blue-500/10 border-blue-500/20"
-                title="Setup Guide" subtitle="Get started in 5 steps" />
+                title="Setup Guide" subtitle="Get started in 4 steps" />
               <div className="p-5">
                 <ol className="space-y-3">
                   {[
-                    { step: 1, text: <span>Click <strong className="text-white">&quot;Connect Extension&quot;</strong> above to generate your auth token</span> },
-                    { step: 2, text: <span>Install the <a href="https://chromewebstore.google.com/detail/iiomkjnpkaefapdajnabiljngkjddmoi?utm_source=app-settings" target="_blank" rel="noopener noreferrer" className="text-white font-semibold underline decoration-indigo-400/50 underline-offset-2 hover:decoration-indigo-300">Preciprocal Chrome Extension</a> from the <a href="https://chromewebstore.google.com/detail/iiomkjnpkaefapdajnabiljngkjddmoi?utm_source=app-settings" target="_blank" rel="noopener noreferrer" className="text-indigo-300 hover:text-indigo-200 underline underline-offset-2">Chrome Web Store</a></span> },
-                    { step: 3, text: <span>Token auto-syncs to your extension - or paste it manually in the extension popup</span> },
-                    { step: 4, text: <span>Navigate to any <strong className="text-white">LinkedIn job posting</strong></span> },
-                    { step: 5, text: <span>Click the <strong className="text-white">Preciprocal icon</strong> in your toolbar to analyze the job</span> },
-                  ].map(({ step, text }) => (
+                    { step: 1, text: <span>Install the <a href={extensionStoreUrl('app-settings')} target="_blank" rel="noopener noreferrer" className="text-white font-semibold underline decoration-indigo-400/50 underline-offset-2 hover:decoration-indigo-300">Preciprocal Chrome Extension</a> from the Chrome Web Store</span> },
+                    { step: 2, text: <span>Come back here and click <strong className="text-white">&quot;Connect Extension&quot;</strong> above. It unlocks once the extension is detected</span> },
+                    { step: 3, text: <span>Your account syncs to the extension. If it does not, paste the manual token in the extension popup</span> },
+                    { step: 4, text: <span>Open any <strong className="text-white">LinkedIn job posting</strong> and click the <strong className="text-white">Preciprocal icon</strong> in your toolbar</span> },
+                                    ].map(({ step, text }) => (
                     <li key={step} className="flex items-start gap-3 text-xs text-slate-400">
                       <span className="flex-shrink-0 w-5 h-5 rounded-full bg-indigo-500/15 border border-indigo-500/20 text-indigo-400 flex items-center justify-center text-[10px] font-bold mt-0.5">{step}</span>
                       <span className="leading-relaxed pt-0.5">{text}</span>
@@ -881,20 +882,21 @@ export default function SettingsPage() {
               <SectionHeader icon={Chrome} iconColor="text-emerald-400" iconBg="bg-emerald-500/10 border-emerald-500/20"
                 title="Extension Features" subtitle="What the extension can do for you" />
               <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {[
-                  { icon: '🎯', title: 'Job Match Score',    desc: 'See your fit % for any LinkedIn job instantly' },
-                  { icon: '📊', title: 'ATS Check',          desc: 'Verify your resume passes tracking systems' },
-                  { icon: '💡', title: 'Skills Gap',         desc: 'Identify what to learn before applying' },
-                  { icon: '⚡', title: 'One-click Analysis', desc: 'Real-time results without leaving LinkedIn' },
-                ].map(f => (
-                  <div key={f.title} className="flex items-start gap-3 p-3 bg-slate-800/30 border border-white/[0.05] rounded-xl">
-                    <span className="text-lg flex-shrink-0">{f.icon}</span>
+                {([
+                  { icon: ExtTarget,  title: 'Job Match Score',    desc: 'See your fit for any LinkedIn job instantly' },
+                  { icon: ExtShield,  title: 'ATS Check',          desc: 'Check your resume passes tracking systems' },
+                  { icon: ExtBulb,    title: 'Skills Gap',         desc: 'See what to learn before applying' },
+                  { icon: ExtZap,     title: 'One-click Analysis', desc: 'Results without leaving LinkedIn' },
+                ] as const).map(f => (
+                  <div key={f.title} className="flex items-start gap-3 p-3 bg-[var(--bg-subtle)] border border-white/[0.06] rounded-[10px]">
+                    <f.icon className="w-4 h-4 text-indigo-300 flex-shrink-0 mt-0.5" strokeWidth={1.75} />
                     <div>
                       <p className="text-white text-xs font-semibold">{f.title}</p>
                       <p className="text-slate-500 text-xs mt-0.5">{f.desc}</p>
                     </div>
                   </div>
                 ))}
+                <Link href="/extension" className="sm:col-span-2 btn-secondary w-full">See your extension activity</Link>
               </div>
             </SectionCard>
           </div>

@@ -223,10 +223,7 @@ export function SeeExampleButton({ serviceId, className = '', initialTab }: {
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium
-                    text-slate-400 bg-white/[0.04] border border-white/[0.08]
-                    hover:text-white hover:bg-white/[0.08] hover:border-white/[0.12]
-                    transition-all cursor-pointer ${className}`}
+        className={`btn-secondary cursor-pointer ${className}`}
       >
         <Play className="w-3.5 h-3.5" />
         See Example

@@ -59,6 +59,8 @@ interface FullScreenInterviewPanelProps {
   userName: string;
   userId: string;
   interviewRole: string;
+  /** The real employer when practising for a tracked application. */
+  companyName?: string;
   interviewType: "technical" | "behavioral" | "mixed" | "system-design";
   questions: string[];
   technicalQuestions?: string[];
@@ -174,7 +176,7 @@ const ExitConfirmDialog = ({
 // ─── Main component ───────────────────────────────────────────────────────────
 
 const FullScreenInterviewPanel = ({
-  interviewId, userName, userId, interviewRole, interviewType,
+  interviewId, userName, userId, interviewRole, companyName, interviewType,
   questions, technicalQuestions, behavioralQuestions, feedbackId,
   initialVideoOn = true, initialAudioOn = true, initialSpeakerOn = true,
   onExit,
@@ -484,7 +486,9 @@ const FullScreenInterviewPanel = ({
           // gender matching the voice. See lib/config/interview-personas.ts.
           interviewer_name:       isBehavioral ? names.hr.name : names.lead.name,
           interviewer_role:       isBehavioral ? "Director of People Operations"  : "Senior Software Architect",
-          company_name:           "TechCorp",
+          // The real company when practising for a tracked application, so
+          // the interviewer says they work where the candidate is interviewing.
+          company_name:           companyName?.trim() || "TechCorp",
           department:             isBehavioral ? "talent acquisition and employee development" : "engineering and infrastructure",
           years_at_company:       isBehavioral ? "four years"                     : "six years",
           brief_role_description: isBehavioral
@@ -520,7 +524,7 @@ const FullScreenInterviewPanel = ({
     }
   }, [
     interviewId, userId, questions, phaseQuestions, technicalQuestions, behavioralQuestions,
-    interviewType, currentInterviewPhase, userName, interviewRole, names,
+    interviewType, currentInterviewPhase, userName, interviewRole, companyName, names,
   ]);
 
   // ── Auto-start ─────────────────────────────────────────────────────────────
@@ -968,7 +972,7 @@ const FullScreenInterviewPanel = ({
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 bg-slate-950 z-50 flex flex-col overflow-hidden">
+    <div className="fixed inset-0 bg-[var(--bg)] z-50 flex flex-col overflow-hidden">
 
       {/* Exit confirmation */}
       {showExitConfirm && (
@@ -984,7 +988,7 @@ const FullScreenInterviewPanel = ({
           most common cause by far is a muted microphone, so that is named
           first rather than buried in a list of possibilities. */}
       {wastedReason && (
-        <div className="absolute inset-0 z-50 bg-slate-950/95 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="absolute inset-0 z-50 bg-[var(--bg)]/95 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 sm:p-8">
             <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-5">
               <MicOff className="w-6 h-6 text-amber-400" />
@@ -1050,7 +1054,7 @@ const FullScreenInterviewPanel = ({
             >
               <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
-            <div className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
+            <div className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 bg-[var(--accent)] rounded-lg flex items-center justify-center flex-shrink-0">
               <span className="text-white text-xs sm:text-sm font-semibold">AI</span>
             </div>
             <div className="min-w-0 flex-1">
@@ -1101,10 +1105,10 @@ const FullScreenInterviewPanel = ({
               <div
                 key={participant.id}
                 className={`bg-slate-900/60 backdrop-blur-xl rounded-2xl flex flex-col justify-center items-center p-4 sm:p-5 md:p-6 border relative overflow-hidden transition-all duration-300 ${
-                  (participant as { isLead?: boolean }).isLead      ? "border-blue-500/30 shadow-lg shadow-blue-500/10"
-                    : (participant as { isCurrentUser?: boolean }).isCurrentUser ? "border-purple-500/30 shadow-lg shadow-purple-500/10"
+                  (participant as { isLead?: boolean }).isLead      ? "border-blue-500/30 shadow-lg "
+                    : (participant as { isCurrentUser?: boolean }).isCurrentUser ? "border-purple-500/30 shadow-lg "
                     : "border-slate-800"
-                } ${isCurrentSpeaker ? "ring-2 ring-blue-500/50 scale-[1.02] shadow-xl shadow-blue-500/20" : ""}`}
+                } ${isCurrentSpeaker ? "ring-2 ring-blue-500/50 scale-[1.02] shadow-xl " : ""}`}
               >
                 {(participant as { isLead?: boolean }).isLead && (
                   <div className="absolute top-2 sm:top-3 md:top-4 right-2 sm:right-3 md:right-4 bg-blue-600 text-white text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1 rounded-full font-medium">Lead</div>

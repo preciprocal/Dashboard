@@ -79,6 +79,14 @@ const MESSAGES: Record<LoaderTone, string[]> = {
   ],
 };
 
+/**
+ * True inside the signed-in app shell (LayoutClient's <main>). The sidebar and
+ * header are already on screen there, so a page that is loading shows a
+ * compact spinner in its own area instead of a full-screen takeover that hid
+ * the whole app behind a fake percentage.
+ */
+export const LoaderInlineContext = React.createContext(false);
+
 const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
   isVisible,
   onHide,
@@ -94,6 +102,7 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
   timeout = 30,
 }) => {
   const router = useRouter();
+  const inline = React.useContext(LoaderInlineContext);
 
   const [shouldRender, setShouldRender] = useState(isVisible);
   const [fadeOut, setFadeOut] = useState(false);
@@ -252,6 +261,17 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
 
   const currentMessage = randomizedMessages[msgIndex] ?? messages[0];
 
+  if (inline) {
+    return (
+      <div role="status" aria-live="polite"
+        className={`flex-1 min-h-[50vh] flex flex-col items-center justify-center gap-3 transition-opacity duration-300 ${fadeOut ? 'opacity-0' : 'opacity-100'}`}>
+        <div className="w-7 h-7 rounded-full border-2 border-white/[0.08] border-t-[var(--accent)] animate-spin" aria-hidden="true" />
+        <p className="text-[13px] text-slate-400">{primaryHeading}</p>
+        {isTimedOut && <p className="text-xs text-amber-400">Taking longer than expected…</p>}
+      </div>
+    );
+  }
+
   return (
     <div
       className={`fixed inset-0 z-[9999] flex items-center justify-center transition-opacity duration-[600ms] ${
@@ -259,28 +279,7 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
       }`}
     >
       {/* ── Background ── */}
-      <div className="absolute inset-0 bg-[#090d1a]" />
-
-      {/* ── Radial glow centred behind the ring ── */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            'radial-gradient(ellipse 60% 50% at 50% 45%, rgba(99,102,241,0.10) 0%, transparent 70%)',
-        }}
-      />
-
-      {/* ── Subtle grid ── */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          opacity: 0.12,
-          backgroundImage: `
-            linear-gradient(rgba(139,92,246,0.15) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(139,92,246,0.15) 1px, transparent 1px)`,
-          backgroundSize: '60px 60px',
-        }}
-      />
+      <div className="absolute inset-0 bg-[var(--bg)]" />
 
       {/* ── Navigation ── */}
       {showNavigation && (
@@ -333,8 +332,8 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
               cx="64"
               cy="64"
               r={radius}
-              fill="rgba(9,13,26,0.9)"
-              stroke="rgba(99,102,241,0.10)"
+              fill="none"
+              stroke="rgba(255,255,255,0.06)"
               strokeWidth="3.5"
             />
             {/* Progress ring */}
@@ -342,7 +341,7 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
               cx="64"
               cy="64"
               r={radius}
-              stroke="url(#loaderGradient)"
+              stroke="var(--accent)"
               strokeWidth="3.5"
               fill="none"
               strokeDasharray={circumference}
@@ -350,13 +349,6 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
               strokeLinecap="round"
               style={{ transition: 'stroke-dashoffset 0.4s cubic-bezier(0.4,0,0.2,1)' }}
             />
-            <defs>
-              <linearGradient id="loaderGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#818cf8" />
-                <stop offset="50%" stopColor="#6366f1" />
-                <stop offset="100%" stopColor="#a855f7" />
-              </linearGradient>
-            </defs>
           </svg>
 
           {/* Logo centred inside ring - no wrapper, no background box */}
@@ -367,19 +359,10 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
               width={56}
               height={56}
               className="object-contain"
-              style={{ filter: 'drop-shadow(0 0 12px rgba(99,102,241,0.35))' }}
               priority
             />
           </div>
 
-          {/* Subtle glow that intensifies with progress */}
-          <div
-            className="absolute inset-0 pointer-events-none rounded-full"
-            style={{
-              background: `radial-gradient(circle at 50% 50%, rgba(99,102,241,${(progress / 100) * 0.18}) 0%, transparent 60%)`,
-              transition: 'background 0.4s ease',
-            }}
-          />
         </div>
 
         {/* Progress percentage */}
@@ -481,7 +464,7 @@ const AnimatedLoader: React.FC<AnimatedLoaderProps> = ({
               className="h-full rounded-full"
               style={{
                 width: `${progress}%`,
-                background: 'linear-gradient(90deg, #6366f1, #a855f7)',
+                background: 'var(--accent)',
                 transition: 'width 0.4s cubic-bezier(0.4,0,0.2,1)',
               }}
             />

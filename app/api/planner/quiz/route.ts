@@ -4,7 +4,7 @@ import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
 import { redis } from '@/lib/redis/redis-client';
 import { getUserAIContext, buildUserContextPrompt } from '@/lib/ai/user-context';
-import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage } from '@/lib/ai/claude';
+import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, createMessage } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
 
     const userPrompt = `${userCtx}\nRole: ${plan.role}${plan.company ? ` | Company: ${plan.company}` : ''} | Level: ${plan.skillLevel} | Days: ${dailyPlans.length}\n\n${summary}\n\nGenerate quiz now.`;
 
-    const response = await anthropic.messages.create({ model: CLAUDE_MODEL, max_tokens: MAX_TOKENS, system: cachedSystem(QUIZ_SYSTEM), messages: [{ role: 'user', content: userPrompt }] });
+    const response = await createMessage({ model: CLAUDE_MODEL, max_tokens: MAX_TOKENS, system: cachedSystem(QUIZ_SYSTEM), messages: [{ role: 'user', content: userPrompt }] });
     logUsage('quiz-generate', response);
 
     let quizData: QuizData;

@@ -123,7 +123,7 @@ function LogFormPhase({ onSave, isLoading }: { onSave: () => void; isLoading: bo
       <div className="w-[52%] flex-shrink-0 overflow-y-auto pr-0.5 db-scroll" style={{ maxHeight: 520 }}>
         <FadeIn delay={0}>
           <div className="flex items-center gap-2 mb-3">
-            <div className="w-7 h-7 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-lg flex items-center justify-center">
+            <div className="w-7 h-7 bg-[var(--accent)] rounded-lg flex items-center justify-center">
               <BookOpen className="w-3.5 h-3.5 text-white" />
             </div>
             <div>
@@ -261,7 +261,7 @@ function LogFormPhase({ onSave, isLoading }: { onSave: () => void; isLoading: bo
           {/* Save button */}
           <FadeIn delay={5800}>
             <button onClick={onSave} disabled={isLoading}
-              className="w-full py-2 rounded-xl text-center text-[10px] font-semibold bg-gradient-to-r from-violet-600 to-indigo-600 text-white flex items-center justify-center gap-1.5 hover:brightness-110 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-60">
+              className="w-full py-2 rounded-xl text-center text-[10px] font-semibold bg-[var(--accent)] text-white flex items-center justify-center gap-1.5 hover:brightness-110 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-60">
               {isLoading ? <><Loader2 className="w-3 h-3 animate-spin" /> Saving…</> : <><Save className="w-3 h-3" /> Save to Journal</>}
             </button>
           </FadeIn>
@@ -586,7 +586,7 @@ function AIAnalysisPhase() {
             <p className="text-[10px] font-bold text-white">30-Day Plan</p>
           </div>
           <div className="flex items-center gap-2 mb-2">
-            <div className="w-6 h-6 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-lg flex items-center justify-center text-white text-[8px] font-bold flex-shrink-0">W1</div>
+            <div className="w-6 h-6 bg-[var(--accent)] rounded-lg flex items-center justify-center text-white text-[8px] font-bold flex-shrink-0">W1</div>
             <div>
               <p className="text-[7px] text-slate-600">Week 1</p>
               <p className="text-[9px] font-bold text-white">Fix the Panic: Timed Problem Training</p>
@@ -632,7 +632,7 @@ function InteractivePhase() {
         {tabs.map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id)}
             className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[9px] font-semibold transition-all cursor-pointer ${
-              activeTab === t.id ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-[0_2px_10px_rgba(124,58,237,0.35)]' : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'
+              activeTab === t.id ? 'bg-[var(--accent)] text-white ' : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'
             }`}>
             <t.icon className="w-3 h-3" /> {t.label}
           </button>

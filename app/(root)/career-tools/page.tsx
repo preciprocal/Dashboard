@@ -1,10 +1,11 @@
 'use client';
+import PageHeader, { Breadcrumbs, crumbsFor } from '@/components/PageHeader';
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import {
-  Linkedin, Mail, Loader2, ArrowLeft, Copy, Check, RefreshCw, XCircle, Zap,
+  Linkedin, Mail, Loader2, Copy, Check, RefreshCw, XCircle, Zap,
   Star, AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Sparkles, TrendingUp,
   Search, MessageSquare, Target, Info, ArrowRight, Users, Edit3, Send, Shield,
 } from 'lucide-react';
@@ -112,7 +113,7 @@ function LinkedInResults({ data }: { data: LinkedInResult }) {
           </div>
           <div className="relative h-1 bg-white/[0.06] rounded-full overflow-hidden">
             <div className="absolute inset-y-0 left-0 bg-white/10 rounded-full" style={{ width: `${data.seoScore.current}%` }} />
-            <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full opacity-60" style={{ width: `${data.seoScore.potential}%` }} />
+            <div className="absolute inset-y-0 left-0 bg-emerald-500 rounded-full opacity-60" style={{ width: `${data.seoScore.potential}%` }} />
           </div>
           <p className="text-[11px] text-slate-600 mt-2 leading-relaxed">{data.seoScore.explanation}</p>
         </div>
@@ -258,7 +259,7 @@ function OutreachResults({ data, platform }: { data: OutreachResult; platform: s
         <div className="flex gap-1.5 flex-wrap mb-4">
           {versions.map(tab => (
             <button key={String(tab.key)} onClick={() => setActiveVersion(tab.key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 ${activeVersion === tab.key ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-[0_2px_12px_rgba(16,185,129,0.3)]' : 'bg-white/[0.04] text-slate-400 hover:text-slate-200 hover:bg-white/[0.07] border border-white/[0.06]'}`}>
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 ${activeVersion === tab.key ? 'bg-emerald-600 text-white ' : 'bg-white/[0.04] text-slate-400 hover:text-slate-200 hover:bg-white/[0.07] border border-white/[0.06]'}`}>
               {tab.label}
             </button>
           ))}
@@ -438,7 +439,7 @@ function UpgradeGate({ feature, used, limit }: { feature: 'linkedin' | 'outreach
             <span className="text-sm text-slate-400 leading-snug">{STATS[activeStat].line}</span>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/pricing" className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all group ${isLI ? 'bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-500 hover:to-violet-500 shadow-[0_4px_20px_rgba(59,130,246,0.3)]' : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-[0_4px_20px_rgba(16,185,129,0.3)]'}`}>
+            <Link href="/pricing" className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all group ${isLI ? 'bg-[var(--accent)] hover:bg-[var(--accent-hover)] ' : 'bg-emerald-600 hover:bg-emerald-500 '}`}>
               Get More <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </Link>
             <span className="text-[10px] text-slate-600">Cancel anytime · Instant access</span>
@@ -465,7 +466,7 @@ function ToolTabs({ active, setActive }: { active: 'linkedin' | 'outreach'; setA
     <div className="flex gap-1 p-1 bg-white/[0.03] border border-white/[0.06] rounded-xl">
       {tabs.map(t => (
         <button key={t.id} onClick={() => setActive(t.id)}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all duration-150 ${active === t.id ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-[0_2px_10px_rgba(102,126,234,0.35)]' : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'}`}>
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all duration-150 ${active === t.id ? 'bg-[var(--accent)] text-white ' : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'}`}>
           <t.icon className="w-3.5 h-3.5" />{t.label}
         </button>
       ))}
@@ -475,7 +476,9 @@ function ToolTabs({ active, setActive }: { active: 'linkedin' | 'outreach'; setA
 
 // ─── Form helpers ─────────────────────────────────────────────────────────────
 
-const inp = ['w-full px-3 py-2.5 rounded-xl text-sm text-white', 'bg-white/[0.04] border border-white/[0.08]', 'placeholder-slate-600', 'focus:outline-none focus:ring-1 focus:ring-purple-500/40 focus:border-purple-500/40', 'transition-all duration-150'].join(' ');
+// Shared form-control size and style (globals.css .field), so every input,
+// select and textarea on this page matches the rest of the app.
+const inp = 'field';
 const ta = `${inp} resize-none`;
 
 function FormField({ label, children, optional, required, hint }: { label: string; children: React.ReactNode; optional?: boolean; required?: boolean; hint?: string }) {
@@ -501,10 +504,12 @@ function ErrorBanner({ message }: { message: string }) {
   );
 }
 
-function SubmitButton({ onClick, loading, disabled, loadingLabel, label, gradient, shadow }: { onClick: () => void; loading: boolean; disabled: boolean; loadingLabel: string; label: string; gradient: string; shadow: string }) {
+// gradient/shadow are accepted for existing callers but no longer used: every
+// submit button is the same solid primary.
+function SubmitButton({ onClick, loading, disabled, loadingLabel, label }: { onClick: () => void; loading: boolean; disabled: boolean; loadingLabel: string; label: string; gradient?: string; shadow?: string }) {
   return (
     <button onClick={onClick} disabled={loading || disabled}
-      className={`w-full py-3 bg-gradient-to-r ${gradient} text-white rounded-xl font-semibold text-sm transition-all duration-200 shadow-lg ${shadow} disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2`}>
+      className="w-full h-11 glass-button-primary text-white rounded-[10px] font-semibold text-sm disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
       {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> {loadingLabel}</> : <><Sparkles className="w-4 h-4" /> {label}</>}
     </button>
   );
@@ -525,7 +530,7 @@ function LinkedInForm({ headline, setHeadline, about, setAbout, experience, setE
         <FormField label="Target Role"><input type="text" value={targetRole} onChange={e => setTargetRole(e.target.value)} placeholder="e.g. Senior SWE" className={inp} /></FormField>
         <FormField label="Target Industry"><input type="text" value={industry} onChange={e => setIndustry(e.target.value)} placeholder="e.g. Fintech" className={inp} /></FormField>
       </div>
-      <SubmitButton onClick={onSubmit} loading={loading} disabled={!ready} loadingLabel="Analysing…" label="Optimise My Profile" gradient="from-blue-600 to-violet-600 hover:from-blue-500 hover:to-violet-500" shadow="shadow-blue-500/20" />
+      <SubmitButton onClick={onSubmit} loading={loading} disabled={!ready} loadingLabel="Analysing…" label="Optimise My Profile" gradient="from-blue-600 to-violet-600 hover:bg-[var(--accent-hover)]" shadow="" />
     </div>
   );
 }
@@ -540,11 +545,12 @@ function OutreachForm({ type, setType, recipName, setRecipName, recipRole, setRe
       {error && <ErrorBanner message={error} />}
       <div className="grid grid-cols-2 gap-3">
         <FormField label="Platform">
-          <div className="flex gap-1.5">
+          <div className="flex gap-2">
             {[{ id: 'email', label: 'Email', icon: Mail }, { id: 'linkedin', label: 'LinkedIn', icon: Linkedin }].map(p => (
               <button key={p.id} type="button" onClick={() => setPlatform(p.id)}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-all duration-150 border ${platform === p.id ? 'bg-purple-500/15 border-purple-500/40 text-purple-300' : 'bg-white/[0.03] border-white/[0.07] text-slate-500 hover:text-slate-300 hover:border-white/[0.12]'}`}>
-                <p.icon className="w-3.5 h-3.5" /> {p.label}
+                aria-pressed={platform === p.id}
+                className={`choice flex-1 ${platform === p.id ? 'choice-active' : ''}`}>
+                <p.icon /> {p.label}
               </button>
             ))}
           </div>
@@ -556,10 +562,11 @@ function OutreachForm({ type, setType, recipName, setRecipName, recipRole, setRe
         </FormField>
       </div>
       <FormField label="Outreach Type">
-        <div className="grid grid-cols-2 gap-1.5">
+        <div className="grid grid-cols-2 gap-2">
           {[{ id: 'job-inquiry', label: 'Job Inquiry' }, { id: 'referral-request', label: 'Referral Request' }, { id: 'networking', label: 'Networking' }, { id: 'follow-up', label: 'After Applying' }].map(t => (
             <button key={t.id} type="button" onClick={() => setType(t.id)}
-              className={`py-2 px-3 rounded-lg text-xs font-medium transition-all duration-150 border ${type === t.id ? 'bg-purple-500/15 border-purple-500/40 text-purple-300' : 'bg-white/[0.03] border-white/[0.07] text-slate-500 hover:text-slate-300 hover:border-white/[0.12]'}`}>
+              aria-pressed={type === t.id}
+              className={`choice ${type === t.id ? 'choice-active' : ''}`}>
               {t.label}
             </button>
           ))}
@@ -584,7 +591,7 @@ function OutreachForm({ type, setType, recipName, setRecipName, recipRole, setRe
         </div>
       )}
       <FormField label="Your Background" optional hint="uses your profile if blank"><textarea rows={2} value={background} onChange={e => setBackground(e.target.value)} placeholder="e.g. 4 years building fintech APIs at JPMorgan, now targeting product-led startups…" className={ta} /></FormField>
-      <SubmitButton onClick={onSubmit} loading={loading} disabled={!ready} loadingLabel="Crafting messages…" label="Generate Outreach" gradient="from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500" shadow="shadow-emerald-500/20" />
+      <SubmitButton onClick={onSubmit} loading={loading} disabled={!ready} loadingLabel="Crafting messages…" label="Generate Outreach" gradient="from-emerald-600 to-teal-600 hover:bg-emerald-500" shadow="" />
     </div>
   );
 }
@@ -597,7 +604,7 @@ export default function CareerToolsPage() {
 
   const {
     canUseFeature, getRemainingCount, getUsedCount,
-    getLimit, refetch: refetchUsage,
+    getLimit, refetch: refetchUsage, loading: usageLoading,
   } = useUsageTracking();
   const liUsed  = getUsedCount('linkedinOptimisations');
   const liLimit = getLimit('linkedinOptimisations');
@@ -771,46 +778,44 @@ export default function CareerToolsPage() {
     <>
       {/* MOBILE */}
       <div className="lg:hidden py-4 space-y-5">
-        <div>
-          <Link href="/" className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors mb-4"><ArrowLeft className="w-3.5 h-3.5" /> Dashboard</Link>
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-[0_4px_16px_rgba(59,130,246,0.3)]"><Sparkles className="w-4 h-4 text-white" /></div>
-              <div>
-                <h1 className="text-xl font-bold text-white">Career Tools</h1>
-                <p className="text-[11px] text-slate-600">AI-powered LinkedIn & outreach optimizer</p>
-              </div>
-            </div>
-            <SeeExampleButton serviceId="career-tools" className="!px-3 !py-2 !text-xs !font-semibold flex-shrink-0" />
-          </div>
-        </div>
+        <PageHeader
+          title="Career Tools" description="LinkedIn profile and outreach" icon={Sparkles}
+          actions={<>
+            <span className="btn-pill"><Shield />
+              {usageLoading ? <span aria-hidden="true" className="inline-block w-10 h-3 rounded bg-current opacity-25 animate-pulse" /> : isLI
+                ? (liUnlimited ? 'Unlimited' : `${liLeft} left`)
+                : (orUnlimited ? 'Unlimited' : `${orLeft} left`)}
+            </span>
+            <SeeExampleButton serviceId="career-tools" />
+          </>}
+        />
         <ToolTabs active={activeTool} setActive={handleToolChange} /> {/* ← handleToolChange */}
         {isLI ? <LinkedInForm {...liFormProps} /> : <OutreachForm {...orFormProps} />}
         {isLI ? renderLIResults() : renderORResults()}
       </div>
 
       {/* DESKTOP */}
-      <div className="hidden lg:flex" style={{ height: 'calc(100vh - 62px)' }}>
+      <div className="hidden lg:flex" style={{ height: 'calc(100dvh - 113px)' /* header 65 + main padding 48 */ }}>
         <div className="w-[30%] flex-shrink-0 flex flex-col border-r border-white/[0.05] overflow-hidden">
           <div className="flex-shrink-0 px-5 py-4 border-b border-white/[0.05]">
-            <Link href="/" className="inline-flex items-center gap-1.5 text-[11px] text-slate-600 hover:text-slate-400 transition-colors mb-3"><ArrowLeft className="w-3 h-3" /> Dashboard</Link>
+            <Breadcrumbs crumbs={crumbsFor('/career-tools', 'Career Tools')} />
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-[0_4px_12px_rgba(59,130,246,0.25)] flex-shrink-0"><Sparkles className="w-3.5 h-3.5 text-white" /></div>
+              <div className="w-10 h-10 rounded-[10px] bg-[var(--accent-subtle)] border border-[var(--accent-border)] flex items-center justify-center flex-shrink-0"><Sparkles className="w-5 h-5 text-indigo-200" strokeWidth={1.75} /></div>
               <div>
-                <h1 className="text-base font-bold text-white leading-tight">Career Tools</h1>
-                <p className="text-[11px] text-slate-600">AI-powered profile & outreach</p>
+                <h1 className="text-[20px] font-semibold text-white tracking-tight leading-tight">Career Tools</h1>
+                <p className="text-[13px] text-slate-400 mt-0.5">LinkedIn profile and outreach</p>
               </div>
             </div>
             <div className="flex items-center gap-2 mb-3">
-              <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-500/[0.07] border border-blue-500/20">
-                <Shield className="w-3.5 h-3.5 text-blue-400" />
-                <span className="text-[12px] font-semibold text-blue-400">
-                  {isLI
-                    ? (liUnlimited ? 'Unlimited' : `${liLeft} optimisations left`)
-                    : (orUnlimited ? 'Unlimited' : `${orLeft} messages left`)}
+              <span className="btn-pill flex-1 min-w-0">
+                <Shield />
+                <span className="truncate">
+                  {usageLoading ? <span aria-hidden="true" className="inline-block w-12 h-3 rounded bg-current opacity-20 animate-pulse align-middle" /> : isLI
+                    ? (liUnlimited ? 'Unlimited' : `${liLeft} left`)
+                    : (orUnlimited ? 'Unlimited' : `${orLeft} left`)}
                 </span>
-              </div>
-              <SeeExampleButton serviceId="career-tools" className="!px-3 !py-2 !text-[12px] !font-semibold flex-shrink-0" />
+              </span>
+              <SeeExampleButton serviceId="career-tools" className="flex-shrink-0" />
             </div>
             <ToolTabs active={activeTool} setActive={handleToolChange} /> {/* ← handleToolChange */}
           </div>
@@ -819,7 +824,8 @@ export default function CareerToolsPage() {
           </div>
         </div>
         <div className="w-[70%] flex-shrink-0 overflow-y-auto glass-scrollbar">
-          <div className="p-6 space-y-3">
+          {/* min-h-full so the empty state centres in the panel, not its top */}
+          <div className="p-6 space-y-3 min-h-full flex flex-col [&>*:only-child]:flex-1">
             {isLI ? (
               renderLIResults() || <EmptyState icon={Linkedin} title="Results appear here" sub="Paste your current headline or about section on the left and click Optimise." />
             ) : (

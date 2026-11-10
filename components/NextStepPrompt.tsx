@@ -461,12 +461,12 @@ export default function NextStepPrompt({
               </div>
               <div className="mt-4 flex items-center gap-3">
                 <span className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-[12px] font-bold text-white transition-all duration-150 group-hover:-translate-y-0.5 group-hover:shadow-lg ${
-                  primary.accentColor === 'text-violet-400' ? 'bg-gradient-to-r from-violet-600 to-indigo-600 shadow-violet-500/20' :
-                  primary.accentColor === 'text-emerald-400' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 shadow-emerald-500/20' :
-                  primary.accentColor === 'text-indigo-400'  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 shadow-indigo-500/20' :
-                  primary.accentColor === 'text-blue-400'    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 shadow-blue-500/20' :
-                  primary.accentColor === 'text-amber-400'   ? 'bg-gradient-to-r from-amber-600 to-orange-600 shadow-amber-500/20' :
-                  'bg-gradient-to-r from-purple-600 to-indigo-600 shadow-purple-500/20'
+                  primary.accentColor === 'text-violet-400' ? 'bg-[var(--accent)] ' :
+                  primary.accentColor === 'text-emerald-400' ? 'bg-emerald-600 ' :
+                  primary.accentColor === 'text-indigo-400'  ? 'bg-[var(--accent)] ' :
+                  primary.accentColor === 'text-blue-400'    ? 'bg-[var(--accent)] ' :
+                  primary.accentColor === 'text-amber-400'   ? 'bg-gradient-to-r from-amber-600 to-orange-600 ' :
+                  'bg-[var(--accent)] '
                 }`}>
                   {primary.cta} <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                 </span>

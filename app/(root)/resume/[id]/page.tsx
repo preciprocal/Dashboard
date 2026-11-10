@@ -1,4 +1,5 @@
 'use client';
+import { Breadcrumbs } from '@/components/PageHeader';
 
 import { isSupabaseStoragePath } from '@/lib/resume/resolve-pdf-url';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -79,7 +80,7 @@ function DetailedAnalysisSection({ title, description, score, tips, icon }: { ti
   return (
     <div className="glass-card overflow-hidden">
       <button onClick={() => setExpanded(!expanded)} className="w-full p-4 sm:p-5 flex items-center gap-4 text-left cursor-pointer hover:bg-white/[0.02] transition-colors">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-glass ${score >= 80 ? 'gradient-success' : score >= 60 ? 'gradient-warning' : 'gradient-secondary'}`}>{icon}</div>
+        <div className="w-10 h-10 rounded-[10px] flex items-center justify-center flex-shrink-0 bg-[var(--accent-subtle)] border border-[var(--accent-border)]">{icon}</div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2 mb-1">
             <h3 className="text-sm font-semibold text-white truncate">{title}</h3>
@@ -405,7 +406,7 @@ export default function ResumeDetailsPage() {
         if (!data) { setError('Resume not found'); setResume(null); }
         else if (user && data.userId !== user.id) { setError('Access denied'); setResume(null); }
         else { setResume(data); if (data.imagePath) setImageUrl(data.imagePath); }
-        setLoadingStep(4); await new Promise(r => setTimeout(r, 150));
+        setLoadingStep(4);
       } catch { setError('Failed to load resume'); setResume(null); }
       finally { setLoadingResume(false); }
     };
@@ -515,7 +516,7 @@ export default function ResumeDetailsPage() {
 
   const TabBar = ({ size = 'md' }: { size?: 'sm' | 'md' }) => (
     <div className="flex gap-1 p-1 glass-card">
-      {tabs.map(tab => <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl font-medium transition-all cursor-pointer ${size === 'sm' ? 'py-2 px-2 text-xs' : 'py-2.5 px-3 text-sm'} ${activeTab === tab.id ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-white/[0.05]'}`}><tab.icon className={size === 'sm' ? 'w-3.5 h-3.5' : 'w-4 h-4'} />{tab.label}</button>)}
+      {tabs.map(tab => <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl font-medium transition-all cursor-pointer ${size === 'sm' ? 'py-2 px-2 text-xs' : 'py-2.5 px-3 text-sm'} ${activeTab === tab.id ? 'bg-[var(--accent)] text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-white/[0.05]'}`}><tab.icon className={size === 'sm' ? 'w-3.5 h-3.5' : 'w-4 h-4'} />{tab.label}</button>)}
     </div>
   );
 
@@ -568,10 +569,10 @@ export default function ResumeDetailsPage() {
       {/* ═════ MOBILE ═════ */}
       <div className="lg:hidden px-4 py-5 space-y-4">
         <div className="glass-card p-4">
-          <Link href="/resume" className="inline-flex items-center text-xs text-slate-400 hover:text-white transition-colors mb-4"><ArrowLeft className="w-3.5 h-3.5 mr-1.5" /> All Resumes</Link>
+          <Breadcrumbs crumbs={[{ label: 'Home', href: '/' }, { label: 'Resume', href: '/resume' }, { label: resume.fileName || 'Analysis' }]} />
           <div className="flex items-start justify-between gap-3 mb-3">
-            <div><h1 className="text-xl font-bold text-white mb-0.5">Resume Analysis</h1><p className="text-slate-400 text-xs">AI-powered evaluation</p></div>
-            <SeeExampleButton serviceId="resume" className="!px-3 !py-2 !rounded-lg !text-xs flex-shrink-0" initialTab={activeTab as ResumeInitialTab} />
+            <div className="min-w-0"><h1 className="text-[20px] font-semibold text-white tracking-tight truncate">{resume.fileName || 'Resume Analysis'}</h1><p className="text-[13px] text-slate-400 mt-0.5">AI evaluation</p></div>
+            <SeeExampleButton serviceId="resume" className="flex-shrink-0" initialTab={activeTab as ResumeInitialTab} />
           </div>
           <MetaBadge />
         </div>
@@ -609,7 +610,7 @@ export default function ResumeDetailsPage() {
       <div className="hidden lg:flex fixed inset-0 lg:left-64 top-[73px] overflow-hidden">
         {/* Left column */}
         <div className="w-[42%] flex-shrink-0 h-full p-4 pr-2">
-          <div className="glass-card h-full overflow-hidden" style={{ maxHeight: 'calc(100vh - 73px)' }}>
+          <div className="glass-card h-full overflow-hidden" style={{ maxHeight: 'calc(100dvh - 113px)' }}>
             {activeTab === 'writer' ? (
               isLoadingEditor ? <div className="h-full flex flex-col items-center justify-center gap-3 text-slate-500"><Loader2 className="w-6 h-6 animate-spin text-indigo-400" /><p className="text-xs">Converting PDF…</p></div>
                 : <InlineResumeEditor resumeId={resume.id} initialHtml={editorHtml} onContentChange={setEditorHtml} highlightText={highlightText} />
@@ -619,13 +620,13 @@ export default function ResumeDetailsPage() {
         </div>
 
         {/* Right column */}
-        <div className="flex-1 flex flex-col overflow-hidden" style={{ maxHeight: 'calc(100vh - 73px)' }}>
+        <div className="flex-1 flex flex-col overflow-hidden" style={{ maxHeight: 'calc(100dvh - 113px)' }}>
           <div className="flex-shrink-0 p-4 pl-2 pb-0 space-y-3">
             <div className="glass-card p-5">
-              <Link href="/resume" className="inline-flex items-center text-xs text-slate-400 hover:text-white transition-colors mb-4"><ArrowLeft className="w-3.5 h-3.5 mr-1.5" /> All Resumes</Link>
+              <Breadcrumbs crumbs={[{ label: 'Home', href: '/' }, { label: 'Resume', href: '/resume' }, { label: resume.fileName || 'Analysis' }]} />
               <div className="flex items-start justify-between gap-3 mb-3">
-                <div><h1 className="text-xl font-bold text-white mb-0.5">{resume.fileName || 'Resume Analysis'}</h1><p className="text-slate-400 text-xs">AI-powered evaluation</p></div>
-                <SeeExampleButton serviceId="resume" className="!px-4 !py-2.5 !rounded-lg !text-sm flex-shrink-0" initialTab={activeTab as ResumeInitialTab} />
+                <div className="min-w-0"><h1 className="text-[20px] font-semibold text-white tracking-tight truncate">{resume.fileName || 'Resume Analysis'}</h1><p className="text-[13px] text-slate-400 mt-0.5">AI evaluation</p></div>
+                <SeeExampleButton serviceId="resume" className="flex-shrink-0" initialTab={activeTab as ResumeInitialTab} />
               </div>
               <MetaBadge />
             </div>

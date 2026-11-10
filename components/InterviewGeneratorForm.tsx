@@ -14,6 +14,10 @@ interface InterviewGeneratorFormProps {
   /** Pre-fill from a link, e.g. "Practise for this screen" in a coaching email. */
   initialRole?: string;
   initialType?: "behavioural" | "technical" | "mixed";
+  /** The posting, when practising for a tracked application. */
+  initialJobDescription?: string;
+  /** A tracked application to practise for. The server reads its company and stage itself. */
+  applicationId?: string;
 }
 
 interface FormData {
@@ -41,17 +45,13 @@ interface APIResponse {
 
 // ─── Shared input style ───────────────────────────────────────────────────────
 
-const inp = [
-  'w-full px-3 py-2.5 rounded-xl text-[13px] text-white',
-  'bg-white/[0.04] border border-white/[0.08]',
-  'placeholder-slate-600',
-  'focus:outline-none focus:ring-1 focus:ring-purple-500/40 focus:border-purple-500/40',
-  'transition-all duration-150',
-].join(' ');
+// Shared form-control size and style (globals.css .field), so every input,
+// select and textarea on this page matches the rest of the app.
+const inp = 'field';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function InterviewGeneratorForm({ userId, initialRole, initialType }: InterviewGeneratorFormProps) {
+export default function InterviewGeneratorForm({ userId, initialRole, initialType, initialJobDescription, applicationId }: InterviewGeneratorFormProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   // `userId` above is the legacy-resolved id (server-passed, correct for the
@@ -69,7 +69,7 @@ export default function InterviewGeneratorForm({ userId, initialRole, initialTyp
   const [showTypeMenu,     setShowTypeMenu]     = useState(false);
 
   const [formData, setFormData] = useState<FormData>({
-    role: initialRole ?? '', level: 'mid', type: initialType ?? 'technical', amount: 5, techstack: '', jobDescription: '',
+    role: initialRole ?? '', level: 'mid', type: initialType ?? 'technical', amount: 5, techstack: '', jobDescription: initialJobDescription ?? '',
   });
 
   const { canUseFeature } = useUsageTracking();
@@ -173,13 +173,13 @@ export default function InterviewGeneratorForm({ userId, initialRole, initialTyp
             body: JSON.stringify({ message: { function_call: { name: 'generate_interview', parameters: {
               role: formData.role, level: formData.level, type: 'technical',
               amount: Math.ceil(formData.amount / 2), techstack: formData.techstack,
-              jobDescription: formData.jobDescription, userid: userId,
+              jobDescription: formData.jobDescription, userid: userId, applicationId,
             }}}}) }),
           fetch('/api/vapi/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ message: { function_call: { name: 'generate_interview', parameters: {
               role: formData.role, level: formData.level, type: 'behavioural',
               amount: Math.floor(formData.amount / 2), techstack: formData.techstack,
-              jobDescription: formData.jobDescription, userid: userId,
+              jobDescription: formData.jobDescription, userid: userId, applicationId,
               skipUsageIncrement: true,
             }}}}) }),
         ]);
@@ -210,7 +210,7 @@ export default function InterviewGeneratorForm({ userId, initialRole, initialTyp
           body: JSON.stringify({ message: { function_call: { name: 'generate_interview', parameters: {
             role: formData.role, level: formData.level, type: formData.type,
             amount: formData.amount, techstack: formData.techstack,
-            jobDescription: formData.jobDescription, userid: userId,
+            jobDescription: formData.jobDescription, userid: userId, applicationId,
           }}}}) });
         if (!res.ok) { const e = await res.json() as APIResponse; throw new Error(e.error || 'Failed to generate interview'); }
         const data = await res.json() as APIResponse;
@@ -301,7 +301,7 @@ export default function InterviewGeneratorForm({ userId, initialRole, initialTyp
               <p className="text-[12px] font-semibold text-slate-400">Paste manually</p>
               {formData.jobDescription.length > 20 && (
                 <button type="button" onClick={handleManualAnalysis} disabled={isAnalyzing}
-                  className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-[11px] font-semibold disabled:opacity-50 transition-all">
+                  className="px-2.5 py-1 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-[11px] font-semibold disabled:opacity-50 transition-all">
                   {isAnalyzing
                     ? <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 border border-current border-t-transparent rounded-full animate-spin" />Analysing…</span>
                     : 'Analyse'}
@@ -461,7 +461,7 @@ export default function InterviewGeneratorForm({ userId, initialRole, initialTyp
       <Button
         onClick={handleSubmit}
         disabled={isGenerating || isProcessingFile || isAnalyzing}
-        className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold py-3 px-6 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_4px_14px_rgba(102,126,234,0.3)] hover:shadow-[0_6px_20px_rgba(102,126,234,0.4)]"
+        className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-semibold py-3 px-6 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all  "
       >
         {isGenerating ? (
           <span className="flex items-center justify-center gap-2.5">

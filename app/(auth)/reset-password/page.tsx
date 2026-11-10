@@ -69,7 +69,7 @@ const ResetPasswordPage = () => {
 
   if (hasSession === null) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950">
+      <div className="min-h-screen flex items-center justify-center bg-[#050810]">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-slate-400">Verifying reset link...</p>
@@ -80,7 +80,7 @@ const ResetPasswordPage = () => {
 
   if (!hasSession) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950 p-8">
+      <div className="min-h-screen flex items-center justify-center bg-[#050810] p-8">
         <div className="max-w-md w-full text-center">
           <div className="mb-8">
             <Image 
@@ -109,7 +109,7 @@ const ResetPasswordPage = () => {
           <div className="space-y-3">
             <Link
               href="/forgot-password"
-              className="block w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+              className="block w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-semibold py-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
             >
               Request new reset link
             </Link>
@@ -126,7 +126,7 @@ const ResetPasswordPage = () => {
   }
 
   return (
-    <div className="min-h-screen flex bg-slate-950">
+    <div className="min-h-screen flex bg-[#050810]">
       {/* Left Side - Branding */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative overflow-hidden">
         {/* Subtle Grid Pattern */}
@@ -217,7 +217,7 @@ const ResetPasswordPage = () => {
       </div>
 
       {/* Right Side - Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-slate-950">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-[#050810]">
         <div className="w-full max-w-md">
           {/* Mobile Logo */}
           <div className="lg:hidden text-center mb-8">
@@ -327,7 +327,7 @@ const ResetPasswordPage = () => {
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-3 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border-0 shadow-lg hover:shadow-xl"
+                className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-semibold py-3 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border-0 shadow-lg hover:shadow-xl"
               >
                 {isLoading ? (
                   <div className="flex items-center justify-center space-x-2">

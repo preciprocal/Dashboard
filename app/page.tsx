@@ -23,10 +23,7 @@ import {
 } from "lucide-react";
 
 import ProfileOverview from "@/components/profile/Overview";
-import {
-  analyzeInterviewPerformance,
-  analyzeResumeData,
-} from "@/lib/ai/ai-recommendations-engine";
+import ExtensionBanner from "@/components/ExtensionBanner";
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -169,11 +166,11 @@ function ReadinessRing({ score }: { score: number }) {
   const circ   = 2 * Math.PI * r;
   const pct    = Math.min(100, Math.max(0, score));
   const offset = circ - (pct / 100) * circ;
-  const color  = pct >= 70 ? '#34d399' : pct >= 40 ? '#f59e0b' : '#f87171';
-  const label  = pct >= 70 ? 'Ready' : pct >= 40 ? 'In Progress' : 'Getting Started';
+  const color  = pct >= 70 ? '#34d399' : pct >= 40 ? '#f59e0b' : '#818cf8';
+  const label  = pct >= 70 ? 'Ready' : pct >= 40 ? 'In progress' : 'Getting started';
   const bgColor = pct >= 70
     ? 'rgba(52,211,153,0.12)' : pct >= 40
-    ? 'rgba(245,158,11,0.12)' : 'rgba(248,113,113,0.12)';
+    ? 'rgba(245,158,11,0.12)' : 'rgba(129,140,248,0.12)';
 
   return (
     <div className="flex flex-col items-center" role="img" aria-label={`Career readiness score: ${score} out of 100`}>
@@ -197,7 +194,7 @@ function ReadinessRing({ score }: { score: number }) {
       >
         {label}
       </span>
-      <span className="text-[11px] text-slate-500 mt-1">Career Readiness</span>
+      <span className="text-[11px] text-slate-500 mt-1">Career readiness</span>
     </div>
   );
 }
@@ -211,9 +208,9 @@ function StatPill({ label, value, sub, trend }: {
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-[11px] text-slate-500 uppercase tracking-wide font-medium">{label}</span>
+      <span className="text-[10px] text-slate-500 uppercase tracking-[0.14em] font-semibold">{label}</span>
       <div className="flex items-baseline gap-1">
-        <span className="text-white font-bold text-xl leading-none">{value}</span>
+        <span className="text-white font-semibold text-xl leading-none tabular-nums">{value}</span>
         {sub && <span className="text-slate-500 text-xs">{sub}</span>}
       </div>
       {trend !== undefined && (
@@ -257,11 +254,11 @@ function MetricCard({ icon: Icon, label, value, sub, accentClass, children }: {
   return (
     <div className="glass-card p-4 flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">{label}</span>
-        <Icon className={`w-3.5 h-3.5 ${accentClass} opacity-60`} aria-hidden="true" />
+        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.14em]">{label}</span>
+        <Icon className={`w-3.5 h-3.5 ${accentClass} opacity-70`} aria-hidden="true" strokeWidth={1.75} />
       </div>
       <div className="flex items-baseline gap-1.5">
-        <span className={`text-2xl font-bold leading-none ${accentClass}`}>{value}</span>
+        <span className={`text-2xl font-semibold leading-none tabular-nums ${accentClass}`}>{value}</span>
         {sub && <span className="text-slate-500 text-[11px]">{sub}</span>}
       </div>
       {children}
@@ -280,14 +277,14 @@ function ActionCard({ icon: Icon, label, description, href, primary }: {
   return (
     <Link
       href={href}
-      className={`group flex items-center gap-3 p-4 rounded-xl border transition-all duration-200 hover-lift
+      className={`group flex items-center gap-3 p-4 rounded-2xl border transition-all duration-200 hover:-translate-y-0.5
         ${primary
-          ? 'gradient-primary border-indigo-500/30 shadow-glass hover:shadow-glass-lg'
-          : 'glass-card'}`}
+          ? 'gradient-primary border-white/10  '
+          : 'glass-card hover:border-white/[0.12]'}`}
     >
       <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0
         ${primary ? 'bg-white/15' : 'bg-white/[0.05]'}`}>
-        <Icon className={`w-4 h-4 ${primary ? 'text-white' : 'text-slate-400'}`} aria-hidden="true" />
+        <Icon className={`w-4 h-4 ${primary ? 'text-white' : 'text-slate-300'}`} aria-hidden="true" strokeWidth={1.75} />
       </div>
       <div className="flex-1 min-w-0">
         <p className={`text-sm font-semibold ${primary ? 'text-white' : 'text-slate-200'}`}>{label}</p>
@@ -323,7 +320,7 @@ export default function Dashboard() {
     try {
       const { PlannerService } = await import('@/lib/services/planner-services');
       const plans     = await PlannerService.getUserPlans(userId);
-      const statsData = await PlannerService.getUserPlanStats(userId);
+      const statsData = await PlannerService.getUserPlanStats(userId, plans);
 
       const activePlansList = plans
         .filter((p: { status: string; progress: { percentage: number } }) =>
@@ -370,17 +367,23 @@ export default function Dashboard() {
   };
 
   // ── Data fetch ─────────────────────────────────────────────────────────────
+  // Everything the dashboard needs is independent, so it is requested at once
+  // rather than one call after another (measured ~1.7s that way), and interview
+  // feedback comes back in one batch request instead of one server action per
+  // interview, which Next runs one at a time (~240ms each).
   useEffect(() => {
     const fetchUserData = async () => {
       try {
         setIsLoading(true);
-        const { supabase }                                       = await import('@/supabase/client');
-        const { getClientUser }                                  = await import('@/lib/auth/client-user');
-        const { ResumeService }                               = await import('@/lib/services/resume-service');
-        const { getInterviewsByUserId, getFeedbackByInterviewId } = await import('@/lib/actions/general.action');
+        const [{ supabase }, { getClientUser }, { ResumeService }, { getInterviewsByUserId }] = await Promise.all([
+          import('@/supabase/client'),
+          import('@/lib/auth/client-user'),
+          import('@/lib/services/resume-service'),
+          import('@/lib/actions/general.action'),
+        ]);
 
-        // Never hangs, and falls back to the browser's session when Supabase
-        // is slow (lib/auth/client-user.ts).
+        // Never hangs, falls back to the browser's session when Supabase is
+        // slow, and is shared with every other caller on the page.
         const { user: currentUser } = await getClientUser();
 
         if (!currentUser) {
@@ -389,9 +392,22 @@ export default function Dashboard() {
           return;
         }
 
-        // The profile's name first: it is what Settings edits and the sidebar
-        // shows. The sign-in metadata name was used here and could drift.
-        const { data: prof } = await supabase.from('profiles').select('name').eq('user_id', currentUser.id).maybeSingle();
+        type RawInterview = {
+          id: string;
+          createdAt: { toDate?: () => Date } | string | Date;
+          updatedAt?: { toDate?: () => Date } | string | Date;
+          [key: string]: unknown;
+        };
+
+        const [profRes, resumesRes, plannerRes, interviewsRes] = await Promise.allSettled([
+          // The profile's name: it is what Settings edits and the sidebar shows.
+          supabase.from('profiles').select('name').eq('user_id', currentUser.id).maybeSingle(),
+          ResumeService.getUserResumes(currentUser.id) as unknown as Promise<Resume[]>,
+          fetchPlannerStats(currentUser.id),
+          getInterviewsByUserId(currentUser.id) as Promise<unknown[] | null>,
+        ]);
+
+        const prof = profRes.status === 'fulfilled' ? profRes.value.data : null;
         setUserProfile({
           id: currentUser.id,
           name: (prof?.name as string | undefined)?.trim() || (currentUser.user_metadata?.name as string) || (currentUser.user_metadata?.full_name as string) || 'User',
@@ -406,38 +422,20 @@ export default function Dashboard() {
           location: '',
         });
 
-        let userResumes: Resume[] = [];
-        try {
-          userResumes = await ResumeService.getUserResumes(currentUser.id) as unknown as Resume[];
-          setResumes(userResumes);
-        } catch { /* non-fatal */ }
-
-        let plannerStats: PlannerStats | undefined;
-        try {
-          plannerStats = await fetchPlannerStats(currentUser.id);
-        } catch { /* non-fatal */ }
-
-        // Non-fatal like the rest: without interviews the dashboard still
-        // shows resumes and plans instead of an error card.
-        let userInterviews: unknown[] = [];
-        try {
-          userInterviews = (await getInterviewsByUserId(currentUser.id) as unknown[] | null) ?? [];
-        } catch (e) {
-          if ((await import('@/lib/auth/client-user')).reloadIfStaleBuild(e)) return;
-          console.error('Dashboard interviews fetch failed:', e);
+        // Each part is non-fatal: without one, the dashboard still shows the rest.
+        const userResumes = resumesRes.status === 'fulfilled' ? resumesRes.value : [];
+        setResumes(userResumes);
+        const plannerStats = plannerRes.status === 'fulfilled' ? plannerRes.value : undefined;
+        if (interviewsRes.status === 'rejected') {
+          if ((await import('@/lib/auth/client-user')).reloadIfStaleBuild(interviewsRes.reason)) return;
+          console.error('Dashboard interviews fetch failed:', interviewsRes.reason);
         }
-        if (!userInterviews?.length) {
+        const userInterviews = interviewsRes.status === 'fulfilled' ? (interviewsRes.value ?? []) : [];
+
+        if (!userInterviews.length) {
           setStats(calculateStats([], userResumes, plannerStats));
-          setIsLoading(false);
           return;
         }
-
-        type RawInterview = {
-          id: string;
-          createdAt: { toDate?: () => Date } | string | Date;
-          updatedAt?: { toDate?: () => Date } | string | Date;
-          [key: string]: unknown;
-        };
 
         const withDates = (userInterviews as RawInterview[]).map(i => ({
           ...i,
@@ -445,20 +443,27 @@ export default function Dashboard() {
           updatedAt: (i.updatedAt as { toDate?: () => Date } | undefined)?.toDate?.() ?? new Date((i.updatedAt ?? i.createdAt) as string),
         }));
 
-        const withFeedback = await Promise.all(
-          withDates.map(async i => {
-            try {
-              const fb = await getFeedbackByInterviewId({ interviewId: i.id, userId: currentUser.id });
-              return fb ? { ...i, feedback: fb, score: (fb as { totalScore?: number }).totalScore || 0 } : i;
-            } catch { return i; }
-          })
-        );
+        let withFeedback: unknown[] = withDates;
+        try {
+          const batchRes = await fetch('/api/feedback/batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ interviews: withDates }),
+          });
+          if (batchRes.ok) {
+            const { interviews: batch } = await batchRes.json() as { interviews: RawInterview[] };
+            const toDate = (v: RawInterview['createdAt'] | undefined, fallback: Date) =>
+              v ? ((v as { toDate?: () => Date }).toDate?.() ?? new Date(v as string)) : fallback;
+            withFeedback = batch.map(i => {
+              const createdAt = toDate(i.createdAt, new Date());
+              return { ...i, createdAt, updatedAt: toDate(i.updatedAt, createdAt) };
+            });
+          }
+        } catch { /* feedback is optional: show the interviews without scores */ }
 
         const typedInterviews = withFeedback as unknown as Interview[];
         setInterviews(typedInterviews);
         setStats(calculateStats(typedInterviews, userResumes, plannerStats));
-        analyzeInterviewPerformance(typedInterviews);
-        analyzeResumeData(userResumes);
       } catch (err) {
         if ((await import('@/lib/auth/client-user')).reloadIfStaleBuild(err)) return;
         console.error('Dashboard fetch error:', err);
@@ -725,19 +730,19 @@ export default function Dashboard() {
               <div className="relative flex-shrink-0">
                 <div
                   className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center
-                             text-white font-bold text-base shadow-[0_4px_16px_rgba(102,126,234,0.35)]"
+                             text-white font-semibold text-base "
                   aria-hidden="true"
                 >
                   {userProfile.name.charAt(0).toUpperCase()}
                 </div>
                 <span
-                  className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-[1.5px] border-[#090d1a]"
+                  className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-[1.5px] border-[#070a14]"
                   aria-hidden="true"
                 />
               </div>
               <div>
-                <h1 className="text-base sm:text-lg font-bold text-white leading-tight">
-                  {getGreeting()}, {userProfile.name.split(' ')[0]} 👋
+                <h1 className="text-lg sm:text-xl font-semibold text-white leading-tight tracking-tight">
+                  {getGreeting()}, {userProfile.name.split(' ')[0]}
                 </h1>
                 <p className="text-xs text-slate-500 mt-0.5">
                   {currentTime.toLocaleDateString('en-US', {
@@ -756,9 +761,9 @@ export default function Dashboard() {
                 <span className="flex-1 leading-snug">{nudge.text}</span>
                 <Link
                   href={nudge.href}
-                  className="ml-2 text-xs font-semibold whitespace-nowrap opacity-80 hover:opacity-100 underline underline-offset-2 transition-opacity"
+                  className="ml-2 inline-flex items-center gap-0.5 text-xs font-semibold whitespace-nowrap opacity-90 hover:opacity-100 transition-opacity"
                 >
-                  {nudge.cta} →
+                  {nudge.cta} <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
                 </Link>
               </div>
             )}
@@ -778,6 +783,8 @@ export default function Dashboard() {
         </div>
       </div>
 
+      <ExtensionBanner />
+
       {/* ── Quick actions ─────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 animate-fade-in-up" style={{ animationDelay: '60ms' }}>
         <ActionCard icon={Plus}     label="Start Interview"   description="AI mock session, any role"  href="/interview" primary />
@@ -794,7 +801,8 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* ── Metric row ────────────────────────────────── */}
+      {/* ── Metric row (hidden until there is something to measure) ── */}
+      {(hasResume || hasInterviews || !!stats.plannerStats?.currentPlan) && (
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 animate-fade-in-up" style={{ animationDelay: '120ms' }}>
 
         <MetricCard
@@ -864,9 +872,10 @@ export default function Dashboard() {
           </MetricCard>
         )}
       </div>
+      )}
 
-      {/* ── Profile overview ──────────────────────────── */}
-      <div className="glass-card p-5 sm:p-6 animate-fade-in-up" style={{ animationDelay: '180ms' }}>
+      {/* ── Today's focus + recent sessions ───────────── */}
+      <div className="flex flex-col animate-fade-in-up" style={{ animationDelay: '180ms' }}>
         <ProfileOverview
           userProfile={userProfile}
           stats={stats}

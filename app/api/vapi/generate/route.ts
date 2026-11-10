@@ -6,13 +6,16 @@ import { getAuthedUser } from "@/lib/auth/verify-request";
 import { checkUsage, checkAndIncrementUsage } from "@/lib/ai/usage-guard";
 import { getRandomInterviewCover } from "@/lib/utils";
 import { getUserAIContext, buildUserContextPrompt } from "@/lib/ai/user-context";
+import { loadPracticeApplication, loadOwnDebriefQuestions, practicePrompt, type PracticeApplication } from "@/lib/interview/practice-context";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 interface FunctionCall { name: string; parameters: GenerateInterviewParams; }
 interface Message { function_call?: FunctionCall; }
 interface VapiRequest { message: Message; }
-interface GenerateInterviewParams { role: string; level: string; type: 'technical' | 'behavioural' | 'mixed' | 'system-design'; techstack: string | string[]; amount: number; jobDescription?: string; skipUsageIncrement?: boolean; }
+interface GenerateInterviewParams { role: string; level: string; type: 'technical' | 'behavioural' | 'mixed' | 'system-design'; techstack: string | string[]; amount: number; jobDescription?: string; skipUsageIncrement?: boolean;
+  /** Practise for this tracked application: its company, stage and posting. Loaded server-side, owner only. */
+  applicationId?: string; }
 
 function parseQuestionsFromResponse(response: string): string[] {
   try {
@@ -105,7 +108,21 @@ export async function POST(req: NextRequest) {
 
     switch (name) {
       case "generate_interview": {
-        const { role, level, type, techstack, amount, jobDescription, skipUsageIncrement } = parameters;
+        const { role, level, type, techstack, amount, skipUsageIncrement, applicationId } = parameters;
+        let { jobDescription } = parameters;
+
+        // A specific application: read it ourselves rather than trusting the
+        // client's company or stage, and only if it belongs to this user.
+        let practiceApp: PracticeApplication | null = null;
+        let practiceContext = '';
+        if (typeof applicationId === 'string' && applicationId) {
+          practiceApp = await loadPracticeApplication(supabaseUserId, applicationId);
+          if (practiceApp) {
+            if (!jobDescription?.trim() && practiceApp.jobDescription) jobDescription = practiceApp.jobDescription;
+            const debriefQs = await loadOwnDebriefQuestions(supabaseUserId, practiceApp.company);
+            practiceContext = practicePrompt(practiceApp, debriefQs);
+          }
+        }
         const techstackString = Array.isArray(techstack) ? techstack.join(", ") : techstack;
 
         // ── Fetch user context for personalised questions ──
@@ -122,6 +139,7 @@ export async function POST(req: NextRequest) {
         if (jobDescription) {
           userContextPrompt += `\nJOB DESCRIPTION:\n${jobDescription.substring(0, 2000)}\n`;
         }
+        if (practiceContext) userContextPrompt += `\n${practiceContext}\n`;
 
         let technicalQuestions: string[] = [];
         let behavioralQuestions: string[] = [];
@@ -197,6 +215,8 @@ export async function POST(req: NextRequest) {
             role: interview.role,
             type: interview.type,
             level: interview.level,
+            // The voice interviewer introduces itself as working here.
+            company: practiceApp?.company || null,
             techstack: interview.techstack,
             finalized: interview.finalized,
             questions: interview.questions,
@@ -206,6 +226,7 @@ export async function POST(req: NextRequest) {
               questionCounts: interview.questionCounts,
               interviewMetadata: interview.interviewMetadata,
               coverImage: interview.coverImage,
+              ...(practiceApp ? { applicationId: practiceApp.id, stage: practiceApp.status } : {}),
             },
           })
           .select("id")

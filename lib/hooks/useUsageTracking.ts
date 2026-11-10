@@ -1,7 +1,7 @@
 // lib/hooks/useUsageTracking.ts
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback } from 'react';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import {
   FeatureType,
@@ -68,6 +68,32 @@ const DEFAULT_USAGE: UsageData = {
   plan: 'free',
 };
 
+// ─── Shared cache ─────────────────────────────────────────────────────────────
+//
+// One copy of the user's usage for the life of the page, shared by every
+// component that calls the hook. Moving between pages used to start each one
+// from "no data", which rendered "0 left" and the limit-reached gate for a
+// moment before the real numbers arrived.
+
+let usageCache: { userId: string; data: UsageData } | null = null;
+let inflight: { userId: string; promise: Promise<UsageData> } | null = null;
+
+function requestUsage(userId: string, fresh: boolean): Promise<UsageData> {
+  // Mounts share one request; a refetch after an action must not reuse a
+  // request that started before the server counted that action.
+  if (!fresh && inflight?.userId === userId) return inflight.promise;
+  const promise = fetch('/api/usage').then(async res => {
+    if (!res.ok) throw new Error(`Usage fetch failed: ${res.status}`);
+    const data = await res.json();
+    const usage: UsageData = { ...data.usage, plan: data.plan || 'free' };
+    usageCache = { userId, data: usage };
+    return usage;
+  });
+  inflight = { userId, promise };
+  promise.catch(() => {}).finally(() => { if (inflight?.promise === promise) inflight = null; });
+  return promise;
+}
+
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 //
 // Reads the current month's usage from Postgres via GET /api/usage. Actual
@@ -75,44 +101,53 @@ const DEFAULT_USAGE: UsageData = {
 // route performs the gated action, so this hook is read-only - callers
 // should invoke `refetch()` after their own request succeeds to pick up the
 // server-side increment, rather than incrementing anything client-side.
+//
+// `loading` is true only while the numbers are genuinely unknown: auth still
+// resolving, or the first fetch for this user. A refetch keeps the numbers on
+// screen and updates them in place instead of going back to loading.
+
+const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 export function useUsageTracking(): UsageTrackingResult {
-  const [user] = useSupabaseUser();
-  const [loading, setLoading] = useState(true);
+  const [user, authLoading] = useSupabaseUser();
+  const userId = user?.id ?? null;
+  // Same as the server first (no data), then the shared cache before paint:
+  // reading it into useState directly broke hydration under <Suspense>.
   const [usageData, setUsageData] = useState<UsageData | null>(null);
+  useIsoLayoutEffect(() => {
+    if (userId && usageCache?.userId === userId) setUsageData(prev => prev ?? usageCache!.data);
+  }, [userId]);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchUsageData = useCallback(async () => {
-    if (!user) {
-      setLoading(false);
+  const fetchUsageData = useCallback(async (fresh: boolean) => {
+    if (!userId) {
       setUsageData(null);
       return;
     }
+    if (usageCache?.userId === userId) setUsageData(prev => prev ?? usageCache!.data);
 
     try {
-      setLoading(true);
       setError(null);
-
-      const res = await fetch('/api/usage');
-      if (!res.ok) throw new Error(`Usage fetch failed: ${res.status}`);
-      const data = await res.json();
-
-      setUsageData({ ...data.usage, plan: data.plan || 'free' });
+      setUsageData(await requestUsage(userId, fresh));
     } catch (err) {
       console.error('❌ Error fetching usage data:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch usage data');
-      setUsageData({ ...DEFAULT_USAGE });
-    } finally {
-      setLoading(false);
+      setUsageData(prev => prev ?? { ...DEFAULT_USAGE });
     }
-  }, [user]);
+  }, [userId]);
 
   useEffect(() => {
-    fetchUsageData();
-  }, [fetchUsageData]);
+    if (authLoading) return;
+    fetchUsageData(false);
+  }, [authLoading, fetchUsageData]);
+
+  const loading = usageData === null && (authLoading || userId !== null);
 
   const canUseFeature = useCallback((feature: FeatureType): boolean => {
-    if (!usageData) return false;
+    // Unknown is not the same as used up. Answering false here showed brand
+    // new users the limit-reached gate until their numbers loaded. The
+    // server enforces the real limit on every gated request regardless.
+    if (!usageData) return true;
     const used = usageData[FEATURE_TO_FIELD_MAP[feature]] as number;
     const limit = getFeatureLimit(usageData.plan, feature);
     if (isUnlimited(limit)) return true;
@@ -145,7 +180,7 @@ export function useUsageTracking(): UsageTrackingResult {
   }, [usageData]);
 
   const refetch = useCallback(async () => {
-    await fetchUsageData();
+    await fetchUsageData(true);
   }, [fetchUsageData]);
 
   return {

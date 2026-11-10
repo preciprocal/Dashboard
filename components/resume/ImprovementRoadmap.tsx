@@ -95,7 +95,7 @@ export function ImprovementRoadmap({ roadmap }: ImprovementRoadmapProps) {
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0 ${
                     item.impact === 'high' ? 'bg-gradient-to-r from-red-500 to-red-600' :
                     item.impact === 'medium' ? 'bg-gradient-to-r from-amber-500 to-orange-500' :
-                    'bg-gradient-to-r from-blue-500 to-indigo-500'
+                    'bg-[var(--accent)]'
                   }`}>
                     {item.impact === 'high' ? 'H' : item.impact === 'medium' ? 'M' : 'L'}
                   </div>

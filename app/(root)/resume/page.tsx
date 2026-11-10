@@ -1,4 +1,6 @@
 'use client';
+import PageHeader from '@/components/PageHeader';
+import { FileText as HeaderIcon } from 'lucide-react';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -106,15 +108,12 @@ export default function ResumeDashboard() {
       setResumes(userResumes);
 
       setLoadingStep(2);
-      await new Promise(resolve => setTimeout(resolve, 200));
 
       setLoadingStep(3);
       setStats(calcStats(userResumes));
 
       setLoadingStep(4);
-      await new Promise(resolve => setTimeout(resolve, 150));
       setLoadingStep(5);
-      await new Promise(resolve => setTimeout(resolve, 150));
 
       hasFetched.current = true;
     } catch (err: unknown) {
@@ -252,7 +251,7 @@ export default function ResumeDashboard() {
           <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-white mb-2">Sign in required</h2>
           <p className="text-sm text-slate-500 mb-6">Please sign in to view your resumes</p>
-          <Link href="/sign-in" className="inline-flex items-center justify-center gap-2 w-full px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-sm font-semibold hover:from-indigo-400 hover:to-purple-400 transition-all duration-150">
+          <Link href="/sign-in" className="inline-flex items-center justify-center gap-2 w-full px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white text-sm font-semibold hover:bg-[var(--accent-hover)] transition-all duration-150">
             Go to sign in
           </Link>
         </div>
@@ -263,21 +262,13 @@ export default function ResumeDashboard() {
   return (
     <div className="space-y-4 pt-4">
 
-      {/* Header */}
-      <div className="glass-card p-5">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-bold text-white leading-tight">Resume Analysis</h1>
-            <p className="text-xs text-slate-500 mt-0.5">AI-powered resume optimization</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <SeeExampleButton serviceId="resume" className="!px-4 !py-2.5 !text-sm !font-semibold" />
-            <Link href="/resume/upload" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-400 hover:to-purple-400 text-white text-sm font-semibold shadow-[0_4px_14px_rgba(139,92,246,0.35)] hover:shadow-[0_6px_18px_rgba(139,92,246,0.45)] transition-all duration-200">
-              <Upload className="w-4 h-4" /><span>Upload Resume</span>
-            </Link>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="Resume Analysis" description="AI feedback on every resume you upload" icon={HeaderIcon}
+        actions={<>
+          <SeeExampleButton serviceId="resume" />
+          <Link href="/resume/upload" className="btn-primary"><Upload /> Upload Resume</Link>
+        </>}
+      />
 
       {/* Error banner */}
       {resumesError && (
@@ -384,24 +375,11 @@ export default function ResumeDashboard() {
           <div className="w-16 h-16 bg-white/[0.03] border border-white/[0.07] rounded-2xl flex items-center justify-center mx-auto mb-6"><FileText className="w-7 h-7 text-slate-600" /></div>
           <h3 className="text-xl font-bold text-white mb-2">Welcome to Resume Analysis</h3>
           <p className="text-sm text-slate-500 max-w-md mx-auto mb-8 leading-relaxed">Get AI-powered insights, ATS optimization, and personalized recommendations to improve your resume</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8 max-w-3xl mx-auto">
-            {[
-              { icon: CheckCircle, color: 'blue', label: 'ATS Score' },
-              { icon: Zap, color: 'purple', label: 'AI Analysis' },
-              { icon: CheckCircle, color: 'emerald', label: 'Track Progress' },
-              { icon: Zap, color: 'amber', label: 'Instant Feedback' },
-            ].map(({ icon: Icon, color, label }) => (
-              <div key={label} className="text-center">
-                <div className={`w-10 h-10 bg-${color}-500/10 rounded-lg flex items-center justify-center mx-auto mb-2`}><Icon className={`w-5 h-5 text-${color}-400`} /></div>
-                <p className="text-xs text-slate-500">{label}</p>
-              </div>
-            ))}
-          </div>
           <div className="flex flex-wrap items-center justify-center gap-3">
-            <Link href="/resume/upload" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-400 hover:to-purple-400 text-white text-sm font-semibold shadow-[0_4px_14px_rgba(139,92,246,0.35)] hover:shadow-[0_6px_18px_rgba(139,92,246,0.45)] transition-all duration-200">
+            <Link href="/resume/upload" className="btn-primary">
               <Upload className="w-4 h-4" /><span>Upload Resume</span>
             </Link>
-            <SeeExampleButton serviceId="resume" className="!px-5 !py-2.5 !text-sm !font-semibold" />
+            <SeeExampleButton serviceId="resume" />
           </div>
           <p className="text-xs text-slate-600 mt-4">Supports PDF, DOC, and DOCX formats</p>
         </div>

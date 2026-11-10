@@ -1,4 +1,6 @@
 'use client';
+import PageHeader from '@/components/PageHeader';
+import { Pen as HeaderIcon } from 'lucide-react';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -24,7 +26,19 @@ import NextStepPrompt from '@/components/NextStepPrompt';
 interface CoverLetterMetadata {
   usedResume: boolean;
   responseTime: number;
+  usedWritingSample?: boolean;
 }
+
+/** lib/ai/writing-check.ts, as returned with every letter. */
+interface Authenticity {
+  aiTells: { phrase: string; suggestion: string }[];
+  unsupported: { text: string; kind: 'number' | 'tool' }[];
+  companyMentions: number;
+  verdict: 'ready' | 'review' | 'rework';
+}
+
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
 interface ProfileStatus {
   hasProfile: boolean;
@@ -46,13 +60,9 @@ interface LinkedInJobData {
 
 // ─── Shared input style ───────────────────────────────────────────────────────
 
-const inp = [
-  'w-full px-3 py-2.5 rounded-xl text-sm text-white',
-  'bg-white/[0.04] border border-white/[0.08]',
-  'placeholder-slate-600',
-  'focus:outline-none focus:ring-1 focus:ring-purple-500/40 focus:border-purple-500/40',
-  'transition-all duration-150',
-].join(' ');
+// Shared form-control size and style (globals.css .field), so every input,
+// select and textarea on this page matches the rest of the app.
+const inp = 'field';
 
 // ─── Tips / facts ─────────────────────────────────────────────────────────────
 
@@ -124,10 +134,10 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
               href="/pricing"
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
                          text-sm font-bold text-white
-                         bg-gradient-to-r from-indigo-600 to-purple-600
-                         hover:from-indigo-500 hover:to-purple-500
-                         shadow-[0_4px_20px_rgba(102,126,234,0.3)]
-                         hover:shadow-[0_6px_28px_rgba(102,126,234,0.4)]
+                         bg-[var(--accent)]
+                         hover:bg-[var(--accent-hover)]
+                         
+                         
                          transition-all group"
             >
               Get More
@@ -155,13 +165,45 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
+function AuthenticityPanel({ a, companyName }: { a: Authenticity; companyName: string }) {
+  const head = {
+    ready:  { text: 'Reads like you, and every claim is in your resume', cls: 'text-emerald-400 border-emerald-500/25 bg-emerald-500/[0.05]' },
+    review: { text: 'Worth a quick read before you send it', cls: 'text-amber-300 border-amber-500/25 bg-amber-500/[0.05]' },
+    rework: { text: 'Fix these before sending', cls: 'text-red-300 border-red-500/25 bg-red-500/[0.05]' },
+  }[a.verdict];
+  const numbers = a.unsupported.filter(u => u.kind === 'number');
+  const tools = a.unsupported.filter(u => u.kind === 'tool');
+  return (
+    <div className={`rounded-xl border p-3 ${head.cls}`}>
+      <p className="text-xs font-semibold">{head.text}</p>
+      <ul className="mt-2 space-y-1.5 text-[11px] text-slate-300 leading-relaxed">
+        {numbers.length > 0 && (
+          <li><span className="font-semibold text-red-300">Not in your resume: </span>{numbers.map(n => n.text).join(', ')}. Remove these numbers or add them to your resume if they are true. A recruiter will ask.</li>
+        )}
+        {tools.length > 0 && (
+          <li><span className="font-semibold text-amber-300">Check these tools: </span>{tools.map(t => t.text).join(', ')} {tools.length === 1 ? 'is' : 'are'} not in your resume. Fine if the letter says you want to learn {tools.length === 1 ? 'it' : 'them'}, not if it claims experience.</li>
+        )}
+        {a.aiTells.map(t => (
+          <li key={t.phrase}><span className="font-semibold text-amber-300">Sounds like AI: </span>&ldquo;{t.phrase}&rdquo;. {t.suggestion}</li>
+        ))}
+        {companyName && a.companyMentions === 0 && (
+          <li><span className="font-semibold text-amber-300">Generic: </span>the letter never names {companyName}. Add one line on why this company.</li>
+        )}
+        {a.verdict === 'ready' && (
+          <li>No stock AI phrases, every number and tool is in your own material, and it names the company.</li>
+        )}
+      </ul>
+    </div>
+  );
+}
+
 export default function CoverLetterGeneratorPage() {
   const [user, loading] = useSupabaseUser();
   const searchParams = useSearchParams();
 
   const {
     canUseFeature, getRemainingCount, getUsedCount,
-    getLimit, refetch: refetchUsage,
+    getLimit, refetch: refetchUsage, loading: usageLoading,
   } = useUsageTracking();
   const clUsed  = getUsedCount('coverLetters');
   const clLimit = getLimit('coverLetters');
@@ -183,6 +225,12 @@ export default function CoverLetterGeneratorPage() {
   const [isSaved,         setIsSaved]         = useState(false);
   const [error,           setError]           = useState('');
   const [metadata,        setMetadata]        = useState<CoverLetterMetadata | null>(null);
+  const [authenticity,    setAuthenticity]    = useState<Authenticity | null>(null);
+  // "Write like me": a sample of the user's own writing, kept on their profile.
+  const [writingSample,   setWritingSample]   = useState('');
+  const [savedSample,     setSavedSample]     = useState('');
+  const [showVoice,       setShowVoice]       = useState(false);
+  const [savingSample,    setSavingSample]    = useState(false);
 
   const [profileStatus, setProfileStatus] = useState<ProfileStatus>({
     hasProfile: false, hasResume: false, loading: true,
@@ -271,6 +319,8 @@ export default function CoverLetterGeneratorPage() {
         return;
       }
       const data = await res.json();
+      const sample = data.user?.extendedData?.writingSample;
+      if (typeof sample === 'string') { setWritingSample(sample); setSavedSample(sample); }
       let resumeCount = 0;
       try {
         const rRes = await fetch('/api/resume/list');
@@ -305,7 +355,7 @@ export default function CoverLetterGeneratorPage() {
       setError(`You've used all ${clLimit} cover letters in your plan this month. Upgrade for a higher limit.`);
       return;
     }
-    setIsGenerating(true); setError(''); setGeneratedLetter(''); setMetadata(null); setIsSaved(false);
+    setIsGenerating(true); setError(''); setGeneratedLetter(''); setMetadata(null); setAuthenticity(null); setIsSaved(false);
     setShowNextStep(false); // reset on regenerate
     try {
       const res = await fetch('/api/cover-letter', {
@@ -317,6 +367,7 @@ export default function CoverLetterGeneratorPage() {
       if (data.success && data.coverLetter) {
         setGeneratedLetter(data.coverLetter.content);
         setMetadata(data.metadata || null);
+        setAuthenticity(data.authenticity || null);
         toast.success('Cover letter generated!');
         await refetchUsage();
         setShowFeedback(true);
@@ -409,9 +460,22 @@ export default function CoverLetterGeneratorPage() {
     setShowNextStep(false);
   };
 
-  const convertLinks = (text: string) =>
-    text
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 underline">$1</a>')
+  const saveWritingSample = async () => {
+    setSavingSample(true);
+    try {
+      const res = await fetch('/api/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ writingSample: writingSample.trim().slice(0, 2500) }) });
+      if (!res.ok) throw new Error();
+      setSavedSample(writingSample.trim().slice(0, 2500));
+      toast.success(writingSample.trim() ? 'Saved. Your next letter will match this voice.' : 'Writing sample removed');
+    } catch { toast.error('Could not save your writing sample'); } finally { setSavingSample(false); }
+  };
+
+  // The letter is model output shaped by a job description that can come from
+  // any web page, so it is escaped before any HTML is added. Only http(s)
+  // links become anchors; a "javascript:" href never does.
+  const convertLinks = (raw: string) =>
+    escapeHtml(raw)
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 underline">$1</a>')
       .replace(/(?<!href="|>)(https?:\/\/(?:www\.)?(?:linkedin\.com|github\.com|[a-zA-Z0-9-]+\.[a-zA-Z]{2,})[^\s<]*)/g,
         '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 underline">$1</a>');
 
@@ -423,36 +487,14 @@ export default function CoverLetterGeneratorPage() {
   return (
     <div className="space-y-4 pt-4">
 
-      {/* Header */}
-      <div className="p-5 animate-fade-in-up">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center gap-1.5 bg-blue-500/[0.08] border border-blue-500/20
-                            rounded-full px-3 py-1 mb-2">
-              <Sparkles className="w-3 h-3 text-blue-400" />
-              <span className="text-[11px] font-semibold text-blue-400">AI-Powered</span>
-            </div>
-            <h1 className="text-xl font-bold text-white leading-tight">Cover Letter Generator</h1>
-            <p className="text-xs text-slate-500 mt-0.5">Generate personalised, professional cover letters</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-500/[0.07] border border-indigo-500/20">
-              <Shield className="w-4 h-4 text-indigo-400" />
-              <span className="text-[13px] font-semibold text-indigo-400">
-                {clUnlimited ? 'Unlimited' : `${clLeft} left`}
-              </span>
-            </div>
-            <SeeExampleButton serviceId="cover-letter" className="!px-4 !py-2.5 !text-sm !font-semibold" />
-            <Link href="/cover-letter"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl
-                         bg-white/[0.05] border border-white/[0.08]
-                         text-sm font-semibold text-slate-300
-                         hover:text-white hover:bg-white/[0.08] transition-all">
-              <History className="w-3.5 h-3.5" /> History
-            </Link>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="New Cover Letter" description="A personalised, professional letter for one role" icon={HeaderIcon}
+        actions={<>
+          <span className="btn-pill"><Shield /> {usageLoading ? <span aria-hidden="true" className="inline-block w-10 h-3 rounded bg-current opacity-25 animate-pulse" /> : clUnlimited ? 'Unlimited' : `${clLeft} left`}</span>
+          <SeeExampleButton serviceId="cover-letter" />
+          <Link href="/cover-letter" className="btn-secondary"><History /> History</Link>
+        </>}
+      />
 
       {/* Limit reached */}
       {!canUseFeature('coverLetters') ? (
@@ -551,8 +593,8 @@ export default function CoverLetterGeneratorPage() {
                   </div>
                   <Link href="/profile"
                     className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg
-                               bg-gradient-to-r from-indigo-600 to-purple-600
-                               hover:from-indigo-500 hover:to-purple-500
+                               bg-[var(--accent)]
+                               hover:bg-[var(--accent-hover)]
                                text-xs font-semibold text-white transition-all">
                     <Settings className="w-3 h-3" /> Complete Profile <ArrowRight className="w-3 h-3" />
                   </Link>
@@ -650,6 +692,33 @@ export default function CoverLetterGeneratorPage() {
                       )}
                     </div>
                   </div>
+
+                  {/* Write like me: the letter copies the voice of something the user wrote. */}
+                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.02]">
+                    <button type="button" onClick={() => setShowVoice(v => !v)} aria-expanded={showVoice}
+                      className="w-full flex items-center justify-between px-3 py-2.5 text-left">
+                      <span className="text-xs font-medium text-slate-300">
+                        Write like me {savedSample && <span className="ml-1.5 text-emerald-400 font-normal">on</span>}
+                      </span>
+                      <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform ${showVoice ? 'rotate-180' : ''}`} />
+                    </button>
+                    {showVoice && (
+                      <div className="px-3 pb-3 space-y-2">
+                        <p className="text-[11px] text-slate-500 leading-relaxed">
+                          Paste a few paragraphs you wrote yourself: an email, a post, a past cover letter. Letters will match how you sound. Only the voice is used, never the content.
+                        </p>
+                        <textarea value={writingSample} onChange={e => setWritingSample(e.target.value)} rows={5} maxLength={2500}
+                          placeholder="Something you wrote, in your own words…" className={`${inp} resize-y`} />
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-slate-600">{writingSample.length}/2500</span>
+                          <button type="button" onClick={saveWritingSample} disabled={savingSample || writingSample.trim() === savedSample.trim()}
+                            className="btn-pill disabled:opacity-40">
+                            {savingSample ? 'Saving…' : writingSample.trim() ? 'Save my voice' : 'Remove'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Error */}
@@ -666,10 +735,10 @@ export default function CoverLetterGeneratorPage() {
                 <div className="flex gap-2.5 mt-5">
                   <button onClick={handleGenerate} disabled={isGenerating || !jobRole.trim()}
                     className="flex-1 flex items-center justify-center gap-2 py-2.5 px-5 rounded-xl
-                               bg-gradient-to-r from-indigo-600 to-purple-600
-                               hover:from-indigo-500 hover:to-purple-500
+                               bg-[var(--accent)]
+                               hover:bg-[var(--accent-hover)]
                                text-white text-sm font-semibold
-                               shadow-[0_4px_14px_rgba(102,126,234,0.28)]
+                               
                                transition-all disabled:opacity-40 disabled:cursor-not-allowed">
                     {isGenerating
                       ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating…</>
@@ -732,8 +801,8 @@ export default function CoverLetterGeneratorPage() {
                       {!isSaved ? (
                         <button onClick={handleSave} disabled={isSaving}
                           className="flex items-center gap-2 px-3 py-2 rounded-xl
-                                     bg-gradient-to-r from-indigo-600 to-purple-600
-                                     hover:from-indigo-500 hover:to-purple-500
+                                     bg-[var(--accent)]
+                                     hover:bg-[var(--accent-hover)]
                                      text-white text-xs font-semibold transition-all disabled:opacity-50">
                           {isSaving
                             ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving…</>
@@ -835,6 +904,7 @@ export default function CoverLetterGeneratorPage() {
                         ))}
                       </div>
                     )}
+                    {authenticity && <AuthenticityPanel a={authenticity} companyName={companyName.trim()} />}
                   </div>
                 )}
               </div>

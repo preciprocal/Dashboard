@@ -304,6 +304,7 @@ export async function GET(req: NextRequest) {
             jobTitle: app.job_title || 'the role',
             fromStatus,
             hasResume: Boolean(app.resume_id),
+            id: app.id,
           },
           appliedCount: kind === 'applied' ? Math.max(appliedEvents.length, 1) : 0,
           alsoHappened,

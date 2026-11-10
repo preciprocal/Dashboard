@@ -69,6 +69,8 @@ export interface CoachingApplication {
   /** Status it moved from, null when it was created at this status. */
   fromStatus: string | null;
   hasResume: boolean;
+  /** Lets the practice link open the interview for this application. */
+  id?: string;
 }
 
 export interface CoachingData {
@@ -108,8 +110,11 @@ interface Playbook {
 
 const q = (params: Record<string, string>) => `?${new URLSearchParams(params)}`;
 
-function interviewPath(role: string, type: 'behavioural' | 'technical' | 'mixed'): string {
-  return `/interview/create${q({ role, type })}`;
+function interviewPath(role: string, type: 'behavioural' | 'technical' | 'mixed', applicationId?: string): string {
+  // With the application, practice uses its stage, company and saved posting
+  // (lib/interview/practice-context.ts). role and type stay as the fallback
+  // for an application the page cannot load.
+  return `/interview/create${q({ role, type, ...(applicationId ? { application: applicationId } : {}) })}`;
 }
 
 export function describeEvent(company: string, toStatus: string): string {
@@ -203,7 +208,7 @@ function playbook(d: CoachingData): Playbook {
           },
         ],
         closing: 'Run a practice screen before the call. Saying it out loud prepares you in a way rereading notes does not.',
-        cta: { label: 'Practise for this screen', path: interviewPath(role, 'behavioural') },
+        cta: { label: 'Practise for this screen', path: interviewPath(role, 'behavioural', d.app.id) },
       };
 
     case 'technical':
@@ -237,7 +242,7 @@ function playbook(d: CoachingData): Playbook {
           },
         ],
         closing: 'Do one full technical mock before the day, so the real one is your second time, not your first.',
-        cta: { label: 'Run a technical mock interview', path: interviewPath(role, 'technical') },
+        cta: { label: 'Run a technical mock interview', path: interviewPath(role, 'technical', d.app.id) },
       };
 
     case 'final':
@@ -270,7 +275,7 @@ function playbook(d: CoachingData): Playbook {
           },
         ],
         closing: 'Do one full mock interview before the day, end to end, out loud.',
-        cta: { label: 'Practise for the final round', path: interviewPath(role, 'mixed') },
+        cta: { label: 'Practise for the final round', path: interviewPath(role, 'mixed', d.app.id) },
       };
 
     case 'offer':

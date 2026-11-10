@@ -1,12 +1,14 @@
 // app/planner/create/page.tsx
 'use client';
+import PageHeader from '@/components/PageHeader';
+import { Calendar as HeaderIcon } from 'lucide-react';
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import { SkillLevel } from '@/types/planner';
 import {
-  ArrowLeft, Sparkles, Calendar, Briefcase, Target, TrendingUp,
+  Sparkles, Calendar, Briefcase, Target, TrendingUp,
   Loader2, CheckCircle2, Search, X, Lock, ArrowRight, Shield, History,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -79,7 +81,7 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
           </p>
         </div>
         <Link href="/pricing"
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-sm font-semibold transition-all">
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-semibold transition-all">
           Upgrade to Pro <ArrowRight className="w-4 h-4" />
         </Link>
         <Link href="/planner" className="block text-sm text-slate-500 hover:text-slate-300 transition-colors">
@@ -94,7 +96,7 @@ export default function CreatePlanPage() {
   const [user, loading] = useSupabaseUser();
   const router = useRouter();
 
-  const { canUseFeature, getRemainingCount, getUsedCount, getLimit, refetch: refetchUsage } = useUsageTracking();
+  const { canUseFeature, getRemainingCount, getUsedCount, getLimit, refetch: refetchUsage, loading: usageLoading } = useUsageTracking();
   const plansUsed = getUsedCount('studyPlans');
   const plansLimit = getLimit('studyPlans');
   const plansLeft = getRemainingCount('studyPlans');
@@ -254,14 +256,14 @@ export default function CreatePlanPage() {
         <div className="max-w-md w-full">
           <div className="glass-card p-6 sm:p-8">
             <div className="text-center mb-5 sm:mb-6">
-              <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 mb-3 sm:mb-4">
+              <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-[var(--accent)] mb-3 sm:mb-4">
                 <Sparkles className="w-7 h-7 sm:w-8 sm:h-8 text-white animate-pulse" />
               </div>
               <h2 className="text-lg sm:text-xl font-semibold text-white mb-2">Creating Your Plan</h2>
               <p className="text-slate-400 text-xs sm:text-sm">{PROCESSING_STEPS[currentStep]?.message}</p>
             </div>
             <div className="w-full h-1.5 bg-white/[0.05] rounded-full overflow-hidden mb-5 sm:mb-6">
-              <div className="h-full bg-gradient-to-r from-indigo-600 to-purple-600 transition-all duration-500"
+              <div className="h-full bg-[var(--accent)] transition-all duration-500"
                 style={{ width: `${PROCESSING_STEPS[currentStep]?.progress}%` }} />
             </div>
             <div className="space-y-2 sm:space-y-2.5">
@@ -287,36 +289,16 @@ export default function CreatePlanPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-121px)] flex flex-col overflow-hidden px-4 sm:px-0">
+    <div className="h-[calc(100dvh-113px)] flex flex-col overflow-hidden px-4 sm:px-0">
 
-      {/* Header */}
-      <div className="flex-shrink-0 mb-4 sm:mb-6 pt-4">
-        <Link href="/planner" className="inline-flex items-center text-xs sm:text-sm text-slate-400 hover:text-white mb-3 sm:mb-4 transition-colors">
-          <ArrowLeft className="w-4 h-4 mr-1.5" /> Back to Plans
-        </Link>
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center gap-1.5 bg-indigo-500/[0.08] border border-indigo-500/20 rounded-full px-3 py-1 mb-2">
-              <Sparkles className="w-3 h-3 text-indigo-400" />
-              <span className="text-[11px] font-semibold text-indigo-400">AI-Powered</span>
-            </div>
-            <h1 className="text-xl font-bold text-white leading-tight">Create Preparation Plan</h1>
-            <p className="text-xs text-slate-500 mt-0.5">AI-powered personalized study plan for any goal</p>
-          </div>
-          <div className="flex items-center gap-3 flex-shrink-0">
-            <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-500/[0.07] border border-indigo-500/20">
-              <Shield className="w-4 h-4 text-indigo-400" />
-              <span className="text-[13px] font-semibold text-indigo-400">
-                {plansUnlimited ? 'Unlimited' : `${plansLeft} left`}
-              </span>
-            </div>
-            <Link href="/planner"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.05] border border-white/[0.08] text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/[0.08] transition-all">
-              <History className="w-3.5 h-3.5" /> History
-            </Link>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        className="flex-shrink-0 mb-4"
+        title="New Preparation Plan" description="An AI study plan built around your interview date" icon={HeaderIcon}
+        actions={<>
+          <span className="btn-pill"><Shield /> {usageLoading ? <span aria-hidden="true" className="inline-block w-10 h-3 rounded bg-current opacity-25 animate-pulse" /> : plansUnlimited ? 'Unlimited' : `${plansLeft} left`}</span>
+          <Link href="/planner" className="btn-secondary"><History /> History</Link>
+        </>}
+      />
 
       {/* Form */}
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
@@ -363,7 +345,7 @@ export default function CreatePlanPage() {
                 </div>
                 {formData.interviewDate && (
                   <div className="mt-2 flex items-center gap-3 px-3 py-2.5 bg-indigo-500/[0.06] border border-indigo-500/15 rounded-lg">
-                    <div className="flex-shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                    <div className="flex-shrink-0 w-9 h-9 rounded-full bg-[var(--accent)] flex items-center justify-center shadow-lg ">
                       <Calendar className="w-4 h-4 text-white" />
                     </div>
                     <div className="flex-1">
@@ -388,9 +370,8 @@ export default function CreatePlanPage() {
                 <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
                   {(['beginner', 'intermediate', 'advanced'] as SkillLevel[]).map(level => (
                     <button key={level} type="button" onClick={() => setFormData({ ...formData, skillLevel: level })}
-                      className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg font-medium text-xs sm:text-sm transition-all ${formData.skillLevel === level
-                        ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white'
-                        : 'bg-white/[0.03] text-slate-300 hover:bg-white/[0.06] border border-white/[0.08]'}`}>
+                      aria-pressed={formData.skillLevel === level}
+                      className={`choice ${formData.skillLevel === level ? 'choice-active' : ''}`}>
                       <span className="capitalize">{level}</span>
                     </button>
                   ))}
@@ -436,7 +417,7 @@ export default function CreatePlanPage() {
                       {areas.map(area => (
                         <button key={area} type="button" onClick={() => toggleFocusArea(area)}
                           className={`px-3 py-2 rounded-lg text-xs font-medium transition-all text-left ${formData.focusAreas.includes(area)
-                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                            ? 'bg-indigo-600 text-white shadow-lg '
                             : 'bg-white/[0.03] text-slate-300 hover:bg-white/[0.06] border border-white/[0.08]'}`}>
                           {area}
                         </button>
@@ -491,7 +472,7 @@ export default function CreatePlanPage() {
           )}
 
           <button type="submit" disabled={isGenerating}
-            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-400 hover:to-purple-400 text-white px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base shadow-[0_4px_14px_rgba(139,92,246,0.35)]">
+            className="w-full flex items-center justify-center gap-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base ">
             <Sparkles className="w-4 h-4" />
             <span>Generate Preparation Plan</span>
           </button>

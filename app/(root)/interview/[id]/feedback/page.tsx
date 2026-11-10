@@ -618,7 +618,7 @@ export default async function InterviewFeedbackPage({ params }: Props) {
       {/* Action Center */}
       <div className="glass-card">
         <div className="text-center py-8 sm:py-12 px-4 sm:px-6">
-          <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-6">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 bg-[var(--accent)] rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-6">
             <Lightbulb className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
           </div>
           <h2 className="text-xl sm:text-2xl font-semibold text-white mb-2 sm:mb-3">
@@ -628,13 +628,13 @@ export default async function InterviewFeedbackPage({ params }: Props) {
             Continue your interview preparation journey
           </p>
           <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-3 sm:gap-4">
-            <Button asChild className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base">
+            <Button asChild className="bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-medium px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base">
               <Link href="/interview/create" className="flex items-center gap-2">
                 <Target className="w-4 h-4 sm:w-5 sm:h-5" />
                 Practice More
               </Link>
             </Button>
-            <Button asChild className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-medium px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base">
+            <Button asChild className="bg-emerald-600 hover:from-emerald-700 hover:to-green-700 text-white font-medium px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base">
               <Link href={`/interview/${id}`} className="flex items-center gap-2">
                 <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5" />
                 Retake Interview

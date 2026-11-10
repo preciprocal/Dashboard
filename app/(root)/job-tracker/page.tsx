@@ -1,14 +1,16 @@
 'use client';
+import PageHeader from '@/components/PageHeader';
+import { Briefcase as HeaderIcon } from 'lucide-react';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import {
   Plus, Loader2, Briefcase, Building2, MapPin, Calendar, ExternalLink,
-  Edit3, Trash2, X, Save, ArrowLeft, Search, Filter, ChevronDown,
+  Edit3, Trash2, X, Save, Search, Filter, ChevronDown,
   CheckCircle2, AlertTriangle, DollarSign, Globe, Laptop,
   SlidersHorizontal, CalendarPlus, Sparkles, Mail, UserSearch, Copy,
-  Check, RefreshCw, Linkedin, Shield, ArrowRight,
+  Check, RefreshCw, Linkedin, Shield, ArrowRight, Mic,
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -20,6 +22,8 @@ import { useUsageTracking } from '@/lib/hooks/useUsageTracking';
 import { isUnlimited } from '@/lib/config/usage-limits';
 import { SeeExampleButton } from '@/components/ServiceModal';
 import NextStepPrompt from '@/components/NextStepPrompt'; // ← ADDED
+import FunnelDoctor from '@/components/outcomes/FunnelDoctor';
+import InboundEmailPanel from '@/components/outcomes/InboundEmailPanel';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -31,6 +35,10 @@ interface Application {
   jobUrl: string | null; location: string | null; salary: string | null;
   workType: WorkType; source: string | null; notes: string | null;
   status: AppStatus; appliedDate: string; createdAt: unknown; updatedAt: unknown;
+  /** Which resume was sent, for the "which resume gets interviews" report. */
+  resumeId?: string | null;
+  /** The posting, so "Practise this interview" can build from it. */
+  jobDescription?: string | null;
 }
 
 type AppForm = Omit<Application, 'id' | 'userId' | 'createdAt' | 'updatedAt'>;
@@ -80,15 +88,12 @@ const PIPELINE_STAGES: AppStatus[] = ['wishlist', 'applied', 'phone-screen', 'te
 const EMPTY_FORM: AppForm = {
   company: '', jobTitle: '', jobUrl: null, location: null, salary: null,
   workType: 'onsite', source: null, notes: null, status: 'applied',
-  appliedDate: new Date().toISOString().split('T')[0],
+  appliedDate: new Date().toISOString().split('T')[0], resumeId: null, jobDescription: null,
 };
 
-const inp = [
-  'w-full px-3 py-2.5 rounded-xl text-sm text-white',
-  'bg-white/[0.04] border border-white/[0.08]', 'placeholder-slate-600',
-  'focus:outline-none focus:ring-1 focus:ring-purple-500/40 focus:border-purple-500/40',
-  'transition-all duration-150',
-].join(' ');
+// Shared form-control size and style (globals.css .field), so every input,
+// select and textarea on this page matches the rest of the app.
+const inp = 'field';
 
 // ─── Upgrade Gate ─────────────────────────────────────────────────────────────
 
@@ -147,7 +152,7 @@ function UpgradeGate({ feature }: { feature: 'jobs' | 'contacts' }) {
             <span className="text-sm text-slate-400 leading-snug">{STATS[activeStat].line}</span>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/pricing" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all group bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-[0_4px_20px_rgba(124,58,237,0.3)] hover:shadow-[0_6px_28px_rgba(124,58,237,0.4)]">
+            <Link href="/pricing" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all group bg-[var(--accent)] hover:bg-[var(--accent-hover)]  ">
               Go Unlimited <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </Link>
             <span className="text-[10px] text-slate-600">Cancel anytime · Instant access</span>
@@ -201,9 +206,10 @@ function PipelineFunnel({ apps }: { apps: Application[] }) {
 
 // ─── Form modal ───────────────────────────────────────────────────────────────
 
-interface FormModalProps { form: AppForm; setForm: React.Dispatch<React.SetStateAction<AppForm>>; onSave: () => void; onCancel: () => void; saving: boolean; isEdit: boolean; }
+interface ResumeOption { id: string; fileName: string }
+interface FormModalProps { form: AppForm; setForm: React.Dispatch<React.SetStateAction<AppForm>>; onSave: () => void; onCancel: () => void; saving: boolean; isEdit: boolean; resumes: ResumeOption[]; }
 
-function FormModal({ form, setForm, onSave, onCancel, saving, isEdit }: FormModalProps) {
+function FormModal({ form, setForm, onSave, onCancel, saving, isEdit, resumes }: FormModalProps) {
   const f = (key: keyof AppForm, val: string | null) => setForm(p => ({ ...p, [key]: val || null }));
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -239,11 +245,25 @@ function FormModal({ form, setForm, onSave, onCancel, saving, isEdit }: FormModa
             <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Salary / Range</label><input type="text" value={form.salary || ''} onChange={e => f('salary', e.target.value)} placeholder="e.g. $140k-$170k" className={inp} /></div>
             <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Source</label><input type="text" value={form.source || ''} onChange={e => f('source', e.target.value)} placeholder="e.g. LinkedIn, referral" className={inp} /></div>
           </div>
+          {resumes.length > 0 && (
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1.5">Resume sent</label>
+              <select value={form.resumeId ?? ''} onChange={e => setForm(p => ({ ...p, resumeId: e.target.value || null }))} className={`${inp} appearance-none cursor-pointer`}>
+                <option value="">Not recorded</option>
+                {resumes.map(r => <option key={r.id} value={r.id}>{r.fileName}</option>)}
+              </select>
+              <p className="text-[11px] text-slate-600 mt-1">Lets the funnel show which version of your resume gets interviews.</p>
+            </div>
+          )}
           <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Job URL</label><input type="url" value={form.jobUrl || ''} onChange={e => f('jobUrl', e.target.value)} placeholder="https://…" className={inp} /></div>
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1.5">Job description <span className="text-slate-600 font-normal">(optional)</span></label>
+            <textarea rows={3} value={form.jobDescription || ''} onChange={e => setForm(p => ({ ...p, jobDescription: e.target.value || null }))} placeholder="Paste the posting. Practice interviews for this application will be built from it." className={`${inp} resize-y`} maxLength={12000} />
+          </div>
           <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Notes</label><textarea rows={3} value={form.notes || ''} onChange={e => f('notes', e.target.value)} placeholder="Interview details, recruiter name, key contacts, follow-up dates…" className={`${inp} resize-none`} /></div>
         </div>
         <div className="flex gap-3 px-6 py-4 border-t border-white/[0.06] flex-shrink-0">
-          <button onClick={onSave} disabled={saving || !form.company.trim() || !form.jobTitle.trim()} className="flex-1 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl font-semibold text-sm transition-all shadow-[0_4px_14px_rgba(124,58,237,0.3)] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+          <button onClick={onSave} disabled={saving || !form.company.trim() || !form.jobTitle.trim()} className="flex-1 py-2.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-xl font-semibold text-sm transition-all  disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
             {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</> : <><Save className="w-4 h-4" /> {isEdit ? 'Update' : 'Save Application'}</>}
           </button>
           <button onClick={onCancel} className="px-5 py-2.5 bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.07] text-slate-300 rounded-xl font-semibold text-sm transition-all">Cancel</button>
@@ -312,6 +332,14 @@ function AppCard({ app, onEdit, onDelete, onStatusChange, onCreatePlan, onFindCo
         </div>
         {app.notes && <p className="mt-2.5 text-[11px] text-slate-600 line-clamp-2 border-t border-white/[0.05] pt-2.5 leading-relaxed">{app.notes}</p>}
       </div>
+      {(['phone-screen', 'technical', 'final'] as AppStatus[]).includes(app.status) && (
+        <div className="px-4 pb-2">
+          {/* Practice built from this application's stage, company and saved posting. */}
+          <Link href={`/interview/create?application=${app.id}`} className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-semibold text-emerald-300 bg-emerald-500/[0.07] border border-emerald-500/20 hover:bg-emerald-500/15 hover:border-emerald-500/35 transition-all duration-150">
+            <Mic className="w-3.5 h-3.5" /> Practise this interview
+          </Link>
+        </div>
+      )}
       <div className="px-4 pb-4 grid grid-cols-2 gap-2">
         <button onClick={onFindContacts} className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-semibold text-purple-400 bg-purple-500/[0.07] border border-purple-500/20 hover:bg-purple-500/15 hover:border-purple-500/35 hover:text-purple-300 transition-all duration-150"><UserSearch className="w-3.5 h-3.5" /> Find Contacts</button>
         <button onClick={onCreatePlan} className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-semibold text-violet-400 bg-violet-500/[0.07] border border-violet-500/20 hover:bg-violet-500/15 hover:border-violet-500/35 hover:text-violet-300 transition-all duration-150"><CalendarPlus className="w-3.5 h-3.5" /> Create Plan</button>
@@ -428,7 +456,7 @@ function ContactsModal({ app, onClose, onContactsFound }: { app: Application; on
               <div className="w-12 h-12 bg-white/[0.03] border border-white/[0.07] rounded-2xl flex items-center justify-center mx-auto mb-4"><UserSearch className="w-5 h-5 text-slate-600" /></div>
               <p className="text-base font-bold text-white mb-2">Stop cold-applying. Start warm outreach.</p>
               <p className="text-xs text-slate-500 max-w-xs leading-relaxed mb-6">Find the recruiter, hiring manager, and decision-makers at <span className="text-slate-300 font-semibold">{app.company}</span> and get a personalised email ready to send.</p>
-              <button onClick={() => fetchContacts()} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-sm font-semibold shadow-[0_4px_16px_rgba(102,126,234,0.3)] transition-all duration-200"><UserSearch className="w-4 h-4" /> Find Contacts at {app.company}</button>
+              <button onClick={() => fetchContacts()} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-semibold  transition-all duration-200"><UserSearch className="w-4 h-4" /> Find Contacts at {app.company}</button>
               <button onClick={() => setShowDomainOverride(true)} className="mt-3 text-[11px] text-slate-600 hover:text-slate-400 transition-colors flex items-center gap-1 mx-auto"><Globe className="w-3 h-3" /> Enter domain manually</button>
             </div></div>
           )}
@@ -495,18 +523,18 @@ function CreatePlanModal({ app, onConfirm, onClose }: { app: Application; onConf
       <div className="absolute inset-0 bg-[#090d1a]/85 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-[#0d1526]/98 border border-white/[0.09] rounded-2xl w-full max-w-sm shadow-[0_32px_64px_rgba(0,0,0,0.6)] overflow-hidden">
         <div className="px-5 py-4 border-b border-white/[0.06] flex items-center justify-between">
-          <div className="flex items-center gap-2.5"><div className="w-8 h-8 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-lg flex items-center justify-center"><CalendarPlus className="w-4 h-4 text-white" /></div><div><p className="text-sm font-bold text-white">Create Prep Plan</p><p className="text-[11px] text-slate-500 truncate max-w-[180px]">{app.jobTitle} @ {app.company}</p></div></div>
+          <div className="flex items-center gap-2.5"><div className="w-8 h-8 bg-[var(--accent)] rounded-lg flex items-center justify-center"><CalendarPlus className="w-4 h-4 text-white" /></div><div><p className="text-sm font-bold text-white">Create Prep Plan</p><p className="text-[11px] text-slate-500 truncate max-w-[180px]">{app.jobTitle} @ {app.company}</p></div></div>
           <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-white hover:bg-white/[0.05] transition-all"><X className="w-4 h-4" /></button>
         </div>
         <div className="p-5 space-y-4">
           <p className="text-xs text-slate-500 leading-relaxed">When is your interview? We&apos;ll build a day-by-day plan to get you ready.</p>
           <div className="grid grid-cols-3 gap-2">
-            {PLAN_PRESETS.map(p => (<button key={p.days} type="button" onClick={() => { setSelected(p.days); setCustom(false); }} className={`py-2.5 rounded-xl text-xs font-semibold transition-all border ${!custom && selected === p.days ? 'bg-gradient-to-r from-violet-600 to-indigo-600 border-violet-500 text-white shadow-[0_4px_12px_rgba(124,58,237,0.3)]' : 'bg-white/[0.03] border-white/[0.07] text-slate-500 hover:border-violet-500/40 hover:text-white'}`}>{p.label}</button>))}
-            <button type="button" onClick={() => setCustom(true)} className={`py-2.5 rounded-xl text-xs font-semibold transition-all border ${custom ? 'bg-gradient-to-r from-violet-600 to-indigo-600 border-violet-500 text-white shadow-[0_4px_12px_rgba(124,58,237,0.3)]' : 'bg-white/[0.03] border-white/[0.07] text-slate-500 hover:border-violet-500/40 hover:text-white'}`}>Custom</button>
+            {PLAN_PRESETS.map(p => (<button key={p.days} type="button" onClick={() => { setSelected(p.days); setCustom(false); }} className={`py-2.5 rounded-xl text-xs font-semibold transition-all border ${!custom && selected === p.days ? 'bg-[var(--accent)] border-violet-500 text-white ' : 'bg-white/[0.03] border-white/[0.07] text-slate-500 hover:border-violet-500/40 hover:text-white'}`}>{p.label}</button>))}
+            <button type="button" onClick={() => setCustom(true)} className={`py-2.5 rounded-xl text-xs font-semibold transition-all border ${custom ? 'bg-[var(--accent)] border-violet-500 text-white ' : 'bg-white/[0.03] border-white/[0.07] text-slate-500 hover:border-violet-500/40 hover:text-white'}`}>Custom</button>
           </div>
           {custom && <div><label className="block text-xs text-slate-400 mb-1.5">Days until interview (1-90)</label><input type="number" min={1} max={90} value={customVal} onChange={e => setCustomVal(e.target.value)} className={inp} autoFocus /></div>}
           <div className="flex gap-2 pt-1">
-            <button onClick={handleConfirm} className="flex-1 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-xl font-semibold text-sm transition-all shadow-[0_4px_14px_rgba(124,58,237,0.3)] flex items-center justify-center gap-2"><Sparkles className="w-4 h-4" /> Generate Plan</button>
+            <button onClick={handleConfirm} className="flex-1 py-2.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-xl font-semibold text-sm transition-all  flex items-center justify-center gap-2"><Sparkles className="w-4 h-4" /> Generate Plan</button>
             <button onClick={onClose} className="px-4 py-2.5 bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.07] text-slate-300 rounded-xl font-semibold text-sm transition-all">Cancel</button>
           </div>
         </div>
@@ -523,12 +551,12 @@ function CustomSelect<T extends string>({ value, onChange, options, icon: Icon }
   const active = options.find(o => o.value === value);
   useEffect(() => { if (!open) return; const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); }; document.addEventListener('mousedown', handler); return () => document.removeEventListener('mousedown', handler); }, [open]);
   return (
-    <div className="relative" ref={ref}>
-      <button type="button" onClick={() => setOpen(!open)} className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-400 bg-white/[0.04] border transition-all min-w-[130px] ${open ? 'border-purple-500/40 text-slate-200' : 'border-white/[0.07] hover:border-white/[0.12] hover:text-slate-200'}`}>
+    <div className="relative min-w-0 sm:w-auto" ref={ref}>
+      <button type="button" onClick={() => setOpen(!open)} className={`w-full flex items-center gap-2 h-11 px-3.5 rounded-[10px] text-[13px] font-medium text-slate-400 bg-white/[0.04] border transition-all min-w-[130px] ${open ? 'border-purple-500/40 text-slate-200' : 'border-white/[0.07] hover:border-white/[0.12] hover:text-slate-200'}`}>
         {Icon && <Icon className="w-3.5 h-3.5 flex-shrink-0" />}<span className="flex-1 text-left truncate">{active?.label}</span><ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 transition-transform duration-150 ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
-        <div className="absolute left-0 top-full mt-2 z-50 bg-[#0d1526]/98 border border-white/[0.08] rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.5)] py-1 min-w-full">
+        <div className="absolute left-0 top-full mt-2 z-50 bg-[var(--bg-raised)] border border-white/[0.1] rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.5)] py-1 min-w-full">
           {options.map(opt => (<button key={opt.value} type="button" onClick={() => { onChange(opt.value); setOpen(false); }} className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-xs transition-colors ${value === opt.value ? 'text-purple-300 bg-purple-500/[0.10] font-semibold' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'}`}>{opt.label}{value === opt.value && <Check className="w-3.5 h-3.5 opacity-70 flex-shrink-0" />}</button>))}
         </div>
       )}
@@ -580,6 +608,19 @@ export default function JobTrackerPage() {
   }, []);
 
   useEffect(() => { if (user) fetchApps(); }, [user, fetchApps]);
+
+  // Re-read the board without the full-page loader, for changes made from a
+  // panel (undoing an emailed update) where the page should stay put.
+  const refreshApps = useCallback(async () => {
+    try { const res = await fetch('/api/job-tracker'); if (res.ok) { const json = await res.json(); setApps(json.data || []); } } catch { /* next load will catch up */ }
+  }, []);
+
+  // For the "Resume sent" picker. Optional: without resumes the field hides.
+  const [resumes, setResumes] = useState<ResumeOption[]>([]);
+  useEffect(() => {
+    if (!user) return;
+    fetch('/api/resume/list').then(r => (r.ok ? r.json() : null)).then(j => { if (j?.resumes) setResumes(j.resumes); }).catch(() => {});
+  }, [user]);
   useEffect(() => { if (!loading && !user) router.push('/sign-in'); }, [user, loading, router]);
 
   const handleAddApp = () => {
@@ -648,9 +689,19 @@ export default function JobTrackerPage() {
   };
 
   const handleEdit = (app: Application) => {
-    setForm({ company: app.company, jobTitle: app.jobTitle, jobUrl: app.jobUrl, location: app.location, salary: app.salary, workType: app.workType, source: app.source, notes: app.notes, status: app.status, appliedDate: app.appliedDate });
+    setForm({ company: app.company, jobTitle: app.jobTitle, jobUrl: app.jobUrl, location: app.location, salary: app.salary, workType: app.workType, source: app.source, notes: app.notes, status: app.status, appliedDate: app.appliedDate, resumeId: app.resumeId ?? null, jobDescription: app.jobDescription ?? null });
     setEditingId(app.id); setShowForm(true);
   };
+
+  // Changes whenever a card is added, removed or moves, so the funnel doctor
+  // re-reads the diagnosis after every board change.
+  const funnelKey = apps.map(a => `${a.id}:${a.status}:${a.resumeId ?? ''}`).join('|');
+  // The role they apply for most, to prefill practice interviews.
+  const topRole = (() => {
+    const n = new Map<string, number>();
+    for (const a of apps) { const t = a.jobTitle.trim(); if (t) n.set(t, (n.get(t) ?? 0) + 1); }
+    return [...n.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
+  })();
 
   const total = apps.length;
   const activeCount = apps.filter(a => !['rejected', 'ghosted', 'withdrew', 'offer'].includes(a.status)).length;
@@ -675,7 +726,7 @@ export default function JobTrackerPage() {
   return (
     <>
       <ConfirmDialog />
-      {showForm && <FormModal form={form} setForm={setForm} onSave={handleSave} onCancel={() => { setShowForm(false); setEditingId(null); setForm({ ...EMPTY_FORM }); }} saving={saving} isEdit={!!editingId} />}
+      {showForm && <FormModal form={form} setForm={setForm} onSave={handleSave} onCancel={() => { setShowForm(false); setEditingId(null); setForm({ ...EMPTY_FORM }); }} saving={saving} isEdit={!!editingId} resumes={resumes} />}
       {contactsModal && <ContactsModal app={contactsModal} onClose={() => setContactsModal(null)} onContactsFound={async () => { await refetchUsage(); }} />}
       {planModal && <CreatePlanModal app={planModal} onConfirm={days => handleCreatePlan(planModal, days)} onClose={() => setPlanModal(null)} />}
       {creatingPlan && (
@@ -688,28 +739,14 @@ export default function JobTrackerPage() {
       )}
 
       <div className="space-y-4 pt-4">
-        {/* Page header */}
-        <div className="glass-card p-5 animate-fade-in-up">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <Link href="/" className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors mb-3"><ArrowLeft className="w-3.5 h-3.5" /> Dashboard</Link>
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 gradient-primary rounded-xl flex items-center justify-center shadow-[0_4px_14px_rgba(102,126,234,0.3)]"><Briefcase className="w-4 h-4 text-white" /></div>
-                <div><h1 className="text-xl font-bold text-white leading-tight">Job Tracker</h1><p className="text-xs text-slate-500">Track every application from wishlist to offer</p></div>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <SeeExampleButton serviceId="job-tracker" className="!px-4 !py-2.5 !text-sm !font-semibold" />
-              <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-500/[0.07] border border-purple-500/20">
-                <Shield className="w-4 h-4 text-purple-400" />
-                <span className="text-[13px] font-semibold text-purple-400">{jobsUnlimited ? 'Unlimited' : `${jobsLeft} jobs left`}</span>
-              </div>
-              <button onClick={handleAddApp} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-sm font-semibold shadow-[0_4px_14px_rgba(102,126,234,0.28)] transition-all duration-200">
-                <Plus className="w-4 h-4" /> Add Application
-              </button>
-            </div>
-          </div>
-        </div>
+        <PageHeader
+          title="Job Tracker" description="Every application from wishlist to offer" icon={HeaderIcon}
+          actions={<>
+            <SeeExampleButton serviceId="job-tracker" />
+            <span className="btn-pill"><Shield /> {jobsUnlimited ? 'Unlimited' : `${jobsLeft} jobs left`}</span>
+            <button onClick={handleAddApp} className="btn-primary"><Plus /> Add Application</button>
+          </>}
+        />
 
         {/* Gate or content */}
         {!canAddJob && apps.length === 0 ? (
@@ -726,6 +763,15 @@ export default function JobTrackerPage() {
 
             <div className="animate-fade-in-up" style={{ animationDelay: '120ms' }}><PipelineFunnel apps={apps} /></div>
 
+            {apps.length > 0 && (
+              <div className="animate-fade-in-up" style={{ animationDelay: '150ms' }}>
+                <FunnelDoctor refreshKey={funnelKey} topRole={topRole} />
+              </div>
+            )}
+
+            {/* Hidden until inbound email is configured (INBOUND_EMAIL_DOMAIN). */}
+            <InboundEmailPanel apps={apps.map(a => ({ id: a.id, company: a.company, jobTitle: a.jobTitle }))} onChanged={refreshApps} />
+
             {/* ← ADDED: NextStepPrompt after adding a new application */}
             {nextStepCtx && (
               <NextStepPrompt
@@ -736,8 +782,8 @@ export default function JobTrackerPage() {
             )}
 
             {/* Search + filters */}
-            <div className="flex flex-col sm:flex-row gap-2.5 animate-fade-in-up" style={{ animationDelay: '180ms' }}>
-              <div className="relative flex-1"><Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none" /><input type="text" placeholder="Search by company, role, or location…" value={search} onChange={e => setSearch(e.target.value)} className={`${inp} pl-10`} /></div>
+            <div className="grid grid-cols-3 sm:flex sm:flex-row gap-2.5 animate-fade-in-up" style={{ animationDelay: '180ms' }}>
+              <div className="relative col-span-3 sm:flex-1"><Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none" /><input type="text" placeholder="Search by company, role, or location…" value={search} onChange={e => setSearch(e.target.value)} className={`${inp} pl-10`} /></div>
               <CustomSelect<AppStatus | 'all'> value={filterStatus} onChange={setFilterStatus} icon={Filter} options={[{ value: 'all', label: `All (${apps.length})` }, ...(Object.keys(STATUS_CONFIG) as AppStatus[]).map(s => ({ value: s, label: STATUS_CONFIG[s].label }))]} />
               <CustomSelect<WorkType | 'all'> value={filterWork} onChange={setFilterWork} options={[{ value: 'all', label: 'All Types' }, ...(Object.keys(WORK_TYPE_CONFIG) as WorkType[]).map(w => ({ value: w, label: WORK_TYPE_CONFIG[w].label }))]} />
               <CustomSelect<'date' | 'company' | 'status'> value={sortBy} onChange={setSortBy} icon={SlidersHorizontal} options={[{ value: 'date', label: 'Recent First' }, { value: 'company', label: 'By Company' }, { value: 'status', label: 'By Status' }]} />
@@ -751,7 +797,7 @@ export default function JobTrackerPage() {
                 <p className="text-xs text-slate-600 mb-6 max-w-xs mx-auto leading-relaxed">{apps.length === 0 ? 'Start tracking your job search. Add your first application to see it here.' : 'Try adjusting your search or filters.'}</p>
                 {apps.length === 0 && canAddJob && (
                   <div className="flex flex-wrap items-center justify-center gap-3">
-                    <button onClick={() => { setForm({ ...EMPTY_FORM }); setShowForm(true); }} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-semibold transition-all duration-150"><Plus className="w-4 h-4" /> Add First Application</button>
+                    <button onClick={() => { setForm({ ...EMPTY_FORM }); setShowForm(true); }} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white text-sm font-semibold transition-all duration-150"><Plus className="w-4 h-4" /> Add First Application</button>
                     <SeeExampleButton serviceId="job-tracker" className="!px-5 !py-2.5 !text-sm !font-semibold" />
                   </div>
                 )}

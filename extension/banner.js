@@ -230,8 +230,31 @@ class JobExtractor {
         const el = document.querySelector(sel); if (el?.textContent?.trim()) { location = el.textContent.trim(); break; }
       }
       const descEl = document.querySelector('.jobs-description__content, .jobs-box__html-content, article.jobs-description');
-      return { title: jobTitle, company: companyName, location, description: descEl?.textContent?.trim() || '', url: window.location.href, jobId: this.extractJobId() };
+      const posting = this.extractPostingMeta();
+      return { title: jobTitle, company: companyName, location, description: descEl?.textContent?.trim() || '', url: window.location.href, jobId: this.extractJobId(), ...posting };
     } catch (err) { console.error('[PRC] extractJobData error:', err); return null; }
+  }
+
+  // The posting's age, applicant count and whether it is still open, as the raw
+  // text LinkedIn prints. The server parses it (lib/jobs/posting-signals.ts), so
+  // a LinkedIn rewording is fixed there for everyone without a store release.
+  extractPostingMeta() {
+    const out = { postedText: '', applicantsText: '', closed: false };
+    try {
+      const line = document.querySelector(
+        '.job-details-jobs-unified-top-card__tertiary-description-container, .job-details-jobs-unified-top-card__primary-description-container, .jobs-unified-top-card__subtitle-primary-grouping, .topcard__flavor-row'
+      );
+      const segments = (line?.innerText || line?.textContent || '').split(/[·•\n]/).map(s => s.trim()).filter(Boolean);
+      out.postedText = segments.find(s => /\bago\b|re-?posted|\bposted\b|just now|today|yesterday/i.test(s)) || '';
+      out.applicantsText = segments.find(s => /applicant|clicked apply|candidates?/i.test(s)) || '';
+      if (!out.postedText) {
+        const t = document.querySelector('[class*="posted-time-ago"], .posted-time-ago__text');
+        if (t?.textContent) out.postedText = t.textContent.trim();
+      }
+      const card = document.querySelector('.jobs-details__main-content, .job-details-jobs-unified-top-card__container--two-pane, .jobs-unified-top-card') || document.body;
+      out.closed = /no longer accepting applications/i.test(card.innerText || card.textContent || '');
+    } catch {}
+    return out;
   }
 
   extractJobId() {
@@ -329,15 +352,26 @@ class EasyApplyEngine {
   }
 
   async _processAllSteps() {
+    const S = window.PreciprocalSensitive;
+    S?.reset();
     while (this.stepCount < this.maxSteps) {
       this.stepCount++; await this._delay(600);
       const modal = this._getModal(); if (!modal) break;
       this._attachUserTypingGuard(modal);
       await this._waitForUserToFinishTyping();
+      const flaggedBefore = S ? S.pendingList().length : 0;
       await this._fillCurrentStep(modal); await this._delay(400);
+      // A question we will not answer for them is on this step. Stop here
+      // rather than clicking Next past it, so they see it and answer it.
+      if (S && S.pendingList().length > flaggedBefore) {
+        this._updateBanner('Answer the outlined question, then click Next', 'ready');
+        this.onStatus('Some questions need your own answer. They are outlined in amber.', 'success');
+        S.showSummary();
+        break;
+      }
       const action = this._detectNextAction(modal);
       if (action === 'none') break;
-      if (action === 'submit') { this._updateBanner('All done - click Submit when ready', 'ready'); this.onStatus('All fields filled! Review and click Submit.', 'success'); break; }
+      if (action === 'submit') { this._updateBanner('All done - review, then click Submit yourself', 'ready'); this.onStatus('Filled from your profile. Review everything, then click Submit.', 'success'); S?.showSummary(); break; }
       if (action === 'review') { this._updateBanner('📋 Auto-clicking Review…', 'filling'); const rb = this._findButton(modal, ['review']); if (rb) { rb.click(); await this._delay(1200); continue; } this._updateBanner('📋 Review your application then submit', 'ready'); this.onStatus('Please review and submit your application.', 'success'); break; }
       const nb = this._findButton(modal, ['next', 'continue']); if (nb) { this._updateBanner(`Step ${this.stepCount} - moving to next…`, 'filling'); nb.click(); await this._delay(900); } else break;
     }
@@ -382,8 +416,11 @@ class EasyApplyEngine {
   async _fillSelect(select, p) {
     if (!this._selectIsEmpty(select)) return;
     const hint = `${this._getLabel(select)} ${select.id || ''} ${select.name || ''}`.toLowerCase();
-    if (/authoriz|visa|work permit|eligible|legally/i.test(hint)) { this._selectByText(select, p.workAuthorization || 'Yes'); return; }
-    if (/sponsor/i.test(hint)) { this._selectByText(select, p.requireSponsorship ? 'Yes' : 'No'); return; }
+    // Demographic, authorization and legal questions: only the user's saved
+    // answer, otherwise left blank and flagged (extension/sensitive-answers.js).
+    const S = window.PreciprocalSensitive;
+    const sk = S?.kindOf(hint);
+    if (sk) { const a = S.answer(p, sk); if (a) this._selectByText(select, a); else S.flag(select, hint, sk); return; }
     if (/relocat/i.test(hint)) { this._selectByText(select, p.willingToRelocate ? 'Yes' : 'No'); return; }
     if (/country/i.test(hint)) {
       // Only fill when we actually know the candidate's country - guessing
@@ -395,11 +432,6 @@ class EasyApplyEngine {
     if (/province/i.test(hint)) { if (p.state) this._selectByText(select, p.state); return; }
     if (/year.*exp|exp.*year/i.test(hint)) { this._selectClosestNumber(select, p.yearsOfExperience || ''); return; }
     if (/notice|start/i.test(hint)) { this._selectByText(select, p.noticePeriod || '2 weeks'); return; }
-    if (/over.*18|18.*older|age.*18|18.*age/i.test(hint)) { this._selectByText(select, p.over18 ? 'Yes' : 'No'); return; }
-    if (/driver.?s?\s*licen[sc]e/i.test(hint)) { this._selectByText(select, p.driverLicense ? 'Yes' : 'No'); return; }
-    if (/background\s*check/i.test(hint)) { this._selectByText(select, p.backgroundCheck ? 'Yes' : 'No'); return; }
-    if (/drug\s*test/i.test(hint)) { this._selectByText(select, p.drugTest ? 'Yes' : 'No'); return; }
-    if (/criminal|felony|conviction/i.test(hint)) { this._selectByText(select, p.criminalRecord ? 'Yes' : 'No'); return; }
     if (/currently employ/i.test(hint)) { this._selectByText(select, p.currentlyEmployed ? 'Yes' : 'No'); return; }
     if (/have you ever worked|previously worked|worked (at|for|with)|previous.*employ|former.*employ/i.test(hint)) { this._selectByText(select, 'No'); return; }
     if (/do you currently work for|currently work (at|for)|work.*currently/i.test(hint)) { this._selectByText(select, p.currentlyEmployed ? 'Yes' : 'No'); return; }
@@ -408,11 +440,6 @@ class EasyApplyEngine {
     if (/schedule.*work|available.*schedule|this schedule/i.test(hint)) { this._selectByText(select, 'Yes'); return; }
     if (/employ.*type|job.*type|position.*type|full.?time|part.?time/i.test(hint)) { this._selectByText(select, p.employmentType || 'Full-time'); return; }
     if (/work.*arrang|remote|hybrid|on.?site/i.test(hint)) { this._selectByText(select, p.workType || 'Remote'); return; }
-    if (/gender/i.test(hint)) { this._selectByText(select, p.gender || 'Prefer not to say'); return; }
-    if (/pronoun/i.test(hint)) { this._selectByText(select, p.pronouns || 'Prefer not to say'); return; }
-    if (/race|ethnicity/i.test(hint)) { this._selectByText(select, p.race || 'Prefer not to say'); return; }
-    if (/veteran/i.test(hint)) { this._selectByText(select, p.veteranStatus || 'I am not a protected veteran'); return; }
-    if (/disability/i.test(hint)) { this._selectByText(select, p.disabilityStatus || 'I do not have a disability'); return; }
     if (/salary|compensation|pay/i.test(hint)) { if (p.desiredSalary) this._selectClosestNumber(select, p.desiredSalary); return; }
     if (/how.*hear|referr|source/i.test(hint)) { this._selectByText(select, p.howDidYouHear || 'LinkedIn'); return; }
   }
@@ -448,13 +475,22 @@ class EasyApplyEngine {
       if (/drug\s*test/i.test(legend)) answer = p.drugTest ? 'yes' : 'no';
       if (/criminal\s*record|felony|conviction/i.test(legend)) answer = p.criminalRecord ? 'yes' : 'no';
       if (/18\s*years?\s*(of age|or older|and over)|at least\s*18|must be\s*18/i.test(legend)) answer = p.over18 ? 'yes' : 'no';
+      // Sensitive questions override every rule above: the saved answer or nothing.
+      const S = window.PreciprocalSensitive;
+      const sk = S?.kindOf(legend);
+      if (sk) {
+        const a = S.answer(p, sk);
+        if (!a) { S.flag(group, legend, sk); continue; }
+        answer = a;
+      }
       if (!answer) continue;
       const radios = Array.from(group.querySelectorAll('input[type="radio"]'));
       const target = answer.toLowerCase();
-      const match = radios.find(r => {
+      const isYesNo = target === 'yes' || target === 'no';
+      const match = (isYesNo ? radios.find(r => {
         const lab = (this._getLabel(r) + ' ' + r.value).toLowerCase();
         return target === 'yes' ? /\byes\b/.test(lab) : /\bno\b/.test(lab);
-      }) || radios.find(r => (this._getLabel(r) + r.value).toLowerCase().includes(target));
+      }) : null) || radios.find(r => (this._getLabel(r) + ' ' + r.value).toLowerCase().includes(target));
       if (match && !match.checked) { match.click(); await this._delay(100); }
     }
   }
@@ -489,8 +525,10 @@ class EasyApplyEngine {
       ? p.skills.map(s => s.toLowerCase())
       : (p.skills || '').split(',').map(s => s.trim().toLowerCase());
 
-    const matchedSkills = jdSkills.filter(s => userSkillsRaw.some(us => us.includes(s) || s.includes(us)));
-    const highlightSkills = matchedSkills.length >= 2 ? matchedSkills : jdSkills.length ? jdSkills : userSkillsRaw.slice(0, 3);
+    // Only skills the user actually listed. Naming a skill that appears only in
+    // the job description would claim experience they may not have.
+    const matchedSkills = jdSkills.filter(s => userSkillsRaw.some(us => us && (us.includes(s) || s.includes(us))));
+    const highlightSkills = matchedSkills.length ? matchedSkills : userSkillsRaw.filter(Boolean).slice(0, 3);
     const skillsStr = highlightSkills.slice(0, 3).join(', ');
 
     const exp = p.experience?.[0];
@@ -498,12 +536,12 @@ class EasyApplyEngine {
       ? `my experience as a ${exp.title} at ${exp.company}`
       : `my background in ${p.headline || 'software engineering'}`;
 
-    const yoe = p.yearsOfExperience ? `${p.yearsOfExperience} years of` : 'years of';
-
-    return `The ${roleTitle} role at ${company} stands out because the core challenges map directly onto problems I have spent ${yoe} experience solving. `
-      + `${backgroundStr.charAt(0).toUpperCase() + backgroundStr.slice(1)} has given me deep, hands-on proficiency in ${skillsStr || p.headline || 'this domain'}, `
-      + `which aligns closely with what the team is looking for. `
-      + `I am drawn to ${company} because of the scale and ambition of the work, and I am confident I can contribute meaningfully from day one while continuing to grow alongside the team.`;
+    // Plain and true: what the user has done, in their own profile's terms.
+    // A draft for them to edit, never a claim the profile does not support.
+    const background = backgroundStr.charAt(0).toUpperCase() + backgroundStr.slice(1);
+    return `I am interested in the ${roleTitle} role at ${company}. `
+      + (skillsStr ? `${background} has given me hands-on experience with ${skillsStr}, which is close to the work this team does. ` : `${background} is a good fit for the work this team does. `)
+      + `I would welcome the chance to talk about how I could help.`;
   }
 
   _matchProfileField(hint, p) {
@@ -678,7 +716,7 @@ class PreciprocalBanner {
       await this._delay(400);
       if (this.isAuthenticated) await this._syncTrackedJobsFromDB();
       this.injectBanner();
-      if (this.isAuthenticated) await Promise.all([this.fetchMatchScore(), this.prefetchApplyProfile()]);
+      if (this.isAuthenticated) await Promise.all([this.fetchMatchScore(), this.prefetchApplyProfile(), this.fetchJobSignals()]);
       this.observeJobChanges();
     } catch (err) { console.error('[PRC] Banner init error:', err); }
   }
@@ -1079,6 +1117,66 @@ class PreciprocalBanner {
     } catch { this.updateMatchScore(null); }
   }
 
+  // Ghost-job risk and response odds for this posting. Never blocks anything:
+  // if it fails the strip simply does not appear.
+  async fetchJobSignals() {
+    if (!this.isAuthenticated || !this.authToken || !this.jobData?.company) return;
+    try {
+      const { company, jobId, postedText, applicantsText, closed, description } = this.jobData;
+      const resp = await chrome.runtime.sendMessage({
+        type: 'API_FETCH_JOB_SIGNALS', token: this.authToken, userId: this.authUserId || '', email: this.authEmail || '', baseUrl: PRECIPROCAL_URL,
+        payload: { company, jobId, postedText, applicantsText, closed, description: (description || '').slice(0, 20000) },
+      });
+      // The same instance is re-initialised when the user clicks another job,
+      // so a slow reply for the previous job must not render into the new one.
+      if (this.currentJobId !== jobId) return;
+      if (resp?.success && resp.data?.success) this.renderJobSignals(resp.data);
+    } catch {}
+  }
+
+  renderJobSignals(data) {
+    const host = this.banner?.querySelector('.preciprocal-banner-compact');
+    if (!host) return;
+    host.querySelector('.prc-signals')?.remove();
+
+    const wrap = document.createElement('div');
+    wrap.className = `prc-signals prc-risk-${data.ghostRisk}`;
+
+    const head = document.createElement('div');
+    head.className = 'prc-signals-head';
+    const label = { low: 'Looks active', medium: 'Some warning signs', high: 'Likely a ghost job' }[data.ghostRisk] || '';
+    const pill = document.createElement('span');
+    pill.className = 'prc-risk-pill';
+    pill.textContent = label;
+    head.appendChild(pill);
+
+    const odds = data.companyOdds;
+    const oddsEl = document.createElement('span');
+    oddsEl.className = 'prc-odds';
+    if (odds) {
+      oddsEl.textContent = `${odds.responseRate}% reply rate · ${odds.interviewRate}% interviews${odds.medianDaysToResponse != null ? ` · replies in ~${odds.medianDaysToResponse}d` : ''}`;
+      oddsEl.setAttribute('data-tip', `From ${odds.applications} applications by Preciprocal users. Shown only when 10+ different people have applied, and never per person.`);
+    } else if (data.companyOddsNeedUsers) {
+      oddsEl.textContent = 'Reply rate: not enough data yet';
+      oddsEl.setAttribute('data-tip', 'We show a company\'s reply rate once 10 or more different Preciprocal users have applied there.');
+    }
+    if (oddsEl.textContent) head.appendChild(oddsEl);
+    wrap.appendChild(head);
+
+    const list = document.createElement('ul');
+    list.className = 'prc-signal-list';
+    for (const s of (data.signals || []).slice(0, 3)) {
+      const li = document.createElement('li');
+      li.className = `prc-sig prc-sig-${s.severity}`;
+      li.textContent = s.text;
+      list.appendChild(li);
+    }
+    if (list.childElementCount) wrap.appendChild(list);
+
+    host.appendChild(wrap);
+    this._attachTooltips(wrap);
+  }
+
   updateMatchScore(score) {
     if (!this.banner) return;
     const numEl = this.banner.querySelector('.num'); const circle = this.banner.querySelector('.ring-fg');
@@ -1106,8 +1204,13 @@ class PreciprocalBanner {
     this.banner.querySelectorAll('[data-action]').forEach(btn => {
       btn.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); this.handleAction(btn.getAttribute('data-action')); });
     });
-    // JS tooltip - appended to body so it is never clipped by the banner container
-    this.banner.querySelectorAll('[data-tip]').forEach(btn => {
+    this._attachTooltips(this.banner);
+  }
+
+  // JS tooltip - appended to body so it is never clipped by the banner container.
+  // Also called for the job signals strip, which renders after the banner.
+  _attachTooltips(root) {
+    root.querySelectorAll('[data-tip]').forEach(btn => {
       let tipEl = null;
       const removeTip = () => { tipEl?.remove(); tipEl = null; };
       btn.addEventListener('mouseenter', () => {
@@ -1231,6 +1334,28 @@ class PreciprocalBanner {
       /* ── Spinner ── */
       .prc-spinner { width:14px; height:14px; border:2px solid rgba(176,184,193,0.3); border-top-color:#b0b8c1; border-radius:50%; animation:prc-spin 0.7s linear infinite; flex-shrink:0; }
       @keyframes prc-spin { to { transform:rotate(360deg); } }
+
+      /* ── Job signals strip (ghost risk + reply odds) ── */
+      .prc-signals { margin-top:12px; padding-top:12px; border-top:1px solid rgba(148,163,184,0.18); }
+      .prc-signals-head { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:6px; }
+      .prc-risk-pill { font-size:12px; font-weight:700; padding:3px 9px; border-radius:999px; border:1px solid; }
+      .prc-risk-low .prc-risk-pill { color:#34d399; border-color:rgba(52,211,153,0.35); background:rgba(52,211,153,0.08); }
+      .prc-risk-medium .prc-risk-pill { color:#fbbf24; border-color:rgba(251,191,36,0.35); background:rgba(251,191,36,0.08); }
+      .prc-risk-high .prc-risk-pill { color:#f87171; border-color:rgba(248,113,113,0.35); background:rgba(248,113,113,0.08); }
+      .prc-odds { font-size:12px; color:#cbd5e1; cursor:help; }
+      .prc-signal-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:4px; }
+      .prc-sig { font-size:12.5px; line-height:1.45; color:#cbd5e1; padding-left:14px; position:relative; }
+      .prc-sig::before { content:''; position:absolute; left:2px; top:7px; width:6px; height:6px; border-radius:50%; background:#64748b; }
+      .prc-sig-good::before { background:#34d399; }
+      .prc-sig-info::before { background:#60a5fa; }
+      .prc-sig-warn::before { background:#fbbf24; }
+      .prc-sig-bad::before { background:#f87171; }
+      .preciprocal-inline-container.prc-light .prc-signals { border-top-color:rgba(0,0,0,0.08); }
+      .preciprocal-inline-container.prc-light .prc-odds,
+      .preciprocal-inline-container.prc-light .prc-sig { color:#374151; }
+      .preciprocal-inline-container.prc-light .prc-risk-low .prc-risk-pill { color:#047857; }
+      .preciprocal-inline-container.prc-light .prc-risk-medium .prc-risk-pill { color:#b45309; }
+      .preciprocal-inline-container.prc-light .prc-risk-high .prc-risk-pill { color:#b91c1c; }
 
       /* ── Light mode ── */
       .preciprocal-inline-container.prc-light .preciprocal-banner-compact { background:linear-gradient(135deg,#e0f2fe 0%,#ede9fe 100%); border:1px solid rgba(99,102,241,0.2); box-shadow:0 1px 4px rgba(0,0,0,0.07); }

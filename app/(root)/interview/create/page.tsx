@@ -1,3 +1,5 @@
+import PageHeader from '@/components/PageHeader';
+import { Video as HeaderIcon } from 'lucide-react';
 // app/interview/create/page.tsx
 import InterviewGeneratorForm from "@/components/InterviewGeneratorForm";
 import { getCurrentUser } from "@/lib/actions/auth.action";
@@ -5,6 +7,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Shield, ArrowRight, Calendar, Sparkles, History } from "lucide-react";
 import { USAGE_LIMITS, normalisePlan, isUnlimited } from "@/lib/config/usage-limits";
+import { toSupabaseUserId } from "@/lib/auth/verify-request";
+import { loadPracticeApplication, typeForStage, stageLabel } from "@/lib/interview/practice-context";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -67,6 +71,14 @@ export default async function CreateInterviewPage({
   const user = await getCurrentUser();
   if (!user?.id) redirect('/sign-in');
 
+  // ?application=<id>: practise for one tracked application. Its role, stage
+  // and posting prefill the form; the generator re-reads it server-side.
+  const applicationParam = typeof params.application === 'string' ? params.application : '';
+  const practiceApp = applicationParam
+    ? await loadPracticeApplication(await toSupabaseUserId(user.id), applicationParam)
+    : null;
+  const practiceStage = practiceApp ? stageLabel(practiceApp.status) : null;
+
   const subscription    = user.subscription;
   const usage           = (user as unknown as UserWithUsage).usage;
   const interviewsUsed  = usage?.interviewsUsed || 0;
@@ -83,49 +95,34 @@ export default async function CreateInterviewPage({
 
       {hasSessions ? (
         <>
-          {/* Header */}
-          <div className="flex-shrink-0 pb-4">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <div className="inline-flex items-center gap-1.5 bg-blue-500/[0.08] border border-blue-500/20
-                                rounded-full px-3 py-1 mb-2">
-                  <Sparkles className="w-3 h-3 text-blue-400" />
-                  <span className="text-[11px] font-semibold text-blue-400">AI-Powered</span>
-                </div>
-                <h1 className="text-xl font-bold text-white leading-tight">
-                  Create Interview Session
-                </h1>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  AI-powered questions tailored to your career goals
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3 flex-shrink-0">
-                {/* Plan badge */}
-                <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-500/[0.07] border border-indigo-500/20">
-                  <Shield className="w-4 h-4 text-indigo-400" />
-                  <span className="text-[13px] font-semibold text-indigo-400">
-                    {isUnlimited(interviewsLimit) ? 'Unlimited' : `${remaining} left`}
-                  </span>
-                </div>
-                {/* History button */}
-                <Link
-                  href="/interview"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl
-                             bg-white/[0.05] border border-white/[0.08]
-                             text-sm font-semibold text-slate-300
-                             hover:text-white hover:bg-white/[0.08] transition-all"
-                >
-                  <History className="w-3.5 h-3.5" /> History
-                </Link>
-              </div>
-            </div>
-          </div>
+          <PageHeader
+            title="New Interview" description="AI questions tailored to your role and level" icon={<HeaderIcon strokeWidth={1.75} aria-hidden="true" />}
+            actions={<>
+              <span className="btn-pill"><Shield /> {isUnlimited(interviewsLimit) ? 'Unlimited' : `${remaining} left`}</span>
+              <Link href="/interview" className="btn-secondary"><History /> History</Link>
+            </>}
+          />
 
           {/* Form */}
           <div className="overflow-y-auto glass-scrollbar pb-4">
             <div className="glass-card p-5 sm:p-6">
-              <InterviewGeneratorForm userId={user.id} initialRole={roleParam || undefined} initialType={typeParam} />
+              {practiceApp && (
+                <div className="mb-5 rounded-xl border border-violet-500/25 bg-violet-500/[0.06] px-4 py-3">
+                  <p className="text-sm font-semibold text-white">
+                    Practising for your {practiceStage ?? 'interview'}{practiceApp.company ? ` at ${practiceApp.company}` : ''}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Questions are built for this stage{practiceApp.jobDescription ? ' from the job posting you saved' : ''}, plus anything you logged in past debriefs with this company. The interviewer will introduce themselves as working there.
+                  </p>
+                </div>
+              )}
+              <InterviewGeneratorForm
+                userId={user.id}
+                initialRole={practiceApp?.jobTitle || roleParam || undefined}
+                initialType={practiceApp ? typeForStage(practiceApp.status) : typeParam}
+                initialJobDescription={practiceApp?.jobDescription ?? undefined}
+                applicationId={practiceApp?.id}
+              />
             </div>
           </div>
         </>
@@ -151,10 +148,10 @@ export default async function CreateInterviewPage({
             <Link
               href="/pricing"
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
-                         bg-gradient-to-r from-indigo-600 to-purple-600
-                         hover:from-indigo-500 hover:to-purple-500
+                         bg-[var(--accent)]
+                         hover:bg-[var(--accent-hover)]
                          text-white text-sm font-semibold
-                         shadow-[0_4px_14px_rgba(102,126,234,0.3)]
+                         
                          transition-all duration-200"
             >
               Upgrade to Pro <ArrowRight className="w-4 h-4" />

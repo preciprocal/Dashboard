@@ -1,5 +1,7 @@
 // app/(root)/templates/page.tsx
 "use client";
+import { Breadcrumbs, crumbsFor } from '@/components/PageHeader';
+import { BookOpen } from 'lucide-react';
 
 import React, { useState, useMemo, useEffect } from "react";
 import { useRouter } from 'next/navigation';
@@ -7,10 +9,9 @@ import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import {
   AlertCircle, Search, X, Play, Loader2,
-  BookmarkCheck, Bookmark, Users, Clock,
-  MessageSquare, Filter, ChevronDown, Sparkles, ArrowLeft,
+  BookmarkCheck, Bookmark, Clock,
+  MessageSquare, Filter, ChevronDown,
 } from 'lucide-react';
-import Link from 'next/link';
 
 import {
   interviewTemplates,
@@ -124,7 +125,7 @@ const TemplateCard: React.FC<{ template: Template }> = ({ template }) => {
   };
 
   return (
-    <div className="glass-card flex flex-col transition-all duration-300 hover:border-purple-500/30 hover:-translate-y-0.5 hover:shadow-[0_8px_32px_rgba(139,92,246,0.12)] group">
+    <div className="glass-card flex flex-col transition-all duration-300 hover:border-purple-500/30 hover:-translate-y-0.5  group">
 
       {/* Header */}
       <div className="p-5 flex items-start justify-between gap-3">
@@ -152,16 +153,12 @@ const TemplateCard: React.FC<{ template: Template }> = ({ template }) => {
         {/* The rating and completion figures in the template list are not
             measured from real use, so they are not shown. */}
         <div className="flex items-center gap-1">
-          <Users className="w-3.5 h-3.5" />
+          <MessageSquare className="w-3.5 h-3.5" />
           <span>{template.questions} questions</span>
         </div>
         <div className="flex items-center gap-1">
           <Clock className="w-3.5 h-3.5" />
           <span>{template.duration}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <MessageSquare className="w-3.5 h-3.5" />
-          <span>{template.questions} Qs</span>
         </div>
       </div>
 
@@ -204,10 +201,10 @@ const TemplateCard: React.FC<{ template: Template }> = ({ template }) => {
           onClick={handleStartInterview}
           disabled={isStarting}
           className="w-full py-2.5 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2
-                     bg-gradient-to-r from-purple-600 to-indigo-600
-                     hover:from-purple-500 hover:to-indigo-500
+                     bg-[var(--accent)]
+                     hover:bg-[var(--accent-hover)]
                      disabled:opacity-50 disabled:cursor-not-allowed
-                     transition-all shadow-lg shadow-purple-500/15 cursor-pointer"
+                     transition-all shadow-lg  cursor-pointer"
         >
           {isStarting ? (
             <><Loader2 className="w-4 h-4 animate-spin" /> Starting…</>
@@ -345,6 +342,16 @@ export default function TemplatesPage() {
   // 24 at a time: rendering all 173 made the page 63,000px tall on a phone.
   const PAGE_SIZE = 24;
   const [shown, setShown] = useState(PAGE_SIZE);
+  const loadMoreRef = React.useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = loadMoreRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(entries => {
+      if (entries.some(e => e.isIntersecting)) setShown(n => n + PAGE_SIZE);
+    }, { rootMargin: '400px 0px' });
+    io.observe(el);
+    return () => io.disconnect();
+  });
   const filterKey = `${view}|${searchQuery}|${selectedCategory}|${selectedDifficulty}|${selectedType}|${selectedDuration}`;
   const [shownFor, setShownFor] = useState(filterKey);
   if (shownFor !== filterKey) { setShownFor(filterKey); setShown(PAGE_SIZE); }
@@ -375,14 +382,16 @@ export default function TemplatesPage() {
 
       {/* ── Header ── */}
       <div className="glass-card p-5 sm:p-6">
+        {/* Same breadcrumb bar as every other page header (PageHeader). */}
+        <div className="-mx-5 sm:-mx-6 -mt-5 sm:-mt-6 mb-5 px-5 sm:px-6 rounded-t-[var(--r-2xl)] border-b border-white/[0.06] bg-white/[0.015] py-2"><Breadcrumbs crumbs={crumbsFor('/templates', 'Templates')} className="" /></div>
         <div className="flex items-center gap-3 mb-5">
-          <div className="w-11 h-11 gradient-primary rounded-xl flex items-center justify-center shadow-glass flex-shrink-0">
-            <Sparkles className="w-5 h-5 text-white" />
+          <div className="w-10 h-10 rounded-[10px] bg-[var(--accent-subtle)] border border-[var(--accent-border)] flex items-center justify-center flex-shrink-0">
+            <BookOpen className="w-5 h-5 text-indigo-200" strokeWidth={1.75} />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-white">Interview Templates</h1>
-            <p className="text-slate-400 text-xs sm:text-sm mt-0.5">
-              {stats.total}+ professionally crafted templates
+            <h1 className="text-[20px] font-semibold text-white tracking-tight leading-tight">Interview Templates</h1>
+            <p className="text-[13px] text-slate-400 mt-0.5">
+              {stats.total}+ ready-made interviews across every field
             </p>
           </div>
         </div>
@@ -482,7 +491,7 @@ export default function TemplatesPage() {
           </p>
           <button onClick={() => setView('all')}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white
-                       bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500
+                       bg-[var(--accent)] hover:bg-[var(--accent-hover)]
                        transition-all cursor-pointer">
             Browse templates
           </button>
@@ -498,7 +507,7 @@ export default function TemplatesPage() {
           </p>
           <button onClick={resetFilters}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white
-                       bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500
+                       bg-[var(--accent)] hover:bg-[var(--accent-hover)]
                        transition-all cursor-pointer">
             Clear All Filters
           </button>
@@ -511,25 +520,15 @@ export default function TemplatesPage() {
         </div>
       )}
       {filteredTemplates.length > visibleTemplates.length && (
-        <div className="flex flex-col items-center gap-2 pt-1">
-          <button onClick={() => setShown(n => n + PAGE_SIZE)}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-slate-800/60 border border-white/[0.08] hover:bg-slate-800 hover:border-white/[0.15] transition-colors cursor-pointer">
-            Show more templates
-            <ChevronDown className="w-4 h-4" />
+        // The next page loads by itself as this comes into view; the button
+        // is there for keyboard users and anyone who scrolls past it.
+        <div ref={loadMoreRef} className="flex items-center justify-center gap-3 pt-1">
+          <button onClick={() => setShown(n => n + PAGE_SIZE)} className="btn-secondary">
+            Show more <ChevronDown />
           </button>
-          <p className="text-xs text-slate-500">Showing {visibleTemplates.length} of {filteredTemplates.length}</p>
+          <span className="text-[13px] text-slate-500 tabular-nums">{visibleTemplates.length} of {filteredTemplates.length}</span>
         </div>
       )}
-
-      {/* ── Back to dashboard ── */}
-      <div className="text-center pt-4">
-        <Link href="/"
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white
-                     bg-slate-800/50 border border-white/[0.06] hover:bg-slate-700/60 hover:border-white/10
-                     transition-all">
-          <ArrowLeft className="w-4 h-4" /> Back to Dashboard
-        </Link>
-      </div>
     </div>
   );
 }

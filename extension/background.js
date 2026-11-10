@@ -126,7 +126,8 @@ async function _dynamicInject(tabId, url) {
   if (_isStaticDomain(url) || !_looksLikeJobPage(url)) return;
   try {
     await chrome.scripting.insertCSS({ target: { tabId }, files: ['content.css'] });
-    await chrome.scripting.executeScript({ target: { tabId }, files: ['external-apply.js'] });
+    // sensitive-answers.js first: external-apply.js reads window.PreciprocalSensitive.
+    await chrome.scripting.executeScript({ target: { tabId }, files: ['sensitive-answers.js', 'external-apply.js'] });
     _injectedTabs.add(tabId);
     console.log('[BG] ✅ Dynamically injected on custom job portal:', url);
   } catch (err) {
@@ -466,6 +467,25 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         'x-user-email':      email   || '',
       },
       body: JSON.stringify(jobData),
+    })
+      .then(r => r.json())
+      .then(data => sendResponse({ success: true, data }))
+      .catch(err => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  // Ghost-job risk and reply odds for the posting on screen (banner.js).
+  if (message.type === 'API_FETCH_JOB_SIGNALS') {
+    const { token, userId, email, baseUrl, payload } = message;
+    fetch(`${baseUrl}/api/extension/job-signals`, {
+      method: 'POST',
+      headers: {
+        'Content-Type':      'application/json',
+        'x-extension-token': token   || '',
+        'x-user-id':         userId  || '',
+        'x-user-email':      email   || '',
+      },
+      body: JSON.stringify(payload || {}),
     })
       .then(r => r.json())
       .then(data => sendResponse({ success: true, data }))

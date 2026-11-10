@@ -30,25 +30,33 @@ const dateOnly = (ms: number) => new Date(ms).toISOString().slice(0, 10);
  * normal hiring process, and older than FOLLOW_UP_STALE_AFTER_DAYS is a dead
  * lead where a nudge reads as desperate rather than diligent.
  */
-export async function getFollowUps(supabaseUserId: string): Promise<FollowUp[]> {
+export async function getFollowUps(
+  supabaseUserId: string,
+  // The digest leaves out applications it mentioned recently. The in-app list
+  // shows every quiet application, since the user is looking for them.
+  opts: { includeRecentlyNudged?: boolean } = {},
+): Promise<FollowUp[]> {
   const now = Date.now();
   const newest = dateOnly(now - FOLLOW_UP_AFTER_DAYS * DAY_MS);
   const oldest = dateOnly(now - FOLLOW_UP_STALE_AFTER_DAYS * DAY_MS);
   const renudgeCutoff = new Date(now - RENUDGE_AFTER_DAYS * DAY_MS).toISOString();
 
-  const { data, error } = await supabaseAdmin
+  let query = supabaseAdmin
     .from('job_applications')
     .select('id, company, job_title, applied_date, last_nudged_at')
     .eq('user_id', supabaseUserId)
     .eq('status', 'applied')
     .lte('applied_date', newest)
-    .gte('applied_date', oldest)
+    .gte('applied_date', oldest);
+  if (!opts.includeRecentlyNudged) {
     // Either never nudged, or nudged long enough ago to mention again. Without
     // this the same silent application appears in every weekly digest until
     // the user changes its status, which is how a useful email becomes noise.
-    .or(`last_nudged_at.is.null,last_nudged_at.lt.${renudgeCutoff}`)
+    query = query.or(`last_nudged_at.is.null,last_nudged_at.lt.${renudgeCutoff}`);
+  }
+  const { data, error } = await query
     .order('applied_date', { ascending: false })
-    .limit(MAX_FOLLOW_UPS_PER_DIGEST);
+    .limit(opts.includeRecentlyNudged ? 20 : MAX_FOLLOW_UPS_PER_DIGEST);
 
   if (error) {
     console.error('⚠️ follow-up lookup failed:', error);

@@ -299,7 +299,7 @@ const ResumeCardInner = memo(function ResumeCard({
   return (
     <>
       {showDeleteModal && <DeleteModal />}
-      <div className={`relative glass-card overflow-hidden transition-all duration-300 hover:border-purple-500/30 hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(139,92,246,0.12)] ${className}`}>
+      <div className={`relative glass-card overflow-hidden transition-all duration-300 hover:border-purple-500/30 hover:-translate-y-1  ${className}`}>
         <div className="px-5 pt-5 pb-3 flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <h3 className="text-sm font-semibold text-white truncate leading-tight">{resume.companyName || resume.jobTitle || 'Resume Analysis'}</h3>
@@ -336,8 +336,8 @@ const ResumeCardInner = memo(function ResumeCard({
               <button onClick={handleDeleteClick} title="Delete" className="w-7 h-7 rounded-lg flex items-center justify-center bg-slate-800/60 border border-white/10 text-slate-400 hover:text-red-400 hover:border-red-500/30 transition-colors duration-150 cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button>
             </div>
           </div>
-          <Link href={`/resume/${resume.id}`} className="flex items-center justify-between w-full px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600/80 to-violet-600/80 hover:from-indigo-600 hover:to-violet-600 border border-indigo-500/30 text-white text-sm font-medium transition-all duration-200 cursor-pointer">
-            <span>View analysis</span><ArrowRight className="w-4 h-4 text-indigo-300" />
+          <Link href={`/resume/${resume.id}`} className="btn-primary w-full justify-between">
+            <span>View analysis</span><ArrowRight />
           </Link>
         </div>
       </div>

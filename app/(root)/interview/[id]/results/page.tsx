@@ -152,7 +152,7 @@ export default async function InterviewResultsPage({ params }: Props) {
 
         {/* CTA */}
         <div className="glass-card p-6 sm:p-8 text-center space-y-4">
-          <div className="w-12 h-12 gradient-primary rounded-2xl flex items-center justify-center mx-auto shadow-[0_4px_20px_rgba(102,126,234,0.4)]">
+          <div className="w-12 h-12 gradient-primary rounded-2xl flex items-center justify-center mx-auto ">
             <Lock className="w-5 h-5 text-white" />
           </div>
           <h2 className="text-xl font-bold text-white">Get your own score</h2>
@@ -163,10 +163,10 @@ export default async function InterviewResultsPage({ params }: Props) {
             <Link
               href="/sign-up"
               className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl
-                         bg-gradient-to-r from-violet-600 to-indigo-600
-                         hover:from-violet-500 hover:to-indigo-500
+                         bg-[var(--accent)]
+                         hover:bg-[var(--accent-hover)]
                          text-white text-sm font-semibold
-                         shadow-[0_4px_20px_rgba(124,58,237,0.35)]
+                         
                          transition-all duration-200"
             >
               Start free mock interview

@@ -71,7 +71,7 @@ export function ResumeIntelTab() {
         {subTabs.map(tab => (
           <button key={tab.id} onClick={() => setSubTab(tab.id)}
             className={`flex-shrink-0 px-2 py-1 text-[7px] font-medium rounded transition-all cursor-pointer flex items-center gap-0.5 ${
-              subTab === tab.id ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'
+              subTab === tab.id ? 'bg-[var(--accent)] text-white' : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'
             }`}>
             {tab.label}
             {tab.count && <span className={`text-[6px] px-1 py-0.5 rounded-full ${subTab === tab.id ? 'bg-white/20' : 'bg-white/[0.06]'}`}>{tab.count}</span>}

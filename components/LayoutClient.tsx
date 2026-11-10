@@ -9,7 +9,7 @@ import logo from "@/public/logo.png";
 import {
   Search, Menu, X, Home, Video, BookOpen, Settings, HelpCircle,
   LogOut, Crown, FileText, Shield, Calendar, Pen, ArrowLeftRight,
-  ChevronRight, NotebookPen, Sparkles, Briefcase, Zap,
+  ChevronRight, NotebookPen, Sparkles, Briefcase, Zap, Chrome,
 } from 'lucide-react';
 import { signOut } from "@/lib/actions/auth.action";
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
@@ -22,14 +22,13 @@ import { useNotifications } from '@/lib/hooks/useNotifications';
 import NotificationCenter from '@/components/Notifications';
 import type { LucideIcon } from 'lucide-react';
 import { Toaster } from 'sonner';
-import AnimatedLoader from '@/components/loader/AnimatedLoader';
+import AnimatedLoader, { LoaderInlineContext } from '@/components/loader/AnimatedLoader';
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
 interface LayoutClientProps {
   children: React.ReactNode;
   user: UserData | null;
-  userStats: UserStats;
 }
 
 interface UserData {
@@ -41,15 +40,6 @@ interface UserData {
     status?: string;
   };
   isAdmin?: boolean;
-}
-
-interface UserStats {
-  totalInterviews?: number;
-  averageScore?: number;
-  interviewsUsed?: number;
-  interviewsLimit?: number;
-  resumesUsed?: number;
-  resumesLimit?: number;
 }
 
 interface NavItem {
@@ -291,6 +281,7 @@ const SearchDropdown = () => {
     { id: 'debrief',       label: 'Interview Journal',   href: '/debrief',          icon: NotebookPen },
     { id: 'career-tools',  label: 'Career Tools',        href: '/career-tools',     icon: Sparkles    },
     { id: 'job-tracker',   label: 'Job Tracker',         href: '/job-tracker',      icon: Briefcase   },
+    { id: 'extension',     label: 'Chrome Extension',    href: '/extension',        icon: Chrome      },
     { id: 'new-interview', label: 'Start New Interview', href: '/interview/create', icon: Video       },
     { id: 'upload-resume', label: 'Upload Resume',       href: '/resume/upload',    icon: FileText    },
   ];
@@ -669,6 +660,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
     { id: 'debrief',      label: 'Interview Journal', icon: NotebookPen, href: '/debrief'      },
     { id: 'career-tools', label: 'Career Tools',      icon: Sparkles,    href: '/career-tools' },
     { id: 'job-tracker',  label: 'Job Tracker',       icon: Briefcase,   href: '/job-tracker'  },
+    { id: 'extension',    label: 'Extension',         icon: Chrome,      href: '/extension'    },
   ];
 
   const teamSpaces: NavItem[] = [{ id: 'templates', label: 'Templates', icon: BookOpen, href: '/templates' }];
@@ -700,6 +692,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
     { id: 'career-tools', label: 'Career Tools',      icon: Sparkles,    href: '/career-tools' },
     { id: 'job-tracker',  label: 'Job Tracker',       icon: Briefcase,   href: '/job-tracker'  },
     { id: 'templates',    label: 'Templates',         icon: BookOpen,    href: '/templates'    },
+    { id: 'extension',    label: 'Extension',         icon: Chrome,      href: '/extension'    },
   ];
 
   React.useEffect(() => {
@@ -779,29 +772,29 @@ function LayoutContent({ children, user }: LayoutClientProps) {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* Solid app background on mobile: the purple gradient showed through
-          below the last section when scrolling past it. Desktop keeps it. */}
-      <div className="fixed inset-0 bg-[var(--bg)] lg:bg-transparent lg:bg-gradient-to-br lg:from-slate-900/95 lg:via-purple-900/90 lg:to-slate-900/95 -z-10" aria-hidden="true" />
+      {/* Solid base, so scrolling past the last section never shows a
+          different colour (the old purple gradient did, on mobile). */}
+      <div className="fixed inset-0 -z-10 bg-[var(--bg)] pointer-events-none" aria-hidden="true" />
 
       {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)} role="button" tabIndex={-1} />
       )}
 
       {/* ── Sidebar ──────────────────────────────── */}
       <aside
-        className={`fixed left-0 top-0 h-full w-64
-                    bg-slate-900/95 backdrop-blur-xl border-r border-white/10 shadow-xl
+        className={`fixed left-0 top-0 h-full w-64 flex flex-col
+                    bg-[var(--bg-sidebar)] border-r border-white/[0.07]
                     z-50 transition-transform duration-300 overflow-y-auto scrollbar-hide
                     ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
         aria-label="Main navigation"
       >
         {/* Logo + user card */}
-        <div className="p-4 border-b border-white/10">
-          <div className="flex items-center justify-between h-[57px]">
-            <Link href="/" className="flex items-center space-x-3 group" onClick={handleLinkClick}>
-              <NextImage src={logo} alt="Preciprocal logo" width={36} height={36} className="rounded-lg" priority />
-              <span className="text-xl font-bold text-white" style={{ fontFamily: "'Inter', sans-serif", letterSpacing: '-0.02em' }}>
+        <div className="px-4 pt-4 pb-3">
+          <div className="flex items-center justify-between h-[41px]">
+            <Link href="/" className="flex items-center gap-2.5 group" onClick={handleLinkClick}>
+              <NextImage src={logo} alt="Preciprocal logo" width={30} height={30} className="rounded-[9px] transition-transform group-hover:scale-105" priority />
+              <span className="text-[17px] font-bold text-white tracking-tight">
                 Preciprocal
               </span>
             </Link>
@@ -812,39 +805,42 @@ function LayoutContent({ children, user }: LayoutClientProps) {
           </div>
 
           <Link href="/profile" onClick={handleLinkClick}
-            className="w-full flex items-center space-x-3 mt-4
-                       bg-slate-800/50 border border-white/10 p-3 rounded-xl hover:bg-slate-800/70 transition-colors">
+            className="w-full flex items-center gap-3 mt-3
+                       bg-white/[0.025] border border-white/[0.06] px-3 py-2.5 rounded-xl
+                       hover:bg-white/[0.045] hover:border-white/[0.1] transition-colors">
             <div className="relative flex-shrink-0">
               <UserAvatar photoURL={photoURL} initials={userInitials} size="md" />
-              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-slate-900" />
+              <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-[var(--bg-sidebar)]" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-white font-semibold text-sm truncate">{safeUser?.name || 'User'}</p>
-              <p className="text-slate-400 text-xs break-all leading-snug mt-0.5">{safeUser?.email || ''}</p>
+              <p className="text-white font-semibold text-[13px] truncate">{safeUser?.name || 'User'}</p>
+              <p className="text-slate-500 text-[11px] truncate mt-0.5" title={safeUser?.email || ''}>{safeUser?.email || ''}</p>
             </div>
           </Link>
         </div>
 
         {/* Navigation */}
-        <nav className="p-3 space-y-1" aria-label="App sections">
-          <div className="px-3 py-2">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Menu</p>
+        <nav className="px-3 pb-3 pt-1 space-y-0.5 flex-1" aria-label="App sections">
+          <div className="px-3 pt-3 pb-2">
+            <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-[0.16em]">Menu</p>
           </div>
           {mainNavItems.map(item => {
             const Icon   = item.icon;
             const active = isActive(item.href);
-            const isNew  = ['debrief', 'career-tools', 'job-tracker'].includes(item.id);
+            // One "New" tag at a time, so it still means something.
+            const isNew  = item.id === 'extension';
             return (
               <Link key={item.id} href={item.href} onClick={handleLinkClick}
                 aria-current={active ? 'page' : undefined}
-                className={`group flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-150
-                             ${active ? 'bg-white/10 text-white' : 'text-slate-300 hover:bg-white/5 hover:text-white'}`}>
-                <div className="flex items-center space-x-3">
-                  <Icon className={`w-5 h-5 ${active ? 'text-purple-400' : 'text-slate-400'}`} />
-                  <span className="font-medium text-sm">{item.label}</span>
+                className={`group relative flex items-center justify-between px-3 py-2 rounded-lg transition-colors duration-150
+                             ${active ? 'bg-white/[0.06] text-white' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-100'}`}>
+                {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-[var(--accent)]" aria-hidden="true" />}
+                <div className="flex items-center gap-3">
+                  <Icon className={`w-[18px] h-[18px] ${active ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'}`} strokeWidth={1.75} />
+                  <span className="font-medium text-[13px]">{item.label}</span>
                 </div>
                 {isNew && !active && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/20 text-violet-400 border border-violet-500/30 font-semibold leading-none">
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-300 border border-indigo-400/20 font-semibold uppercase tracking-wider leading-none">
                     New
                   </span>
                 )}
@@ -853,17 +849,20 @@ function LayoutContent({ children, user }: LayoutClientProps) {
           })}
 
           {/* Resources */}
-          <div className="pt-6">
-            <div className="px-3 py-2">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Resources</p>
+          <div className="pt-4">
+            <div className="px-3 pt-3 pb-2">
+              <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-[0.16em]">Resources</p>
             </div>
             {teamSpaces.map(item => {
               const Icon = item.icon;
+              const active = isActive(item.href);
               return (
                 <Link key={item.id} href={item.href} onClick={handleLinkClick}
-                  className="flex items-center space-x-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-white/5 hover:text-white transition-colors">
-                  <Icon className="w-5 h-5 text-slate-400" />
-                  <span className="font-medium text-sm">{item.label}</span>
+                  aria-current={active ? 'page' : undefined}
+                  className={`group flex items-center gap-3 px-3 py-2 rounded-lg transition-colors
+                              ${active ? 'bg-white/[0.06] text-white' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-100'}`}>
+                  <Icon className={`w-[18px] h-[18px] ${active ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'}`} strokeWidth={1.75} />
+                  <span className="font-medium text-[13px]">{item.label}</span>
                 </Link>
               );
             })}
@@ -876,15 +875,15 @@ function LayoutContent({ children, user }: LayoutClientProps) {
             const isResume = item.id === 'resume';
             return (
               <div className="pt-4">
-                <div className="px-3 py-2">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Recent</p>
+                <div className="px-3 pt-3 pb-2">
+                  <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-[0.16em]">Recent</p>
                 </div>
                 <Link href={isResume && latestResume ? `/resume/${latestResume.id}` : item.href}
                   onClick={handleLinkClick}
-                  className="bg-slate-800/50 border border-white/10 mx-2 p-3 rounded-xl hover:bg-slate-800 transition-colors block">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 gradient-accent rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Icon className="w-4 h-4 text-white" />
+                  className="bg-white/[0.025] border border-white/[0.06] mx-1 p-2.5 rounded-xl hover:bg-white/[0.045] hover:border-white/[0.1] transition-colors block">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-indigo-500/[0.12] border border-indigo-400/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Icon className="w-4 h-4 text-indigo-300" strokeWidth={1.75} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-white truncate">
@@ -901,19 +900,22 @@ function LayoutContent({ children, user }: LayoutClientProps) {
           })()}
 
           {/* Other */}
-          <div className="pt-6">
-            <div className="px-3 py-2">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Other</p>
+          <div className="pt-4">
+            <div className="px-3 pt-3 pb-2">
+              <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-[0.16em]">Other</p>
             </div>
             {otherItems.map(item => {
               const Icon  = item.icon;
               const badge = navBadge(item.id);
+              const active = isActive(item.href);
               return (
                 <Link key={item.id} href={item.href} onClick={handleLinkClick}
-                  className="flex items-center justify-between px-3 py-2.5 rounded-lg text-slate-300 hover:bg-white/5 hover:text-white transition-colors">
-                  <div className="flex items-center space-x-3">
-                    <Icon className="w-5 h-5 text-slate-400" />
-                    <span className="font-medium text-sm">{item.label}</span>
+                  aria-current={active ? 'page' : undefined}
+                  className={`group flex items-center justify-between px-3 py-2 rounded-lg transition-colors
+                              ${active ? 'bg-white/[0.06] text-white' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-100'}`}>
+                  <div className="flex items-center gap-3">
+                    <Icon className={`w-[18px] h-[18px] ${active ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'}`} strokeWidth={1.75} />
+                    <span className="font-medium text-[13px]">{item.label}</span>
                   </div>
                   {badge > 0 && (
                     <span
@@ -932,10 +934,10 @@ function LayoutContent({ children, user }: LayoutClientProps) {
         </nav>
 
         {/* ── Plan card ─────────────────────────────── */}
-        <div className="p-4 mt-4 border-t border-white/10">
-          <div className="bg-slate-800/50 border border-white/10 rounded-xl p-4 space-y-3">
+        <div className="px-4 pt-4 pb-3 mt-4 border-t border-white/[0.06]">
+          <div className="bg-[var(--bg-surface)] border border-white/[0.08] rounded-xl p-3.5 space-y-2.5">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-white">Plan</span>
+              <span className="text-[13px] font-semibold text-white">Your plan</span>
               <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${planInfo.badgeClass} text-xs font-semibold`}>
                 <PlanIcon className="w-3.5 h-3.5" />
                 <span>{planInfo.text}</span>
@@ -946,12 +948,11 @@ function LayoutContent({ children, user }: LayoutClientProps) {
 
             {planInfo.showUpgrade && (
               <Link href="/pricing" onClick={handleLinkClick}
-                className="w-full px-4 py-2.5 rounded-lg flex items-center justify-center
-                           text-white text-sm font-semibold
-                           bg-gradient-to-r from-purple-600 to-blue-600
-                           hover:from-purple-700 hover:to-blue-700
-                           shadow-md hover:shadow-lg transition-all hover-lift">
-                <Crown className="w-4 h-4 mr-2" />
+                className="w-full px-4 py-2 rounded-lg flex items-center justify-center
+                           text-white text-[13px] font-semibold
+                           bg-[var(--accent)] hover:bg-[var(--accent-hover)] active:bg-[var(--accent-press)]
+                           transition-colors">
+                <Crown className="w-3.5 h-3.5 mr-2" />
                 {planInfo.text === 'Pro' ? 'Upgrade to Premium' : 'Upgrade Plan'}
               </Link>
             )}
@@ -959,13 +960,13 @@ function LayoutContent({ children, user }: LayoutClientProps) {
         </div>
 
         {/* Logout */}
-        <div className="p-4 border-t border-white/10">
+        <div className="px-4 pb-4">
           <button onClick={handleLogout} disabled={isLoggingOut}
-            className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg
-                       text-red-400 hover:bg-red-500/10 hover:text-red-300
-                       transition-colors text-sm disabled:opacity-50">
-            <LogOut className="w-5 h-5" />
-            <span className="font-medium">{isLoggingOut ? 'Logging out…' : 'Logout'}</span>
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg
+                       text-slate-500 hover:bg-red-500/[0.08] hover:text-red-300
+                       transition-colors text-[13px] disabled:opacity-50">
+            <LogOut className="w-[18px] h-[18px]" strokeWidth={1.75} />
+            <span className="font-medium">{isLoggingOut ? 'Signing out…' : 'Sign out'}</span>
           </button>
         </div>
       </aside>
@@ -974,14 +975,14 @@ function LayoutContent({ children, user }: LayoutClientProps) {
       <div className="lg:pl-64 min-h-screen flex flex-col">
         <header
           className={`fixed top-0 right-0 left-0 lg:left-64 z-40
-                      border-b border-white/10 backdrop-blur-xl transition-all duration-200
-                      ${scrolled ? 'bg-slate-900/95 shadow-lg' : 'bg-slate-900/80'}`}
+                      border-b border-white/[0.06] backdrop-blur-xl transition-colors duration-200
+                      ${scrolled ? 'bg-[var(--bg)]/95' : 'bg-[var(--bg)]/80'}`}
           role="banner"
         >
           <div className="flex items-center justify-between px-4 sm:px-6 py-3.5">
             <div className="flex items-center gap-4 flex-1 min-w-0">
               <button onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="lg:hidden bg-slate-800/50 border border-white/10 p-2 rounded-lg hover:bg-slate-800 transition-colors"
+                className="lg:hidden bg-white/[0.04] border border-white/[0.08] p-2 rounded-lg hover:bg-white/[0.08] transition-colors"
                 aria-label={sidebarOpen ? 'Close menu' : 'Open menu'}>
                 <Menu className="w-5 h-5 text-white" />
               </button>
@@ -999,7 +1000,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
 
               <div id="header-account-menu" className="relative">
                 <button onClick={() => setShowHeaderMenu(prev => !prev)}
-                  className="bg-slate-800/50 border border-white/10 p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                  className="bg-white/[0.04] border border-white/[0.08] p-1 rounded-lg hover:bg-white/[0.08] hover:border-white/[0.14] transition-colors"
                   aria-label="Open account menu" aria-expanded={showHeaderMenu} aria-haspopup="menu">
                   <UserAvatar photoURL={photoURL} initials={userInitials} size="sm" className="rounded-lg" />
                 </button>
@@ -1007,8 +1008,8 @@ function LayoutContent({ children, user }: LayoutClientProps) {
                 {showHeaderMenu && (
                   <div role="menu" aria-label="Account options"
                     className="absolute top-full right-0 mt-2 w-64
-                               bg-[#0f172a] border border-white/10
-                               rounded-xl shadow-2xl z-50 overflow-hidden animate-fade-in-up">
+                               bg-[var(--bg-raised)] border border-white/[0.1]
+                               rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.45)] z-50 overflow-hidden animate-fade-in-up">
                     <div className="px-4 pt-4 pb-3 border-b border-white/10">
                       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Current Account</p>
                       <div className="flex items-center gap-3">
@@ -1069,8 +1070,13 @@ function LayoutContent({ children, user }: LayoutClientProps) {
           </div>
         </header>
 
-        <main className="p-4 sm:p-6 mt-[65px] flex-1" id="main-content">
-          {children}
+        {/* Fills the window below the header; see .app-main in globals.css
+            for how a page's last section stretches to the bottom edge. */}
+        <main className="app-main p-4 sm:p-6 mt-[65px] flex-1 flex flex-col min-h-0" id="main-content">
+          {/* Page loaders render inside this area, not over the whole app. */}
+          <LoaderInlineContext.Provider value={true}>
+            {children}
+          </LoaderInlineContext.Provider>
         </main>
       </div>
     </div>
@@ -1079,7 +1085,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
 
 // ─── Root export ──────────────────────────────────────────────────────────────
 
-export default function LayoutClient({ children, user, userStats }: LayoutClientProps) {
+export default function LayoutClient({ children, user }: LayoutClientProps) {
   return (
     <>
       <Toaster
@@ -1111,7 +1117,7 @@ export default function LayoutClient({ children, user, userStats }: LayoutClient
       />
       <SessionHeartbeat />
       {user && <ActivityTracker />}
-      <LayoutContent user={user} userStats={userStats}>
+      <LayoutContent user={user}>
         {children}
       </LayoutContent>
     </>

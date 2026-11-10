@@ -1,4 +1,6 @@
 'use client';
+import PageHeader from '@/components/PageHeader';
+import { Pen as HeaderIcon } from 'lucide-react';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -11,7 +13,6 @@ import { toast } from 'sonner';
 
 import {
   FileText,
-  Sparkles,
   Zap,
   LayoutGrid,
   List,
@@ -421,36 +422,16 @@ function EmptyDashboard() {
         Generate professional, personalised cover letters powered by AI. Stand out from the competition.
       </p>
 
-      {/* Feature pills */}
-      <div className="flex flex-wrap justify-center gap-2 mb-8">
-        {[
-          { icon: Sparkles, label: 'AI-Powered',    color: 'text-blue-400   bg-blue-500/10   border-blue-500/20'   },
-          { icon: Zap,      label: 'Fast',          color: 'text-violet-400 bg-violet-500/10 border-violet-500/20' },
-          { icon: CheckCircle, label: 'Professional', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' },
-          { icon: FileText, label: 'Customisable',  color: 'text-amber-400  bg-amber-500/10  border-amber-500/20'  },
-        ].map(({ icon: Icon, label, color }) => (
-          <div key={label} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium ${color}`}>
-            <Icon className="w-3.5 h-3.5" /> {label}
-          </div>
-        ))}
-      </div>
 
       <div className="flex flex-wrap items-center justify-center gap-3">
         <Link
           href="/cover-letter/create"
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl whitespace-nowrap shrink-0
-                     bg-gradient-to-r from-indigo-600 to-purple-600
-                     hover:from-indigo-500 hover:to-purple-500
-                     text-white text-sm font-semibold
-                     shadow-[0_4px_16px_rgba(102,126,234,0.3)]
-                     hover:shadow-[0_6px_20px_rgba(102,126,234,0.4)]
-                     transition-all duration-200"
+          className="btn-primary"
         >
           <Plus className="w-4 h-4 shrink-0" /> Generate First Letter
         </Link>
         <SeeExampleButton
           serviceId="cover-letter"
-          className="!px-5 !py-2.5 !text-sm !font-semibold"
         />
       </div>
       <p className="text-[11px] text-slate-700 mt-4">Upload your resume for personalised letters</p>
@@ -531,8 +512,8 @@ function PreviewModal({
             <button
               onClick={onDownloadToggle}
               className="download-button flex items-center gap-2 px-4 py-2.5 rounded-xl
-                         bg-gradient-to-r from-indigo-600 to-purple-600
-                         hover:from-indigo-500 hover:to-purple-500
+                         bg-[var(--accent)]
+                         hover:bg-[var(--accent-hover)]
                          text-white text-xs font-semibold
                          transition-all duration-150"
             >
@@ -616,7 +597,6 @@ export default function CoverLetterDashboard() {
     try {
       setLoadingLetters(true); setLettersError(''); setLoadingStep(0);
       setLoadingStep(1);
-      await new Promise(r => setTimeout(r, 150));
       setLoadingStep(2);
       const res = await fetch('/api/cover-letter/list');
       if (!res.ok) throw new Error(`Failed to fetch (${res.status})`);
@@ -632,7 +612,6 @@ export default function CoverLetterDashboard() {
       setLoadingStep(3);
       setStats(computeStats(letters));
       setLoadingStep(4);
-      await new Promise(r => setTimeout(r, 100));
       setLoadingStep(5);
     } catch (err: unknown) {
       const msg = (err as Error).message ?? '';
@@ -742,9 +721,9 @@ export default function CoverLetterDashboard() {
           <Link
             href="/sign-in"
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
-                       bg-gradient-to-r from-indigo-600 to-purple-600 text-white
+                       bg-[var(--accent)] text-white
                        text-sm font-semibold transition-all duration-150
-                       hover:from-indigo-500 hover:to-purple-500"
+                       hover:bg-[var(--accent-hover)]"
           >
             Go to sign in
           </Link>
@@ -758,33 +737,13 @@ export default function CoverLetterDashboard() {
     <div className="space-y-4 pt-4">
       <ConfirmDialog />
 
-      {/* Page header */}
-      <div className="glass-card p-5 animate-fade-in-up">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-bold text-white leading-tight">Cover Letters</h1>
-            <p className="text-xs text-slate-500 mt-0.5">AI-powered professional cover letters</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <SeeExampleButton
-              serviceId="cover-letter"
-              className="!px-4 !py-2.5 !text-sm !font-semibold"
-            />
-            <Link
-              href="/cover-letter/create"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl
-                         bg-gradient-to-r from-indigo-600 to-purple-600
-                         hover:from-indigo-500 hover:to-purple-500
-                         text-white text-sm font-semibold
-                         shadow-[0_4px_14px_rgba(102,126,234,0.28)]
-                         hover:shadow-[0_6px_18px_rgba(102,126,234,0.38)]
-                         transition-all duration-200"
-            >
-              <Plus className="w-4 h-4" /> Generate New
-            </Link>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="Cover Letters" description="Personalised cover letters written from your resume" icon={HeaderIcon}
+        actions={<>
+          <SeeExampleButton serviceId="cover-letter" />
+          <Link href="/cover-letter/create" className="btn-primary"><Plus /> New Cover Letter</Link>
+        </>}
+      />
 
       {/* Inline error */}
       {lettersError && (

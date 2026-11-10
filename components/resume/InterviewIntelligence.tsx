@@ -259,7 +259,7 @@ export default function InterviewIntelligence({
           <button onClick={() => fetchIntel(customCompany, customRole)}
             disabled={!customCompany.trim() && !customRole.trim()}
             className="w-full py-3 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2
-                       bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500
+                       bg-[var(--accent)] hover:bg-[var(--accent-hover)]
                        disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer">
             <BarChart3 className="w-4 h-4" /> Get Interview Intelligence
           </button>
@@ -278,7 +278,7 @@ export default function InterviewIntelligence({
         <p className="text-slate-400 text-sm mb-6 max-w-sm mx-auto">{error}</p>
         <button onClick={() => fetchIntel()}
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white
-                     bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500
+                     bg-[var(--accent)] hover:bg-[var(--accent-hover)]
                      transition-all cursor-pointer">
           <RefreshCw className="w-4 h-4" /> Retry
         </button>
@@ -372,7 +372,7 @@ export default function InterviewIntelligence({
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
             className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap min-w-0 cursor-pointer ${
               activeTab === tab.id
-                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm'
+                ? 'bg-[var(--accent)] text-white shadow-sm'
                 : tab.hasData
                 ? 'text-slate-400 hover:text-white hover:bg-white/[0.05]'
                 : 'text-slate-600 hover:text-slate-400 hover:bg-white/[0.04]'
@@ -424,7 +424,7 @@ export default function InterviewIntelligence({
               {ip.overallPassRate !== null && (
                 <>
                   <div className="h-1.5 bg-slate-700/60 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full transition-all duration-1000" style={{ width: `${Math.min(ip.overallPassRate, 100)}%` }} />
+                    <div className="h-full bg-[var(--accent)] rounded-full transition-all duration-1000" style={{ width: `${Math.min(ip.overallPassRate, 100)}%` }} />
                   </div>
                   <p className="text-[10px] text-slate-500 mt-1.5 text-right">{ip.overallPassRate}% overall pass rate</p>
                 </>

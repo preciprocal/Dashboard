@@ -208,7 +208,7 @@ export default function ProgressChart({ plan }: ProgressChartProps) {
                   <div className="h-full rounded-full transition-all duration-700"
                     style={{
                       width: `${day.percentage}%`,
-                      background: isDone ? 'linear-gradient(90deg, #10b981, #34d399)' : 'linear-gradient(90deg, #6366f1, #8b5cf6)',
+                      background: isDone ? '#10b981' : 'var(--accent)',
                     }} />
                 </div>
               </div>

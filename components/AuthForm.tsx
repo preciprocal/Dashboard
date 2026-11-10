@@ -503,7 +503,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
               <Button
                 type="submit"
                 disabled={isLoading || !acceptedTerms}
-                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-3 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border-0 shadow-lg hover:shadow-xl"
+                className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-semibold py-3 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border-0 shadow-lg hover:shadow-xl"
               >
                 {isLoading ? (
                   <div className="flex items-center justify-center space-x-2">

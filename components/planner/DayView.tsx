@@ -63,7 +63,7 @@ export default function DayView({ dailyPlan, onTaskUpdate }: DayViewProps) {
           <div className="flex-1">
             <div className="flex items-center gap-4 mb-4">
               {/* Day Badge */}
-              <div className="flex items-center justify-center w-14 h-14 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 border border-blue-500/30 shadow-lg shadow-blue-500/20">
+              <div className="flex items-center justify-center w-14 h-14 rounded-xl bg-[var(--accent)] border border-blue-500/30 shadow-lg ">
                 <div className="text-center">
                   <span className="block text-xs text-blue-200">Day</span>
                   <span className="block text-xl font-semibold text-white">{dailyPlan.day}</span>
@@ -110,7 +110,7 @@ export default function DayView({ dailyPlan, onTaskUpdate }: DayViewProps) {
             <div className="flex items-center gap-4">
               <div className="flex-1 h-2 bg-slate-800/60 rounded-full overflow-hidden border border-slate-700">
                 <div
-                  className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-500"
+                  className="h-full bg-[var(--accent)] transition-all duration-500"
                   style={{ width: `${progress}%` }}
                 />
               </div>

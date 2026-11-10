@@ -4,7 +4,7 @@
 // plannerPreferences/plannerNotifications functions this class used to have
 // were dropped as dead code (zero live callers) when interview plans moved
 // to Postgres; see git blame for the pre-migration version.
-import { InterviewPlan, PlanStats } from '@/types/planner';
+import { InterviewPlan, PlanStats, TaskStatus } from '@/types/planner';
 
 export class PlannerService {
   /**
@@ -24,6 +24,28 @@ export class PlannerService {
       console.error('❌ Error getting user plans:', error);
       throw new Error('Failed to get user plans');
     }
+  }
+
+  /** One plan; null when it doesn't exist or isn't the caller's. */
+  static async getPlan(planId: string): Promise<InterviewPlan | null> {
+    const res = await fetch(`/api/planner/plans/${planId}`, { credentials: 'include' });
+    if (res.status === 403 || res.status === 404) return null;
+    if (!res.ok) throw new Error('Failed to load plan');
+    const { plan } = await res.json() as { plan: InterviewPlan };
+    return plan;
+  }
+
+  /** Set a task's status; returns the recomputed progress. */
+  static async updateTaskStatus(planId: string, taskId: string, status: TaskStatus): Promise<InterviewPlan['progress']> {
+    const res = await fetch(`/api/planner/plans/${planId}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ taskId, status }),
+    });
+    if (!res.ok) throw new Error('Failed to update task');
+    const { progress } = await res.json() as { progress: InterviewPlan['progress'] };
+    return progress;
   }
 
   /**
@@ -46,9 +68,11 @@ export class PlannerService {
   /**
    * Get comprehensive statistics for a user's plans
    */
-  static async getUserPlanStats(userId: string): Promise<PlanStats> {
+  static async getUserPlanStats(userId: string, alreadyFetched?: InterviewPlan[]): Promise<PlanStats> {
     try {
-      const plans = await this.getUserPlans(userId);
+      // Callers that already hold the list pass it in: fetching it again here
+      // put a second, sequential /api/planner/plans request on every load.
+      const plans = alreadyFetched ?? await this.getUserPlans(userId);
 
       const activePlans = plans.filter(p => p.status === 'active');
       const completedPlans = plans.filter(p => p.status === 'completed');

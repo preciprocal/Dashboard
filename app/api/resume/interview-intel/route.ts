@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
 import { redis } from '@/lib/redis/redis-client';
-import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, stripDashesDeep, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
+import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, stripDashesDeep, LANGUAGE_MATCH_INSTRUCTION, createMessage } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 import { calibrateSalary } from '@/lib/ai/outcome-tracking';
@@ -94,7 +94,7 @@ Return JSON:
   "dataNote": "..."
 }`;
 
-    const response = await anthropic.messages.create({ model: CLAUDE_MODEL, max_tokens: MAX_TOKENS, system: cachedSystem(INTEL_SYSTEM), messages: [{ role: 'user', content: prompt }] });
+    const response = await createMessage({ model: CLAUDE_MODEL, max_tokens: MAX_TOKENS, system: cachedSystem(INTEL_SYSTEM), messages: [{ role: 'user', content: prompt }] });
     logUsage('interview-intel', response);
 
     const intel = stripDashesDeep(JSON.parse(extractJsonString(extractText(response)))) as Record<string, unknown>;

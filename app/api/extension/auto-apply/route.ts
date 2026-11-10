@@ -5,6 +5,7 @@ import { getUserAIContext } from '@/lib/ai/user-context';
 import { getSignedUrl } from '@/lib/storage/file-storage';
 import { resolveStoragePathUrl } from '@/lib/storage/resolve-signed-url';
 import { supabaseAdmin } from '@/supabase/admin';
+import { sensitiveValue } from '@/lib/config/sensitive-answers';
 
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
@@ -125,7 +126,8 @@ function buildApplyProfile(profile: ProfileRow, plan: string, uid: string) {
     location:   [profile.city, profile.state].filter(Boolean).join(', ') || '',
     zipCode:    (ext.zipCode as string) || '',
     streetAddress:     profile.street_address || '',
-    country:    (ext.country as string) || 'United States',
+    // No default: guessing "United States" mis-locates every non-US applicant.
+    country:    (ext.country as string) || '',
     headline:          profile.target_role || (ext.headline as string) || '',
     yearsOfExperience: (ext.yearsOfExperience as string) || '',
     summary:           profile.bio || (ext.summary as string) || '',
@@ -148,21 +150,24 @@ function buildApplyProfile(profile: ProfileRow, plan: string, uid: string) {
     currentlyEmployed:  (ext.currentlyEmployed as boolean) ?? false,
     reasonForLeaving:   (ext.reasonForLeaving as string) || '',
     howDidYouHear:      (ext.howDidYouHear as string)    || 'LinkedIn',
-    workAuthorization:  (ext.workAuthorization as string) || 'Yes',
-    requireSponsorship: (ext.requireSponsorship as boolean) ?? false,
+    // Sensitive answers below are null unless the user chose them
+    // (lib/config/sensitive-answers.ts). The extension leaves null questions
+    // blank for the user instead of answering on their behalf.
+    workAuthorization:  sensitiveValue(ext, 'workAuthorization'),
+    requireSponsorship: sensitiveValue(ext, 'requireSponsorship'),
     visaType:           (ext.visaType as string) || '',
-    over18:          (ext.over18 as boolean)          ?? true,
-    driverLicense:   (ext.driverLicense as boolean)   ?? true,
-    backgroundCheck: (ext.backgroundCheck as boolean) ?? true,
-    drugTest:        (ext.drugTest as boolean)        ?? true,
-    criminalRecord:  (ext.criminalRecord as boolean)  ?? false,
+    over18:          sensitiveValue(ext, 'over18'),
+    driverLicense:   sensitiveValue(ext, 'driverLicense'),
+    backgroundCheck: sensitiveValue(ext, 'backgroundCheck'),
+    drugTest:        sensitiveValue(ext, 'drugTest'),
+    criminalRecord:  sensitiveValue(ext, 'criminalRecord'),
     education:  (ext.education  as unknown[]) || [],
     experience: (ext.experience as unknown[]) || [],
-    gender:           (ext.gender as string)           || 'Prefer not to say',
-    pronouns:         (ext.pronouns as string)         || 'Prefer not to say',
-    race:             (ext.race as string)             || 'Prefer not to say',
-    veteranStatus:    (ext.veteranStatus as string)    || 'I am not a protected veteran',
-    disabilityStatus: (ext.disabilityStatus as string) || 'I do not have a disability',
+    gender:           sensitiveValue(ext, 'gender'),
+    pronouns:         sensitiveValue(ext, 'pronouns'),
+    race:             sensitiveValue(ext, 'race'),
+    veteranStatus:    sensitiveValue(ext, 'veteranStatus'),
+    disabilityStatus: sensitiveValue(ext, 'disabilityStatus'),
     coverLetterIntro:   (ext.coverLetterIntro as string) || '',
     coverLetterBody:    (ext.coverLetterBody as string)  || '',
     preferredLocations: Array.isArray(ext.preferredLocations) ? ext.preferredLocations as string[] : [],

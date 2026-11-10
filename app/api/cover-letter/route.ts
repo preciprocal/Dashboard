@@ -5,9 +5,10 @@ import { supabaseAdmin } from '@/supabase/admin';
 import { hashResumeContent } from '@/lib/redis/resume-cache';
 import { redis, RedisKeys } from '@/lib/redis/redis-client';
 import { getUserAIContext } from '@/lib/ai/user-context';
-import { anthropic, CLAUDE_MODEL, extractText, cachedSystem, logUsage, stripDashes, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
+import { anthropic, CLAUDE_MODEL, extractText, cachedSystem, logUsage, stripDashes, LANGUAGE_MATCH_INSTRUCTION, createMessage } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
+import { checkWriting } from '@/lib/ai/writing-check';
 
 const COVER_LETTER_TTL     = 7 * 24 * 60 * 60;
 const COMPANY_RESEARCH_TTL = 30 * 24 * 60 * 60;
@@ -19,7 +20,23 @@ const MAX_TOKENS_RESEARCH = 250;
 const MAX_TOKENS_COURSES  = 500;
 const MAX_TOKENS_PROJECTS = 400;
 
-const SYSTEM_PROMPT = `You are an expert cover letter writer. You create compelling, personalized cover letters that get interviews. You incorporate specific company research, real projects, and academic coursework to create authentic, non-generic letters. Generate the complete cover letter directly. No preamble, no commentary, no em dashes.${LANGUAGE_MATCH_INSTRUCTION}`;
+// Two rules matter more than polish. Recruiters reject letters that read as
+// machine-written, and a letter that claims experience the candidate does not
+// have falls apart in the first interview. lib/ai/writing-check.ts checks the
+// output for both, and the UI shows the result.
+const SYSTEM_PROMPT = `You are an expert cover letter writer. You write letters that sound like a specific, thoughtful person, not like AI, and that get interviews.
+
+Truthfulness, non-negotiable:
+- Use only facts present in the candidate's resume, profile, transcript or projects provided. Never invent employers, projects, tools, numbers, percentages, team sizes or years of experience.
+- If a metric is not provided, describe the work and its effect in words instead of making up a number.
+- A tool or skill that appears only in the job description may be mentioned as something the candidate wants to learn or work with, never as experience they have.
+
+Sound human:
+- Never use these phrases: "I am writing to express my interest", "delve", "tapestry", "testament to", "fast-paced environment", "dynamic team", "results-driven", "leverage my skills", "passionate about leveraging", "seamlessly", "in today's world", "ever-evolving landscape", "unwavering", "synergy", "cutting-edge", "valuable asset", "spearheaded", "meticulous", "embark".
+- Vary sentence length and openings. Do not start most sentences with "I".
+- Be specific to this company and role. Plain words over impressive ones.
+
+Generate the complete cover letter directly. No preamble, no commentary, no em dashes or en dashes.${LANGUAGE_MATCH_INSTRUCTION}`;
 
 interface CoverLetterRequest { jobRole: string; jobDescription?: string; companyName?: string; tone?: string; }
 interface CoverLetterCache { content: string; wordCount: number; tokensUsed: number; createdAt: string; }
@@ -31,7 +48,7 @@ async function researchCompany(companyName: string, jobRole: string): Promise<st
   const cached = await getCachedCompanyResearch(companyName);
   if (cached) return cached;
   try {
-    const r = await anthropic.messages.create({ model: CLAUDE_MODEL, max_tokens: MAX_TOKENS_RESEARCH, messages: [{ role: 'user', content: `Research ${companyName} for a ${jobRole} cover letter. 2-3 sentences: mission, recent news, culture. If unknown say "Company information not available".` }] });
+    const r = await createMessage({ model: CLAUDE_MODEL, max_tokens: MAX_TOKENS_RESEARCH, messages: [{ role: 'user', content: `Describe ${companyName} for a ${jobRole} cover letter. 2-3 sentences: what it makes, who for, and what it is known for. Only state things you are confident are true and long-standing. No news, dates, figures or product launches. If unknown say "Company information not available".` }] });
     const research = extractText(r);
     await cacheCompanyResearch(companyName, research);
     return research;
@@ -60,7 +77,7 @@ async function cacheCoverLetter(key: string, data: CoverLetterCache): Promise<vo
 async function extractRelevantCourses(transcriptText: string, jobRole: string, jobDescription?: string): Promise<string> {
   if (!transcriptText || transcriptText.length < 50 || !anthropic) return '';
   try {
-    const r = await anthropic.messages.create({ model: CLAUDE_MODEL, max_tokens: MAX_TOKENS_COURSES, messages: [{ role: 'user', content: `From this transcript, identify 4-6 courses relevant to a ${jobRole} position.\n${jobDescription ? `JOB:\n${jobDescription.substring(0, 1500)}\n` : ''}TRANSCRIPT:\n${transcriptText.substring(0, 3000)}\n\nFormat: "Course X: [CODE]: [NAME] - [RELEVANCE]"` }] });
+    const r = await createMessage({ model: CLAUDE_MODEL, max_tokens: MAX_TOKENS_COURSES, messages: [{ role: 'user', content: `From this transcript, identify 4-6 courses relevant to a ${jobRole} position.\n${jobDescription ? `JOB:\n${jobDescription.substring(0, 1500)}\n` : ''}TRANSCRIPT:\n${transcriptText.substring(0, 3000)}\n\nFormat: "Course X: [CODE]: [NAME] - [RELEVANCE]"` }] });
     const result = extractText(r);
     return (result.includes('Course') || result.includes('RELEVANT')) ? result : '';
   } catch { return ''; }
@@ -71,7 +88,7 @@ async function extractRelevantCourses(transcriptText: string, jobRole: string, j
 async function extractRelevantProjects(resumeText: string, jobRole: string, jobDescription?: string): Promise<string> {
   if (!resumeText || resumeText.length < 50 || !anthropic) return '';
   try {
-    const r = await anthropic.messages.create({
+    const r = await createMessage({
       model: CLAUDE_MODEL,
       max_tokens: MAX_TOKENS_PROJECTS,
       messages: [{
@@ -125,24 +142,47 @@ export async function POST(request: NextRequest) {
     const hasResume = !!ctx.resumeText;
     const hasTranscript = !!ctx.transcriptText;
 
-    // Extract courses and projects in parallel
-    const [transcriptCourses, resumeProjects] = await Promise.all([
+    // Extract courses and projects in parallel, alongside the profile row
+    // (contact details and the writing sample, which the cache key needs).
+    const [transcriptCourses, resumeProjects, { data: profileRow }] = await Promise.all([
       hasTranscript ? extractRelevantCourses(ctx.transcriptText!, jobRole, jobDescription) : Promise.resolve(''),
       hasResume ? extractRelevantProjects(ctx.resumeText!, jobRole, jobDescription) : Promise.resolve(''),
+      supabaseAdmin
+        .from('profiles')
+        .select('street_address, city, state, phone, linked_in, github, website, extended_data')
+        .eq('user_id', supabaseUserId)
+        .maybeSingle(),
     ]);
+    const userDoc = profileRow ?? { street_address: null, city: null, state: null, phone: null, linked_in: null, github: null, website: null, extended_data: null };
+    // Something the user wrote themselves, set on this page (saved to the
+    // profile's extended_data). The letter copies its voice, never its content.
+    const rawSample = (userDoc.extended_data as Record<string, unknown> | null)?.writingSample;
+    const writingSample = typeof rawSample === 'string' ? rawSample.trim().slice(0, 2500) : '';
+
+    // The user's own material: what a letter may claim. Checked against the
+    // output by lib/ai/writing-check.ts, on fresh and cached letters alike.
+    const groundingSources = [
+      ctx.resumeText ?? '', ctx.transcriptText ?? '', ctx.profile.bio ?? '',
+      (ctx.profile.preferredTech ?? []).join(', '), resumeProjects, transcriptCourses,
+    ];
+    const authenticityOf = (content: string) => checkWriting(content, { sources: groundingSources, companyName: companyName ?? null });
 
     const cacheKey = hashResumeContent(
       `${userId}${jobRole}${companyName ?? ''}${jobDescription ?? ''}${tone}` +
       `${(ctx.resumeText ?? '').substring(0, 500)}` +
       `${transcriptCourses.substring(0, 200)}` +
-      `${resumeProjects.substring(0, 200)}`,
+      `${resumeProjects.substring(0, 200)}` +
+      // v2: the truthfulness and anti-AI-phrasing prompt. Older cached letters
+      // were written without it and must not be served again.
+      `v2${writingSample}`,
     );
     const cached = await getCachedCoverLetter(cacheKey);
     if (cached) {
       return NextResponse.json({
         success: true,
         coverLetter: { content: cached.content, jobRole, companyName: companyName ?? null, tone, wordCount: cached.wordCount, createdAt: cached.createdAt },
-        metadata: { tokensUsed: cached.tokensUsed, responseTime: Date.now() - startTime, cached: true, usedResume: hasResume, usedTranscript: hasTranscript },
+        metadata: { tokensUsed: cached.tokensUsed, responseTime: Date.now() - startTime, cached: true, usedResume: hasResume, usedTranscript: hasTranscript, usedWritingSample: !!writingSample },
+        authenticity: authenticityOf(cached.content),
       });
     }
 
@@ -151,12 +191,6 @@ export async function POST(request: NextRequest) {
 
     const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     const contactLines = [ctx.profile.name];
-    const { data: profileRow } = await supabaseAdmin
-      .from('profiles')
-      .select('street_address, city, state, phone, linked_in, github, website')
-      .eq('user_id', supabaseUserId)
-      .maybeSingle();
-    const userDoc = profileRow ?? { street_address: null, city: null, state: null, phone: null, linked_in: null, github: null, website: null };
     if (userDoc.street_address) contactLines.push(userDoc.street_address);
     const loc = [userDoc.city, userDoc.state].filter(Boolean).join(', ');
     if (loc) contactLines.push(loc);
@@ -178,9 +212,13 @@ export async function POST(request: NextRequest) {
       ? 'academic coursework (cite 3-4 specific course codes)'
       : 'technical skills and tools';
 
+    // Without a resume there is nothing to cite, so asking for metrics would
+    // only invite invented ones.
     const body1Subject = hasResume && resumeProjects
-      ? 'a specific project from their experience with a concrete outcome or metric'
-      : 'relevant work experience with metrics';
+      ? 'a specific project from their experience, with its outcome as stated in the resume'
+      : hasResume
+        ? 'relevant work experience as stated in the resume'
+        : 'the skills and interests in their profile, without inventing any specific employer, project or number';
 
     const prompt = `Create a compelling ${toneMap[tone] ?? 'professional'} cover letter. Do not use em dashes anywhere in the letter.
 
@@ -195,6 +233,7 @@ ${ctx.profile.bio ? `Bio: ${ctx.profile.bio}` : ''}
 ${hasResume ? `FULL RESUME EXPERIENCE:\n${ctx.resumeText!.substring(0, 3000)}` : ''}
 ${resumeProjects ? `KEY RELEVANT PROJECTS (extracted from resume):\n${resumeProjects}\nMUST reference at least one of these projects by name in the letter body.` : ''}
 ${hasTranscript && transcriptCourses ? `RELEVANT COURSEWORK (extracted from transcript):\n${transcriptCourses}\nMUST mention 3-4 specific course codes from this list in body paragraph 2.` : ''}
+${writingSample ? `CANDIDATE'S OWN WRITING. Match this voice (sentence length, vocabulary, formality, warmth). Do not reuse its content or facts:\n<<<\n${writingSample}\n>>>` : ''}
 
 LETTER STRUCTURE:
 ${contactLines.join('\n')}
@@ -215,7 +254,7 @@ Dear Hiring Team,
 Best regards,
 ${ctx.profile.name}`;
 
-    const response = await anthropic.messages.create({
+    const response = await createMessage({
       model: CLAUDE_MODEL,
       max_tokens: MAX_TOKENS_MAIN,
       system: cachedSystem(SYSTEM_PROMPT),
@@ -238,7 +277,8 @@ ${ctx.profile.name}`;
     return NextResponse.json({
       success: true,
       coverLetter: { content: coverLetterText, jobRole, companyName: companyName ?? null, tone, wordCount, createdAt: cacheData.createdAt },
-      metadata: { tokensUsed, responseTime: Date.now() - startTime, cached: false, usedResume: hasResume, usedTranscript: hasTranscript },
+      metadata: { tokensUsed, responseTime: Date.now() - startTime, cached: false, usedResume: hasResume, usedTranscript: hasTranscript, usedWritingSample: !!writingSample },
+      authenticity: authenticityOf(coverLetterText),
     });
   } catch (err) {
     const e = err as Error & { status?: number };

@@ -69,7 +69,7 @@ export function CoverLetterExamplePreview({ step }: { step: number }) {
 
             {/* Generate button */}
             <FadeIn delay={step >= 0 ? 2000 : 99999}>
-              <div className="w-full py-2.5 rounded-xl text-center text-[11px] font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+              <div className="w-full py-2.5 rounded-xl text-center text-[11px] font-semibold bg-[var(--accent)] text-white">
                 {step === 2 ? (
                   <span className="flex items-center justify-center gap-1.5">
                     <Loader2 className="w-3.5 h-3.5 animate-spin" /> Generating…
@@ -99,7 +99,7 @@ export function CoverLetterExamplePreview({ step }: { step: number }) {
             {step >= 3 && (
               <FadeIn delay={200}>
                 <div className="flex items-center gap-1">
-                  <div className="px-2 py-1 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-[9px] font-semibold text-white flex items-center gap-1">
+                  <div className="px-2 py-1 rounded-lg bg-[var(--accent)] text-[9px] font-semibold text-white flex items-center gap-1">
                     <Save className="w-2.5 h-2.5" /> Save
                   </div>
                   <div className="w-6 h-6 rounded-lg bg-white/[0.04] border border-white/[0.07] flex items-center justify-center">

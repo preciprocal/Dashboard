@@ -1,4 +1,6 @@
 'use client';
+import PageHeader from '@/components/PageHeader';
+import { Video as HeaderIcon } from 'lucide-react';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -9,9 +11,9 @@ import ErrorPage from '@/components/Error';
 import ProfileInterviewCard from '@/components/ProfileInterviewCard';
 import { SeeExampleButton } from '@/components/ServiceModal';
 import {
-  Target, TrendingUp, Zap, LayoutGrid, List, Filter,
+  Target, LayoutGrid, List, Filter,
   CheckCircle, AlertCircle, RefreshCw, Award, Clock,
-  Brain, Plus, ChevronDown,
+  Plus, ChevronDown,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -144,36 +146,16 @@ function EmptyDashboard() {
         Get AI-powered mock interviews, personalised feedback, and track your progress to ace your next interview.
       </p>
 
-      {/* Feature pills */}
-      <div className="flex flex-wrap justify-center gap-2 mb-8">
-        {[
-          { icon: Brain,      label: 'AI Feedback',        color: 'text-blue-400   bg-blue-500/10   border-blue-500/20'   },
-          { icon: Award,      label: 'Performance Score',  color: 'text-violet-400 bg-violet-500/10 border-violet-500/20' },
-          { icon: TrendingUp, label: 'Track Progress',     color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' },
-          { icon: Zap,        label: 'Real-time Practice', color: 'text-amber-400  bg-amber-500/10  border-amber-500/20'  },
-        ].map(({ icon: Icon, label, color }) => (
-          <div key={label} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[12px] font-medium ${color}`}>
-            <Icon className="w-3.5 h-3.5" /> {label}
-          </div>
-        ))}
-      </div>
 
       <div className="flex flex-wrap items-center justify-center gap-3">
         <Link
           href="/interview/create"
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
-                     bg-gradient-to-r from-indigo-600 to-purple-600
-                     hover:from-indigo-500 hover:to-purple-500
-                     text-white text-[13px] font-semibold
-                     shadow-[0_4px_16px_rgba(102,126,234,0.3)]
-                     hover:shadow-[0_6px_20px_rgba(102,126,234,0.4)]
-                     transition-all duration-200"
+          className="btn-primary"
         >
           <Plus className="w-4 h-4" /> Start First Interview
         </Link>
         <SeeExampleButton
           serviceId="interview"
-          className="!px-5 !py-2.5 !text-[13px] !font-semibold"
         />
       </div>
       <p className="text-[11px] text-slate-700 mt-4">
@@ -240,7 +222,6 @@ export default function InterviewsDashboard() {
 
       if (!raw?.length) {
         setInterviews([]); setLoadingStep(6);
-        await new Promise(r => setTimeout(r, 200));
         setLoadingInterviews(false);
         return;
       }
@@ -283,8 +264,8 @@ export default function InterviewsDashboard() {
         completionRate:  Math.round((completed.length / withFeedback.length) * 100),
       });
 
-      setLoadingStep(5); await new Promise(r => setTimeout(r, 100));
-      setLoadingStep(6); await new Promise(r => setTimeout(r, 100));
+      setLoadingStep(5);
+      setLoadingStep(6);
 
     } catch (err: unknown) {
       const msg = (err as Error).message ?? '';
@@ -361,8 +342,8 @@ export default function InterviewsDashboard() {
           <Link
             href="/sign-in"
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
-                       bg-gradient-to-r from-indigo-600 to-purple-600 text-white
-                       text-[13px] font-semibold hover:from-indigo-500 hover:to-purple-500
+                       bg-[var(--accent)] text-white
+                       text-[13px] font-semibold hover:bg-[var(--accent-hover)]
                        transition-all duration-150"
           >
             Go to sign in
@@ -376,33 +357,13 @@ export default function InterviewsDashboard() {
   return (
     <div className="space-y-4 pt-4">
 
-      {/* Page header */}
-      <div className="glass-card p-5 animate-fade-in-up">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-[18px] font-bold text-white leading-tight">Interview Practice</h1>
-            <p className="text-[12px] text-slate-500 mt-0.5">AI-powered interview preparation</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <SeeExampleButton
-              serviceId="interview"
-              className="!px-4 !py-2.5 !text-[13px] !font-semibold"
-            />
-            <Link
-              href="/interview/create"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl
-                         bg-gradient-to-r from-indigo-600 to-purple-600
-                         hover:from-indigo-500 hover:to-purple-500
-                         text-white text-[13px] font-semibold
-                         shadow-[0_4px_14px_rgba(102,126,234,0.28)]
-                         hover:shadow-[0_6px_18px_rgba(102,126,234,0.38)]
-                         transition-all duration-200"
-            >
-              <Plus className="w-4 h-4" /> New Interview
-            </Link>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="Interview Practice" description="Mock interviews with AI feedback and scores" icon={HeaderIcon}
+        actions={<>
+          <SeeExampleButton serviceId="interview" />
+          <Link href="/interview/create" className="btn-primary"><Plus /> New Interview</Link>
+        </>}
+      />
 
       {/* Inline error */}
       {interviewsError && (

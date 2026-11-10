@@ -1,5 +1,7 @@
 // app/planner/page.tsx
 'use client';
+import PageHeader from '@/components/PageHeader';
+import { Calendar as HeaderIcon } from 'lucide-react';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -75,15 +77,16 @@ export default function PlannerPage() {
     return () => document.removeEventListener('mousedown', handler);
   }, [showSortMenu]);
 
-  const loadUserPlans = useCallback(async () => {
+  // Returns the list so stats can be computed from it without fetching it a
+  // second time.
+  const loadUserPlans = useCallback(async (): Promise<InterviewPlan[] | undefined> => {
     if (!user) return;
     try {
-      setLoadingPlans(true); setPlansError(''); setLoadingStep(0);
-      setLoadingStep(1);
+      setLoadingPlans(true); setPlansError(''); setLoadingStep(1);
       const userPlans = await PlannerService.getUserPlans(user.id);
       setPlans(userPlans);
       setLoadingStep(3);
-      await new Promise(r => setTimeout(r, 100));
+      return userPlans;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : '';
       if (msg.includes('fetch') || msg.includes('network')) {
@@ -98,11 +101,11 @@ export default function PlannerPage() {
     }
   }, [user]);
 
-  const loadUserStats = useCallback(async () => {
+  const loadUserStats = useCallback(async (plansAlreadyFetched?: InterviewPlan[]) => {
     if (!user) return;
     try {
       setStatsError(''); setLoadingStep(2);
-      const userStats = await PlannerService.getUserPlanStats(user.id);
+      const userStats = await PlannerService.getUserPlanStats(user.id, plansAlreadyFetched);
       setStats(userStats);
     } catch {
       setStatsError('Failed to load statistics');
@@ -113,17 +116,16 @@ export default function PlannerPage() {
     if (!loading && !user) { router.push('/sign-in'); return; }
     if (user) {
       (async () => {
-        await loadUserPlans();
-        await loadUserStats();
+        const fetched = await loadUserPlans();
+        await loadUserStats(fetched);
         setLoadingStep(4);
-        await new Promise(r => setTimeout(r, 100));
       })();
     }
   }, [user, loading, router, loadUserPlans, loadUserStats]);
 
   const handleRetry = () => {
     setCriticalError(null); setPlansError(''); setStatsError('');
-    if (user) { loadUserPlans(); loadUserStats(); }
+    if (user) loadUserPlans().then(fetched => loadUserStats(fetched));
   };
 
   const filteredPlans = plans
@@ -178,7 +180,7 @@ export default function PlannerPage() {
           <h2 className="text-xl font-bold text-white mb-2">Sign in required</h2>
           <p className="text-sm text-slate-500 mb-6">Please sign in to access your preparation plans</p>
           <Link href="/sign-in"
-            className="inline-flex items-center justify-center gap-2 w-full px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-sm font-semibold hover:from-indigo-400 hover:to-purple-400 transition-all duration-150">
+            className="inline-flex items-center justify-center gap-2 w-full px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white text-sm font-semibold hover:bg-[var(--accent-hover)] transition-all duration-150">
             Go to sign in
           </Link>
         </div>
@@ -189,25 +191,13 @@ export default function PlannerPage() {
   return (
     <div className="space-y-4 pt-4">
 
-      {/* Header */}
-      <div className="glass-card p-5">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-bold text-white leading-tight">Preparation Planner</h1>
-            <p className="text-xs text-slate-500 mt-0.5">Manage your study & preparation plans</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <SeeExampleButton
-              serviceId="planner"
-              className="!px-4 !py-2.5 !text-sm !font-semibold"
-            />
-            <Link href="/planner/create"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-400 hover:to-purple-400 text-white text-sm font-semibold shadow-[0_4px_14px_rgba(139,92,246,0.35)] hover:shadow-[0_6px_18px_rgba(139,92,246,0.45)] transition-all duration-200">
-              <Plus className="w-4 h-4" /> New Plan
-            </Link>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="Preparation Planner" description="Day-by-day study plans for your interviews" icon={HeaderIcon}
+        actions={<>
+          <SeeExampleButton serviceId="planner" />
+          <Link href="/planner/create" className="btn-primary"><Plus /> New Plan</Link>
+        </>}
+      />
 
       {/* Plans error */}
       {plansError && (
@@ -286,7 +276,7 @@ export default function PlannerPage() {
             {filterTabs.map(tab => (
               <button key={tab.value} onClick={() => setFilter(tab.value)}
                 className={`px-3.5 py-2 rounded-lg text-xs font-semibold whitespace-nowrap flex-shrink-0 transition-all duration-150 ${filter === tab.value
-                  ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-[0_2px_10px_rgba(139,92,246,0.3)]'
+                  ? 'bg-[var(--accent)] text-white '
                   : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'}`}>
                 {tab.label} <span className={`ml-1 ${filter === tab.value ? 'opacity-70' : 'opacity-40'}`}>({tab.count})</span>
               </button>
@@ -327,7 +317,7 @@ export default function PlannerPage() {
           {filter === 'all' && !searchQuery && (
             <div className="flex flex-wrap items-center justify-center gap-3">
               <Link href="/planner/create"
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-400 hover:to-purple-400 text-white text-sm font-semibold transition-all duration-150">
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-semibold transition-all duration-150">
                 <Plus className="w-4 h-4" /> Create Plan
               </Link>
               <SeeExampleButton

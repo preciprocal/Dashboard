@@ -307,7 +307,7 @@ export default function ShareScoreCard(props: ShareScoreCardProps) {
     <div className="glass-card p-5 sm:p-6 animate-fade-in-up">
       {/* Header */}
       <div className="flex items-center gap-2 mb-5">
-        <div className="w-7 h-7 rounded-lg gradient-primary flex items-center justify-center shadow-[0_4px_10px_rgba(102,126,234,0.3)]">
+        <div className="w-7 h-7 rounded-lg gradient-primary flex items-center justify-center ">
           <Share2 className="w-3.5 h-3.5 text-white" />
         </div>
         <div>

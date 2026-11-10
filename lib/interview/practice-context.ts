@@ -1,0 +1,140 @@
+// lib/interview/practice-context.ts
+// Practice for a specific interview, not a generic one.
+//
+// When a tracker card reaches an interview stage, "Practise this interview"
+// builds questions from that application: the real company, the real posting,
+// the stage it is at (a recruiter screen is not a technical round), and the
+// questions the user wrote down in their own debriefs after past interviews
+// with the same company.
+//
+// Only the user's own data is used. Nothing here reads anyone else's debriefs.
+import { supabaseAdmin } from '@/supabase/admin';
+
+export type PracticeType = 'behavioural' | 'technical' | 'mixed';
+
+export interface PracticeApplication {
+  id: string;
+  company: string;
+  jobTitle: string;
+  status: string;
+  jobDescription: string | null;
+}
+
+/** Which practice interview fits the stage the application is at. */
+export function typeForStage(status: string): PracticeType {
+  if (status === 'phone-screen') return 'behavioural';
+  if (status === 'technical') return 'technical';
+  return 'mixed';
+}
+
+const STAGE_LABEL: Record<string, string> = {
+  'phone-screen': 'first interview (recruiter or phone screen)',
+  technical: 'technical round',
+  final: 'final round',
+};
+
+/**
+ * What the question generator should know about this stage. Without it every
+ * practice is a generic interview, which is the complaint about every other
+ * mock interview tool.
+ */
+export function stageInstruction(status: string, company: string): string {
+  const at = company ? ` at ${company}` : '';
+  switch (status) {
+    case 'phone-screen':
+      return `INTERVIEW STAGE: This is the candidate's first interview${at}, a recruiter or phone screen. Ask what a recruiter asks on a first call: walk me through your background, why this company, why this role, what you are looking for next, a short project the candidate is proud of, and one or two behavioural questions tied to the job description. Keep them conversational, not deeply technical.`;
+    case 'technical':
+      return `INTERVIEW STAGE: This is a technical round${at}. Focus on the skills, tools and problems named in the job description, at the depth a working engineer on this team would probe.`;
+    case 'final':
+      return `INTERVIEW STAGE: This is a final round${at}. Mix depth on the candidate's most relevant past work with questions on ownership, measurable impact, disagreement, and why ${company || 'this company'} specifically. Final rounds weigh judgement and fit, so ask for specifics.`;
+    default:
+      return company ? `The candidate is preparing for an interview${at}.` : '';
+  }
+}
+
+export function stageLabel(status: string): string | null {
+  return STAGE_LABEL[status] ?? null;
+}
+
+/** One application, only if it belongs to this user. */
+export async function loadPracticeApplication(
+  supabaseUserId: string,
+  applicationId: string,
+): Promise<PracticeApplication | null> {
+  if (!/^[0-9a-f-]{36}$/i.test(applicationId)) return null;
+
+  type Row = { id: string; company: string | null; job_title: string | null; status: string | null; job_description?: string | null };
+  let row: Row | null = null;
+  const full = await supabaseAdmin
+    .from('job_applications')
+    .select('id, company, job_title, status, job_description')
+    .eq('id', applicationId)
+    .eq('user_id', supabaseUserId)
+    .maybeSingle();
+  if (full.error) {
+    // job_description arrives with migration 0056.
+    const plain = await supabaseAdmin
+      .from('job_applications')
+      .select('id, company, job_title, status')
+      .eq('id', applicationId)
+      .eq('user_id', supabaseUserId)
+      .maybeSingle();
+    if (plain.error) { console.error('⚠️ practice application lookup failed:', plain.error.message); return null; }
+    row = plain.data as Row | null;
+  } else {
+    row = full.data as Row | null;
+  }
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    company: (row.company ?? '').trim(),
+    jobTitle: (row.job_title ?? '').trim(),
+    status: row.status ?? 'applied',
+    jobDescription: row.job_description?.trim() || null,
+  };
+}
+
+const MAX_DEBRIEF_QUESTIONS = 12;
+
+/** Questions the user logged in their own debriefs for this company. */
+export async function loadOwnDebriefQuestions(supabaseUserId: string, company: string): Promise<string[]> {
+  if (!company) return [];
+  const { data, error } = await supabaseAdmin
+    .from('interview_debriefs')
+    .select('questions_asked')
+    .eq('user_id', supabaseUserId)
+    // Case-insensitive exact match. Escaping % and _ keeps a company called
+    // "100%_Pure" from turning into a wildcard search.
+    .ilike('company_name', company.replace(/[%_\\]/g, m => `\\${m}`))
+    .order('created_at', { ascending: false })
+    .limit(10);
+  if (error) { console.error('⚠️ debrief questions lookup failed:', error.message); return []; }
+
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const row of data ?? []) {
+    for (const q of (row.questions_asked as string[] | null) ?? []) {
+      const t = q.trim().replace(/\s+/g, ' ').slice(0, 300);
+      const k = t.toLowerCase();
+      if (t.length < 8 || seen.has(k)) continue;
+      seen.add(k);
+      out.push(t);
+      if (out.length >= MAX_DEBRIEF_QUESTIONS) return out;
+    }
+  }
+  return out;
+}
+
+/** Everything about this application the question generator should see. */
+export function practicePrompt(app: PracticeApplication, debriefQuestions: string[]): string {
+  const parts = [stageInstruction(app.status, app.company)];
+  if (debriefQuestions.length) {
+    parts.push(
+      `QUESTIONS THIS CANDIDATE WAS ASKED IN REAL INTERVIEWS AT ${app.company.toUpperCase()} (from their own notes):\n` +
+      debriefQuestions.map(q => `- ${q}`).join('\n') +
+      `\nInclude close variants of the most relevant of these, since this company asks them, but do not copy all of them word for word.`,
+    );
+  }
+  return parts.filter(Boolean).join('\n\n');
+}

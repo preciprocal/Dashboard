@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUserId } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
-import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, stripDashesDeep, LANGUAGE_MATCH_INSTRUCTION } from '@/lib/ai/claude';
+import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, stripDashesDeep, LANGUAGE_MATCH_INSTRUCTION, createMessage } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 import { calibrateRecruiterAttention, HIRING_BASELINES } from '@/lib/ai/outcome-tracking';
@@ -212,7 +212,7 @@ export async function POST(request: NextRequest) {
 
     console.log(`🔍 Recruiter sim: ${resumeId} | mode: ${hasJD && hasCompany ? 'company-research' : hasCompany ? 'role-specific' : 'multi-perspective'}`);
 
-    const response = await anthropic.messages.create({ model: CLAUDE_MODEL, max_tokens: MAX_TOKENS, system: cachedSystem(systemPrompt), messages: [{ role: 'user', content: userPrompt }] });
+    const response = await createMessage({ model: CLAUDE_MODEL, max_tokens: MAX_TOKENS, system: cachedSystem(systemPrompt), messages: [{ role: 'user', content: userPrompt }] });
     logUsage('recruiter-sim', response);
 
     const simulation = stripDashesDeep(JSON.parse(extractJsonString(extractText(response)))) as RecruiterSimulation;

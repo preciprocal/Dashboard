@@ -197,7 +197,7 @@ export default function ComprehensiveAnalysisPanel({
           <div className="relative flex items-center justify-between">
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/20">
+                <div className="w-10 h-10 bg-[var(--accent)] rounded-xl flex items-center justify-center shadow-lg ">
                   <Sparkles className="w-5 h-5 text-white" />
                 </div>
                 <div>
@@ -258,7 +258,7 @@ export default function ComprehensiveAnalysisPanel({
               <RefreshCw className={`w-4 h-4 ${isAnalyzing ? 'animate-spin' : ''}`} />
               Re-analyze
             </button>
-            <button className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-lg flex items-center gap-2 text-sm font-medium transition-all shadow-lg shadow-purple-500/20">
+            <button className="px-4 py-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-lg flex items-center gap-2 text-sm font-medium transition-all shadow-lg ">
               <Download className="w-4 h-4" />
               Export Report
             </button>
@@ -281,7 +281,7 @@ export default function ComprehensiveAnalysisPanel({
                 onClick={() => setActiveTab(tab.id)}
                 className={`relative flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
                   activeTab === tab.id
-                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/20'
+                    ? 'bg-[var(--accent)] text-white shadow-lg '
                     : 'text-slate-400 hover:text-white hover:bg-slate-700/30'
                 }`}
               >

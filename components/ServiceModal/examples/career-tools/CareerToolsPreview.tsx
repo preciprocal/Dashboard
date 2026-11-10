@@ -64,7 +64,7 @@ function LinkedInForm({ onGenerate, isLoading }: { onGenerate: () => void; isLoa
       <div className="w-[48%] flex-shrink-0 flex flex-col">
         <FadeIn delay={0}>
           <div className="flex items-center gap-2.5 mb-3">
-            <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center flex-shrink-0">
+            <div className="w-7 h-7 bg-[var(--accent)] rounded-lg flex items-center justify-center flex-shrink-0">
               <Sparkles className="w-3.5 h-3.5 text-white" />
             </div>
             <div>
@@ -77,7 +77,7 @@ function LinkedInForm({ onGenerate, isLoading }: { onGenerate: () => void; isLoa
         {/* Tool tabs */}
         <FadeIn delay={100}>
           <div className="flex gap-0.5 p-0.5 bg-white/[0.03] border border-white/[0.06] rounded-lg mb-3">
-            <div className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[8px] font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
+            <div className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[8px] font-semibold bg-[var(--accent)] text-white">
               <Linkedin className="w-3 h-3" /> LinkedIn
             </div>
             <div className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[8px] font-semibold text-slate-500">
@@ -128,7 +128,7 @@ function LinkedInForm({ onGenerate, isLoading }: { onGenerate: () => void; isLoa
             <button
               onClick={onGenerate}
               disabled={isLoading}
-              className="w-full py-2 rounded-xl text-center text-[10px] font-semibold bg-gradient-to-r from-blue-600 to-violet-600 text-white flex items-center justify-center gap-1.5 hover:brightness-110 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full py-2 rounded-xl text-center text-[10px] font-semibold bg-[var(--accent)] text-white flex items-center justify-center gap-1.5 hover:brightness-110 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <><Loader2 className="w-3 h-3 animate-spin" /> Analysing…</>
@@ -173,11 +173,11 @@ function LinkedInResults() {
       {/* Left - Form (filled) */}
       <div className="w-[42%] flex-shrink-0 overflow-y-auto pr-0.5 ct-scroll" style={{ maxHeight: 520 }}>
         <div className="flex items-center gap-2 mb-3">
-          <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center"><Sparkles className="w-3 h-3 text-white" /></div>
+          <div className="w-6 h-6 bg-[var(--accent)] rounded-lg flex items-center justify-center"><Sparkles className="w-3 h-3 text-white" /></div>
           <p className="text-[10px] font-bold text-white">Career Tools</p>
         </div>
         <div className="flex gap-0.5 p-0.5 bg-white/[0.03] border border-white/[0.06] rounded-lg mb-3">
-          <div className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[8px] font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 text-white"><Linkedin className="w-3 h-3" /> LinkedIn</div>
+          <div className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[8px] font-semibold bg-[var(--accent)] text-white"><Linkedin className="w-3 h-3" /> LinkedIn</div>
           <div className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[8px] font-semibold text-slate-500"><Send className="w-3 h-3" /> Outreach</div>
         </div>
         <div className="space-y-2">
@@ -215,7 +215,7 @@ function LinkedInResults() {
               </div>
               <div className="relative h-1 bg-white/[0.06] rounded-full overflow-hidden">
                 <div className="absolute inset-y-0 left-0 bg-white/10 rounded-full" style={{ width: '28%' }} />
-                <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full opacity-60" style={{ width: '78%' }} />
+                <div className="absolute inset-y-0 left-0 bg-emerald-500 rounded-full opacity-60" style={{ width: '78%' }} />
               </div>
             </div>
           </div>
@@ -305,12 +305,12 @@ function OutreachForm({ onGenerate, isLoading }: { onGenerate: () => void; isLoa
       <div className="w-[48%] flex-shrink-0 flex flex-col">
         <FadeIn delay={0}>
           <div className="flex items-center gap-2 mb-3">
-            <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center"><Sparkles className="w-3 h-3 text-white" /></div>
+            <div className="w-6 h-6 bg-[var(--accent)] rounded-lg flex items-center justify-center"><Sparkles className="w-3 h-3 text-white" /></div>
             <p className="text-[10px] font-bold text-white">Career Tools</p>
           </div>
           <div className="flex gap-0.5 p-0.5 bg-white/[0.03] border border-white/[0.06] rounded-lg mb-3">
             <div className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[8px] font-semibold text-slate-500"><Linkedin className="w-3 h-3" /> LinkedIn</div>
-            <div className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[8px] font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 text-white"><Send className="w-3 h-3" /> Cold Outreach</div>
+            <div className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[8px] font-semibold bg-[var(--accent)] text-white"><Send className="w-3 h-3" /> Cold Outreach</div>
           </div>
         </FadeIn>
 
@@ -382,7 +382,7 @@ function OutreachForm({ onGenerate, isLoading }: { onGenerate: () => void; isLoa
             <button
               onClick={onGenerate}
               disabled={isLoading}
-              className="w-full py-2 rounded-xl text-center text-[10px] font-semibold bg-gradient-to-r from-emerald-600 to-teal-600 text-white flex items-center justify-center gap-1.5 hover:brightness-110 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full py-2 rounded-xl text-center text-[10px] font-semibold bg-emerald-600 text-white flex items-center justify-center gap-1.5 hover:brightness-110 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <><Loader2 className="w-3 h-3 animate-spin" /> Generating…</>
@@ -443,12 +443,12 @@ function OutreachResults() {
       {/* Left - compact form summary */}
       <div className="w-[35%] flex-shrink-0 overflow-y-auto ct-scroll" style={{ maxHeight: 520 }}>
         <div className="flex items-center gap-2 mb-2">
-          <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center"><Sparkles className="w-3 h-3 text-white" /></div>
+          <div className="w-6 h-6 bg-[var(--accent)] rounded-lg flex items-center justify-center"><Sparkles className="w-3 h-3 text-white" /></div>
           <p className="text-[10px] font-bold text-white">Career Tools</p>
         </div>
         <div className="flex gap-0.5 p-0.5 bg-white/[0.03] border border-white/[0.06] rounded-lg mb-3">
           <div className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[8px] font-semibold text-slate-500"><Linkedin className="w-3 h-3" /> LinkedIn</div>
-          <div className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[8px] font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 text-white"><Send className="w-3 h-3" /> Outreach</div>
+          <div className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[8px] font-semibold bg-[var(--accent)] text-white"><Send className="w-3 h-3" /> Outreach</div>
         </div>
         <div className="space-y-1.5">
           {[
@@ -478,7 +478,7 @@ function OutreachResults() {
             <div className="flex gap-1 mb-3">
               {versions.map((v, i) => (
                 <button key={i} onClick={() => setActiveVersion(i)}
-                  className={`px-2.5 py-1 rounded-lg text-[8px] font-semibold transition-all cursor-pointer ${activeVersion === i ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white' : 'bg-white/[0.04] text-slate-400 border border-white/[0.06]'}`}>
+                  className={`px-2.5 py-1 rounded-lg text-[8px] font-semibold transition-all cursor-pointer ${activeVersion === i ? 'bg-emerald-600 text-white' : 'bg-white/[0.04] text-slate-400 border border-white/[0.06]'}`}>
                   {v.label}
                 </button>
               ))}
@@ -569,7 +569,7 @@ function InteractiveView() {
       {/* Left - Form summary + tool switcher */}
       <div className="w-[42%] flex-shrink-0 overflow-y-auto pr-0.5 ct-scroll" style={{ maxHeight: 520 }}>
         <div className="flex items-center gap-2 mb-3">
-          <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center"><Sparkles className="w-3 h-3 text-white" /></div>
+          <div className="w-6 h-6 bg-[var(--accent)] rounded-lg flex items-center justify-center"><Sparkles className="w-3 h-3 text-white" /></div>
           <p className="text-[10px] font-bold text-white">Career Tools</p>
         </div>
 
@@ -581,7 +581,7 @@ function InteractiveView() {
           ].map(t => (
             <button key={t.id} onClick={() => setActiveTool(t.id)}
               className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[8px] font-semibold transition-all cursor-pointer ${
-                activeTool === t.id ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'
+                activeTool === t.id ? 'bg-[var(--accent)] text-white' : 'text-slate-500 hover:text-slate-300'
               }`}>
               <t.icon className="w-3 h-3" /> {t.label}
             </button>
@@ -646,7 +646,7 @@ function InteractiveView() {
                   </div>
                   <div className="relative h-1 bg-white/[0.06] rounded-full overflow-hidden">
                     <div className="absolute inset-y-0 left-0 bg-white/10 rounded-full" style={{ width: '28%' }} />
-                    <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full opacity-60" style={{ width: '78%' }} />
+                    <div className="absolute inset-y-0 left-0 bg-emerald-500 rounded-full opacity-60" style={{ width: '78%' }} />
                   </div>
                 </div>
               </div>
@@ -725,7 +725,7 @@ function InteractiveView() {
                 <div className="flex gap-1 mb-3">
                   {versions.map((v, i) => (
                     <button key={i} onClick={() => setActiveVersion(i)}
-                      className={`px-2.5 py-1 rounded-lg text-[8px] font-semibold transition-all cursor-pointer ${activeVersion === i ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white' : 'bg-white/[0.04] text-slate-400 border border-white/[0.06]'}`}>
+                      className={`px-2.5 py-1 rounded-lg text-[8px] font-semibold transition-all cursor-pointer ${activeVersion === i ? 'bg-emerald-600 text-white' : 'bg-white/[0.04] text-slate-400 border border-white/[0.06]'}`}>
                       {v.label}
                     </button>
                   ))}

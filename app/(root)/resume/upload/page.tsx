@@ -1,4 +1,6 @@
 'use client';
+import PageHeader from '@/components/PageHeader';
+import { FileText as HeaderIcon } from 'lucide-react';
 
 import { useState, useEffect, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
@@ -60,13 +62,9 @@ interface FormData {
   jobDescription: string;
 }
 
-const inp = [
-  'w-full px-3 py-2.5 rounded-xl text-[13px] text-white',
-  'bg-white/[0.04] border border-white/[0.08]',
-  'placeholder-slate-600',
-  'focus:outline-none focus:ring-1 focus:ring-purple-500/40 focus:border-purple-500/40',
-  'transition-all duration-150',
-].join(' ');
+// Shared form-control size and style (globals.css .field), so every input,
+// select and textarea on this page matches the rest of the app.
+const inp = 'field';
 
 function getFileKind(file: File): 'pdf' | 'word' | null {
   const name = file.name.toLowerCase();
@@ -146,10 +144,10 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
               href="/pricing"
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
                          text-sm font-bold text-white
-                         bg-gradient-to-r from-indigo-600 to-purple-600
-                         hover:from-indigo-500 hover:to-purple-500
-                         shadow-[0_4px_20px_rgba(102,126,234,0.3)]
-                         hover:shadow-[0_6px_28px_rgba(102,126,234,0.4)]
+                         bg-[var(--accent)]
+                         hover:bg-[var(--accent-hover)]
+                         
+                         
                          transition-all group"
             >
               Get More
@@ -183,7 +181,7 @@ export default function UploadResume() {
   const [user, loading] = useSupabaseUser();
   const router = useRouter();
 
-  const { canUseFeature, getRemainingCount, getUsedCount, getLimit, refetch: refetchUsage } = useUsageTracking();
+  const { canUseFeature, getRemainingCount, getUsedCount, getLimit, refetch: refetchUsage, loading: usageLoading } = useUsageTracking();
   const resumesUsed     = getUsedCount('resumes');
   const resumesLimit    = getLimit('resumes');
   const resumesLeft     = getRemainingCount('resumes');
@@ -262,6 +260,12 @@ export default function UploadResume() {
       apiForm.append('jobDescription', formData.jobDescription);
       apiForm.append('companyName',    formData.companyName);
 
+      // The file upload does not depend on the analysis, so it runs alongside
+      // it. The catch keeps a failed analysis from leaving an unhandled
+      // rejection; the error still surfaces when the save awaits it.
+      const uploading = ResumeService.uploadResumePdf(pdfFile, resumeId);
+      uploading.catch(() => {});
+
       const res = await fetch('/api/analyze-resume', {
         method: 'POST', body: apiForm,
       });
@@ -291,7 +295,7 @@ export default function UploadResume() {
         ...(cacheHash ? { cacheHash } : {}),
       };
 
-      await ResumeService.saveResumeWithFiles(resumeToSave, pdfFile);
+      await ResumeService.saveResumeWithFiles(resumeToSave, pdfFile, uploading);
 
       await refetchUsage();
 
@@ -311,7 +315,6 @@ export default function UploadResume() {
       // ServiceFeedback is handled on the /resume/[id] page,
       // so we just redirect immediately.
       setCurrentStep(3);
-      await new Promise(r => setTimeout(r, 800));
       router.push(`/resume/${resumeId}`);
       setTimeout(() => {
         if (window.location.pathname.includes('upload')) window.location.href = `/resume/${resumeId}`;
@@ -367,14 +370,14 @@ export default function UploadResume() {
         <div className="fixed inset-0 bg-[#090d1a]/95 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[#0d1526]/98 border border-white/[0.09] rounded-2xl max-w-md w-full p-6 shadow-[0_32px_64px_rgba(0,0,0,0.6)]">
             <div className="text-center mb-6">
-              <div className="w-12 h-12 gradient-primary rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-[0_4px_16px_rgba(102,126,234,0.35)]">
+              <div className="w-12 h-12 gradient-primary rounded-2xl flex items-center justify-center mx-auto mb-4 ">
                 <Sparkles className="w-5 h-5 text-white" />
               </div>
               <p className="text-[15px] font-bold text-white mb-2">{PROCESSING_STEPS[currentStep]?.message}</p>
               <p className="text-[12px] text-slate-500 leading-relaxed min-h-[36px]">{RESUME_FACTS[currentFactIndex]}</p>
             </div>
             <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden mb-5">
-              <div className="h-full bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full transition-all duration-500"
+              <div className="h-full bg-[var(--accent)] rounded-full transition-all duration-500"
                 style={{ width: `${PROCESSING_STEPS[currentStep]?.progress ?? 0}%` }} />
             </div>
             <div className="space-y-2.5">
@@ -397,43 +400,22 @@ export default function UploadResume() {
 
       <div className="space-y-4 pt-4">
 
-        {/* Header */}
-        <div className="p-5 animate-fade-in-up">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <div className="inline-flex items-center gap-1.5 bg-blue-500/[0.08] border border-blue-500/20 rounded-full px-3 py-1 mb-2">
-                <Sparkles className="w-3 h-3 text-blue-400" />
-                <span className="text-[11px] font-semibold text-blue-400">AI-Powered</span>
-              </div>
-              <h1 className="text-[18px] font-bold text-white leading-tight">Resume Analyser</h1>
-              <p className="text-[12px] text-slate-500 mt-0.5">Get instant AI feedback on your PDF or Word resume</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-500/[0.07] border border-indigo-500/20">
-                <Shield className="w-4 h-4 text-indigo-400" />
-                <span className="text-[13px] font-semibold text-indigo-400">
-                  {resumesUnlimited ? 'Unlimited' : `${resumesLeft} left`}
-                </span>
-              </div>
-              <SeeExampleButton serviceId="resume" />
-              <Link
-                href="/resume"
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl
-                           bg-white/[0.05] border border-white/[0.08]
-                           text-sm font-semibold text-slate-300
-                           hover:text-white hover:bg-white/[0.08] transition-all"
-              >
-                <History className="w-3.5 h-3.5" /> History
-              </Link>
-            </div>
-          </div>
-        </div>
+        <PageHeader
+          title="Analyse a Resume" description="Instant AI feedback on your PDF or Word resume" icon={HeaderIcon}
+          actions={<>
+            <span className="btn-pill"><Shield /> {usageLoading ? <span aria-hidden="true" className="inline-block w-10 h-3 rounded bg-current opacity-25 animate-pulse" /> : resumesUnlimited ? 'Unlimited' : `${resumesLeft} left`}</span>
+            <SeeExampleButton serviceId="resume" />
+            <Link href="/resume" className="btn-secondary"><History /> History</Link>
+          </>}
+        />
 
         {/* Limit reached - show gate instead of form */}
         {!canUseFeature('resumes') ? (
           <UpgradeGate used={resumesUsed} limit={resumesLimit} />
         ) : (
-          <>
+          // Form and its notes side by side on wide screens, so the page fits
+          // the window instead of pushing the notes below the fold.
+          <div className="grid xl:grid-cols-[minmax(0,1fr)_300px] gap-4 items-stretch">
             {/* Form */}
             <div className="glass-card p-5 animate-fade-in-up" style={{ animationDelay: '60ms' }}>
               {error && (
@@ -489,12 +471,9 @@ export default function UploadResume() {
                 </div>
                 <div className="space-y-3 pt-1">
                   <button type="submit" disabled={!file || isProcessing}
-                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
-                               text-[13px] font-semibold text-white
-                               bg-gradient-to-r from-indigo-600 to-purple-600
-                               hover:from-indigo-500 hover:to-purple-500
-                               shadow-[0_4px_14px_rgba(102,126,234,0.28)]
-                               transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                    className="w-full h-11 flex items-center justify-center gap-2 rounded-[10px]
+                               text-sm font-semibold text-white glass-button-primary
+                               disabled:opacity-40 disabled:cursor-not-allowed">
                     {isProcessing
                       ? <><Loader2 className="w-4 h-4 animate-spin" /> Analysing…</>
                       : <><Upload className="w-4 h-4" /> Analyse Resume</>}
@@ -507,7 +486,7 @@ export default function UploadResume() {
             </div>
 
             {/* Info cards */}
-            <div className="grid sm:grid-cols-2 gap-4 animate-fade-in-up" style={{ animationDelay: '120ms' }}>
+            <div className="grid sm:grid-cols-2 xl:grid-cols-1 xl:content-start gap-4 animate-fade-in-up" style={{ animationDelay: '120ms' }}>
               <div className="glass-card p-5">
                 <p className="text-[12px] font-bold text-white mb-3 flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> What we analyse
@@ -533,7 +512,7 @@ export default function UploadResume() {
                 </div>
               </div>
             </div>
-          </>
+          </div>
         )}
       </div>
     </>

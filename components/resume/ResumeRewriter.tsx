@@ -279,8 +279,8 @@ export default function ResumeRewriter({
               <button key={s.value} onClick={() => setSection(s.value)}
                 className={`py-3 px-2 rounded-xl text-xs font-medium flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
                   section === s.value
-                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/20'
-                    : 'bg-slate-800/50 border border-white/[0.06] text-slate-400 hover:text-white hover:bg-slate-800/80'
+                    ? 'bg-[var(--accent-subtle)] border border-[var(--accent-border)] text-white'
+                    : 'bg-[var(--bg-subtle)] border border-white/[0.08] text-slate-400 hover:text-white hover:border-white/[0.14]'
                 }`}>
                 <span className="text-lg">{s.icon}</span>
                 <span>{s.label}</span>
@@ -297,8 +297,8 @@ export default function ResumeRewriter({
               <button key={t.value} onClick={() => setTone(t.value)}
                 className={`py-3 px-2 rounded-xl text-xs font-medium flex flex-col items-center gap-1 transition-all cursor-pointer ${
                   tone === t.value
-                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/20'
-                    : 'bg-slate-800/50 border border-white/[0.06] text-slate-400 hover:text-white hover:bg-slate-800/80'
+                    ? 'bg-[var(--accent-subtle)] border border-[var(--accent-border)] text-white'
+                    : 'bg-[var(--bg-subtle)] border border-white/[0.08] text-slate-400 hover:text-white hover:border-white/[0.14]'
                 }`}>
                 <span className="text-base">{t.icon}</span>
                 <span className="font-semibold">{t.label}</span>
@@ -360,7 +360,7 @@ export default function ResumeRewriter({
           className={`w-full py-3.5 px-6 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer ${
             !selectedText.trim() || !section || isAnalyzing || selectedText.length < 20
               ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed'
-              : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg shadow-purple-500/20 hover:-translate-y-0.5'
+              : 'bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white shadow-lg  hover:-translate-y-0.5'
           }`}>
           {isAnalyzing ? (
             <><Loader2 className="w-4 h-4 animate-spin" />
@@ -484,7 +484,7 @@ export default function ResumeRewriter({
                     className={`w-full py-2.5 px-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer ${
                       appliedSuggestions.has(suggestion.id)
                         ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
-                        : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-md'
+                        : 'bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white shadow-md'
                     }`}>
                     {appliedSuggestions.has(suggestion.id)
                       ? <><Check className="w-4 h-4" /> Copied to Clipboard!</>

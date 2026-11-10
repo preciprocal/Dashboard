@@ -971,3 +971,66 @@ route takes the user from the session; the unused `getLatestInterviews`
 (other users' interviews) is gone. Verified by replaying the dashboard's
 server action call as another account and with no session (both refused),
 and the interview pages as owner (load) and as another account (404).
+
+---
+
+## 31. OPEN - apply migrations 0055 and 0056, and update the privacy policy for pooled reply rates
+
+**Severity: medium. Blocks pooled company odds from showing, nothing else.**
+
+The extension's job signals (ghost-job risk, reply odds) shipped in the
+1.6.0 extension. Posting-based signals work without the migration; pooled
+company reply rates and "you applied here before" need
+`supabase/migrations/0055_job_signals.sql`. Until it is applied those two
+degrade to nothing and track-job saves without the posting columns.
+
+Pooled reply rates use other users' application outcomes in aggregate. The
+privacy policy on preciprocal.com (separate site) should say so before the
+first company crosses the threshold. Suggested wording:
+
+> **Aggregated job insights.** When you track applications, we combine their
+> outcomes (for example, whether and how quickly a company replied) with those
+> of other Preciprocal users to show reply rates for employers. These figures
+> are counts across many people. We only show a company's figures once at least
+> ten different users have applied there, we never show what happened to any
+> one person's application, and we never share your individual applications
+> with employers or anyone else.
+
+Also apply `supabase/migrations/0056_application_job_description.sql`.
+Without it, "Practise this interview" still works from the role, company and
+stage, but not from the saved posting, and descriptions typed into the
+tracker form are dropped (logged, never a failed save).
+
+**Unblocked by** the owner applying 0055 and 0056 and publishing the wording.
+
+---
+
+## 32. OPEN - turn on "Update from email" (inbound recruiter emails)
+
+**Severity: medium. The feature is built and hidden until these are done.**
+
+Users forward recruiter emails to a private address and the tracker updates
+itself (lib/inbound/process.ts). The tracker panel renders nothing until:
+
+1. Migration `supabase/migrations/0057_inbound_application_email.sql` is
+   applied (it needs 0055 first).
+2. DNS: the MX record Resend shows for receiving, on a subdomain such as
+   `in.preciprocal.com`, so mail for the main domain is untouched.
+3. Resend: verify that subdomain for receiving, then add a webhook for the
+   `email.received` event pointing at
+   `https://app.preciprocal.com/api/webhooks/inbound-email`.
+4. Env: `INBOUND_EMAIL_DOMAIN=in.preciprocal.com` and
+   `RESEND_INBOUND_WEBHOOK_SECRET=<that webhook's whsec_ secret>`.
+
+Then forward a real rejection to your own address from the tracker panel and
+check it appears with an Undo button.
+
+**Related, found while building this:** `app/api/support/inbound-email/route.ts`
+reads `from`, `subject` and `text` straight off the webhook body. Resend's
+current `email.received` event carries only metadata (`data.email_id`, `to`,
+`from`, `subject`); the body has to be fetched with
+`resend.emails.receiving.get(id)`. Worth checking that support replies still
+arrive with their text. Not changed here because it writes into live support
+threads and deserves its own test.
+
+**Unblocked by** the owner doing steps 1 to 4.

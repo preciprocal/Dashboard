@@ -68,7 +68,7 @@ function WaitingRoom({ step }: { step: number }) {
         <FadeIn delay={0}>
           <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-lg">
             <div className="flex items-center gap-3 mb-2.5">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center flex-shrink-0">
+              <div className="w-10 h-10 bg-[var(--accent)] rounded-xl flex items-center justify-center flex-shrink-0">
                 <Users className="w-5 h-5 text-white" />
               </div>
               <div>
@@ -99,7 +99,7 @@ function WaitingRoom({ step }: { step: number }) {
             <div className="relative bg-slate-950 rounded-lg overflow-hidden flex-1 min-h-[200px]">
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
-                  <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <div className="w-14 h-14 bg-[var(--accent)] rounded-full flex items-center justify-center mx-auto mb-2">
                     <span className="text-white text-lg font-bold">J</span>
                   </div>
                   <p className="text-[9px] text-slate-400">Camera is off</p>
@@ -131,7 +131,7 @@ function WaitingRoom({ step }: { step: number }) {
 
             {step >= 1 && (
               <FadeIn delay={400}>
-                <div className="mt-2.5 w-full py-2.5 rounded-lg text-center text-[10px] font-semibold bg-gradient-to-r from-emerald-600 to-green-600 text-white flex items-center justify-center gap-2">
+                <div className="mt-2.5 w-full py-2.5 rounded-lg text-center text-[10px] font-semibold bg-emerald-600 text-white flex items-center justify-center gap-2">
                   <ArrowRight className="w-3.5 h-3.5" /> Join Interview
                 </div>
               </FadeIn>
@@ -298,7 +298,7 @@ function LiveInterview() {
       <FadeIn delay={0}>
         <div className="flex items-center justify-between mb-3 px-1">
           <div className="flex items-center gap-2.5">
-            <div className="w-6 h-6 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+            <div className="w-6 h-6 bg-[var(--accent)] rounded-lg flex items-center justify-center">
               <span className="text-white text-[8px] font-bold">AI</span>
             </div>
             <div>
@@ -328,8 +328,8 @@ function LiveInterview() {
                 } ${
                   isCurrentSpeaker
                     ? p.isUser
-                      ? 'ring-1 ring-purple-500/50 scale-[1.01] shadow-lg shadow-purple-500/10'
-                      : 'ring-1 ring-blue-500/50 scale-[1.01] shadow-lg shadow-blue-500/10'
+                      ? 'ring-1 ring-purple-500/50 scale-[1.01] shadow-lg '
+                      : 'ring-1 ring-blue-500/50 scale-[1.01] shadow-lg '
                     : ''
                 }`}
               >
