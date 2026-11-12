@@ -34,6 +34,12 @@ const PAUSE_MS = 1500;
 const INSERT_CHUNK = 1000;
 /** A read must reach this share of the count the dashboard reports. */
 const MIN_COMPLETE = 0.98;
+/**
+ * The full list was 1,276,835 employers on 2026-11-11. The dashboard's
+ * default view is only the current enrolment year (about 91,000), so a
+ * count far below the full list means the date filter was not widened.
+ */
+const MIN_EXPECTED_ROWS = 500_000;
 
 const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DRY_RUN } = process.env;
 const dry = DRY_RUN === "1";
@@ -151,6 +157,10 @@ async function readEmployerList(onRows) {
       const ws = sheets.find((w) => w.name === worksheet);
       if (!ws) throw new Error(`worksheet "${worksheet}" not found; sheets are: ${sheets.map((w) => w.name).join(", ")}`);
       try { await ws.clearFilterAsync("Account Status"); } catch { /* keep the default view */ }
+      // "Date Enrolled" defaults to a relative filter on the current year,
+      // and cannot be cleared. Widening it to the last 40 years covers every
+      // enrolment (E-Verify began in 1997).
+      await ws.applyRelativeDateFilterAsync("Date Enrolled", { periodType: "years", rangeType: "last-n", rangeN: 40 });
       const reader = await ws.getSummaryDataReaderAsync(pageRows, { ignoreSelection: true });
       window.__everifyReader = reader;
       return { totalRows: reader.totalRowCount, pages: reader.pageCount };
@@ -239,6 +249,9 @@ try {
     }
   }
 
+  if (reported < MIN_EXPECTED_ROWS) {
+    throw new Error(`only ${reported} employers reported; the full list is over a million, so the enrolment date filter did not widen`);
+  }
   if (read < reported * MIN_COMPLETE) {
     throw new Error(`incomplete read: ${read} of ${reported} rows`);
   }
