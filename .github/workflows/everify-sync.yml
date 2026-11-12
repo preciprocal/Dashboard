@@ -1,0 +1,43 @@
+# Daily copy of the public E-Verify Employer Search into Supabase.
+# See scripts/everify/sync.mjs and supabase/migrations/0058_everify_employers.sql.
+#
+# USCIS refreshes the source at about 2 a.m. ET; this runs at 09:30 UTC
+# (4:30 a.m. EST, 5:30 a.m. EDT), after it. If a run fails, users keep the
+# previous day's data and GitHub emails the repo owner.
+#
+# Needs two repository secrets: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.
+name: E-Verify employer sync
+
+on:
+  schedule:
+    - cron: "30 9 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: everify-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: scripts/everify
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install
+        run: npm install --no-audit --no-fund
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Sync
+        run: node sync.mjs
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

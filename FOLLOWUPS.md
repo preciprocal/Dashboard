@@ -1068,6 +1068,54 @@ threads and deserves its own test.
 
 ---
 
+## 33. MOSTLY DONE - E-Verify badge in the job tracker
+
+**Severity: low. The list is live; two steps left to make the sync daily.**
+
+Each tracked application gets an E-Verify badge (enrolled, enrolled until a
+date, ended, or not found), because STEM OPT needs an E-Verify employer. The
+data is the public E-Verify Employer Search
+(https://www.e-verify.gov/e-verify-employer-search), copied every day.
+
+Stored in Supabase Storage, not a table: the full list is ~1.28 million
+employers (the dashboard defaults to the current enrolment year, about
+91,000; the sync widens its "Date Enrolled" filter to every year). As rows
+that is ~530 MB, peaking near 930 MB during a swap, over the free plan's
+500 MB. In bucket `everify` it is ~1,300 gzipped JSON shards keyed by the
+first two characters of the normalised name, plus `current.json` naming the
+live version (`lib/jobs/everify-store.ts`).
+
+- `scripts/everify/sync.mjs`: one normal page load, the "Employer List"
+  worksheet read through the Tableau Embedding API, 10,000 rows a page with
+  pauses. Uploads a full new version, then switches `current.json`, then
+  deletes versions older than the previous one. Refuses a read under 500,000
+  employers or under 98% of the reported count. `DRY_RUN=1` writes nothing.
+- `.github/workflows/everify-sync.yml`: daily at 09:30 UTC, after USCIS's
+  ~2 a.m. ET refresh. A failure leaves yesterday's list live, is logged in
+  `everify_sync_runs`, and makes GitHub email the repo owner.
+- `lib/jobs/everify.ts`, `app/api/job-tracker/everify/route.ts`: reads only
+  the shards it needs, cached per server instance; only the user's own
+  tracked companies. `npm run verify:everify` pins the matching rules.
+- Badge in `app/(root)/job-tracker/page.tsx`, linking to the official
+  search, with "employer-reported" and the check date in its tooltip.
+
+Only `everify_sync_runs` from 0058 is still used. The `everify_employers`
+tables and the swap and lookup functions (0058, 0060) can be dropped in a
+later migration.
+
+Left to do:
+
+1. Add repository secrets `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`
+   (Settings > Secrets and variables > Actions).
+2. Merge to the default branch (scheduled workflows only run from it).
+
+The source is sometimes down (on 2026-11-10 the embedded dashboard returned
+HTTP 404 for most of the day); a run then fails safely and the next one
+catches up. The badge stays hidden until the first successful sync, so "not
+found" is never shown without a list. Matching is on the normalised legal name or
+the doing-business-as name; a company enrolled under a different legal name
+shows "not found", and the badge links to the official search for that case.
+
 ## 34. OPEN - apply migration 0059 (annotated transcript cache, journal link)
 
 **Severity: low. Everything works without it; this makes it cheaper and tidier.**

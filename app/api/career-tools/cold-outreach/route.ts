@@ -6,16 +6,25 @@ import { getUserAIContext } from '@/lib/ai/user-context';
 import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, LANGUAGE_MATCH_INSTRUCTION, createMessage } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
+import { outreachGuide, polishEmail, toOutreachType } from '@/lib/ai/email-writing';
 
 // Output: primaryMessage + 2 alternativeVersions + followUpTemplate + tips
 // Typical output: ~1200-1600 tokens. 1800 is safe ceiling.
 const MAX_TOKENS = 1800;
 
-const OUTREACH_SYSTEM = `You are a master of professional outreach - sales psychology, personal branding, career development. Thousands of cold emails/LinkedIn messages that get responses.
+// The writing rules live in lib/ai/email-writing.ts, shared with the
+// tracker's Find Contacts email, so every message the app drafts to a real
+// person follows the same standard: true, specific, one small ask, and free of
+// the phrases recruiters read as machine-written.
+function outreachSystem(type: ReturnType<typeof toOutreachType>, plat: string): string {
+  return `You write job-search outreach for one specific person to one specific reader. Messages get replies because they are true, specific to the reader and easy to say yes to, and because they read like the sender wrote them.
 
-Rules: Lead with a hook about THEM. Be concise. Small ask. Never "My name is..." or "I hope this finds you well". Sound human. Use sender's resume achievements when available.
+${outreachGuide(type, plat === 'linkedin' ? 'linkedin-message' : 'email')}
+
+The three versions must differ in approach (for example: lead with the role, lead with a shared context, lead with the proof point), not just in wording. Each one must stand on its own.
 
 CRITICAL: Return ONLY valid JSON. No markdown. Start with { end with }.${LANGUAGE_MATCH_INSTRUCTION}`;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -62,7 +71,8 @@ export async function POST(request: NextRequest) {
     }
 
     const plat = platform || 'email';
-    const prompt = `Generate ${plat === 'linkedin' ? 'LinkedIn message' : 'cold email'} versions.
+    const type = toOutreachType(outreachType);
+    const prompt = `Write ${plat === 'linkedin' ? 'LinkedIn message' : 'email'} versions.
 
 Type: ${outreachType || 'job-inquiry'} | Platform: ${plat} | Tone: ${tone || 'professional'}
 Recipient: ${recipientName || 'Hiring Manager'} | ${recipientRole || 'N/A'} at ${recipientCompany || 'N/A'}
@@ -80,10 +90,19 @@ Return JSON:
   "responseRateAdvice": "..."
 }`;
 
-    const response = await createMessage({ model: CLAUDE_MODEL, max_tokens: MAX_TOKENS, system: cachedSystem(OUTREACH_SYSTEM), messages: [{ role: 'user', content: prompt }] });
+    const response = await createMessage({ model: CLAUDE_MODEL, max_tokens: MAX_TOKENS, system: cachedSystem(outreachSystem(type, plat)), messages: [{ role: 'user', content: prompt }] });
     logUsage('cold-outreach', response);
 
-    const data = JSON.parse(extractJsonString(extractText(response)));
+    const data = JSON.parse(extractJsonString(extractText(response))) as {
+      primaryMessage?: { body?: string };
+      alternativeVersions?: { body?: string }[];
+      followUpTemplate?: { body?: string };
+    } & Record<string, unknown>;
+
+    // One small edit for any draft that still carries a flagged phrase.
+    const drafts = [data.primaryMessage, ...(data.alternativeVersions ?? []), data.followUpTemplate]
+      .filter((d): d is { body: string } => !!d && typeof d.body === 'string');
+    await Promise.all(drafts.map(async (d) => { d.body = await polishEmail(d.body); }));
 
     // ── Increment usage ───────────────────────────────────────────
     await checkAndIncrementUsage(userId, 'coldOutreach');

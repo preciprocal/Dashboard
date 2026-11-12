@@ -4,6 +4,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
+import { outreachGuide, polishEmail } from '@/lib/ai/email-writing';
 
 const apiKey       = process.env.CLAUDE_API_KEY;
 const hunterApiKey = process.env.HUNTER_API_KEY;
@@ -368,47 +369,14 @@ ${coursesBlock}
 ${jobDescription ? `\nJOB CONTEXT\n${jobDescription.slice(0, 500)}` : ''}
 ${ctx.resumeText ? `\nRESUME HIGHLIGHTS\n${ctx.resumeText.slice(0, 700)}` : ''}
 
-WHAT TO WRITE
-3 short paragraphs, 100-150 words total.
+SIGN-OFF DETAILS
+First name: ${(ctx.name || '').split(' ')[0] || 'the sender'}
+${ctx.email ? `Email: ${ctx.email}` : ''}
+${primarySocial ? `Link: ${primarySocial}` : ''}
 
-Paragraph 1: Something specific and genuine about the company or team's work. Not a compliment - an observation. Like something you'd actually say to someone at a networking event.
+${outreachGuide('job-inquiry', 'email')}
 
-Paragraph 2: One or two sentences about relevant work. Just the most relevant fact from the resume. No preamble, no "I'm a X who has spent Y years doing Z." Just state what you did.
-
-Paragraph 3: Ask for 15 minutes. One sentence. Natural, not servile.
-
-Sign-off block (exactly this format, nothing else):
-[First name only],
-[email]
-${primarySocial ? primarySocial : '[one social link if available]'}
-
-BANNED WORDS AND PHRASES - if any appear, rewrite:
-- em dash (-) - use a comma or period instead
-- "I'm a [title] who" or "I'm a [title] based in"
-- "exactly what [excites/interests/gets] me"
-- "I came across"
-- "I would love to"
-- "I am passionate"
-- "happy to work around"
-- "I wanted to reach out"
-- "I hope this"
-- "My name is"
-- "I am writing"
-- "Here's my" or "My LinkedIn" or "My GitHub" - links go bare, no label
-- "Best regards" - use "Best," only
-- "looking forward"
-- "please feel free"
-- "don't hesitate"
-- "opportunity"
-- exclamation marks
-
-TONE RULES
-- Short sentences. Fragments are fine.
-- No filler words: very, really, truly, honestly, incredibly
-- Confident, not eager
-- Sounds like a person who has other options
-
-Return only the email. No subject line. No meta-commentary.`;
+Return only the email body, starting with the greeting. No subject line, no notes, no placeholders in square brackets.`;
 
   const response = await anthropic.messages.create({
     model: 'claude-sonnet-4-5',
@@ -418,19 +386,10 @@ Return only the email. No subject line. No meta-commentary.`;
 
   let text = response.content[0].type === 'text' ? response.content[0].text.trim() : '';
 
-  text = text
-    .replace(/\s-\s/g, ', ')
-    .replace(/-/g, ', ')
-    .replace(/\bI'm a (\w+) (who|based)/gi, "I've been working as a $1,")
-    .replace(/\bexactly what (excites|interests|gets) me\b/gi, 'interesting work')
-    .replace(/\bI came across\b/gi, 'I saw')
-    .replace(/\bI would love to\b/gi, "I'd like to")
-    .replace(/\bHappy to work around your schedule\b/gi, '')
-    .replace(/\bBest regards\b/gi, 'Best')
-    .replace(/\blooking forward to hearing from you\b/gi, '')
-    .replace(/\bplease (feel free|don't hesitate)\b/gi, '')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
+  // Removes dashes the safe way (hyphens in "follow-up", email addresses and
+  // links are kept; the old blanket hyphen-to-comma replace broke them) and
+  // edits out any phrase that still reads as machine-written.
+  text = (await polishEmail(text)).replace(/\n{3,}/g, '\n\n').trim();
 
   if (!text || text.length < 50) throw new Error('AI returned empty response');
 

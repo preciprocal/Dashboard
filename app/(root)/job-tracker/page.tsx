@@ -11,7 +11,7 @@ import {
   Edit3, Trash2, X, Save, Search, Filter, ChevronDown,
   CheckCircle2, AlertTriangle, DollarSign, Globe, Laptop,
   SlidersHorizontal, CalendarPlus, Sparkles, Mail, UserSearch, Copy,
-  Check, RefreshCw, Linkedin, Shield, ArrowRight, Mic,
+  Check, RefreshCw, Linkedin, Shield, ArrowRight, Mic, ShieldCheck,
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -274,8 +274,56 @@ function FormModal({ form, setForm, onSave, onCancel, saving, isEdit, resumes }:
 
 // ─── App card ─────────────────────────────────────────────────────────────────
 
-function AppCard({ app, onEdit, onDelete, onStatusChange, onCreatePlan, onFindContacts }: {
-  app: Application; onEdit: () => void; onDelete: () => void; onStatusChange: (status: AppStatus) => void; onCreatePlan: () => void; onFindContacts: () => void;
+// ─── E-Verify badge ───────────────────────────────────────────────────────────
+// From the daily copy of the public E-Verify Employer Search (lib/jobs/everify.ts).
+// STEM OPT needs an E-Verify employer, so this is the first thing an F-1 student
+// checks. Employers self-report, so the badge says when it was checked and links
+// to the official search for a second look.
+
+type EverifyState = 'enrolled' | 'ending' | 'ended' | 'not-found';
+interface EverifyStatus { state: EverifyState; employer: string | null; enrolledOn: string | null; terminatesOn: string | null; workforceSize: string | null }
+const EVERIFY_SEARCH_URL = 'https://www.e-verify.gov/e-verify-employer-search';
+
+function fmtDate(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(`${iso.slice(0, 10)}T00:00:00Z`);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+}
+
+function EverifyBadge({ status, syncedAt }: { status: EverifyStatus; syncedAt: string | null }) {
+  const checked = syncedAt ? ` Checked ${fmtDate(syncedAt)}.` : '';
+  const conf = {
+    enrolled: {
+      label: 'E-Verify',
+      cls: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/25',
+      title: `${status.employer} is enrolled in E-Verify${status.enrolledOn ? ` since ${fmtDate(status.enrolledOn)}` : ''}. STEM OPT needs an E-Verify employer. Employer-reported.${checked}`,
+    },
+    ending: {
+      label: `E-Verify until ${fmtDate(status.terminatesOn)}`,
+      cls: 'text-amber-300 bg-amber-500/10 border-amber-500/25',
+      title: `${status.employer} is enrolled in E-Verify until ${fmtDate(status.terminatesOn)}. Employer-reported.${checked}`,
+    },
+    ended: {
+      label: 'E-Verify ended',
+      cls: 'text-red-300 bg-red-500/10 border-red-500/25',
+      title: `${status.employer}'s E-Verify enrolment has ended${status.terminatesOn ? ` (${fmtDate(status.terminatesOn)})` : ''}. Confirm with the employer before relying on STEM OPT.${checked}`,
+    },
+    'not-found': {
+      label: 'E-Verify: not found',
+      cls: 'text-slate-400 bg-white/[0.03] border-white/[0.08]',
+      title: `No E-Verify enrolment found under this name. Companies sometimes enrol under a different legal name, so check the official search.${checked}`,
+    },
+  }[status.state];
+  return (
+    <a href={EVERIFY_SEARCH_URL} target="_blank" rel="noopener noreferrer" title={conf.title}
+      className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10.5px] font-semibold transition-opacity hover:opacity-80 ${conf.cls}`}>
+      <ShieldCheck className="w-3 h-3" /> {conf.label}
+    </a>
+  );
+}
+
+function AppCard({ app, everify, everifySyncedAt, onEdit, onDelete, onStatusChange, onCreatePlan, onFindContacts }: {
+  app: Application; everify?: EverifyStatus; everifySyncedAt: string | null; onEdit: () => void; onDelete: () => void; onStatusChange: (status: AppStatus) => void; onCreatePlan: () => void; onFindContacts: () => void;
 }) {
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const menuRef = React.useRef<HTMLDivElement>(null);
@@ -308,6 +356,7 @@ function AppCard({ app, onEdit, onDelete, onStatusChange, onCreatePlan, onFindCo
           <span className="flex items-center gap-1 text-xs text-slate-500"><WIcon className="w-3 h-3" /> {WORK_TYPE_CONFIG[app.workType]?.label}</span>
           <span className="flex items-center gap-1 text-xs text-slate-500"><Calendar className="w-3 h-3" /> {daysSince}</span>
           {app.salary && <span className="flex items-center gap-1 text-xs text-slate-500"><DollarSign className="w-3 h-3" /> {app.salary}</span>}
+          {everify && <EverifyBadge status={everify} syncedAt={everifySyncedAt} />}
         </div>
         <div className="flex items-center justify-between gap-2">
           <div className="relative" ref={menuRef}>
@@ -573,6 +622,17 @@ export default function JobTrackerPage() {
   const { canUseFeature, getLimit, refetch: refetchUsage, loading: loadingUsage } = useUsageTracking();
 
   const [apps, setApps] = useState<Application[]>([]);
+  const [everify, setEverify] = useState<{ statuses: Record<string, EverifyStatus>; syncedAt: string | null }>({ statuses: {}, syncedAt: null });
+  const companyKey = [...new Set(apps.map(a => a.company.trim()).filter(Boolean))].sort().join('|');
+  useEffect(() => {
+    if (!companyKey) return;
+    let cancelled = false;
+    fetch('/api/job-tracker/everify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ companies: companyKey.split('|') }) })
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => { if (!cancelled && j?.available) setEverify({ statuses: j.statuses ?? {}, syncedAt: j.syncedAt ?? null }); })
+      .catch(() => { /* the badge is optional */ });
+    return () => { cancelled = true; };
+  }, [companyKey]);
   const [loadingApps, setLoadingApps] = useState(true);
   const [loadingStep, setLoadingStep] = useState(0);
   const [showForm, setShowForm] = useState(false);
@@ -806,7 +866,7 @@ export default function JobTrackerPage() {
                 <p className="text-xs text-slate-500">{filtered.length} application{filtered.length !== 1 ? 's' : ''}{(search || filterStatus !== 'all' || filterWork !== 'all') ? ' matching filters' : ''}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {filtered.map(app => (
-                    <AppCard key={app.id} app={app} onEdit={() => handleEdit(app)} onDelete={() => handleDelete(app.id)}
+                    <AppCard key={app.id} app={app} everify={everify.statuses[app.company.trim()]} everifySyncedAt={everify.syncedAt} onEdit={() => handleEdit(app)} onDelete={() => handleDelete(app.id)}
                       onStatusChange={status => handleStatusChange(app.id, status)} onCreatePlan={() => setPlanModal(app)}
                       onFindContacts={() => handleFindContacts(app)} />
                   ))}
