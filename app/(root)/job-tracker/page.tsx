@@ -9,7 +9,7 @@ import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import {
   Plus, Loader2, Briefcase, Building2, MapPin, Calendar, ExternalLink,
   Edit3, Trash2, X, Save, Search, Filter, ChevronDown,
-  CheckCircle2, AlertTriangle, DollarSign, Globe, Laptop,
+  CheckCircle2, AlertTriangle, DollarSign, Globe, Laptop, Landmark,
   SlidersHorizontal, CalendarPlus, Sparkles, Mail, UserSearch, Copy,
   Check, RefreshCw, Linkedin, Shield, ArrowRight, Mic, ShieldCheck,
 } from 'lucide-react';
@@ -322,8 +322,39 @@ function EverifyBadge({ status, syncedAt }: { status: EverifyStatus; syncedAt: s
   );
 }
 
-function AppCard({ app, everify, everifySyncedAt, onEdit, onDelete, onStatusChange, onCreatePlan, onFindContacts }: {
-  app: Application; everify?: EverifyStatus; everifySyncedAt: string | null; onEdit: () => void; onDelete: () => void; onStatusChange: (status: AppStatus) => void; onCreatePlan: () => void; onFindContacts: () => void;
+// ─── H-1B badge ───────────────────────────────────────────────────────────────
+// From the monthly copy of the USCIS H-1B Employer Data Hub (lib/jobs/h1b.ts).
+// Approvals show the employer has had H-1B petitions approved, not that it will
+// sponsor this candidate, so the tooltip says so.
+
+interface H1bYear { year: string; newEmployment: number; approvals: number; denials: number }
+interface H1bHistory { employer: string; state: string | null; years: H1bYear[] }
+const H1B_HUB_URL = 'https://www.uscis.gov/tools/reports-and-studies/h-1b-employer-data-hub';
+
+function H1bBadge({ history, years }: { history: H1bHistory | null; years: string[] }) {
+  const span = years.length ? `FY${years[years.length - 1]}-FY${years[0]}` : '';
+  if (!history || history.years.every((y) => y.approvals === 0)) {
+    return (
+      <a href={H1B_HUB_URL} target="_blank" rel="noopener noreferrer"
+        title={`No H-1B approvals on record under this name (${span}). Petitions are filed under the legal entity, so check the USCIS H-1B Employer Data Hub.`}
+        className="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10.5px] font-semibold transition-opacity hover:opacity-80 text-slate-400 bg-white/[0.03] border-white/[0.08]">
+        <Landmark className="w-3 h-3" /> H-1B: none on record
+      </a>
+    );
+  }
+  const latest = history.years.find((y) => y.approvals > 0) ?? history.years[0];
+  const lines = history.years.map((y) => `FY${y.year}: ${y.approvals.toLocaleString('en-US')} approved (${y.newEmployment.toLocaleString('en-US')} new employment), ${y.denials.toLocaleString('en-US')} denied`).join('\n');
+  return (
+    <a href={H1B_HUB_URL} target="_blank" rel="noopener noreferrer"
+      title={`${history.employer}: H-1B workers approved by USCIS\n${lines}\nShows past petitions, not whether this employer will sponsor you.`}
+      className="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10.5px] font-semibold transition-opacity hover:opacity-80 text-sky-300 bg-sky-500/10 border-sky-500/25">
+      <Landmark className="w-3 h-3" /> H-1B · {latest.approvals.toLocaleString('en-US')} in FY{latest.year}
+    </a>
+  );
+}
+
+function AppCard({ app, everify, everifySyncedAt, h1b, h1bYears, onEdit, onDelete, onStatusChange, onCreatePlan, onFindContacts }: {
+  app: Application; everify?: EverifyStatus; everifySyncedAt: string | null; h1b?: H1bHistory | null; h1bYears: string[] | null; onEdit: () => void; onDelete: () => void; onStatusChange: (status: AppStatus) => void; onCreatePlan: () => void; onFindContacts: () => void;
 }) {
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const menuRef = React.useRef<HTMLDivElement>(null);
@@ -357,6 +388,7 @@ function AppCard({ app, everify, everifySyncedAt, onEdit, onDelete, onStatusChan
           <span className="flex items-center gap-1 text-xs text-slate-500"><Calendar className="w-3 h-3" /> {daysSince}</span>
           {app.salary && <span className="flex items-center gap-1 text-xs text-slate-500"><DollarSign className="w-3 h-3" /> {app.salary}</span>}
           {everify && <EverifyBadge status={everify} syncedAt={everifySyncedAt} />}
+          {h1bYears && h1b !== undefined && <H1bBadge history={h1b} years={h1bYears} />}
         </div>
         <div className="flex items-center justify-between gap-2">
           <div className="relative" ref={menuRef}>
@@ -623,13 +655,18 @@ export default function JobTrackerPage() {
 
   const [apps, setApps] = useState<Application[]>([]);
   const [everify, setEverify] = useState<{ statuses: Record<string, EverifyStatus>; syncedAt: string | null }>({ statuses: {}, syncedAt: null });
+  const [h1b, setH1b] = useState<{ histories: Record<string, H1bHistory | null>; years: string[] } | null>(null);
   const companyKey = [...new Set(apps.map(a => a.company.trim()).filter(Boolean))].sort().join('|');
   useEffect(() => {
     if (!companyKey) return;
     let cancelled = false;
     fetch('/api/job-tracker/everify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ companies: companyKey.split('|') }) })
       .then(r => (r.ok ? r.json() : null))
-      .then(j => { if (!cancelled && j?.available) setEverify({ statuses: j.statuses ?? {}, syncedAt: j.syncedAt ?? null }); })
+      .then(j => {
+        if (cancelled || !j) return;
+        if (j.available) setEverify({ statuses: j.statuses ?? {}, syncedAt: j.syncedAt ?? null });
+        if (j.h1b) setH1b({ histories: j.h1b.histories ?? {}, years: j.h1b.years ?? [] });
+      })
       .catch(() => { /* the badge is optional */ });
     return () => { cancelled = true; };
   }, [companyKey]);
@@ -866,7 +903,7 @@ export default function JobTrackerPage() {
                 <p className="text-xs text-slate-500">{filtered.length} application{filtered.length !== 1 ? 's' : ''}{(search || filterStatus !== 'all' || filterWork !== 'all') ? ' matching filters' : ''}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {filtered.map(app => (
-                    <AppCard key={app.id} app={app} everify={everify.statuses[app.company.trim()]} everifySyncedAt={everify.syncedAt} onEdit={() => handleEdit(app)} onDelete={() => handleDelete(app.id)}
+                    <AppCard key={app.id} app={app} everify={everify.statuses[app.company.trim()]} everifySyncedAt={everify.syncedAt} h1b={h1b?.histories[app.company.trim()]} h1bYears={h1b?.years ?? null} onEdit={() => handleEdit(app)} onDelete={() => handleDelete(app.id)}
                       onStatusChange={status => handleStatusChange(app.id, status)} onCreatePlan={() => setPlanModal(app)}
                       onFindContacts={() => handleFindContacts(app)} />
                   ))}

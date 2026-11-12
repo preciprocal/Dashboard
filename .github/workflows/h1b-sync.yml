@@ -1,0 +1,36 @@
+# Copies the public USCIS H-1B Employer Data Hub into Supabase Storage.
+# USCIS updates the hub quarterly; a monthly run picks each update up within
+# a few weeks. See scripts/everify/h1b-sync.mjs. A failed run keeps the
+# current data live and makes GitHub email the repo owner.
+name: H-1B employer data sync
+
+on:
+  schedule:
+    - cron: "0 10 3 * *" # 10:00 UTC on the 3rd of each month
+  workflow_dispatch: {}
+
+concurrency:
+  group: h1b-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: scripts/everify
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: node --max-old-space-size=4096 h1b-sync.mjs
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

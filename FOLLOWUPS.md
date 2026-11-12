@@ -1103,6 +1103,17 @@ Only `everify_sync_runs` from 0058 is still used. The `everify_employers`
 tables and the swap and lookup functions (0058, 0060) can be dropped in a
 later migration.
 
+H-1B history sits next to it: `scripts/everify/h1b-sync.mjs` copies the
+USCIS H-1B Employer Data Hub (the "Employer Information" sheet of its
+"H1B Public" dashboard, same Tableau server) for the latest three fiscal
+years into bucket `h1b`, same shard layout, monthly via
+`.github/workflows/h1b-sync.yml` (USCIS updates it quarterly). Per employer:
+new-employment approvals, all approvals and all denials per year, in
+workers. `lib/jobs/h1b.ts` reads it; the tracker shows an "H-1B" badge
+beside E-Verify. Counts are past petitions, never a promise to sponsor, and
+the tooltip says so. The landing site's free employer check
+(/opt/e-verify-employer-search) reads both buckets with the same keys.
+
 Left to do:
 
 1. Add repository secrets `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`
