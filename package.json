@@ -25,6 +25,7 @@
     "verify:practice": "tsx --env-file=.env.local scripts/verify-practice.ts",
     "verify:writing-check": "tsx scripts/verify-writing-check.ts",
     "verify:email-writing": "tsx scripts/verify-email-writing.ts",
+    "verify:everify": "tsx --env-file=.env.local scripts/verify-everify.ts",
     "verify:inbound": "tsx scripts/verify-inbound.ts",
     "verify:inbound-webhook": "tsx --env-file=.env.local scripts/verify-inbound-webhook.ts"
   },

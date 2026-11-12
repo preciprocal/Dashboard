@@ -1,37 +1,44 @@
 /**
  * scripts/everify/sync.mjs
  *
- * Copies the public E-Verify Employer Search into Supabase, once a day.
- * Run by .github/workflows/everify-sync.yml; nobody needs to run it by hand.
+ * Copies the public E-Verify Employer Search into Supabase Storage, once a
+ * day. Run by .github/workflows/everify-sync.yml; nobody needs to run it by
+ * hand.
  *
  * Source: https://www.e-verify.gov/e-verify-employer-search, a Tableau
  * dashboard published by USCIS and refreshed daily at about 2 a.m. ET. The
- * employer rows live in its "Employer List" worksheet. They are read here the
- * same way the page reads them to draw its table: one normal page load, then
- * the Tableau Embedding API's summary-data reader, a page of rows at a time
- * with a pause between pages. Nothing is guessed and nothing is hammered.
+ * employer rows live in its "Employer List" worksheet. They are read the same
+ * way the page reads them to draw its table: one normal page load, then the
+ * Tableau Embedding API's summary-data reader, a page of rows at a time with
+ * a pause between pages. The dashboard defaults to the current enrolment
+ * year; the read widens that to every year (about 1.28 million employers).
  *
- * Writes go to everify_employers_staging; everify_swap() then replaces the
- * live table in one transaction, and refuses if the load is much smaller
- * than what is live. Any failure leaves users on yesterday's data, records the
- * run as failed, and exits non-zero so GitHub emails the repo owner.
+ * Why Storage, not a table: the full list needs ~530 MB as rows, more than a
+ * free Supabase database holds. As ~1,300 gzipped JSON shards keyed by the
+ * first two characters of the normalised name it is ~25-30 MB. Layout and
+ * record shape: lib/jobs/everify-store.ts.
  *
- * Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY. Migration 0058 must be
- * applied first.
+ * Each run uploads a complete new version, then switches the pointer
+ * (current.json) to it, then deletes versions older than the previous one.
+ * A failed or partial run never moves the pointer, so users keep yesterday's
+ * list; the run is logged as failed in everify_sync_runs and the process
+ * exits non-zero so GitHub emails the repo owner.
  *
- * DRY_RUN=1 reads and parses everything, prints counts and a sample, and
- * writes nothing (no Supabase credentials needed). Use it to check the source
- * after a change to the dashboard.
+ * Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.
+ *
+ * DRY_RUN=1 reads and parses everything, prints counts, shard sizes and a
+ * sample, and writes nothing (no Supabase credentials needed).
  */
 
+import { gzipSync } from "node:zlib";
 import { chromium } from "playwright";
 import { createClient } from "@supabase/supabase-js";
+import { normalizeCompany, shardOf, shardPath } from "./names.mjs";
 
 const SOURCE = "https://www.e-verify.gov/e-verify-employer-search";
 const WORKSHEET = "Employer List";
 const PAGE_ROWS = 10000;
 const PAUSE_MS = 1500;
-const INSERT_CHUNK = 1000;
 /** A read must reach this share of the count the dashboard reports. */
 const MIN_COMPLETE = 0.98;
 /**
@@ -40,6 +47,11 @@ const MIN_COMPLETE = 0.98;
  * count far below the full list means the date filter was not widened.
  */
 const MIN_EXPECTED_ROWS = 500_000;
+/** Records kept per normalised name: plenty for a company with several accounts. */
+const MAX_PER_KEY = 5;
+const BUCKET = "everify";
+const POINTER = "current.json";
+const UPLOAD_CONCURRENCY = 8;
 
 const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DRY_RUN } = process.env;
 const dry = DRY_RUN === "1";
@@ -49,6 +61,8 @@ if (!dry && (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY)) {
 }
 const db = dry ? null : createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Names and shards: scripts/everify/names.mjs (mirrors lib/jobs/everify-store.ts).
 
 // ─── Parsing the dashboard's formatted values ────────────────────────────────
 
@@ -63,70 +77,24 @@ function date(v) {
   return `${m[3]}-${m[1].padStart(2, "0")}-${m[2].padStart(2, "0")}`;
 }
 
-function int(v) {
-  const s = blank(v);
-  if (!s) return null;
-  const n = Number(s.replace(/,/g, ""));
-  return Number.isFinite(n) ? Math.round(n) : null;
-}
-
-function states(v) {
-  const s = blank(v);
-  if (!s) return null;
-  const list = s.split(",").map((x) => x.trim()).filter(Boolean);
-  return list.length ? list : null;
-}
-
-function yesNo(v) {
-  const s = blank(v);
-  if (!s) return null;
-  return s.toLowerCase() === "yes";
-}
-
-/** Map one row by column name. Columns are found by name, not position. */
+/** One row as the compact stored record, plus the source date. */
 function toRecord(cols, row) {
-  const get = (...names) => {
-    for (const n of names) {
-      const i = cols.indexOf(n);
-      if (i >= 0) return row[i];
-    }
-    return undefined;
+  const get = (name) => {
+    const i = cols.indexOf(name);
+    return i >= 0 ? row[i] : undefined;
   };
   const employer = blank(get("Employer"));
   if (!employer) return null;
-  return {
-    employer,
-    dba: blank(get("Doing Business As")),
-    account_status: blank(get("Account Status")),
-    date_enrolled: date(get("Date Enrolled")),
-    date_terminated: date(get("Date Terminated")),
-    workforce_size: blank(get("Workforce Size")),
-    hiring_sites: int(get("SUM(Number of Hiring Sites)", "Number of Hiring Sites")),
-    hiring_states: states(get("Hiring Site Locations")),
-    everify_plus: yesNo(get("Opted into E-Verify+")),
-    source_updated: date(get("Last Updated Date")),
-  };
-}
-
-// ─── Database helpers ────────────────────────────────────────────────────────
-
-async function startRun() {
-  const { data, error } = await db.from("everify_sync_runs").insert({}).select("id").single();
-  if (error) throw new Error(`could not record the run (is migration 0058 applied?): ${error.message}`);
-  return data.id;
-}
-
-async function finishRun(id, fields) {
-  const { error } = await db.from("everify_sync_runs").update({ finished_at: new Date().toISOString(), ...fields }).eq("id", id);
-  if (error) console.error("could not update the run row:", error.message);
-}
-
-async function insertChunk(rows, attempt = 1) {
-  const { error } = await db.from("everify_employers_staging").insert(rows);
-  if (!error) return;
-  if (attempt >= 3) throw new Error(`staging insert failed: ${error.message}`);
-  await sleep(2000 * attempt);
-  return insertChunk(rows, attempt + 1);
+  const rec = { e: employer, s: (blank(get("Account Status")) ?? "").toLowerCase() === "open" ? "o" : "t" };
+  const dba = blank(get("Doing Business As"));
+  if (dba && dba.toLowerCase() !== employer.toLowerCase()) rec.d = dba;
+  const en = date(get("Date Enrolled"));
+  if (en) rec.en = en;
+  const te = date(get("Date Terminated"));
+  if (te) rec.te = te;
+  const w = blank(get("Workforce Size"));
+  if (w) rec.w = w;
+  return { rec, sourceUpdated: date(get("Last Updated Date")) };
 }
 
 // ─── The read ────────────────────────────────────────────────────────────────
@@ -146,11 +114,9 @@ async function readEmployerList(onRows) {
       null,
       { timeout: 180_000, polling: 1000 },
     ).catch(() => {
-      throw new Error("the E-Verify Employer Search dashboard did not load in 3 minutes; the USCIS source is probably down (it has shown 'HTTP Status 404' during outages). Yesterday's data stays live.");
+      throw new Error("the E-Verify Employer Search dashboard did not load in 3 minutes; the USCIS source is probably down (it has shown 'HTTP Status 404' during outages). Yesterday's list stays live.");
     });
 
-    // Open a reader on the Employer List, with every account status included
-    // (the dashboard may default to open accounts only).
     const meta = await page.evaluate(async ({ worksheet, pageRows }) => {
       const viz = document.querySelector("tableau-viz");
       const sheets = viz.workbook.activeSheet.worksheets;
@@ -167,6 +133,9 @@ async function readEmployerList(onRows) {
     }, { worksheet: WORKSHEET, pageRows: PAGE_ROWS });
 
     console.log(`Employer List: ${meta.totalRows} rows in ${meta.pages} pages`);
+    if (meta.totalRows < MIN_EXPECTED_ROWS) {
+      throw new Error(`only ${meta.totalRows} employers reported; the full list is over a million, so the enrolment date filter did not widen`);
+    }
     let read = 0;
     for (let p = 0; p < meta.pages; p++) {
       const chunk = await page.evaluate(async (i) => {
@@ -174,8 +143,8 @@ async function readEmployerList(onRows) {
         return { cols: pg.columns.map((c) => c.fieldName), rows: pg.data.map((r) => r.map((v) => v.formattedValue)) };
       }, p);
       read += chunk.rows.length;
-      await onRows(chunk.cols, chunk.rows);
-      console.log(`  page ${p + 1}/${meta.pages}: ${chunk.rows.length} rows`);
+      onRows(chunk.cols, chunk.rows);
+      if ((p + 1) % 10 === 0 || p + 1 === meta.pages) console.log(`  page ${p + 1}/${meta.pages}: ${read} rows so far`);
       await sleep(PAUSE_MS);
     }
     await page.evaluate(async () => { try { await window.__everifyReader.releaseAsync(); } catch { /* ignore */ } });
@@ -185,82 +154,135 @@ async function readEmployerList(onRows) {
   }
 }
 
+/** Reads the whole list into shards: shard -> { normalised name -> records }. */
+async function readIntoShards() {
+  const shards = new Map();
+  let parsed = 0, newest = null;
+  const add = (key, rec) => {
+    const s = shardOf(key);
+    let shard = shards.get(s);
+    if (!shard) { shard = {}; shards.set(s, shard); }
+    (shard[key] ??= []).push(rec);
+  };
+  const { reported, read } = await readEmployerList((cols, rows) => {
+    for (const row of rows) {
+      const r = toRecord(cols, row);
+      if (!r) continue;
+      parsed++;
+      if (r.sourceUpdated && (!newest || r.sourceUpdated > newest)) newest = r.sourceUpdated;
+      const k1 = normalizeCompany(r.rec.e);
+      if (k1) add(k1, r.rec);
+      const k2 = r.rec.d ? normalizeCompany(r.rec.d) : null;
+      if (k2 && k2 !== k1) add(k2, r.rec);
+    }
+  });
+  if (read < reported * MIN_COMPLETE) throw new Error(`incomplete read: ${read} of ${reported} rows`);
+
+  // Open accounts first, then most recently enrolled; cap per name.
+  for (const shard of shards.values()) {
+    for (const key of Object.keys(shard)) {
+      shard[key] = shard[key]
+        .sort((a, b) => (a.s === b.s ? (b.en ?? "").localeCompare(a.en ?? "") : a.s === "o" ? -1 : 1))
+        .slice(0, MAX_PER_KEY);
+    }
+  }
+  return { shards, reported, read, parsed, newest };
+}
+
 // ─── Dry run ─────────────────────────────────────────────────────────────────
 
 if (dry) {
-  const sample = [];
-  const byStatus = {};
-  let parsed = 0, newest = null;
-  const { reported, read } = await readEmployerList(async (cols, rows) => {
-    if (!sample.length) console.log("columns:", cols.join(" | "));
-    for (const row of rows) {
-      const rec = toRecord(cols, row);
-      if (!rec) continue;
-      parsed++;
-      byStatus[rec.account_status ?? "null"] = (byStatus[rec.account_status ?? "null"] ?? 0) + 1;
-      if (rec.source_updated && (!newest || rec.source_updated > newest)) newest = rec.source_updated;
-      if (sample.length < 3) sample.push(rec);
-    }
-  });
-  console.log(JSON.stringify({ reported, read, parsed, byStatus, newest, sample }, null, 2));
-  process.exit(read >= reported * MIN_COMPLETE ? 0 : 1);
+  const { shards, reported, read, parsed, newest } = await readIntoShards();
+  let gz = 0, keys = 0, biggest = ["", 0];
+  for (const [s, shard] of shards) {
+    const size = gzipSync(JSON.stringify(shard)).length;
+    gz += size; keys += Object.keys(shard).length;
+    if (size > biggest[1]) biggest = [s, size];
+  }
+  const sample = shards.get("go") ? Object.entries(shards.get("go")).filter(([k]) => k.startsWith("google")).slice(0, 3) : [];
+  console.log(JSON.stringify({ reported, read, parsed, newest, shards: shards.size, names: keys, gzippedMB: +(gz / 1e6).toFixed(1), biggestShard: { shard: biggest[0], kb: Math.round(biggest[1] / 1024) }, sample }, null, 2));
+  process.exit(0);
 }
 
-// ─── Main ────────────────────────────────────────────────────────────────────
+// ─── Real run ────────────────────────────────────────────────────────────────
+
+async function startRun() {
+  const { data, error } = await db.from("everify_sync_runs").insert({}).select("id").single();
+  if (error) throw new Error(`could not record the run (is migration 0058 applied?): ${error.message}`);
+  return data.id;
+}
+
+async function finishRun(id, fields) {
+  const { error } = await db.from("everify_sync_runs").update({ finished_at: new Date().toISOString(), ...fields }).eq("id", id);
+  if (error) console.error("could not update the run row:", error.message);
+}
+
+async function ensureBucket() {
+  const { data } = await db.storage.getBucket(BUCKET);
+  if (data) return;
+  const { error } = await db.storage.createBucket(BUCKET, { public: false });
+  if (error && !/already exists/i.test(error.message)) throw new Error(`could not create the ${BUCKET} bucket: ${error.message}`);
+}
+
+async function upload(path, body, contentType, attempt = 1) {
+  const { error } = await db.storage.from(BUCKET).upload(path, body, { contentType, upsert: true });
+  if (!error) return;
+  if (attempt >= 3) throw new Error(`upload of ${path} failed: ${error.message}`);
+  await sleep(2000 * attempt);
+  return upload(path, body, contentType, attempt + 1);
+}
+
+/** Deletes every version folder except the two newest. */
+async function pruneVersions(keep) {
+  const { data: folders } = await db.storage.from(BUCKET).list("v", { limit: 1000 });
+  const old = (folders ?? []).map((f) => f.name).filter((n) => !keep.includes(n));
+  for (const v of old) {
+    const { data: files } = await db.storage.from(BUCKET).list(`v/${v}`, { limit: 10000 });
+    const paths = (files ?? []).map((f) => `v/${v}/${f.name}`);
+    for (let i = 0; i < paths.length; i += 900) await db.storage.from(BUCKET).remove(paths.slice(i, i + 900));
+  }
+  return old.length;
+}
 
 const runId = await startRun();
 try {
-  let staged = 0;
-  let newest = null;
-  let buffer = [];
-  const flush = async () => {
-    if (!buffer.length) return;
-    await insertChunk(buffer);
-    staged += buffer.length;
-    buffer = [];
-  };
+  await ensureBucket();
 
-  // The dashboard occasionally loads slowly. A failed read empties staging
-  // and tries once more before the run is marked failed.
-  let reported = 0;
-  let read = 0;
+  // Read, retrying once if the dashboard is slow.
+  let result;
   for (let attempt = 1; ; attempt++) {
-    const { error: resetErr } = await db.rpc("everify_staging_reset");
-    if (resetErr) throw new Error(`staging reset failed: ${resetErr.message}`);
-    staged = 0;
-    newest = null;
-    buffer = [];
-    try {
-      ({ reported, read } = await readEmployerList(async (cols, rows) => {
-        for (const row of rows) {
-          const rec = toRecord(cols, row);
-          if (!rec) continue;
-          if (rec.source_updated && (!newest || rec.source_updated > newest)) newest = rec.source_updated;
-          buffer.push(rec);
-          if (buffer.length >= INSERT_CHUNK) await flush();
-        }
-      }));
-      await flush();
-      break;
-    } catch (err) {
+    try { result = await readIntoShards(); break; } catch (err) {
       if (attempt >= 2) throw err;
       console.warn(`read failed (${err instanceof Error ? err.message : err}); retrying in 30s`);
       await sleep(30_000);
     }
   }
+  const { shards, reported, read, newest } = result;
 
-  if (reported < MIN_EXPECTED_ROWS) {
-    throw new Error(`only ${reported} employers reported; the full list is over a million, so the enrolment date filter did not widen`);
-  }
-  if (read < reported * MIN_COMPLETE) {
-    throw new Error(`incomplete read: ${read} of ${reported} rows`);
-  }
+  // Upload the new version in full before anyone can see it.
+  const version = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
+  const entries = [...shards.entries()];
+  let done = 0, bytes = 0;
+  const workers = Array.from({ length: UPLOAD_CONCURRENCY }, async () => {
+    while (entries.length) {
+      const [shard, data] = entries.pop();
+      const body = gzipSync(JSON.stringify(data));
+      bytes += body.length;
+      await upload(shardPath(version, shard), body, "application/gzip");
+      if (++done % 200 === 0) console.log(`  uploaded ${done}/${shards.size} shards`);
+    }
+  });
+  await Promise.all(workers);
 
-  const { data: live, error: swapErr } = await db.rpc("everify_swap", { p_min_ratio: 0.8 });
-  if (swapErr) throw new Error(`swap refused: ${swapErr.message}`);
+  // Switch the pointer: from here on, lookups use the new version.
+  const { data: oldPointer } = await db.storage.from(BUCKET).download(POINTER);
+  const previous = oldPointer ? JSON.parse(await oldPointer.text()).version : null;
+  const pointer = { version, syncedAt: new Date().toISOString(), rows: read, sourceUpdated: newest };
+  await upload(POINTER, Buffer.from(JSON.stringify(pointer)), "application/json");
 
-  await finishRun(runId, { status: "ok", rows_read: read, rows_live: live, source_updated: newest, message: `staged ${staged}` });
-  console.log(`Done: ${live} employers live, source updated ${newest ?? "unknown"}.`);
+  const pruned = await pruneVersions([version, previous].filter(Boolean));
+  await finishRun(runId, { status: "ok", rows_read: read, rows_live: read, source_updated: newest, message: `version ${version}: ${shards.size} shards, ${(bytes / 1e6).toFixed(1)} MB gzipped; pruned ${pruned} old versions` });
+  console.log(`Done: ${read} of ${reported} employers in ${shards.size} shards (${(bytes / 1e6).toFixed(1)} MB), version ${version}, source updated ${newest ?? "unknown"}.`);
 } catch (err) {
   const message = err instanceof Error ? err.message : String(err);
   console.error("E-Verify sync failed:", message);
