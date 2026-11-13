@@ -15,13 +15,14 @@ import RefundPanel from '@/components/billing/RefundPanel';
 import AutoPayPanel from '@/components/billing/AutoPayPanel';
 import BillingPanel from '@/components/billing/BillingPanel';
 import DevicesPanel from '@/components/settings/DevicesPanel';
+import GoogleCalendarSettings, { useCalendarStatus } from '@/components/calendar/GoogleCalendarSettings';
 import {
   USAGE_LIMITS, FEATURE_NAMES, isUnlimited, type FeatureType,
 } from '@/lib/config/usage-limits';
 import {
   Bell, User, Shield, CreditCard, Chrome, Loader2,
   AlertTriangle, Check, Eye, EyeOff, Trash2, Mail, Lock, Zap,
-  Star, AlertCircle, RefreshCw, ExternalLink, Building2, Link2, RotateCcw, MonitorSmartphone,
+  Star, AlertCircle, RefreshCw, ExternalLink, Building2, Link2, RotateCcw, MonitorSmartphone, Plug,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -145,6 +146,9 @@ export default function SettingsPage() {
   const router = useRouter();
 
   const [activeSection,   setActiveSection]   = useState('account');
+  // Google Calendar. The Integrations tab only appears once it is configured
+  // (env vars and migration 0063), so it never shows a dead button.
+  const calendar = useCalendarStatus(!!user);
   // Same source as the sidebar and Profile, so the three never disagree.
   const [profileName, setProfileName] = useState<string | null>(null);
   useEffect(() => {
@@ -167,7 +171,7 @@ export default function SettingsPage() {
   // boundary around the whole page.
   useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get('section');
-    if (requested && ['account', 'notifications', 'security', 'devices', 'billing', 'extension', 'danger'].includes(requested)) {
+    if (requested && ['account', 'notifications', 'security', 'devices', 'billing', 'extension', 'integrations', 'danger'].includes(requested)) {
       setActiveSection(requested);
     }
   }, []);
@@ -401,6 +405,7 @@ export default function SettingsPage() {
     { id: 'devices',       label: 'Devices',          icon: MonitorSmartphone, danger: false, badge: null },
     { id: 'billing',       label: 'Plan & Billing',   icon: CreditCard,    danger: false, badge: plan.tier === 'free' ? 'Upgrade' : null },
     { id: 'extension',     label: 'Extension',        icon: Chrome,        danger: false, badge: null },
+    ...(calendar.status.configured ? [{ id: 'integrations', label: 'Integrations', icon: Plug, danger: false, badge: calendar.status.broken ? 'Fix' : null }] : []),
     { id: 'danger',        label: 'Danger Zone',      icon: AlertTriangle, danger: true,  badge: null },
   ];
 
@@ -449,7 +454,7 @@ export default function SettingsPage() {
 
       {/* ── Tab bar ── */}
       <div className="glass-card overflow-hidden relative">
-        {/* On a phone only 3 of the 7 tabs fit; the fade says there are more. */}
+        {/* On a phone only 3 of the 7 or 8 tabs fit; the fade says there are more. */}
         <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 w-12 z-10 bg-gradient-to-l from-slate-950 to-transparent lg:hidden" />
         <div className="flex overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
           {sections.map(s => {
@@ -899,6 +904,15 @@ export default function SettingsPage() {
                 <Link href="/extension" className="sm:col-span-2 btn-secondary w-full">See your extension activity</Link>
               </div>
             </SectionCard>
+          </div>
+        )}
+
+        {/* ════ INTEGRATIONS ════ */}
+        {activeSection === 'integrations' && (
+          <div className="space-y-4">
+            {calendar.status.configured
+              ? <GoogleCalendarSettings status={calendar.status} onChanged={calendar.reload} />
+              : calendar.loaded && <SectionCard><p className="p-5 text-sm text-slate-400">No integrations are available yet.</p></SectionCard>}
           </div>
         )}
 

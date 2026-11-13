@@ -58,3 +58,18 @@ export function OutlookIcon({ className, ...props }: BrandIconProps) {
     </svg>
   );
 }
+
+export function GoogleCalendarIcon({ className, ...props }: BrandIconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...props}>
+      {/* White page, blue header band, the Google colours along the foot, then "31". */}
+      <rect x="2.5" y="2.5" width="19" height="19" rx="2.5" fill="#fff" />
+      <path fill="#4285F4" d="M2.5 5A2.5 2.5 0 0 1 5 2.5h14A2.5 2.5 0 0 1 21.5 5v2.5h-19V5Z" />
+      <path fill="#1967D2" d="M17 2.5h2A2.5 2.5 0 0 1 21.5 5v2.5H17v-5Z" />
+      <path fill="#34A853" d="M2.5 17H7v4.5H5A2.5 2.5 0 0 1 2.5 19v-2Z" />
+      <path fill="#FBBC04" d="M7 17h10v4.5H7V17Z" />
+      <path fill="#EA4335" d="M17 17h4.5L17 21.5V17Z" />
+      <text x="12" y="15.4" textAnchor="middle" fontFamily="Arial, Helvetica, sans-serif" fontWeight="700" fontSize="7.5" fill="#4285F4">31</text>
+    </svg>
+  );
+}

@@ -1193,3 +1193,71 @@ Deliberately not done:
    button was added there.
 
 **Unblocked by** the owner applying the migration in the Supabase SQL editor.
+## 36. OPEN - turn on Google Calendar (interview times from the job tracker)
+
+**Severity: low. Ships hidden; nothing changes for users until this is done.**
+
+Interview-stage cards in the job tracker get "Add to calendar". It saves the
+time on the card, shows the next 14 days in an "Upcoming interviews" strip with
+a Prepare link, and offers an .ics download. With Google Calendar connected
+(Settings > Integrations) it also writes a real event with reminders and
+follows changes made in Google. Calendar only: there is no Gmail scope, and
+email stays on the forwarding address (item 32).
+
+What the owner needs to do:
+
+1. **Google Cloud OAuth client** (a new one, separate from the Supabase Google
+   sign-in client so the consent screens and tokens stay independent):
+   - APIs & Services > Library: enable **Google Calendar API**.
+   - OAuth consent screen: app name, support email, the privacy policy and
+     terms links, authorised domain `preciprocal.com`.
+   - Scopes, exactly these three:
+     - `openid`
+     - `.../auth/userinfo.email` (shows as `email`)
+     - `https://www.googleapis.com/auth/calendar.events.owned` (sensitive)
+   - Credentials > Create OAuth client ID > Web application. Authorised
+     redirect URIs:
+     - `http://localhost:3000/api/integrations/google-calendar/callback`
+     - `https://app.preciprocal.com/api/integrations/google-calendar/callback`
+       (whatever `NEXT_PUBLIC_APP_URL` is in production, plus this path; it
+       must match character for character).
+2. **Env vars** (Vercel and `.env.local`):
+   - `GOOGLE_CALENDAR_CLIENT_ID`
+   - `GOOGLE_CALENDAR_CLIENT_SECRET`
+   - `TOKEN_ENCRYPTION_KEY`: 32 random bytes, base64. Generate with
+     `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`.
+     Keep it stable: changing it makes every stored Google token unreadable and
+     each user has to reconnect (the app detects this and asks them to).
+   - `NEXT_PUBLIC_APP_URL` already exists; the redirect URI is derived from it.
+3. **Apply `supabase/migrations/0063_google_calendar.sql`** in the SQL editor
+   (two service-role-only tables: `google_calendar_connections`,
+   `interview_schedules`).
+4. **Google verification.** `calendar.events.owned` is a *sensitive* scope (not
+   restricted, so no security assessment). While the consent screen is in
+   "Testing", only listed test users can connect, and Google expires their
+   refresh tokens after 7 days (the app shows "Reconnect needed" when that
+   happens). To open it to everyone, publish the app and submit it for
+   verification: a scope justification ("creates interview events the user
+   schedules and reads back only those events") and a short screen recording
+   of the connect flow and the event being created.
+5. **Privacy policy**: add a line saying Google Calendar access is optional,
+   used only to create, update, delete and read back the interview events the
+   user adds, and that tokens are encrypted and revoked on disconnect. Google's
+   reviewers check for this.
+
+What hides until then: without the env vars or the migration, the Integrations
+tab and every "Connect Google Calendar" button are hidden. "Add to calendar"
+still works as an .ics download; saving the time on the card needs 0063.
+
+Check after setup: connect from Settings > Integrations, add a time to an
+interview-stage card, confirm the event in Google Calendar (title "Interview:
+<Role> at <Company>", description links back), drag it to another time in
+Google, reload the tracker after two minutes and confirm the card moved. Then
+disconnect and confirm the app is gone from https://myaccount.google.com/permissions.
+
+`npm run verify:google-calendar` covers the OAuth URL, state signing, token
+encryption, refresh and revocation handling (mocked Google), timezones, the
+event payload and the .ics output.
+
+**Unblocked by** the owner creating the OAuth client, setting the env vars and
+applying 0063.

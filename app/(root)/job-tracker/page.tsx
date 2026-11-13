@@ -26,6 +26,11 @@ import NextStepPrompt from '@/components/NextStepPrompt'; // ← ADDED
 import FunnelDoctor from '@/components/outcomes/FunnelDoctor';
 import InboundEmailPanel from '@/components/outcomes/InboundEmailPanel';
 import SaveToContactsButton from '@/components/contacts/SaveToContactsButton';
+import InterviewScheduleModal from '@/components/calendar/InterviewScheduleModal';
+import InterviewScheduleRow from '@/components/calendar/InterviewScheduleRow';
+import UpcomingInterviews from '@/components/calendar/UpcomingInterviews';
+import { useInterviewSchedules } from '@/components/calendar/useInterviewSchedules';
+import type { InterviewSchedule } from '@/lib/calendar/status';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -354,8 +359,8 @@ function H1bBadge({ history, years }: { history: H1bHistory | null; years: strin
   );
 }
 
-function AppCard({ app, everify, everifySyncedAt, h1b, h1bYears, onEdit, onDelete, onStatusChange, onCreatePlan, onFindContacts }: {
-  app: Application; everify?: EverifyStatus; everifySyncedAt: string | null; h1b?: H1bHistory | null; h1bYears: string[] | null; onEdit: () => void; onDelete: () => void; onStatusChange: (status: AppStatus) => void; onCreatePlan: () => void; onFindContacts: () => void;
+function AppCard({ app, everify, everifySyncedAt, h1b, h1bYears, schedule, onSchedule, onEdit, onDelete, onStatusChange, onCreatePlan, onFindContacts }: {
+  app: Application; everify?: EverifyStatus; everifySyncedAt: string | null; h1b?: H1bHistory | null; h1bYears: string[] | null; schedule: InterviewSchedule | null; onSchedule: () => void; onEdit: () => void; onDelete: () => void; onStatusChange: (status: AppStatus) => void; onCreatePlan: () => void; onFindContacts: () => void;
 }) {
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const menuRef = React.useRef<HTMLDivElement>(null);
@@ -414,7 +419,9 @@ function AppCard({ app, everify, everifySyncedAt, h1b, h1bYears, onEdit, onDelet
         {app.notes && <p className="mt-2.5 text-xs text-slate-500 line-clamp-2 border-t border-white/[0.05] pt-2.5 leading-relaxed">{app.notes}</p>}
       </div>
       {(['phone-screen', 'technical', 'final'] as AppStatus[]).includes(app.status) && (
-        <div className="px-4 pb-2">
+        <div className="px-4 pb-2 space-y-2">
+          {/* The interview time, on the card and (when connected) in Google Calendar. */}
+          <InterviewScheduleRow schedule={schedule} onOpen={onSchedule} />
           {/* Practice built from this application's stage, company and saved posting. */}
           <Link href={`/interview/create?application=${app.id}`} className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold text-emerald-300 bg-emerald-500/[0.07] border border-emerald-500/20 hover:bg-emerald-500/15 hover:border-emerald-500/35 transition-all duration-150">
             <Mic className="w-3.5 h-3.5" /> Practise this interview
@@ -687,6 +694,10 @@ export default function JobTrackerPage() {
   const [contactsModal, setContactsModal] = useState<Application | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [nextStepCtx, setNextStepCtx] = useState<{ company: string; jobTitle: string } | null>(null); // ← ADDED
+  // Interview times and Google Calendar (components/calendar).
+  const interviews = useInterviewSchedules(!!user);
+  const [scheduleFor, setScheduleFor] = useState<string | null>(null);
+  const scheduleApp = scheduleFor ? apps.find(a => a.id === scheduleFor) ?? null : null;
 
   // Read "unlimited" off the quota table rather than off the plan name. The
   // plan-name check missed 'admin', whose jobTracker limit is -1: that made
@@ -826,6 +837,10 @@ export default function JobTrackerPage() {
       <ConfirmDialog />
       {showForm && <FormModal form={form} setForm={setForm} onSave={handleSave} onCancel={() => { setShowForm(false); setEditingId(null); setForm({ ...EMPTY_FORM }); }} saving={saving} isEdit={!!editingId} resumes={resumes} />}
       {contactsModal && <ContactsModal app={contactsModal} onClose={() => setContactsModal(null)} onContactsFound={async () => { await refetchUsage(); }} />}
+      {scheduleApp && (
+        <InterviewScheduleModal app={scheduleApp} existing={interviews.schedules[scheduleApp.id] ?? null} calendar={interviews.calendar} schemaReady={interviews.schemaReady}
+          onClose={() => setScheduleFor(null)} onSaved={interviews.setOne} onRemoved={interviews.removeOne} />
+      )}
       {planModal && <CreatePlanModal app={planModal} onConfirm={days => handleCreatePlan(planModal, days)} onClose={() => setPlanModal(null)} />}
       {creatingPlan && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#090d1a]/70 backdrop-blur-sm">
@@ -867,6 +882,9 @@ export default function JobTrackerPage() {
               </div>
             )}
 
+            {/* Renders nothing until an interview is scheduled in the next two weeks. */}
+            <UpcomingInterviews schedules={Object.values(interviews.schedules)} apps={apps} onOpen={setScheduleFor} />
+
             {/* Hidden until inbound email is configured (INBOUND_EMAIL_DOMAIN). */}
             <InboundEmailPanel apps={apps.map(a => ({ id: a.id, company: a.company, jobTitle: a.jobTitle }))} onChanged={refreshApps} />
 
@@ -905,7 +923,8 @@ export default function JobTrackerPage() {
                 <p className="text-xs text-slate-500">{filtered.length} application{filtered.length !== 1 ? 's' : ''}{(search || filterStatus !== 'all' || filterWork !== 'all') ? ' matching filters' : ''}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {filtered.map(app => (
-                    <AppCard key={app.id} app={app} everify={everify.statuses[app.company.trim()]} everifySyncedAt={everify.syncedAt} h1b={h1b?.histories[app.company.trim()]} h1bYears={h1b?.years ?? null} onEdit={() => handleEdit(app)} onDelete={() => handleDelete(app.id)}
+                    <AppCard key={app.id} app={app} everify={everify.statuses[app.company.trim()]} everifySyncedAt={everify.syncedAt} h1b={h1b?.histories[app.company.trim()]} h1bYears={h1b?.years ?? null}
+                      schedule={interviews.schedules[app.id] ?? null} onSchedule={() => setScheduleFor(app.id)} onEdit={() => handleEdit(app)} onDelete={() => handleDelete(app.id)}
                       onStatusChange={status => handleStatusChange(app.id, status)} onCreatePlan={() => setPlanModal(app)}
                       onFindContacts={() => handleFindContacts(app)} />
                   ))}
