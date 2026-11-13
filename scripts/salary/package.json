@@ -1,0 +1,12 @@
+{
+  "name": "salary-ingest",
+  "private": true,
+  "description": "Yearly load of BLS OEWS wage percentiles into Supabase. Run by .github/workflows/salary-ingest.yml.",
+  "type": "module",
+  "scripts": {
+    "ingest": "node ingest.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.112.3"
+  }
+}

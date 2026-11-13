@@ -393,6 +393,7 @@ function AppCard({ app, everify, everifySyncedAt, h1b, h1bYears, schedule, onSch
           <span className="flex items-center gap-1 text-xs text-slate-500"><WIcon className="w-3 h-3" /> {WORK_TYPE_CONFIG[app.workType]?.label}</span>
           <span className="flex items-center gap-1 text-xs text-slate-500"><Calendar className="w-3 h-3" /> {daysSince}</span>
           {app.salary && <span className="flex items-center gap-1 text-xs text-slate-500"><DollarSign className="w-3 h-3" /> {app.salary}</span>}
+          {app.status === 'offer' && <Link href={`/salary?${new URLSearchParams({ title: app.jobTitle, location: app.location ?? '', offer: app.salary ?? '' })}`} className="flex items-center gap-1 text-xs text-indigo-300 hover:text-indigo-200"><DollarSign className="w-3 h-3" /> Market pay</Link>}
           {everify && <EverifyBadge status={everify} syncedAt={everifySyncedAt} />}
           {h1bYears && h1b !== undefined && <H1bBadge history={h1b} years={h1bYears} />}
         </div>

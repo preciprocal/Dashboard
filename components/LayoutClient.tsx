@@ -9,7 +9,7 @@ import logo from "@/public/logo.png";
 import {
   Search, Menu, X, Home, Video, BookOpen, Settings, HelpCircle,
   LogOut, Crown, FileText, Shield, Calendar, Pen, ArrowLeftRight,
-  ChevronRight, NotebookPen, Sparkles, Briefcase, Zap, Chrome, Contact, } from 'lucide-react';
+  ChevronRight, NotebookPen, Sparkles, Briefcase, Zap, Chrome, Contact, CircleDollarSign, } from 'lucide-react';
 import { signOut } from "@/lib/actions/auth.action";
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import SessionHeartbeat from '@/components/SessionHeartbeat';
@@ -661,6 +661,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
     { id: 'career-tools', label: 'Career Tools',      icon: Sparkles,    href: '/career-tools' },
     { id: 'job-tracker',  label: 'Job Tracker',       icon: Briefcase,   href: '/job-tracker'  },
     { id: 'contacts',     label: 'Contacts',          icon: Contact,     href: '/contacts'     },
+    { id: 'salary',       label: 'Market Pay',        icon: CircleDollarSign, href: '/salary' },
     { id: 'extension',    label: 'Extension',         icon: Chrome,      href: '/extension'    },
   ];
 

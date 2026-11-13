@@ -9,7 +9,7 @@
 import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { Copy, Check, Search, X, ArrowRight, Sparkles, PenLine } from 'lucide-react';
+import { Copy, Check, Search, X, ArrowRight, Sparkles, PenLine, CircleDollarSign } from 'lucide-react';
 import { LinkedInIcon, OutlookIcon } from '@/components/icons/BrandIcons';
 import {
   OUTREACH_CATEGORIES,
@@ -74,6 +74,11 @@ function OutreachCard({ t }: { t: OutreachTemplate }) {
         <span className="inline-flex items-center gap-1"><PenLine className="w-3.5 h-3.5" /> {fieldsIn(t)} fields to fill in</span>
         {t.channel === 'linkedin' && t.body.length <= 300 && (
           <span className="text-emerald-400">Fits a connection note</span>
+        )}
+        {t.id.startsWith('offer-negotiate') && (
+          <Link href="/salary" className="ml-auto inline-flex items-center gap-1 text-indigo-300 hover:text-indigo-200">
+            <CircleDollarSign className="w-3.5 h-3.5" /> Check market pay
+          </Link>
         )}
       </div>
 

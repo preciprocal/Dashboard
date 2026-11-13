@@ -1293,3 +1293,37 @@ the claim in the product is also in the policy (see item 31).
 
 **Unblocked by** the owner applying the migration and running the provision
 script.
+## 38. OPEN - apply migration 0064 and load the BLS salary tables (Market Pay)
+
+**Severity: low. The Market Pay page and its links work without it; they show
+"Market pay data is not available yet" instead of numbers.**
+
+The Market Pay page (/salary, linked from the sidebar, the offer negotiation
+templates and Offer cards in the job tracker) reads BLS OEWS wage percentiles
+from four tables created by `supabase/migrations/0064_salary_benchmarks.sql`.
+Until the migration is applied and loaded, `salary_lookup()` does not exist
+or returns nothing, and lib/salary/lookup.ts reports `unavailable`.
+
+1. Apply `supabase/migrations/0064_salary_benchmarks.sql` in the Supabase SQL
+   editor.
+2. Load the data once, from the repo root, with the service role key:
+   `cd scripts/salary && npm install && SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... node --max-old-space-size=4096 ingest.mjs`.
+   It downloads the national, state and metro OEWS files from bls.gov
+   (May 2025 is the latest at the time of writing: ~176k occupation x area
+   rows, 448 areas, 825 occupations) and swaps them in. `OUT_DIR=/tmp/x`
+   does a dry run to JSON without touching the database.
+3. Check: open /salary?title=Software%20Engineer&location=Boston%2C%20MA and
+   confirm a percentile band with "Source: US Bureau of Labor Statistics,
+   OEWS May 2025".
+4. Add repository secrets SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY if not
+   already set (the E-Verify sync uses the same two). The yearly workflow
+   `.github/workflows/salary-ingest.yml` then reloads each release (runs
+   15 May and 15 June; BLS publishes around late April).
+
+After a new release, also rerun with `EMIT_LIB=1` once and commit the
+regenerated `lib/salary/oews-data.ts` (occupation titles and metro names used
+by the matchers), in case BLS renamed an occupation or changed metro
+delineations; `npm run verify:salary` catches a metro the location aliases
+can no longer find.
+
+**Unblocked by** the owner applying the migration and running the ingest.

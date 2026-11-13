@@ -13,7 +13,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { Copy, Check, Search, X, Send, Sparkles, Lightbulb, ArrowLeft, BookOpen } from 'lucide-react';
+import { Copy, Check, Search, X, Send, Sparkles, Lightbulb, ArrowLeft, BookOpen, CircleDollarSign } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import { LinkedInIcon, OutlookIcon } from '@/components/icons/BrandIcons';
 import {
@@ -119,6 +119,12 @@ function TemplateDetail({ t, onBack }: { t: OutreachTemplate; onBack: () => void
           <Link href="/career-tools?tool=outreach" className="btn-secondary">
             <Sparkles /> Personalise with AI
           </Link>
+          {/* The negotiation emails ask for market data; this is where it is. */}
+          {t.id.startsWith('offer-negotiate') && (
+            <Link href="/salary" className="btn-secondary">
+              <CircleDollarSign /> Check market pay
+            </Link>
+          )}
         </div>
       </div>
 

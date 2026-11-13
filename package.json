@@ -32,6 +32,7 @@
     "verify:google-calendar": "tsx scripts/verify-google-calendar.ts",
     "verify:code-submission": "tsx --tsconfig tsconfig.json scripts/verify-code-submission.ts",
     "verify:camera-metrics": "tsx --tsconfig tsconfig.json scripts/verify-camera-metrics.ts",
+    "verify:salary": "tsx scripts/verify-salary.ts",
     "verify:inbound-webhook": "tsx --env-file=.env.local scripts/verify-inbound-webhook.ts"
   },
   "dependencies": {

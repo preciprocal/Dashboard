@@ -1,0 +1,48 @@
+# Yearly load of BLS OEWS wage percentiles into Supabase (the Market Pay page).
+# See scripts/salary/ingest.mjs and supabase/migrations/0064_salary_benchmarks.sql.
+#
+# BLS publishes one OEWS release a year (May reference period), usually in
+# late April, with the metro file sometimes revised a few weeks later. Two
+# runs, mid May and mid June, pick up the release and any revision; a rerun
+# of the same year just reloads it. If a run fails, users keep the current
+# data and GitHub emails the repo owner.
+#
+# Needs two repository secrets: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.
+# Do not enable before 0064 is applied: the load would fail on missing tables.
+name: Salary benchmarks (BLS OEWS)
+
+on:
+  schedule:
+    - cron: "0 12 15 5,6 *"
+  workflow_dispatch:
+    inputs:
+      year:
+        description: "OEWS May reference year (blank for the latest published)"
+        required: false
+        default: ""
+
+concurrency:
+  group: salary-ingest
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: scripts/salary
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund
+      - run: node --max-old-space-size=4096 ingest.mjs
+        env:
+          OEWS_YEAR: ${{ github.event.inputs.year }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
