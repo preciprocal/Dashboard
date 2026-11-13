@@ -25,6 +25,7 @@ import { SeeExampleButton } from '@/components/ServiceModal';
 import NextStepPrompt from '@/components/NextStepPrompt'; // ← ADDED
 import FunnelDoctor from '@/components/outcomes/FunnelDoctor';
 import InboundEmailPanel from '@/components/outcomes/InboundEmailPanel';
+import SaveToContactsButton from '@/components/contacts/SaveToContactsButton';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -571,6 +572,7 @@ function ContactsModal({ app, onClose, onContactsFound }: { app: Application; on
                         <button onClick={() => copyEmail(activeContact.email)} className="flex-shrink-0 text-slate-500 hover:text-white transition-colors">{copiedEmail === activeContact.email ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}</button>
                       </div>
                       {activeContact.linkedin && <a href={activeContact.linkedin} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 py-2 bg-blue-500/[0.08] border border-blue-500/20 rounded-xl text-blue-400 text-xs font-semibold hover:bg-blue-500/15 transition-colors flex-shrink-0"><Linkedin className="w-3.5 h-3.5" /> LinkedIn</a>}
+                      <SaveToContactsButton key={activeContact.email} person={activeContact} company={app.company} applicationId={app.id} />
                     </div>
                   </div>
                   {activeContact.generatedEmail ? (

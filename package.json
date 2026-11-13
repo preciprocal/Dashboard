@@ -28,7 +28,8 @@
     "verify:email-writing": "tsx scripts/verify-email-writing.ts",
     "verify:everify": "tsx --env-file=.env.local scripts/verify-everify.ts",
     "verify:inbound": "tsx scripts/verify-inbound.ts",
-    "verify:inbound-webhook": "tsx --env-file=.env.local scripts/verify-inbound-webhook.ts"
+    "verify:inbound-webhook": "tsx --env-file=.env.local scripts/verify-inbound-webhook.ts",
+    "verify:contacts": "tsx scripts/verify-contacts.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",

@@ -660,6 +660,19 @@ export default function CareerToolsPage() {
   const [orResult, setOrResult] = useState<OutreachResult | null>(null);
   const [orNextStep, setOrNextStep] = useState(false); // ← NEW
 
+  // "Write a message" on the Contacts page links here with the recipient as
+  // ?name=&role=&company=&platform=. Read-only and optional: links without
+  // them (the template library's) behave exactly as before.
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    if (p.get('tool') !== 'outreach') return;
+    const name = p.get('name'), role = p.get('role'), company = p.get('company'), platform = p.get('platform');
+    if (name) setOrRecipName(name.slice(0, 120));
+    if (role) setOrRecipRole(role.slice(0, 160));
+    if (company) setOrCompany(company.slice(0, 160));
+    if (platform === 'email' || platform === 'linkedin') setOrPlatform(platform);
+  }, []);
+
   const [showFeedback, setShowFeedback] = useState(false);
 
   useEffect(() => { if (!loading && !user) router.push('/sign-in'); }, [user, loading, router]);

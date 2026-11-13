@@ -1156,3 +1156,40 @@ transcript load, and confirm `transcript_review` is filled on its
 the new `interview_debriefs` row has `source_interview_id` set.
 
 **Unblocked by** the owner applying the migration in the Supabase SQL editor.
+
+---
+
+## 35. OPEN - apply migration 0062 (contacts and networking tracker)
+
+**Severity: low. The Contacts page ships before its tables.**
+
+`supabase/migrations/0062_contacts.sql` adds `contacts` and
+`contact_interactions` (owner-only RLS, same model as `job_applications`;
+the app reads and writes through `app/api/contacts` with the service role).
+Until it is applied, `GET /api/contacts` answers `setupRequired: true` with an
+empty list, the Contacts page shows "Contacts are not set up yet" with Add
+disabled, writes answer 503 `CONTACTS_NOT_SET_UP`, and "Save to contacts" in
+the job tracker's Find Contacts shows that message as a toast.
+
+Check after applying: add a contact on /contacts, log an email with "In 1
+week", and confirm the row's `status` moved to `contacted`, `last_contacted_at`
+is set and `next_follow_up_at` is a week out at local noon. Then press "Save to
+contacts" on a Find Contacts result twice and confirm one row with
+`source = 'find_contacts'` and `application_id` set.
+
+Deliberately not done:
+
+1. **Due contacts in the weekly digest.** `lib/email/weekly-digest.ts` is built
+   around application follow-ups (`DigestData.followUps`, its subject line and
+   "nudged" bookkeeping in the cron). Adding contacts means a second list in
+   that email and its own nudge tracking, which is a design change to the
+   digest rather than a hook. `GET /api/contacts/due` already gives the counts.
+2. **A due-count badge on the Contacts nav item.** It would add a request on
+   every page load for every user; the count is shown in the Contacts page
+   header instead. If wanted, `navBadge` in `components/LayoutClient.tsx` is
+   the place, fed from `/api/contacts/due`.
+3. **Saving from Cold Outreach.** The `outreach` source value exists, but the
+   Cold Outreach result has no recipient email or LinkedIn to save, so no
+   button was added there.
+
+**Unblocked by** the owner applying the migration in the Supabase SQL editor.
