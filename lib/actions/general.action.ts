@@ -10,6 +10,11 @@ import { createServerSupabaseClient } from "@/supabase/server";
 import { toSupabaseUserId } from "@/lib/auth/verify-request";
 import { redis } from "@/lib/redis/redis-client";
 import { getUserAIContext, buildUserContextPrompt } from "@/lib/ai/user-context";
+import { isMissingColumn } from "@/lib/interview/transcript-review";
+import {
+  sanitizeCodeSubmission, asCodeReview, codeFeedbackPromptSection,
+  type CodeSubmission, type CodeReview,
+} from "@/lib/interview/code-submission";
 // checkAndIncrementUsage was imported here to charge for an interview on
 // feedback creation. It is gone: app/api/vapi/generate is the single charge
 // point. See the note in createFeedback.
@@ -24,7 +29,11 @@ const FEEDBACK_CACHE_TTL = 7 * 24 * 60 * 60;
 // ============ TYPE DEFINITIONS ============
 
 interface TranscriptMessage { role: string; content: string; }
-interface CreateFeedbackParams { interviewId: string; userId: string; transcript: TranscriptMessage[]; feedbackId?: string; }
+interface CreateFeedbackParams {
+  interviewId: string; userId: string; transcript: TranscriptMessage[]; feedbackId?: string;
+  /** What the candidate wrote in the editor, if anything. Untrusted: sanitised before use. */
+  code?: CodeSubmission | null;
+}
 interface GetFeedbackByInterviewIdParams { interviewId: string; userId: string; }
 interface FirestoreTimestamp { seconds: number; nanoseconds: number; toDate: () => Date; }
 
@@ -56,6 +65,8 @@ interface Feedback {
   totalScore: number; categoryScores: Record<string, number>;
   strengths: string[]; areasForImprovement: string[];
   finalAssessment: string; createdAt: string; updatedAt?: string;
+  /** Present only when the candidate submitted code. See migration 0065. */
+  codeReview?: CodeReview | null;
 }
 
 interface CachedData<T> { data: T; cachedAt: string; }
@@ -104,6 +115,8 @@ interface FeedbackRow {
   total_score: number | null; category_scores: Record<string, number> | null;
   strengths: string[] | null; areas_for_improvement: string[] | null;
   final_assessment: string | null; created_at: string;
+  /** Absent until migration 0065 is applied. */
+  code_review?: unknown;
 }
 
 function toFeedback(row: FeedbackRow): Feedback {
@@ -117,6 +130,7 @@ function toFeedback(row: FeedbackRow): Feedback {
     areasForImprovement: row.areas_for_improvement ?? [],
     finalAssessment: row.final_assessment ?? "",
     createdAt: row.created_at,
+    codeReview: asCodeReview(row.code_review),
   };
 }
 
@@ -209,15 +223,17 @@ class NotYoursError extends Error {
 // ============ MAIN FUNCTIONS ============
 
 export async function createFeedback(params: CreateFeedbackParams): Promise<{ success: boolean; feedbackId?: string }> {
-  const { interviewId, userId, transcript, feedbackId } = params;
+  const { interviewId, userId, transcript, feedbackId, code } = params;
 
   if (!(await callerOwns(userId))) return { success: false };
-  return createFeedbackFor({ interviewId, userId, transcript, feedbackId });
+  return createFeedbackFor({ interviewId, userId, transcript, feedbackId, code });
 }
 
 /** createFeedback after the caller check; also the recovery path's entry. */
 async function createFeedbackFor(params: CreateFeedbackParams): Promise<{ success: boolean; feedbackId?: string }> {
   const { interviewId, userId, transcript, feedbackId } = params;
+  // Re-checked here: the browser sent it, so its shape is only a claim.
+  const code = sanitizeCodeSubmission(params.code);
 
   try {
     // The interview has to belong to this user: otherwise anyone could run a
@@ -246,6 +262,24 @@ async function createFeedbackFor(params: CreateFeedbackParams): Promise<{ succes
       console.warn("⚠️ Failed to persist interview transcript:", err);
     }
 
+    // The code, saved beside the transcript for the same reason: if the
+    // analysis below fails, the recovery path (ensureInterviewFeedback) can
+    // still grade it. Its own update so a database without migration 0065
+    // only loses this, never the transcript. Skipped when there is no code,
+    // so a code-free interview never touches the column.
+    if (code) {
+      try {
+        const { error } = await supabaseAdmin
+          .from("interviews")
+          .update({ code_submission: code })
+          .eq("id", interviewId)
+          .eq("user_id", ownerId);
+        if (error && !isMissingColumn(error)) throw error;
+      } catch (err) {
+        console.warn("⚠️ Failed to persist interview code:", err);
+      }
+    }
+
     const formattedTranscript = transcript
       .map((s: TranscriptMessage) => `- ${s.role}: ${s.content}\n`)
       .join("");
@@ -270,7 +304,7 @@ Score the candidate 0-100 in these categories ONLY:
 - Technical Knowledge: Understanding of key concepts for the role.
 - Problem-Solving: Ability to analyze problems and propose solutions.
 - Cultural & Role Fit: Alignment with company values and job role.
-- Confidence & Clarity: Confidence in responses, engagement, and clarity.
+- Confidence & Clarity: Confidence in responses, engagement, and clarity.${codeFeedbackPromptSection(code)}
 
 Return ONLY valid JSON matching this schema:
 {
@@ -283,7 +317,8 @@ Return ONLY valid JSON matching this schema:
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
-      max_tokens: 2048,
+      // Room for the extra codeReview object when there is code to grade.
+      max_tokens: code ? 3072 : 2048,
       temperature: 0.3,
       messages: [
         { role: 'system', content: 'You are a professional interviewer analyzing a mock interview. Return ONLY valid JSON, no markdown.' },
@@ -311,23 +346,46 @@ Return ONLY valid JSON matching this schema:
     // is what the old feedbackId param manually achieved (reuse the same doc
     // when an interview is retaken), so feedbackId itself is now unused.
     void feedbackId;
-    const { data: row, error } = await supabaseAdmin
+
+    // The model's notes on the code, pinned to the code that was actually
+    // graded rather than anything the model echoed back.
+    const codeReview: CodeReview | null = code
+      ? asCodeReview({ ...(object.codeReview ?? {}), ...code })
+      : null;
+
+    const baseRow = {
+      interview_id: interviewId,
+      user_id: supabaseUserId,
+      total_score: object.totalScore,
+      category_scores: categoryScoresRecord,
+      strengths: object.strengths,
+      areas_for_improvement: object.areasForImprovement,
+      final_assessment: object.finalAssessment,
+    };
+    // Written as null too, so a retake without code clears the previous
+    // attempt's code instead of showing it under new answers.
+    const extras = { code_review: codeReview };
+
+    let { data: row, error } = await supabaseAdmin
       .from("interview_feedback")
-      .upsert({
-        interview_id: interviewId,
-        user_id: supabaseUserId,
-        total_score: object.totalScore,
-        category_scores: categoryScoresRecord,
-        strengths: object.strengths,
-        areas_for_improvement: object.areasForImprovement,
-        final_assessment: object.finalAssessment,
-      }, { onConflict: "interview_id,user_id" })
+      .upsert({ ...baseRow, ...extras }, { onConflict: "interview_id,user_id" })
       .select()
       .single();
 
+    // Before migration 0065 the extra column does not exist. Save the report
+    // without it rather than losing the whole analysis; the code review still
+    // reaches the results page through the Redis copy cached below.
+    if (error && isMissingColumn(error)) {
+      ({ data: row, error } = await supabaseAdmin
+        .from("interview_feedback")
+        .upsert(baseRow, { onConflict: "interview_id,user_id" })
+        .select()
+        .single());
+    }
+
     if (error) throw error;
 
-    const feedbackWithId = toFeedback(row as FeedbackRow);
+    const feedbackWithId: Feedback = { ...toFeedback(row as FeedbackRow), codeReview };
     await cacheFeedback(feedbackWithId);
     await invalidateUserInterviewsCache(userId);
     await invalidateInterviewCache(interviewId);
@@ -380,14 +438,19 @@ export async function ensureInterviewFeedback(
     if (existing) return { status: "exists" };
 
     const supabaseUserId = await toSupabaseUserId(userId);
-    const { data: row, error } = await supabaseAdmin
+    const read = (columns: string) => supabaseAdmin
       .from("interviews")
-      .select("transcript")
+      .select(columns)
       .eq("id", interviewId)
       .eq("user_id", supabaseUserId)
       .maybeSingle();
 
+    // code_submission arrives with migration 0065; without it, recover from
+    // the transcript alone as before.
+    let { data, error } = await read("transcript, code_submission");
+    if (error && isMissingColumn(error)) ({ data, error } = await read("transcript"));
     if (error) throw error;
+    const row = data as { transcript?: unknown; code_submission?: unknown } | null;
 
     const transcript = (row?.transcript ?? []) as TranscriptMessage[];
     // Interviews taken before 0038 have no stored transcript, and abandoned
@@ -397,7 +460,9 @@ export async function ensureInterviewFeedback(
       return { status: "no_transcript" };
     }
 
-    const result = await createFeedbackFor({ interviewId, userId, transcript });
+    const result = await createFeedbackFor({
+      interviewId, userId, transcript, code: sanitizeCodeSubmission(row?.code_submission),
+    });
     return { status: result.success ? "created" : "failed" };
   } catch (err) {
     console.error("Error ensuring interview feedback:", err);

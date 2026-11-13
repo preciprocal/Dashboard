@@ -1,5 +1,8 @@
 import { CreateAssistantDTO } from "@vapi-ai/web/dist/api";
 import { z } from "zod";
+// Relative, not "@/": scripts/provision-vapi-assistants.ts imports this file
+// through tsx, and the prompt has to resolve there too.
+import { CODE_INTERVIEW_INSTRUCTIONS } from "../lib/interview/code-submission";
 
 export const mappings = {
   "react.js": "react",
@@ -255,6 +258,8 @@ does not narrate the conversation back to the person they are interviewing.
      "What if you approached it from [angle]?" - a nudge, not the answer.
    - Being stuck is information. Do not rescue them from it early.
    - Do not praise an approach to soften a follow-up. Ask the follow-up.
+
+8b. ${CODE_INTERVIEW_INSTRUCTIONS}
 
 9. **CONCLUSION**  
    - Thank them for the technical discussion.  

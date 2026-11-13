@@ -1261,3 +1261,29 @@ event payload and the .ics output.
 
 **Unblocked by** the owner creating the OAuth client, setting the env vars and
 applying 0063.
+## 37. OPEN - apply migration 0065 and re-provision the Vapi assistants (interview code editor)
+
+**Severity: low. Everything works without either; these make it durable and consistent.**
+
+1. `supabase/migrations/0065_interview_code_and_camera.sql` adds nullable
+   `interviews.code_submission` and `interview_feedback.code_review` (jsonb).
+   Until it is applied, a technical interview's report is still saved (the
+   upsert in lib/actions/general.action.ts retries without the new column),
+   but "Your code" on the results page only shows while the 7-day Redis copy
+   of the feedback lives, and the recovery path cannot regrade the code.
+2. The technical interviewer's prompt in constants/index.ts now includes the
+   shared-code instructions (lib/interview/code-submission.ts
+   CODE_INTERVIEW_INSTRUCTIONS). The panel also sends them as a system message
+   at the start of every technical round, so this works today, but the saved
+   assistants should match the repo: run
+   `npx tsx --env-file=.env.local scripts/provision-vapi-assistants.ts --dry-run`
+   then without `--dry-run`. Until then `scripts/export-vapi-assistants.ts
+   --check` will report prompt drift on the technical assistants.
+
+Check after applying: finish a technical mock interview with code shared in
+the editor, then confirm `code_submission` is set on the `interviews` row and
+`code_review` on the `interview_feedback` row, and that "Your code" shows on
+the results page.
+
+**Unblocked by** the owner applying the migration and running the provision
+script.

@@ -29,6 +29,8 @@ import JournalSyncButton from "@/components/interview/JournalSyncButton";
 import { loadInterviewForReview } from "@/lib/interview/transcript-review";
 import { findSyncedEntry } from "@/lib/interview/journal-sync";
 import type { Turn } from "@/lib/interview/transcript-analysis";
+import CodeReviewSection from "@/components/interview/CodeReviewSection";
+import type { CodeReview } from "@/lib/interview/code-submission";
 // import ShareScoreCard from "@/components/ShareScoreCard"; // ← temporarily disabled
 
 interface CategoryScore {
@@ -43,6 +45,7 @@ interface Feedback {
   strengths: string[];
   areasForImprovement: string[];
   finalAssessment: string;
+  codeReview?: CodeReview | null;
 }
 
 interface Interview {
@@ -596,6 +599,9 @@ export default async function InterviewFeedbackPage({ params }: Props) {
           </div>
         </div>
       </div>
+
+      {/* The code from the editor, only for interviews that had some. */}
+      {feedback.codeReview && <CodeReviewSection review={feedback.codeReview} />}
 
       {/* Annotated transcript */}
       <TranscriptReview interviewId={id} turns={transcriptTurns} />

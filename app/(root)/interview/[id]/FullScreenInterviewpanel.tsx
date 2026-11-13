@@ -15,6 +15,7 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle2,
+  Code2,
 } from "lucide-react";
 
 import { toast } from "sonner";
@@ -32,6 +33,33 @@ import {
   MIC_NUDGE_AFTER_MS, MIC_NUDGE_REPEAT_MS, MIC_NUDGE_MAX,
   CAMERA_NUDGE_AFTER_MS, CAMERA_NUDGE_LINE, micNudgeLine,
 } from "@/lib/interview/device-nudges";
+import CodePanel, { type ShareStatus } from "@/components/interview/CodePanel";
+import {
+  CODE_INTERVIEW_INSTRUCTIONS, DEFAULT_LANGUAGE, codeContextMessage,
+  sanitizeCodeSubmission, shouldShare, AUTO_SHARE_INTERVAL_MS, type CodeLanguage,
+} from "@/lib/interview/code-submission";
+
+// The SDK's add-message type predates triggerResponseEnabled, which the API
+// accepts. false files the message into the conversation without making the
+// interviewer speak, which is what a silent code update or a standing
+// instruction needs.
+type AddMessage = Parameters<typeof vapi.send>[0] & { triggerResponseEnabled?: boolean };
+function sendContext(content: string, triggerResponse: boolean): boolean {
+  try {
+    vapi.send({
+      type: "add-message",
+      message: { role: "system", content },
+      triggerResponseEnabled: triggerResponse,
+    } as AddMessage);
+    return true;
+  } catch (err) {
+    console.warn("Could not send context to the interviewer:", err);
+    return false;
+  }
+}
+
+/** Idle time after the last keystroke before an automatic share is considered. */
+const AUTO_SHARE_IDLE_MS = 3_000;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -249,6 +277,24 @@ const FullScreenInterviewPanel = ({
   const wrapUpTimer      = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingWrapUp    = useRef<{ atSeconds: number; instruction: string } | null>(null);
 
+  // ── Code editor (technical rounds) ────────────────────────────────────────
+  // The code lives here, not in CodePanel, so collapsing the panel never
+  // loses it and the final buffer reaches createFeedback even if the panel
+  // is closed when the call ends.
+  const [codeOpen,      setCodeOpen]      = useState(false);
+  const [code,          setCode]          = useState("");
+  const [codeLanguage,  setCodeLanguage]  = useState<CodeLanguage>(DEFAULT_LANGUAGE);
+  const [autoShare,     setAutoShare]     = useState(true);
+  const [shareStatus,   setShareStatus]   = useState<ShareStatus>("idle");
+  const [lastSharedAt,  setLastSharedAt]  = useState<number | null>(null);
+  const lastSentCode    = useRef<string | null>(null);
+  const lastSentAt      = useRef<number | null>(null);
+  const autoShareTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Read inside Vapi event handlers, whose closures are older than the state.
+  const codeRoundRef    = useRef(false);
+  const codeSnapshot    = useRef<{ language: CodeLanguage; code: string }>({ language: DEFAULT_LANGUAGE, code: "" });
+  useEffect(() => { codeSnapshot.current = { language: codeLanguage, code }; }, [code, codeLanguage]);
+
   // ── Question split, resolved once ─────────────────────────────────────────
   // These arrive populated for mixed interviews now. They used to be undefined
   // in practice: the generator wrote a real technical/behavioural split into
@@ -400,6 +446,9 @@ const FullScreenInterviewPanel = ({
       }
 
       setCurrentInterviewPhase(resolvedPhase);
+      // Set synchronously so the call-start handler, which closes over older
+      // state, knows whether to brief the interviewer about the editor.
+      codeRoundRef.current = resolvedPhase === "technical";
 
       // ── Resolve the saved assistant server-side ──────────────────────────
       //
@@ -557,6 +606,19 @@ const FullScreenInterviewPanel = ({
       setCurrentQuestionIndex(1);
       callStartTime.current = new Date();
 
+      // Technical rounds have the editor, so the interviewer is told how to
+      // treat shared code. The same text is in the saved assistant's prompt
+      // (constants/index.ts); sending it here as well means it applies before
+      // the assistants are re-provisioned, and only on rounds with an editor.
+      // Silent: it must not make the interviewer speak over its own opener.
+      if (codeRoundRef.current) {
+        sendContext(CODE_INTERVIEW_INSTRUCTIONS, false);
+        // A new call (the second phase, or a restart) has an empty context, so
+        // whatever was shared before has to be shareable again.
+        lastSentCode.current = null;
+        lastSentAt.current = null;
+      }
+
       // Armed from call-start rather than from vapi.start() so the countdown
       // measures CONNECTED time. Mic permission prompts and WebRTC setup can
       // add several seconds, and Vapi bills from connection - counting from the
@@ -669,6 +731,9 @@ const FullScreenInterviewPanel = ({
         userId: userId!,
         transcript: msgs,
         feedbackId,
+        // Null when the editor was never used or left blank, which keeps the
+        // feedback for a code-free interview exactly as it was.
+        code: sanitizeCodeSubmission(codeSnapshot.current),
       });
 
       if (success && (id || feedbackId)) {
@@ -906,6 +971,56 @@ const FullScreenInterviewPanel = ({
     };
   }, [isVideoOn, callStatus]);
 
+  // ── Sharing code with the interviewer ─────────────────────────────────────
+  // Explicit shares make the interviewer respond (that is the point of the
+  // button: it should ask about the code). Automatic updates are filed
+  // silently and throttled to one per AUTO_SHARE_INTERVAL_MS, so typing never
+  // spams the call or makes the interviewer cut in mid-thought.
+  const shareCode = useCallback((explicit: boolean) => {
+    const snap = codeSnapshot.current;
+    const sub = sanitizeCodeSubmission(snap);
+    if (!sub || callStatus !== CallStatus.ACTIVE) return;
+    const now = Date.now();
+    if (!shouldShare({
+      code: sub.code, lastSentCode: lastSentCode.current, lastSentAt: lastSentAt.current, now, explicit,
+    })) {
+      if (explicit) setShareStatus("unchanged");
+      return;
+    }
+    if (sendContext(codeContextMessage(sub, explicit), explicit)) {
+      lastSentCode.current = sub.code;
+      lastSentAt.current = now;
+      setLastSharedAt(now);
+      setShareStatus("sent");
+    } else if (explicit) {
+      setShareStatus("offline");
+    }
+  }, [callStatus]);
+
+  useEffect(() => {
+    if (autoShareTimer.current) { clearTimeout(autoShareTimer.current); autoShareTimer.current = null; }
+    if (!autoShare || callStatus !== CallStatus.ACTIVE || !codeRoundRef.current) return;
+    if (code.trim().length === 0 || code === lastSentCode.current) return;
+    // Wait for a pause in typing, and for the throttle window, whichever is later.
+    const sinceLast = lastSentAt.current === null ? Infinity : Date.now() - lastSentAt.current;
+    const wait = Math.max(AUTO_SHARE_IDLE_MS, AUTO_SHARE_INTERVAL_MS - sinceLast);
+    autoShareTimer.current = setTimeout(() => shareCode(false), wait);
+    return () => {
+      if (autoShareTimer.current) { clearTimeout(autoShareTimer.current); autoShareTimer.current = null; }
+    };
+  }, [code, codeLanguage, autoShare, callStatus, shareCode]);
+
+  // Editing after a share makes the "Shared" tick stale.
+  useEffect(() => {
+    setShareStatus((s) => (s === "idle" || code === lastSentCode.current ? s : "idle"));
+  }, [code]);
+
+  // The editor belongs to technical rounds: a technical or system design
+  // interview, or the second half of a mixed one.
+  const isCodeRound =
+    interviewType === "technical" || interviewType === "system-design" ||
+    (interviewType === "mixed" && currentInterviewPhase === "technical");
+
   // ── Controls ───────────────────────────────────────────────────────────────
   // Marked before the status change so the handoff effect above can tell a
   // deliberate hang-up apart from a phase ending naturally. Whatever was said
@@ -1092,7 +1207,13 @@ const FullScreenInterviewPanel = ({
 
       {/* Video Grid */}
       <div className="flex-1 flex flex-col min-h-0">
-        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 md:gap-4 p-3 sm:p-4 md:p-6 min-h-0 overflow-y-auto">
+        {/* With the editor open, it takes the right half on large screens.
+            Below lg there is no room for both, so the editor replaces the
+            panel tiles until it is hidden again; the call keeps running. */}
+        <div className="flex-1 flex min-h-0">
+        <div className={`flex-1 grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 md:gap-4 p-3 sm:p-4 md:p-6 min-h-0 overflow-y-auto ${
+          codeOpen && isCodeRound ? "hidden lg:grid" : "grid"
+        }`}>
           {interviewPanel.map((participant) => {
             const statusInfo      = getStatusInfo(participant.status, participant.isSpeaking);
             const isCurrentSpeaker = speakingPersonId === participant.id;
@@ -1180,6 +1301,24 @@ const FullScreenInterviewPanel = ({
               </div>
             );
           })}
+        </div>
+        {codeOpen && isCodeRound && (
+          <div className="flex w-full min-h-0 p-3 sm:p-4 md:p-6 lg:w-1/2 lg:pl-0">
+            <CodePanel
+              code={code}
+              language={codeLanguage}
+              onCodeChange={setCode}
+              onLanguageChange={setCodeLanguage}
+              onShare={() => shareCode(true)}
+              onClose={() => setCodeOpen(false)}
+              canShare={callStatus === CallStatus.ACTIVE}
+              status={shareStatus}
+              lastSharedAt={lastSharedAt}
+              autoShare={autoShare}
+              onAutoShareChange={setAutoShare}
+            />
+          </div>
+        )}
         </div>
 
         {/* Control Panel */}
@@ -1279,6 +1418,21 @@ const FullScreenInterviewPanel = ({
                   >
                     {isSpeakerOn ? <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" /> : <VolumeX className="w-4 h-4 sm:w-5 sm:h-5" />}
                   </button>
+                  {isCodeRound && (
+                    <button
+                      onClick={() => setCodeOpen(!codeOpen)}
+                      aria-label={codeOpen ? "Hide code editor" : "Open code editor"}
+                      aria-pressed={codeOpen}
+                      className={`inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 rounded-full text-xs sm:text-sm font-medium transition-colors ${
+                        codeOpen
+                          ? "bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white"
+                          : "bg-slate-800 hover:bg-slate-700 text-white"
+                      }`}
+                    >
+                      <Code2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <span>Code</span>
+                    </button>
+                  )}
                 </>
               ) : isGeneratingFeedback ? (
                 <div className="px-4 sm:px-6 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg font-medium flex items-center gap-2 text-xs sm:text-sm">
