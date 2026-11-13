@@ -22,6 +22,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import FullScreenInterviewPanel from "./FullScreenInterviewpanel";
+import CameraFeedbackToggle from "@/components/interview/CameraFeedbackToggle";
 import { panelFor } from "@/lib/config/interview-personas";
 import { muteRemoteAudio } from "@/lib/interview/media-controls";
 import {
@@ -85,6 +86,9 @@ const InterviewDetailsClient = ({
   const [isVideoOn, setIsVideoOn]                   = useState(true);
   const [isAudioOn, setIsAudioOn]                   = useState(true);
   const [isSpeakerOn, setIsSpeakerOn]               = useState(true);
+  // On-camera feedback. Opt-in and off by default: a face model watching you
+  // is not something to switch on for anyone who did not ask.
+  const [cameraFeedback, setCameraFeedback]         = useState(false);
   const [currentTime, setCurrentTime]               = useState(new Date());
   const [isDeviceReady, setIsDeviceReady]           = useState(false);
   const [deviceStatus, setDeviceStatus]             = useState({
@@ -163,6 +167,35 @@ const InterviewDetailsClient = ({
         setIsDeviceReady(true);
       } catch (error) {
         console.error("Device check error:", error);
+        // The interview is a voice call; the camera is optional. Asking for
+        // both at once fails outright when there is no camera, or when only
+        // the camera is blocked, and that used to leave Join disabled for
+        // someone with a working microphone. Retry with the mic alone and let
+        // them in audio-only.
+        try {
+          const audioOnly = await navigator.mediaDevices.getUserMedia({ audio: true });
+          audioOnly.getTracks().forEach(track => track.stop());
+          const deviceList = await navigator.mediaDevices.enumerateDevices();
+          const audioInputs  = deviceList.filter(d => d.kind === 'audioinput');
+          const audioOutputs = deviceList.filter(d => d.kind === 'audiooutput');
+          setDevices({ audioInputs, videoInputs: [], audioOutputs });
+          if (audioInputs.length > 0)
+            setSelectedDevices(prev => ({ ...prev, audioInput: prev.audioInput || audioInputs[0].deviceId }));
+          if (audioOutputs.length > 0)
+            setSelectedDevices(prev => ({ ...prev, audioOutput: prev.audioOutput || audioOutputs[0].deviceId }));
+          setDeviceStatus({
+            camera: (error as Error).name === 'NotAllowedError' ? "denied" : "error",
+            microphone: "ready",
+            speaker: "ready",
+          });
+          setIsVideoOn(false);
+          setCameraFeedback(false);
+          setIsDeviceReady(true);
+          return;
+        } catch {
+          // The microphone itself is unavailable: fall through to the
+          // original messaging, because without it there is no interview.
+        }
         if ((error as Error).name === 'NotAllowedError') {
           setDeviceStatus(prev => ({ ...prev, camera: "denied", microphone: "denied" }));
         } else {
@@ -403,6 +436,9 @@ const InterviewDetailsClient = ({
         initialVideoOn={isVideoOn}
         initialAudioOn={isAudioOn}
         initialSpeakerOn={isSpeakerOn}
+        // Only when it could actually run: opted in, with a working camera
+        // that is switched on.
+        cameraFeedback={cameraFeedback && isVideoOn && deviceStatus.camera === "ready"}
         onExit={handleExitInterview}
       />
     );
@@ -609,6 +645,20 @@ const InterviewDetailsClient = ({
                       </div>
                     );
                   })}
+                </div>
+
+                {/* On-camera feedback. Opt-in; needs the camera on and working. */}
+                <div className="mt-3 sm:mt-4">
+                  <CameraFeedbackToggle
+                    checked={cameraFeedback}
+                    onChange={setCameraFeedback}
+                    available={deviceStatus.camera === "ready" && isVideoOn}
+                    unavailableReason={
+                      deviceStatus.camera === "checking" ? undefined
+                        : deviceStatus.camera !== "ready" ? "Needs a working camera. You can still take the interview audio-only."
+                        : "Turn your camera on to use this."
+                    }
+                  />
                 </div>
 
                 {/* Join Button */}

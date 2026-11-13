@@ -1261,16 +1261,17 @@ event payload and the .ics output.
 
 **Unblocked by** the owner creating the OAuth client, setting the env vars and
 applying 0063.
-## 37. OPEN - apply migration 0065 and re-provision the Vapi assistants (interview code editor)
+## 37. OPEN - apply migration 0065 and re-provision the Vapi assistants (interview code editor, on-camera feedback)
 
 **Severity: low. Everything works without either; these make it durable and consistent.**
 
 1. `supabase/migrations/0065_interview_code_and_camera.sql` adds nullable
-   `interviews.code_submission` and `interview_feedback.code_review` (jsonb).
-   Until it is applied, a technical interview's report is still saved (the
-   upsert in lib/actions/general.action.ts retries without the new column),
-   but "Your code" on the results page only shows while the 7-day Redis copy
-   of the feedback lives, and the recovery path cannot regrade the code.
+   `interviews.code_submission`, `interview_feedback.code_review` and
+   `interview_feedback.camera_metrics` (jsonb). Until it is applied, the
+   report is still saved (the upsert in lib/actions/general.action.ts retries
+   without the new columns), but "Your code" and "On camera" on the results
+   page only show while the 7-day Redis copy of the feedback lives, and the
+   recovery path cannot regrade the code.
 2. The technical interviewer's prompt in constants/index.ts now includes the
    shared-code instructions (lib/interview/code-submission.ts
    CODE_INTERVIEW_INSTRUCTIONS). The panel also sends them as a system message
@@ -1283,7 +1284,12 @@ applying 0063.
 Check after applying: finish a technical mock interview with code shared in
 the editor, then confirm `code_submission` is set on the `interviews` row and
 `code_review` on the `interview_feedback` row, and that "Your code" shows on
-the results page.
+the results page. Then take one with "On-camera feedback" switched on in the
+waiting room and confirm `camera_metrics` holds only numbers.
+
+Privacy policy: on-camera feedback processes the camera feed in the browser
+only and stores aggregate numbers. Worth one line in the privacy policy so
+the claim in the product is also in the policy (see item 31).
 
 **Unblocked by** the owner applying the migration and running the provision
 script.

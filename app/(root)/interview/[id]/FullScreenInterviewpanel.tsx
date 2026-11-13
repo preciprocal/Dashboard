@@ -38,6 +38,11 @@ import {
   CODE_INTERVIEW_INSTRUCTIONS, DEFAULT_LANGUAGE, codeContextMessage,
   sanitizeCodeSubmission, shouldShare, AUTO_SHARE_INTERVAL_MS, type CodeLanguage,
 } from "@/lib/interview/code-submission";
+import { createAccumulator, addSample, finalizeMetrics } from "@/lib/interview/camera-metrics";
+import type { FaceTracker } from "@/lib/interview/face-tracker";
+
+/** ~3 samples a second: enough for posture and gaze, light on the CPU. */
+const CAMERA_SAMPLE_MS = 333;
 
 // The SDK's add-message type predates triggerResponseEnabled, which the API
 // accepts. false files the message into the conversation without making the
@@ -114,6 +119,12 @@ interface FullScreenInterviewPanelProps {
   initialVideoOn?: boolean;
   initialAudioOn?: boolean;
   initialSpeakerOn?: boolean;
+  /**
+   * On-camera feedback, opted into in the waiting room. Off unless the
+   * candidate switched it on; when on, a face model runs in this tab and
+   * only aggregate numbers are sent with the feedback.
+   */
+  cameraFeedback?: boolean;
   onExit: () => void;
 }
 
@@ -207,6 +218,7 @@ const FullScreenInterviewPanel = ({
   interviewId, userName, userId, interviewRole, companyName, interviewType,
   questions, technicalQuestions, behavioralQuestions, feedbackId,
   initialVideoOn = true, initialAudioOn = true, initialSpeakerOn = true,
+  cameraFeedback = false,
   onExit,
 }: FullScreenInterviewPanelProps) => {
   const router = useRouter();
@@ -294,6 +306,16 @@ const FullScreenInterviewPanel = ({
   const codeRoundRef    = useRef(false);
   const codeSnapshot    = useRef<{ language: CodeLanguage; code: string }>({ language: DEFAULT_LANGUAGE, code: "" });
   useEffect(() => { codeSnapshot.current = { language: codeLanguage, code }; }, [code, codeLanguage]);
+
+  // ── On-camera feedback ────────────────────────────────────────────────────
+  // Running counts only (see lib/interview/camera-metrics.ts): no frame and no
+  // per-frame sample is kept, so there is nothing to leak even by mistake.
+  const [cameraAnalysis, setCameraAnalysis] = useState<"off" | "loading" | "running" | "unavailable">("off");
+  const trackerRef      = useRef<FaceTracker | null>(null);
+  const trackerLoading  = useRef(false);
+  const cameraAcc       = useRef(createAccumulator());
+  const isVideoOnRef    = useRef(initialVideoOn);
+  useEffect(() => { isVideoOnRef.current = isVideoOn; }, [isVideoOn]);
 
   // ── Question split, resolved once ─────────────────────────────────────────
   // These arrive populated for mixed interviews now. They used to be undefined
@@ -734,6 +756,9 @@ const FullScreenInterviewPanel = ({
         // Null when the editor was never used or left blank, which keeps the
         // feedback for a code-free interview exactly as it was.
         code: sanitizeCodeSubmission(codeSnapshot.current),
+        // Aggregate numbers only, and only if the candidate opted in. Null
+        // when it was off, unavailable, or too short to say anything.
+        cameraMetrics: cameraFeedback ? finalizeMetrics(cameraAcc.current) : null,
       });
 
       if (success && (id || feedbackId)) {
@@ -764,7 +789,7 @@ const FullScreenInterviewPanel = ({
       setFeedbackError("We couldn't save your interview feedback. Your answers are safe - please try again.");
       notifyInterviewFailed();
     }
-  }, [interviewId, userId, feedbackId, router, interviewRole, notifyInterviewFailed]);
+  }, [interviewId, userId, feedbackId, router, interviewRole, notifyInterviewFailed, cameraFeedback]);
 
   const handleRetryFeedback = () => generateFeedbackAndRedirect(lastTranscriptRef.current);
 
@@ -919,7 +944,71 @@ const FullScreenInterviewPanel = ({
   useEffect(() => () => {
     cameraRef.current?.stop();
     cameraRef.current = null;
+    trackerRef.current?.close();
+    trackerRef.current = null;
   }, []);
+
+  // On-camera feedback: sample the candidate's own camera a few times a
+  // second while the call is live. Reads from a detached <video> on the same
+  // stream rather than the self-view tile, so hiding the tile (the code
+  // editor replaces it on phones) does not pause the measurement.
+  //
+  // Everything degrades to "unavailable": no camera, permission denied, the
+  // model failing to download. The interview itself never depends on this.
+  useEffect(() => {
+    if (!cameraFeedback || callStatus !== CallStatus.ACTIVE) return;
+    const stream = cameraRef.current?.stream;
+    if (!stream) {
+      // cameraReady bumps when getUserMedia settles; a null handle after
+      // that means there is no camera to measure.
+      if (cameraReady > 0) setCameraAnalysis("unavailable");
+      return;
+    }
+
+    let cancelled = false;
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const video = document.createElement("video");
+    video.muted = true;
+    video.playsInline = true;
+    video.srcObject = stream;
+    video.play().catch(() => { /* muted; a refusal just means no samples */ });
+
+    const run = () => {
+      timer = setInterval(() => {
+        const tracker = trackerRef.current;
+        // Camera switched off by the candidate: pause rather than count
+        // seconds of black frames as "looked away".
+        if (!tracker || !isVideoOnRef.current || video.readyState < 2) return;
+        addSample(cameraAcc.current, tracker.sample(video, performance.now()));
+      }, CAMERA_SAMPLE_MS);
+    };
+
+    if (trackerRef.current) {
+      setCameraAnalysis("running");
+      run();
+    } else if (!trackerLoading.current) {
+      trackerLoading.current = true;
+      setCameraAnalysis("loading");
+      import("@/lib/interview/face-tracker")
+        .then(({ createFaceTracker }) => createFaceTracker())
+        .then((tracker) => {
+          trackerLoading.current = false;
+          if (!tracker) { setCameraAnalysis("unavailable"); return; }
+          trackerRef.current = tracker;
+          if (cancelled) return;
+          setCameraAnalysis("running");
+          run();
+        })
+        .catch(() => { trackerLoading.current = false; setCameraAnalysis("unavailable"); });
+    }
+
+    return () => {
+      cancelled = true;
+      if (timer) clearInterval(timer);
+      video.pause();
+      video.srcObject = null;
+    };
+  }, [cameraFeedback, callStatus, cameraReady]);
 
   // ── The interviewer notices a muted mic ───────────────────────────────────
   //
@@ -1036,6 +1125,8 @@ const FullScreenInterviewPanel = ({
     feedbackStartedRef.current = false;
     mixedPhase.current = 1;
     allMessagesRef.current = [];
+    // Same for the camera numbers: a fresh attempt is measured fresh.
+    cameraAcc.current = createAccumulator();
     setMessages([]);
     setCurrentQuestionIndex(0);
     setAutoStartAttempted(true);
@@ -1249,6 +1340,14 @@ const FullScreenInterviewPanel = ({
 
                 {showSelfVideo ? (
                   <>
+                    {/* Says plainly that the camera is being measured, and
+                        where. Shown only while the model is actually running. */}
+                    {cameraAnalysis === "running" && (
+                      <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-10 inline-flex items-center gap-1.5 rounded-full bg-slate-950/75 px-2.5 py-1 text-xs text-slate-200">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                        On-device feedback
+                      </div>
+                    )}
                     {/* Readability for the name over an arbitrary camera image. */}
                     <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-slate-950/85 to-transparent pointer-events-none" />
                     <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 flex items-center gap-2 z-10">
@@ -1364,6 +1463,15 @@ const FullScreenInterviewPanel = ({
                   <span className="text-red-300 text-xs sm:text-sm">
                     You&apos;re muted <span className="hidden sm:inline text-red-400/70">- nobody can hear you</span>
                   </span>
+                </div>
+              )}
+
+              {/* Not an error: the interview carries on audio-only. Said once,
+                  quietly, so the candidate does not expect camera feedback. */}
+              {callStatus === CallStatus.ACTIVE && cameraAnalysis === "unavailable" && (
+                <div className="flex items-center gap-1.5 sm:gap-2 bg-slate-500/10 border border-slate-500/20 px-2 sm:px-3 py-1 rounded-full">
+                  <VideoOff className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400 flex-shrink-0" />
+                  <span className="text-slate-300 text-xs sm:text-sm">Camera feedback unavailable</span>
                 </div>
               )}
 

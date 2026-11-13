@@ -31,6 +31,8 @@ import { findSyncedEntry } from "@/lib/interview/journal-sync";
 import type { Turn } from "@/lib/interview/transcript-analysis";
 import CodeReviewSection from "@/components/interview/CodeReviewSection";
 import type { CodeReview } from "@/lib/interview/code-submission";
+import OnCameraSection from "@/components/interview/OnCameraSection";
+import type { CameraMetrics } from "@/lib/interview/camera-metrics";
 // import ShareScoreCard from "@/components/ShareScoreCard"; // ← temporarily disabled
 
 interface CategoryScore {
@@ -46,6 +48,7 @@ interface Feedback {
   areasForImprovement: string[];
   finalAssessment: string;
   codeReview?: CodeReview | null;
+  cameraMetrics?: CameraMetrics | null;
 }
 
 interface Interview {
@@ -602,6 +605,9 @@ export default async function InterviewFeedbackPage({ params }: Props) {
 
       {/* The code from the editor, only for interviews that had some. */}
       {feedback.codeReview && <CodeReviewSection review={feedback.codeReview} />}
+
+      {/* Body-language numbers, only for interviews taken with the camera on. */}
+      {feedback.cameraMetrics && <OnCameraSection metrics={feedback.cameraMetrics} />}
 
       {/* Annotated transcript */}
       <TranscriptReview interviewId={id} turns={transcriptTurns} />

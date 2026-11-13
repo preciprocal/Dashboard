@@ -15,6 +15,7 @@ import {
   sanitizeCodeSubmission, asCodeReview, codeFeedbackPromptSection,
   type CodeSubmission, type CodeReview,
 } from "@/lib/interview/code-submission";
+import { sanitizeCameraMetrics, type CameraMetrics } from "@/lib/interview/camera-metrics";
 // checkAndIncrementUsage was imported here to charge for an interview on
 // feedback creation. It is gone: app/api/vapi/generate is the single charge
 // point. See the note in createFeedback.
@@ -33,6 +34,8 @@ interface CreateFeedbackParams {
   interviewId: string; userId: string; transcript: TranscriptMessage[]; feedbackId?: string;
   /** What the candidate wrote in the editor, if anything. Untrusted: sanitised before use. */
   code?: CodeSubmission | null;
+  /** On-camera aggregate numbers, if the candidate opted in. Untrusted: sanitised before use. */
+  cameraMetrics?: CameraMetrics | null;
 }
 interface GetFeedbackByInterviewIdParams { interviewId: string; userId: string; }
 interface FirestoreTimestamp { seconds: number; nanoseconds: number; toDate: () => Date; }
@@ -67,6 +70,8 @@ interface Feedback {
   finalAssessment: string; createdAt: string; updatedAt?: string;
   /** Present only when the candidate submitted code. See migration 0065. */
   codeReview?: CodeReview | null;
+  /** Present only for interviews taken with on-camera feedback. See migration 0065. */
+  cameraMetrics?: CameraMetrics | null;
 }
 
 interface CachedData<T> { data: T; cachedAt: string; }
@@ -117,6 +122,7 @@ interface FeedbackRow {
   final_assessment: string | null; created_at: string;
   /** Absent until migration 0065 is applied. */
   code_review?: unknown;
+  camera_metrics?: unknown;
 }
 
 function toFeedback(row: FeedbackRow): Feedback {
@@ -131,6 +137,7 @@ function toFeedback(row: FeedbackRow): Feedback {
     finalAssessment: row.final_assessment ?? "",
     createdAt: row.created_at,
     codeReview: asCodeReview(row.code_review),
+    cameraMetrics: sanitizeCameraMetrics(row.camera_metrics),
   };
 }
 
@@ -223,10 +230,10 @@ class NotYoursError extends Error {
 // ============ MAIN FUNCTIONS ============
 
 export async function createFeedback(params: CreateFeedbackParams): Promise<{ success: boolean; feedbackId?: string }> {
-  const { interviewId, userId, transcript, feedbackId, code } = params;
+  const { interviewId, userId, transcript, feedbackId, code, cameraMetrics } = params;
 
   if (!(await callerOwns(userId))) return { success: false };
-  return createFeedbackFor({ interviewId, userId, transcript, feedbackId, code });
+  return createFeedbackFor({ interviewId, userId, transcript, feedbackId, code, cameraMetrics });
 }
 
 /** createFeedback after the caller check; also the recovery path's entry. */
@@ -234,6 +241,9 @@ async function createFeedbackFor(params: CreateFeedbackParams): Promise<{ succes
   const { interviewId, userId, transcript, feedbackId } = params;
   // Re-checked here: the browser sent it, so its shape is only a claim.
   const code = sanitizeCodeSubmission(params.code);
+  // Numbers only, clamped. Not given to the feedback model: body language is
+  // reported beside the score, never folded into it.
+  const cameraMetrics = sanitizeCameraMetrics(params.cameraMetrics);
 
   try {
     // The interview has to belong to this user: otherwise anyone could run a
@@ -362,9 +372,9 @@ Return ONLY valid JSON matching this schema:
       areas_for_improvement: object.areasForImprovement,
       final_assessment: object.finalAssessment,
     };
-    // Written as null too, so a retake without code clears the previous
-    // attempt's code instead of showing it under new answers.
-    const extras = { code_review: codeReview };
+    // Written as null too, so a retake without code (or without the camera)
+    // clears the previous attempt's instead of showing it under new answers.
+    const extras = { code_review: codeReview, camera_metrics: cameraMetrics };
 
     let { data: row, error } = await supabaseAdmin
       .from("interview_feedback")
@@ -372,9 +382,10 @@ Return ONLY valid JSON matching this schema:
       .select()
       .single();
 
-    // Before migration 0065 the extra column does not exist. Save the report
-    // without it rather than losing the whole analysis; the code review still
-    // reaches the results page through the Redis copy cached below.
+    // Before migration 0065 the extra columns do not exist. Save the report
+    // without them rather than losing the whole analysis; the code review and
+    // camera numbers still reach the results page through the Redis copy
+    // cached below.
     if (error && isMissingColumn(error)) {
       ({ data: row, error } = await supabaseAdmin
         .from("interview_feedback")
@@ -385,7 +396,7 @@ Return ONLY valid JSON matching this schema:
 
     if (error) throw error;
 
-    const feedbackWithId: Feedback = { ...toFeedback(row as FeedbackRow), codeReview };
+    const feedbackWithId: Feedback = { ...toFeedback(row as FeedbackRow), codeReview, cameraMetrics };
     await cacheFeedback(feedbackWithId);
     await invalidateUserInterviewsCache(userId);
     await invalidateInterviewCache(interviewId);
