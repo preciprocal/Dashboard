@@ -571,7 +571,7 @@ export default function ResumeDetailsPage() {
         <div className="glass-card p-4">
           <Breadcrumbs crumbs={[{ label: 'Home', href: '/' }, { label: 'Resume', href: '/resume' }, { label: resume.fileName || 'Analysis' }]} />
           <div className="flex items-start justify-between gap-3 mb-3">
-            <div className="min-w-0"><h1 className="text-[20px] font-semibold text-white tracking-tight truncate">{resume.fileName || 'Resume Analysis'}</h1><p className="text-[13px] text-slate-400 mt-0.5">AI evaluation</p></div>
+            <div className="min-w-0"><h1 className="text-[20px] font-semibold text-white tracking-tight truncate">{resume.fileName || 'Resume Analysis'}</h1></div>
             <SeeExampleButton serviceId="resume" className="flex-shrink-0" initialTab={activeTab as ResumeInitialTab} />
           </div>
           <MetaBadge />
@@ -625,7 +625,7 @@ export default function ResumeDetailsPage() {
             <div className="glass-card p-5">
               <Breadcrumbs crumbs={[{ label: 'Home', href: '/' }, { label: 'Resume', href: '/resume' }, { label: resume.fileName || 'Analysis' }]} />
               <div className="flex items-start justify-between gap-3 mb-3">
-                <div className="min-w-0"><h1 className="text-[20px] font-semibold text-white tracking-tight truncate">{resume.fileName || 'Resume Analysis'}</h1><p className="text-[13px] text-slate-400 mt-0.5">AI evaluation</p></div>
+                <div className="min-w-0"><h1 className="text-[20px] font-semibold text-white tracking-tight truncate">{resume.fileName || 'Resume Analysis'}</h1></div>
                 <SeeExampleButton serviceId="resume" className="flex-shrink-0" initialTab={activeTab as ResumeInitialTab} />
               </div>
               <MetaBadge />
