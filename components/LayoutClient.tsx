@@ -281,6 +281,7 @@ const SearchDropdown = () => {
     { id: 'career-tools',  label: 'Career Tools',        href: '/career-tools',     icon: Sparkles    },
     { id: 'job-tracker',   label: 'Job Tracker',         href: '/job-tracker',      icon: Briefcase   },
     { id: 'contacts',      label: 'Contacts',            href: '/contacts',         icon: Contact     },
+    { id: 'salary',        label: 'Market Pay',          href: '/salary',           icon: CircleDollarSign },
     { id: 'extension',     label: 'Chrome Extension',    href: '/extension',        icon: Chrome      },
     { id: 'new-interview', label: 'Start New Interview', href: '/interview/create', icon: Video       },
     { id: 'upload-resume', label: 'Upload Resume',       href: '/resume/upload',    icon: FileText    },
@@ -694,6 +695,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
     { id: 'career-tools', label: 'Career Tools',      icon: Sparkles,    href: '/career-tools' },
     { id: 'job-tracker',  label: 'Job Tracker',       icon: Briefcase,   href: '/job-tracker'  },
     { id: 'contacts',     label: 'Contacts',          icon: Contact,     href: '/contacts'     },
+    { id: 'salary',       label: 'Market Pay',        icon: CircleDollarSign, href: '/salary' },
     { id: 'templates',    label: 'Templates',         icon: BookOpen,    href: '/templates'    },
     { id: 'extension',    label: 'Extension',         icon: Chrome,      href: '/extension'    },
   ];
@@ -830,8 +832,9 @@ function LayoutContent({ children, user }: LayoutClientProps) {
           {mainNavItems.map(item => {
             const Icon   = item.icon;
             const active = isActive(item.href);
-            // One "New" tag at a time, so it still means something.
-            const isNew  = item.id === 'extension';
+            // One "New" tag at a time, so it still means something. Market Pay
+            // since its BLS data went live (2026-11-14); it was the extension.
+            const isNew  = item.id === 'salary';
             return (
               <Link key={item.id} href={item.href} onClick={handleLinkClick}
                 aria-current={active ? 'page' : undefined}
