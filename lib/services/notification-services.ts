@@ -71,6 +71,15 @@ function toNotification(row: NotificationRow): Notification {
 // SERVICE
 // ============================================================
 
+// Emoji in titles ("Resume Analysis Complete ✅") read as chat, not product.
+// Stripped on write here, and on display in components/Notifications.tsx so
+// rows saved before this change look the same. Built with new RegExp because
+// the \p{...} class needs the u flag, which the TS target rejects in a literal.
+const EMOJI = new RegExp('[\\p{Extended_Pictographic}\\p{Emoji_Modifier}\\p{Regional_Indicator}\\u{FE0F}\\u{200D}\\u{20E3}]', 'gu');
+export function stripEmoji(text: string): string {
+  return text.replace(EMOJI, '').replace(/\s{2,}/g, ' ').trim();
+}
+
 export const NotificationService = {
 
   // ── CREATE ─────────────────────────────────────────────────
@@ -91,8 +100,8 @@ export const NotificationService = {
     const { data, error } = await supabase.from(TABLE).insert({
       user_id: userId,
       type,
-      title,
-      body: message,
+      title: stripEmoji(title),
+      body: stripEmoji(message),
       action_url: options?.actionUrl ?? null,
       action_label: options?.actionLabel ?? null,
       metadata: options?.metadata ?? null,
