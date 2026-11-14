@@ -44,13 +44,13 @@
     const source = `From the public E-Verify Employer Search (employer-reported${checked ? `, checked ${checked}` : ''}). Click to confirm on e-verify.gov.`;
     switch (status.state) {
       case 'enrolled':
-        return { text: 'E-Verify: enrolled', tip: `${status.employer || 'This employer'} is enrolled in E-Verify, which STEM OPT requires. ${source}` };
+        return { text: 'E-Verified', tip: `${status.employer || 'This employer'} is enrolled in E-Verify, which STEM OPT requires. ${source}` };
       case 'ending':
-        return { text: `E-Verify: until ${fmtDate(status.terminatesOn)}`, tip: `Enrolled, but the listing ends on ${fmtDate(status.terminatesOn)}. Worth confirming before relying on it for STEM OPT. ${source}` };
+        return { text: `E-Verified until ${fmtDate(status.terminatesOn)}`, tip: `Enrolled, but the listing ends on ${fmtDate(status.terminatesOn)}. Worth confirming before relying on it for STEM OPT. ${source}` };
       case 'ended':
-        return { text: 'E-Verify: enrollment ended', tip: `${status.employer || 'This employer'} is listed with an ended E-Verify enrollment. Ask the recruiter before counting on STEM OPT. ${source}` };
+        return { text: 'No longer E-Verified', tip: `${status.employer || 'This employer'} is listed with an ended E-Verify enrollment. Ask the recruiter before counting on STEM OPT. ${source}` };
       default:
-        return { text: 'E-Verify: no match found', tip: `We couldn't match this company in the E-Verify list. Names often differ (a parent company or legal name), so check the official search. ${source}` };
+        return { text: 'E-Verified: no match found', tip: `We couldn't match this company in the E-Verify list. Names often differ (a parent company or legal name), so check the official search. ${source}` };
     }
   }
 

@@ -300,22 +300,22 @@ function EverifyBadge({ status, syncedAt }: { status: EverifyStatus; syncedAt: s
   const checked = syncedAt ? ` Checked ${fmtDate(syncedAt)}.` : '';
   const conf = {
     enrolled: {
-      label: 'E-Verify',
+      label: 'E-Verified',
       cls: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/25',
       title: `${status.employer} is enrolled in E-Verify${status.enrolledOn ? ` since ${fmtDate(status.enrolledOn)}` : ''}. STEM OPT needs an E-Verify employer. Employer-reported.${checked}`,
     },
     ending: {
-      label: `E-Verify until ${fmtDate(status.terminatesOn)}`,
+      label: `E-Verified until ${fmtDate(status.terminatesOn)}`,
       cls: 'text-amber-300 bg-amber-500/10 border-amber-500/25',
       title: `${status.employer} is enrolled in E-Verify until ${fmtDate(status.terminatesOn)}. Employer-reported.${checked}`,
     },
     ended: {
-      label: 'E-Verify ended',
+      label: 'No longer E-Verified',
       cls: 'text-red-300 bg-red-500/10 border-red-500/25',
       title: `${status.employer}'s E-Verify enrolment has ended${status.terminatesOn ? ` (${fmtDate(status.terminatesOn)})` : ''}. Confirm with the employer before relying on STEM OPT.${checked}`,
     },
     'not-found': {
-      label: 'E-Verify: not found',
+      label: 'E-Verified: no match found',
       cls: 'text-slate-400 bg-white/[0.03] border-white/[0.08]',
       title: `No E-Verify enrolment found under this name. Companies sometimes enrol under a different legal name, so check the official search.${checked}`,
     },
