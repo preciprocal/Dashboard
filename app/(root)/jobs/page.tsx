@@ -52,7 +52,14 @@ export default function JobsPage() {
   const [closed, setClosed] = useState<Set<string>>(new Set());
   const tracked = useRef<Map<string, string> | null>(null);
 
-  useEffect(() => { if (!loading && !user) router.push('/sign-in'); }, [loading, user, router]);
+  useEffect(() => { if (!loading && !user) router.push(`/sign-in?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`); }, [loading, user, router]);
+
+  // ?q= and ?location= from a link (e.g. the landing site's /jobs page).
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.get('q')) setQ(sp.get('q')!.slice(0, 100));
+    if (sp.get('location')) setLocation(sp.get('location')!.slice(0, 60));
+  }, []);
 
   const query = useCallback((page: number) => {
     const sp = new URLSearchParams({ page: String(page), days: String(days) });

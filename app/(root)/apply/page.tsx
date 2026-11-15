@@ -41,7 +41,7 @@ export default function ApplyStartPage() {
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    if (!loading && !user) router.push('/sign-in');
+    if (!loading && !user) router.push(`/sign-in?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`);
   }, [loading, user, router]);
 
   useEffect(() => {

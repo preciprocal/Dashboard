@@ -31,7 +31,7 @@ export default function ApplyJobPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!loading && !user) router.push('/sign-in');
+    if (!loading && !user) router.push(`/sign-in?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`);
   }, [loading, user, router]);
 
   useEffect(() => {
