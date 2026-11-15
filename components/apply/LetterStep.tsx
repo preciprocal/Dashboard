@@ -93,7 +93,7 @@ export default function LetterStep({ application, pack, update, goTo }: ApplySte
           <button onClick={save} disabled={!dirty || saving} className="btn-secondary disabled:opacity-40"><Save className="w-4 h-4" /> Save edits</button>
           <button onClick={async () => { await navigator.clipboard.writeText(text); toast.success('Copied'); }} disabled={!text} className="btn-secondary disabled:opacity-40"><Copy className="w-4 h-4" /> Copy</button>
         </div>
-        <button onClick={() => goTo('save')} className="btn-primary">Next: save <ChevronRight className="w-4 h-4" /></button>
+        <button onClick={() => goTo('save')} className="btn-primary">Next: apply <ChevronRight className="w-4 h-4" /></button>
       </div>
     </section>
   );

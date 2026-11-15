@@ -71,7 +71,7 @@ export default function ApplyJobPage() {
   const steps: { id: Step; label: string; icon: React.ElementType; done: boolean }[] = [
     { id: 'resume', label: 'Resume', icon: FileText, done: approved > 0 },
     { id: 'letter', label: 'Cover letter', icon: Pen, done: !!pack.coverLetter },
-    { id: 'save', label: 'Save', icon: CheckCircle2, done: !!pack.savedToTrackerAt },
+    { id: 'save', label: 'Apply', icon: Send, done: !!pack.savedToTrackerAt },
     { id: 'prep', label: 'Interview prep', icon: Target, done: !!pack.prep },
   ];
   const props: ApplyStepProps = { application, pack, onPack: setPack, update, goTo: setStep };

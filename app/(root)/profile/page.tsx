@@ -173,6 +173,12 @@ const ProfilePage = () => {
   const router = useRouter();
   const [user, authLoading] = useSupabaseUser();
   const [activeTab, setActiveTab] = useState<'profile' | 'saved' | 'auto-apply'>('profile');
+  // ?tab=auto-apply opens the application details the extension fills forms
+  // with (linked from the Apply flow). Read once from window, as Settings does.
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    if (tab === 'auto-apply' || tab === 'saved') setActiveTab(tab);
+  }, []);
 
   const transcriptFileInputRef = useRef<HTMLInputElement>(null);
   const resumeFileInputRef     = useRef<HTMLInputElement>(null);
