@@ -143,6 +143,19 @@ const level = (t) => (INTERN.test(t) ? "intern" : EARLY.test(t) && !SENIOR.test(
 const family = (t) => (FAMILY.find(([, re]) => re.test(t)) ?? ["other"])[0];
 const titleCase = (s) => String(s ?? "").toLowerCase().replace(/\b(inc|llc|ltd|corp|co|lp|llp|plc|pc)\b\.?/g, "").replace(/\s+/g, " ").trim().replace(/\b\w/g, (c) => c.toUpperCase());
 
+/**
+ * The company name shown on a job. A Greenhouse board's own name is best,
+ * unless it is just the board ID ("sweetgreen", "8451") or a shouted single
+ * word ("SHADOW"); then E-Verify's mixed-case spelling, then the H-1B name.
+ */
+function companyName(b, emp) {
+  const board = (b.board ?? "").trim();
+  const isPlaceholder = !board || board === board.toLowerCase() || (board === board.toUpperCase() && !board.includes(" ") && board.length > 4);
+  if (!isPlaceholder) return board;
+  const enrolled = emp?.name ? emp.name.replace(/[,\s]+(inc|llc|l\.l\.c|ltd|corp|corporation|co|lp|llp|plc|pc)\.?$/i, "").trim() : "";
+  return enrolled || (emp?.h1bName ? titleCase(emp.h1bName) : board || titleCase(b.key));
+}
+
 // ─── Run ─────────────────────────────────────────────────────────────────────
 
 const boardsDoc = await readJson("jobs", "boards.json");
@@ -171,7 +184,7 @@ await Promise.all(Array.from({ length: CONCURRENCY }, async () => {
       seen.add(dedupe);
       jobs.push({
         t: j.title.trim(),
-        c: b.board || emp?.name || titleCase(emp?.h1bName ?? b.key),
+        c: companyName(b, emp),
         k: b.key,
         l: j.location.trim() || (j.remote ? "Remote (US)" : ""),
         u: j.url,
