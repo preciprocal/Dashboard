@@ -1,7 +1,7 @@
 // app/api/onboarding/route.ts
 //
 // GET  -> { preferences, completed, isNew, profile, resume }
-// POST { preferences?, workAuthorization?, requireSponsorship?, visaType?, details?, complete? } -> { success }
+// POST { preferences?, workAuthorization?, requireSponsorship?, visaType?, desiredSalary?, details?, complete? } -> { success }
 //
 // The onboarding flow (app/onboarding) reads what is already known and saves
 // each step into the same profile Auto-apply and the extension read: job
@@ -51,6 +51,7 @@ export async function GET(request: NextRequest) {
       workAuthorization: sensitiveValue(ext, 'workAuthorization'),
       requireSponsorship: sensitiveValue(ext, 'requireSponsorship'),
       visaType: (ext.visaType as string) ?? '',
+      desiredSalary: (ext.desiredSalary as string) ?? '',
     },
     resume: p.resume_path ? { fileName: (p.resume_file_name as string) || 'Resume.pdf' } : null,
   });
@@ -96,6 +97,8 @@ export async function POST(request: NextRequest) {
     if (auth !== undefined) ext.workAuthorization = auth;
     if (sponsor !== undefined) ext.requireSponsorship = sponsor;
   }
+  const salary = str(body.desiredSalary, 40);
+  if (salary !== undefined) { ext.desiredSalary = salary; if (salary) ext.salaryType = 'yearly'; }
   const visa = str(body.visaType, 60);
   if (visa !== undefined) ext.visaType = visa;
 

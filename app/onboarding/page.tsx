@@ -14,13 +14,14 @@ import { toast } from 'sonner';
 import { ArrowLeft, ArrowRight, Check, CheckCircle2, FileText, Loader2, MapPin, Sparkles, UploadCloud, Briefcase, ShieldCheck, Landmark, Search } from 'lucide-react';
 import logo from '@/public/logo.png';
 import InfoTip from '@/components/ui/info-tip';
+import MarketPay from '@/components/onboarding/MarketPay';
 import { DEFAULT_PREFERENCES, FAMILY_OPTIONS, LEVEL_OPTIONS, STATUS_OPTIONS, type JobPreferences } from '@/lib/onboarding/preferences';
 
 interface Education { school: string; degree: string; field: string; gpa: string; year: string; current: boolean }
 interface Details { name: string; phone: string; city: string; state: string; linkedIn: string; github: string; website: string; headline: string; skills: string; education: Education[] }
 interface Loaded {
   preferences: JobPreferences; completed: boolean;
-  profile: Details & { workAuthorization: string | boolean | null; requireSponsorship: string | boolean | null; visaType: string };
+  profile: Details & { workAuthorization: string | boolean | null; requireSponsorship: string | boolean | null; visaType: string; desiredSalary: string };
   resume: { fileName: string } | null;
 }
 
@@ -49,6 +50,7 @@ export default function Onboarding() {
   const [uploading, setUploading] = useState(false);
   const [parsing, setParsing] = useState(false);
   const [details, setDetails] = useState<Details>(EMPTY_DETAILS);
+  const [salary, setSalary] = useState('');
   const [parsed, setParsed] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -65,6 +67,7 @@ export default function Onboarding() {
       if (typeof j.profile.requireSponsorship === 'boolean') setSponsorship(j.profile.requireSponsorship);
       setStatus(STATUS_OPTIONS.find(o => o.visaType === j.profile.visaType)?.id ?? '');
       setResume(j.resume);
+      setSalary(j.profile.desiredSalary ?? '');
       setDetails({ ...EMPTY_DETAILS, ...j.profile, education: j.profile.education ?? [] });
     }).catch(code => {
       if (!alive) return;
@@ -83,7 +86,7 @@ export default function Onboarding() {
     setSaving(true);
     try {
       if (!skip) {
-        if (step === 0) await save({ preferences: { ...prefs, location: anywhere ? '' : prefs.location } });
+        if (step === 0) await save({ preferences: { ...prefs, location: anywhere ? '' : prefs.location }, desiredSalary: salary });
         if (step === 1) await save({
           preferences: { ...prefs, location: anywhere ? '' : prefs.location },
           ...(authorized ? { workAuthorization: authorized } : {}),
@@ -239,6 +242,9 @@ export default function Onboarding() {
                     <div className="mt-2">
                       <Tick on={prefs.remote} label="Open to remote" onClick={() => setPrefs(p => ({ ...p, remote: !p.remote }))} />
                     </div>
+                  </Field>
+                  <Field label="Pay">
+                    <MarketPay role={prefs.role} location={anywhere ? '' : prefs.location} value={salary} onChange={setSalary} />
                   </Field>
                 </>
               )}

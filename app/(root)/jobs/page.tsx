@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Search, MapPin, Loader2, ExternalLink, Send, ShieldCheck, Landmark, Briefcase, Clock, Zap,
+  ChevronDown, FolderCheck,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import PageHeader from '@/components/PageHeader';
@@ -22,6 +23,7 @@ import AutoApplyDetailsNotice from '@/components/apply/AutoApplyDetailsNotice';
 import { readPreferences, FAMILY_OPTIONS, type JobPreferences } from '@/lib/onboarding/preferences';
 import type { FeedJob, JobFamily, JobLevel } from '@/lib/jobs/feed';
 import { CompanyLogo, useCompanyLogos } from '@/components/jobs/CompanyLogo';
+import { useJobFits, FitPills, FitPanel, type Fit } from '@/components/jobs/JobFit';
 import { startApplication, trackedJobs } from '@/lib/jobs/start-application';
 
 const LEVELS: { id: JobLevel; label: string }[] = [
@@ -48,15 +50,18 @@ const LEVEL_TONE: Record<JobLevel, string> = {
   senior: 'text-slate-300 bg-white/[0.04] border-white/[0.08]',
 };
 
-function JobCard({ job, domain, h1bYear, closed, applying, disabled, onApply }: {
+function JobCard({ job, domain, h1bYear, closed, applying, disabled, onApply, fit, hasResume, cardRef, trackedId, expanded, onToggle }: {
   job: FeedJob; domain: string | null | undefined; h1bYear: string | null; closed: boolean; applying: boolean; disabled: boolean; onApply: () => void;
+  fit: Fit | undefined; hasResume: boolean | null; cardRef: (el: Element | null) => void;
+  /** The tracker entry when this job is already in the student's tracker. */
+  trackedId: string | undefined; expanded: boolean; onToggle: () => void;
 }) {
   const approvals = job.h?.[0] ?? 0;
   const fresh = Date.now() - Date.parse(`${job.p}T00:00:00Z`) < 3 * 86_400_000;
   const remote = /remote/i.test(job.l);
   const place = job.l.split(';').map(x => x.trim()).filter(Boolean);
   return (
-    <article className={`group glass-card p-4 sm:p-5 transition-colors hover:border-white/[0.14] ${closed ? 'opacity-50' : ''}`}>
+    <article ref={cardRef} className={`group glass-card p-4 sm:p-5 transition-colors hover:border-white/[0.14] ${closed ? 'opacity-50' : ''}`}>
       <div className="flex gap-4">
         <CompanyLogo company={job.c} domain={domain} />
         <div className="min-w-0 flex-1">
@@ -90,18 +95,28 @@ function JobCard({ job, domain, h1bYear, closed, applying, disabled, onApply }: 
                     <Landmark className="w-3 h-3" />{approvals.toLocaleString('en-US')} H-1B{h1bYear ? ` in FY${h1bYear}` : ''}
                   </InfoTip>
                 )}
+                {!closed && <FitPills fit={fit} hasResume={hasResume} />}
+                {trackedId && <span className="inline-flex items-center gap-1 whitespace-nowrap text-[11px] font-medium rounded-md border px-2 py-0.5 text-indigo-200 bg-[var(--accent-subtle)] border-[var(--accent-border)]"><FolderCheck className="w-3 h-3" />In your tracker</span>}
               </div>
             </div>
-            <div className="flex gap-2 lg:w-56 flex-shrink-0">
-              <button onClick={onApply} disabled={disabled || closed} className="btn-primary flex-1 justify-center disabled:opacity-50">
-                {applying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Apply
+            <div className="flex gap-2 lg:w-72 flex-shrink-0">
+              <button onClick={onToggle} aria-expanded={expanded} className="btn-secondary !px-3 flex-shrink-0">
+                Your fit <ChevronDown className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
               </button>
+              {trackedId ? (
+                <Link href={`/apply/${trackedId}`} className="btn-secondary flex-1 justify-center">Open</Link>
+              ) : (
+                <button onClick={onApply} disabled={disabled || closed} className="btn-primary flex-1 justify-center disabled:opacity-50">
+                  {applying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Apply
+                </button>
+              )}
               <a href={job.u} target="_blank" rel="noopener noreferrer" title="Open the employer's posting" aria-label="Open the employer's posting"
                 className="btn-secondary !px-0 w-10 justify-center flex-shrink-0"><ExternalLink className="w-4 h-4" /></a>
             </div>
           </div>
         </div>
       </div>
+      {expanded && <FitPanel url={job.u} fit={fit} hasResume={hasResume} />}
     </article>
   );
 }
@@ -134,6 +149,18 @@ export default function JobsPage() {
   const [applying, setApplying] = useState<string | null>(null);
   const [closed, setClosed] = useState<Set<string>>(new Set());
   const tracked = useRef<Map<string, string> | null>(null);
+  const { fits, hasResume, watch } = useJobFits();
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Jobs already in the tracker, hidden by default (remembered in this browser).
+  const [trackedMap, setTrackedMap] = useState<Map<string, string>>(new Map());
+  const [hideTracked, setHideTracked] = useState(true);
+  useEffect(() => {
+    try { setHideTracked(localStorage.getItem('prc_hide_tracked') !== '0'); } catch { /* storage blocked */ }
+  }, []);
+  const toggleHideTracked = () => setHideTracked(v => {
+    try { localStorage.setItem('prc_hide_tracked', v ? '0' : '1'); } catch { /* storage blocked */ }
+    return !v;
+  });
   // Apply mode, remembered in this browser: Auto runs every step of the Apply
   // flow and opens the employer's portal; Manual stops at each step for review.
   const [autoMode, setAutoMode] = useState(false);
@@ -144,6 +171,11 @@ export default function JobsPage() {
     setAutoMode(auto);
     try { localStorage.setItem('prc_apply_mode', auto ? 'auto' : 'manual'); } catch { /* storage blocked */ }
   };
+
+  useEffect(() => {
+    if (!user) return;
+    trackedJobs().then(m => { setTrackedMap(m); tracked.current = m; }).catch(() => {});
+  }, [user]);
 
   useEffect(() => { if (!loading && !user) router.push(`/sign-in?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`); }, [loading, user, router]);
 
@@ -275,6 +307,9 @@ export default function JobsPage() {
   const chip = (on: boolean) =>
     `h-9 px-3 rounded-lg text-xs font-medium border transition-colors ${on ? 'bg-[var(--accent-subtle)] border-[var(--accent-border)] text-indigo-100' : 'border-white/[0.08] text-slate-400 hover:text-white hover:bg-white/[0.04]'}`;
 
+  const shownJobs = hideTracked ? jobs.filter(j => !trackedMap.has(j.u)) : jobs;
+  const hiddenCount = jobs.length - shownJobs.length;
+
   return (
     <div className="space-y-4">
       <PageHeader title="Jobs" icon={Briefcase} description="Open roles from employers' own job boards, checked before you apply." />
@@ -303,6 +338,7 @@ export default function JobsPage() {
           <InfoTip term="everified" wrap side="bottom"><button onClick={() => setEverify(v => !v)} className={chip(everify)}><ShieldCheck className="w-3.5 h-3.5 inline mr-1" />E-Verified</button></InfoTip>
           <InfoTip term="h1b" wrap side="bottom"><button onClick={() => setH1b(v => !v)} className={chip(h1b)}><Landmark className="w-3.5 h-3.5 inline mr-1" />Has H-1B approvals</button></InfoTip>
           <button onClick={() => setRemote(v => !v)} className={chip(remote)}>Remote</button>
+          <button onClick={toggleHideTracked} className={chip(hideTracked)}><FolderCheck className="w-3.5 h-3.5 inline mr-1" />Hide tracked</button>
         </div>
       </section>
 
@@ -356,9 +392,15 @@ export default function JobsPage() {
             <div className="glass-card p-10 text-center text-sm text-slate-400">No open roles match. Try fewer filters or a longer time range.</div>
           )}
 
-          {jobs.map(job => (
+          {hiddenCount > 0 && (
+            <p className="px-1 text-[12px] text-slate-500">{hiddenCount} job{hiddenCount === 1 ? '' : 's'} already in your tracker {hiddenCount === 1 ? 'is' : 'are'} hidden. <button onClick={toggleHideTracked} className="text-indigo-300 hover:underline">Show</button></p>
+          )}
+          {shownJobs.map(job => (
             <JobCard key={job.u} job={job} domain={logos[job.c]} h1bYear={data?.h1bYear ?? null} closed={closed.has(job.u)}
-              applying={applying === job.u} disabled={!!applying} onApply={() => apply(job)} />
+              applying={applying === job.u} disabled={!!applying} onApply={() => apply(job)}
+              fit={fits[job.u]} hasResume={hasResume} cardRef={watch(job.u)} trackedId={trackedMap.get(job.u)}
+              expanded={expanded.has(job.u)}
+              onToggle={() => setExpanded(prev => { const n = new Set(prev); if (n.has(job.u)) n.delete(job.u); else n.add(job.u); return n; })} />
           ))}
 
           {/* The next page loads as this comes into view, as on Templates. */}
