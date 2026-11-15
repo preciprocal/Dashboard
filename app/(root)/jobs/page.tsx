@@ -72,7 +72,7 @@ function JobCard({ job, domain, h1bYear, closed, applying, disabled, onApply }: 
                 {(job.e === 'enrolled' || job.e === 'ending') && (
                   <span title="Enrolled in E-Verify (employer-reported). STEM OPT needs an E-Verify employer."
                     className="inline-flex items-center gap-1 text-[11px] font-medium rounded-md border px-2 py-0.5 text-emerald-300 bg-emerald-500/10 border-emerald-500/20">
-                    <ShieldCheck className="w-3 h-3" />E-Verify
+                    <ShieldCheck className="w-3 h-3" />E-Verified
                   </span>
                 )}
                 {job.e === 'ended' && (
@@ -282,7 +282,7 @@ export default function JobsPage() {
             options={FAMILIES.map(f => ({ value: f.id, label: f.label }))} />
           <AppSelect className="!h-9 !w-auto min-w-[150px] !text-xs" value={String(days)} onValueChange={v => setDays(Number(v))} aria-label="Posted within"
             options={[{ value: '7', label: 'Last 7 days' }, { value: '14', label: 'Last 14 days' }, { value: '30', label: 'Last 30 days' }, { value: '60', label: 'Last 60 days' }]} />
-          <button onClick={() => setEverify(v => !v)} className={chip(everify)}><ShieldCheck className="w-3.5 h-3.5 inline mr-1" />E-Verify enrolled</button>
+          <button onClick={() => setEverify(v => !v)} className={chip(everify)}><ShieldCheck className="w-3.5 h-3.5 inline mr-1" />E-Verified</button>
           <button onClick={() => setH1b(v => !v)} className={chip(h1b)}><Landmark className="w-3.5 h-3.5 inline mr-1" />Has H-1B approvals</button>
           <button onClick={() => setRemote(v => !v)} className={chip(remote)}>Remote</button>
         </div>
