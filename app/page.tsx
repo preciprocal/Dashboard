@@ -1,891 +1,203 @@
 "use client";
+// app/page.tsx
+//
+// Overview: how the job search is going, what to do next, and what is new.
+// Read top to bottom it answers, in order:
+//   1. How am I doing?   job-search KPIs from the tracker
+//   2. Where is it all?  the pipeline, response rate and weekly pace
+//   3. What now?         up next: interviews, follow-ups, settings, saved jobs
+//   4. What is new?      new jobs this week, and recent applications
+//   5. Am I ready?       resume, mock interviews, study plan
+// Every number is a count of the student's own records (lib/overview/metrics.ts).
+// Sections load on their own and show a skeleton meanwhile.
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import {
-  Brain,
-  Calendar,
-  Zap,
-  Plus,
-  FileText,
-  Upload,
-  Users,
-  ArrowUpRight,
-  ArrowDownRight,
-  BookOpen,
-  ChevronRight,
-  AlertCircle,
-  Star,
-  TrendingUp,
+  Briefcase, Send, CalendarClock, BellRing, Search, Plus, FileText, Video, BookOpen,
+  ClipboardList, Bookmark, MailQuestion, Upload, Compass,
 } from "lucide-react";
-
-import ProfileOverview from "@/components/profile/Overview";
 import ExtensionBanner from "@/components/ExtensionBanner";
+import { useCompanyLogos } from "@/components/jobs/CompanyLogo";
+import { autoApplyFields, loadApplyProfile, AUTO_APPLY_SETTINGS_HREF } from "@/components/apply/AutoApplyDetailsNotice";
+import { KpiRow, Pipeline, UpNext, NewJobs, RecentApplications, Prep, type NextAction, type PrepData } from "@/components/overview/Sections";
+import { jobKpis, recentApps, type Schedule, type TrackedApp } from "@/lib/overview/metrics";
+import { fetchDefaultResumeInfo } from "@/lib/resume/default-client";
+import { startApplication } from "@/lib/jobs/start-application";
+import type { FeedJob } from "@/lib/jobs/feed";
 
-// ─── Interfaces ───────────────────────────────────────────────────────────────
+type JobsPage = { total: number; jobs: FeedJob[]; h1bYear: string | null };
 
-interface ResumeFeedbackSection {
-  score: number;
-  tips: Array<{ type: 'good' | 'improve'; message: string }>;
-}
+const getJson = async <T,>(url: string): Promise<T | null> => {
+  try {
+    const r = await fetch(url, { cache: "no-store" });
+    return r.ok ? ((await r.json()) as T) : null;
+  } catch {
+    return null;
+  }
+};
 
-interface Resume {
-  id: string;
-  userId: string;
-  filename: string;
-  originalName: string;
-  uploadedAt: Date;
-  jobTitle?: string;
-  companyName?: string;
-  createdAt: Date;
-  feedback: {
-    overallScore: number;
-    ATS:          ResumeFeedbackSection;
-    content:      ResumeFeedbackSection;
-    structure:    ResumeFeedbackSection;
-    skills:       ResumeFeedbackSection;
-    toneAndStyle: ResumeFeedbackSection;
-    [key: string]: number | ResumeFeedbackSection; // index signature for Object.values
-  };
-}
+const greeting = (d: Date) => (d.getHours() < 12 ? "Good morning" : d.getHours() < 17 ? "Good afternoon" : "Good evening");
+const stageLabel = (s: string) => { const t = (s || "interview").replace(/-/g, " "); return t.charAt(0).toUpperCase() + t.slice(1); };
+const fmtWhen = (iso: string) => new Date(iso).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
-interface Interview {
-  id: string;
-  userId: string;
-  role: string;
-  type: "technical" | "behavioral" | "system-design" | "coding";
-  techstack: string[];
-  company: string;
-  position: string;
-  createdAt: Date;
-  updatedAt: Date;
-  duration: number;
-  score?: number;
-  status: "completed" | "in-progress" | "scheduled";
-  feedback?: {
-    strengths: string[];
-    weaknesses: string[];
-    overallRating: number;
-    technicalAccuracy: number;
-    communication: number;
-    problemSolving: number;
-    confidence: number;
-    totalScore?: number;
-    finalAssessment?: string;
-    categoryScores?: { [key: string]: number };
-    areasForImprovement?: string[];
-  };
-  questions?: { question: string; answer: string; score: number; feedback: string }[];
-}
+export default function Overview() {
+  const router = useRouter();
+  const [name, setName] = useState<string | null>(null);
+  const [apps, setApps] = useState<TrackedApp[] | undefined>(undefined);
+  const [schedules, setSchedules] = useState<Schedule[] | undefined>(undefined);
+  const [followUps, setFollowUps] = useState<number | null | undefined>(undefined);
+  const [jobs, setJobs] = useState<JobsPage | null | undefined>(undefined);
+  const [prep, setPrep] = useState<PrepData | undefined>(undefined);
+  const [missingDetails, setMissingDetails] = useState<string[] | null | undefined>(undefined);
+  const [applying, setApplying] = useState<string | null>(null);
+  const now = useMemo(() => new Date(), []);
 
-interface UserProfile {
-  id: string;
-  name: string;
-  email: string;
-  avatar?: string;
-  phone?: string;
-  location?: string;
-  linkedIn?: string;
-  github?: string;
-  website?: string;
-  bio?: string;
-  targetRole?: string;
-  experienceLevel?: "entry" | "mid" | "senior" | "lead" | "executive";
-  preferredTech?: string[];
-  createdAt: Date;
-  lastLogin: Date;
-}
-
-interface PlannerStats {
-  totalPlans: number;
-  activePlans: number;
-  completedPlans: number;
-  averageProgress: number;
-  currentPlan?: {
-    id: string;
-    role: string;
-    company?: string;
-    progress: number;
-    daysRemaining: number;
-    interviewDate: string;
-  };
-  totalTasksCompleted: number;
-  currentStreak: number;
-}
-
-interface UserStats {
-  totalInterviews: number;
-  averageScore: number;
-  improvementRate: number;
-  currentStreak: number;
-  longestStreak: number;
-  hoursSpent: number;
-  strengthsMap: { [key: string]: number };
-  weaknessesMap: { [key: string]: number };
-  monthlyProgress: { month: string; score: number; count: number }[];
-  companyPreparation: { company: string; interviews: number; avgScore: number }[];
-  skillProgress: { skill: string; progress: number; interviews: number }[];
-  typeBreakdown: { type: string; count: number; avgScore: number; percentage: number }[];
-  bestPerformingType?: string;
-  worstPerformingType?: string;
-  successRate?: number;
-  completionRate?: number;
-  totalResumes?: number;
-  averageResumeScore?: number;
-  bestResumeScore?: number;
-  resumeImprovementRate?: number;
-  resumeIssuesResolved?: number;
-  resumeStrengths?: string[];
-  resumeWeaknesses?: string[];
-  interviewReadinessScore?: number;
-  weeklyVelocity?: number;
-  weeklyTarget?: number;
-  technicalDepth?: number;
-  communicationScore?: number;
-  careerMomentum?: number;
-  plannerStats?: PlannerStats;
-  [key: string]: unknown;
-}
-
-// ─── Type alias for the generateDailyFocus prop ───────────────────────────────
-
-type DailyFocusFn = (
-  interviews: unknown[],
-  resumes: unknown[],
-  stats: Record<string, unknown>,
-) => { id: number | string; text: string; description: string; completed: boolean; type: string; icon: string }[];
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-/** Circular readiness ring */
-function ReadinessRing({ score }: { score: number }) {
-  const r      = 46;
-  const circ   = 2 * Math.PI * r;
-  const pct    = Math.min(100, Math.max(0, score));
-  const offset = circ - (pct / 100) * circ;
-  const color  = pct >= 70 ? '#34d399' : pct >= 40 ? '#f59e0b' : '#818cf8';
-  const label  = pct >= 70 ? 'Ready' : pct >= 40 ? 'In progress' : 'Getting started';
-  const bgColor = pct >= 70
-    ? 'rgba(52,211,153,0.12)' : pct >= 40
-    ? 'rgba(245,158,11,0.12)' : 'rgba(129,140,248,0.12)';
-
-  return (
-    <div className="flex flex-col items-center" role="img" aria-label={`Career readiness score: ${score} out of 100`}>
-      <div className="relative w-28 h-28">
-        <svg className="w-28 h-28 -rotate-90" viewBox="0 0 112 112" aria-hidden="true">
-          <circle cx="56" cy="56" r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="8" />
-          <circle
-            cx="56" cy="56" r={r} fill="none" stroke={color} strokeWidth="8"
-            strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={offset}
-            style={{ transition: 'stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1)' }}
-          />
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-2xl font-bold text-white leading-none">{score}</span>
-          <span className="text-[11px] text-slate-400 mt-0.5">/100</span>
-        </div>
-      </div>
-      <span
-        className="text-xs font-semibold mt-2 px-3 py-1 rounded-full"
-        style={{ background: bgColor, color }}
-      >
-        {label}
-      </span>
-      <span className="text-xs text-slate-400 mt-1">Career readiness</span>
-    </div>
-  );
-}
-
-/** Stat pill - hero card only */
-function StatPill({ label, value, sub, trend }: {
-  label: string;
-  value: string | number;
-  sub?: string;
-  trend?: number;
-}) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-[11px] text-slate-400 uppercase tracking-[0.14em] font-semibold">{label}</span>
-      <div className="flex items-baseline gap-1">
-        <span className="text-white font-semibold text-xl leading-none tabular-nums">{value}</span>
-        {sub && <span className="text-slate-400 text-xs">{sub}</span>}
-      </div>
-      {trend !== undefined && (
-        <div className={`flex items-center gap-0.5 text-xs font-semibold ${trend >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-          {trend >= 0
-            ? <ArrowUpRight className="w-3 h-3" aria-hidden="true" />
-            : <ArrowDownRight className="w-3 h-3" aria-hidden="true" />}
-          {Math.abs(trend)}% vs before
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** Thin progress bar */
-function ProgressBar({ value, max = 100, color = 'bg-indigo-500' }: {
-  value: number;
-  max?: number;
-  color?: string;
-}) {
-  const pct = Math.round((Math.min(value, max) / max) * 100);
-  return (
-    <div className="h-1 w-full bg-white/[0.06] rounded-full overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
-      <div
-        className={`h-full ${color} rounded-full transition-[width] duration-700`}
-        style={{ width: `${pct}%` }}
-      />
-    </div>
-  );
-}
-
-/** Metric card */
-function MetricCard({ icon: Icon, label, value, sub, accentClass, children }: {
-  icon: React.ElementType;
-  label: string;
-  value: string | number;
-  sub?: string;
-  accentClass: string;
-  children?: React.ReactNode;
-}) {
-  return (
-    <div className="glass-card p-4 flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-[0.14em]">{label}</span>
-        <Icon className={`w-3.5 h-3.5 ${accentClass} opacity-70`} aria-hidden="true" strokeWidth={1.75} />
-      </div>
-      <div className="flex items-baseline gap-1.5">
-        <span className={`text-2xl font-semibold leading-none tabular-nums ${accentClass}`}>{value}</span>
-        {sub && <span className="text-slate-400 text-xs">{sub}</span>}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-/** Quick-action card */
-function ActionCard({ icon: Icon, label, description, href, primary }: {
-  icon: React.ElementType;
-  label: string;
-  description: string;
-  href: string;
-  primary?: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      className={`group flex items-center gap-3 p-4 rounded-2xl border transition-all duration-200 hover:-translate-y-0.5
-        ${primary
-          ? 'gradient-primary border-white/10  '
-          : 'glass-card hover:border-white/[0.12]'}`}
-    >
-      <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0
-        ${primary ? 'bg-white/15' : 'bg-white/[0.05]'}`}>
-        <Icon className={`w-4 h-4 ${primary ? 'text-white' : 'text-slate-300'}`} aria-hidden="true" strokeWidth={1.75} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className={`text-sm font-semibold ${primary ? 'text-white' : 'text-slate-200'}`}>{label}</p>
-        <p className={`text-xs truncate mt-0.5 ${primary ? 'text-indigo-200/80' : 'text-slate-400'}`}>{description}</p>
-      </div>
-      <ChevronRight
-        className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 group-hover:translate-x-0.5
-          ${primary ? 'text-white/60' : 'text-slate-500'}`}
-        aria-hidden="true"
-      />
-    </Link>
-  );
-}
-
-// ─── Main dashboard ───────────────────────────────────────────────────────────
-
-export default function Dashboard() {
-  const [currentTime,  setCurrentTime]  = useState(new Date());
-  const [userProfile,  setUserProfile]  = useState<UserProfile | null>(null);
-  const [interviews,   setInterviews]   = useState<Interview[]>([]);
-  const [resumes,      setResumes]      = useState<Resume[]>([]);
-  const [stats,        setStats]        = useState<UserStats | null>(null);
-  const [isLoading,    setIsLoading]    = useState(true);
-
-  // Clock - update every minute
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 60_000);
-    return () => clearInterval(timer);
+    // Everything is independent, so it is all requested at once and each
+    // section fills in as its answer arrives.
+    (async () => {
+      const [{ supabase }, { getClientUser }] = await Promise.all([import("@/supabase/client"), import("@/lib/auth/client-user")]);
+      const { user } = await getClientUser();
+      if (!user) { toast.error("Please sign in to view your overview"); return; }
+
+      supabase.from("profiles").select("name").eq("user_id", user.id).maybeSingle().then(({ data }) => {
+        setName(((data?.name as string | undefined)?.trim() || (user.user_metadata?.name as string) || (user.user_metadata?.full_name as string) || "").split(" ")[0] || null);
+      });
+
+      getJson<{ data: TrackedApp[] }>("/api/job-tracker").then(j => setApps(j?.data ?? []));
+      getJson<{ schedules: Schedule[] }>("/api/job-tracker/schedule").then(j => setSchedules(j?.schedules ?? []));
+      getJson<{ due: number; setupRequired?: boolean }>(`/api/contacts/due?tz=${new Date().getTimezoneOffset()}`).then(j => setFollowUps(j && !j.setupRequired ? j.due : null));
+      getJson<JobsPage>("/api/jobs?days=7&levels=intern,early").then(j => setJobs(j ? { total: j.total, jobs: j.jobs.slice(0, 5), h1bYear: j.h1bYear } : null));
+      loadApplyProfile().then(p => setMissingDetails(p ? autoApplyFields(p).filter(f => !f.ok && !f.optional).map(f => f.label) : null));
+      loadPrep(user.id).then(setPrep);
+    })().catch(err => console.error("Overview load failed:", err));
   }, []);
 
-  // ── Planner stats ──────────────────────────────────────────────────────────
-  const fetchPlannerStats = async (userId: string): Promise<PlannerStats> => {
+  const k = useMemo(() => (apps && schedules ? jobKpis(apps, schedules, now) : undefined), [apps, schedules, now]);
+  const recent = useMemo(() => (apps ? recentApps(apps, 5) : undefined), [apps]);
+  const logos = useCompanyLogos([...(recent ?? []).map(a => ({ company: a.company, url: a.jobUrl })), ...(jobs?.jobs ?? []).map(j => ({ company: j.c, url: j.u }))]);
+
+  const actions = useMemo<NextAction[] | undefined>(() => {
+    // Shown once the tracker is in; items from slower sources join as they arrive.
+    if (!k || !apps) return undefined;
+    const list: NextAction[] = [];
+    const byId = new Map(apps.map(a => [a.id, a]));
+    for (const s of k.upcoming.slice(0, 2)) {
+      const a = byId.get(s.applicationId);
+      if (a) list.push({ key: `int-${s.applicationId}`, icon: CalendarClock, tone: "indigo", title: `Prepare for ${a.company}`, sub: `${stageLabel(s.stage)} · ${fmtWhen(s.startsAt)}`, href: `/apply/${a.id}` });
+    }
+    if (followUps) list.push({ key: "follow", icon: BellRing, tone: "amber", title: `${followUps} follow-up${followUps === 1 ? "" : "s"} due`, sub: "Contacts waiting to hear from you", href: "/contacts" });
+    if (missingDetails && missingDetails.length) list.push({ key: "details", icon: ClipboardList, tone: "amber", title: "Finish your Auto-apply details", sub: `Missing: ${missingDetails.join(", ")}`, href: AUTO_APPLY_SETTINGS_HREF });
+    if (prep && !prep.resume.hasDefault) list.push({ key: "resume", icon: Upload, tone: "amber", title: "Add your default resume", sub: "Auto-apply and the extension upload it", href: "/profile" });
+    if (k.waitingOverWeek.length) list.push({ key: "nudge", icon: MailQuestion, tone: "slate", title: `Follow up on ${k.waitingOverWeek.length} application${k.waitingOverWeek.length === 1 ? "" : "s"}`, sub: `Sent over a week ago with no reply, oldest ${k.waitingOverWeek[0].company}`, href: "/job-tracker" });
+    if (k.saved) list.push({ key: "saved", icon: Bookmark, tone: "slate", title: `${k.saved} saved job${k.saved === 1 ? "" : "s"} to apply to`, sub: "Tailor your resume and apply in a few minutes", href: "/job-tracker" });
+    if (!apps.length) list.push({ key: "first", icon: Compass, tone: "emerald", title: "Find your first role", sub: "Internships and entry-level jobs, checked daily", href: "/jobs" });
+    return list.slice(0, 5);
+  }, [k, apps, followUps, missingDetails, prep]);
+
+  const summary = !k ? null
+    : !apps?.length ? "Start by finding a role or adding one you already applied to."
+    : [
+        `${k.appliedThisWeek} application${k.appliedThisWeek === 1 ? "" : "s"} this week`,
+        k.upcoming.length ? `${k.upcoming.length} interview${k.upcoming.length === 1 ? "" : "s"} coming up` : null,
+        k.offers ? `${k.offers} offer${k.offers === 1 ? "" : "s"}` : null,
+      ].filter(Boolean).join(" · ");
+
+  const apply = async (job: FeedJob) => {
+    let auto = false;
+    try { auto = localStorage.getItem("prc_apply_mode") === "auto"; } catch { /* storage blocked */ }
+    if (auto) { window.open(`/apply/start?job=${encodeURIComponent(job.u)}`, "_blank", "noopener"); return; }
+    setApplying(job.u);
     try {
-      const { PlannerService } = await import('@/lib/services/planner-services');
-      const plans     = await PlannerService.getUserPlans(userId);
-      const statsData = await PlannerService.getUserPlanStats(userId, plans);
-
-      const activePlansList = plans
-        .filter((p: { status: string; progress: { percentage: number } }) =>
-          p.status === 'active' && p.progress.percentage < 100)
-        .sort((a: { createdAt: string }, b: { createdAt: string }) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-      let currentPlan: PlannerStats['currentPlan'];
-      if (activePlansList.length > 0) {
-        const p = activePlansList[0] as {
-          id: string; role: string; company?: string;
-          progress: { percentage: number }; interviewDate: string;
-        };
-        const daysRemaining = Math.max(0, Math.ceil(
-          (new Date(p.interviewDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-        ));
-        currentPlan = {
-          id: p.id, role: p.role, company: p.company,
-          progress: p.progress.percentage, daysRemaining,
-          interviewDate: p.interviewDate,
-        };
-      }
-
-      return {
-        totalPlans: plans.length,
-        activePlans: plans.filter((p: { status: string }) => p.status === 'active').length,
-        completedPlans: plans.filter((p: { status: string; progress: { percentage: number } }) =>
-          p.status === 'completed' || p.progress.percentage === 100).length,
-        averageProgress: plans.length > 0
-          ? Math.round(plans.reduce((s: number, p: { progress: { percentage: number } }) =>
-              s + p.progress.percentage, 0) / plans.length)
-          : 0,
-        currentPlan,
-        totalTasksCompleted: plans.reduce((s: number, p: { progress: { completedTasks: number } }) =>
-          s + p.progress.completedTasks, 0),
-        currentStreak: (statsData as { currentStreak?: number })?.currentStreak || 0,
-      };
-    } catch {
-      return {
-        totalPlans: 0, activePlans: 0, completedPlans: 0,
-        averageProgress: 0, totalTasksCompleted: 0, currentStreak: 0,
-      };
+      const r = await startApplication(job.u);
+      if ("closed" in r) { toast.error(`${job.c} has closed this posting since our last check.`); return; }
+      router.push(`/apply/${r.id}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not start the application");
+    } finally {
+      setApplying(null);
     }
   };
 
-  // ── Data fetch ─────────────────────────────────────────────────────────────
-  // Everything the dashboard needs is independent, so it is requested at once
-  // rather than one call after another (measured ~1.7s that way), and interview
-  // feedback comes back in one batch request instead of one server action per
-  // interview, which Next runs one at a time (~240ms each).
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        setIsLoading(true);
-        const [{ supabase }, { getClientUser }, { ResumeService }, { getInterviewsByUserId }] = await Promise.all([
-          import('@/supabase/client'),
-          import('@/lib/auth/client-user'),
-          import('@/lib/services/resume-service'),
-          import('@/lib/actions/general.action'),
-        ]);
-
-        // Never hangs, falls back to the browser's session when Supabase is
-        // slow, and is shared with every other caller on the page.
-        const { user: currentUser } = await getClientUser();
-
-        if (!currentUser) {
-          toast.error('Please sign in to view your dashboard');
-          setIsLoading(false);
-          return;
-        }
-
-        type RawInterview = {
-          id: string;
-          createdAt: { toDate?: () => Date } | string | Date;
-          updatedAt?: { toDate?: () => Date } | string | Date;
-          [key: string]: unknown;
-        };
-
-        const [profRes, resumesRes, plannerRes, interviewsRes] = await Promise.allSettled([
-          // The profile's name: it is what Settings edits and the sidebar shows.
-          supabase.from('profiles').select('name').eq('user_id', currentUser.id).maybeSingle(),
-          ResumeService.getUserResumes(currentUser.id) as unknown as Promise<Resume[]>,
-          fetchPlannerStats(currentUser.id),
-          getInterviewsByUserId(currentUser.id) as Promise<unknown[] | null>,
-        ]);
-
-        const prof = profRes.status === 'fulfilled' ? profRes.value.data : null;
-        setUserProfile({
-          id: currentUser.id,
-          name: (prof?.name as string | undefined)?.trim() || (currentUser.user_metadata?.name as string) || (currentUser.user_metadata?.full_name as string) || 'User',
-          email: currentUser.email || '',
-          createdAt: new Date(),
-          lastLogin: new Date(),
-          targetRole: 'Software Engineer',
-          experienceLevel: 'mid',
-          preferredTech: ['JavaScript', 'React', 'Node.js'],
-          avatar: (currentUser.user_metadata?.avatar_url as string) || undefined,
-          bio: '',
-          location: '',
-        });
-
-        // Each part is non-fatal: without one, the dashboard still shows the rest.
-        const userResumes = resumesRes.status === 'fulfilled' ? resumesRes.value : [];
-        setResumes(userResumes);
-        const plannerStats = plannerRes.status === 'fulfilled' ? plannerRes.value : undefined;
-        if (interviewsRes.status === 'rejected') {
-          if ((await import('@/lib/auth/client-user')).reloadIfStaleBuild(interviewsRes.reason)) return;
-          console.error('Dashboard interviews fetch failed:', interviewsRes.reason);
-        }
-        const userInterviews = interviewsRes.status === 'fulfilled' ? (interviewsRes.value ?? []) : [];
-
-        if (!userInterviews.length) {
-          setStats(calculateStats([], userResumes, plannerStats));
-          return;
-        }
-
-        const withDates = (userInterviews as RawInterview[]).map(i => ({
-          ...i,
-          createdAt: (i.createdAt as { toDate?: () => Date })?.toDate?.() ?? new Date(i.createdAt as string),
-          updatedAt: (i.updatedAt as { toDate?: () => Date } | undefined)?.toDate?.() ?? new Date((i.updatedAt ?? i.createdAt) as string),
-        }));
-
-        let withFeedback: unknown[] = withDates;
-        try {
-          const batchRes = await fetch('/api/feedback/batch', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ interviews: withDates }),
-          });
-          if (batchRes.ok) {
-            const { interviews: batch } = await batchRes.json() as { interviews: RawInterview[] };
-            const toDate = (v: RawInterview['createdAt'] | undefined, fallback: Date) =>
-              v ? ((v as { toDate?: () => Date }).toDate?.() ?? new Date(v as string)) : fallback;
-            withFeedback = batch.map(i => {
-              const createdAt = toDate(i.createdAt, new Date());
-              return { ...i, createdAt, updatedAt: toDate(i.updatedAt, createdAt) };
-            });
-          }
-        } catch { /* feedback is optional: show the interviews without scores */ }
-
-        const typedInterviews = withFeedback as unknown as Interview[];
-        setInterviews(typedInterviews);
-        setStats(calculateStats(typedInterviews, userResumes, plannerStats));
-      } catch (err) {
-        if ((await import('@/lib/auth/client-user')).reloadIfStaleBuild(err)) return;
-        console.error('Dashboard fetch error:', err);
-        toast.error('Failed to load dashboard data');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchUserData();
-  }, []);
-
-  // ── Stats calculation ──────────────────────────────────────────────────────
-  const calculateStats = (
-    interviews: Interview[],
-    resumes: Resume[],
-    plannerStats?: PlannerStats,
-  ): UserStats => {
-    const completed          = interviews.filter(i => i.feedback && (i.score ?? 0) > 0);
-    const totalInterviews    = interviews.length;
-    const averageScore       = completed.length
-      ? Math.round(completed.reduce((s, i) => s + (i.score || 0), 0) / completed.length) : 0;
-    const totalResumes       = resumes.length;
-    const averageResumeScore = totalResumes
-      ? Math.round(resumes.reduce((s, r) => s + (r.feedback?.overallScore || 0), 0) / totalResumes) : 0;
-    const scores             = resumes.map(r => r.feedback?.overallScore || 0);
-    const bestResumeScore    = scores.length ? Math.max(...scores) : 0;
-    const resumeImprovementRate = resumes.length >= 2
-      ? Math.round(
-          ((resumes[resumes.length - 1].feedback?.overallScore || 0) - (resumes[0].feedback?.overallScore || 0))
-          / (resumes[0].feedback?.overallScore || 1) * 100
-        ) : 0;
-    const resumeIssuesResolved = resumes.reduce((t, r) =>
-      t + Object.values(r.feedback || {}).reduce((s: number, sec: unknown) =>
-        s + (Array.isArray((sec as { tips?: unknown[] })?.tips)
-          ? (sec as { tips: { type: string }[] }).tips.filter(tip => tip.type === 'good').length
-          : 0), 0), 0);
-
-    const interviewReadinessScore = Math.round(
-      (averageScore * 0.4) + (averageResumeScore * 0.3) + Math.min(totalInterviews * 5, 30)
-    );
-
-    const weekStart = new Date();
-    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-    const weeklyVelocity = interviews.filter(i => {
-      const d = i.createdAt instanceof Date ? i.createdAt : new Date(i.createdAt);
-      return d >= weekStart;
-    }).length;
-    const weeklyTarget = Math.max(3, Math.min(7, Math.round(totalInterviews / 4)));
-
-    const techInterviews = completed.filter(i => ['technical', 'coding', 'system-design'].includes(i.type));
-    const technicalDepth = techInterviews.length
-      ? Math.round(techInterviews.reduce((s, i) => {
-          let pts = (i.score || 0) / 20;
-          if (i.type === 'system-design') pts *= 1.2;
-          if (i.type === 'coding')        pts *= 1.1;
-          return s + Math.min(5, pts);
-        }, 0) / techInterviews.length * 10) / 10
-      : 0;
-
-    const communicationScore = completed.length
-      ? Math.round(completed.reduce((s, i) =>
-          s + (i.feedback?.communication || (i.score || 0) * 0.3 + (i.type === 'behavioral' ? 5 : 0)), 0)
-          / completed.length)
-      : 0;
-
-    const strengthsMap:  { [k: string]: number } = {};
-    const weaknessesMap: { [k: string]: number } = {};
-    completed.forEach(i => {
-      i.feedback?.strengths?.forEach(s => { strengthsMap[s]  = (strengthsMap[s]  || 0) + 1; });
-      i.feedback?.weaknesses?.forEach(w => { weaknessesMap[w] = (weaknessesMap[w] || 0) + 1; });
-    });
-
-    const sorted    = [...completed].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-    const n         = Math.max(1, Math.min(5, sorted.length));
-    const recentAvg = sorted.slice(-5).reduce((s, i) => s + (i.score || 0), 0) / n;
-    const oldAvg    = sorted.slice(0, 5).reduce((s, i)  => s + (i.score || 0), 0) / n;
-    const improvementRate = oldAvg > 0 ? Math.round(((recentAvg - oldAvg) / oldAvg) * 100) : 0;
-
-    const monthMap = new Map<string, { totalScore: number; count: number }>();
-    completed.forEach(i => {
-      const d  = new Date(i.createdAt);
-      const k  = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const ex = monthMap.get(k) || { totalScore: 0, count: 0 };
-      monthMap.set(k, { totalScore: ex.totalScore + (i.score || 0), count: ex.count + 1 });
-    });
-    const monthlyProgress = Array.from(monthMap.entries()).map(([month, d]) => ({
-      month, score: Math.round(d.totalScore / d.count), count: d.count,
-    }));
-
-    const typeMap = new Map<string, { total: number; count: number }>();
-    completed.forEach(i => {
-      const ex = typeMap.get(i.type) || { total: 0, count: 0 };
-      typeMap.set(i.type, { total: ex.total + (i.score || 0), count: ex.count + 1 });
-    });
-    const typeBreakdown = Array.from(typeMap.entries()).map(([type, d]) => ({
-      type, count: d.count,
-      avgScore: Math.round(d.total / d.count),
-      percentage: Math.round((d.count / Math.max(1, totalInterviews)) * 100),
-    }));
-
-    return {
-      totalInterviews, averageScore, improvementRate,
-      currentStreak: Math.min(totalInterviews, 7),
-      longestStreak: Math.min(totalInterviews, 7) + 2,
-      hoursSpent: Math.round(totalInterviews * 0.75),
-      strengthsMap, weaknessesMap, monthlyProgress,
-      companyPreparation: [], skillProgress: [], typeBreakdown,
-      bestPerformingType:  typeBreakdown[0]?.type || 'Technical',
-      worstPerformingType: typeBreakdown[typeBreakdown.length - 1]?.type || 'Behavioral',
-      successRate:    Math.min(95, 70 + totalInterviews * 2),
-      completionRate: Math.min(98, 85 + totalInterviews),
-      totalResumes, averageResumeScore, bestResumeScore,
-      resumeImprovementRate, resumeIssuesResolved,
-      interviewReadinessScore, weeklyVelocity, weeklyTarget,
-      technicalDepth, communicationScore, plannerStats,
-    };
-  };
-
-  // ── Daily focus ────────────────────────────────────────────────────────────
-  const generateEnhancedDailyFocus: DailyFocusFn = (
-    _interviews,
-    _resumes,
-    _stats,
-  ) => {
-    // Cast back to concrete types - safe because the caller always passes the right shapes
-    const interviews = _interviews as Interview[];
-    const resumes    = _resumes    as Resume[];
-    const stats      = _stats      as unknown as UserStats;
-
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayDone = interviews.filter(i => {
-      const d = i.createdAt instanceof Date ? i.createdAt : new Date(i.createdAt);
-      return d >= todayStart && ((i.score ?? 0) > 0 || !!i.feedback);
-    });
-
-    const focuses: { id: number; text: string; description: string; completed: boolean; type: string; icon: string }[] = [
-      {
-        id: 1,
-        text: 'Complete 1 Interview',
-        description: todayDone.length > 0 ? 'Great start today!' : 'Start your daily practice',
-        completed: todayDone.length > 0,
-        type: 'basic',
-        icon: todayDone.length > 0 ? '✅' : '🎯',
-      },
-    ];
-
-    if (resumes.length === 0) {
-      focuses.push({
-        id: 2, text: 'Upload Your First Resume',
-        description: 'Get AI-powered ATS feedback',
-        completed: false, type: 'resume', icon: '📄',
-      });
-    } else if ((stats.averageResumeScore ?? 0) < 70) {
-      focuses.push({
-        id: 2, text: 'Improve Resume Score',
-        description: `Current: ${stats.averageResumeScore}%`,
-        completed: false, type: 'improvement', icon: '📈',
-      });
-    } else {
-      focuses.push({
-        id: 2, text: 'Resume Looking Great!',
-        description: `Score: ${stats.averageResumeScore}%`,
-        completed: true, type: 'resume', icon: '⭐',
-      });
-    }
-
-    if (interviews.length > 0 && resumes.length > 0 && stats.averageScore > 70 && (stats.averageResumeScore ?? 0) > 70) {
-      focuses.push({
-        id: 3, text: 'Ready for Applications!',
-        description: 'Skills and resume optimised',
-        completed: true, type: 'challenge', icon: '🚀',
-      });
-    }
-
-    return focuses.slice(0, 3);
-  };
-
-  const getGreeting = () => {
-    const h = currentTime.getHours();
-    if (h < 12) return 'Good morning';
-    if (h < 17) return 'Good afternoon';
-    return 'Good evening';
-  };
-
-  // ── Loading state ──────────────────────────────────────────────────────────
-  if (isLoading) {
-    return (
-      <AnimatedLoader
-        isVisible={true}
-        loadingText="Loading your dashboard"
-        tone="focused"
-        showNavigation={false}
-      />
-    );
-  }
-
-  // ── Error / unauthenticated state ──────────────────────────────────────────
-  if (!userProfile || !stats) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center glass-card p-10 max-w-sm w-full mx-4">
-          <AlertCircle className="w-8 h-8 text-slate-400 mx-auto mb-4" aria-hidden="true" />
-          <p className="text-slate-400 text-sm mb-6">Failed to load dashboard data</p>
-          <Button
-            onClick={() => window.location.reload()}
-            className="glass-button-primary px-5 py-2.5 rounded-xl text-white text-sm w-full"
-          >
-            Try again
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Derived values ─────────────────────────────────────────────────────────
-  const readiness     = stats.interviewReadinessScore ?? 0;
-  const hasResume     = (stats.totalResumes ?? 0) > 0;
-  const hasInterviews = stats.totalInterviews > 0;
-
-  const nudge = !hasResume
-    ? {
-        icon: Upload,
-        text: 'Upload a resume to unlock your full readiness score.',
-        color: 'text-amber-400',
-        borderColor: 'border-amber-500/20',
-        bg: 'bg-amber-500/[0.04]',
-        href: '/resume',
-        cta: 'Upload now',
-      }
-    : !hasInterviews
-    ? {
-        icon: Plus,
-        text: 'Complete your first mock interview to start tracking progress.',
-        color: 'text-blue-400',
-        borderColor: 'border-blue-500/20',
-        bg: 'bg-blue-500/[0.04]',
-        href: '/interview',
-        cta: 'Start now',
-      }
-    : readiness < 50
-    ? {
-        icon: TrendingUp,
-        text: 'Keep practicing - consistency drives your readiness score up.',
-        color: 'text-indigo-400',
-        borderColor: 'border-indigo-500/20',
-        bg: 'bg-indigo-500/[0.04]',
-        href: '/interview',
-        cta: 'Practice',
-      }
-    : null;
-
-  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4 pt-4">
-
-      {/* ── Hero ─────────────────────────────────────── */}
-      <div className="glass-card p-5 sm:p-6 animate-fade-in-up">
-        <div className="flex flex-col lg:flex-row items-start lg:items-center gap-6">
-
+      {/* 1. Greeting and the one thing to do */}
+      <section className="glass-card p-5 sm:p-6 animate-fade-in-up">
+        <div className="flex flex-col md:flex-row md:items-center gap-4">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="relative flex-shrink-0">
-                <div
-                  className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center
-                             text-white font-semibold text-base "
-                  aria-hidden="true"
-                >
-                  {userProfile.name.charAt(0).toUpperCase()}
-                </div>
-                <span
-                  className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-[1.5px] border-[#070a14]"
-                  aria-hidden="true"
-                />
-              </div>
-              <div>
-                <h1 className="text-lg sm:text-xl font-semibold text-white leading-tight tracking-tight">
-                  {getGreeting()}, {userProfile.name.split(' ')[0]}
-                </h1>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  {currentTime.toLocaleDateString('en-US', {
-                    weekday: 'long', month: 'long', day: 'numeric',
-                  })}
-                </p>
-              </div>
-            </div>
-
-            {nudge && (
-              <div
-                className={`flex items-center gap-2.5 text-xs ${nudge.color} ${nudge.bg} border ${nudge.borderColor} rounded-lg px-3 py-2.5 mb-4`}
-                role="status"
-              >
-                <nudge.icon className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
-                <span className="flex-1 leading-snug">{nudge.text}</span>
-                <Link
-                  href={nudge.href}
-                  className="ml-2 inline-flex items-center gap-0.5 text-xs font-semibold whitespace-nowrap opacity-90 hover:opacity-100 transition-opacity"
-                >
-                  {nudge.cta} <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
-                </Link>
-              </div>
-            )}
-
-            <div className="grid grid-cols-3 gap-4 pt-4 border-t border-white/[0.05]">
-              <StatPill label="Avg score"  value={`${stats.averageScore}%`} trend={stats.improvementRate} />
-              <StatPill label="Sessions"   value={stats.totalInterviews}    sub={`${stats.hoursSpent}h`} />
-              <StatPill label="This week"  value={stats.weeklyVelocity ?? 0} sub={`/ ${stats.weeklyTarget ?? 3} goal`} />
-            </div>
+            <p className="text-[12px] text-slate-500">{now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</p>
+            <h1 className="text-xl sm:text-2xl font-semibold text-white tracking-tight mt-1">{greeting(now)}{name ? `, ${name}` : ""}</h1>
+            <p className="text-[13px] text-slate-400 mt-1 min-h-[20px]">{summary ?? <span className="inline-block w-56 h-3.5 rounded bg-white/[0.05] animate-pulse align-middle" />}</p>
           </div>
-
-          <div className="hidden lg:block w-px self-stretch bg-white/[0.05]" aria-hidden="true" />
-
-          <div className="flex-shrink-0 self-center lg:self-auto">
-            <ReadinessRing score={readiness} />
+          <div className="flex gap-2 flex-shrink-0">
+            <Link href="/job-tracker" className="btn-secondary h-10"><Plus className="w-4 h-4" /> Track a job</Link>
+            <Link href="/jobs" className="btn-primary h-10"><Search className="w-4 h-4" /> Find jobs</Link>
           </div>
         </div>
-      </div>
+      </section>
 
       <ExtensionBanner />
 
-      {/* ── Quick actions ─────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 animate-fade-in-up" style={{ animationDelay: '60ms' }}>
-        <ActionCard icon={Plus}     label="Start Interview"   description="AI mock session, any role"  href="/interview" primary />
-        <ActionCard icon={Upload}   label="Analyze Resume"    description="ATS score + AI feedback"    href="/resume" />
-        <ActionCard
-          icon={BookOpen}
-          label={stats.plannerStats?.currentPlan ? 'Continue Plan' : 'Create Study Plan'}
-          description={
-            stats.plannerStats?.currentPlan
-              ? `${stats.plannerStats.currentPlan.progress}% complete · ${stats.plannerStats.currentPlan.daysRemaining}d left`
-              : 'Day-by-day prep schedule'
-          }
-          href={stats.plannerStats?.currentPlan ? `/planner/${stats.plannerStats.currentPlan.id}` : '/planner/create'}
-        />
+      {/* 2. KPIs */}
+      <KpiRow k={k} followUps={followUps} icons={{ applied: Send, pipeline: Briefcase, interviews: CalendarClock, followUps: BellRing }} />
+
+      {/* 3. Pipeline and what to do next */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2"><Pipeline k={k} /></div>
+        <UpNext actions={actions} />
       </div>
 
-      {/* ── Metric row (hidden until there is something to measure) ── */}
-      {(hasResume || hasInterviews || !!stats.plannerStats?.currentPlan) && (
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 animate-fade-in-up" style={{ animationDelay: '120ms' }}>
-
-        <MetricCard
-          icon={FileText} label="Resume quality"
-          value={hasResume ? `${stats.averageResumeScore ?? 0}%` : '-'}
-          sub={hasResume ? `${stats.totalResumes} file${stats.totalResumes !== 1 ? 's' : ''}` : 'No resume yet'}
-          accentClass={!hasResume ? 'text-slate-500' : (stats.averageResumeScore ?? 0) >= 70 ? 'text-emerald-400' : 'text-amber-400'}
-        >
-          {hasResume && (
-            <ProgressBar value={stats.averageResumeScore ?? 0} color={(stats.averageResumeScore ?? 0) >= 70 ? 'bg-emerald-500' : 'bg-amber-500'} />
-          )}
-        </MetricCard>
-
-        <MetricCard
-          icon={Brain} label="Technical depth"
-          value={stats.technicalDepth ? `${stats.technicalDepth}/5` : '-'}
-          sub={stats.technicalDepth ? 'rating' : 'No tech sessions'}
-          accentClass={!stats.technicalDepth ? 'text-slate-500' : 'text-violet-400'}
-        >
-          {!!stats.technicalDepth && (
-            <div className="flex gap-0.5" aria-label={`${Math.round(stats.technicalDepth)} out of 5 stars`}>
-              {[1, 2, 3, 4, 5].map(n => (
-                <Star
-                  key={n}
-                  className={`w-3 h-3 ${n <= Math.round(stats.technicalDepth ?? 0) ? 'text-violet-400 fill-violet-400' : 'text-slate-500'}`}
-                  aria-hidden="true"
-                />
-              ))}
-            </div>
-          )}
-        </MetricCard>
-
-        <MetricCard
-          icon={Users} label="Communication"
-          value={stats.communicationScore ? `${stats.communicationScore}` : '-'}
-          sub={stats.communicationScore ? '/100' : 'No data yet'}
-          accentClass={!stats.communicationScore ? 'text-slate-500' : stats.communicationScore >= 70 ? 'text-sky-400' : 'text-amber-400'}
-        >
-          {!!stats.communicationScore && (
-            <ProgressBar value={stats.communicationScore} color={stats.communicationScore >= 70 ? 'bg-sky-500' : 'bg-amber-500'} />
-          )}
-        </MetricCard>
-
-        {stats.plannerStats?.currentPlan ? (
-          <Link href={`/planner/${stats.plannerStats.currentPlan.id}`} className="block">
-            <MetricCard
-              icon={Calendar} label="Active plan"
-              value={`${stats.plannerStats.currentPlan.progress}%`}
-              sub={`${stats.plannerStats.currentPlan.daysRemaining}d left`}
-              accentClass="text-emerald-400"
-            >
-              <ProgressBar value={stats.plannerStats.currentPlan.progress} color="bg-emerald-500" />
-            </MetricCard>
-          </Link>
-        ) : (
-          <MetricCard
-            icon={Zap} label="Weekly goal"
-            value={`${stats.weeklyVelocity ?? 0}`}
-            sub={`/ ${stats.weeklyTarget ?? 3} sessions`}
-            accentClass={(stats.weeklyVelocity ?? 0) >= (stats.weeklyTarget ?? 3) ? 'text-emerald-400' : 'text-blue-400'}
-          >
-            <ProgressBar
-              value={stats.weeklyVelocity ?? 0}
-              max={stats.weeklyTarget ?? 3}
-              color={(stats.weeklyVelocity ?? 0) >= (stats.weeklyTarget ?? 3) ? 'bg-emerald-500' : 'bg-blue-500'}
-            />
-          </MetricCard>
-        )}
-      </div>
-      )}
-
-      {/* ── Today's focus + recent sessions ───────────── */}
-      <div className="flex flex-col animate-fade-in-up" style={{ animationDelay: '180ms' }}>
-        <ProfileOverview
-          userProfile={userProfile}
-          stats={stats}
-          interviews={interviews.map(i => ({ ...i, score: i.score ?? 0 }))}
-          resumes={resumes}
-          generateDailyFocus={generateEnhancedDailyFocus}
-          loading={false}
-        />
+      {/* 4. New jobs and recent applications */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <NewJobs data={jobs} logos={logos} applying={applying} onApply={apply} />
+        <RecentApplications apps={recent} logos={logos} />
       </div>
 
+      {/* 5. Prep */}
+      <Prep data={prep} icons={{ resume: FileText, interview: Video, plan: BookOpen }} />
     </div>
   );
+}
+
+// ─── Prep data ────────────────────────────────────────────────────────────────
+
+async function loadPrep(userId: string): Promise<PrepData> {
+  const [resumesR, interviewsR, plansR, defR] = await Promise.allSettled([
+    import("@/lib/services/resume-service").then(m => m.ResumeService.getUserResumes(userId)) as Promise<unknown>,
+    import("@/lib/actions/general.action").then(m => m.getInterviewsByUserId(userId)) as Promise<unknown>,
+    import("@/lib/services/planner-services").then(m => m.PlannerService.getUserPlans(userId)) as Promise<unknown>,
+    fetchDefaultResumeInfo(),
+  ]);
+
+  const resumes = (resumesR.status === "fulfilled" && Array.isArray(resumesR.value) ? resumesR.value : []) as { feedback?: { overallScore?: number } }[];
+  const scores = resumes.map(r => r.feedback?.overallScore ?? 0).filter(s => s > 0);
+
+  // Interview scores come with their feedback, in one batch request.
+  type RawInterview = { id: string; createdAt: unknown; updatedAt?: unknown; score?: number; feedback?: unknown };
+  let interviews = (interviewsR.status === "fulfilled" && Array.isArray(interviewsR.value) ? interviewsR.value : []) as RawInterview[];
+  if (interviews.length) {
+    const r = await fetch("/api/feedback/batch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ interviews }) }).catch(() => null);
+    if (r?.ok) interviews = ((await r.json()) as { interviews: RawInterview[] }).interviews;
+  }
+  const scored = interviews.filter(i => i.feedback && (i.score ?? 0) > 0);
+
+  type Plan = { id: string; role: string; status: string; interviewDate: string; createdAt: string; progress: { percentage: number } };
+  const plans = (plansR.status === "fulfilled" && Array.isArray(plansR.value) ? plansR.value : []) as Plan[];
+  const active = plans.filter(p => p.status === "active" && p.progress.percentage < 100).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
+
+  return {
+    resume: {
+      score: scores.length ? Math.max(...scores) : null,
+      count: resumes.length,
+      hasDefault: defR.status === "fulfilled" ? !!defR.value?.current : true,
+    },
+    interviews: { count: interviews.length, avg: scored.length ? Math.round(scored.reduce((s, i) => s + (i.score ?? 0), 0) / scored.length) : null },
+    plan: active ? {
+      id: active.id, role: active.role, progress: active.progress.percentage,
+      daysLeft: Math.max(0, Math.ceil((Date.parse(active.interviewDate) - Date.now()) / 86_400_000)),
+    } : null,
+  };
 }

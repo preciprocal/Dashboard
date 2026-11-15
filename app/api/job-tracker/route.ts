@@ -172,8 +172,11 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error;
 
-    const result = (data as (JobApplicationRow & { job_description?: string | null })[])
-      .map(row => ({ ...normaliseRow(row), jobDescription: row.job_description ?? null }));
+    // first_response_at and reached_interview_at are written once, so a reply or an
+    // interview still counts after the application closes (Overview rates).
+    type Row = JobApplicationRow & { job_description?: string | null; first_response_at?: string | null; reached_interview_at?: string | null };
+    const result = (data as Row[])
+      .map(row => ({ ...normaliseRow(row), jobDescription: row.job_description ?? null, firstResponseAt: row.first_response_at ?? null, reachedInterviewAt: row.reached_interview_at ?? null }));
     console.log(`[job-tracker GET] uid=${authedUser.supabaseUserId} found=${result.length}`);
 
     return NextResponse.json({ success: true, data: result });

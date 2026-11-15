@@ -32,7 +32,7 @@ export function autoApplyFields(p: ApplyProfileLike): { label: string; ok: boole
 
 // One request per page load, shared by every notice on the page.
 let profilePromise: Promise<ApplyProfileLike | null> | null = null;
-function loadApplyProfile(): Promise<ApplyProfileLike | null> {
+export function loadApplyProfile(): Promise<ApplyProfileLike | null> {
   return (profilePromise ??= fetch('/api/extension/auto-apply')
     .then(r => (r.ok ? r.json() : null))
     .then(j => (j?.applyProfile as ApplyProfileLike | undefined) ?? null)
