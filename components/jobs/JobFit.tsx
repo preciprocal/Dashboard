@@ -11,8 +11,9 @@ import Link from 'next/link';
 import { AlertTriangle, CheckCircle2, Loader2, Sparkles, XCircle, Quote } from 'lucide-react';
 import InfoTip from '@/components/ui/info-tip';
 import type { JobFit } from '@/lib/jobs/fit';
+import type { PostingFacts } from '@/lib/jobs/posting-facts';
 
-export type Fit = (JobFit & { open: boolean }) | null;
+export type Fit = (JobFit & { open: boolean; facts?: PostingFacts }) | null;
 type FitState = Record<string, Fit | undefined>;
 
 /**
@@ -118,7 +119,7 @@ export function FitPills({ fit, hasResume }: { fit: Fit | undefined; hasResume: 
 interface Explanation { strengths: { point: string; evidence: string }[]; gaps: { requirement: string; advice: string }[]; pitch: string }
 
 /** The expanded panel under a card. */
-export function FitPanel({ url, fit, hasResume }: { url: string; fit: Fit | undefined; hasResume: boolean | null }) {
+export function FitPanel({ url, fit, hasResume, bare }: { url: string; fit: Fit | undefined; hasResume: boolean | null; /** Without the top rule, inside the details view. */ bare?: boolean }) {
   const [explain, setExplain] = useState<Explanation | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -141,7 +142,7 @@ export function FitPanel({ url, fit, hasResume }: { url: string; fit: Fit | unde
   if (!fit) return <p className="mt-4 text-[12.5px] text-slate-400">Could not read this posting right now. Open it on the employer&apos;s site.</p>;
 
   return (
-    <div className="mt-4 pt-4 border-t border-white/[0.06] space-y-4 animate-fade-in-up">
+    <div className={bare ? "space-y-4" : "mt-4 pt-4 border-t border-white/[0.06] space-y-4 animate-fade-in-up"}>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <p className="text-[12px] font-medium text-slate-300 mb-2">Skills in this posting</p>

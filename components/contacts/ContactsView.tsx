@@ -47,6 +47,11 @@ export default function ContactsView() {
   const [error, setError] = useState('');
 
   const [search, setSearch] = useState('');
+  // ?q= from a link elsewhere in the app (a job's "Your contacts at" step).
+  useEffect(() => {
+    const q0 = new URLSearchParams(window.location.search).get('q');
+    if (q0) setSearch(q0.slice(0, 100));
+  }, []);
   const [status, setStatus] = useState('');
   const [relationship, setRelationship] = useState('');
   const [company, setCompany] = useState('');

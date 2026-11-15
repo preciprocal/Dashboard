@@ -9,10 +9,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import {
-  Search, MapPin, Loader2, ExternalLink, Send, ShieldCheck, Landmark, Briefcase, Clock, Zap,
-  ChevronDown, FolderCheck,
-} from 'lucide-react';
+import { Search, MapPin, Loader2, ShieldCheck, Landmark, Briefcase, Zap, FolderCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import PageHeader from '@/components/PageHeader';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
@@ -22,8 +19,10 @@ import InfoTip from '@/components/ui/info-tip';
 import AutoApplyDetailsNotice from '@/components/apply/AutoApplyDetailsNotice';
 import { readPreferences, FAMILY_OPTIONS, type JobPreferences } from '@/lib/onboarding/preferences';
 import type { FeedJob, JobFamily, JobLevel } from '@/lib/jobs/feed';
-import { CompanyLogo, useCompanyLogos } from '@/components/jobs/CompanyLogo';
-import { useJobFits, FitPills, FitPanel, type Fit } from '@/components/jobs/JobFit';
+import { useCompanyLogos } from '@/components/jobs/CompanyLogo';
+import { useJobFits } from '@/components/jobs/JobFit';
+import { JobCard } from '@/components/jobs/JobCard';
+import JobDetail from '@/components/jobs/JobDetail';
 import { startApplication, trackedJobs } from '@/lib/jobs/start-application';
 
 const LEVELS: { id: JobLevel; label: string }[] = [
@@ -34,93 +33,6 @@ const FAMILIES: { id: JobFamily | ''; label: string }[] = [
   { id: 'business', label: 'Business and finance' }, { id: 'hardware', label: 'Hardware' }, { id: 'other', label: 'Other' },
 ];
 const MINE = '__mine' as const;
-const LEVEL_LABEL: Record<JobLevel, string> = { intern: 'Internship', early: 'Entry level', mid: 'Mid level', senior: 'Senior' };
-
-const ago = (date: string) => {
-  const d = Math.floor((Date.now() - Date.parse(`${date}T00:00:00Z`)) / 86_400_000);
-  return d <= 0 ? 'Today' : d === 1 ? 'Yesterday' : `${d} days ago`;
-};
-
-// ─── Card ────────────────────────────────────────────────────────────────────
-
-const LEVEL_TONE: Record<JobLevel, string> = {
-  intern: 'text-sky-200 bg-sky-500/10 border-sky-500/20',
-  early: 'text-indigo-200 bg-indigo-500/10 border-indigo-500/20',
-  mid: 'text-slate-200 bg-white/[0.05] border-white/[0.08]',
-  senior: 'text-slate-300 bg-white/[0.04] border-white/[0.08]',
-};
-
-function JobCard({ job, domain, h1bYear, closed, applying, disabled, onApply, fit, hasResume, cardRef, trackedId, expanded, onToggle }: {
-  job: FeedJob; domain: string | null | undefined; h1bYear: string | null; closed: boolean; applying: boolean; disabled: boolean; onApply: () => void;
-  fit: Fit | undefined; hasResume: boolean | null; cardRef: (el: Element | null) => void;
-  /** The tracker entry when this job is already in the student's tracker. */
-  trackedId: string | undefined; expanded: boolean; onToggle: () => void;
-}) {
-  const approvals = job.h?.[0] ?? 0;
-  const fresh = Date.now() - Date.parse(`${job.p}T00:00:00Z`) < 3 * 86_400_000;
-  const remote = /remote/i.test(job.l);
-  const place = job.l.split(';').map(x => x.trim()).filter(Boolean);
-  return (
-    <article ref={cardRef} className={`group glass-card p-4 sm:p-5 transition-colors hover:border-white/[0.14] ${closed ? 'opacity-50' : ''}`}>
-      <div className="flex gap-4">
-        <CompanyLogo company={job.c} domain={domain} />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-col lg:flex-row lg:items-start gap-3 lg:gap-6">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-start gap-2">
-                <h3 className="text-[15px] font-semibold text-white leading-snug">{job.t}</h3>
-                {fresh && !closed && <InfoTip term="newPosting" className="mt-0.5 flex-shrink-0"><span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded px-1.5 py-0.5">New</span></InfoTip>}
-                {closed && <InfoTip term="closedPosting" className="mt-0.5 flex-shrink-0"><span className="text-[10px] font-semibold uppercase tracking-wider text-slate-300 border border-white/[0.12] rounded px-1.5 py-0.5">Closed</span></InfoTip>}
-              </div>
-              <p className="text-[13px] text-slate-300 mt-1 truncate">
-                <span className="font-medium">{job.c}</span>
-                {place.length > 0 && <span className="text-slate-500"> · {place[0]}{place.length > 1 ? ` +${place.length - 1} more` : ''}</span>}
-              </p>
-              <div className="flex flex-wrap items-center gap-1.5 mt-3">
-                <span className={`text-[11px] font-medium rounded-md border px-2 py-0.5 ${LEVEL_TONE[job.v]}`}>{LEVEL_LABEL[job.v]}</span>
-                {remote && <span className="text-[11px] font-medium rounded-md border px-2 py-0.5 text-teal-200 bg-teal-500/10 border-teal-500/20">Remote</span>}
-                <span className="inline-flex items-center gap-1 text-[11px] text-slate-400 rounded-md border border-white/[0.06] px-2 py-0.5"><Clock className="w-3 h-3" />{ago(job.p)}</span>
-                {(job.e === 'enrolled' || job.e === 'ending') && (
-                  <InfoTip term="everified" className="text-[11px] font-medium rounded-md border px-2 py-0.5 text-emerald-300 bg-emerald-500/10 border-emerald-500/20">
-                    <ShieldCheck className="w-3 h-3" />E-Verified
-                  </InfoTip>
-                )}
-                {job.e === 'ended' && (
-                  <InfoTip term="everifyEnded" className="text-[11px] font-medium rounded-md border px-2 py-0.5 text-rose-300 bg-rose-500/10 border-rose-500/20">
-                    <ShieldCheck className="w-3 h-3" />E-Verify ended
-                  </InfoTip>
-                )}
-                {approvals > 0 && (
-                  <InfoTip term="h1b" className="text-[11px] font-medium rounded-md border px-2 py-0.5 text-sky-300 bg-sky-500/10 border-sky-500/20">
-                    <Landmark className="w-3 h-3" />{approvals.toLocaleString('en-US')} H-1B{h1bYear ? ` in FY${h1bYear}` : ''}
-                  </InfoTip>
-                )}
-                {!closed && <FitPills fit={fit} hasResume={hasResume} />}
-                {trackedId && <span className="inline-flex items-center gap-1 whitespace-nowrap text-[11px] font-medium rounded-md border px-2 py-0.5 text-indigo-200 bg-[var(--accent-subtle)] border-[var(--accent-border)]"><FolderCheck className="w-3 h-3" />In your tracker</span>}
-              </div>
-            </div>
-            <div className="flex gap-2 lg:w-72 flex-shrink-0">
-              <button onClick={onToggle} aria-expanded={expanded} className="btn-secondary !px-3 flex-shrink-0">
-                Your fit <ChevronDown className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
-              </button>
-              {trackedId ? (
-                <Link href={`/apply/${trackedId}`} className="btn-secondary flex-1 justify-center">Open</Link>
-              ) : (
-                <button onClick={onApply} disabled={disabled || closed} className="btn-primary flex-1 justify-center disabled:opacity-50">
-                  {applying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Apply
-                </button>
-              )}
-              <a href={job.u} target="_blank" rel="noopener noreferrer" title="Open the employer's posting" aria-label="Open the employer's posting"
-                className="btn-secondary !px-0 w-10 justify-center flex-shrink-0"><ExternalLink className="w-4 h-4" /></a>
-            </div>
-          </div>
-        </div>
-      </div>
-      {expanded && <FitPanel url={job.u} fit={fit} hasResume={hasResume} />}
-    </article>
-  );
-}
-
 interface Page { syncedAt: string; h1bYear: string | null; total: number; page: number; pageSize: number; jobs: FeedJob[] }
 
 export default function JobsPage() {
@@ -150,7 +62,22 @@ export default function JobsPage() {
   const [closed, setClosed] = useState<Set<string>>(new Set());
   const tracked = useRef<Map<string, string> | null>(null);
   const { fits, hasResume, watch } = useJobFits();
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // The job open in the details panel (?job= in the address, so it can be shared).
+  const [open, setOpen] = useState<{ url: string; company?: string } | null>(null);
+  const [saving, setSaving] = useState<string | null>(null);
+  // Saved in this visit: kept in the list even with "Hide tracked" on.
+  const [justSaved, setJustSaved] = useState<Set<string>>(new Set());
+  // "Not interested", remembered in this browser.
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    try { setHidden(new Set(JSON.parse(localStorage.getItem('prc_hidden_jobs') || '[]'))); } catch { /* storage blocked */ }
+    const j = new URLSearchParams(window.location.search).get('job');
+    if (j) setOpen({ url: j });
+  }, []);
+  const storeHidden = (next: Set<string>) => {
+    setHidden(next);
+    try { localStorage.setItem('prc_hidden_jobs', JSON.stringify([...next].slice(-500))); } catch { /* storage blocked */ }
+  };
   // Jobs already in the tracker, hidden by default (remembered in this browser).
   const [trackedMap, setTrackedMap] = useState<Map<string, string>>(new Map());
   const [hideTracked, setHideTracked] = useState(true);
@@ -300,6 +227,43 @@ export default function JobsPage() {
     }
   };
 
+  const save = async (job: FeedJob) => {
+    if (trackedMap.has(job.u)) return;
+    setSaving(job.u);
+    try {
+      tracked.current ??= await trackedJobs();
+      const r = await startApplication(job.u, tracked.current);
+      if ('closed' in r) {
+        setClosed(prev => new Set(prev).add(job.u));
+        toast.error(`${job.c} has closed this posting since our last check.`);
+        return;
+      }
+      setJustSaved(prev => new Set(prev).add(job.u));
+      setTrackedMap(prev => new Map(prev).set(job.u, r.id));
+      toast.success('Saved to your job tracker', { action: { label: 'Open tracker', onClick: () => router.push('/job-tracker') } });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not save this job');
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const hide = (job: FeedJob) => {
+    const next = new Set(hidden); next.add(job.u); storeHidden(next);
+    toast(`Hidden: ${job.t}`, { action: { label: 'Undo', onClick: () => { const n = new Set(next); n.delete(job.u); storeHidden(n); } } });
+  };
+
+  const openJob = (url: string, company?: string) => {
+    setOpen({ url, company });
+    const sp = new URLSearchParams(window.location.search); sp.set('job', url);
+    window.history.replaceState(null, '', `${window.location.pathname}?${sp}`);
+  };
+  const closeJob = () => {
+    setOpen(null);
+    const sp = new URLSearchParams(window.location.search); sp.delete('job');
+    window.history.replaceState(null, '', `${window.location.pathname}${sp.toString() ? `?${sp}` : ''}`);
+  };
+
   const toggleLevel = (id: JobLevel) => setLevels(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));
 
   if (loading || !user) return <AnimatedLoader isVisible loadingText="Loading" showNavigation />;
@@ -307,8 +271,10 @@ export default function JobsPage() {
   const chip = (on: boolean) =>
     `h-9 px-3 rounded-lg text-xs font-medium border transition-colors ${on ? 'bg-[var(--accent-subtle)] border-[var(--accent-border)] text-indigo-100' : 'border-white/[0.08] text-slate-400 hover:text-white hover:bg-white/[0.04]'}`;
 
-  const shownJobs = hideTracked ? jobs.filter(j => !trackedMap.has(j.u)) : jobs;
-  const hiddenCount = jobs.length - shownJobs.length;
+  const notHidden = jobs.filter(j => !hidden.has(j.u));
+  const shownJobs = hideTracked ? notHidden.filter(j => !trackedMap.has(j.u) || justSaved.has(j.u)) : notHidden;
+  const hiddenCount = notHidden.length - shownJobs.length;
+  const notInterested = jobs.length - notHidden.length;
 
   return (
     <div className="space-y-4">
@@ -395,12 +361,14 @@ export default function JobsPage() {
           {hiddenCount > 0 && (
             <p className="px-1 text-[12px] text-slate-500">{hiddenCount} job{hiddenCount === 1 ? '' : 's'} already in your tracker {hiddenCount === 1 ? 'is' : 'are'} hidden. <button onClick={toggleHideTracked} className="text-indigo-300 hover:underline">Show</button></p>
           )}
+          {notInterested > 0 && (
+            <p className="px-1 text-[12px] text-slate-500">{notInterested} job{notInterested === 1 ? '' : 's'} you marked not interested {notInterested === 1 ? 'is' : 'are'} hidden. <button onClick={() => storeHidden(new Set())} className="text-indigo-300 hover:underline">Show again</button></p>
+          )}
           {shownJobs.map(job => (
             <JobCard key={job.u} job={job} domain={logos[job.c]} h1bYear={data?.h1bYear ?? null} closed={closed.has(job.u)}
-              applying={applying === job.u} disabled={!!applying} onApply={() => apply(job)}
               fit={fits[job.u]} hasResume={hasResume} cardRef={watch(job.u)} trackedId={trackedMap.get(job.u)}
-              expanded={expanded.has(job.u)}
-              onToggle={() => setExpanded(prev => { const n = new Set(prev); if (n.has(job.u)) n.delete(job.u); else n.add(job.u); return n; })} />
+              applying={applying === job.u} saving={saving === job.u} disabled={!!applying}
+              onApply={() => apply(job)} onSave={() => save(job)} onHide={() => hide(job)} onOpen={() => openJob(job.u, job.c)} />
           ))}
 
           {/* The next page loads as this comes into view, as on Templates. */}
@@ -416,6 +384,13 @@ export default function JobsPage() {
           )}
         </div>
       </div>
+
+      {open && (
+        <JobDetail url={open.url} domain={open.company ? logos[open.company] : undefined}
+          trackedId={trackedMap.get(open.url)} saving={saving === open.url} applying={applying === open.url} closed={closed.has(open.url)}
+          onClose={closeJob} onApply={apply} onSave={save} onHide={hide} onOpenJob={u => openJob(u, open.company)}
+          onSeeAll={company => { closeJob(); setQ(company); setLevels([]); setFamily(''); setLocation(''); setOrRemote(false); setEverify(false); setH1b(false); setRemote(false); setUsingPrefs(false); window.scrollTo(0, 0); }} />
+      )}
     </div>
   );
 }
