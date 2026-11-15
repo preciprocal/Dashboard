@@ -67,7 +67,7 @@ export default function ApplyJobPage() {
     return (
       <div className="glass-card p-10 text-center">
         <p className="text-sm text-slate-300 mb-4">{error}</p>
-        <button className="btn-secondary" onClick={() => router.push('/apply')}>Back to Apply</button>
+        <button className="btn-secondary" onClick={() => router.push('/jobs')}>Back to jobs</button>
       </div>
     );
   }
@@ -87,7 +87,7 @@ export default function ApplyJobPage() {
       <PageHeader
         title={`${application.jobTitle}${application.company ? ` at ${application.company}` : ''}`}
         icon={Send}
-        crumbs={[{ label: 'Home', href: '/' }, { label: 'Apply', href: '/apply' }, { label: application.company || application.jobTitle }]}
+        crumbs={[{ label: 'Home', href: '/' }, { label: 'Jobs', href: '/jobs' }, { label: application.company || application.jobTitle }]}
         description="Your resume and letter for this job, then prep for each round."
       />
 
