@@ -71,7 +71,7 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     const jd = pack.jobDescription || app.jobDescription || '';
     if (jd.length < 50) return NextResponse.json({ error: 'Add the job description first.' }, { status: 400 });
     const resumeId = pack.resumeId || app.resumeId;
-    const resumeText = pack.tailor?.tailoredText || (resumeId ? await loadOwnResumeText(uid, resumeId) : '');
+    const resumeText = pack.tailor?.tailoredText || (resumeId ? await loadOwnResumeText(authedUser, resumeId) : '');
     if (!resumeText) return NextResponse.json({ error: 'Choose a resume first.' }, { status: 400 });
 
     const context = `ROLE: ${app.jobTitle}${app.company ? ` at ${app.company}` : ''}

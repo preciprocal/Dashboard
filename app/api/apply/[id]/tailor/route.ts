@@ -61,7 +61,7 @@ export async function POST(request: NextRequest, { params }: Ctx) {
 
     const resumeId = body.resumeId || pack.resumeId || app.resumeId;
     if (!resumeId) return NextResponse.json({ error: 'Choose a resume to tailor.' }, { status: 400 });
-    const raw = await loadOwnResumeText(uid, resumeId);
+    const raw = await loadOwnResumeText(authedUser, resumeId);
     if (!raw) return NextResponse.json({ error: 'That resume has no readable text. Upload it again as a text PDF.' }, { status: 400 });
     const resumeText = cleanResumeText(raw).slice(0, 12000);
 

@@ -17,6 +17,8 @@ import {
 import JobApplicationProfile from "@/components/profile/JobApplication";
 import ProfileSaved from "@/components/profile/Saved";
 import { NotificationService } from "@/lib/services/notification-services";
+import ResumePicker, { type ResumeOption } from '@/components/apply/ResumePicker';
+import { DEFAULT_RESUME_EVENT } from '@/components/DefaultResumeBanner';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -40,27 +42,6 @@ interface UserStats {
 }
 
 interface CriticalError { code: string; title: string; message: string; details?: string }
-
-interface SavedTemplate {
-  id: string; title: string; category: string; role?: string; description?: string;
-  techstack?: string[]; difficulty?: string; type?: string; duration?: string;
-  questions?: number; rating?: number; [key: string]: unknown;
-}
-
-interface BookmarkedBlog {
-  id: string; title: string; excerpt: string; category: string; author: string;
-  publishDate: string; readTime: string; tags: string[]; savedAt: string;
-  content?: string; authorAvatar?: string; [key: string]: unknown;
-}
-
-interface CustomInterview {
-  id: string; title: string; role?: string; type?: string; difficulty?: string;
-  questions?: number; duration?: string; createdAt?: string; [key: string]: unknown;
-}
-
-interface UserCreatedContent {
-  blogs: BookmarkedBlog[]; templates: SavedTemplate[]; customInterviews: CustomInterview[];
-}
 
 interface TimestampLike { toDate: () => Date }
 
@@ -185,9 +166,6 @@ const ProfilePage = () => {
 
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [stats,       setStats]       = useState<UserStats | null>(null);
-  const [savedTemplates,    setSavedTemplates]    = useState<SavedTemplate[]>([]);
-  const [bookmarkedBlogs,   setBookmarkedBlogs]   = useState<BookmarkedBlog[]>([]);
-  const [userCreatedContent,setUserCreatedContent]= useState<UserCreatedContent>({ blogs:[], templates:[], customInterviews:[] });
 
   const [isLoading,              setIsLoading]              = useState(true);
   const [loadingStep,            setLoadingStep]            = useState(0);
@@ -199,40 +177,20 @@ const ProfilePage = () => {
   const [editedProfile,          setEditedProfile]          = useState<Partial<UserProfile>>({});
   const [criticalError,          setCriticalError]          = useState<CriticalError | null>(null);
   const [profileError,           setProfileError]           = useState('');
+  const [appResumes,             setAppResumes]             = useState<ResumeOption[] | null>(null);
+  const [settingDefault,         setSettingDefault]         = useState(false);
 
   const loadingSteps: LoadingStep[] = [
     { name: 'Authenticating…',            weight: 1 },
     { name: 'Loading profile data…',      weight: 2 },
     { name: 'Fetching interview history…',weight: 2 },
     { name: 'Calculating statistics…',    weight: 2 },
-    { name: 'Loading saved content…',     weight: 1 },
     { name: 'Done!',                      weight: 1 },
   ];
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/sign-in');
   }, [authLoading, user, router]);
-
-  // Load localStorage-based saved content
-  useEffect(() => {
-    if (!user || authLoading) return;
-    const parseArr = <T extends { id: unknown }>(raw: string | null): T[] => {
-      try {
-        const parsed: unknown = JSON.parse(raw || '[]');
-        return Array.isArray(parsed) ? parsed.map(x => ({ ...(x as Record<string, unknown>), id: String((x as Record<string, unknown>).id) }) as T) : [];
-      } catch { return []; }
-    };
-    setSavedTemplates(parseArr<SavedTemplate>(localStorage.getItem('bookmarkedTemplates')));
-    // Articles cannot be bookmarked in the app, and this used to invent a
-    // title and summary for any id it found. Nothing shown is better than
-    // something made up.
-    setBookmarkedBlogs([]);
-    setUserCreatedContent({
-      blogs:            parseArr<BookmarkedBlog>(localStorage.getItem('userPosts')),
-      templates:        parseArr<SavedTemplate>(localStorage.getItem('userTemplates')),
-      customInterviews: parseArr<CustomInterview>(localStorage.getItem('customInterviews')),
-    });
-  }, [user, authLoading]);
 
   // Fetch profile + stats from API
   useEffect(() => {
@@ -301,7 +259,7 @@ const ProfilePage = () => {
           successRate:    completed.length > 0 ? Math.round((successful.length / completed.length) * 100) : 0,
           completionRate: total > 0 ? Math.round((completed.length / total) * 100) : 0,
         });
-        setLoadingStep(5);
+        setLoadingStep(4);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : '';
         if (msg.includes('fetch') || msg.includes('network')) {
@@ -368,6 +326,9 @@ const ProfilePage = () => {
         const wasComplete = isProfileComplete(userProfile || {});
         const nowComplete = isProfileComplete(updatedProfile);
         setUserProfile(p => p ? { ...p, ...updatedProfile } : null);
+        if (updatedProfile.resume !== userProfile?.resume || updatedProfile.resumeFileName !== userProfile?.resumeFileName) {
+          window.dispatchEvent(new Event(DEFAULT_RESUME_EVENT));
+        }
         setIsEditing(false);
         toast.success('Profile updated!');
         await NotificationService.createNotification(user.id, 'system', 'Profile Updated ✅', 'Your profile has been saved.', { actionUrl: '/profile', actionLabel: 'View Profile' });
@@ -410,6 +371,30 @@ const ProfilePage = () => {
     toast.error('Failed to open file');
   }
 };
+
+  // Resumes already in the app, any of which can become the default.
+  useEffect(() => {
+    if (!isEditing || appResumes) return;
+    fetch('/api/resume').then(r => (r.ok ? r.json() : { data: [] })).then(j => setAppResumes(j.data ?? [])).catch(() => setAppResumes([]));
+  }, [isEditing, appResumes]);
+
+  const chooseAppResume = async (resumeId: string) => {
+    setSettingDefault(true);
+    try {
+      const r = await fetch('/api/resume/default', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resumeId }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || 'Could not set the default resume');
+      const patch = { resume: 'storage', resumeFileName: j.fileName as string };
+      setEditedProfile(p => ({ ...p, ...patch }));
+      setUserProfile(p => (p ? { ...p, ...patch } : p));
+      window.dispatchEvent(new Event(DEFAULT_RESUME_EVENT));
+      toast.success(`${j.fileName} is now your default resume`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not set the default resume');
+    } finally {
+      setSettingDefault(false);
+    }
+  };
 
   const handleEditToggle = () => {
     if (isEditing) setEditedProfile(userProfile || {});
@@ -609,6 +594,7 @@ const ProfilePage = () => {
                       <button onClick={() => handleOpenFile(userProfile.resume!, 'resume')} className="text-blue-400 hover:text-blue-300 transition-colors truncate text-left">
                         {userProfile.resumeFileName || 'Resume.pdf'}
                       </button>
+                      <span className="flex-shrink-0 text-[10.5px] font-semibold px-1.5 py-0.5 rounded-md border text-indigo-200 bg-[var(--accent-subtle)] border-[var(--accent-border)]">Default</span>
                     </div>
                   )}
                   {userProfile.transcript && (
@@ -670,7 +656,7 @@ const ProfilePage = () => {
                 </div>
 
                 <FileRow
-                  label="Resume" hint="Stored securely"
+                  label="Default resume" hint="Auto-apply, the Apply flow and the extension use this one"
                   fileName={editedProfile.resumeFileName || (editedProfile.resume ? 'Resume.pdf' : undefined)}
                   isUploading={isUploadingResume} uploadingLabel="Uploading resume…"
                   accentClass="text-purple-400"
@@ -679,6 +665,15 @@ const ProfilePage = () => {
                   onDelete={() => handleDeleteFile('resume')}
                   onFileChange={e => handleFileUpload(e, 'resume', setIsUploadingResume, resumeFileInputRef)}
                 />
+                {(appResumes === null || appResumes.length > 0) && (
+                  <div className="-mt-1.5">
+                    <p className="text-[11px] text-slate-500 mb-1.5 flex items-center gap-1.5">
+                      Or use a resume you already have in Preciprocal
+                      {settingDefault && <span className="w-3 h-3 border-2 border-indigo-300 border-t-transparent rounded-full animate-spin" />}
+                    </p>
+                    <ResumePicker resumes={appResumes} value="" label="Make a resume from the app your default" placeholder="Choose one of your resumes" onChange={id => { void chooseAppResume(id); }} />
+                  </div>
+                )}
 
                 <FileRow
                   label="Official Transcript" hint="Stored securely"
@@ -723,15 +718,11 @@ const ProfilePage = () => {
 
       {/* ── Saved tab ── */}
       {activeTab === 'saved' && (
-        <ProfileSaved
-          savedTemplates={savedTemplates}
-          bookmarkedBlogs={bookmarkedBlogs}
-          userCreatedContent={userCreatedContent}
-        />
+<ProfileSaved />
       )}
 
       {/* ── Auto-Apply tab ── */}
-      {activeTab === 'auto-apply' && <JobApplicationProfile />}
+      {activeTab === 'auto-apply' && <JobApplicationProfile onOpenProfile={() => { setActiveTab('profile'); setIsEditing(true); }} />}
     </div>
   );
 };

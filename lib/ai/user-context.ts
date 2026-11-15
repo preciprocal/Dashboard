@@ -89,7 +89,7 @@ export async function invalidateUserTextCache(userId: string, fileType?: 'resume
  * Extract text from a user's uploaded PDF file.
  * Checks Redis cache first, then Storage.
  */
-async function extractFileText(
+export async function extractFileText(
   userId: string,
   fileType: 'resume' | 'transcript',
 ): Promise<string | null> {

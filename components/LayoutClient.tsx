@@ -23,6 +23,7 @@ import NotificationCenter from '@/components/Notifications';
 import type { LucideIcon } from 'lucide-react';
 import { Toaster } from 'sonner';
 import AnimatedLoader, { LoaderInlineContext } from '@/components/loader/AnimatedLoader';
+import DefaultResumeBanner from '@/components/DefaultResumeBanner';
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -1088,6 +1089,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
         {/* Fills the window below the header; see .app-main in globals.css. */}
         <main className="app-main p-4 sm:p-6 mt-[65px] flex-1 flex flex-col min-h-0" id="main-content">
           {/* Page loaders render inside this area, not over the whole app. */}
+          <DefaultResumeBanner />
           <LoaderInlineContext.Provider value={true}>
             {children}
           </LoaderInlineContext.Provider>

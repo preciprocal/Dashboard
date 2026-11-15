@@ -16,6 +16,8 @@ export interface ResumeOption {
   companyName?: string;
   createdAt?: string;
   score?: number;
+  /** The default resume from Profile settings. */
+  isDefault?: boolean;
 }
 
 const fmt = (d?: string) => (d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '');
@@ -26,6 +28,7 @@ const scoreTone = (s: number) =>
   : 'text-rose-300 bg-rose-500/10 border-rose-500/20';
 
 function meta(r: ResumeOption) {
+  if (r.isDefault) return ['Default from your settings', fmt(r.createdAt) && `updated ${fmt(r.createdAt)}`].filter(Boolean).join(' · ');
   const target = [r.jobTitle, r.companyName].filter(Boolean).join(' at ');
   return [fmt(r.createdAt) && `Uploaded ${fmt(r.createdAt)}`, target].filter(Boolean).join(' · ');
 }
@@ -40,6 +43,9 @@ function Row({ r, compact = false }: { r: ResumeOption; compact?: boolean }) {
         <span className="block text-[13.5px] font-medium text-white truncate">{r.fileName || 'Resume'}</span>
         {meta(r) && <span className="block text-[11.5px] text-slate-400 truncate mt-0.5">{meta(r)}</span>}
       </span>
+      {r.isDefault && (
+        <span className="flex-shrink-0 text-[11px] font-semibold px-1.5 py-0.5 rounded-md border text-indigo-200 bg-[var(--accent-subtle)] border-[var(--accent-border)]">Default</span>
+      )}
       {typeof r.score === 'number' && r.score > 0 && (
         <span className={`flex-shrink-0 text-[11px] font-semibold tabular-nums px-1.5 py-0.5 rounded-md border ${scoreTone(r.score)}`}>{r.score}</span>
       )}
@@ -47,10 +53,12 @@ function Row({ r, compact = false }: { r: ResumeOption; compact?: boolean }) {
   );
 }
 
-export default function ResumePicker({ resumes, value, onChange }: {
+export default function ResumePicker({ resumes, value, onChange, label = 'Resume to tailor', placeholder = 'Choose a resume' }: {
   resumes: ResumeOption[] | null;
   value: string;
   onChange: (id: string) => void;
+  label?: string;
+  placeholder?: string;
 }) {
   if (resumes === null) {
     return <div className="h-[58px] rounded-[var(--r-md)] border border-[var(--border)] bg-[var(--bg-subtle)] animate-pulse" />;
@@ -67,12 +75,12 @@ export default function ResumePicker({ resumes, value, onChange }: {
   return (
     <SelectPrimitive.Root value={value} onValueChange={onChange}>
       <SelectPrimitive.Trigger
-        aria-label="Resume to tailor"
+        aria-label={label}
         className="group flex h-[58px] w-full items-center gap-3 rounded-[var(--r-md)] border border-[var(--border)] bg-[var(--bg-subtle)] pl-2.5 pr-3.5 text-left
           hover:border-[var(--border-hover)] focus:outline-none focus-visible:border-[var(--accent-border)] focus-visible:shadow-[0_0_0_3px_var(--accent-subtle)]
           data-[state=open]:border-[var(--accent-border)] data-[state=open]:shadow-[0_0_0_3px_var(--accent-subtle)] transition-[border-color,box-shadow] cursor-pointer"
       >
-        {selected ? <Row r={selected} /> : <span className="flex-1 text-sm text-[var(--text-5)] pl-1">Choose a resume</span>}
+        {selected ? <Row r={selected} /> : <span className="flex-1 text-sm text-[var(--text-5)] pl-1">{placeholder}</span>}
         <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180" />
       </SelectPrimitive.Trigger>
       <SelectPrimitive.Portal>

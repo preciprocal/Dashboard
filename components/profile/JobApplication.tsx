@@ -1,13 +1,15 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import { sensitiveValue, SENSITIVE_ANSWERS_VERSION } from '@/lib/config/sensitive-answers';
+import { AppSelect } from '@/components/ui/select';
+import { fetchDefaultResumeInfo } from '@/lib/resume/default-client';
+import type { DefaultResumeInfo } from '@/lib/resume/default-resume';
 import {
   User, Briefcase, GraduationCap, Shield, Users,
   Save, CheckCircle, AlertCircle, Plus, Trash2,
-  Building2, FileText, Star, Heart, ChevronDown, Zap,
+  Building2, FileText, Star, Heart, ChevronDown, Zap, FileBadge, Loader2,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -99,101 +101,9 @@ function CustomDropdown({
   options: DropdownOption[];
   placeholder?: string;
 }) {
-  const [open, setOpen]     = useState(false);
-  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const panelRef   = useRef<HTMLDivElement>(null);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => { setMounted(true); }, []);
-
-  const reposition = useCallback(() => {
-    if (!triggerRef.current) return;
-    const r       = triggerRef.current.getBoundingClientRect();
-    const panelH  = Math.min(224, options.length * 42 + 8);
-    const below   = window.innerHeight - r.bottom;
-    const top     = below >= panelH
-      ? r.bottom + window.scrollY + 6
-      : r.top + window.scrollY - panelH - 6;
-    setCoords({ top, left: r.left + window.scrollX, width: r.width });
-  }, [options.length]);
-
-  const handleOpen = () => { reposition(); setOpen(o => !o); };
-
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent) => {
-      if (triggerRef.current?.contains(e.target as Node) ||
-          panelRef.current?.contains(e.target as Node)) return;
-      setOpen(false);
-    };
-    const onScroll = () => reposition();
-    document.addEventListener('mousedown', close);
-    window.addEventListener('scroll', onScroll, true);
-    window.addEventListener('resize', reposition);
-    return () => {
-      document.removeEventListener('mousedown', close);
-      window.removeEventListener('scroll', onScroll, true);
-      window.removeEventListener('resize', reposition);
-    };
-  }, [open, reposition]);
-
-  const selected     = options.find(o => o.value === value);
-  const displayLabel = selected?.label ?? value ?? placeholder;
-
-  const panel = mounted && open ? createPortal(
-    <div
-      ref={panelRef}
-      style={{
-        position: 'absolute', top: coords.top, left: coords.left,
-        width: coords.width, zIndex: 9999, background: '#0d1526',
-        border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px',
-        overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
-      }}
-    >
-      <div style={{ maxHeight: '224px', overflowY: 'auto' }} className="py-1">
-        {options.map(opt => {
-          const isActive = opt.value === value;
-          return (
-            <button
-              key={opt.value}
-              type="button"
-              onMouseDown={e => e.preventDefault()}
-              onClick={() => { onChange(opt.value); setOpen(false); }}
-              className={`w-full text-left px-4 py-2.5 text-sm transition-colors
-                ${isActive
-                  ? 'bg-purple-600/30 text-white font-medium'
-                  : 'text-slate-300 hover:bg-white/[0.05] hover:text-white'}`}
-            >
-              {opt.label}
-            </button>
-          );
-        })}
-      </div>
-    </div>,
-    document.body
-  ) : null;
-
-  return (
-    <div className="relative w-full">
-      <button
-        ref={triggerRef}
-        type="button"
-        onClick={handleOpen}
-        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-sm transition-all
-          border bg-white/[0.04] backdrop-blur-sm
-          ${open
-            ? 'border-purple-500/50 text-white'
-            : 'border-white/[0.08] text-slate-300 hover:border-white/[0.15] hover:text-white'}`}
-      >
-        <span className={`truncate ${!selected && !value ? 'text-slate-400' : ''}`}>
-          {displayLabel}
-        </span>
-        <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 ml-2 text-slate-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
-      </button>
-      {panel}
-    </div>
-  );
+  // A saved value that is no longer in the list still shows, as before.
+  const list = value && !options.some(o => o.value === value) ? [...options, { value, label: value }] : options;
+  return <AppSelect value={value} onValueChange={onChange} options={list} placeholder={placeholder} className="w-full" />;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -215,9 +125,9 @@ function F({ label, hint, span, children }: {
 }) {
   return (
     <div className={span ?? ''}>
-      <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">
+      <label className="block text-[12.5px] font-medium text-slate-300 mb-1.5">
         {label}
-        {hint && <span className="text-slate-500 normal-case tracking-normal font-normal ml-1.5">· {hint}</span>}
+        {hint && <span className="text-slate-500 font-normal ml-1.5">{hint}</span>}
       </label>
       {children}
     </div>
@@ -276,13 +186,13 @@ function FToggle({ value, onChange, label, desc }: {
       type="button"
       onClick={() => onChange(!value)}
       className={`flex items-center justify-between w-full px-4 py-3 rounded-xl border transition-all duration-200 text-left group
-        ${value ? 'bg-purple-500/10 border-purple-500/25' : 'bg-white/[0.02] border-white/[0.06] hover:border-white/10'}`}
+        ${value ? 'bg-[var(--accent-subtle)] border-[var(--accent-border)]' : 'bg-white/[0.02] border-white/[0.06] hover:border-white/10'}`}
     >
       <div>
         <p className={`text-sm font-medium transition-colors ${value ? 'text-white' : 'text-slate-300 group-hover:text-white'}`}>{label}</p>
         {desc && <p className="text-xs text-slate-400 mt-0.5">{desc}</p>}
       </div>
-      <div className={`relative w-10 h-5 rounded-full flex-shrink-0 transition-colors duration-200 ${value ? 'bg-purple-600' : 'bg-slate-700'}`}>
+      <div className={`relative w-10 h-5 rounded-full flex-shrink-0 transition-colors duration-200 ${value ? 'bg-[var(--accent)]' : 'bg-slate-700'}`}>
         <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-all duration-200 ${value ? 'translate-x-5' : 'translate-x-0.5'}`} />
       </div>
     </button>
@@ -291,8 +201,8 @@ function FToggle({ value, onChange, label, desc }: {
 
 // ─── Collapsible section ──────────────────────────────────────────────────────
 
-function Section({ label, icon: Icon, gradient, desc, children, defaultOpen = true }: {
-  label: string; icon: React.ElementType; gradient: string;
+function Section({ label, icon: Icon, desc, children, defaultOpen = true }: {
+  label: string; icon: React.ElementType;
   desc: string; children: React.ReactNode; defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -301,19 +211,20 @@ function Section({ label, icon: Icon, gradient, desc, children, defaultOpen = tr
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-4 px-6 py-4 hover:bg-white/[0.02] transition-colors group"
+        aria-expanded={open}
+        className="w-full flex items-center gap-3.5 px-5 py-4 hover:bg-white/[0.02] transition-colors"
       >
-        <div className={`w-9 h-9 ${gradient} rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform`}>
-          <Icon className="w-4 h-4 text-white" />
-        </div>
+        <span className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-[var(--accent-subtle)] border border-[var(--accent-border)] text-indigo-200">
+          <Icon className="w-4 h-4" />
+        </span>
         <div className="flex-1 text-left min-w-0">
-          <p className="text-sm font-semibold text-white">{label}</p>
-          <p className="text-xs text-slate-400 truncate">{desc}</p>
+          <p className="text-[14px] font-semibold text-white">{label}</p>
+          <p className="text-[12.5px] text-slate-400 truncate">{desc}</p>
         </div>
         <ChevronDown className={`w-4 h-4 text-slate-400 flex-shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
-        <div className="px-6 pb-6 pt-1 border-t border-white/[0.05]">
+        <div className="px-5 pb-5 pt-1 border-t border-white/[0.05]">
           {children}
         </div>
       )}
@@ -359,7 +270,7 @@ function LocationPicker({ value, onChange }: { value: string[]; onChange: (v: st
   const toggle = (loc: string) =>
     onChange(value.includes(loc) ? value.filter(l => l !== loc) : [...value, loc]);
   return (
-    <F label="Preferred Locations" hint="select all that apply - used for office location questions">
+    <F label="Preferred locations" hint="Select all that apply. Used for office location questions.">
       <div className="flex flex-wrap gap-2 mt-1">
         {PREFERRED_LOCS.map(loc => {
           const active = value.includes(loc);
@@ -368,10 +279,11 @@ function LocationPicker({ value, onChange }: { value: string[]; onChange: (v: st
               key={loc}
               type="button"
               onClick={() => toggle(loc)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all duration-150
+              aria-pressed={active}
+              className={`h-8 px-3 rounded-lg text-xs font-medium border transition-colors
                 ${active
-                  ? 'bg-purple-600/30 border-purple-500/50 text-purple-200'
-                  : 'bg-white/[0.03] border-white/[0.08] text-slate-400 hover:border-white/20 hover:text-slate-300'}`}
+                  ? 'bg-[var(--accent-subtle)] border-[var(--accent-border)] text-indigo-100'
+                  : 'border-white/[0.08] text-slate-400 hover:text-white hover:bg-white/[0.04]'}`}
             >
               {loc}
             </button>
@@ -408,36 +320,51 @@ const DISABILITY = opts(['', 'I do not have a disability','I have a disability',
 // ─── Completion bar ───────────────────────────────────────────────────────────
 
 function CompletionBar({ pct, filled, total }: { pct: number; filled: number; total: number }) {
-  const color = pct >= 80 ? '#22c55e' : pct >= 50 ? '#a855f7' : '#f59e0b';
-  const label = pct >= 80 ? 'Great - the extension will fill most fields'
-              : pct >= 50 ? 'Good start - add more for better coverage'
-              : 'Fill in more fields for best autofill results';
+  const label = pct >= 80 ? 'The extension can fill most application questions'
+              : pct >= 50 ? 'Good start. Add more for better coverage'
+              : 'Fill in more fields for better autofill';
   return (
-    <div className="glass-card p-4">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <Zap className="w-4 h-4 text-purple-400" />
-          <span className="text-sm font-semibold text-white">Profile Completeness</span>
-        </div>
-        <span className="text-sm font-bold tabular-nums" style={{ color }}>{pct}%</span>
+    <div className="pt-4 mt-4 border-t border-white/[0.05]">
+      <div className="flex items-center justify-between gap-3 mb-2 text-[12.5px]">
+        <span className="text-slate-300">{label}</span>
+        <span className="text-slate-400 tabular-nums flex-shrink-0"><span className="text-white font-semibold">{pct}%</span> · {filled}/{total} key fields</span>
       </div>
-      <div className="h-2 rounded-full bg-white/[0.06] overflow-hidden mb-2">
-        <div
-          className="h-full rounded-full transition-all duration-700"
-          style={{ width: `${pct}%`, background: color }}
-        />
+      <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+        <div className={`h-full rounded-full transition-all duration-700 ${pct >= 80 ? 'bg-emerald-400' : 'bg-[var(--accent)]'}`} style={{ width: `${pct}%` }} />
       </div>
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-slate-400">{label}</p>
-        <p className="text-xs text-slate-500">{filled}/{total} key fields</p>
+    </div>
+  );
+}
+
+// The default resume from Profile, which the extension uploads.
+function DefaultResumeRow({ onChange }: { onChange: () => void }) {
+  const [info, setInfo] = useState<DefaultResumeInfo | null | undefined>(undefined);
+  useEffect(() => { fetchDefaultResumeInfo().then(setInfo); }, []);
+  const current = info?.current;
+  return (
+    <div className="glass-card px-5 py-4 flex items-center gap-3.5">
+      <span className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-[var(--accent-subtle)] border border-[var(--accent-border)] text-indigo-200">
+        <FileBadge className="w-4 h-4" />
+      </span>
+      <div className="flex-1 min-w-0">
+        <p className="text-[14px] font-semibold text-white">Default resume</p>
+        <p className="text-[12.5px] text-slate-400 truncate">
+          {info === undefined ? 'Loading…'
+            : current ? <>Auto-apply and the extension use <span className="text-slate-200">{current.fileName}</span></>
+            : 'None yet. Add one in Profile so auto-apply and the extension can use it.'}
+        </p>
       </div>
+      <button type="button" onClick={onChange} className="btn-secondary h-9 flex-shrink-0">
+        {current ? 'Change' : 'Add'}
+      </button>
     </div>
   );
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function JobApplicationProfile() {
+/** onOpenProfile switches Settings to the Profile tab, where the default resume is set. */
+export default function JobApplicationProfile({ onOpenProfile }: { onOpenProfile?: () => void } = {}) {
   const [user]    = useSupabaseUser();
   const [p, setP] = useState<JobAppProfile>(DEFAULT_PROFILE);
   const [saving,  setSaving]  = useState(false);
@@ -574,7 +501,7 @@ export default function JobApplicationProfile() {
 
   if (loading) return (
     <div className="flex items-center justify-center py-20">
-      <div className="w-6 h-6 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+      <Loader2 className="w-6 h-6 text-indigo-300 animate-spin" />
     </div>
   );
 
@@ -582,35 +509,21 @@ export default function JobApplicationProfile() {
     <div className="space-y-3 animate-fade-in-up">
 
       {/* ── Header ── */}
-      <div className="flex items-start justify-between mb-2">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-1 h-4 gradient-primary rounded-full" />
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Chrome Extension</span>
+      <section className="glass-card p-4 sm:p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <span className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-[var(--accent-subtle)] border border-[var(--accent-border)] text-indigo-200">
+            <Zap className="w-[18px] h-[18px]" />
+          </span>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-[15px] font-semibold text-white">Auto-apply details</h2>
+            <p className="text-[12.5px] text-slate-400 mt-0.5">Fill these in once. The Chrome extension uses them to answer application questions.</p>
           </div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Job Application Profile</h2>
-          <p className="text-slate-400 text-sm mt-1">Fill once · the extension answers every question automatically</p>
+          <SaveButton saving={saving} saved={saved} onClick={save} />
         </div>
-        <button
-          type="button"
-          onClick={save}
-          disabled={saving}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all flex-shrink-0
-            ${saved
-              ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-400'
-              : 'bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white '}
-            disabled:opacity-50 disabled:cursor-not-allowed`}
-        >
-          {saving
-            ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            : saved ? <CheckCircle className="w-4 h-4" />
-            : <Save className="w-4 h-4" />}
-          {saving ? 'Saving…' : saved ? 'Saved!' : 'Save'}
-        </button>
-      </div>
+        <CompletionBar pct={pct} filled={filled} total={total} />
+      </section>
 
-      {/* ── Completion bar ── */}
-      <CompletionBar pct={pct} filled={filled} total={total} />
+      <DefaultResumeRow onChange={() => onOpenProfile?.()} />
 
       {error && (
         <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
@@ -619,8 +532,8 @@ export default function JobApplicationProfile() {
       )}
 
       {/* ── 1. Personal ── */}
-      <Section label="Personal Information" icon={User} gradient="gradient-primary" desc="Contact & address details">
-        <div className="grid grid-cols-2 gap-4 mt-5">
+      <Section label="Personal Information" icon={User} desc="Contact & address details">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
           <FInput label="Phone" hint="with country code" value={p.phone} onChange={set('phone')} placeholder="+1 (555) 000-0000" />
           <FInput label="Street Address" value={p.streetAddress} onChange={set('streetAddress')} placeholder="123 Main St, Apt 4" />
           <FInput label="City" value={p.city} onChange={set('city')} placeholder="Boston" />
@@ -631,9 +544,9 @@ export default function JobApplicationProfile() {
       </Section>
 
       {/* ── 2. Professional ── */}
-      <Section label="Professional Profile" icon={Briefcase} gradient="gradient-accent" desc="Skills, links & summary">
+      <Section label="Professional Profile" icon={Briefcase} desc="Skills, links & summary">
         <div className="space-y-4 mt-5">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FInput label="Target Role / Headline" value={p.headline} onChange={set('headline')} placeholder="Senior Software Engineer" />
             <FSelect label="Years of Experience" value={p.yearsOfExperience} onChange={set('yearsOfExperience')} options={YOE} />
           </div>
@@ -647,12 +560,12 @@ export default function JobApplicationProfile() {
             value={p.skills} onChange={set('skills')} rows={2}
             placeholder="React, TypeScript, Node.js, Python, AWS, PostgreSQL…"
           />
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <FInput label="LinkedIn" value={p.linkedInUrl} onChange={set('linkedInUrl')} placeholder="linkedin.com/in/username" />
             <FInput label="GitHub"   value={p.githubUrl}   onChange={set('githubUrl')}   placeholder="github.com/username" />
             <FInput label="Portfolio / Website" value={p.portfolioUrl} onChange={set('portfolioUrl')} placeholder="yoursite.com" />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FInput label="Certifications" hint="comma-separated" value={p.certifications} onChange={set('certifications')} placeholder="AWS Solutions Architect, PMP…" />
             <FInput label="Languages" hint="comma-separated" value={p.languages} onChange={set('languages')} placeholder="English, Spanish" />
           </div>
@@ -660,9 +573,9 @@ export default function JobApplicationProfile() {
       </Section>
 
       {/* ── 3. Preferences ── */}
-      <Section label="Job Preferences" icon={Star} gradient="bg-gradient-to-br from-amber-500 to-orange-600" desc="Salary, work type & availability">
+      <Section label="Job Preferences" icon={Star} desc="Salary, work type & availability">
         <div className="space-y-4 mt-5">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <SalaryField salary={p.desiredSalary} salaryType={p.salaryType} onSalary={set('desiredSalary')} onType={set('salaryType')} />
             <FSelect label="Notice Period"    value={p.noticePeriod}   onChange={set('noticePeriod')}   options={NOTICE} />
             <FSelect label="Work Arrangement" value={p.workType}       onChange={set('workType')}       options={WORK_TYPE} />
@@ -671,7 +584,7 @@ export default function JobApplicationProfile() {
             <FSelect label="How did you hear?" hint="default answer" value={p.howDidYouHear} onChange={set('howDidYouHear')} options={REFERRAL} />
           </div>
           <LocationPicker value={p.preferredLocations} onChange={set('preferredLocations')} />
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <FToggle value={p.willingToRelocate} onChange={set('willingToRelocate')} label="Willing to relocate" />
             <FToggle value={p.currentlyEmployed} onChange={set('currentlyEmployed')} label="Currently employed" />
           </div>
@@ -683,9 +596,9 @@ export default function JobApplicationProfile() {
       </Section>
 
       {/* ── 4. Work Auth ── */}
-      <Section label="Work Authorization" icon={Shield} gradient="bg-emerald-500" desc="Visa & authorization status">
+      <Section label="Work Authorization" icon={Shield} desc="Visa & authorization status">
         <div className="space-y-4 mt-5">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FSelect label="Authorized to work in the US?" value={p.workAuthorization} onChange={set('workAuthorization')} options={WORK_AUTH} />
             <FSelect label="Visa / Work Status" value={p.visaType} onChange={set('visaType')} options={VISA} />
           </div>
@@ -694,12 +607,12 @@ export default function JobApplicationProfile() {
       </Section>
 
       {/* ── 5. Education ── */}
-      <Section label="Education" icon={GraduationCap} gradient="bg-[var(--accent)]" desc="Degrees & schools">
+      <Section label="Education" icon={GraduationCap} desc="Degrees & schools">
         <div className="space-y-3 mt-5">
           {p.education.map((edu, i) => (
             <div key={i} className="rounded-xl p-5 space-y-4 bg-white/[0.03] border border-white/[0.06]">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                <span className="text-[12.5px] font-semibold text-slate-200">
                   {p.education.length > 1 ? `Education #${i + 1}` : 'Education'}
                 </span>
                 {p.education.length > 1 && (
@@ -712,7 +625,7 @@ export default function JobApplicationProfile() {
                   </button>
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FInput label="School / University" value={edu.school} onChange={v => setEdu(i, 'school', v)} placeholder="Northeastern University" />
                 <FSelect label="Degree" value={edu.degree} onChange={v => setEdu(i, 'degree', v)} options={DEGREE} />
                 <FInput label="Field of Study / Major" value={edu.field} onChange={v => setEdu(i, 'field', v)} placeholder="Computer Science" />
@@ -724,8 +637,8 @@ export default function JobApplicationProfile() {
               </div>
             </div>
           ))}
-          <button type="button" onClick={addEdu} className="flex items-center gap-2 text-sm text-purple-400 hover:text-purple-300 transition-colors group">
-            <div className="w-6 h-6 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center group-hover:bg-purple-500/20 transition-colors">
+          <button type="button" onClick={addEdu} className="flex items-center gap-2 text-sm text-indigo-300 hover:text-indigo-200 transition-colors">
+            <div className="w-6 h-6 rounded-lg bg-[var(--accent-subtle)] border border-[var(--accent-border)] flex items-center justify-center">
               <Plus className="w-3.5 h-3.5" />
             </div>
             Add another education
@@ -734,12 +647,12 @@ export default function JobApplicationProfile() {
       </Section>
 
       {/* ── 6. Experience ── */}
-      <Section label="Work Experience" icon={Building2} gradient="gradient-accent" desc="Work history & roles">
+      <Section label="Work Experience" icon={Building2} desc="Work history & roles">
         <div className="space-y-3 mt-5">
           {p.experience.map((exp, i) => (
             <div key={i} className="rounded-xl p-5 space-y-4 bg-white/[0.03] border border-white/[0.06]">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                <span className="text-[12.5px] font-semibold text-slate-200">
                   {p.experience.length > 1 ? `Position #${i + 1}` : 'Position'}
                 </span>
                 {p.experience.length > 1 && (
@@ -752,7 +665,7 @@ export default function JobApplicationProfile() {
                   </button>
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FInput label="Company" value={exp.company} onChange={v => setExp(i, 'company', v)} placeholder="Google" />
                 <FInput label="Job Title" value={exp.title} onChange={v => setExp(i, 'title', v)} placeholder="Software Engineer" />
                 <FInput label="Start Date" value={exp.startDate} onChange={v => setExp(i, 'startDate', v)} placeholder="Jan 2022" />
@@ -766,8 +679,8 @@ export default function JobApplicationProfile() {
               />
             </div>
           ))}
-          <button type="button" onClick={addExp} className="flex items-center gap-2 text-sm text-purple-400 hover:text-purple-300 transition-colors group">
-            <div className="w-6 h-6 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center group-hover:bg-purple-500/20 transition-colors">
+          <button type="button" onClick={addExp} className="flex items-center gap-2 text-sm text-indigo-300 hover:text-indigo-200 transition-colors">
+            <div className="w-6 h-6 rounded-lg bg-[var(--accent-subtle)] border border-[var(--accent-border)] flex items-center justify-center">
               <Plus className="w-3.5 h-3.5" />
             </div>
             Add another position
@@ -776,9 +689,9 @@ export default function JobApplicationProfile() {
       </Section>
 
       {/* ── 7. Standard Questions ── */}
-      <Section label="Standard Questions" icon={FileText} gradient="gradient-primary" desc="Common yes/no questions on every portal" defaultOpen={false}>
+      <Section label="Standard Questions" icon={FileText} desc="Common yes/no questions on every portal" defaultOpen={false}>
         <p className="text-xs text-slate-400 mt-5">Left as &ldquo;Not set&rdquo;, autofill leaves the question for you to answer on each application.</p>
-        <div className="grid grid-cols-2 gap-4 mt-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
           <FTri label="18 years or older?"           value={p.over18}          onChange={set('over18')} />
           <FTri label="Valid driver's license?"      value={p.driverLicense}   onChange={set('driverLicense')} />
           <FTri label="Consent to background check?" value={p.backgroundCheck} onChange={set('backgroundCheck')} />
@@ -788,12 +701,12 @@ export default function JobApplicationProfile() {
       </Section>
 
       {/* ── 8. EEO ── */}
-      <Section label="EEO & Diversity" icon={Users} gradient="gradient-primary" desc="Optional - voluntary diversity questions" defaultOpen={false}>
+      <Section label="EEO & Diversity" icon={Users} desc="Optional, voluntary diversity questions" defaultOpen={false}>
         <div className="space-y-4 mt-5">
-          <div className="px-4 py-3 rounded-xl bg-blue-500/[0.08] border border-blue-500/[0.15]">
-            <p className="text-xs text-blue-400/80">Only used to auto-fill voluntary EEO sections. Never shared for any other purpose. Anything left as &ldquo;Not set&rdquo; is never answered for you.</p>
+          <div className="px-4 py-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+            <p className="text-[12.5px] text-slate-400">Only used to auto-fill voluntary EEO sections. Never shared for any other purpose. Anything left as &ldquo;Not set&rdquo; is never answered for you.</p>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FSelect label="Gender"   value={p.gender}   onChange={set('gender')}   options={GENDER} />
             <FSelect label="Pronouns" value={p.pronouns} onChange={set('pronouns')} options={PRONOUNS} />
             <FSelect label="Race / Ethnicity" value={p.race} onChange={set('race')} options={RACE} />
@@ -804,14 +717,14 @@ export default function JobApplicationProfile() {
               value={p.disabilityStatus}
               onChange={set('disabilityStatus')}
               options={DISABILITY}
-              span="col-span-2"
+              span="sm:col-span-2"
             />
           </div>
         </div>
       </Section>
 
       {/* ── 9. Cover Letter ── */}
-      <Section label="Cover Letter" icon={Heart} gradient="bg-gradient-to-br from-pink-500 to-rose-600" desc="Template for cover letters & 'Why us?' questions" defaultOpen={false}>
+      <Section label="Cover Letter" icon={Heart} desc="Template for cover letters & 'Why us?' questions" defaultOpen={false}>
         <div className="space-y-4 mt-5">
           <FTextarea
             label="Opening Paragraph" hint="personalize per company" rows={3}
@@ -823,34 +736,28 @@ export default function JobApplicationProfile() {
             value={p.coverLetterBody} onChange={set('coverLetterBody')}
             placeholder="In my previous role at [Company], I led the development of [achievement]. I am particularly drawn to [Company] because…"
           />
-          <div className="px-4 py-3 rounded-xl bg-purple-500/[0.08] border border-purple-500/[0.15]">
-            <p className="text-xs text-purple-400/70">
-              💡 Use <code className="bg-purple-500/20 px-1 rounded text-purple-300">[Company]</code> and <code className="bg-purple-500/20 px-1 rounded text-purple-300">[Role]</code> - the extension replaces them automatically.
+          <div className="px-4 py-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+            <p className="text-[12.5px] text-slate-400">
+              Use <code className="bg-white/[0.06] px-1 rounded text-slate-200">[Company]</code> and <code className="bg-white/[0.06] px-1 rounded text-slate-200">[Role]</code>. The extension replaces them for each job.
             </p>
           </div>
         </div>
       </Section>
 
       {/* ── Footer save ── */}
-      <div className="flex justify-end pt-2 pb-8">
-        <button
-          type="button"
-          onClick={save}
-          disabled={saving}
-          className={`flex items-center gap-2.5 px-6 py-3 rounded-xl text-sm font-semibold transition-all
-            ${saved
-              ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-400'
-              : 'bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white '}
-            disabled:opacity-50 disabled:cursor-not-allowed`}
-        >
-          {saving
-            ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            : saved ? <CheckCircle className="w-4 h-4" />
-            : <Save className="w-4 h-4" />}
-          {saving ? 'Saving…' : saved ? 'Profile Saved!' : 'Save Auto-Apply Profile'}
-        </button>
+      <div className="flex justify-end pt-1 pb-8">
+        <SaveButton saving={saving} saved={saved} onClick={save} label="Save auto-apply details" />
       </div>
 
     </div>
+  );
+}
+function SaveButton({ saving, saved, onClick, label = 'Save' }: { saving: boolean; saved: boolean; onClick: () => void; label?: string }) {
+  return (
+    <button type="button" onClick={onClick} disabled={saving}
+      className={`${saved ? 'btn-secondary text-emerald-300' : 'btn-primary'} h-9 flex-shrink-0 justify-center`}>
+      {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <CheckCircle className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+      {saving ? 'Saving' : saved ? 'Saved' : label}
+    </button>
   );
 }

@@ -10,26 +10,27 @@ import { Loader2, Check, X, Sparkles, Copy, Download, ShieldCheck, ChevronRight,
 import { toast } from 'sonner';
 import ResumePicker, { type ResumeOption } from '@/components/apply/ResumePicker';
 import type { ApplyStepProps } from '@/components/apply/types';
+import { loadResumeOptions } from '@/lib/resume/default-client';
 
 
 export default function TailorStep({ application, pack, onPack, update, goTo }: ApplyStepProps) {
   const [resumes, setResumes] = useState<ResumeOption[] | null>(null);
-  const [resumeId, setResumeId] = useState(pack.resumeId || application.resumeId || '');
+  const [resumeId, setResumeId] = useState(pack.resumeId || '');
   const [jd, setJd] = useState(pack.jobDescription || application.jobDescription || '');
   const [editJd, setEditJd] = useState(!(pack.jobDescription || application.jobDescription));
   const [running, setRunning] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('/api/resume')
-      .then(r => (r.ok ? r.json() : Promise.reject()))
-      .then(j => {
-        const list = (j.data ?? []) as ResumeOption[];
-        setResumes(list);
-        setResumeId(prev => prev || list[0]?.id || '');
+    // The default resume from settings comes first and is used unless one
+    // was already chosen for this application.
+    loadResumeOptions(application.resumeId)
+      .then(({ options, preferredId }) => {
+        setResumes(options);
+        setResumeId(prev => prev || preferredId);
       })
       .catch(() => setResumes([]));
-  }, []);
+  }, [application.resumeId]);
 
   const propose = async () => {
     if (!resumeId) { toast.error('Choose a resume first.'); return; }

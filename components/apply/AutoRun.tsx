@@ -16,6 +16,7 @@ import { CheckCircle2, Loader2, Circle, AlertTriangle, Zap, X, Chrome } from 'lu
 import type { ApplyStepProps } from '@/components/apply/types';
 import type { ApplyPack } from '@/lib/applications/pack';
 import { detectExtension, extensionStoreUrl, prepareAutofill, versionAtLeast } from '@/lib/extension';
+import { loadResumeOptions } from '@/lib/resume/default-client';
 
 type Status = 'pending' | 'running' | 'done' | 'error';
 type Key = 'resume' | 'approve' | 'letter' | 'extension' | 'portal';
@@ -53,11 +54,8 @@ export default function AutoRun({ application, pack, onPack, update, goTo }: App
     goTo('resume');
     if (!p.tailor) {
       set('resume', 'running', 'Tailoring your resume to the job description');
-      let resumeId = p.resumeId || application.resumeId || '';
-      if (!resumeId) {
-        const list = await fetch('/api/resume').then(r => (r.ok ? r.json() : { data: [] })).catch(() => ({ data: [] }));
-        resumeId = (list.data as { id: string }[])[0]?.id ?? '';
-      }
+      // The default resume from settings, unless one was already chosen here.
+      const resumeId = p.resumeId || (await loadResumeOptions(application.resumeId)).preferredId;
       if (!resumeId) return fail('resume', 'Upload a resume first, then try again.', <Link href="/resume/upload" className="btn-secondary h-9">Upload a resume</Link>);
       try {
         p = (await json(await fetch(`/api/apply/${application.id}/tailor`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resumeId }) }))).pack;
