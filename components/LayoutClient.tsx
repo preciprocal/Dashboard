@@ -628,7 +628,9 @@ function LayoutContent({ children, user }: LayoutClientProps) {
         if (hops.length >= 2) { setAuthLoop(true); return; }
         sessionStorage.setItem('prc_auth_hops', JSON.stringify([...hops, now]));
       } catch { /* storage blocked: redirect anyway */ }
-      router.push(`/sign-in?redirect=${encodeURIComponent(pathname)}`);
+      // With the query string: a link like /jobs?q=&jobUrl= or
+      // /apply?company=&title= must land back on the same view after sign-in.
+      router.push(`/sign-in?redirect=${encodeURIComponent(pathname + window.location.search)}`);
     }
   }, [user, authResolved, pathname, router]);
 
