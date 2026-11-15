@@ -20,6 +20,7 @@ const SECTIONS: Record<string, string> = {
   "/interview": "Interviews",
   "/cover-letter": "Cover Letters",
   "/planner": "Planner",
+  "/jobs": "Jobs",
   "/apply": "Apply",
   "/job-tracker": "Job Tracker",
   "/contacts": "Contacts",

@@ -91,7 +91,7 @@ export default function ApplyStartPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <section className="glass-card p-5">
           <h2 className="text-sm font-semibold text-white flex items-center gap-2 mb-1"><Briefcase className="w-4 h-4 text-indigo-300" /> From your job tracker</h2>
-          <p className="text-[13px] text-slate-400 mb-4">Jobs you saved, including from the Chrome extension.</p>
+          <p className="text-[13px] text-slate-400 mb-4">Jobs you saved, including from the Chrome extension. Or <Link href="/jobs" className="text-indigo-300 hover:underline">browse open roles</Link>.</p>
           {jobs === null ? (
             <div className="flex items-center gap-2 text-sm text-slate-400 py-6 justify-center"><Loader2 className="w-4 h-4 animate-spin" /> Loading your jobs</div>
           ) : jobs.length === 0 ? (

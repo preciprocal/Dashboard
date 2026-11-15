@@ -9,7 +9,7 @@ import logo from "@/public/logo.png";
 import {
   Search, Menu, X, Home, Video, BookOpen, Settings, HelpCircle,
   LogOut, Crown, FileText, Shield, Calendar, Pen, ArrowLeftRight,
-  ChevronRight, NotebookPen, Sparkles, Briefcase, Zap, Chrome, Contact, CircleDollarSign, Send,
+  ChevronRight, NotebookPen, Sparkles, Briefcase, Zap, Chrome, Contact, CircleDollarSign, Send, Building2,
 } from 'lucide-react';
 import { signOut } from "@/lib/actions/auth.action";
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
@@ -280,6 +280,7 @@ const SearchDropdown = () => {
     { id: 'planner',       label: 'Planner',             href: '/planner',          icon: Calendar    },
     { id: 'debrief',       label: 'Interview Journal',   href: '/debrief',          icon: NotebookPen },
     { id: 'career-tools',  label: 'Career Tools',        href: '/career-tools',     icon: Sparkles    },
+    { id: 'jobs',          label: 'Job Feed',            href: '/jobs',             icon: Building2   },
     { id: 'apply',         label: 'Apply to a Job',      href: '/apply',            icon: Send        },
     { id: 'job-tracker',   label: 'Job Tracker',         href: '/job-tracker',      icon: Briefcase   },
     { id: 'contacts',      label: 'Contacts',            href: '/contacts',         icon: Contact     },
@@ -662,6 +663,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
     { id: 'planner',      label: 'Planner',           icon: Calendar,    href: '/planner'      },
     { id: 'debrief',      label: 'Interview Journal', icon: NotebookPen, href: '/debrief'      },
     { id: 'career-tools', label: 'Career Tools',      icon: Sparkles,    href: '/career-tools' },
+    { id: 'jobs',         label: 'Jobs',              icon: Building2,   href: '/jobs'         },
     { id: 'apply',        label: 'Apply',             icon: Send,        href: '/apply'        },
     { id: 'job-tracker',  label: 'Job Tracker',       icon: Briefcase,   href: '/job-tracker'  },
     { id: 'contacts',     label: 'Contacts',          icon: Contact,     href: '/contacts'     },
@@ -696,6 +698,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
     { id: 'planner',      label: 'Planner',           icon: Calendar,    href: '/planner'      },
     { id: 'debrief',      label: 'Interview Journal', icon: NotebookPen, href: '/debrief'      },
     { id: 'career-tools', label: 'Career Tools',      icon: Sparkles,    href: '/career-tools' },
+    { id: 'jobs',         label: 'Jobs',              icon: Building2,   href: '/jobs'         },
     { id: 'apply',        label: 'Apply',             icon: Send,        href: '/apply'        },
     { id: 'job-tracker',  label: 'Job Tracker',       icon: Briefcase,   href: '/job-tracker'  },
     { id: 'contacts',     label: 'Contacts',          icon: Contact,     href: '/contacts'     },
