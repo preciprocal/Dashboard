@@ -14,6 +14,7 @@ import {
   Check, RefreshCw, Linkedin, Shield, ArrowRight, Mic, ShieldCheck, Send,
 } from 'lucide-react';
 import Link from 'next/link';
+import { CompanyLogo, useCompanyLogos } from '@/components/jobs/CompanyLogo';
 import { toast } from 'sonner';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import { useConfirm } from '@/components/ui/confirm-dialog';
@@ -359,8 +360,8 @@ function H1bBadge({ history, years }: { history: H1bHistory | null; years: strin
   );
 }
 
-function AppCard({ app, everify, everifySyncedAt, h1b, h1bYears, schedule, onSchedule, onEdit, onDelete, onStatusChange, onCreatePlan, onFindContacts }: {
-  app: Application; everify?: EverifyStatus; everifySyncedAt: string | null; h1b?: H1bHistory | null; h1bYears: string[] | null; schedule: InterviewSchedule | null; onSchedule: () => void; onEdit: () => void; onDelete: () => void; onStatusChange: (status: AppStatus) => void; onCreatePlan: () => void; onFindContacts: () => void;
+function AppCard({ app, logoDomain, everify, everifySyncedAt, h1b, h1bYears, schedule, onSchedule, onEdit, onDelete, onStatusChange, onCreatePlan, onFindContacts }: {
+  app: Application; logoDomain?: string | null; everify?: EverifyStatus; everifySyncedAt: string | null; h1b?: H1bHistory | null; h1bYears: string[] | null; schedule: InterviewSchedule | null; onSchedule: () => void; onEdit: () => void; onDelete: () => void; onStatusChange: (status: AppStatus) => void; onCreatePlan: () => void; onFindContacts: () => void;
 }) {
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const menuRef = React.useRef<HTMLDivElement>(null);
@@ -379,7 +380,7 @@ function AppCard({ app, everify, everifySyncedAt, h1b, h1bYears, schedule, onSch
       <div className="p-4 flex-1">
         <div className="flex items-start justify-between gap-2 mb-3">
           <div className="flex items-start gap-2.5 flex-1 min-w-0">
-            <div className="w-9 h-9 bg-white/[0.07] border border-white/[0.09] rounded-xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0">{app.company.charAt(0).toUpperCase()}</div>
+            <CompanyLogo company={app.company} domain={logoDomain} size={36} />
             <div className="min-w-0 flex-1"><p className="text-sm text-white font-bold truncate leading-tight">{app.company}</p><p className="text-xs text-slate-400 truncate mt-0.5">{app.jobTitle}</p></div>
           </div>
           <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
@@ -671,6 +672,8 @@ export default function JobTrackerPage() {
 
   const [apps, setApps] = useState<Application[]>([]);
   const [everify, setEverify] = useState<{ statuses: Record<string, EverifyStatus>; syncedAt: string | null }>({ statuses: {}, syncedAt: null });
+  // Company logos for the cards (components/jobs/CompanyLogo.tsx).
+  const logos = useCompanyLogos(apps.map(a => ({ company: a.company, url: a.jobUrl })));
   const [h1b, setH1b] = useState<{ histories: Record<string, H1bHistory | null>; years: string[] } | null>(null);
   const companyKey = [...new Set(apps.map(a => a.company.trim()).filter(Boolean))].sort().join('|');
   useEffect(() => {
@@ -930,7 +933,7 @@ export default function JobTrackerPage() {
                 <p className="text-xs text-slate-500">{filtered.length} application{filtered.length !== 1 ? 's' : ''}{(search || filterStatus !== 'all' || filterWork !== 'all') ? ' matching filters' : ''}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {filtered.map(app => (
-                    <AppCard key={app.id} app={app} everify={everify.statuses[app.company.trim()]} everifySyncedAt={everify.syncedAt} h1b={h1b?.histories[app.company.trim()]} h1bYears={h1b?.years ?? null}
+                    <AppCard key={app.id} app={app} logoDomain={logos[app.company]} everify={everify.statuses[app.company.trim()]} everifySyncedAt={everify.syncedAt} h1b={h1b?.histories[app.company.trim()]} h1bYears={h1b?.years ?? null}
                       schedule={interviews.schedules[app.id] ?? null} onSchedule={() => setScheduleFor(app.id)} onEdit={() => handleEdit(app)} onDelete={() => handleDelete(app.id)}
                       onStatusChange={status => handleStatusChange(app.id, status)} onCreatePlan={() => setPlanModal(app)}
                       onFindContacts={() => handleFindContacts(app)} />

@@ -17,6 +17,7 @@ import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import { AppSelect } from '@/components/ui/select';
 import type { FeedJob, JobFamily, JobLevel } from '@/lib/jobs/feed';
+import { CompanyLogo, useCompanyLogos } from '@/components/jobs/CompanyLogo';
 
 const LEVELS: { id: JobLevel; label: string }[] = [
   { id: 'intern', label: 'Internship' }, { id: 'early', label: 'Entry level' }, { id: 'mid', label: 'Mid level' }, { id: 'senior', label: 'Senior' },
@@ -34,13 +35,6 @@ const ago = (date: string) => {
 
 // ─── Card ────────────────────────────────────────────────────────────────────
 
-const initials = (name: string) =>
-  name.replace(/\b(inc|llc|ltd|corp|corporation|co|company)\b\.?/gi, '').trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('') || '?';
-
-// A steady tint per company, from a small muted palette.
-const TINTS = ['#5b6cff', '#0ea5e9', '#14b8a6', '#a855f7', '#f59e0b', '#ec4899', '#22c55e', '#f97316'];
-const tint = (name: string) => TINTS[[...name].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % TINTS.length];
-
 const LEVEL_TONE: Record<JobLevel, string> = {
   intern: 'text-sky-200 bg-sky-500/10 border-sky-500/20',
   early: 'text-indigo-200 bg-indigo-500/10 border-indigo-500/20',
@@ -48,21 +42,17 @@ const LEVEL_TONE: Record<JobLevel, string> = {
   senior: 'text-slate-300 bg-white/[0.04] border-white/[0.08]',
 };
 
-function JobCard({ job, h1bYear, closed, applying, disabled, onApply }: {
-  job: FeedJob; h1bYear: string | null; closed: boolean; applying: boolean; disabled: boolean; onApply: () => void;
+function JobCard({ job, domain, h1bYear, closed, applying, disabled, onApply }: {
+  job: FeedJob; domain: string | null | undefined; h1bYear: string | null; closed: boolean; applying: boolean; disabled: boolean; onApply: () => void;
 }) {
   const approvals = job.h?.[0] ?? 0;
   const fresh = Date.now() - Date.parse(`${job.p}T00:00:00Z`) < 3 * 86_400_000;
   const remote = /remote/i.test(job.l);
   const place = job.l.split(';').map(x => x.trim()).filter(Boolean);
-  const color = tint(job.c);
   return (
     <article className={`group glass-card p-4 sm:p-5 transition-colors hover:border-white/[0.14] ${closed ? 'opacity-50' : ''}`}>
       <div className="flex gap-4">
-        <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 text-[13px] font-semibold tracking-wide"
-          style={{ background: `${color}1f`, color, border: `1px solid ${color}40` }} aria-hidden>
-          {initials(job.c)}
-        </div>
+        <CompanyLogo company={job.c} domain={domain} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-col lg:flex-row lg:items-start gap-3 lg:gap-6">
             <div className="min-w-0 flex-1">
@@ -185,7 +175,7 @@ export default function JobsPage() {
   }, [user, query]);
 
   const more = async () => {
-    if (!data) return;
+    if (!data || busy || jobs.length >= data.total) return;
     setBusy(true);
     try {
       const r = await fetch(`/api/jobs?${query(data.page + 1)}`);
@@ -198,6 +188,22 @@ export default function JobsPage() {
       setBusy(false);
     }
   };
+
+  // Load the next page as the end of the list scrolls into view.
+  const sentinel = useRef<HTMLDivElement | null>(null);
+  const moreRef = useRef(more);
+  moreRef.current = more;
+  useEffect(() => {
+    const el = sentinel.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(entries => {
+      if (entries.some(e => e.isIntersecting)) moreRef.current();
+    }, { rootMargin: '600px 0px' });
+    io.observe(el);
+    return () => io.disconnect();
+  });
+
+  const logos = useCompanyLogos(jobs.map(j => ({ company: j.c, url: j.u })));
 
   const apply = async (job: FeedJob) => {
     // Auto mode runs the whole Apply flow in a new tab, opened now inside the
@@ -319,16 +325,20 @@ export default function JobsPage() {
           )}
 
           {jobs.map(job => (
-            <JobCard key={job.u} job={job} h1bYear={data?.h1bYear ?? null} closed={closed.has(job.u)}
+            <JobCard key={job.u} job={job} domain={logos[job.c]} h1bYear={data?.h1bYear ?? null} closed={closed.has(job.u)}
               applying={applying === job.u} disabled={!!applying} onApply={() => apply(job)} />
           ))}
 
+          {/* The next page loads as this comes into view, as on Templates. */}
           {data && jobs.length < data.total && (
-            <div className="flex justify-center pt-1">
-              <button onClick={more} disabled={busy} className="btn-secondary disabled:opacity-50">
-                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Show more
-              </button>
+            <div ref={sentinel} className="flex justify-center items-center gap-2 py-6 text-xs text-slate-500">
+              {busy ? <><Loader2 className="w-4 h-4 animate-spin" /> Loading more roles</> : (
+                <button onClick={more} className="text-slate-400 hover:text-white">Load more</button>
+              )}
             </div>
+          )}
+          {data && jobs.length > 0 && jobs.length >= data.total && (
+            <p className="text-center text-xs text-slate-500 py-6">That is every open role that matches.</p>
           )}
         </div>
 
