@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Search, MapPin, Loader2, ExternalLink, Send, ShieldCheck, Landmark, CheckCircle2, Info, Briefcase, Clock, Zap,
+  Search, MapPin, Loader2, ExternalLink, Send, ShieldCheck, Landmark, Briefcase, Clock, Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import PageHeader from '@/components/PageHeader';
@@ -288,7 +288,7 @@ export default function JobsPage() {
         </div>
       </section>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_300px] gap-4 items-start">
+      <div>
         <div className="space-y-3">
           <div className="glass-card p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center gap-3">
             <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -341,22 +341,6 @@ export default function JobsPage() {
             <p className="text-center text-xs text-slate-500 py-6">That is every open role that matches.</p>
           )}
         </div>
-
-        <aside className="glass-card p-5 xl:sticky xl:top-4">
-          <h2 className="text-sm font-semibold text-white flex items-center gap-2 mb-3"><Info className="w-4 h-4 text-indigo-300" /> What we check</h2>
-          <ul className="space-y-2.5 text-[12.5px] text-slate-400 leading-relaxed">
-            {[
-              "Listed on the employer's own job board (Greenhouse, Lever or Ashby), refreshed every 6 hours. A closed role drops out at the next refresh.",
-              'Posted in the time range you choose, 30 days by default.',
-              'Located in the U.S. or remote in the U.S.',
-              'From an employer in USCIS H-1B records, with its E-Verify status from the public E-Verify search.',
-              'Reposts of the same role and location are shown once.',
-              'Talent-pool and "expression of interest" listings are left out. They collect resumes; they are not openings.',
-              "When you apply, we check the posting is still live on the employer's board.",
-            ].map(t => <li key={t} className="flex gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0 mt-0.5" />{t}</li>)}
-          </ul>
-          <p className="text-[12px] text-slate-500 mt-4 leading-relaxed">These checks remove the usual signs of a stale or fake listing, but no one can confirm an employer intends to fill a role. H-1B counts show past petitions, not that a company will sponsor you.</p>
-        </aside>
       </div>
     </div>
   );
