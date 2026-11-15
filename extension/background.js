@@ -67,12 +67,10 @@ const CAREER_HOST_PATTERNS = [
   /^recruiting?\./i,    // recruiting.company.com
   /^hire\./i,           // hire.company.com
   /^talent\./i,         // talent.company.com
-  /^work\./i,           // work.company.com (e.g. work.stripe.com)
   /^openings?\./i,      // openings.company.com
   /^joinus\./i,         // joinus.company.com
   /\.careers$/i,        // company.careers (fanduel.careers, stripe.careers)
   /\.jobs$/i,           // company.jobs
-  /\.work$/i,           // company.work
 ];
 
 // Path keywords that suggest an active job application page
@@ -95,8 +93,8 @@ function _isStaticDomain(url) {
     const host = new URL(url).hostname;
     // Explicit static domains
     if (STATIC_DOMAINS.some(d => host === d || host.endsWith('.' + d))) return true;
-    // Career TLDs covered by manifest *.careers, *.jobs, *.work patterns
-    if (/\.(careers|jobs|work)$/i.test(host)) return true;
+    // Career TLDs covered by manifest *.careers, *.jobs patterns
+    if (/\.(careers|jobs)$/i.test(host)) return true;
     return false;
   } catch { return true; }
 }
@@ -121,9 +119,33 @@ function _looksLikeJobPage(url) {
   } catch { return false; }
 }
 
+// Runs inside the page. The URL only says a page might be about jobs; this
+// says it is one: a schema.org JobPosting (what careers pages publish for
+// Google Jobs), a resume or CV upload field, or an application form embedded
+// from a known applicant tracking system. Loan forms, school applications and
+// admin consoles have none of these, so the extension stays off them.
+function _pageIsJobPosting() {
+  const ld = Array.from(document.querySelectorAll('script[type="application/ld+json"]'))
+    .some(s => /"@type"\s*:\s*\[?\s*"JobPosting"/.test(s.textContent || ''));
+  if (ld) return true;
+  const resumeField = Array.from(document.querySelectorAll('input[type="file"]')).some(i => {
+    const label = [i.name, i.id, i.getAttribute('aria-label'), i.accept,
+      (i.labels && i.labels[0] && i.labels[0].textContent) || '',
+      (i.closest('label, fieldset, [class*="upload" i], [class*="field" i]') || {}).textContent || ''].join(' ');
+    return /\b(resume|résumé|cv|curriculum)\b/i.test(label.slice(0, 600));
+  });
+  if (resumeField) return true;
+  return Array.from(document.querySelectorAll('iframe[src]')).some(f =>
+    /(greenhouse\.io|lever\.co|ashbyhq\.com|myworkdayjobs\.com|smartrecruiters\.com|icims\.com|jobvite\.com|workable\.com|applytojob\.com|recruitee\.com|bamboohr\.com\/careers)/i.test(f.src));
+}
+
 async function _dynamicInject(tabId, url) {
   if (_injectedTabs.has(tabId)) return;
   if (_isStaticDomain(url) || !_looksLikeJobPage(url)) return;
+  try {
+    const [probe] = await chrome.scripting.executeScript({ target: { tabId }, func: _pageIsJobPosting });
+    if (!probe?.result) return;
+  } catch { return; }
   try {
     await chrome.scripting.insertCSS({ target: { tabId }, files: ['content.css'] });
     // sensitive-answers.js first: external-apply.js reads window.PreciprocalSensitive.
