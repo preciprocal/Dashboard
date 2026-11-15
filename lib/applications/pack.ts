@@ -90,6 +90,15 @@ export interface ApplyPack {
     before: Coverage;
     after: Coverage;
     tailoredText: string;
+    /**
+     * The student's own PDF, edited in place (lib/applications/pdf-edit.ts).
+     * A copy is kept with the application so the file sent is the one that
+     * was tailored, under the name they gave it. Null when the resume has no
+     * PDF whose text could be edited: then only the text is tailored.
+     */
+    source?: { fileName: string } | null;
+    /** Changes that passed the fact checks but did not fit the file's layout. */
+    layoutSkipped?: number;
   } | null;
   coverLetter: { content: string; generatedAt: string } | null;
   prep: PrepPack | null;
@@ -180,12 +189,13 @@ export async function savePack(userId: string, pack: ApplyPack): Promise<ApplyPa
   return next;
 }
 
-export type PackFile = 'resume' | 'letter';
+export type PackFile = 'resume' | 'letter' | 'source';
 const pdfPathFor = (userId: string, applicationId: string, kind: PackFile = 'resume') => `applications/${userId}/${applicationId}.${kind}.pdf`;
 
 export async function deletePack(userId: string, applicationId: string): Promise<void> {
   await supabaseAdmin.storage.from(BUCKET).remove([
     pathFor(userId, applicationId), pdfPathFor(userId, applicationId, 'resume'), pdfPathFor(userId, applicationId, 'letter'),
+    pdfPathFor(userId, applicationId, 'source'),
   ]);
 }
 
@@ -200,4 +210,16 @@ export async function storeTailoredPdf(userId: string, applicationId: string, by
   if (error) return null;
   const { data } = await supabaseAdmin.storage.from(BUCKET).createSignedUrl(path, 600);
   return data?.signedUrl ?? null;
+}
+
+/** Keeps the original resume PDF that this application's tailoring edits. */
+export async function storeSourcePdf(userId: string, applicationId: string, bytes: Uint8Array): Promise<void> {
+  const { error } = await supabaseAdmin.storage.from(BUCKET)
+    .upload(pdfPathFor(userId, applicationId, 'source'), bytes, { contentType: 'application/pdf', upsert: true });
+  if (error) throw error;
+}
+
+export async function loadSourcePdf(userId: string, applicationId: string): Promise<Uint8Array | null> {
+  const { data } = await supabaseAdmin.storage.from(BUCKET).download(pdfPathFor(userId, applicationId, 'source'));
+  return data ? new Uint8Array(await data.arrayBuffer()) : null;
 }

@@ -6,6 +6,8 @@ const nextConfig: NextConfig = {
     "@google/generative-ai",
     "@sparticuz/chromium-min",
     "puppeteer-core",
+    // pdf.js loads its worker by path at runtime (lib/applications/pdf-edit.ts).
+    "pdfjs-dist",
   ],
 
   images: {

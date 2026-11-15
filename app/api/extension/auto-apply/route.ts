@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { getApplication, loadPack, storeTailoredPdf } from '@/lib/applications/pack';
 import { letterPdfBytes, resumePdfBytes, resumePdfName } from '@/lib/applications/resume-pdf';
+import { tailoredResumeFile } from '@/lib/applications/tailored-file';
 import { getUserAIContext } from '@/lib/ai/user-context';
 import { getSignedUrl } from '@/lib/storage/file-storage';
 import { resolveStoragePathUrl } from '@/lib/storage/resolve-signed-url';
@@ -230,12 +231,15 @@ export async function GET(request: NextRequest) {
         const base = `${applyProfile.fullName || 'Resume'} - ${app.company || app.jobTitle}`;
         const tailored = pack.tailor?.tailoredText;
         const letter = pack.coverLetter?.content;
+        // The student's own PDF with the changes made in it, under their file
+        // name; a plain PDF of the text when the resume could not be edited.
+        const own = tailored ? await tailoredResumeFile(supabaseUserId, pack).catch(() => null) : null;
         const [resumeUrl, letterUrl] = await Promise.all([
-          tailored ? storeTailoredPdf(supabaseUserId, app.id, resumePdfBytes(tailored), 'resume') : null,
+          tailored ? storeTailoredPdf(supabaseUserId, app.id, own?.bytes ?? resumePdfBytes(tailored), 'resume') : null,
           letter ? storeTailoredPdf(supabaseUserId, app.id, letterPdfBytes(letter), 'letter') : null,
         ]);
         if (tailored && resumeUrl) {
-          files.resume = { available: true, url: resumeUrl, fileName: resumePdfName(base), id: app.id, text: tailored };
+          files.resume = { available: true, url: resumeUrl, fileName: own?.fileName ?? resumePdfName(base), id: app.id, text: tailored };
         }
         if (letter) {
           applyProfile.coverLetterIntro = '';

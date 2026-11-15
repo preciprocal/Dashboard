@@ -180,7 +180,14 @@ export default function SaveStep({ application, pack, update, goTo }: ApplyStepP
                 <p className="text-[13px] font-medium text-white flex items-center gap-2"><FileText className="w-4 h-4 text-indigo-300" /> Tailored resume</p>
                 {tailored ? (
                   <div className="flex gap-2 mt-3">
-                    <button onClick={() => tailoredResumePdf(tailored, fileBase)} className="btn-primary h-9 flex-1 justify-center"><Download className="w-4 h-4" /> PDF</button>
+                    {pack.tailor?.source ? (
+                      // Their own file with the changes made in it, under its own name.
+                      <a href={`/api/apply/${application.id}/resume?view=file&download=1`} title={pack.tailor.source.fileName} className="btn-primary h-9 flex-1 justify-center min-w-0">
+                        <Download className="w-4 h-4 flex-shrink-0" /> <span className="truncate">{pack.tailor.source.fileName}</span>
+                      </a>
+                    ) : (
+                      <button onClick={() => tailoredResumePdf(tailored, fileBase)} className="btn-primary h-9 flex-1 justify-center"><Download className="w-4 h-4" /> PDF</button>
+                    )}
                     <button onClick={() => copy(tailored, 'Resume text')} className="btn-secondary h-9 !px-3" aria-label="Copy resume text"><Copy className="w-4 h-4" /></button>
                   </div>
                 ) : (
@@ -207,7 +214,9 @@ export default function SaveStep({ application, pack, update, goTo }: ApplyStepP
             {tailored && !handsOff && profile?.files.resume.available && (
               <p className="text-[12px] text-slate-500 mt-2.5 flex items-start gap-1.5">
                 <AlertTriangle className="w-3.5 h-3.5 text-amber-400/80 flex-shrink-0 mt-0.5" />
-                This version of the extension attaches your saved resume, {profile.files.resume.fileName}. On the form, replace it with the tailored PDF, or update the extension to 1.8.0 so it attaches the tailored one.
+                {pack.tailor?.source
+                  ? <>This version of the extension attaches your saved resume without this job&apos;s changes. On the form, replace it with the tailored copy above (it has the same file name), or update the extension to 1.8.0 so it attaches the tailored one.</>
+                  : <>This version of the extension attaches your saved resume, {profile.files.resume.fileName}. On the form, replace it with the tailored PDF, or update the extension to 1.8.0 so it attaches the tailored one.</>}
               </p>
             )}
           </Step>

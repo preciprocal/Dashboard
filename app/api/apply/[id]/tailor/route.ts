@@ -12,9 +12,11 @@ import { anthropic, cachedSystem, logUsage, cleanResumeText, stripDashesDeep, LA
 import { askJson } from '@/lib/applications/model-json';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
-import { getApplication, loadPack, savePack } from '@/lib/applications/pack';
-import { check, cleanKeywords, coverage, hasTerm, type ProposedChange } from '@/lib/applications/truthful-tailor';
+import { getApplication, loadPack, savePack, storeSourcePdf } from '@/lib/applications/pack';
+import { check, cleanKeywords, coverage, hasTerm, type CheckedChange, type ProposedChange } from '@/lib/applications/truthful-tailor';
 import { loadOwnResumeText } from '@/lib/applications/resume-text';
+import { loadOwnResumePdf } from '@/lib/applications/resume-source';
+import { editResumePdf, type Placement } from '@/lib/applications/pdf-edit';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -32,10 +34,33 @@ If a job requirement is not supported by the resume, leave it out. It belongs in
 
 FORMAT RULES:
 - "original" is copied EXACTLY from the resume: one bullet, one line or one skills line, verbatim.
-- "rewrite" replaces exactly that text.
+- "rewrite" replaces exactly that text, and is about the same length as the original (at most a few words longer): it is set into the same lines of the student's own resume file.
 - "reason" says in one sentence which job requirement it serves.
 
 CRITICAL: Return ONLY JSON. No markdown. Start with { end with }. No em dashes or en dashes.${LANGUAGE_MATCH_INSTRUCTION}`;
+
+const SHORTEN = `You shorten resume lines without changing what they say.
+
+Each "rewrite" must be at most "maxChars" characters. Keep its facts, its numbers and the job keywords it uses. Drop filler words first, then merge or trim phrases. Never add a word, tool, number or claim the rewrite does not already have.
+
+CRITICAL: Return ONLY JSON. No markdown. Start with { end with }. No em dashes or en dashes.${LANGUAGE_MATCH_INSTRUCTION}`;
+
+/** Asks for shorter versions of rewrites that did not fit their lines in the PDF. */
+async function shorten(long: CheckedChange[]): Promise<ProposedChange[]> {
+  const items = long.map((c, i) => ({ n: i + 1, original: c.original, rewrite: c.rewrite, maxChars: c.original.length }));
+  const out = stripDashesDeep(await askJson(async () => {
+    const response = await createMessage({
+      max_tokens: 2000, system: cachedSystem(SHORTEN),
+      messages: [{ role: 'user', content: `${JSON.stringify(items)}\n\nReturn JSON: { "changes": [{ "n": 1, "rewrite": "..." }] }` }],
+    });
+    logUsage('apply-tailor-shorten', response);
+    return response;
+  }, 'apply-tailor-shorten')) as { changes?: { n?: unknown; rewrite?: unknown }[] };
+  return (Array.isArray(out.changes) ? out.changes : []).flatMap(o => {
+    const c = long[Number(o.n) - 1];
+    return c && typeof o.rewrite === 'string' ? [{ section: c.section, original: c.original, rewrite: o.rewrite, reason: c.reason }] : [];
+  });
+}
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -101,6 +126,46 @@ Propose 6 to 12 changes, the ones that matter most for this job. Skip any line y
     const { accepted, rejected } = check(proposed, resumeText, keywords);
     if (rejected.length) console.log(`apply-tailor: ${rejected.length} change(s) removed by fact checks:`, rejected.map(r => r.why));
 
+    // Edit the student's own PDF: keep only the changes that fit its layout,
+    // so the file auto-apply sends has every change shown here. When none can
+    // be placed at all (a scanned PDF, or text drawn as shapes), tailor the
+    // text only, as before.
+    let changes = accepted;
+    let source: { fileName: string } | null = null;
+    let layoutSkipped = 0;
+    const file = await loadOwnResumePdf(authedUser, resumeId).catch(() => null);
+    if (file && accepted.length) {
+      const place = (set: CheckedChange[]) => editResumePdf(file.bytes, set).then(r => r.placements).catch((e: unknown) => {
+        console.error('apply-tailor: could not edit the PDF:', e);
+        return [] as Placement[];
+      });
+      let candidates = accepted;
+      let placements = await place(candidates);
+
+      // A rewrite too long for its lines gets one chance to be shortened to
+      // the original's length, then goes through the same fact checks.
+      const long = candidates.filter(c => placements.find(p => p.id === c.id)?.tooLong);
+      if (long.length) {
+        const shorter = await shorten(long).catch((e: unknown) => { console.error('apply-tailor: shorten failed:', e); return []; });
+        const { accepted: checked } = check(shorter, resumeText, keywords);
+        const byOriginal = new Map(checked.map(c => [c.original, c]));
+        candidates = candidates.map(c => {
+          const s = byOriginal.get(c.original);
+          return s ? { ...s, id: c.id, section: c.section, reason: c.reason } : c;
+        });
+        if (checked.length) placements = await place(candidates);
+      }
+
+      const placed = new Set(placements.filter(p => p.ok).map(p => p.id));
+      if (placed.size) {
+        await storeSourcePdf(uid, app.id, file.bytes);
+        source = { fileName: file.fileName };
+        changes = candidates.filter(c => placed.has(c.id)).map((c, i) => ({ ...c, id: `chg-${i + 1}` }));
+        layoutSkipped = candidates.length - changes.length;
+        if (layoutSkipped) console.log(`apply-tailor: ${layoutSkipped} change(s) did not fit the PDF:`, placements.filter(p => !p.ok).map(p => p.why));
+      }
+    }
+
     await checkAndIncrementUsage(userId, 'resumes');
 
     const before = coverage(resumeText, keywords);
@@ -110,8 +175,10 @@ Propose 6 to 12 changes, the ones that matter most for this job. Skip any line y
     pack.tailor = {
       generatedAt: new Date().toISOString(),
       original: resumeText,
-      changes: accepted,
+      changes,
       removedByChecks: rejected.length,
+      source,
+      layoutSkipped,
       decisions: {},
       before,
       after: before,

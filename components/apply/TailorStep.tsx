@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import { Loader2, Check, X, Sparkles, Copy, Download, ShieldCheck, ChevronRight, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import ResumePicker, { type ResumeOption } from '@/components/apply/ResumePicker';
+import ResumeChanges from '@/components/apply/ResumeChanges';
 import type { ApplyStepProps } from '@/components/apply/types';
 import { loadResumeOptions } from '@/lib/resume/default-client';
 
@@ -140,6 +141,7 @@ export default function TailorStep({ application, pack, onPack, update, goTo }: 
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0 mt-0.5" />
               Each change only rewords what your resume already says.
               {t.removedByChecks > 0 && ` ${t.removedByChecks} proposed change${t.removedByChecks === 1 ? ' was' : 's were'} removed because ${t.removedByChecks === 1 ? 'it' : 'they'} added a number, tool or skill your resume does not have.`}
+              {(t.layoutSkipped ?? 0) > 0 && ` ${t.layoutSkipped} more did not fit the space ${t.layoutSkipped === 1 ? 'its line has' : 'their lines have'} in your resume file, so ${t.layoutSkipped === 1 ? 'it was' : 'they were'} left out.`}
             </p>
             {t.changes.length === 0 ? (
               <p className="text-sm text-slate-400 text-center py-6">No changes passed the checks. Your resume may already use this job&apos;s language.</p>
@@ -190,13 +192,22 @@ export default function TailorStep({ application, pack, onPack, update, goTo }: 
           <section className="glass-card p-5">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
               <h2 className="text-sm font-semibold text-white">Your resume for this job</h2>
-              <div className="flex gap-2">
-                <button onClick={copy} className="btn-secondary"><Copy className="w-4 h-4" /> Copy</button>
-                <button onClick={download} className="btn-secondary"><Download className="w-4 h-4" /> Download .txt</button>
-              </div>
+              {!t.source && (
+                <div className="flex gap-2">
+                  <button onClick={copy} className="btn-secondary"><Copy className="w-4 h-4" /> Copy</button>
+                  <button onClick={download} className="btn-secondary"><Download className="w-4 h-4" /> Download .txt</button>
+                </div>
+              )}
             </div>
-            <p className="text-[12px] text-slate-500 mb-3 flex items-start gap-1.5"><Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" /> The text of your resume with the {approved} approved change{approved === 1 ? '' : 's'}. Paste it into your own resume file to keep your formatting.</p>
-            <pre className="whitespace-pre-wrap text-[12.5px] text-slate-300 leading-relaxed bg-white/[0.02] border border-white/[0.05] rounded-xl p-4 max-h-[420px] overflow-y-auto font-sans">{t.tailoredText}</pre>
+            {t.source ? (
+              <ResumeChanges applicationId={application.id} fileName={t.source.fileName} count={approved}
+                version={`${t.generatedAt}:${t.changes.filter(c => t.decisions[c.id] === 'approved').map(c => c.id).join(',')}`} />
+            ) : (
+              <>
+                <p className="text-[12px] text-slate-500 mb-3 flex items-start gap-1.5"><Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" /> The text of your resume with the {approved} approved change{approved === 1 ? '' : 's'}. Your resume file could not be edited directly, so paste this into it to keep your formatting.</p>
+                <pre className="whitespace-pre-wrap text-[12.5px] text-slate-300 leading-relaxed bg-white/[0.02] border border-white/[0.05] rounded-xl p-4 max-h-[420px] overflow-y-auto font-sans">{t.tailoredText}</pre>
+              </>
+            )}
             <div className="flex justify-end mt-4">
               <button onClick={() => goTo('letter')} className="btn-primary">Next: cover letter <ChevronRight className="w-4 h-4" /></button>
             </div>

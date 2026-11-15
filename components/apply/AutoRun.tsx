@@ -1,8 +1,9 @@
 // components/apply/AutoRun.tsx
 //
 // Auto mode (the Auto-apply toggle on /jobs): runs the Apply flow without
-// stopping for review. Tailors the student's most recent resume, applies
-// every change that passed the fact checks (lib/applications/truthful-tailor.ts),
+// stopping for review. Tailors the student's default resume, makes every
+// change that passed the fact checks (lib/applications/truthful-tailor.ts) in
+// their own PDF, shown before and after in red and green,
 // writes the cover letter from that resume, hands both to the extension, then
 // opens the employer's portal in this tab, where the extension fills the form.
 // The student still reviews and submits on the employer's site. Every step can
@@ -17,11 +18,14 @@ import type { ApplyStepProps } from '@/components/apply/types';
 import type { ApplyPack } from '@/lib/applications/pack';
 import { detectExtension, extensionStoreUrl, prepareAutofill, versionAtLeast } from '@/lib/extension';
 import { loadResumeOptions } from '@/lib/resume/default-client';
+import ResumeChanges from '@/components/apply/ResumeChanges';
 
 type Status = 'pending' | 'running' | 'done' | 'error';
 type Key = 'resume' | 'approve' | 'letter' | 'extension' | 'portal';
 
 const COUNTDOWN = 5;
+// Longer when the resume file was edited, so the changes can be looked over.
+const COUNTDOWN_WITH_FILE = 10;
 
 export default function AutoRun({ application, pack, onPack, update, goTo }: ApplyStepProps) {
   const company = application.company || 'the employer';
@@ -63,7 +67,9 @@ export default function AutoRun({ application, pack, onPack, update, goTo }: App
       } catch (e) { return fail('resume', e instanceof Error ? e.message : 'Could not tailor the resume.'); }
     }
     const changes = p.tailor?.changes.length ?? 0;
-    set('resume', 'done', `${changes} change${changes === 1 ? '' : 's'} passed the fact checks`);
+    set('resume', 'done', p.tailor?.source
+      ? `${changes} change${changes === 1 ? '' : 's'} passed the fact checks and fit in ${p.tailor.source.fileName}`
+      : `${changes} change${changes === 1 ? '' : 's'} passed the fact checks`);
     if (cancelled.current) return;
 
     // 2. Apply every change that passed the checks
@@ -118,7 +124,7 @@ export default function AutoRun({ application, pack, onPack, update, goTo }: App
 
     // 5. Portal, after a countdown the student can stop.
     set('portal', 'running', `Opening ${company}'s application`);
-    for (let s = COUNTDOWN; s > 0; s--) {
+    for (let s = p.tailor?.source && p.tailor.changes.length ? COUNTDOWN_WITH_FILE : COUNTDOWN; s > 0; s--) {
       if (cancelled.current) return;
       setCountdown(s);
       await new Promise(r => setTimeout(r, 1000));
@@ -193,6 +199,13 @@ export default function AutoRun({ application, pack, onPack, update, goTo }: App
           );
         })}
       </ol>
+      {pack.tailor?.source && status.approve === 'done' && (
+        <div className="mt-5 pt-4 border-t border-white/[0.06]">
+          <ResumeChanges applicationId={application.id} fileName={pack.tailor.source.fileName}
+            count={pack.tailor.changes.filter(c => pack.tailor!.decisions[c.id] === 'approved').length}
+            version={`${pack.tailor.generatedAt}:${pack.tailor.changes.filter(c => pack.tailor!.decisions[c.id] === 'approved').map(c => c.id).join(',')}`} />
+        </div>
+      )}
       {error && (
         <div className="mt-4 rounded-xl border border-amber-500/25 bg-amber-500/[0.06] p-3.5 flex flex-wrap items-center justify-between gap-3">
           <p className="text-[13px] text-amber-100 flex-1 min-w-[200px]">{error.message}</p>

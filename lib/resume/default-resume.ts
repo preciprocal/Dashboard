@@ -9,6 +9,7 @@ import { supabaseAdmin } from '@/supabase/admin';
 import { redis } from '@/lib/redis/redis-client';
 import { uploadUserFile } from '@/lib/storage/file-storage';
 import { invalidateUserTextCache } from '@/lib/ai/user-context';
+import { downloadResumeRowPdf } from '@/lib/applications/resume-source';
 
 /** The id the Apply flow uses for "the default resume from settings". */
 export { DEFAULT_RESUME_ID } from '@/lib/resume/default-client';
@@ -58,20 +59,11 @@ export async function makeDefaultResume(ids: Ids, resumeId: string): Promise<{ f
     .eq('id', resumeId).maybeSingle();
   if (!row || row.user_id !== ids.supabaseUserId) throw new Error('Resume not found');
 
-  let bytes: Buffer | null = null;
-  if (row.resume_path && !/^https?:\/\//i.test(row.resume_path)) {
-    const { data } = await supabaseAdmin.storage.from('user-files').download(row.resume_path);
-    if (data) bytes = Buffer.from(await data.arrayBuffer());
-  }
-  const url = row.file_url || (row.resume_path && /^https?:\/\//i.test(row.resume_path) ? row.resume_path : null);
-  if (!bytes && url) {
-    const r = await fetch(url, { signal: AbortSignal.timeout(15000) });
-    if (r.ok) bytes = Buffer.from(await r.arrayBuffer());
-  }
-  if (!bytes || bytes.subarray(0, 5).toString() !== '%PDF-') throw new Error('That resume has no PDF file to use.');
+  const bytes = await downloadResumeRowPdf(row);
+  if (!bytes) throw new Error('That resume has no PDF file to use.');
 
   const fileName = row.file_name || row.original_file_name || 'Resume.pdf';
-  const path = await uploadUserFile(ids.userId, 'resume', bytes, fileName);
+  const path = await uploadUserFile(ids.userId, 'resume', Buffer.from(bytes), fileName);
   const { error } = await supabaseAdmin.from('profiles')
     .update({ resume_path: path, resume_file_name: fileName })
     .eq('user_id', ids.supabaseUserId);
