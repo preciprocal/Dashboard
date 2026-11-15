@@ -7,6 +7,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Search, MapPin, Loader2, ExternalLink, Send, ShieldCheck, Landmark, Briefcase, Clock, Zap,
@@ -18,6 +19,7 @@ import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import { AppSelect } from '@/components/ui/select';
 import InfoTip from '@/components/ui/info-tip';
 import AutoApplyDetailsNotice from '@/components/apply/AutoApplyDetailsNotice';
+import { readPreferences, FAMILY_OPTIONS, type JobPreferences } from '@/lib/onboarding/preferences';
 import type { FeedJob, JobFamily, JobLevel } from '@/lib/jobs/feed';
 import { CompanyLogo, useCompanyLogos } from '@/components/jobs/CompanyLogo';
 import { startApplication, trackedJobs } from '@/lib/jobs/start-application';
@@ -29,6 +31,7 @@ const FAMILIES: { id: JobFamily | ''; label: string }[] = [
   { id: '', label: 'All areas' }, { id: 'software', label: 'Software' }, { id: 'data', label: 'Data and AI' }, { id: 'product', label: 'Product and design' },
   { id: 'business', label: 'Business and finance' }, { id: 'hardware', label: 'Hardware' }, { id: 'other', label: 'Other' },
 ];
+const MINE = '__mine' as const;
 const LEVEL_LABEL: Record<JobLevel, string> = { intern: 'Internship', early: 'Entry level', mid: 'Mid level', senior: 'Senior' };
 
 const ago = (date: string) => {
@@ -111,11 +114,19 @@ export default function JobsPage() {
   const [q, setQ] = useState('');
   const [location, setLocation] = useState('');
   const [levels, setLevels] = useState<JobLevel[]>(['intern', 'early']);
-  const [family, setFamily] = useState<JobFamily | ''>('');
+  // '' is all areas; MINE is the several areas saved in job preferences.
+  const [family, setFamily] = useState<JobFamily | '' | typeof MINE>('');
   const [days, setDays] = useState(30);
   const [everify, setEverify] = useState(false);
   const [h1b, setH1b] = useState(false);
   const [remote, setRemote] = useState(false);
+  // With a location: also show remote roles anywhere (from job preferences).
+  const [orRemote, setOrRemote] = useState(false);
+  const [prefs, setPrefs] = useState<JobPreferences | null>(null);
+  const [usingPrefs, setUsingPrefs] = useState(false);
+  // The first search waits for saved preferences, so the list does not flash
+  // unfiltered results and then change.
+  const [ready, setReady] = useState(false);
   const [data, setData] = useState<Page | null>(null);
   const [jobs, setJobs] = useState<FeedJob[]>([]);
   const [busy, setBusy] = useState(false);
@@ -136,28 +147,55 @@ export default function JobsPage() {
 
   useEffect(() => { if (!loading && !user) router.push(`/sign-in?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`); }, [loading, user, router]);
 
-  // ?q= and ?location= from a link (e.g. the landing site's /jobs page).
+  // ?q= and ?location= from a link (e.g. the landing site's /jobs page) win;
+  // otherwise the student's saved job preferences set the filters.
   useEffect(() => {
+    if (!user) return;
     const sp = new URLSearchParams(window.location.search);
-    if (sp.get('q')) setQ(sp.get('q')!.slice(0, 100));
-    if (sp.get('location')) setLocation(sp.get('location')!.slice(0, 60));
-  }, []);
+    if (sp.get('q') || sp.get('location')) {
+      if (sp.get('q')) setQ(sp.get('q')!.slice(0, 100));
+      if (sp.get('location')) setLocation(sp.get('location')!.slice(0, 60));
+      setReady(true);
+      return;
+    }
+    fetch('/api/onboarding').then(r => (r.ok ? r.json() : null)).then(j => {
+      const p = j?.completed ? readPreferences(j.preferences) : null;
+      if (p) { setPrefs(p); applyPrefs(p); }
+    }).catch(() => {}).finally(() => setReady(true));
+  }, [user]);
+
+  const applyPrefs = (p: JobPreferences) => {
+    setLevels(p.levels);
+    setFamily(p.families.length === 1 ? p.families[0] : p.families.length > 1 ? MINE : '');
+    setLocation(p.location);
+    setOrRemote(p.remote && !!p.location);
+    setEverify(p.everifyOnly);
+    setH1b(p.h1bOnly);
+    setRemote(false);
+    setUsingPrefs(true);
+  };
+  const clearFilters = () => {
+    setLevels(['intern', 'early']); setFamily(''); setLocation(''); setOrRemote(false);
+    setEverify(false); setH1b(false); setRemote(false); setQ(''); setUsingPrefs(false);
+  };
 
   const query = useCallback((page: number) => {
     const sp = new URLSearchParams({ page: String(page), days: String(days) });
     if (q.trim()) sp.set('q', q.trim());
     if (location.trim()) sp.set('location', location.trim());
     if (levels.length) sp.set('levels', levels.join(','));
-    if (family) sp.set('families', family);
+    if (family === MINE) { if (prefs?.families.length) sp.set('families', prefs.families.join(',')); }
+    else if (family) sp.set('families', family);
+    if (orRemote && location.trim()) sp.set('orRemote', '1');
     if (everify) sp.set('everify', '1');
     if (h1b) sp.set('h1b', '1');
     if (remote) sp.set('remote', '1');
     return sp.toString();
-  }, [q, location, levels, family, days, everify, h1b, remote]);
+  }, [q, location, levels, family, days, everify, h1b, remote, orRemote, prefs]);
 
   // New filters: first page, debounced so typing does not fire a request per key.
   useEffect(() => {
-    if (!user) return;
+    if (!user || !ready) return;
     const t = setTimeout(async () => {
       setBusy(true); setError('');
       try {
@@ -172,7 +210,7 @@ export default function JobsPage() {
       }
     }, 300);
     return () => clearTimeout(t);
-  }, [user, query]);
+  }, [user, ready, query]);
 
   const more = async () => {
     if (!data || busy || jobs.length >= data.total) return;
@@ -255,8 +293,11 @@ export default function JobsPage() {
         <div className="flex flex-wrap items-center gap-2">
           {LEVELS.map(l => <button key={l.id} onClick={() => toggleLevel(l.id)} className={chip(levels.includes(l.id))}>{l.label}</button>)}
           <span className="w-px h-6 bg-white/[0.08] mx-1 hidden sm:block" />
-          <AppSelect className="!h-9 !w-auto min-w-[150px] !text-xs" value={family} onValueChange={v => setFamily(v as JobFamily | '')} aria-label="Area"
-            options={FAMILIES.map(f => ({ value: f.id, label: f.label }))} />
+          <AppSelect className="!h-9 !w-auto min-w-[150px] !text-xs" value={family} onValueChange={v => setFamily(v as JobFamily | '' | typeof MINE)} aria-label="Area"
+            options={[
+              ...(prefs && prefs.families.length > 1 ? [{ value: MINE, label: 'My areas' }] : []),
+              ...FAMILIES.map(f => ({ value: f.id, label: f.label })),
+            ]} />
           <AppSelect className="!h-9 !w-auto min-w-[150px] !text-xs" value={String(days)} onValueChange={v => setDays(Number(v))} aria-label="Posted within"
             options={[{ value: '7', label: 'Last 7 days' }, { value: '14', label: 'Last 14 days' }, { value: '30', label: 'Last 30 days' }, { value: '60', label: 'Last 60 days' }]} />
           <InfoTip term="everified" wrap side="bottom"><button onClick={() => setEverify(v => !v)} className={chip(everify)}><ShieldCheck className="w-3.5 h-3.5 inline mr-1" />E-Verified</button></InfoTip>
@@ -294,7 +335,19 @@ export default function JobsPage() {
           {autoMode && <AutoApplyDetailsNotice context="auto-apply" />}
 
           <div className="flex items-center justify-between px-1 text-xs text-slate-400">
-            <span>{data ? `${data.total.toLocaleString()} open roles` : 'Loading'}{busy && data ? ' · updating' : ''}</span>
+            <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              {data ? `${data.total.toLocaleString()} open roles` : 'Loading'}{busy && data ? ' · updating' : ''}
+              {usingPrefs && prefs && (
+                <span className="inline-flex items-center gap-2 text-slate-500">
+                  <span aria-hidden="true">·</span>
+                  <InfoTip title="Your job preferences" body={`${prefs.families.length ? FAMILY_OPTIONS.filter(o => prefs.families.includes(o.id)).map(o => o.label).join(', ') : 'All areas'}${prefs.location ? `, ${prefs.location}${prefs.remote ? ' or remote' : ''}` : ', anywhere in the US'}${prefs.everifyOnly ? ', E-Verified only' : ''}${prefs.h1bOnly ? ', H-1B approvals only' : ''}.`}>
+                    <span className="text-indigo-300">Using your job preferences</span>
+                  </InfoTip>
+                  <Link href="/onboarding?edit=1" className="hover:text-white transition-colors">Edit</Link>
+                  <button onClick={clearFilters} className="hover:text-white transition-colors">Clear</button>
+                </span>
+              )}
+            </span>
             {data && <InfoTip term="jobsChecked" icon side="left">Checked {new Date(data.syncedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</InfoTip>}
           </div>
 

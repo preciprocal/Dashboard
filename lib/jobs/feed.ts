@@ -103,6 +103,8 @@ export interface FeedQuery {
   everify?: boolean;
   h1b?: boolean;
   remote?: boolean;
+  /** With a location: also keep remote roles anywhere. */
+  orRemote?: boolean;
 }
 
 const daysAgo = (date: string) => Math.floor((Date.now() - Date.parse(`${date}T00:00:00Z`)) / 86_400_000);
@@ -119,7 +121,7 @@ export function filterJobs(jobs: FeedJob[], q: FeedQuery): FeedJob[] {
     if (q.everify && j.e !== 'enrolled' && j.e !== 'ending') return false;
     if (q.h1b && !(j.h && j.h[0] > 0)) return false;
     if (q.remote && !/remote/i.test(j.l)) return false;
-    if (loc && !j.l.toLowerCase().includes(loc)) return false;
+    if (loc && !j.l.toLowerCase().includes(loc) && !(q.orRemote && /remote/i.test(j.l))) return false;
     if (words.length) {
       const hay = `${j.t} ${j.c}`.toLowerCase();
       if (!words.every(w => hay.includes(w))) return false;

@@ -1,6 +1,6 @@
 // app/api/jobs/route.ts
 //
-// GET ?q=&location=&levels=intern,early&families=data&days=30&everify=1&h1b=1&remote=1&page=1
+// GET ?q=&location=&levels=intern,early&families=data&days=30&everify=1&h1b=1&remote=1&orRemote=1&page=1
 //   -> { syncedAt, h1bYear, total, page, pageSize, jobs }
 // The dashboard job feed (lib/jobs/feed.ts), filtered and paged on the server
 // so the browser never downloads all 30,000+ postings.
@@ -35,6 +35,7 @@ export async function GET(request: NextRequest) {
       everify: sp.get('everify') === '1',
       h1b: sp.get('h1b') === '1',
       remote: sp.get('remote') === '1',
+      orRemote: sp.get('orRemote') === '1',
     });
     const page = Math.max(1, Math.min(200, Number(sp.get('page')) || 1));
     return NextResponse.json({

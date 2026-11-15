@@ -17,7 +17,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   Briefcase, Send, CalendarClock, BellRing, Search, Plus, FileText, Video, BookOpen,
-  ClipboardList, Bookmark, MailQuestion, Upload, Compass,
+  ClipboardList, Bookmark, MailQuestion, Upload, Compass, Sparkles, ArrowRight,
 } from "lucide-react";
 import ExtensionBanner from "@/components/ExtensionBanner";
 import { useCompanyLogos } from "@/components/jobs/CompanyLogo";
@@ -27,6 +27,7 @@ import { jobKpis, recentApps, type Schedule, type TrackedApp } from "@/lib/overv
 import { fetchDefaultResumeInfo } from "@/lib/resume/default-client";
 import { startApplication } from "@/lib/jobs/start-application";
 import type { FeedJob } from "@/lib/jobs/feed";
+import { feedQuery, readPreferences, type JobPreferences } from "@/lib/onboarding/preferences";
 
 type JobsPage = { total: number; jobs: FeedJob[]; h1bYear: string | null };
 
@@ -53,6 +54,8 @@ export default function Overview() {
   const [prep, setPrep] = useState<PrepData | undefined>(undefined);
   const [missingDetails, setMissingDetails] = useState<string[] | null | undefined>(undefined);
   const [applying, setApplying] = useState<string | null>(null);
+  // Saved job preferences, or null when onboarding was not finished.
+  const [prefs, setPrefs] = useState<JobPreferences | null | undefined>(undefined);
   const now = useMemo(() => new Date(), []);
 
   useEffect(() => {
@@ -70,11 +73,19 @@ export default function Overview() {
       getJson<{ data: TrackedApp[] }>("/api/job-tracker").then(j => setApps(j?.data ?? []));
       getJson<{ schedules: Schedule[] }>("/api/job-tracker/schedule").then(j => setSchedules(j?.schedules ?? []));
       getJson<{ due: number; setupRequired?: boolean }>(`/api/contacts/due?tz=${new Date().getTimezoneOffset()}`).then(j => setFollowUps(j && !j.setupRequired ? j.due : null));
-      getJson<JobsPage>("/api/jobs?days=7&levels=intern,early").then(j => setJobs(j ? { total: j.total, jobs: j.jobs.slice(0, 5), h1bYear: j.h1bYear } : null));
+      // New accounts start with onboarding; others get a card to set it up.
+      // New jobs follow the saved preferences when there are some.
+      getJson<{ completed: boolean; isNew: boolean; preferences: unknown }>("/api/onboarding").then(o => {
+        if (o && o.isNew && !o.completed) { router.replace("/onboarding"); return; }
+        const p = o?.completed ? readPreferences(o.preferences) : null;
+        setPrefs(p);
+        const q = p ? feedQuery(p, { days: "7" }) : "days=7&levels=intern,early";
+        getJson<JobsPage>(`/api/jobs?${q}`).then(j => setJobs(j ? { total: j.total, jobs: j.jobs.slice(0, 5), h1bYear: j.h1bYear } : null));
+      });
       loadApplyProfile().then(p => setMissingDetails(p ? autoApplyFields(p).filter(f => !f.ok && !f.optional).map(f => f.label) : null));
       loadPrep(user.id).then(setPrep);
     })().catch(err => console.error("Overview load failed:", err));
-  }, []);
+  }, [router]);
 
   const k = useMemo(() => (apps && schedules ? jobKpis(apps, schedules, now) : undefined), [apps, schedules, now]);
   const recent = useMemo(() => (apps ? recentApps(apps, 5) : undefined), [apps]);
@@ -139,6 +150,17 @@ export default function Overview() {
         </div>
       </section>
 
+      {prefs === null && (
+        <section className="glass-card p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4 border border-[var(--accent-border)] animate-fade-in-up">
+          <span className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 bg-[var(--accent-subtle)] border border-[var(--accent-border)] text-indigo-200"><Sparkles className="w-5 h-5" /></span>
+          <div className="flex-1 min-w-0">
+            <p className="text-[14px] font-semibold text-white">Set up your job search in 2 minutes</p>
+            <p className="text-[12.5px] text-slate-400 mt-0.5">Tell us the roles you want and your work status, add your resume, and we fill in your application details and show matching jobs first.</p>
+          </div>
+          <Link href="/onboarding" className="btn-primary h-10 flex-shrink-0 justify-center">Get started <ArrowRight className="w-4 h-4" /></Link>
+        </section>
+      )}
+
       <ExtensionBanner />
 
       {/* 2. KPIs */}
@@ -152,7 +174,7 @@ export default function Overview() {
 
       {/* 4. New jobs and recent applications */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <NewJobs data={jobs} logos={logos} applying={applying} onApply={apply} />
+        <NewJobs data={jobs} logos={logos} applying={applying} onApply={apply} personalized={!!prefs} />
         <RecentApplications apps={recent} logos={logos} />
       </div>
 

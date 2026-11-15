@@ -193,20 +193,22 @@ const posted = (date: string) => {
   return d <= 0 ? 'Today' : d === 1 ? 'Yesterday' : `${d} days ago`;
 };
 
-export function NewJobs({ data, logos, applying, onApply }: {
+export function NewJobs({ data, logos, applying, onApply, personalized = false }: {
   data: { total: number; jobs: FeedJob[]; h1bYear: string | null } | null | undefined;
   logos: Record<string, string | null>; applying: string | null; onApply: (job: FeedJob) => void;
+  /** The list follows the student's saved job preferences. */
+  personalized?: boolean;
 }) {
   return (
     <Card title="New jobs for you" action={viewAll('/jobs', 'See all jobs')}
-      info={{ title: 'New jobs for you', body: 'The newest internships and entry-level roles from employers\' own job boards, posted in the last 7 days.' }}>
+      info={{ title: 'New jobs for you', body: personalized ? 'The newest roles from employers\' own job boards that match your job preferences, posted in the last 7 days.' : 'The newest internships and entry-level roles from employers\' own job boards, posted in the last 7 days. Set your job preferences to see roles that fit you.' }}>
       {data === undefined ? (
         <div className="space-y-3">{[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-[58px]" />)}</div>
       ) : !data || !data.jobs.length ? (
-        <p className="text-[13px] text-slate-400 py-6 text-center">No new roles in the last 7 days. <Link href="/jobs" className="text-indigo-300 hover:underline">Browse all jobs</Link></p>
+        <p className="text-[13px] text-slate-400 py-6 text-center">No new {personalized ? 'matching ' : ''}roles in the last 7 days. <Link href={personalized ? '/onboarding?edit=1' : '/jobs'} className="text-indigo-300 hover:underline">{personalized ? 'Widen your preferences' : 'Browse all jobs'}</Link></p>
       ) : (
         <>
-          <p className="text-[12.5px] text-slate-400 -mt-2 mb-3"><span className="text-white font-semibold tabular-nums">{data.total.toLocaleString('en-US')}</span> internships and entry-level roles posted this week</p>
+          <p className="text-[12.5px] text-slate-400 -mt-2 mb-3"><span className="text-white font-semibold tabular-nums">{data.total.toLocaleString('en-US')}</span> {personalized ? 'roles matching your preferences posted this week' : 'internships and entry-level roles posted this week'}</p>
           <ul className="divide-y divide-white/[0.05]">
             {data.jobs.map(job => (
               <li key={job.u} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
