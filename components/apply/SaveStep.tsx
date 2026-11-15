@@ -16,6 +16,7 @@ import {
 import { toast } from 'sonner';
 import type { ApplyStepProps } from '@/components/apply/types';
 import { useExtensionStatus, extensionStoreUrl, prepareAutofill, versionAtLeast } from '@/lib/extension';
+import { autoApplyFields } from '@/components/apply/AutoApplyDetailsNotice';
 import { tailoredResumePdf } from '@/lib/applications/resume-pdf';
 
 interface ApplyProfile {
@@ -60,15 +61,7 @@ export default function SaveStep({ application, pack, update, goTo }: ApplyStepP
   }, []);
 
   const p = profile?.applyProfile;
-  const fields: { label: string; ok: boolean; optional?: boolean }[] = p ? [
-    { label: 'Name', ok: !!(p.firstName && p.lastName) },
-    { label: 'Email', ok: !!p.email },
-    { label: 'Phone', ok: !!p.phone },
-    { label: 'Location', ok: !!(p.city || p.state) },
-    { label: 'LinkedIn', ok: !!p.linkedInUrl, optional: true },
-    { label: 'Work authorization', ok: p.workAuthorization !== null && p.workAuthorization !== '' },
-    { label: 'Sponsorship answer', ok: p.requireSponsorship !== null },
-  ] : [];
+  const fields = p ? autoApplyFields(p) : [];
   const missing = fields.filter(f => !f.ok && !f.optional);
   const detailsReady = !!p && missing.length === 0;
   const tailored = pack.tailor?.tailoredText ?? '';

@@ -659,19 +659,21 @@ function LayoutContent({ children, user }: LayoutClientProps) {
 
   const mainNavItems: NavItem[] = [
     { id: 'overview',     label: 'Overview',         icon: Home,        href: '/'             },
+    { id: 'jobs',         label: 'Jobs',              icon: Building2,   href: '/jobs'         },
     { id: 'resume',       label: 'Resume',            icon: FileText,    href: '/resume'       },
     { id: 'cover-letter', label: 'Cover Letter',      icon: Pen,         href: '/cover-letter' },
     { id: 'interviews',   label: 'Interviews',        icon: Video,       href: '/interview'    },
     { id: 'planner',      label: 'Planner',           icon: Calendar,    href: '/planner'      },
     { id: 'debrief',      label: 'Interview Journal', icon: NotebookPen, href: '/debrief'      },
     { id: 'career-tools', label: 'Career Tools',      icon: Sparkles,    href: '/career-tools' },
-    { id: 'jobs',         label: 'Jobs',              icon: Building2,   href: '/jobs'         },
     { id: 'job-tracker',  label: 'Job Tracker',       icon: Briefcase,   href: '/job-tracker'  },
     { id: 'contacts',     label: 'Contacts',          icon: Contact,     href: '/contacts'     },
     { id: 'salary',       label: 'Market Pay',        icon: CircleDollarSign, href: '/salary' },
     { id: 'extension',    label: 'Extension',         icon: Chrome,      href: '/extension'    },
   ];
 
+  // Jobs (2026-11-14), Contacts and Market Pay (2026-11-12).
+  const NEW_NAV = new Set(['jobs', 'contacts', 'salary']);
   const teamSpaces: NavItem[] = [{ id: 'templates', label: 'Templates', icon: BookOpen, href: '/templates' }];
 
   const otherItems: NavItem[] = [
@@ -839,9 +841,9 @@ function LayoutContent({ children, user }: LayoutClientProps) {
           {mainNavItems.map(item => {
             const Icon   = item.icon;
             const active = isActive(item.href);
-            // One "New" tag at a time, so it still means something. Market Pay
-            // since its BLS data went live (2026-11-14); it was the extension.
-            const isNew  = item.id === 'salary';
+            // "New" on what shipped in the last few weeks. Take an id out
+            // once it has been live a month, so the tag keeps meaning something.
+            const isNew  = NEW_NAV.has(item.id);
             return (
               <Link key={item.id} href={item.href} onClick={handleLinkClick}
                 aria-current={active ? 'page' : undefined}

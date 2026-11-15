@@ -32,6 +32,8 @@ import InterviewScheduleRow from '@/components/calendar/InterviewScheduleRow';
 import UpcomingInterviews from '@/components/calendar/UpcomingInterviews';
 import { useInterviewSchedules } from '@/components/calendar/useInterviewSchedules';
 import type { InterviewSchedule } from '@/lib/calendar/status';
+import InfoTip from '@/components/ui/info-tip';
+import { GLOSSARY } from '@/lib/glossary';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -298,34 +300,42 @@ function fmtDate(iso: string | null): string {
 }
 
 function EverifyBadge({ status, syncedAt }: { status: EverifyStatus; syncedAt: string | null }) {
-  const checked = syncedAt ? ` Checked ${fmtDate(syncedAt)}.` : '';
+  const checked = syncedAt ? `List checked ${fmtDate(syncedAt)}. Click to open the official E-Verify search.` : 'Click to open the official E-Verify search.';
   const conf = {
     enrolled: {
       label: 'E-Verified',
       cls: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/25',
-      title: `${status.employer} is enrolled in E-Verify${status.enrolledOn ? ` since ${fmtDate(status.enrolledOn)}` : ''}. STEM OPT needs an E-Verify employer. Employer-reported.${checked}`,
+      term: 'everified' as const,
+      fact: `${status.employer} is enrolled${status.enrolledOn ? ` since ${fmtDate(status.enrolledOn)}` : ''}.`,
     },
     ending: {
       label: `E-Verified until ${fmtDate(status.terminatesOn)}`,
       cls: 'text-amber-300 bg-amber-500/10 border-amber-500/25',
-      title: `${status.employer} is enrolled in E-Verify until ${fmtDate(status.terminatesOn)}. Employer-reported.${checked}`,
+      term: 'everified' as const,
+      fact: `${status.employer} is enrolled until ${fmtDate(status.terminatesOn)}. After that date it would need to enrol again.`,
     },
     ended: {
       label: 'No longer E-Verified',
       cls: 'text-red-300 bg-red-500/10 border-red-500/25',
-      title: `${status.employer}'s E-Verify enrolment has ended${status.terminatesOn ? ` (${fmtDate(status.terminatesOn)})` : ''}. Confirm with the employer before relying on STEM OPT.${checked}`,
+      term: 'everifyEnded' as const,
+      fact: `${status.employer}'s enrolment ended${status.terminatesOn ? ` on ${fmtDate(status.terminatesOn)}` : ''}.`,
     },
     'not-found': {
       label: 'E-Verified: no match found',
       cls: 'text-slate-400 bg-white/[0.03] border-white/[0.08]',
-      title: `No E-Verify enrolment found under this name. Companies sometimes enrol under a different legal name, so check the official search.${checked}`,
+      term: 'everifyUnknown' as const,
+      fact: null,
     },
   }[status.state];
+  const g = GLOSSARY[conf.term];
   return (
-    <a href={EVERIFY_SEARCH_URL} target="_blank" rel="noopener noreferrer" title={conf.title}
-      className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10.5px] font-semibold transition-opacity hover:opacity-80 ${conf.cls}`}>
-      <ShieldCheck className="w-3 h-3" /> {conf.label}
-    </a>
+    <InfoTip wrap title={g.title} source={checked}
+      body={<>{conf.fact && <span className="block text-white/90 mb-1">{conf.fact}</span>}{g.body}</>}>
+      <a href={EVERIFY_SEARCH_URL} target="_blank" rel="noopener noreferrer"
+        className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10.5px] font-semibold transition-opacity hover:opacity-80 ${conf.cls}`}>
+        <ShieldCheck className="w-3 h-3" /> {conf.label}
+      </a>
+    </InfoTip>
   );
 }
 
@@ -342,21 +352,32 @@ function H1bBadge({ history, years }: { history: H1bHistory | null; years: strin
   const span = years.length ? `FY${years[years.length - 1]}-FY${years[0]}` : '';
   if (!history || history.years.every((y) => y.approvals === 0)) {
     return (
-      <a href={H1B_HUB_URL} target="_blank" rel="noopener noreferrer"
-        title={`No H-1B approvals on record under this name (${span}). Petitions are filed under the legal entity, so check the USCIS H-1B Employer Data Hub.`}
-        className="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10.5px] font-semibold transition-opacity hover:opacity-80 text-slate-400 bg-white/[0.03] border-white/[0.08]">
-        <Landmark className="w-3 h-3" /> H-1B: none on record
-      </a>
+      <InfoTip wrap term="h1bNone" source={`Searched ${span}. Click to open the USCIS H-1B Employer Data Hub.`}>
+        <a href={H1B_HUB_URL} target="_blank" rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10.5px] font-semibold transition-opacity hover:opacity-80 text-slate-400 bg-white/[0.03] border-white/[0.08]">
+          <Landmark className="w-3 h-3" /> H-1B: none on record
+        </a>
+      </InfoTip>
     );
   }
   const latest = history.years.find((y) => y.approvals > 0) ?? history.years[0];
-  const lines = history.years.map((y) => `FY${y.year}: ${y.approvals.toLocaleString('en-US')} approved (${y.newEmployment.toLocaleString('en-US')} new employment), ${y.denials.toLocaleString('en-US')} denied`).join('\n');
+  const n = (v: number) => v.toLocaleString('en-US');
   return (
-    <a href={H1B_HUB_URL} target="_blank" rel="noopener noreferrer"
-      title={`${history.employer}: H-1B workers approved by USCIS\n${lines}\nShows past petitions, not whether this employer will sponsor you.`}
-      className="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10.5px] font-semibold transition-opacity hover:opacity-80 text-sky-300 bg-sky-500/10 border-sky-500/25">
-      <Landmark className="w-3 h-3" /> H-1B · {latest.approvals.toLocaleString('en-US')} in FY{latest.year}
-    </a>
+    <InfoTip wrap title={`H-1B approvals: ${history.employer}`} source="From the USCIS H-1B Employer Data Hub. Click to open it."
+      body={<>
+        <table className="w-full text-[11.5px] tabular-nums my-1.5">
+          <thead><tr className="text-slate-500"><th className="text-left font-medium">Year</th><th className="text-right font-medium">Approved</th><th className="text-right font-medium">New hires</th><th className="text-right font-medium">Denied</th></tr></thead>
+          <tbody>{history.years.map((y) => (
+            <tr key={y.year} className="text-slate-200"><td>FY{y.year}</td><td className="text-right">{n(y.approvals)}</td><td className="text-right">{n(y.newEmployment)}</td><td className="text-right">{n(y.denials)}</td></tr>
+          ))}</tbody>
+        </table>
+        {GLOSSARY.h1b.body}
+      </>}>
+      <a href={H1B_HUB_URL} target="_blank" rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10.5px] font-semibold transition-opacity hover:opacity-80 text-sky-300 bg-sky-500/10 border-sky-500/25">
+        <Landmark className="w-3 h-3" /> H-1B · {n(latest.approvals)} in FY{latest.year}
+      </a>
+    </InfoTip>
   );
 }
 

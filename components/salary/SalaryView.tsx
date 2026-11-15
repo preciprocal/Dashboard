@@ -16,6 +16,7 @@ import PercentileBand from '@/components/salary/PercentileBand';
 import { COMMON_OCCUPATIONS } from '@/lib/salary/occupations';
 import { formatUsd, offerPosition, parseOffer } from '@/lib/salary/position';
 import type { SalaryResponse, SalaryOccupation } from '@/lib/salary/lookup';
+import InfoTip from '@/components/ui/info-tip';
 
 export const OEWS_TABLES_URL = 'https://www.bls.gov/oes/tables.htm';
 
@@ -218,7 +219,7 @@ export default function SalaryView({ initialTitle = '', initialLocation = '', in
             <PercentileBand band={ok.wages} offer={offer} />
 
             <p className="text-xs text-slate-400 leading-relaxed">
-              Half of workers in this occupation earn between the 25th and 75th percentile (highlighted).
+              Half of workers in this occupation earn between the 25th and 75th percentile (highlighted). <InfoTip term="percentiles" className="align-middle" />
               {ok.wages.capped ? ` A + means BLS reports that wage only as ${formatUsd(ok.topCode)} or more.` : ''}
             </p>
           </div>

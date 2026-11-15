@@ -12,6 +12,7 @@ import ResumePicker, { type ResumeOption } from '@/components/apply/ResumePicker
 import ResumeChanges from '@/components/apply/ResumeChanges';
 import type { ApplyStepProps } from '@/components/apply/types';
 import { loadResumeOptions } from '@/lib/resume/default-client';
+import InfoTip from '@/components/ui/info-tip';
 
 
 export default function TailorStep({ application, pack, onPack, update, goTo }: ApplyStepProps) {
@@ -111,7 +112,7 @@ export default function TailorStep({ application, pack, onPack, update, goTo }: 
           <section className="glass-card p-5">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
-                <p className="text-xs text-slate-400 mb-1">Job keywords found in your resume</p>
+                <p className="text-xs text-slate-400 mb-1 flex items-center gap-1.5">Job keywords found in your resume <InfoTip term="keywordMatch" /></p>
                 <p className="text-2xl font-semibold text-white tabular-nums">
                   {t.before.matched.length}
                   <span className="text-slate-500 mx-2">to</span>
@@ -139,9 +140,11 @@ export default function TailorStep({ application, pack, onPack, update, goTo }: 
             </div>
             <p className="text-[12px] text-slate-500 mb-4 flex items-start gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0 mt-0.5" />
-              Each change only rewords what your resume already says.
-              {t.removedByChecks > 0 && ` ${t.removedByChecks} proposed change${t.removedByChecks === 1 ? ' was' : 's were'} removed because ${t.removedByChecks === 1 ? 'it' : 'they'} added a number, tool or skill your resume does not have.`}
-              {(t.layoutSkipped ?? 0) > 0 && ` ${t.layoutSkipped} more did not fit the space ${t.layoutSkipped === 1 ? 'its line has' : 'their lines have'} in your resume file, so ${t.layoutSkipped === 1 ? 'it was' : 'they were'} left out.`}
+              <span>
+                Each change only rewords what your resume already says. <InfoTip term="factChecks" className="align-middle" />
+                {t.removedByChecks > 0 && ` ${t.removedByChecks} proposed change${t.removedByChecks === 1 ? ' was' : 's were'} removed because ${t.removedByChecks === 1 ? 'it' : 'they'} added a number, tool or skill your resume does not have.`}
+                {(t.layoutSkipped ?? 0) > 0 && ` ${t.layoutSkipped} more did not fit the space ${t.layoutSkipped === 1 ? 'its line has' : 'their lines have'} in your resume file, so ${t.layoutSkipped === 1 ? 'it was' : 'they were'} left out.`}
+              </span>
             </p>
             {t.changes.length === 0 ? (
               <p className="text-sm text-slate-400 text-center py-6">No changes passed the checks. Your resume may already use this job&apos;s language.</p>

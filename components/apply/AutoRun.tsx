@@ -19,6 +19,7 @@ import type { ApplyPack } from '@/lib/applications/pack';
 import { detectExtension, extensionStoreUrl, prepareAutofill, versionAtLeast } from '@/lib/extension';
 import { loadResumeOptions } from '@/lib/resume/default-client';
 import ResumeChanges from '@/components/apply/ResumeChanges';
+import AutoApplyDetailsNotice from '@/components/apply/AutoApplyDetailsNotice';
 
 type Status = 'pending' | 'running' | 'done' | 'error';
 type Key = 'resume' | 'approve' | 'letter' | 'extension' | 'portal';
@@ -199,6 +200,7 @@ export default function AutoRun({ application, pack, onPack, update, goTo }: App
         {!finished && !launch && <button onClick={stop} className="btn-secondary h-9 flex-shrink-0"><X className="w-4 h-4" /> Stop</button>}
         {stopped && <button onClick={retry} className="btn-secondary h-9 flex-shrink-0">Start again</button>}
       </div>
+      <AutoApplyDetailsNotice context="auto-apply" className="mb-4" />
       <ol className="space-y-2.5">
         {rows.map(r => {
           const s = status[r.key];

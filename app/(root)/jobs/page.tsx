@@ -16,6 +16,8 @@ import PageHeader from '@/components/PageHeader';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import { AppSelect } from '@/components/ui/select';
+import InfoTip from '@/components/ui/info-tip';
+import AutoApplyDetailsNotice from '@/components/apply/AutoApplyDetailsNotice';
 import type { FeedJob, JobFamily, JobLevel } from '@/lib/jobs/feed';
 import { CompanyLogo, useCompanyLogos } from '@/components/jobs/CompanyLogo';
 import { startApplication, trackedJobs } from '@/lib/jobs/start-application';
@@ -59,8 +61,8 @@ function JobCard({ job, domain, h1bYear, closed, applying, disabled, onApply }: 
             <div className="min-w-0 flex-1">
               <div className="flex items-start gap-2">
                 <h3 className="text-[15px] font-semibold text-white leading-snug">{job.t}</h3>
-                {fresh && !closed && <span className="mt-0.5 flex-shrink-0 text-[10px] font-semibold uppercase tracking-wider text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded px-1.5 py-0.5">New</span>}
-                {closed && <span className="mt-0.5 flex-shrink-0 text-[10px] font-semibold uppercase tracking-wider text-slate-300 border border-white/[0.12] rounded px-1.5 py-0.5">Closed</span>}
+                {fresh && !closed && <InfoTip term="newPosting" className="mt-0.5 flex-shrink-0"><span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded px-1.5 py-0.5">New</span></InfoTip>}
+                {closed && <InfoTip term="closedPosting" className="mt-0.5 flex-shrink-0"><span className="text-[10px] font-semibold uppercase tracking-wider text-slate-300 border border-white/[0.12] rounded px-1.5 py-0.5">Closed</span></InfoTip>}
               </div>
               <p className="text-[13px] text-slate-300 mt-1 truncate">
                 <span className="font-medium">{job.c}</span>
@@ -71,22 +73,19 @@ function JobCard({ job, domain, h1bYear, closed, applying, disabled, onApply }: 
                 {remote && <span className="text-[11px] font-medium rounded-md border px-2 py-0.5 text-teal-200 bg-teal-500/10 border-teal-500/20">Remote</span>}
                 <span className="inline-flex items-center gap-1 text-[11px] text-slate-400 rounded-md border border-white/[0.06] px-2 py-0.5"><Clock className="w-3 h-3" />{ago(job.p)}</span>
                 {(job.e === 'enrolled' || job.e === 'ending') && (
-                  <span title="Enrolled in E-Verify (employer-reported). STEM OPT needs an E-Verify employer."
-                    className="inline-flex items-center gap-1 text-[11px] font-medium rounded-md border px-2 py-0.5 text-emerald-300 bg-emerald-500/10 border-emerald-500/20">
+                  <InfoTip term="everified" className="text-[11px] font-medium rounded-md border px-2 py-0.5 text-emerald-300 bg-emerald-500/10 border-emerald-500/20">
                     <ShieldCheck className="w-3 h-3" />E-Verified
-                  </span>
+                  </InfoTip>
                 )}
                 {job.e === 'ended' && (
-                  <span title="This employer's E-Verify enrolment has ended."
-                    className="inline-flex items-center gap-1 text-[11px] font-medium rounded-md border px-2 py-0.5 text-rose-300 bg-rose-500/10 border-rose-500/20">
+                  <InfoTip term="everifyEnded" className="text-[11px] font-medium rounded-md border px-2 py-0.5 text-rose-300 bg-rose-500/10 border-rose-500/20">
                     <ShieldCheck className="w-3 h-3" />E-Verify ended
-                  </span>
+                  </InfoTip>
                 )}
                 {approvals > 0 && (
-                  <span title="Past H-1B petitions approved by USCIS. Not a promise to sponsor you."
-                    className="inline-flex items-center gap-1 text-[11px] font-medium rounded-md border px-2 py-0.5 text-sky-300 bg-sky-500/10 border-sky-500/20">
+                  <InfoTip term="h1b" className="text-[11px] font-medium rounded-md border px-2 py-0.5 text-sky-300 bg-sky-500/10 border-sky-500/20">
                     <Landmark className="w-3 h-3" />{approvals.toLocaleString('en-US')} H-1B{h1bYear ? ` in FY${h1bYear}` : ''}
-                  </span>
+                  </InfoTip>
                 )}
               </div>
             </div>
@@ -260,8 +259,8 @@ export default function JobsPage() {
             options={FAMILIES.map(f => ({ value: f.id, label: f.label }))} />
           <AppSelect className="!h-9 !w-auto min-w-[150px] !text-xs" value={String(days)} onValueChange={v => setDays(Number(v))} aria-label="Posted within"
             options={[{ value: '7', label: 'Last 7 days' }, { value: '14', label: 'Last 14 days' }, { value: '30', label: 'Last 30 days' }, { value: '60', label: 'Last 60 days' }]} />
-          <button onClick={() => setEverify(v => !v)} className={chip(everify)}><ShieldCheck className="w-3.5 h-3.5 inline mr-1" />E-Verified</button>
-          <button onClick={() => setH1b(v => !v)} className={chip(h1b)}><Landmark className="w-3.5 h-3.5 inline mr-1" />Has H-1B approvals</button>
+          <InfoTip term="everified" wrap side="bottom"><button onClick={() => setEverify(v => !v)} className={chip(everify)}><ShieldCheck className="w-3.5 h-3.5 inline mr-1" />E-Verified</button></InfoTip>
+          <InfoTip term="h1b" wrap side="bottom"><button onClick={() => setH1b(v => !v)} className={chip(h1b)}><Landmark className="w-3.5 h-3.5 inline mr-1" />Has H-1B approvals</button></InfoTip>
           <button onClick={() => setRemote(v => !v)} className={chip(remote)}>Remote</button>
         </div>
       </section>
@@ -274,7 +273,7 @@ export default function JobsPage() {
                 <Zap className="w-4 h-4" />
               </span>
               <div className="min-w-0">
-                <p className="text-[13px] font-medium text-white">{autoMode ? 'Auto-apply is on' : 'Review each step'}</p>
+                <p className="text-[13px] font-medium text-white flex items-center gap-1.5">{autoMode ? 'Auto-apply is on' : 'Review each step'}<InfoTip term="autoApply" /></p>
                 <p className="text-[12px] text-slate-400 leading-snug">
                   {autoMode
                     ? 'Apply tailors your resume, writes the letter and opens the portal for the extension to fill. You still submit.'
@@ -292,9 +291,11 @@ export default function JobsPage() {
             </div>
           </div>
 
+          {autoMode && <AutoApplyDetailsNotice context="auto-apply" />}
+
           <div className="flex items-center justify-between px-1 text-xs text-slate-400">
             <span>{data ? `${data.total.toLocaleString()} open roles` : 'Loading'}{busy && data ? ' · updating' : ''}</span>
-            {data && <span>Checked {new Date(data.syncedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>}
+            {data && <InfoTip term="jobsChecked" icon side="left">Checked {new Date(data.syncedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</InfoTip>}
           </div>
 
           {error && <div className="glass-card p-6 text-center text-sm text-slate-300">{error}</div>}

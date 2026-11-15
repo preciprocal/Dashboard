@@ -10,6 +10,7 @@ import {
   MousePointerClick, PenLine, ExternalLink, CheckCircle2,
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
+import AutoApplyDetailsNotice from '@/components/apply/AutoApplyDetailsNotice';
 import { useExtensionStatus, extensionStoreUrl } from '@/lib/extension';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 
@@ -68,6 +69,8 @@ export default function ExtensionPage() {
               </>}
         </>}
       />
+
+      <AutoApplyDetailsNotice context="extension" />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Stat icon={Briefcase} label="Jobs tracked" value={usage?.totals.jobsTracked} loading={loading} />

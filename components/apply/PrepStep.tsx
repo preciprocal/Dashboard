@@ -18,6 +18,7 @@ import { AppSelect } from '@/components/ui/select';
 import type { ApplyStepProps } from '@/components/apply/types';
 import type { StarStory } from '@/lib/applications/pack';
 import { AUTH_STAGES, SOURCES, type AuthStage } from '@/lib/applications/sponsorship';
+import InfoTip from '@/components/ui/info-tip';
 
 type RoundTab = 'recruiter' | 'technical' | 'behavioral' | 'manager' | 'plan' | 'after';
 
@@ -202,11 +203,11 @@ function EmployerRecords({ company, rec }: { company: string; rec: NonNullable<A
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <a href={EVERIFY_SEARCH_URL} target="_blank" rel="noopener noreferrer" className="rounded-xl bg-white/[0.02] border border-white/[0.06] p-3 hover:border-white/[0.12] transition-colors">
-        <p className="text-xs font-medium text-white flex items-center gap-1.5 mb-1"><ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> E-Verify</p>
+        <p className="text-xs font-medium text-white flex items-center gap-1.5 mb-1"><ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> E-Verify <InfoTip term="everified" /></p>
         <p className="text-[12px] text-slate-400 leading-relaxed">{evText}{rec.everifySyncedAt ? ` Checked ${fmtDate(rec.everifySyncedAt)}.` : ''}</p>
       </a>
       <a href={H1B_HUB_URL} target="_blank" rel="noopener noreferrer" className="rounded-xl bg-white/[0.02] border border-white/[0.06] p-3 hover:border-white/[0.12] transition-colors">
-        <p className="text-xs font-medium text-white flex items-center gap-1.5 mb-1"><Landmark className="w-3.5 h-3.5 text-sky-300" /> H-1B history</p>
+        <p className="text-xs font-medium text-white flex items-center gap-1.5 mb-1"><Landmark className="w-3.5 h-3.5 text-sky-300" /> H-1B history <InfoTip term="h1b" /></p>
         <p className="text-[12px] text-slate-400 leading-relaxed">
           {latest
             ? `${h!.employer}: ${latest.approvals.toLocaleString('en-US')} H-1B workers approved in FY${latest.year}, per USCIS. This shows past petitions, not whether they will sponsor you.`
