@@ -85,7 +85,7 @@ const FLAG_BODY: Record<JobFit['flags'][number]['kind'], string> = {
 };
 
 const tone = (score: number) => (score >= 70 ? 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20' : score >= 40 ? 'text-amber-300 bg-amber-500/10 border-amber-500/20' : 'text-slate-300 bg-white/[0.04] border-white/[0.1]');
-const pill = 'whitespace-nowrap text-[11px] font-medium rounded-md border px-2 py-0.5';
+const pill = 'whitespace-nowrap text-[11.5px] font-medium rounded-md px-2 py-[3px]';
 
 /** The pills on a card: skill match and posting warnings. */
 export function FitPills({ fit, hasResume }: { fit: Fit | undefined; hasResume: boolean | null }) {
@@ -196,7 +196,7 @@ export function FitPanel({ url, fit, hasResume, bare }: { url: string; fit: Fit 
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-3">
-          <button onClick={run} disabled={loading || hasResume === false} className="btn-secondary h-9 disabled:opacity-50">
+          <button onClick={run} disabled={loading || hasResume === false} className="prc-cta prc-cta-quiet">
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-indigo-300" />} {loading ? 'Reading the posting and your resume' : 'Explain my fit'}
           </button>
           {error && <span className="text-[12px] text-rose-300">{error}</span>}

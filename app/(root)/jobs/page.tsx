@@ -21,7 +21,7 @@ import { readPreferences, FAMILY_OPTIONS, type JobPreferences } from '@/lib/onbo
 import type { FeedJob, JobFamily, JobLevel } from '@/lib/jobs/feed';
 import { useCompanyLogos } from '@/components/jobs/CompanyLogo';
 import { useJobFits } from '@/components/jobs/JobFit';
-import { JobCard } from '@/components/jobs/JobCard';
+import { JobCard, JobCardSkeleton } from '@/components/jobs/JobCard';
 import JobDetail from '@/components/jobs/JobDetail';
 import { startApplication, trackedJobs } from '@/lib/jobs/start-application';
 
@@ -268,126 +268,138 @@ export default function JobsPage() {
 
   if (loading || !user) return <AnimatedLoader isVisible loadingText="Loading" showNavigation />;
 
-  const chip = (on: boolean) =>
-    `h-9 px-3 rounded-lg text-xs font-medium border transition-colors ${on ? 'bg-[var(--accent-subtle)] border-[var(--accent-border)] text-indigo-100' : 'border-white/[0.08] text-slate-400 hover:text-white hover:bg-white/[0.04]'}`;
+  const toggle = (on: boolean) =>
+    `inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12.5px] font-medium transition-all duration-150 active:scale-[0.97] ${on ? 'text-white bg-[var(--accent-subtle)] ring-1 ring-inset ring-[var(--accent-border)]' : 'text-slate-400 bg-white/[0.035] hover:text-white hover:bg-white/[0.07]'}`;
 
   const notHidden = jobs.filter(j => !hidden.has(j.u));
   const shownJobs = hideTracked ? notHidden.filter(j => !trackedMap.has(j.u) || justSaved.has(j.u)) : notHidden;
   const hiddenCount = notHidden.length - shownJobs.length;
   const notInterested = jobs.length - notHidden.length;
+  const firstLoad = !data && !error;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <PageHeader title="Jobs" icon={Briefcase} description="Open roles from employers' own job boards, checked before you apply." />
 
-      <section className="glass-card p-4 space-y-3">
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_260px] gap-3">
-          <label className="relative">
-            <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input className="field w-full pl-10" placeholder="Role or company, e.g. data analyst" value={q} onChange={e => setQ(e.target.value)} />
+      {/* Search and filters */}
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-surface)] p-2.5 sm:p-3 space-y-3 shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]">
+        <div className="flex flex-col md:flex-row md:items-center rounded-xl bg-[var(--bg-subtle)] ring-1 ring-inset ring-white/[0.06] focus-within:ring-[var(--accent-border)] transition-shadow">
+          <label className="relative flex-1 flex items-center">
+            <Search className="w-[18px] h-[18px] text-slate-500 absolute left-4" />
+            <input className="w-full h-12 bg-transparent pl-11 pr-4 text-[14px] text-white placeholder:text-slate-500 outline-none" placeholder="Search by title or company" value={q} onChange={e => setQ(e.target.value)} />
           </label>
-          <label className="relative">
-            <MapPin className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input className="field w-full pl-10" placeholder="City or state" value={location} onChange={e => setLocation(e.target.value)} />
+          <span className="hidden md:block w-px h-6 bg-white/[0.08]" />
+          <span className="md:hidden h-px mx-4 bg-white/[0.06]" />
+          <label className="relative md:w-72 flex items-center">
+            <MapPin className="w-[18px] h-[18px] text-slate-500 absolute left-4" />
+            <input className="w-full h-12 bg-transparent pl-11 pr-4 text-[14px] text-white placeholder:text-slate-500 outline-none" placeholder="City or state" value={location} onChange={e => setLocation(e.target.value)} />
           </label>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {LEVELS.map(l => <button key={l.id} onClick={() => toggleLevel(l.id)} className={chip(levels.includes(l.id))}>{l.label}</button>)}
-          <span className="w-px h-6 bg-white/[0.08] mx-1 hidden sm:block" />
-          <AppSelect className="!h-9 !w-auto min-w-[150px] !text-xs" value={family} onValueChange={v => setFamily(v as JobFamily | '' | typeof MINE)} aria-label="Area"
+        <div className="flex flex-wrap items-center gap-2 px-0.5">
+          <div role="group" aria-label="Experience level" className="flex p-0.5 rounded-full bg-white/[0.035] ring-1 ring-inset ring-white/[0.05]">
+            {LEVELS.map(l => (
+              <button key={l.id} onClick={() => toggleLevel(l.id)} aria-pressed={levels.includes(l.id)}
+                className={`h-7 px-3 rounded-full text-[12.5px] font-medium transition-all duration-150 ${levels.includes(l.id) ? 'bg-white/[0.1] text-white shadow-[0_1px_0_rgba(255,255,255,0.08)_inset]' : 'text-slate-400 hover:text-white'}`}>
+                {l.label}
+              </button>
+            ))}
+          </div>
+          <AppSelect className="!h-8 !w-auto min-w-[140px] !text-[12.5px] !rounded-full" value={family} onValueChange={v => setFamily(v as JobFamily | '' | typeof MINE)} aria-label="Area"
             options={[
               ...(prefs && prefs.families.length > 1 ? [{ value: MINE, label: 'My areas' }] : []),
               ...FAMILIES.map(f => ({ value: f.id, label: f.label })),
             ]} />
-          <AppSelect className="!h-9 !w-auto min-w-[150px] !text-xs" value={String(days)} onValueChange={v => setDays(Number(v))} aria-label="Posted within"
+          <AppSelect className="!h-8 !w-auto min-w-[130px] !text-[12.5px] !rounded-full" value={String(days)} onValueChange={v => setDays(Number(v))} aria-label="Posted within"
             options={[{ value: '7', label: 'Last 7 days' }, { value: '14', label: 'Last 14 days' }, { value: '30', label: 'Last 30 days' }, { value: '60', label: 'Last 60 days' }]} />
-          <InfoTip term="everified" wrap side="bottom"><button onClick={() => setEverify(v => !v)} className={chip(everify)}><ShieldCheck className="w-3.5 h-3.5 inline mr-1" />E-Verified</button></InfoTip>
-          <InfoTip term="h1b" wrap side="bottom"><button onClick={() => setH1b(v => !v)} className={chip(h1b)}><Landmark className="w-3.5 h-3.5 inline mr-1" />Has H-1B approvals</button></InfoTip>
-          <button onClick={() => setRemote(v => !v)} className={chip(remote)}>Remote</button>
-          <button onClick={toggleHideTracked} className={chip(hideTracked)}><FolderCheck className="w-3.5 h-3.5 inline mr-1" />Hide tracked</button>
+          <span className="hidden sm:block w-px h-5 bg-white/[0.08] mx-0.5" />
+          <InfoTip term="everified" wrap side="bottom"><button onClick={() => setEverify(v => !v)} aria-pressed={everify} className={toggle(everify)}><ShieldCheck className="w-3.5 h-3.5" />E-Verified</button></InfoTip>
+          <InfoTip term="h1b" wrap side="bottom"><button onClick={() => setH1b(v => !v)} aria-pressed={h1b} className={toggle(h1b)}><Landmark className="w-3.5 h-3.5" />H-1B sponsor</button></InfoTip>
+          <button onClick={() => setRemote(v => !v)} aria-pressed={remote} className={toggle(remote)}>Remote</button>
+          <button onClick={toggleHideTracked} aria-pressed={hideTracked} className={toggle(hideTracked)}><FolderCheck className="w-3.5 h-3.5" />Hide tracked</button>
         </div>
       </section>
 
-      <div>
-        <div className="space-y-3">
-          <div className="glass-card p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center gap-3">
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              <span className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 border ${autoMode ? 'bg-[var(--accent-subtle)] border-[var(--accent-border)] text-indigo-200' : 'bg-white/[0.03] border-white/[0.08] text-slate-400'}`}>
-                <Zap className="w-4 h-4" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-[13px] font-medium text-white flex items-center gap-1.5">{autoMode ? 'Auto-apply is on' : 'Review each step'}<InfoTip term="autoApply" /></p>
-                <p className="text-[12px] text-slate-400 leading-snug">
-                  {autoMode
-                    ? 'Apply tailors your resume, writes the letter and opens the portal for the extension to fill. You still submit.'
-                    : 'Apply opens each step for you to review: resume changes, cover letter, then the portal.'}
-                </p>
-              </div>
-            </div>
-            <div role="radiogroup" aria-label="Apply mode" className="flex p-1 rounded-lg bg-white/[0.03] border border-white/[0.08] flex-shrink-0">
-              {[{ v: false, label: 'Manual' }, { v: true, label: 'Auto' }].map(o => (
-                <button key={o.label} role="radio" aria-checked={autoMode === o.v} onClick={() => chooseMode(o.v)}
-                  className={`h-8 px-4 rounded-md text-xs font-medium transition-colors ${autoMode === o.v ? 'bg-[var(--accent)] text-white' : 'text-slate-400 hover:text-white'}`}>
-                  {o.label}
-                </button>
-              ))}
-            </div>
+      {/* Results bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-1">
+        <div className="min-w-0 flex-1">
+          <p className="flex items-baseline gap-2">
+            <span className="text-[20px] font-semibold tracking-tight text-white tabular-nums">{data ? data.total.toLocaleString() : '...'}</span>
+            <span className="text-[13px] text-slate-400">open role{data?.total === 1 ? '' : 's'}</span>
+            {busy && data && <Loader2 className="w-3.5 h-3.5 text-slate-500 animate-spin self-center" />}
+          </p>
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-slate-500 mt-0.5">
+            {usingPrefs && prefs ? (
+              <>
+                <InfoTip title="Your job preferences" body={`${prefs.families.length ? FAMILY_OPTIONS.filter(o => prefs.families.includes(o.id)).map(o => o.label).join(', ') : 'All areas'}${prefs.location ? `, ${prefs.location}${prefs.remote ? ' or remote' : ''}` : ', anywhere in the US'}${prefs.everifyOnly ? ', E-Verified only' : ''}${prefs.h1bOnly ? ', H-1B approvals only' : ''}.`}>
+                  <span className="text-indigo-300">Matching your job preferences</span>
+                </InfoTip>
+                <Link href="/onboarding?edit=1" className="hover:text-white transition-colors">Edit</Link>
+                <span aria-hidden="true">·</span>
+                <button onClick={clearFilters} className="hover:text-white transition-colors">Clear</button>
+              </>
+            ) : <span>From employers&apos; own job boards</span>}
+            {data && <><span aria-hidden="true">·</span><InfoTip term="jobsChecked" side="bottom">Checked {new Date(data.syncedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</InfoTip></>}
+          </p>
+        </div>
+        <div className="flex items-center gap-2.5">
+          <span className="text-[12px] text-slate-500 flex items-center gap-1">Apply mode<InfoTip term="autoApply" /></span>
+          <div role="radiogroup" aria-label="Apply mode" className="flex p-0.5 rounded-full bg-white/[0.035] ring-1 ring-inset ring-white/[0.06]">
+            {[{ v: false, label: 'Review each step' }, { v: true, label: 'Auto-apply' }].map(o => (
+              <button key={o.label} role="radio" aria-checked={autoMode === o.v} onClick={() => chooseMode(o.v)}
+                className={`h-8 px-3.5 rounded-full text-[12.5px] font-medium inline-flex items-center gap-1.5 transition-all duration-200 ${autoMode === o.v ? 'bg-[var(--accent)] text-white shadow-[0_4px_12px_-4px_rgba(91,108,255,0.8)]' : 'text-slate-400 hover:text-white'}`}>
+                {o.v && <Zap className="w-3.5 h-3.5" />}{o.label}
+              </button>
+            ))}
           </div>
+        </div>
+      </div>
 
-          {autoMode && <AutoApplyDetailsNotice context="auto-apply" />}
+      {autoMode && <AutoApplyDetailsNotice context="auto-apply" />}
 
-          <div className="flex items-center justify-between px-1 text-xs text-slate-400">
-            <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              {data ? `${data.total.toLocaleString()} open roles` : 'Loading'}{busy && data ? ' · updating' : ''}
-              {usingPrefs && prefs && (
-                <span className="inline-flex items-center gap-2 text-slate-500">
-                  <span aria-hidden="true">·</span>
-                  <InfoTip title="Your job preferences" body={`${prefs.families.length ? FAMILY_OPTIONS.filter(o => prefs.families.includes(o.id)).map(o => o.label).join(', ') : 'All areas'}${prefs.location ? `, ${prefs.location}${prefs.remote ? ' or remote' : ''}` : ', anywhere in the US'}${prefs.everifyOnly ? ', E-Verified only' : ''}${prefs.h1bOnly ? ', H-1B approvals only' : ''}.`}>
-                    <span className="text-indigo-300">Using your job preferences</span>
-                  </InfoTip>
-                  <Link href="/onboarding?edit=1" className="hover:text-white transition-colors">Edit</Link>
-                  <button onClick={clearFilters} className="hover:text-white transition-colors">Clear</button>
-                </span>
-              )}
-            </span>
-            {data && <InfoTip term="jobsChecked" icon side="left">Checked {new Date(data.syncedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</InfoTip>}
+      <div className="space-y-3">
+        {(hiddenCount > 0 || notInterested > 0) && (
+          <p className="px-1 text-[12px] text-slate-500 flex flex-wrap gap-x-3 gap-y-1">
+            {hiddenCount > 0 && <span>{hiddenCount} in your tracker hidden. <button onClick={toggleHideTracked} className="text-indigo-300 hover:text-indigo-200">Show</button></span>}
+            {notInterested > 0 && <span>{notInterested} marked not interested. <button onClick={() => storeHidden(new Set())} className="text-indigo-300 hover:text-indigo-200">Show again</button></span>}
+          </p>
+        )}
+
+        {error && <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-surface)] p-8 text-center text-sm text-slate-300">{error}</div>}
+        {!error && data && jobs.length === 0 && (
+          <div className="rounded-2xl border border-dashed border-white/[0.1] p-12 text-center">
+            <Search className="w-6 h-6 text-slate-600 mx-auto" />
+            <p className="text-[14px] text-white mt-3">No open roles match</p>
+            <p className="text-[13px] text-slate-400 mt-1">Try fewer filters or a longer time range.</p>
+            {usingPrefs && <button onClick={clearFilters} className="prc-cta prc-cta-quiet mt-4">Clear filters</button>}
           </div>
+        )}
 
-          {error && <div className="glass-card p-6 text-center text-sm text-slate-300">{error}</div>}
-          {!error && data && jobs.length === 0 && (
-            <div className="glass-card p-10 text-center text-sm text-slate-400">No open roles match. Try fewer filters or a longer time range.</div>
-          )}
-
-          {hiddenCount > 0 && (
-            <p className="px-1 text-[12px] text-slate-500">{hiddenCount} job{hiddenCount === 1 ? '' : 's'} already in your tracker {hiddenCount === 1 ? 'is' : 'are'} hidden. <button onClick={toggleHideTracked} className="text-indigo-300 hover:underline">Show</button></p>
-          )}
-          {notInterested > 0 && (
-            <p className="px-1 text-[12px] text-slate-500">{notInterested} job{notInterested === 1 ? '' : 's'} you marked not interested {notInterested === 1 ? 'is' : 'are'} hidden. <button onClick={() => storeHidden(new Set())} className="text-indigo-300 hover:underline">Show again</button></p>
-          )}
-          {shownJobs.map(job => (
-            <JobCard key={job.u} job={job} domain={logos[job.c]} h1bYear={data?.h1bYear ?? null} closed={closed.has(job.u)}
+        {firstLoad && [0, 1, 2].map(i => <JobCardSkeleton key={i} />)}
+        <div className={`space-y-3 transition-opacity duration-200 ${busy && data && !jobs.length ? 'opacity-60' : ''}`}>
+          {shownJobs.map((job, i) => (
+            <JobCard key={job.u} job={job} index={i} domain={logos[job.c]} h1bYear={data?.h1bYear ?? null} closed={closed.has(job.u)}
               fit={fits[job.u]} hasResume={hasResume} cardRef={watch(job.u)} trackedId={trackedMap.get(job.u)}
-              applying={applying === job.u} saving={saving === job.u} disabled={!!applying}
+              applying={applying === job.u} saving={saving === job.u} disabled={!!applying} autoMode={autoMode}
               onApply={() => apply(job)} onSave={() => save(job)} onHide={() => hide(job)} onOpen={() => openJob(job.u, job.c)} />
           ))}
-
-          {/* The next page loads as this comes into view, as on Templates. */}
-          {data && jobs.length < data.total && (
-            <div ref={sentinel} className="flex justify-center items-center gap-2 py-6 text-xs text-slate-500">
-              {busy ? <><Loader2 className="w-4 h-4 animate-spin" /> Loading more roles</> : (
-                <button onClick={more} className="text-slate-400 hover:text-white">Load more</button>
-              )}
-            </div>
-          )}
-          {data && jobs.length > 0 && jobs.length >= data.total && (
-            <p className="text-center text-xs text-slate-500 py-6">That is every open role that matches.</p>
-          )}
         </div>
+
+        {/* The next page loads as this comes into view, as on Templates. */}
+        {data && jobs.length < data.total && (
+          <div ref={sentinel} className="pt-1">
+            {busy ? <JobCardSkeleton /> : (
+              <div className="flex justify-center py-4"><button onClick={more} className="prc-cta prc-cta-quiet">Load more roles</button></div>
+            )}
+          </div>
+        )}
+        {data && jobs.length > 0 && jobs.length >= data.total && (
+          <p className="text-center text-[12px] text-slate-500 py-6">You have reached the end. That is every open role that matches.</p>
+        )}
       </div>
 
       {open && (
         <JobDetail url={open.url} domain={open.company ? logos[open.company] : undefined}
-          trackedId={trackedMap.get(open.url)} saving={saving === open.url} applying={applying === open.url} closed={closed.has(open.url)}
+          trackedId={trackedMap.get(open.url)} saving={saving === open.url} applying={applying === open.url} closed={closed.has(open.url)} autoMode={autoMode}
           onClose={closeJob} onApply={apply} onSave={save} onHide={hide} onOpenJob={u => openJob(u, open.company)}
           onSeeAll={company => { closeJob(); setQ(company); setLevels([]); setFamily(''); setLocation(''); setOrRemote(false); setEverify(false); setH1b(false); setRemote(false); setUsingPrefs(false); window.scrollTo(0, 0); }} />
       )}
