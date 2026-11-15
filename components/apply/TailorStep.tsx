@@ -8,9 +8,9 @@
 import { useEffect, useState } from 'react';
 import { Loader2, Check, X, Sparkles, Copy, Download, ShieldCheck, ChevronRight, Info } from 'lucide-react';
 import { toast } from 'sonner';
+import ResumePicker, { type ResumeOption } from '@/components/apply/ResumePicker';
 import type { ApplyStepProps } from '@/components/apply/types';
 
-interface ResumeOption { id: string; fileName?: string; jobTitle?: string; companyName?: string }
 
 export default function TailorStep({ application, pack, onPack, update, goTo }: ApplyStepProps) {
   const [resumes, setResumes] = useState<ResumeOption[] | null>(null);
@@ -85,11 +85,7 @@ export default function TailorStep({ application, pack, onPack, update, goTo }: 
         <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
           <label className="flex-1 min-w-0">
             <span className="block text-xs text-slate-400 mb-1.5">Resume to tailor</span>
-            <select className="field w-full" value={resumeId} onChange={e => setResumeId(e.target.value)} disabled={resumes === null}>
-              {resumes === null && <option>Loading</option>}
-              {resumes?.length === 0 && <option value="">No resumes yet. Upload one first.</option>}
-              {resumes?.map(r => <option key={r.id} value={r.id}>{r.fileName || r.jobTitle || 'Resume'}{r.companyName ? ` (${r.companyName})` : ''}</option>)}
-            </select>
+            <ResumePicker resumes={resumes} value={resumeId} onChange={setResumeId} />
           </label>
           <button onClick={propose} disabled={running || !resumeId} className="btn-primary justify-center disabled:opacity-50">
             {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}

@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 import { Loader2, Pen, Copy, Save, ChevronRight, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
+import { AppSelect } from '@/components/ui/select';
 import type { ApplyStepProps } from '@/components/apply/types';
 
 import type { WritingCheck } from '@/lib/ai/writing-check';
@@ -65,12 +66,10 @@ export default function LetterStep({ application, pack, update, goTo }: ApplySte
             {resumeText ? 'Written from the resume you approved in step 1 and the job description.' : 'Tailor your resume in step 1 first, so the letter matches it.'}
           </p>
         </div>
-        <select className="field sm:w-44" value={tone} onChange={e => setTone(e.target.value)}>
-          <option value="professional">Professional</option>
-          <option value="friendly">Friendly</option>
-          <option value="enthusiastic">Enthusiastic</option>
-          <option value="confident">Confident</option>
-        </select>
+        <AppSelect className="sm:w-44" value={tone} onValueChange={setTone} aria-label="Tone" options={[
+          { value: 'professional', label: 'Professional' }, { value: 'friendly', label: 'Friendly' },
+          { value: 'enthusiastic', label: 'Enthusiastic' }, { value: 'confident', label: 'Confident' },
+        ]} />
         <button onClick={generate} disabled={running || !resumeText} className="btn-primary justify-center disabled:opacity-50">
           {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Pen className="w-4 h-4" />} {pack.coverLetter ? 'Write again' : 'Write letter'}
         </button>

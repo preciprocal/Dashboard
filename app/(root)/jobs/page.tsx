@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import PageHeader from '@/components/PageHeader';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
+import { AppSelect } from '@/components/ui/select';
 import type { FeedJob, JobFamily, JobLevel } from '@/lib/jobs/feed';
 
 const LEVELS: { id: JobLevel; label: string }[] = [
@@ -30,6 +31,87 @@ const ago = (date: string) => {
   const d = Math.floor((Date.now() - Date.parse(`${date}T00:00:00Z`)) / 86_400_000);
   return d <= 0 ? 'Today' : d === 1 ? 'Yesterday' : `${d} days ago`;
 };
+
+// ─── Card ────────────────────────────────────────────────────────────────────
+
+const initials = (name: string) =>
+  name.replace(/\b(inc|llc|ltd|corp|corporation|co|company)\b\.?/gi, '').trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('') || '?';
+
+// A steady tint per company, from a small muted palette.
+const TINTS = ['#5b6cff', '#0ea5e9', '#14b8a6', '#a855f7', '#f59e0b', '#ec4899', '#22c55e', '#f97316'];
+const tint = (name: string) => TINTS[[...name].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % TINTS.length];
+
+const LEVEL_TONE: Record<JobLevel, string> = {
+  intern: 'text-sky-200 bg-sky-500/10 border-sky-500/20',
+  early: 'text-indigo-200 bg-indigo-500/10 border-indigo-500/20',
+  mid: 'text-slate-200 bg-white/[0.05] border-white/[0.08]',
+  senior: 'text-slate-300 bg-white/[0.04] border-white/[0.08]',
+};
+
+function JobCard({ job, h1bYear, closed, applying, disabled, onApply }: {
+  job: FeedJob; h1bYear: string | null; closed: boolean; applying: boolean; disabled: boolean; onApply: () => void;
+}) {
+  const approvals = job.h?.[0] ?? 0;
+  const fresh = Date.now() - Date.parse(`${job.p}T00:00:00Z`) < 3 * 86_400_000;
+  const remote = /remote/i.test(job.l);
+  const place = job.l.split(';').map(x => x.trim()).filter(Boolean);
+  const color = tint(job.c);
+  return (
+    <article className={`group glass-card p-4 sm:p-5 transition-colors hover:border-white/[0.14] ${closed ? 'opacity-50' : ''}`}>
+      <div className="flex gap-4">
+        <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 text-[13px] font-semibold tracking-wide"
+          style={{ background: `${color}1f`, color, border: `1px solid ${color}40` }} aria-hidden>
+          {initials(job.c)}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-col lg:flex-row lg:items-start gap-3 lg:gap-6">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-start gap-2">
+                <h3 className="text-[15px] font-semibold text-white leading-snug">{job.t}</h3>
+                {fresh && !closed && <span className="mt-0.5 flex-shrink-0 text-[10px] font-semibold uppercase tracking-wider text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded px-1.5 py-0.5">New</span>}
+                {closed && <span className="mt-0.5 flex-shrink-0 text-[10px] font-semibold uppercase tracking-wider text-slate-300 border border-white/[0.12] rounded px-1.5 py-0.5">Closed</span>}
+              </div>
+              <p className="text-[13px] text-slate-300 mt-1 truncate">
+                <span className="font-medium">{job.c}</span>
+                {place.length > 0 && <span className="text-slate-500"> · {place[0]}{place.length > 1 ? ` +${place.length - 1} more` : ''}</span>}
+              </p>
+              <div className="flex flex-wrap items-center gap-1.5 mt-3">
+                <span className={`text-[11px] font-medium rounded-md border px-2 py-0.5 ${LEVEL_TONE[job.v]}`}>{LEVEL_LABEL[job.v]}</span>
+                {remote && <span className="text-[11px] font-medium rounded-md border px-2 py-0.5 text-teal-200 bg-teal-500/10 border-teal-500/20">Remote</span>}
+                <span className="inline-flex items-center gap-1 text-[11px] text-slate-400 rounded-md border border-white/[0.06] px-2 py-0.5"><Clock className="w-3 h-3" />{ago(job.p)}</span>
+                {(job.e === 'enrolled' || job.e === 'ending') && (
+                  <span title="Enrolled in E-Verify (employer-reported). STEM OPT needs an E-Verify employer."
+                    className="inline-flex items-center gap-1 text-[11px] font-medium rounded-md border px-2 py-0.5 text-emerald-300 bg-emerald-500/10 border-emerald-500/20">
+                    <ShieldCheck className="w-3 h-3" />E-Verify
+                  </span>
+                )}
+                {job.e === 'ended' && (
+                  <span title="This employer's E-Verify enrolment has ended."
+                    className="inline-flex items-center gap-1 text-[11px] font-medium rounded-md border px-2 py-0.5 text-rose-300 bg-rose-500/10 border-rose-500/20">
+                    <ShieldCheck className="w-3 h-3" />E-Verify ended
+                  </span>
+                )}
+                {approvals > 0 && (
+                  <span title="Past H-1B petitions approved by USCIS. Not a promise to sponsor you."
+                    className="inline-flex items-center gap-1 text-[11px] font-medium rounded-md border px-2 py-0.5 text-sky-300 bg-sky-500/10 border-sky-500/20">
+                    <Landmark className="w-3 h-3" />{approvals.toLocaleString('en-US')} H-1B{h1bYear ? ` in FY${h1bYear}` : ''}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-2 lg:w-56 flex-shrink-0">
+              <button onClick={onApply} disabled={disabled || closed} className="btn-primary flex-1 justify-center disabled:opacity-50">
+                {applying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Apply
+              </button>
+              <a href={job.u} target="_blank" rel="noopener noreferrer" title="Open the employer's posting" aria-label="Open the employer's posting"
+                className="btn-secondary !px-0 w-10 justify-center flex-shrink-0"><ExternalLink className="w-4 h-4" /></a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
 
 interface Page { syncedAt: string; h1bYear: string | null; total: number; page: number; pageSize: number; jobs: FeedJob[] }
 
@@ -171,15 +253,10 @@ export default function JobsPage() {
         <div className="flex flex-wrap items-center gap-2">
           {LEVELS.map(l => <button key={l.id} onClick={() => toggleLevel(l.id)} className={chip(levels.includes(l.id))}>{l.label}</button>)}
           <span className="w-px h-6 bg-white/[0.08] mx-1 hidden sm:block" />
-          <select className="field h-9 w-auto text-xs py-0" value={family} onChange={e => setFamily(e.target.value as JobFamily | '')}>
-            {FAMILIES.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
-          </select>
-          <select className="field h-9 w-auto text-xs py-0" value={days} onChange={e => setDays(Number(e.target.value))}>
-            <option value={7}>Posted in the last 7 days</option>
-            <option value={14}>Last 14 days</option>
-            <option value={30}>Last 30 days</option>
-            <option value={60}>Last 60 days</option>
-          </select>
+          <AppSelect className="!h-9 !w-auto min-w-[150px] !text-xs" value={family} onValueChange={v => setFamily(v as JobFamily | '')} aria-label="Area"
+            options={FAMILIES.map(f => ({ value: f.id, label: f.label }))} />
+          <AppSelect className="!h-9 !w-auto min-w-[150px] !text-xs" value={String(days)} onValueChange={v => setDays(Number(v))} aria-label="Posted within"
+            options={[{ value: '7', label: 'Last 7 days' }, { value: '14', label: 'Last 14 days' }, { value: '30', label: 'Last 30 days' }, { value: '60', label: 'Last 60 days' }]} />
           <button onClick={() => setEverify(v => !v)} className={chip(everify)}><ShieldCheck className="w-3.5 h-3.5 inline mr-1" />E-Verify enrolled</button>
           <button onClick={() => setH1b(v => !v)} className={chip(h1b)}><Landmark className="w-3.5 h-3.5 inline mr-1" />Has H-1B approvals</button>
           <button onClick={() => setRemote(v => !v)} className={chip(remote)}>Remote</button>
@@ -198,45 +275,10 @@ export default function JobsPage() {
             <div className="glass-card p-10 text-center text-sm text-slate-400">No open roles match. Try fewer filters or a longer time range.</div>
           )}
 
-          {jobs.map(job => {
-            const isClosed = closed.has(job.u);
-            const approvals = job.h?.[0] ?? 0;
-            return (
-              <article key={job.u} className={`glass-card p-4 ${isClosed ? 'opacity-50' : ''}`}>
-                <div className="flex flex-col md:flex-row md:items-center gap-3">
-                  <div className="min-w-0 flex-1">
-                    <h3 className="text-sm font-semibold text-white leading-snug">{job.t}</h3>
-                    <p className="text-[13px] text-slate-300 mt-0.5">{job.c}</p>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs text-slate-400">
-                      {job.l && <span className="inline-flex items-center gap-1"><MapPin className="w-3 h-3" />{job.l.length > 80 ? `${job.l.slice(0, 80)}…` : job.l}</span>}
-                      <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" />{ago(job.p)}</span>
-                      <span>{LEVEL_LABEL[job.v]}</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5 mt-2.5">
-                      {(job.e === 'enrolled' || job.e === 'ending') && (
-                        <span className="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10.5px] font-semibold text-emerald-300 bg-emerald-500/10 border-emerald-500/25"><ShieldCheck className="w-3 h-3" />E-Verify</span>
-                      )}
-                      {job.e === 'ended' && (
-                        <span className="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10.5px] font-semibold text-red-300 bg-red-500/10 border-red-500/25"><ShieldCheck className="w-3 h-3" />E-Verify ended</span>
-                      )}
-                      {approvals > 0 && (
-                        <span title="Past H-1B petitions approved by USCIS. Not a promise to sponsor you." className="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10.5px] font-semibold text-sky-300 bg-sky-500/10 border-sky-500/25">
-                          <Landmark className="w-3 h-3" />H-1B · {approvals.toLocaleString('en-US')}{data?.h1bYear ? ` in FY${data.h1bYear}` : ''}
-                        </span>
-                      )}
-                      {isClosed && <span className="rounded-md border px-1.5 py-0.5 text-[10.5px] font-semibold text-slate-300 border-white/[0.12]">Closed</span>}
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 gap-2 md:w-52 flex-shrink-0">
-                    <button onClick={() => apply(job)} disabled={!!applying || isClosed} className="btn-primary w-full justify-center disabled:opacity-50">
-                      {applying === job.u ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Apply with Preciprocal
-                    </button>
-                    <a href={job.u} target="_blank" rel="noopener noreferrer" className="btn-secondary w-full justify-center"><ExternalLink className="w-4 h-4" /> View posting</a>
-                  </div>
-                </div>
-              </article>
-            );
-          })}
+          {jobs.map(job => (
+            <JobCard key={job.u} job={job} h1bYear={data?.h1bYear ?? null} closed={closed.has(job.u)}
+              applying={applying === job.u} disabled={!!applying} onApply={() => apply(job)} />
+          ))}
 
           {data && jobs.length < data.total && (
             <div className="flex justify-center pt-1">

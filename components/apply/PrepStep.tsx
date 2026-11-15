@@ -14,6 +14,7 @@ import {
   Target, MessageSquare, Users, Briefcase, NotebookPen, Info, Lightbulb,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { AppSelect } from '@/components/ui/select';
 import type { ApplyStepProps } from '@/components/apply/types';
 import type { StarStory } from '@/lib/applications/pack';
 import { AUTH_STAGES, SOURCES, type AuthStage } from '@/lib/applications/sponsorship';
@@ -87,10 +88,8 @@ export default function PrepStep({ application, pack, onPack, update }: ApplySte
       <section className="glass-card p-5 flex flex-col md:flex-row md:items-end gap-3">
         <label className="flex-1 min-w-0">
           <span className="block text-xs text-slate-400 mb-1.5">Your work authorization (for the sponsorship question)</span>
-          <select className="field w-full" value={pack.authStage ?? ''} onChange={e => setStage(e.target.value)}>
-            <option value="">Choose one</option>
-            {AUTH_STAGES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-          </select>
+          <AppSelect value={pack.authStage ?? ''} onValueChange={setStage} aria-label="Work authorization" placeholder="Choose one"
+            options={AUTH_STAGES.map(s => ({ value: s.id, label: s.label }))} />
         </label>
         <button onClick={build} disabled={running} className="btn-primary justify-center disabled:opacity-50">
           {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} {prep ? 'Rebuild prep pack' : 'Build prep pack'}
@@ -366,9 +365,9 @@ function PlanTab({ application, pack, update }: Pick<ApplyStepProps, 'applicatio
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 items-end">
         <label><span className="block text-xs text-slate-400 mb-1.5">Interview date</span><input type="date" className="field w-full" value={date} onChange={e => setDate(e.target.value)} /></label>
         <label><span className="block text-xs text-slate-400 mb-1.5">Your level</span>
-          <select className="field w-full" value={level} onChange={e => setLevel(e.target.value)}>
-            <option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option>
-          </select>
+          <AppSelect value={level} onValueChange={setLevel} aria-label="Your level" options={[
+            { value: 'beginner', label: 'Beginner' }, { value: 'intermediate', label: 'Intermediate' }, { value: 'advanced', label: 'Advanced' },
+          ]} />
         </label>
         <button onClick={create} disabled={running || !date} className="btn-primary justify-center disabled:opacity-50">
           {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Calendar className="w-4 h-4" />} {pack.planId ? 'New plan' : 'Create plan'}
@@ -426,19 +425,18 @@ function AfterRoundTab({ application, pack, onPack }: Pick<ApplyStepProps, 'appl
       <Card title="After a round" icon={NotebookPen}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <label><span className="block text-xs text-slate-400 mb-1.5">Round you just had</span>
-            <select className="field w-full" value={round} onChange={e => setRound(e.target.value)}>{ROUND_NAMES.map(n => <option key={n}>{n}</option>)}</select>
+            <AppSelect value={round} onValueChange={setRound} aria-label="Round you just had" options={ROUND_NAMES.map(n => ({ value: n, label: n }))} />
           </label>
           <label><span className="block text-xs text-slate-400 mb-1.5">Next round</span>
-            <select className="field w-full" value={nextRound} onChange={e => setNextRound(e.target.value)}>
-              <option value="">None or not known</option>{ROUND_NAMES.map(n => <option key={n}>{n}</option>)}
-            </select>
+            <AppSelect value={nextRound} onValueChange={setNextRound} aria-label="Next round"
+              options={[{ value: '', label: 'None or not known' }, ...ROUND_NAMES.map(n => ({ value: n, label: n }))]} />
           </label>
         </div>
         <label className="block mt-3"><span className="block text-xs text-slate-400 mb-1.5">Interview Journal entry</span>
-          <select className="field w-full" value={debriefId} onChange={e => setDebriefId(e.target.value)}>
-            <option value="">{entries.length ? 'Choose an entry, or write notes below' : `No journal entries for ${application.company || 'this company'} yet`}</option>
-            {entries.map(e => <option key={e.id} value={e.id}>{e.stage || 'Interview'} · {fmtDate(e.interviewDate || e.createdAt)}</option>)}
-          </select>
+          <AppSelect value={debriefId} onValueChange={setDebriefId} aria-label="Interview Journal entry" options={[
+            { value: '', label: entries.length ? 'Choose an entry, or write notes below' : `No journal entries for ${application.company || 'this company'} yet` },
+            ...entries.map(e => ({ value: e.id, label: `${e.stage || 'Interview'} · ${fmtDate(e.interviewDate || e.createdAt)}` })),
+          ]} />
         </label>
         <textarea className="field w-full min-h-[110px] py-3 mt-3 leading-relaxed" placeholder="What they asked, what went well, what did not, anything to follow up on" value={notes} onChange={e => setNotes(e.target.value)} />
         <div className="flex flex-wrap items-center justify-between gap-2 mt-3">
