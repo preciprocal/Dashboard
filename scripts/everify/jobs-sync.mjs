@@ -18,7 +18,8 @@
  *   - in the US (or US remote);
  *   - from a known employer: each job carries that employer's E-Verify state
  *     and H-1B approvals from our USCIS copies;
- *   - one listing per employer, title and location (reposts collapse).
+ *   - one listing per employer, title and location (reposts collapse);
+ *   - not a standing "talent network" or "general application" listing.
  * That cannot prove an employer intends to hire, so the page says what the
  * checks are rather than promising "no ghost jobs".
  *
@@ -138,6 +139,8 @@ const FAMILY = [
   ["product", /\b(product manager|product management|designer|ux|ui\b|product designer)\b/i],
   ["business", /\b(finance|financial|accountant|accounting|analyst|operations|strategy|consultant|business|marketing|sales|account executive|customer success)\b/i],
 ];
+/** Standing "send us your resume" listings, not openings: dropped. */
+const EVERGREEN = /(expression of interest|talent (network|pool|community)|general (application|interest)|open application|future (opportunit|role|consideration)|join our talent|resume drop|don.t see (a|the) (role|job)|speculative application)/i;
 const isUS = (j) => j.remote ? !NON_US.test(j.location) : US.test(j.location) && !NON_US.test(j.location);
 const level = (t) => (INTERN.test(t) ? "intern" : EARLY.test(t) && !SENIOR.test(t) ? "early" : SENIOR.test(t) ? "senior" : "mid");
 const family = (t) => (FAMILY.find(([, re]) => re.test(t)) ?? ["other"])[0];
@@ -165,7 +168,7 @@ console.log(`Reading ${boards.length} boards`);
 
 const jobs = [];
 const seen = new Set();
-let read = 0, boardsWithJobs = 0, raw = 0, droppedOld = 0, droppedNonUS = 0, droppedDup = 0, droppedNoDate = 0;
+let read = 0, boardsWithJobs = 0, raw = 0, droppedOld = 0, droppedNonUS = 0, droppedDup = 0, droppedNoDate = 0, droppedEvergreen = 0;
 const queue = [...boards];
 await Promise.all(Array.from({ length: CONCURRENCY }, async () => {
   while (queue.length) {
@@ -176,6 +179,7 @@ await Promise.all(Array.from({ length: CONCURRENCY }, async () => {
     const emp = list.length ? await employer(b.key) : null;
     for (const j of list) {
       if (!j.title || !j.url) continue;
+      if (EVERGREEN.test(j.title)) { droppedEvergreen++; continue; }
       if (!j.posted) { droppedNoDate++; continue; }
       if (now - j.posted > MAX_AGE_DAYS * DAY) { droppedOld++; continue; }
       if (!isUS(j)) { droppedNonUS++; continue; }
@@ -201,7 +205,7 @@ await Promise.all(Array.from({ length: CONCURRENCY }, async () => {
 }));
 
 jobs.sort((a, b) => b.p.localeCompare(a.p));
-const stats = { boards: boards.length, boardsWithJobs, raw, kept: jobs.length, droppedOld, droppedNonUS, droppedDup, droppedNoDate };
+const stats = { boards: boards.length, boardsWithJobs, raw, kept: jobs.length, droppedOld, droppedNonUS, droppedDup, droppedNoDate, droppedEvergreen };
 console.log(JSON.stringify(stats));
 
 if (dry) {
