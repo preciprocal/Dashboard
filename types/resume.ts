@@ -93,122 +93,46 @@ export interface Resume {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Interview Intelligence - sub-types (matching component exactly)
+// Interview prep (app/api/resume/interview-intel)
 // ─────────────────────────────────────────────────────────────────
 
-export interface InterviewIntelJobOpenings {
-  targetRoleAvailable: boolean | null;
-  lastSeenPosted: string | null;
-  hiringTeams: string[] | null;
-  otherOpenRoles: InterviewIntelOpenRole[] | null;
-  hiringCycleTrend: string | null;
-  source: string | null;
-}
-
-export interface InterviewIntelOpenRole {
-  title: string;
-  department: string | null;
-  level: string | null;
-  relevance: 'high' | 'medium' | 'low';
-}
-
-export interface InterviewIntelRedditReview {
-  summary: string;
-  sentiment: 'positive' | 'negative' | 'mixed';
-  topic: string;
-  subreddit: string;
-  upvoteContext: string | null;
-  threadUrl?: string | null;
-}
-
-/**
- * Interview Intelligence Data
- */
-export interface InterviewIntel {
-  companyOverview: {
-    name: string;
-    hiringStatus: string | null;
-    interviewDifficulty: number | null;
-    avgTimeToHire: string | null;
-    acceptanceRate: string | null;
-    glassdoorRating: number | null;
-    interviewExperience: {
-      positive: number | null;
-      neutral: number | null;
-      negative: number | null;
-    } | null;
-    culture: string | null;
-    sources: string[];
-  };
-  // ✅ Added: was missing from types/resume.ts, causing the type mismatch
-  jobOpenings: InterviewIntelJobOpenings | null;
-  // ✅ Added: was missing from types/resume.ts, causing the type mismatch
-  redditReviews: InterviewIntelRedditReview[] | null;
-  interviewProcess: {
-    totalRounds: number | null;
-    rounds: InterviewIntelRound[] | null;
-    overallPassRate: number | null;
-    pipelineConversion: string | null;
-  } | null;
-  topQuestions: InterviewIntelQuestion[] | null;
-  salaryIntel: {
-    baseSalary: { min: number; median: number; max: number } | null;
-    totalComp: { min: number; median: number; max: number } | null;
-    equity: string | null;
-    signingBonus: string | null;
-    negotiationRoom: string | null;
-    source: string;
-  } | null;
-  insiderTips: InterviewIntelInsiderTip[] | null;
-  candidateFitAnalysis: {
-    fitScore: number | null;
-    strengths: string[] | null;
-    gaps: string[] | null;
-    prepPriorities: InterviewIntelPrepPriority[] | null;
-    estimatedPrepTime: string | null;
-  } | null;
-  redFlags: string[] | null;
-  competitorComparison: InterviewIntelCompetitorComparison[] | null;
-  dataConfidence: 'high' | 'medium' | 'low';
-  dataNote: string;
-}
+/** Results saved before version 2 carried model-invented figures (pass
+ *  rates, salaries, review summaries); anything older is regenerated. */
+export const INTEL_VERSION = 2;
 
 export interface InterviewIntelRound {
   name: string;
   type: string;
-  duration: string | null;
-  description: string;
-  passRate: number | null;
+  whatItTests: string;
   tips: string[];
 }
 
-export interface InterviewIntelQuestion {
-  question: string;
-  type: string;
-  frequency: string | null;
-  difficulty: string | null;
+export interface InterviewIntelTheme {
+  theme: string;
+  round: string | null;
+  example: string | null;
   tip: string | null;
-  source: string | null;
-}
-
-export interface InterviewIntelInsiderTip {
-  tip: string;
-  source: string;
-  importance: 'critical' | 'high' | 'medium';
 }
 
 export interface InterviewIntelPrepPriority {
   area: string;
   reason: string;
-  timeNeeded: string;
-  resources: string[];
+  howToPrepare: string | null;
 }
 
-export interface InterviewIntelCompetitorComparison {
+/** Rounds typical for this kind of role (not a company's confirmed process),
+ *  question themes, and a fit analysis from this resume only. */
+export interface InterviewIntel {
+  version: number;
   company: string;
-  compDifference: string | null;
-  interviewDifficulty: string | null;
-  note: string;
+  role: string;
+  rounds: InterviewIntelRound[];
+  questionThemes: InterviewIntelTheme[];
+  candidateFit: {
+    strengths: string[];
+    gaps: string[];
+    prepPriorities: InterviewIntelPrepPriority[];
+  } | null;
 }
 
 /**
