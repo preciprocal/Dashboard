@@ -1,0 +1,125 @@
+// app/api/apply/[id]/tailor/route.ts
+//
+// POST { resumeId, jobDescription? } -> { pack }
+// Proposes changes that align the resume with this job using only what the
+// resume already says. lib/applications/truthful-tailor.ts removes any change
+// that adds a number, a tool or a job keyword the resume does not contain, so
+// what the user reviews is safe to approve. Nothing is applied until they do.
+import { NextRequest, NextResponse } from 'next/server';
+import { getAuthedUser } from '@/lib/auth/verify-request';
+import { supabaseAdmin } from '@/supabase/admin';
+import { anthropic, extractText, extractJsonString, cachedSystem, logUsage, cleanResumeText, stripDashesDeep, LANGUAGE_MATCH_INSTRUCTION, createMessage } from '@/lib/ai/claude';
+import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
+import { applyRateLimit } from '@/lib/ai/rate-limit';
+import { getApplication, loadPack, savePack } from '@/lib/applications/pack';
+import { check, cleanKeywords, coverage, hasTerm, type ProposedChange } from '@/lib/applications/truthful-tailor';
+import { loadOwnResumeText } from '@/lib/applications/resume-text';
+
+export const runtime = 'nodejs';
+export const maxDuration = 60;
+
+const SYSTEM = `You tailor a resume to one job without inventing anything.
+
+ALLOWED: rewording a line so it uses the job's language for something the line already says; reordering skills so the ones the job asks for come first; tightening a vague line into a clearer one with the same facts.
+
+NEVER:
+- Add a number, percentage, team size, duration or metric that the original line does not contain.
+- Add a tool, language, framework, product, certification or skill the resume does not already mention somewhere.
+- Use a job keyword in a rewrite unless the resume already shows that skill.
+- Change employers, titles, dates, degrees or schools.
+If a job requirement is not supported by the resume, leave it out. It belongs in interview prep, not on the resume.
+
+FORMAT RULES:
+- "original" is copied EXACTLY from the resume: one bullet, one line or one skills line, verbatim.
+- "rewrite" replaces exactly that text.
+- "reason" says in one sentence which job requirement it serves.
+
+CRITICAL: Return ONLY JSON. No markdown. Start with { end with }. No em dashes or en dashes.${LANGUAGE_MATCH_INSTRUCTION}`;
+
+type Ctx = { params: Promise<{ id: string }> };
+
+export async function POST(request: NextRequest, { params }: Ctx) {
+  try {
+    if (!anthropic) return NextResponse.json({ error: 'AI not configured' }, { status: 503 });
+    const authedUser = await getAuthedUser(request);
+    if (!authedUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { userId, supabaseUserId: uid } = authedUser;
+
+    const rateLimited = await applyRateLimit(request, userId, 'heavy');
+    if (rateLimited) return rateLimited;
+    const usage = await checkUsage(userId, 'resumes');
+    if (!usage.allowed) return NextResponse.json({ error: usage.message, code: 'USAGE_LIMIT', used: usage.used, limit: usage.limit }, { status: 403 });
+
+    const app = await getApplication(uid, (await params).id);
+    if (!app) return NextResponse.json({ error: 'Application not found' }, { status: 404 });
+    const body = await request.json() as { resumeId?: string; jobDescription?: string };
+
+    const pack = await loadPack(uid, app);
+    const jd = (body.jobDescription?.trim() || pack.jobDescription || app.jobDescription || '').slice(0, 12000);
+    if (jd.length < 50) return NextResponse.json({ error: 'Add the job description first (at least a few sentences).' }, { status: 400 });
+
+    const resumeId = body.resumeId || pack.resumeId || app.resumeId;
+    if (!resumeId) return NextResponse.json({ error: 'Choose a resume to tailor.' }, { status: 400 });
+    const raw = await loadOwnResumeText(uid, resumeId);
+    if (!raw) return NextResponse.json({ error: 'That resume has no readable text. Upload it again as a text PDF.' }, { status: 400 });
+    const resumeText = cleanResumeText(raw).slice(0, 12000);
+
+    // Keep the posting on the tracker row as well, for mock interviews and plans.
+    if (jd !== (app.jobDescription ?? '')) {
+      await supabaseAdmin.from('job_applications').update({ job_description: jd }).eq('id', app.id).eq('user_id', uid);
+    }
+
+    const prompt = `JOB: ${app.jobTitle}${app.company ? ` at ${app.company}` : ''}
+<job_description>
+${jd.slice(0, 5000)}
+</job_description>
+
+<resume>
+${resumeText}
+</resume>
+
+Return JSON:
+{
+  "keywords": ["the 12 to 20 skills, tools and qualifications this job asks for, each 1 to 3 words, as written in the job description"],
+  "changes": [{ "section": "e.g. Experience: Company", "original": "verbatim resume text", "rewrite": "...", "reason": "..." }]
+}
+
+Propose 6 to 12 changes, the ones that matter most for this job. Skip any line you cannot improve without adding facts.`;
+
+    const response = await createMessage({ max_tokens: 5000, system: cachedSystem(SYSTEM), messages: [{ role: 'user', content: prompt }] });
+    logUsage('apply-tailor', response);
+    const out = stripDashesDeep(JSON.parse(extractJsonString(extractText(response)))) as { keywords?: unknown; changes?: unknown };
+
+    // Keywords must actually be in the posting.
+    const keywords = cleanKeywords(out.keywords).filter(k => hasTerm(jd, k));
+    const proposed = (Array.isArray(out.changes) ? out.changes : []).filter(
+      (c): c is ProposedChange => !!c && typeof c === 'object' && typeof (c as ProposedChange).original === 'string' && typeof (c as ProposedChange).rewrite === 'string',
+    ).map(c => ({ section: String(c.section ?? ''), original: c.original, rewrite: c.rewrite, reason: String(c.reason ?? '') }));
+    const { accepted, rejected } = check(proposed, resumeText, keywords);
+    if (rejected.length) console.log(`apply-tailor: ${rejected.length} change(s) removed by fact checks:`, rejected.map(r => r.why));
+
+    await checkAndIncrementUsage(userId, 'resumes');
+
+    const before = coverage(resumeText, keywords);
+    pack.jobDescription = jd;
+    pack.resumeId = resumeId;
+    pack.keywords = keywords;
+    pack.tailor = {
+      generatedAt: new Date().toISOString(),
+      original: resumeText,
+      changes: accepted,
+      removedByChecks: rejected.length,
+      decisions: {},
+      before,
+      after: before,
+      tailoredText: resumeText,
+    };
+    // A new resume version makes the old letter and prep stale.
+    pack.coverLetter = null;
+
+    return NextResponse.json({ success: true, pack: await savePack(uid, pack) });
+  } catch (error) {
+    console.error('❌ apply tailor:', error);
+    return NextResponse.json({ error: 'Could not tailor the resume. Please try again.' }, { status: 500 });
+  }
+}

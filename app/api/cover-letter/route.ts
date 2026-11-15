@@ -38,7 +38,12 @@ Sound human:
 
 Generate the complete cover letter directly. No preamble, no commentary, no em dashes or en dashes.${LANGUAGE_MATCH_INSTRUCTION}`;
 
-interface CoverLetterRequest { jobRole: string; jobDescription?: string; companyName?: string; tone?: string; }
+interface CoverLetterRequest {
+  jobRole: string; jobDescription?: string; companyName?: string; tone?: string;
+  /** The user's own resume text to write from, in place of their saved one:
+   *  the Apply flow sends the tailored version they approved. */
+  resumeText?: string;
+}
 interface CoverLetterCache { content: string; wordCount: number; tokensUsed: number; createdAt: string; }
 
 // Company research
@@ -138,7 +143,8 @@ export async function POST(request: NextRequest) {
     const { jobRole, jobDescription, companyName, tone = 'professional' } = body;
     if (!jobRole) return NextResponse.json({ success: false, error: 'jobRole is required' }, { status: 400 });
 
-    const ctx = await getUserAIContext(userId);
+    const ctx = { ...(await getUserAIContext(userId)) };
+    if (typeof body.resumeText === 'string' && body.resumeText.trim().length >= 100) ctx.resumeText = body.resumeText.trim().slice(0, 12000);
     const hasResume = !!ctx.resumeText;
     const hasTranscript = !!ctx.transcriptText;
 
@@ -169,7 +175,8 @@ export async function POST(request: NextRequest) {
 
     const cacheKey = hashResumeContent(
       `${userId}${jobRole}${companyName ?? ''}${jobDescription ?? ''}${tone}` +
-      `${(ctx.resumeText ?? '').substring(0, 500)}` +
+      // The whole resume: a tailored version can differ anywhere in it.
+      `${ctx.resumeText ?? ''}` +
       `${transcriptCourses.substring(0, 200)}` +
       `${resumeProjects.substring(0, 200)}` +
       // v2: the truthfulness and anti-AI-phrasing prompt. Older cached letters

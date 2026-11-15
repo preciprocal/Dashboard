@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/supabase/admin';
 import { checkJobTrackerCapacity } from '@/lib/ai/job-tracker-capacity';
 import { hasResponded, isInterview } from '@/lib/config/outcomes';
 import { recordStatusChange } from '@/lib/applications/status-events';
+import { deletePack } from '@/lib/applications/pack';
 
 // ─── Types matching the page exactly ─────────────────────────────────────────
 
@@ -350,6 +351,8 @@ export async function DELETE(request: NextRequest) {
 
     const { error } = await supabaseAdmin.from('job_applications').delete().eq('id', id);
     if (error) throw error;
+    // The Apply flow's tailored resume, letter and prep for it (best effort).
+    await deletePack(uid, id).catch(() => {});
 
     return NextResponse.json({ success: true });
   } catch (error) {
