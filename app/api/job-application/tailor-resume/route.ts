@@ -158,19 +158,19 @@ CRITICAL INSTRUCTIONS:
 
 WHAT YOU SHOULD CHANGE:
 1. **Technical Skills Section**: 
-   - Add relevant technologies from the job description that match candidate's experience
-   - Prioritize technologies: ${extractedData?.techStack?.slice(0, 10).join(', ') || 'relevant technologies'}
-   - Keep existing skills, just reorder/emphasize relevant ones
+   - Reorder so the skills the job asks for that the resume ALREADY lists come first
+   - Never add a technology, tool or skill the resume does not already mention
+   - Job technologies to look for in the resume: ${extractedData?.techStack?.slice(0, 10).join(', ') || 'those in the job description'}
 
 2. **Experience Descriptions**:
    - Enhance bullet points to highlight relevant experience for this role
    - Add industry-specific terminology for ${extractedData?.companyType || 'the target industry'}
-   - Include keywords from job description naturally
-   - Quantify achievements where possible
+   - Use the job description's wording only for work the resume already shows
+   - Never add a number, percentage or metric the original line does not contain
 
 3. **Professional Summary/Objective** (if exists):
    - Tailor to emphasize fit for ${extractedData?.jobTitle || 'the target'} role
-   - Mention relevant technologies from target tech stack
+   - Mention only technologies the resume already lists
    - Keep it concise (2-3 sentences)
 
 4. **Project Descriptions**:
@@ -195,7 +195,7 @@ QUALITY CHECKS:
 - Resume should be same length (±10%) as original
 - All sections from original should be present
 - Format should look identical to original
-- Content should naturally incorporate target keywords
+- Every fact (tool, number, employer, project) must already be in the original resume
 ${LANGUAGE_MATCH_INSTRUCTION}`;
 
     console.log('🤖 Generating tailored resume...');
@@ -212,11 +212,9 @@ TAILORED:
 ${tailoredResume.substring(0, 2000)}
 
 Return a JSON array of strings describing the changes:
-["Change 1: Added React and Node.js to skills section",
- "Change 2: Emphasized cloud architecture experience",
- "Change 3: Highlighted fintech project experience",
- "Change 4: Quantified performance improvements with metrics",
- "Change 5: Tailored summary to emphasize backend development"]
+["Moved React and Node.js to the front of the skills section",
+ "Reworded the cloud project bullet in the job's terms",
+ "Tailored the summary to emphasize backend development"]
 
 Return ONLY the JSON array, nothing else.`;
 

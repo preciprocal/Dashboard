@@ -1,5 +1,6 @@
 'use client';
 
+import { RESUME_TIPS } from '@/lib/config/resume-tips';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Users, TrendingUp, TrendingDown, Minus, Award, Target, Zap,
@@ -46,18 +47,7 @@ const HIRING_CHANCE_STYLES: Record<BenchmarkResult['hiringChance'], { color: str
   'very high': { color: 'text-teal-400',    icon: Award,        bg: 'bg-teal-500/10 border-teal-500/20'       },
 };
 
-const BENCHMARK_FACTS = [
-  "Recruiters spend an average of 7 seconds scanning a resume before deciding.",
-  "75% of resumes are rejected by ATS before a human ever sees them.",
-  "Resumes with quantified achievements are 40% more likely to get an interview.",
-  "The average corporate job opening attracts 250 applications.",
-  "Only 2% of applicants make it to the interview stage for any given role.",
-  "Using the exact job title from the posting increases callback rates by 31%.",
-  "Resumes with a LinkedIn URL get 71% more responses from recruiters.",
-  "Action verbs at the start of bullet points increase perceived impact by 38%.",
-  "Hiring managers prefer one-page resumes for candidates with under 10 years of experience.",
-  "Candidates who tailor their resume per application are 3× more likely to get interviews.",
-];
+const BENCHMARK_FACTS = RESUME_TIPS;
 
 function BenchmarkLoadingState() {
   const [factIndex, setFactIndex] = useState(0);
@@ -75,7 +65,7 @@ function BenchmarkLoadingState() {
       <div className="relative"><Loader2 className="w-10 h-10 text-purple-400 animate-spin" /><div className="absolute inset-0 flex items-center justify-center"><Users className="w-4 h-4 text-purple-300" /></div></div>
       <div><p className="text-white font-semibold mb-1">Analysing against hired candidates…</p><p className="text-slate-400 text-sm">Benchmarking your resume against real-world data</p></div>
       <div className="w-full max-w-sm bg-slate-800/50 border border-white/[0.06] rounded-xl p-4 min-h-[72px] flex flex-col items-center justify-center text-center">
-        <p className="text-[11px] font-semibold text-purple-400 uppercase tracking-widest mb-2">Did you know?</p>
+        <p className="text-[11px] font-semibold text-purple-400 uppercase tracking-widest mb-2">Tip</p>
         <p className="text-sm text-slate-300 leading-relaxed" style={{ opacity: visible ? 1 : 0, transition: 'opacity 0.4s ease' }}>{BENCHMARK_FACTS[factIndex]}</p>
       </div>
     </div>

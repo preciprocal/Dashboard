@@ -1,4 +1,5 @@
 'use client';
+import { RESUME_TIPS } from '@/lib/config/resume-tips';
 import PageHeader from '@/components/PageHeader';
 import { FileText as HeaderIcon } from 'lucide-react';
 
@@ -28,23 +29,7 @@ const PROCESSING_STEPS = [
   { message: 'Complete!',          progress: 100 },
 ];
 
-const RESUME_FACTS = [
-  '💼 Recruiters spend an average of 6-7 seconds on initial resume screening',
-  '📊 75% of resumes are rejected by ATS systems before reaching human eyes',
-  '✨ Resumes with quantified achievements get 40% more interview callbacks',
-  '🎯 Using keywords from the job description increases ATS match by 60%',
-  '📝 One-page resumes are ideal for <10 years experience, two pages for more',
-  '🚀 Action verbs at the start of bullet points increase readability by 35%',
-  '💡 White space improves resume readability and reduces rejection rates',
-  '🔍 90% of large companies use ATS to filter applications',
-  '📈 Tailored resumes get 2× more interviews than generic ones',
-  '⚡ PDF format is preferred by 83% of recruiters over Word documents',
-  '🎨 Clean, professional fonts like Calibri or Arial score higher in ATS',
-  '📞 Including a LinkedIn URL increases profile views by 71%',
-  '💪 Skills sections with 6-12 relevant skills perform best',
-  '🏆 Resumes starting with a strong summary get 50% more attention',
-  '📧 Professional email addresses increase callback rates by 24%',
-];
+const RESUME_FACTS = RESUME_TIPS;
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 

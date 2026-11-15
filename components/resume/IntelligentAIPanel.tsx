@@ -1,5 +1,6 @@
 'use client';
 
+import { RESUME_TIPS } from '@/lib/config/resume-tips';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Sparkles, Loader2, ChevronDown, ChevronRight, AlertTriangle,
@@ -30,6 +31,8 @@ export interface TailorResult {
   atsScore?: { before: number; after: number; keywordMatchBefore: number; keywordMatchAfter: number };
   keywordsFromJD?: { critical: string[]; matched: string[]; missing: string[] };
   interviewPrepNotes?: string[];
+  /** Set by app/api/resume/tailor once its changes are held to the resume's facts. */
+  factChecked?: boolean;
 }
 
 export interface IntelligentAIPanelProps {
@@ -47,28 +50,7 @@ export interface IntelligentAIPanelProps {
 
 // ─── Analysis Facts ───────────────────────────────────────────────────────────
 
-const ANALYSIS_FACTS = [
-  { emoji: '🤖', fact: 'Over 75% of resumes are rejected by ATS before a human ever reads them.' },
-  { emoji: '⏱️', fact: 'Recruiters spend an average of 7.4 seconds on an initial resume scan.' },
-  { emoji: '📊', fact: 'Resumes with quantified achievements are 40% more likely to get callbacks.' },
-  { emoji: '🔑', fact: 'The average job posting receives 250 resumes - only 4-6 get interviews.' },
-  { emoji: '🎯', fact: 'Tailoring your resume to each job description can double your interview rate.' },
-  { emoji: '💡', fact: 'Action verbs like "spearheaded" and "optimized" outperform "responsible for" every time.' },
-  { emoji: '📝', fact: 'One-page resumes are 2.3× more likely to be selected for entry-level roles.' },
-  { emoji: '🏆', fact: 'Including 5+ measurable results increases your ATS match score by up to 25%.' },
-  { emoji: '🔍', fact: 'Most ATS systems rank keyword density - missing 3 key terms can drop you below the cutoff.' },
-  { emoji: '📈', fact: 'Candidates who A/B test their resumes land roles 30% faster on average.' },
-  { emoji: '🧠', fact: 'Hiring managers prefer resumes that lead each bullet with a strong action verb.' },
-  { emoji: '🌐', fact: 'Applicants with an optimised LinkedIn profile are 71% more likely to get interviews.' },
-  { emoji: '⚡', fact: 'A skills section with 8-12 relevant keywords is the sweet spot for ATS parsing.' },
-  { emoji: '🎓', fact: 'For students, relevant coursework and projects can compensate for limited work experience.' },
-  { emoji: '💼', fact: 'Using the exact job title from the posting in your resume header boosts ATS ranking significantly.' },
-  { emoji: '🚀', fact: 'Companies using AI screening increased from 35% to over 75% in the last 3 years.' },
-  { emoji: '📉', fact: 'Typos or formatting errors cause 58% of recruiters to immediately reject a resume.' },
-  { emoji: '🎨', fact: 'Clean, single-column layouts parse best through ATS - creative designs often break parsing.' },
-  { emoji: '🔗', fact: 'Adding a portfolio or GitHub link increases callbacks by 20% for technical roles.' },
-  { emoji: '📌', fact: 'The top third of your resume gets 80% of a recruiter\'s attention - make it count.' },
-];
+const ANALYSIS_FACTS = RESUME_TIPS.map(fact => ({ emoji: '💡', fact }));
 
 function AnalysingFacts() {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -120,7 +102,7 @@ function AnalysingFacts() {
       <div className={`w-full bg-slate-800/50 border border-white/[0.06] rounded-xl p-4 transition-all duration-400 ${isExiting ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'}`} style={{ minHeight: 88 }}>
         <div className="flex items-center gap-2 mb-2">
           <span className="text-base">{emoji}</span>
-          <span className="text-[11px] font-semibold text-indigo-400 uppercase tracking-wider">Did you know?</span>
+          <span className="text-[11px] font-semibold text-indigo-400 uppercase tracking-wider">Tip</span>
         </div>
         <p className="text-[13px] text-slate-300 leading-relaxed">{fact}</p>
       </div>
@@ -527,8 +509,8 @@ function TailorTab({ resumeId, resumeContent, jobTitle: initTitle, companyName: 
       {error && (<div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-2"><AlertTriangle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" /><p className="text-xs text-red-300">{error}</p></div>)}
       {result && (
         <div className="space-y-3">
-          {ats && (<div className="bg-slate-800/30 border border-white/[0.06] rounded-xl p-4"><div className="flex items-center justify-between mb-3"><p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">ATS Score</p>{improvement > 0 && <span className="flex items-center gap-1 text-xs font-bold text-emerald-400"><TrendingUp className="w-3 h-3" />+{improvement} pts</span>}</div><div className="flex items-center gap-3"><div className="text-center"><p className={`text-xl font-bold tabular-nums ${ats.before >= 70 ? 'text-amber-400' : 'text-red-400'}`}>{ats.before}</p><p className="text-[11px] text-slate-400">Before</p></div><div className="flex-1"><div className="flex items-center gap-2"><div className="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-red-500/60 rounded-full" style={{ width: `${ats.before}%` }} /></div><ArrowRight className="w-3.5 h-3.5 text-slate-500 shrink-0" /><div className="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-emerald-500 rounded-full" style={{ width: `${ats.after}%` }} /></div></div></div><div className="text-center"><p className="text-xl font-bold tabular-nums text-emerald-400">{ats.after}</p><p className="text-[11px] text-slate-400">After</p></div></div></div>)}
-          {result.keywordsFromJD && (result.keywordsFromJD.matched.length > 0 || result.keywordsFromJD.missing.length > 0) && (<div className="bg-slate-800/30 border border-white/[0.06] rounded-xl p-4 space-y-2.5"><p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Keyword Coverage</p>{result.keywordsFromJD.matched.length > 0 && <div className="flex flex-wrap gap-1">{result.keywordsFromJD.matched.map(kw => <span key={kw} className="px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-300">{kw}</span>)}</div>}{result.keywordsFromJD.missing.length > 0 && <div><p className="text-[11px] text-amber-400 font-medium mb-1">Could not fit:</p><div className="flex flex-wrap gap-1">{result.keywordsFromJD.missing.map(kw => <span key={kw} className="px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300">{kw}</span>)}</div></div>}</div>)}
+          {ats && (<div className="bg-slate-800/30 border border-white/[0.06] rounded-xl p-4"><div className="flex items-center justify-between mb-3"><p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Job keyword match</p>{improvement > 0 && <span className="flex items-center gap-1 text-xs font-bold text-emerald-400"><TrendingUp className="w-3 h-3" />+{improvement} pts</span>}</div><div className="flex items-center gap-3"><div className="text-center"><p className={`text-xl font-bold tabular-nums ${ats.before >= 70 ? 'text-amber-400' : 'text-red-400'}`}>{ats.before}</p><p className="text-[11px] text-slate-400">Before</p></div><div className="flex-1"><div className="flex items-center gap-2"><div className="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-red-500/60 rounded-full" style={{ width: `${ats.before}%` }} /></div><ArrowRight className="w-3.5 h-3.5 text-slate-500 shrink-0" /><div className="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-emerald-500 rounded-full" style={{ width: `${ats.after}%` }} /></div></div></div><div className="text-center"><p className="text-xl font-bold tabular-nums text-emerald-400">{ats.after}</p><p className="text-[11px] text-slate-400">After</p></div></div></div>)}
+          {result.keywordsFromJD && (result.keywordsFromJD.matched.length > 0 || result.keywordsFromJD.missing.length > 0) && (<div className="bg-slate-800/30 border border-white/[0.06] rounded-xl p-4 space-y-2.5"><p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Keyword Coverage</p>{result.keywordsFromJD.matched.length > 0 && <div className="flex flex-wrap gap-1">{result.keywordsFromJD.matched.map(kw => <span key={kw} className="px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-300">{kw}</span>)}</div>}{result.keywordsFromJD.missing.length > 0 && <div><p className="text-[11px] text-amber-400 font-medium mb-1">Not shown on your resume:</p><div className="flex flex-wrap gap-1">{result.keywordsFromJD.missing.map(kw => <span key={kw} className="px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300">{kw}</span>)}</div></div>}</div>)}
 
           {/* ── Suggested Changes - QuickWin-style cards ── */}
           {result.sections && result.sections.length > 0 && (() => {
@@ -576,7 +558,7 @@ function TailorTab({ resumeId, resumeContent, jobTitle: initTitle, companyName: 
             );
           })()}
 
-          {result.skillsOptimization?.added?.length ? (<div className="bg-slate-800/30 border border-white/[0.06] rounded-xl p-4"><p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Skills to Add</p><div className="flex flex-wrap gap-1.5">{result.skillsOptimization.added.map(s => <span key={s} className="px-2 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-300 font-medium flex items-center gap-1"><Plus className="w-3 h-3" />{s}</span>)}</div></div>) : null}
+          {result.skillsOptimization?.added?.length ? (<div className="bg-slate-800/30 border border-white/[0.06] rounded-xl p-4"><p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Skills to move up</p><div className="flex flex-wrap gap-1.5">{result.skillsOptimization.added.map(s => <span key={s} className="px-2 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-300 font-medium flex items-center gap-1"><Plus className="w-3 h-3" />{s}</span>)}</div></div>) : null}
           {result.interviewPrepNotes?.length ? (<div className="bg-amber-500/[0.04] border border-amber-500/15 rounded-xl p-4"><p className="text-[11px] font-semibold text-amber-400 uppercase tracking-wider mb-2 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Study Before Interview</p><div className="space-y-1.5">{result.interviewPrepNotes.map((n, i) => <div key={i} className="flex items-start gap-2 text-xs text-slate-300"><span className="w-4 h-4 rounded-full bg-amber-500/15 flex items-center justify-center text-[11px] font-bold text-amber-400 shrink-0 mt-0.5">{i+1}</span><span className="leading-relaxed">{n}</span></div>)}</div></div>) : null}
           <button onClick={() => { setShowInputs(true); onTailorResultChange(null); }} className="w-full py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white bg-slate-800/30 border border-white/[0.06] hover:border-white/10 flex items-center justify-center gap-1.5 transition-all cursor-pointer"><RefreshCw className="w-3 h-3" /> Tailor for a Different Job</button>
         </div>
@@ -635,7 +617,10 @@ export default function IntelligentAIPanel({
   const [showJobInput, setShowJobInput] = useState(false);
   const [appliedKeys, setAppliedKeys] = useState<Set<string>>(persistedAppliedKeys ?? new Set());
   const [ignoredKeys, setIgnoredKeys] = useState<Set<string>>(new Set());
-  const [tailorResult, setTailorResult] = useState<TailorResult | null>(preloadedTailorResult);
+  const [tailorResult, setTailorResult] = useState<TailorResult | null>(
+    // Results saved before the fact checks could carry invented metrics and skills.
+    preloadedTailorResult?.factChecked ? preloadedTailorResult : null,
+  );
 
   const handleTailorResultChange = useCallback((r: TailorResult | null) => {
     setTailorResult(r);

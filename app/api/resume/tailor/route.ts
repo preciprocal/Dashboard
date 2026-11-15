@@ -8,6 +8,7 @@ import { getUserAIContext } from '@/lib/ai/user-context';
 import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, cleanResumeText, stripDashesDeep, LANGUAGE_MATCH_INSTRUCTION, createMessage } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
+import { applyChanges, check, cleanKeywords, coverage, groundingIssue, hasTerm, type ProposedChange } from '@/lib/applications/truthful-tailor';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -15,28 +16,19 @@ export const maxDuration = 60;
 const TAILOR_CACHE_TTL = 7 * 24 * 60 * 60;
 const MAX_TOKENS = 6000;
 
-const TAILOR_SYSTEM = `You are an elite resume strategist who has placed 5,000+ candidates at top companies. Your single mission: rewrite the candidate's resume so it gets past ATS filters AND makes a human recruiter reach for the phone within 6 seconds.
+const TAILOR_SYSTEM = `You are a resume strategist. Rewrite the candidate's resume so it speaks to this job description, using only what the resume already says.
 
-YOUR PHILOSOPHY:
-The resume is a MARKETING DOCUMENT, not a biography. It should be tailored to make this specific job description's requirements light up like a Christmas tree. Every bullet, every skill, every word must earn its place.
+TRUTH RULES (a change that breaks one is removed before the candidate sees it):
+1. Reword, reorder and use the job's language only for experience the resume already shows. "Managed the team database" may become "maintained the team's data pipeline" only if the resume shows that work.
+2. Never add a number, percentage, team size, duration or metric that the original line does not contain. If a line has no metric, make it clearer in words.
+3. Never add a tool, language, framework, certification or skill the resume does not mention somewhere. Job requirements the resume does not support go in "keywordsFromJD.missing" and "interviewPrepNotes", not on the resume.
+4. Keep employers, titles, dates, degrees and schools exactly as they are.
 
-CRITICAL RULES:
-
-1. KEEP IT REAL - but REFRAME AGGRESSIVELY. Take the candidate's actual experience and reframe it using the exact language, keywords, and priorities from the job description. If they managed a database and the JD says "data pipeline engineering", reframe "managed database" as "engineered and maintained data pipelines". This is standard resume optimization, not fabrication.
-
-2. SKILLS INJECTION - If the JD requires skills the candidate doesn't explicitly list but likely has exposure to (e.g., any developer probably knows Git, any analyst probably knows Excel), ADD them to the skills section. If the JD mentions tools in the same ecosystem the candidate works in (e.g., candidate uses React, JD mentions Next.js), add them. The interview prep plan will cover any gaps.
-
-3. KEYWORD DENSITY - The tailored resume must contain AT LEAST 80% of the critical keywords from the JD. Weave them naturally into bullet points, skills section, and summary. ATS systems do keyword matching - this is non-negotiable.
-
-4. BULLET FORMULA - Every experience bullet must follow: [Power Verb] + [What You Did Using JD Keywords] + [Quantified Result]. If the original bullet has no metric, ADD a plausible one based on context.
-
-5. SUMMARY/OBJECTIVE - Write a 2-3 sentence professional summary that mirrors the JD's top 3 requirements and positions the candidate as an exact match for this specific role.
-
-6. SKILLS SECTION - Reorganize to put JD-matching skills FIRST. Group by the categories the JD uses.
-
-7. PRESERVE STRUCTURE - Keep the same sections, same number of jobs, same education. Only change the CONTENT within each section to align with the JD.
-
-8. ATS FORMATTING - No tables, no columns, no graphics, no headers/footers. Standard section names.
+WHAT TO DO:
+- Summary: 2 to 3 sentences that match the job's top requirements to what the resume shows.
+- Skills: put the skills the job asks for that the resume already lists first.
+- Bullets: [strong verb] + [what was done, in the job's terms where true] + [the result the original states, if any].
+- Same sections, same jobs, standard section names, no tables or columns.
 
 CRITICAL FORMAT RULES FOR "changes" ARRAY:
 - EVERY change MUST use arrow format: "exact original text → exact replacement text"
@@ -50,6 +42,65 @@ CRITICAL FORMAT RULES FOR "changes" ARRAY:
   "(none) → Detail-oriented Junior Data Analyst with expertise in collecting, cleaning, and analyzing data"
 
 CRITICAL: Return ONLY valid JSON. No markdown fences, no preamble. Start with { end with }.${LANGUAGE_MATCH_INSTRUCTION}`;
+
+/**
+ * Holds the model's output to the resume's facts (lib/applications/truthful-tailor.ts):
+ * drops changes that add numbers, tools or job keywords the resume does not
+ * have, rebuilds the full tailored text from the changes that remain, and
+ * replaces the model's ATS guesses with a count of the job's keywords found.
+ */
+function enforceFacts(data: Record<string, unknown>, resumeText: string, jd: string): Record<string, unknown> {
+  const kw = (data.keywordsFromJD ?? {}) as { critical?: unknown };
+  const keywords = cleanKeywords(kw.critical, 30).filter(k => hasTerm(jd, k));
+
+  const sections = (Array.isArray(data.sections) ? data.sections : []) as Array<{ name?: string; changes?: unknown; keywordsInjected?: unknown }>;
+  const kept: ProposedChange[] = [];
+  const outSections = sections.map(sec => {
+    const proposed = (Array.isArray(sec.changes) ? sec.changes : [])
+      .filter((c): c is string => typeof c === 'string' && c.includes('→'))
+      .map(c => { const i = c.indexOf('→'); return { section: sec.name ?? '', original: c.slice(0, i).trim(), rewrite: c.slice(i + 1).trim(), reason: '' }; })
+      .filter(c => c.original && c.original.toLowerCase() !== '(none)');
+    const { accepted } = check(proposed, resumeText, keywords);
+    kept.push(...accepted);
+    return {
+      name: sec.name ?? '',
+      changes: accepted.map(c => `${c.original} → ${c.rewrite}`),
+      keywordsInjected: [...new Set(accepted.flatMap(c => c.keywordsAdded))],
+    };
+  }).filter(sec => sec.changes.length > 0);
+
+  let tailored = applyChanges(resumeText, kept);
+  const summary = data.summary as { original?: string; tailored?: string; keywordsAdded?: unknown } | undefined;
+  let outSummary: Record<string, unknown> | undefined;
+  if (summary?.tailored) {
+    const text = summary.tailored.trim();
+    const unsupported = keywords.find(k => hasTerm(text, k) && !hasTerm(resumeText, k));
+    if (!groundingIssue(text, resumeText) && !unsupported) {
+      const original = summary.original && summary.original !== 'None' && resumeText.includes(summary.original) ? summary.original : 'None';
+      tailored = original === 'None' ? `${text}
+
+${tailored}` : tailored.replace(original, text);
+      outSummary = { original, tailored: text, keywordsAdded: keywords.filter(k => hasTerm(text, k)) };
+    }
+  }
+
+  const skills = (data.skillsOptimization ?? {}) as { added?: unknown; reordered?: unknown; removed?: unknown };
+  const inResume = (v: unknown) => (Array.isArray(v) ? v.filter((s): s is string => typeof s === 'string' && hasTerm(resumeText, s)) : []);
+
+  const before = coverage(resumeText, keywords);
+  const after = coverage(tailored, keywords);
+  return {
+    ...data,
+    tailoredResume: tailored,
+    summary: outSummary,
+    sections: outSections,
+    skillsOptimization: { added: inResume(skills.added), reordered: inResume(skills.reordered), removed: inResume(skills.removed) },
+    // Counted, not estimated: the share of the job's keywords the text contains.
+    atsScore: { before: before.percent, after: after.percent, keywordMatchBefore: before.percent, keywordMatchAfter: after.percent },
+    keywordsFromJD: { critical: keywords, matched: after.matched, missing: after.missing },
+    factChecked: true,
+  };
+}
 
 interface TailorRequest { resumeId?: string; jobTitle: string; companyName?: string; jobDescription: string; }
 
@@ -100,7 +151,8 @@ export async function POST(request: NextRequest) {
     resumeText = cleanResumeText(resumeText).slice(0, 10_000);
     const jdTrimmed = jobDescription.slice(0, 3000);
 
-    const cacheKey = `tailor:${hash(resumeText.slice(0, 500), jobTitle, companyName || '', jdTrimmed.slice(0, 500))}`;
+    // v2: fact-checked output; earlier results could carry invented metrics and skills.
+    const cacheKey = `tailor:v2:${hash(resumeText.slice(0, 500), jobTitle, companyName || '', jdTrimmed.slice(0, 500))}`;
     if (redis) {
       try {
         const cached = await redis.get(cacheKey);
@@ -108,7 +160,7 @@ export async function POST(request: NextRequest) {
       } catch {}
     }
 
-    const userPrompt = `TAILOR THIS RESUME for the exact job below. The goal is ONE thing: get the callback.
+    const userPrompt = `TAILOR THIS RESUME for the job below, using only facts it already contains.
 
 === TARGET JOB ===
 Title: ${jobTitle}
@@ -140,8 +192,7 @@ ${resumeText}
     }
   ],
   "skillsOptimization": { "added": ["..."], "reordered": ["..."], "removed": ["..."] },
-  "atsScore": { "before": <0-100>, "after": <0-100>, "keywordMatchBefore": <0-100>, "keywordMatchAfter": <0-100> },
-  "keywordsFromJD": { "critical": ["..."], "matched": ["..."], "missing": ["..."] },
+  "keywordsFromJD": { "critical": ["the 12 to 20 skills, tools and qualifications this job asks for, as written in it"], "matched": [], "missing": [] },
   "interviewPrepNotes": ["<skill to study up on>", "<another gap>"]
 }
 
@@ -158,6 +209,8 @@ REMINDER: Every item in "changes" MUST use arrow format "original text → new t
 
     let data: Record<string, unknown>;
     try { data = stripDashesDeep(JSON.parse(cleaned)); } catch (err) { console.error('❌ JSON parse failed:', err); return NextResponse.json({ error: 'AI returned malformed response. Try again.' }, { status: 422 }); }
+
+    data = enforceFacts(data, resumeText, jdTrimmed);
 
     await checkAndIncrementUsage(userId, 'resumes');
 

@@ -119,7 +119,9 @@ const digitsOf = (s: string) => (s.match(/\d+(\.\d+)?/g) ?? []).join(' ');
 
 export function findUnsupported(letter: string, sources: string[], exclude: string[] = []): Unsupported[] {
   const src = norm(sources.join('\n'));
-  const srcDigits = new Set((src.match(/\d+(\.\d+)?/g) ?? []).map(d => d.replace(/,/g, '')));
+  // Thousands separators kept together: "2,000+" in a resume is the number
+  // 2000, not 2 and 000, so a letter that repeats "2,000" is not flagged.
+  const srcDigits = new Set((src.match(/\d[\d,]*(\.\d+)?/g) ?? []).map(d => d.replace(/,/g, '').replace(/^0+(?=\d)/, '')));
   // Text the letter is allowed to repeat without it being a claim about the
   // candidate, such as the company name or a line in the date.
   const skip = exclude.map(norm).filter(Boolean);
