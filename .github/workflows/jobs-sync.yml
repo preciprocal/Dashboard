@@ -1,0 +1,36 @@
+# Live job postings for the landing site's /jobs page, from employers' own
+# job boards (official Greenhouse, Lever and Ashby APIs). Every 6 hours, so a
+# closed role drops off within the day. See scripts/everify/jobs-sync.mjs.
+# A failed run keeps the previous postings live and makes GitHub email the
+# repo owner.
+name: Job postings sync
+
+on:
+  schedule:
+    - cron: "15 */6 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: jobs-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: scripts/everify
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund
+      - run: node --max-old-space-size=4096 jobs-sync.mjs
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
