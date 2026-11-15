@@ -475,7 +475,7 @@ const APPLY_BUTTON_SELECTORS = [
   '.btn-apply','.apply-now-btn','#applyNow','.apply-cta',
 ];
 const APPLY_KEYWORDS = ['apply now','apply for this job','apply for this position','apply for this role','apply to this job','apply today','apply online','submit application','start application','begin application','apply'];
-const APPLY_EXCLUDE_KEYWORDS = ['already applied','application submitted','view application','withdraw','not interested','easy apply','quick apply'];
+const APPLY_EXCLUDE_KEYWORDS = ['already applied','application submitted','view application','withdraw','not interested','easy apply','quick apply','apply with linkedin','apply with indeed','apply with google','apply with seek','apply with xing','autofill with','use my last application','sign in','log in','login'];
 
 function findApplyButton() {
   for (const sel of APPLY_BUTTON_SELECTORS) {
@@ -515,40 +515,173 @@ function isJobDetailPage() {
   return !!findApplyButton();
 }
 
-async function clickApplyAndWaitForForm(statusEl) {
-  const applyBtn = findApplyButton();
-  if (!applyBtn) { console.log('ℹ️ No apply button found - assuming form is already visible'); return false; }
-  console.log('🖱️ Clicking apply button:', applyBtn.textContent?.trim().slice(0,40));
-  if (statusEl) { statusEl.style.display='block'; statusEl.className='prc-sb-status info'; statusEl.innerHTML='🖱️ Clicking Apply button…'; }
-  const target = applyBtn.getAttribute('target');
-  const href   = applyBtn.getAttribute('href');
-  const opensNewTab = target === '_blank' || (href && !href.startsWith('#') && !href.startsWith('javascript'));
-  if (opensNewTab && href) {
-    // A link to the form (Lever's /apply): follow it in this tab. This used to
-    // log "navigating" and return without going anywhere, so the fill never
-    // reached the form. The form page fills itself on load when the dashboard
-    // started this (startHandoffFill); otherwise the Autofill button is there.
-    console.log('🔗 Apply button links to the form - opening it here');
-    window.location.href = new URL(href, window.location.href).href;
-    return false;
+// ─────────────────────────────────────────────────────────────────
+// GETTING TO THE FORM
+// Many postings put steps between the description and the form: an Apply
+// button, a "how would you like to apply" choice (Workday's Apply Manually),
+// or a sign-in wall. openApplicationForm clicks through them, preferring the
+// way in that needs no account, and stops at a sign-in screen: the student
+// signs in themselves (we never choose or type passwords) and the fill picks
+// up as soon as the form appears (watchForFormAfterSignIn, startHandoffFill).
+// ─────────────────────────────────────────────────────────────────
+
+const FORM_SELECTORS = ['#first_name','#last_name','input[name="first_name"]','input[name="name"]','input[name="email"]','[data-automation-id="legalNameSection_firstName"]','.ia-BasePage','#iCIMS_MainColumn','form[action*="apply"]','input[aria-label*="First name" i]','input[aria-label*="Email" i]','.application-form','#applicationForm','#jv-apply-form'];
+const NAME_FIELD_SELECTORS = '#first_name,#last_name,input[name="first_name"],input[name="firstName"],input[name*="first" i][name*="name" i],input[autocomplete="given-name"],input[aria-label*="First name" i],[data-automation-id="legalNameSection_firstName"]';
+
+// Ways in that need no account, in the words sites use for them.
+const GUEST_KEYWORDS = ['apply manually','apply without an account','apply without account','apply without signing in','continue as guest','continue as a guest','apply as guest','apply as a guest','guest apply','proceed as guest','continue without an account','continue without signing in','skip sign in','skip and apply'];
+// Buttons that lead to a sign-in or account step for the application.
+const LOGIN_TO_APPLY_KEYWORDS = ['sign in to apply','log in to apply','login to apply','sign in and apply','log in and apply','sign in to continue','log in to continue'];
+const LOGIN_KEYWORDS = ['sign in','log in','login','sign-in','log-in'];
+
+function _visible(el) {
+  if (!el || el.disabled) return false;
+  if (el.offsetParent === null && getComputedStyle(el).position !== 'fixed') return false;
+  const r = el.getBoundingClientRect();
+  return r.width > 0 && r.height > 0;
+}
+function _btnText(el) {
+  return (el.textContent || el.value || el.getAttribute('aria-label') || '').replace(/\s+/g, ' ').toLowerCase().trim();
+}
+function _clickables() {
+  return Array.from(document.querySelectorAll('button,a,[role="button"],input[type="button"],input[type="submit"]')).filter(_visible);
+}
+
+/** A sign-in or create-account screen: a password box and no name fields. */
+function isLoginWall() {
+  const pw = Array.from(document.querySelectorAll('input[type="password"]')).some(_visible);
+  if (!pw) return false;
+  return !Array.from(document.querySelectorAll(NAME_FIELD_SELECTORS)).some(_visible);
+}
+
+/** The application form itself is on the page (not a sign-in form). */
+function formReady() {
+  if (isLoginWall()) return false;
+  return FORM_SELECTORS.some(sel => { try { return Array.from(document.querySelectorAll(sel)).some(el => _visible(el) || el.matches('.ia-BasePage,#iCIMS_MainColumn')); } catch { return false; } });
+}
+
+function findGuestButton() {
+  const wd = document.querySelector('[data-automation-id="applyManually"]');
+  if (_visible(wd)) return wd;
+  return _clickables().find(el => { const t = _btnText(el); return t.length < 60 && GUEST_KEYWORDS.some(kw => t.includes(kw)); }) || null;
+}
+
+/** A button into the application's sign-in step. Plain "Sign in" only counts
+ *  for a button that appeared after we clicked Apply, so a site header's
+ *  sign-in link is left alone. */
+function findLoginButton(afterApply, before) {
+  return _clickables().find(el => {
+    const t = _btnText(el);
+    if (!t || t.length > 40) return false;
+    if (LOGIN_TO_APPLY_KEYWORDS.some(kw => t.includes(kw))) return true;
+    return afterApply && !(before && before.has(el)) && LOGIN_KEYWORDS.some(kw => t === kw || t.startsWith(kw + ' '));
+  }) || null;
+}
+
+/** Puts the student's email in an empty sign-in email box, as a head start. */
+function prefillLoginEmail(profile) {
+  const email = profile?.email;
+  if (!email) return;
+  const box = Array.from(document.querySelectorAll('input[type="email"],input[name*="email" i],input[id*="email" i],input[autocomplete="username"],[data-automation-id="email"]'))
+    .find(el => el.tagName === 'INPUT' && _visible(el) && !el.value);
+  if (box) setReactValue(box, email);
+}
+
+/** Remembers that this site is mid-application, so the fill continues on the
+ *  next page of it (after a sign-in or a link to the form). */
+async function rememberPendingFill(stage, url) {
+  try {
+    const { preciprocal_auto_apply_target: t } = await chrome.storage.local.get('preciprocal_auto_apply_target');
+    await chrome.storage.local.set({ preciprocal_auto_apply_target: { ...(t || {}), url: url || t?.url || window.location.href, host: window.location.hostname, stage, at: Date.now() } });
+  } catch {}
+}
+
+/** Waits until the form, a sign-in screen or a new choice shows up. */
+function waitForGateChange(timeout = 8000) {
+  return new Promise(resolve => {
+    const start = Date.now();
+    const tick = () => {
+      if (formReady()) return resolve('form');
+      if (isLoginWall()) return resolve('login');
+      if (findGuestButton()) return resolve('gate');
+      if (Date.now() - start > timeout) return resolve('timeout');
+      setTimeout(tick, 300);
+    };
+    setTimeout(tick, 400);
+  });
+}
+
+/**
+ * Clicks through whatever stands between this page and the form.
+ * Returns 'form' (the form is here), 'login' (the student needs to sign in),
+ * 'navigating' (we followed a link to the form), 'timeout' (we clicked but
+ * no form showed up here) or 'none' (nothing to click).
+ */
+async function openApplicationForm(statusEl, profile) {
+  const say = (text) => { if (statusEl) { statusEl.style.display = 'flex'; statusEl.className = 'prc-status-banner prc-status-info'; statusEl.textContent = text; } };
+  const clicked = new Set();
+  let afterApply = false;
+  let before = null; // what was clickable before Apply
+  for (let step = 0; step < 5; step++) {
+    if (formReady()) return 'form';
+    if (isLoginWall()) { prefillLoginEmail(profile); return 'login'; }
+
+    let el = findGuestButton(), what = 'guest';
+    if (el && clicked.has(el)) el = null;
+    if (!el && !afterApply) { el = findApplyButton(); what = 'apply'; }
+    if (!el) { el = findLoginButton(afterApply, before); what = 'login'; }
+    if (!el || clicked.has(el)) return afterApply ? 'timeout' : 'none';
+    clicked.add(el);
+
+    say(what === 'guest' ? 'Choosing to apply without an account…' : what === 'login' ? 'Opening sign-in…' : 'Clicking Apply…');
+    console.log(`🖱️ Preciprocal gate (${what}):`, _btnText(el).slice(0, 40));
+    if (what === 'apply') { afterApply = true; before = new Set(_clickables()); }
+
+    // A link to another page: follow it here, and let that page carry on.
+    const href = el.tagName === 'A' ? el.getAttribute('href') : null;
+    if (href && !href.startsWith('#') && !/^(javascript|mailto|tel):/i.test(href)) {
+      const dest = new URL(href, window.location.href).href;
+      await rememberPendingFill(what === 'login' ? 'login' : 'apply-clicked', dest);
+      window.location.href = dest;
+      return 'navigating';
+    }
+    el.click();
+    say('Waiting for the application form…');
+    await waitForGateChange(8000);
   }
-  applyBtn.click();
-  if (statusEl) statusEl.innerHTML = '⏳ Waiting for application form…';
-  const formAppeared = await waitForApplicationForm(8000);
-  if (formAppeared) { console.log('✅ Application form appeared after clicking Apply'); if (statusEl) statusEl.innerHTML = '📝 Form detected - filling…'; return true; }
-  console.log('ℹ️ Form not detected in current DOM - may have navigated');
-  return false;
+  return formReady() ? 'form' : isLoginWall() ? 'login' : 'timeout';
+}
+
+// Kept for callers that only need the old yes/no answer.
+async function clickApplyAndWaitForForm(statusEl, profile) {
+  const r = await openApplicationForm(statusEl, profile);
+  if (r === 'login') watchForFormAfterSignIn();
+  return r === 'form';
 }
 
 function waitForApplicationForm(timeout = 8000) {
-  return new Promise(resolve => {
-    const formSelectors = ['#first_name','#last_name','input[name="first_name"]','input[name="name"]','input[name="email"]','[data-automation-id="legalNameSection_firstName"]','.ia-BasePage','#iCIMS_MainColumn','form[action*="apply"]','input[aria-label*="First name" i]','input[aria-label*="Email" i]','.application-form','#applicationForm','#jv-apply-form'];
-    const check = () => formSelectors.some(sel => { try { return !!document.querySelector(sel); } catch { return false; } });
-    if (check()) { resolve(true); return; }
-    const obs = new MutationObserver(() => { if (check()) { obs.disconnect(); resolve(true); } });
-    obs.observe(document.body, { childList:true, subtree:true });
-    setTimeout(() => { obs.disconnect(); resolve(false); }, timeout);
-  });
+  return waitForGateChange(timeout).then(r => r === 'form');
+}
+
+// While the student signs in on this page (Workday and others swap the form
+// in without a page load), watch for the form and fill it when it appears.
+// Pages that reload after sign-in pick up in startHandoffFill instead.
+let _signInWatch = null;
+function watchForFormAfterSignIn() {
+  if (_signInWatch) return;
+  rememberPendingFill('login');
+  const started = Date.now();
+  _signInWatch = setInterval(async () => {
+    if (Date.now() - started > 20 * 60 * 1000) { clearInterval(_signInWatch); _signInWatch = null; return; }
+    if (isLoginWall() || !formReady()) return;
+    clearInterval(_signInWatch); _signInWatch = null;
+    if (_autoFilling || !_instance || _instance.state === 'loading') return;
+    console.log('🔓 Preciprocal: signed in, filling the application');
+    try { await chrome.storage.local.remove('preciprocal_auto_apply_target'); } catch {}
+    await delay(1200);
+    _instance.state = 'idle';
+    _instance._run();
+  }, 1500);
 }
 
 function isApplicationPage() {
@@ -3468,12 +3601,27 @@ class PreciprocalSidebar {
         return;
       }
 
-      const onDetailPage = isJobDetailPage();
-      if (onDetailPage) {
-        const clicked = await clickApplyAndWaitForForm(statusEl);
-        if (!clicked) { if (label) label.textContent = 'Opened in new tab'; btn?.classList.remove('loading'); this.state = 'filled'; return; }
-        await delay(800);
+      // Apply button, "how would you like to apply" choice, sign-in wall.
+      const gate = await openApplicationForm(statusEl, this.profile);
+      const bolt = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>';
+      const info = (text) => { if (statusEl) { statusEl.style.display='flex'; statusEl.className='prc-status-banner prc-status-info'; const span=document.createElement('span'); span.textContent=text; statusEl.replaceChildren(span); } };
+      if (gate === 'login') {
+        this.state = 'idle'; btn?.classList.remove('loading');
+        if (icon)  icon.innerHTML = bolt;
+        if (label) label.textContent = 'Waiting for sign-in';
+        info('This site needs you to sign in or create an account first. Do that here and Preciprocal fills the application as soon as the form opens.');
+        watchForFormAfterSignIn();
+        return;
       }
+      if (gate === 'navigating') { if (label) label.textContent = 'Opening the form…'; return; }
+      if (gate === 'timeout') {
+        this.state = 'idle'; btn?.classList.remove('loading');
+        if (icon)  icon.innerHTML = bolt;
+        if (label) label.textContent = 'Autofill';
+        info('We clicked Apply, but the form has not shown up on this page. If it opened in another tab, press Autofill there.');
+        return;
+      }
+      if (gate === 'form') await delay(800);
 
       // Poll field circles in real-time while fillForm runs so the user sees
       // each field light up as it gets filled (seamless progress).
@@ -3765,14 +3913,20 @@ async function boot() {
 async function startHandoffFill() {
   try {
     const { preciprocal_auto_apply_target: t } = await chrome.storage.local.get('preciprocal_auto_apply_target');
-    if (!t?.url || Date.now() - (t.at || 0) > 5 * 60 * 1000) return;
+    if (!t?.url) return;
+    const signingIn = t.stage === 'login';
+    if (Date.now() - (t.at || 0) > (signingIn ? 20 : 5) * 60 * 1000) return;
     const target = new URL(t.url);
     const id = target.searchParams.get('gh_jid') || target.pathname.split('/').filter(Boolean).pop() || '';
     const here = window.location.href;
-    const matches = id.length >= 6
-      ? here.includes(id)
-      : window.location.hostname === target.hostname && window.location.pathname.startsWith(target.pathname);
+    const matches = signingIn
+      ? window.location.hostname === (t.host || target.hostname)
+      : id.length >= 6
+        ? here.includes(id)
+        : window.location.hostname === target.hostname && window.location.pathname.startsWith(target.pathname);
     if (!matches || !_instance) return;
+    // Still on the sign-in screen: wait for the student, then fill.
+    if (signingIn && isLoginWall()) { prefillLoginEmail(_instance.profile || (await chrome.storage.local.get('preciprocal_auto_apply_profile')).preciprocal_auto_apply_profile); watchForFormAfterSignIn(); return; }
     // On a description page _run clicks the posting's Apply button. Where that
     // loads the form as a new page (Lever's /apply), keep the target, marked,
     // so the form page finishes the fill; never click Apply twice.
@@ -3817,8 +3971,16 @@ async function triggerAutoFill() {
     if (icon)  icon.innerHTML    = '<span class="prc-spinner"></span>';
     document.getElementById('prc-autofill-btn')?.classList.add('loading');
     const statusEl = document.getElementById('prc-fill-status');
-    const onDetail = isJobDetailPage();
-    if (onDetail) { await clickApplyAndWaitForForm(statusEl); await delay(800); }
+    const gate = await openApplicationForm(statusEl, profile);
+    if (gate === 'login') {
+      if (label) label.textContent = 'Waiting for sign-in';
+      if (icon)  icon.innerHTML = '';
+      document.getElementById('prc-autofill-btn')?.classList.remove('loading');
+      watchForFormAfterSignIn();
+      return;
+    }
+    if (gate === 'navigating' || gate === 'timeout') { document.getElementById('prc-autofill-btn')?.classList.remove('loading'); if (label) label.textContent = 'Autofill'; return; }
+    if (gate === 'form') await delay(800);
     const { filled } = await fillForm(profile, platform);
     const btn = document.getElementById('prc-autofill-btn');
     btn?.classList.remove('loading'); btn?.classList.add('done');
