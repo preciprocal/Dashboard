@@ -16,14 +16,22 @@ const tint = (name: string) => TINTS[[...name].reduce((h, c) => (h * 31 + c.char
 
 export function CompanyLogo({ company, domain, size = 44 }: { company: string; domain?: string | null; size?: number }) {
   const [failed, setFailed] = useState(false);
+  // How much of the tile the image fills, from its resolution once loaded: a
+  // brand logo (logo.dev, 150px and up) fills it edge to edge, a sharp site
+  // icon nearly so, and a small favicon stays centred so it is not blurred.
+  const [fill, setFill] = useState<'brand' | 'large' | 'small' | null>(null);
   const color = tint(company);
   const box = { width: size, height: size };
   if (domain && !failed) {
+    const inset = fill === 'brand' ? 1 : fill === 'large' ? 0.72 : 0.56;
     return (
-      <span className="rounded-xl flex items-center justify-center flex-shrink-0 bg-white overflow-hidden border border-white/[0.1]" style={box}>
-        {/* eslint-disable-next-line @next/next/no-img-element -- a small remote icon; next/image adds nothing here */}
-        <img src={`/api/logos/icon?d=${encodeURIComponent(domain)}`} alt={`${company} logo`} width={Math.round(size * 0.62)} height={Math.round(size * 0.62)}
-          loading="lazy" decoding="async" onError={() => setFailed(true)} className="object-contain" />
+      <span className="relative rounded-xl flex items-center justify-center flex-shrink-0 bg-white overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.3)]" style={box}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- a small remote logo; next/image adds nothing here */}
+        <img src={`/api/logos/icon?d=${encodeURIComponent(domain)}`} alt={`${company} logo`}
+          loading="lazy" decoding="async" onError={() => setFailed(true)}
+          onLoad={e => { const w = e.currentTarget.naturalWidth; setFill(w >= 150 ? 'brand' : w >= 96 ? 'large' : 'small'); }}
+          className={`transition-opacity duration-200 ${fill ? 'opacity-100' : 'opacity-0'} ${fill === 'brand' ? 'object-cover' : 'object-contain'}`}
+          style={{ width: Math.round(size * inset), height: Math.round(size * inset) }} />
       </span>
     );
   }

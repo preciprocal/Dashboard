@@ -179,7 +179,7 @@ export function JobCard({ job, domain, h1bYear, closed, fit, hasResume, cardRef,
               {trackedId && <Tag tone="indigo"><FolderCheck className="w-3 h-3" />In your tracker</Tag>}
             </div>
             <h3 className="mt-2 text-[17px] font-semibold tracking-[-0.01em] text-white leading-snug line-clamp-2 group-hover:text-white">
-              <span className="bg-[linear-gradient(currentColor,currentColor)] bg-[length:0%_1px] bg-left-bottom bg-no-repeat transition-[background-size] duration-300 group-hover:bg-[length:100%_1px]">{job.t}</span>
+              {job.t}
             </h3>
             <p className="mt-1 text-[13px] truncate"><span className="text-slate-200 font-medium">{job.c}</span><span className="text-slate-500"> / {FAMILY_LABEL[job.f]}</span></p>
           </div>
