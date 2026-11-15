@@ -8,7 +8,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
-import { anthropic, extractText, extractJsonString, cachedSystem, logUsage, stripDashesDeep, LANGUAGE_MATCH_INSTRUCTION, createMessage } from '@/lib/ai/claude';
+import { anthropic, cachedSystem, logUsage, stripDashesDeep, LANGUAGE_MATCH_INSTRUCTION, createMessage } from '@/lib/ai/claude';
+import { askJson } from '@/lib/applications/model-json';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 import { getApplication, loadPack, savePack, type RoundLog } from '@/lib/applications/pack';
 
@@ -82,9 +83,11 @@ Return JSON:
   "thankYou": { "subject": "...", "body": "..." }
 }`;
 
-    const response = await createMessage({ max_tokens: 1500, system: cachedSystem(SYSTEM), messages: [{ role: 'user', content: prompt }] });
-    logUsage('apply-after-round', response);
-    const out = stripDashesDeep(JSON.parse(extractJsonString(extractText(response)))) as {
+    const out = stripDashesDeep(await askJson(async () => {
+      const response = await createMessage({ max_tokens: 1500, system: cachedSystem(SYSTEM), messages: [{ role: 'user', content: prompt }] });
+      logUsage('apply-after-round', response);
+      return response;
+    }, 'apply-after-round')) as {
       nextRoundFocus?: unknown; thankYou?: { subject?: unknown; body?: unknown };
     };
 

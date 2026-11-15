@@ -8,7 +8,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
-import { anthropic, extractText, extractJsonString, cachedSystem, logUsage, cleanResumeText, stripDashesDeep, LANGUAGE_MATCH_INSTRUCTION, createMessage } from '@/lib/ai/claude';
+import { anthropic, cachedSystem, logUsage, cleanResumeText, stripDashesDeep, LANGUAGE_MATCH_INSTRUCTION, createMessage } from '@/lib/ai/claude';
+import { askJson } from '@/lib/applications/model-json';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 import { getApplication, loadPack, savePack } from '@/lib/applications/pack';
@@ -86,9 +87,11 @@ Return JSON:
 
 Propose 6 to 12 changes, the ones that matter most for this job. Skip any line you cannot improve without adding facts.`;
 
-    const response = await createMessage({ max_tokens: 5000, system: cachedSystem(SYSTEM), messages: [{ role: 'user', content: prompt }] });
-    logUsage('apply-tailor', response);
-    const out = stripDashesDeep(JSON.parse(extractJsonString(extractText(response)))) as { keywords?: unknown; changes?: unknown };
+    const out = stripDashesDeep(await askJson(async () => {
+      const response = await createMessage({ max_tokens: 5000, system: cachedSystem(SYSTEM), messages: [{ role: 'user', content: prompt }] });
+      logUsage('apply-tailor', response);
+      return response;
+    }, 'apply-tailor')) as { keywords?: unknown; changes?: unknown };
 
     // Keywords must actually be in the posting.
     const keywords = cleanKeywords(out.keywords).filter(k => hasTerm(jd, k));

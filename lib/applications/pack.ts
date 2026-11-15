@@ -96,6 +96,10 @@ export interface ApplyPack {
   rounds: RoundLog[];
   planId: string | null;
   savedToTrackerAt: string | null;
+  /** When the employer's form was opened from step 3 (auto mode asks, on return, whether it was submitted). */
+  portalOpenedAt?: string | null;
+  /** When auto mode ran on this application (it runs once). */
+  autoRunAt?: string | null;
   updatedAt: string;
 }
 
@@ -176,19 +180,22 @@ export async function savePack(userId: string, pack: ApplyPack): Promise<ApplyPa
   return next;
 }
 
-const pdfPathFor = (userId: string, applicationId: string) => `applications/${userId}/${applicationId}.resume.pdf`;
+export type PackFile = 'resume' | 'letter';
+const pdfPathFor = (userId: string, applicationId: string, kind: PackFile = 'resume') => `applications/${userId}/${applicationId}.${kind}.pdf`;
 
 export async function deletePack(userId: string, applicationId: string): Promise<void> {
-  await supabaseAdmin.storage.from(BUCKET).remove([pathFor(userId, applicationId), pdfPathFor(userId, applicationId)]);
+  await supabaseAdmin.storage.from(BUCKET).remove([
+    pathFor(userId, applicationId), pdfPathFor(userId, applicationId, 'resume'), pdfPathFor(userId, applicationId, 'letter'),
+  ]);
 }
 
 /**
- * Stores this application's tailored resume PDF and returns a link to it
- * that expires in 10 minutes: long enough for the extension to fetch and
- * attach it to the employer's form.
+ * Stores this application's tailored resume (or cover letter) PDF and returns
+ * a link to it that expires in 10 minutes: long enough for the extension to
+ * fetch and attach it to the employer's form.
  */
-export async function storeTailoredPdf(userId: string, applicationId: string, bytes: Uint8Array): Promise<string | null> {
-  const path = pdfPathFor(userId, applicationId);
+export async function storeTailoredPdf(userId: string, applicationId: string, bytes: Uint8Array, kind: PackFile = 'resume'): Promise<string | null> {
+  const path = pdfPathFor(userId, applicationId, kind);
   const { error } = await supabaseAdmin.storage.from(BUCKET).upload(path, bytes, { contentType: 'application/pdf', upsert: true });
   if (error) return null;
   const { data } = await supabaseAdmin.storage.from(BUCKET).createSignedUrl(path, 600);

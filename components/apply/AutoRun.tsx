@@ -1,0 +1,209 @@
+// components/apply/AutoRun.tsx
+//
+// Auto mode (the Auto-apply toggle on /jobs): runs the Apply flow without
+// stopping for review. Tailors the student's most recent resume, applies
+// every change that passed the fact checks (lib/applications/truthful-tailor.ts),
+// writes the cover letter from that resume, hands both to the extension, then
+// opens the employer's portal in this tab, where the extension fills the form.
+// The student still reviews and submits on the employer's site. Every step can
+// be stopped, and anything that cannot continue stops with the reason, leaving
+// the manual steps in place.
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { CheckCircle2, Loader2, Circle, AlertTriangle, Zap, X, Chrome } from 'lucide-react';
+import type { ApplyStepProps } from '@/components/apply/types';
+import type { ApplyPack } from '@/lib/applications/pack';
+import { detectExtension, extensionStoreUrl, prepareAutofill, versionAtLeast } from '@/lib/extension';
+
+type Status = 'pending' | 'running' | 'done' | 'error';
+type Key = 'resume' | 'approve' | 'letter' | 'extension' | 'portal';
+
+const COUNTDOWN = 5;
+
+export default function AutoRun({ application, pack, onPack, update, goTo }: ApplyStepProps) {
+  const company = application.company || 'the employer';
+  const [status, setStatus] = useState<Record<Key, Status>>({ resume: 'pending', approve: 'pending', letter: 'pending', extension: 'pending', portal: 'pending' });
+  const [detail, setDetail] = useState<Partial<Record<Key, string>>>({});
+  const [error, setError] = useState<{ message: string; action?: React.ReactNode } | null>(null);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [stopped, setStopped] = useState(false);
+  const started = useRef(false);
+  const cancelled = useRef(false);
+  // The latest saved pack, so Try again continues from what is already done.
+  const packRef = useRef(pack);
+  packRef.current = pack;
+
+  const set = (k: Key, s: Status, d?: string) => {
+    setStatus(prev => ({ ...prev, [k]: s }));
+    if (d !== undefined) setDetail(prev => ({ ...prev, [k]: d }));
+  };
+
+  const fail = (k: Key, message: string, action?: React.ReactNode) => { set(k, 'error'); setError({ message, action }); };
+  const json = async (r: Response) => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || `Request failed (${r.status})`); return j; };
+
+  // Each step is skipped when its result is already saved, so a second run
+  // (Try again) continues from the step that stopped.
+  const run = async (first: boolean) => {
+    let p: ApplyPack = packRef.current;
+    if (first) await update({ autoRunStarted: true });
+
+    // 1. Resume
+    goTo('resume');
+    if (!p.tailor) {
+      set('resume', 'running', 'Tailoring your resume to the job description');
+      let resumeId = p.resumeId || application.resumeId || '';
+      if (!resumeId) {
+        const list = await fetch('/api/resume').then(r => (r.ok ? r.json() : { data: [] })).catch(() => ({ data: [] }));
+        resumeId = (list.data as { id: string }[])[0]?.id ?? '';
+      }
+      if (!resumeId) return fail('resume', 'Upload a resume first, then try again.', <Link href="/resume/upload" className="btn-secondary h-9">Upload a resume</Link>);
+      try {
+        p = (await json(await fetch(`/api/apply/${application.id}/tailor`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resumeId }) }))).pack;
+        onPack(p);
+      } catch (e) { return fail('resume', e instanceof Error ? e.message : 'Could not tailor the resume.'); }
+    }
+    const changes = p.tailor?.changes.length ?? 0;
+    set('resume', 'done', `${changes} change${changes === 1 ? '' : 's'} passed the fact checks`);
+    if (cancelled.current) return;
+
+    // 2. Apply every change that passed the checks
+    set('approve', 'running');
+    const undecided = p.tailor ? p.tailor.changes.some(c => !p.tailor!.decisions[c.id]) : false;
+    if (undecided) {
+      const next = await update({ approveAll: true });
+      if (!next) return fail('approve', 'Could not save the changes. Try again.');
+      p = next;
+    }
+    set('approve', 'done', p.tailor ? `${p.tailor.before.matched.length} to ${p.tailor.after.matched.length} of ${p.keywords.length} job keywords` : 'No changes needed');
+    if (cancelled.current) return;
+
+    // 3. Cover letter
+    goTo('letter');
+    if (!p.coverLetter) {
+      set('letter', 'running', 'Writing it from your tailored resume');
+      try {
+        const j = await json(await fetch('/api/cover-letter', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jobRole: application.jobTitle, companyName: application.company || undefined,
+            jobDescription: p.jobDescription || application.jobDescription || undefined,
+            tone: 'professional', resumeText: p.tailor?.tailoredText || undefined,
+          }),
+        }));
+        const next = await update({ coverLetter: { content: j.coverLetter.content } });
+        if (!next) throw new Error('Could not save the letter.');
+        p = next;
+      } catch (e) { return fail('letter', e instanceof Error ? e.message : 'Could not write the cover letter.'); }
+    }
+    set('letter', 'done', `${p.coverLetter?.content.split(/\s+/).length ?? 0} words`);
+    if (cancelled.current) return;
+
+    // 4. Extension
+    goTo('save');
+    set('extension', 'running', 'Sending your tailored resume and letter');
+    const url = application.jobUrl ?? '';
+    if (!/^https?:\/\//i.test(url)) return fail('extension', 'This job has no posting link. Add it in step 3 to open the application.');
+    const ext = await detectExtension(true);
+    if (ext.status !== 'installed') {
+      return fail('extension', 'The Chrome extension fills the form for you. Add it, then press Try again.',
+        <a href={extensionStoreUrl('auto-apply')} target="_blank" rel="noopener noreferrer" className="btn-secondary h-9"><Chrome className="w-4 h-4" /> Add to Chrome</a>);
+    }
+    if (!versionAtLeast(ext.version, '1.8.0')) {
+      return fail('extension', `Your extension (${ext.version ?? 'an older version'}) can't take the handoff yet. Update it from the Chrome Web Store and press Try again, or open the application below and click Autofill.`);
+    }
+    const ready = await prepareAutofill(application.id, url);
+    if (!ready) return fail('extension', 'The extension did not respond. Check that you are signed in to it and press Try again, or open the application below and click Autofill.');
+    set('extension', 'done', 'Ready to fill the form');
+    if (cancelled.current) return;
+
+    // 5. Portal, after a countdown the student can stop.
+    set('portal', 'running', `Opening ${company}'s application`);
+    for (let s = COUNTDOWN; s > 0; s--) {
+      if (cancelled.current) return;
+      setCountdown(s);
+      await new Promise(r => setTimeout(r, 1000));
+    }
+    if (cancelled.current) return;
+    await update({ portalOpened: true });
+    set('portal', 'done');
+    window.location.href = url;
+  };
+
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    run(true);
+  // Runs once, on the pack as loaded.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const retry = () => {
+    cancelled.current = false;
+    setStopped(false);
+    setError(null);
+    run(false);
+  };
+
+  const stop = () => {
+    cancelled.current = true;
+    setStopped(true);
+    setCountdown(null);
+  };
+
+  const rows: { key: Key; label: string }[] = [
+    { key: 'resume', label: 'Tailor your resume' },
+    { key: 'approve', label: 'Apply the changes that passed the fact checks' },
+    { key: 'letter', label: 'Write your cover letter' },
+    { key: 'extension', label: 'Hand them to the Chrome extension' },
+    { key: 'portal', label: `Open ${company}'s application` },
+  ];
+  const finished = stopped || !!error;
+
+  return (
+    <section className="glass-card p-5 border border-[var(--accent-border)]">
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div>
+          <h2 className="text-sm font-semibold text-white flex items-center gap-2"><Zap className="w-4 h-4 text-indigo-300" /> Auto-apply</h2>
+          <p className="text-[12.5px] text-slate-400 mt-0.5">
+            {stopped ? 'Stopped. Carry on with the steps below, or start again.' : error ? 'Stopped at the step below.' : 'Running each step for you. You review and submit on the employer’s site.'}
+          </p>
+        </div>
+        {!finished && <button onClick={stop} className="btn-secondary h-9 flex-shrink-0"><X className="w-4 h-4" /> Stop</button>}
+        {stopped && <button onClick={retry} className="btn-secondary h-9 flex-shrink-0">Start again</button>}
+      </div>
+      <ol className="space-y-2.5">
+        {rows.map(r => {
+          const s = status[r.key];
+          return (
+            <li key={r.key} className="flex items-start gap-3">
+              <span className="mt-0.5 flex-shrink-0">
+                {s === 'done' ? <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  : s === 'running' && !finished ? <Loader2 className="w-4 h-4 text-indigo-300 animate-spin" />
+                  : s === 'error' ? <AlertTriangle className="w-4 h-4 text-amber-400" />
+                  : <Circle className="w-4 h-4 text-slate-600" />}
+              </span>
+              <div className="min-w-0">
+                <p className={`text-[13px] ${s === 'pending' ? 'text-slate-500' : 'text-white'}`}>
+                  {r.label}
+                  {r.key === 'portal' && countdown !== null && !finished && <span className="text-indigo-200"> in {countdown}</span>}
+                </p>
+                {detail[r.key] && <p className="text-[12px] text-slate-400 mt-0.5">{detail[r.key]}</p>}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+      {error && (
+        <div className="mt-4 rounded-xl border border-amber-500/25 bg-amber-500/[0.06] p-3.5 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-[13px] text-amber-100 flex-1 min-w-[200px]">{error.message}</p>
+          <div className="flex gap-2">
+            {error.action}
+            <button onClick={retry} className="btn-primary h-9">Try again</button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}

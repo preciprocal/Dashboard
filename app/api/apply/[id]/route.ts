@@ -2,7 +2,7 @@
 //
 // The "Apply to this job" package for one tracked application.
 //   GET   -> { application, pack }
-//   PATCH { decisions?, authStage?, coverLetter?, stories?, planId?, savedToTracker? }
+//   PATCH { decisions?, approveAll?, authStage?, coverLetter?, stories?, planId?, savedToTracker?, portalOpened?, autoRunStarted? }
 //         -> { pack }   decisions recompute the tailored text and its keyword
 //                       coverage here, so the numbers always match the text.
 import { NextRequest, NextResponse } from 'next/server';
@@ -83,6 +83,14 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
 
     if ('planId' in body) pack.planId = typeof body.planId === 'string' ? body.planId.slice(0, 64) : null;
     if (body.savedToTracker === true) pack.savedToTrackerAt = new Date().toISOString();
+    if (body.portalOpened === true) pack.portalOpenedAt = new Date().toISOString();
+    if (body.autoRunStarted === true) pack.autoRunAt = new Date().toISOString();
+    // Auto mode applies every change that passed the fact checks in one step.
+    if (body.approveAll === true && pack.tailor) {
+      const decisions = Object.fromEntries(pack.tailor.changes.map(c => [c.id, 'approved' as Decision]));
+      const tailoredText = applyChanges(pack.tailor.original, pack.tailor.changes);
+      pack.tailor = { ...pack.tailor, decisions, tailoredText, after: coverage(tailoredText, pack.keywords) };
+    }
 
     return NextResponse.json({ success: true, pack: await savePack(uid, pack) });
   } catch (error) {

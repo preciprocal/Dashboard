@@ -13,7 +13,8 @@
 // H-1B records next to it.
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUser } from '@/lib/auth/verify-request';
-import { anthropic, extractText, extractJsonString, cachedSystem, logUsage, stripDashesDeep, LANGUAGE_MATCH_INSTRUCTION, createMessage } from '@/lib/ai/claude';
+import { anthropic, cachedSystem, logUsage, stripDashesDeep, LANGUAGE_MATCH_INSTRUCTION, createMessage } from '@/lib/ai/claude';
+import { askJson } from '@/lib/applications/model-json';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 import { getApplication, loadPack, savePack, type PrepPack, type StarStory } from '@/lib/applications/pack';
@@ -44,9 +45,11 @@ const strs = (v: unknown, max = 8) => (Array.isArray(v) ? v.map(str).filter(Bool
 const objs = (v: unknown) => (Array.isArray(v) ? v.filter((o): o is Record<string, unknown> => !!o && typeof o === 'object') : []);
 
 async function ask(prompt: string, maxTokens: number, label: string): Promise<Record<string, unknown>> {
-  const response = await createMessage({ max_tokens: maxTokens, system: cachedSystem(SYSTEM), messages: [{ role: 'user', content: prompt }] });
-  logUsage(label, response);
-  return stripDashesDeep(JSON.parse(extractJsonString(extractText(response)))) as Record<string, unknown>;
+  return stripDashesDeep(await askJson(async () => {
+    const response = await createMessage({ max_tokens: maxTokens, system: cachedSystem(SYSTEM), messages: [{ role: 'user', content: prompt }] });
+    logUsage(label, response);
+    return response;
+  }, label));
 }
 
 export async function POST(request: NextRequest, { params }: Ctx) {

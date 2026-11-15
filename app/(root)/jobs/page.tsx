@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Search, MapPin, Loader2, ExternalLink, Send, ShieldCheck, Landmark, CheckCircle2, Info, Briefcase, Clock,
+  Search, MapPin, Loader2, ExternalLink, Send, ShieldCheck, Landmark, CheckCircle2, Info, Briefcase, Clock, Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import PageHeader from '@/components/PageHeader';
@@ -133,6 +133,16 @@ export default function JobsPage() {
   const [applying, setApplying] = useState<string | null>(null);
   const [closed, setClosed] = useState<Set<string>>(new Set());
   const tracked = useRef<Map<string, string> | null>(null);
+  // Apply mode, remembered in this browser: Auto runs every step of the Apply
+  // flow and opens the employer's portal; Manual stops at each step for review.
+  const [autoMode, setAutoMode] = useState(false);
+  useEffect(() => {
+    try { setAutoMode(localStorage.getItem('prc_apply_mode') === 'auto'); } catch { /* storage blocked */ }
+  }, []);
+  const chooseMode = (auto: boolean) => {
+    setAutoMode(auto);
+    try { localStorage.setItem('prc_apply_mode', auto ? 'auto' : 'manual'); } catch { /* storage blocked */ }
+  };
 
   useEffect(() => { if (!loading && !user) router.push(`/sign-in?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`); }, [loading, user, router]);
 
@@ -190,6 +200,13 @@ export default function JobsPage() {
   };
 
   const apply = async (job: FeedJob) => {
+    // Auto mode runs the whole Apply flow in a new tab, opened now inside the
+    // click so pop-up blockers allow it; this tab keeps the job list.
+    const tab = autoMode ? window.open('', '_blank') : null;
+    const go = (id: string) => {
+      if (tab) tab.location.href = `${window.location.origin}/apply/${id}?auto=1`;
+      else router.push(`/apply/${id}`);
+    };
     setApplying(job.u);
     try {
       // Already tracking it: go straight to its Apply flow.
@@ -199,7 +216,7 @@ export default function JobsPage() {
         tracked.current = new Map((j.data as { id: string; jobUrl: string | null }[]).filter(a => a.jobUrl).map(a => [a.jobUrl!, a.id]));
       }
       const existing = tracked.current.get(job.u);
-      if (existing) { router.push(`/apply/${existing}`); return; }
+      if (existing) { go(existing); return; }
 
       const live = await fetch('/api/jobs/posting', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: job.u }) });
       const p = await live.json();
@@ -207,6 +224,7 @@ export default function JobsPage() {
       if (!p.open) {
         setClosed(prev => new Set(prev).add(job.u));
         toast.error(`${job.c} has closed this posting since our last check.`);
+        tab?.close();
         return;
       }
       const res = await fetch('/api/job-tracker', {
@@ -220,8 +238,9 @@ export default function JobsPage() {
       const created = await res.json();
       if (!res.ok) throw new Error(created.error || 'Could not add it to your tracker');
       tracked.current.set(job.u, created.id);
-      router.push(`/apply/${created.id}`);
+      go(created.id);
     } catch (e) {
+      tab?.close();
       toast.error(e instanceof Error ? e.message : 'Something went wrong');
     } finally {
       setApplying(null);
@@ -265,6 +284,30 @@ export default function JobsPage() {
 
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_300px] gap-4 items-start">
         <div className="space-y-3">
+          <div className="glass-card p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <span className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 border ${autoMode ? 'bg-[var(--accent-subtle)] border-[var(--accent-border)] text-indigo-200' : 'bg-white/[0.03] border-white/[0.08] text-slate-400'}`}>
+                <Zap className="w-4 h-4" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[13px] font-medium text-white">{autoMode ? 'Auto-apply is on' : 'Review each step'}</p>
+                <p className="text-[12px] text-slate-400 leading-snug">
+                  {autoMode
+                    ? 'Apply tailors your resume, writes the letter and opens the portal for the extension to fill. You still submit.'
+                    : 'Apply opens each step for you to review: resume changes, cover letter, then the portal.'}
+                </p>
+              </div>
+            </div>
+            <div role="radiogroup" aria-label="Apply mode" className="flex p-1 rounded-lg bg-white/[0.03] border border-white/[0.08] flex-shrink-0">
+              {[{ v: false, label: 'Manual' }, { v: true, label: 'Auto' }].map(o => (
+                <button key={o.label} role="radio" aria-checked={autoMode === o.v} onClick={() => chooseMode(o.v)}
+                  className={`h-8 px-4 rounded-md text-xs font-medium transition-colors ${autoMode === o.v ? 'bg-[var(--accent)] text-white' : 'text-slate-400 hover:text-white'}`}>
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="flex items-center justify-between px-1 text-xs text-slate-400">
             <span>{data ? `${data.total.toLocaleString()} open roles` : 'Loading'}{busy && data ? ' · updating' : ''}</span>
             {data && <span>Checked {new Date(data.syncedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>}

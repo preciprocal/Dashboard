@@ -15,6 +15,7 @@ import TailorStep from '@/components/apply/TailorStep';
 import LetterStep from '@/components/apply/LetterStep';
 import SaveStep from '@/components/apply/SaveStep';
 import PrepStep from '@/components/apply/PrepStep';
+import AutoRun from '@/components/apply/AutoRun';
 import type { ApplyPack, TrackedApplication } from '@/lib/applications/pack';
 import type { ApplyStep, ApplyStepProps } from '@/components/apply/types';
 
@@ -29,6 +30,10 @@ export default function ApplyJobPage() {
   const [pack, setPack] = useState<ApplyPack | null>(null);
   const [step, setStep] = useState<Step>('resume');
   const [error, setError] = useState('');
+  // ?auto=1 from the Auto-apply toggle on /jobs: run every step, once per
+  // application. The pack records the run (autoRunAt), so coming back from the
+  // employer's portal or reloading does not start it again.
+  const [auto, setAuto] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) router.push(`/sign-in?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`);
@@ -42,6 +47,7 @@ export default function ApplyJobPage() {
         if (!r.ok) throw new Error(j.error || 'Could not load this application');
         setApplication(j.application);
         setPack(j.pack);
+        if (new URLSearchParams(window.location.search).get('auto') === '1' && !(j.pack as ApplyPack).autoRunAt) setAuto(true);
         // Pick up where the student left off.
         const p = j.pack as ApplyPack;
         setStep(p.prep || p.savedToTrackerAt ? 'prep' : p.coverLetter ? 'save' : 'resume');
@@ -99,6 +105,8 @@ export default function ApplyJobPage() {
           );
         })}
       </div>
+
+      {auto && <AutoRun {...props} />}
 
       {step === 'resume' && <TailorStep {...props} />}
       {step === 'letter' && <LetterStep {...props} />}

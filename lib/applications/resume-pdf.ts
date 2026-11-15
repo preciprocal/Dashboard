@@ -99,3 +99,23 @@ export function tailoredResumePdf(text: string, fileName: string): void {
 export function resumePdfBytes(text: string): Uint8Array {
   return new Uint8Array(buildResumePdf(text).output('arraybuffer'));
 }
+
+/** Server: the cover letter as a plain PDF, for forms that want it as a file. */
+export function letterPdfBytes(text: string): Uint8Array {
+  const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(11);
+  const lineH = 11 * 1.45;
+  let y = MARGIN + 12;
+  for (const para of text.replace(/\r/g, '').split(/\n{2,}/)) {
+    for (const line of para.split('\n')) {
+      for (const w of doc.splitTextToSize(line.trim(), WIDTH) as string[]) {
+        if (y + lineH > 792 - MARGIN) { doc.addPage(); y = MARGIN + 12; }
+        doc.text(w, MARGIN, y);
+        y += lineH;
+      }
+    }
+    y += lineH * 0.6;
+  }
+  return new Uint8Array(doc.output('arraybuffer'));
+}

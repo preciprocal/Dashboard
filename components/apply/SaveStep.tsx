@@ -45,7 +45,8 @@ export default function SaveStep({ application, pack, update, goTo }: ApplyStepP
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
   const [profileError, setProfileError] = useState(false);
   const [jobUrl, setJobUrl] = useState(application.jobUrl ?? '');
-  const [opened, setOpened] = useState(false);
+  // Back from the employer's form (auto mode leaves this tab for it): ask whether it was submitted.
+  const [opened, setOpened] = useState(!!pack.portalOpenedAt && !pack.savedToTrackerAt);
   const [opening, setOpening] = useState(false);
   // True when the extension took the handoff and is filling the form itself.
   const [autoStarted, setAutoStarted] = useState(false);
@@ -94,6 +95,7 @@ export default function SaveStep({ application, pack, update, goTo }: ApplyStepP
       const ready = ext.status === 'installed' ? await prepareAutofill(application.id, url) : false;
       if (tab) { tab.opener = null; tab.location.href = url; }
       else window.open(url, '_blank', 'noopener,noreferrer');
+      update({ portalOpened: true });
       setAutoStarted(ready);
       setOpened(true);
     } finally {

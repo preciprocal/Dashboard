@@ -3594,8 +3594,9 @@ class PreciprocalSidebar {
       for (const el of coverLetter) {
         if (el.tagName === 'TEXTAREA' && !(el.value||'').trim() && clText) {
           setReactValue(el, clText); clDone = true;
-        } else if (el.tagName === 'INPUT' && el.type === 'file') {
-          // file-based cover letter — skip auto inject, just mark manual
+        } else if (el.tagName === 'INPUT' && el.type === 'file' && this.files?.coverLetter?.available && this.files.coverLetter.url) {
+          // The cover letter written for this job (Apply flow handoff, 1.9.0).
+          if ((await FileInjector.injectFromUrl(this.files.coverLetter.url, this.files.coverLetter.fileName || 'cover-letter.pdf', [el])) > 0) clDone = true;
         }
       }
       this._setFileRow('prc-cover-letter-status','Cover Letter', clDone ? 'done' : 'manual');
