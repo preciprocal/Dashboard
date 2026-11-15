@@ -20,6 +20,27 @@ type FitState = Record<string, Fit | undefined>;
  * Scores the jobs that come into view, a few per request. `watch(url)` gives
  * a card a ref callback that queues its job once it is on screen.
  */
+// Scores already computed in this browser session (the posting and resume
+// rarely change within one), so returning to Jobs does not re-score.
+const FIT_KEY = 'prc_fits_v1';
+const FIT_MS = 30 * 60 * 1000;
+function cachedFits(): Record<string, Fit> {
+  try {
+    const raw = sessionStorage.getItem(FIT_KEY);
+    const c = raw ? JSON.parse(raw) as { at: number; v: Record<string, Fit> } : null;
+    return c && Date.now() - c.at < FIT_MS ? c.v : {};
+  } catch { return {}; }
+}
+function storeFits(got: Record<string, Fit>, resume: boolean) {
+  try {
+    const all = { ...cachedFits(), ...Object.fromEntries(Object.entries(got).filter(([, v]) => v !== null)) };
+    const keys = Object.keys(all);
+    const trimmed = keys.length > 300 ? Object.fromEntries(keys.slice(-300).map(k => [k, all[k]])) : all;
+    sessionStorage.setItem(FIT_KEY, JSON.stringify({ at: Date.now(), v: trimmed }));
+    sessionStorage.setItem('prc_fit_resume', resume ? '1' : '0');
+  } catch { /* full or blocked */ }
+}
+
 export function useJobFits() {
   const [fits, setFits] = useState<FitState>({});
   const [hasResume, setHasResume] = useState<boolean | null>(null);
@@ -29,28 +50,40 @@ export function useJobFits() {
   const observer = useRef<IntersectionObserver | null>(null);
   const urlOf = useRef(new WeakMap<Element, string>());
 
-  const flush = useCallback(async () => {
+  // Up to three batches in flight, so a screen of cards fills in together.
+  const inFlight = useRef(0);
+  const flush = useCallback(() => {
     timer.current = null;
-    while (pending.current.length) {
+    while (pending.current.length && inFlight.current < 3) {
       const batch = pending.current.splice(0, 6);
-      try {
-        const r = await fetch('/api/jobs/match', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ urls: batch }) });
-        if (!r.ok) throw new Error(String(r.status));
-        const j = await r.json() as { resume: boolean; results: Record<string, Fit> };
-        setHasResume(j.resume);
-        setFits(prev => ({ ...prev, ...Object.fromEntries(batch.map(u => [u, j.results[u] ?? null])) }));
-      } catch {
-        setFits(prev => ({ ...prev, ...Object.fromEntries(batch.map(u => [u, null])) }));
-      }
+      inFlight.current++;
+      fetch('/api/jobs/match', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ urls: batch }) })
+        .then(async r => {
+          if (!r.ok) throw new Error(String(r.status));
+          const j = await r.json() as { resume: boolean; results: Record<string, Fit> };
+          setHasResume(j.resume);
+          const got = Object.fromEntries(batch.map(u => [u, j.results[u] ?? null]));
+          setFits(prev => ({ ...prev, ...got }));
+          storeFits(got, j.resume);
+        })
+        .catch(() => setFits(prev => ({ ...prev, ...Object.fromEntries(batch.map(u => [u, null])) })))
+        .finally(() => { inFlight.current--; if (pending.current.length) flush(); });
     }
   }, []);
 
   const enqueue = useCallback((url: string) => {
     if (queued.current.has(url)) return;
     queued.current.add(url);
+    const known = cachedFits()[url];
+    if (known !== undefined) { setFits(prev => (url in prev ? prev : { ...prev, [url]: known })); return; }
     pending.current.push(url);
-    if (!timer.current) timer.current = setTimeout(flush, 250);
+    if (!timer.current) timer.current = setTimeout(flush, 60);
   }, [flush]);
+
+  // A resume answer from earlier in the session, until the first reply.
+  useEffect(() => {
+    try { const r = sessionStorage.getItem('prc_fit_resume'); if (r !== null) setHasResume(r === '1'); } catch { /* blocked */ }
+  }, []);
 
   useEffect(() => {
     if (typeof IntersectionObserver === 'undefined') return;

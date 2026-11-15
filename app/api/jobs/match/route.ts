@@ -34,9 +34,9 @@ export async function POST(request: NextRequest) {
   const results: Record<string, (JobFit & { open: boolean; facts: PostingFacts }) | null> = {};
   const feed = await getFeed().catch(() => null);
 
-  // A few at a time: each may call an employer's job board.
-  for (let i = 0; i < urls.length; i += 3) {
-    await Promise.all(urls.slice(i, i + 3).map(async url => {
+  // All at once (at most six): each may call an employer's job board.
+  {
+    await Promise.all(urls.map(async url => {
       const p = await postingText(url).catch(() => null);
       const job = feed?.jobs.find(j => j.u === url);
       results[url] = p && p.description

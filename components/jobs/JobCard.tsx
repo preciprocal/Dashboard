@@ -6,7 +6,7 @@
 // score rail with how it fits the student: skill match from their resume, the
 // employer's E-Verify and H-1B record, and warnings quoted from the posting.
 // Clicking the card opens the full details (JobDetail).
-import { useId } from 'react';
+import { useId, useRef } from 'react';
 import Link from 'next/link';
 import {
   MapPin, Building2, Clock, Briefcase, CircleDollarSign, CalendarRange, Loader2, Ban, Bookmark, BookmarkCheck,
@@ -17,6 +17,7 @@ import { CompanyLogo } from '@/components/jobs/CompanyLogo';
 import type { Fit } from '@/components/jobs/JobFit';
 import type { FeedJob, JobFamily, JobLevel } from '@/lib/jobs/feed';
 import type { PayRange } from '@/lib/jobs/posting-facts';
+import { prefetchDetail } from '@/lib/jobs/detail-cache';
 
 export const LEVEL_LABEL: Record<JobLevel, string> = { intern: 'Internship', early: 'Entry level', mid: 'Mid level', senior: 'Senior' };
 export const FAMILY_LABEL: Record<JobFamily, string> = { software: 'Software', data: 'Data and AI', hardware: 'Hardware', product: 'Product and design', business: 'Business and finance', other: 'Other' };
@@ -161,9 +162,13 @@ export function JobCard({ job, domain, h1bYear, closed, fit, hasResume, cardRef,
   const facts = fit?.facts;
   const workplace = facts?.workplace ?? (/remote/i.test(job.l) ? 'Remote' : null);
   const stop = (e: React.SyntheticEvent) => e.stopPropagation();
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   return (
     <article ref={cardRef} onClick={onOpen} tabIndex={0}
+      onPointerEnter={() => { hoverTimer.current = setTimeout(() => prefetchDetail(job.u), 120); }}
+      onPointerLeave={() => { if (hoverTimer.current) clearTimeout(hoverTimer.current); }}
+      onFocus={() => prefetchDetail(job.u)}
       onKeyDown={e => { if (e.key === 'Enter' && e.target === e.currentTarget) onOpen(); }}
       aria-label={`${job.t} at ${job.c}. Open details`}
       style={{ animationDelay: `${Math.min(index % 25, 8) * 35}ms` }}

@@ -23,6 +23,7 @@ import type { JobFit } from '@/lib/jobs/fit';
 import type { PostingFacts, PostingSection } from '@/lib/jobs/posting-facts';
 import type { EverifyStatus } from '@/lib/jobs/everify';
 import type { H1bHistory } from '@/lib/jobs/h1b';
+import { loadDetail } from '@/lib/jobs/detail-cache';
 
 interface Detail {
   job: FeedJob;
@@ -61,8 +62,7 @@ export default function JobDetail({ url, domain, trackedId, saving, applying, cl
   useEffect(() => {
     let alive = true;
     setData(null); setError(''); setTab('overview');
-    fetch(`/api/jobs/detail?url=${encodeURIComponent(url)}`)
-      .then(async r => { const j = await r.json(); if (!r.ok) throw new Error(j.error || 'Could not load this job'); return j as Detail; })
+    loadDetail<Detail>(url)
       .then(j => { if (alive) setData(j); })
       .catch(e => { if (alive) setError(e instanceof Error ? e.message : 'Could not load this job'); });
     return () => { alive = false; };

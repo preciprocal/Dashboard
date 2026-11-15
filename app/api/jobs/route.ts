@@ -4,11 +4,13 @@
 //   -> { syncedAt, h1bYear, total, page, pageSize, jobs }
 // The dashboard job feed (lib/jobs/feed.ts), filtered and paged on the server
 // so the browser never downloads all 30,000+ postings.
-import { NextRequest, NextResponse } from 'next/server';
+import { after, NextRequest, NextResponse } from 'next/server';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { filterJobs, getFeed, type JobFamily, type JobLevel } from '@/lib/jobs/feed';
+import { warmPostings } from '@/lib/jobs/posting-cache';
 
 export const runtime = 'nodejs';
+export const maxDuration = 30;
 
 const PAGE_SIZE = 25;
 const LEVELS: JobLevel[] = ['intern', 'early', 'mid', 'senior'];
@@ -38,13 +40,17 @@ export async function GET(request: NextRequest) {
       orRemote: sp.get('orRemote') === '1',
     });
     const page = Math.max(1, Math.min(200, Number(sp.get('page')) || 1));
+    const shown = matches.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+    // Start reading these postings from the employers' boards now, so the
+    // skill match the cards ask for next is already cached.
+    after(() => warmPostings(shown.slice(0, 12).map(j => j.u)));
     return NextResponse.json({
       syncedAt: feed.syncedAt,
       h1bYear: feed.h1bYear,
       total: matches.length,
       page,
       pageSize: PAGE_SIZE,
-      jobs: matches.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+      jobs: shown,
     });
   } catch (error) {
     console.error('❌ jobs feed:', error);

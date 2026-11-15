@@ -11,8 +11,27 @@ const key = (url: string) => `posting:v1:${createHash('sha1').update(url).digest
 
 export interface CachedPosting { open: boolean; title: string; description: string }
 
+// Requests already under way on this server, so a warm-up and a card asking
+// for the same posting share one call to the job board.
+const inFlight = new Map<string, Promise<CachedPosting | null>>();
+
 /** The posting for a feed URL, or null when it is not in the feed. */
-export async function postingText(url: string): Promise<CachedPosting | null> {
+export function postingText(url: string): Promise<CachedPosting | null> {
+  const running = inFlight.get(url);
+  if (running) return running;
+  const p = readPosting(url).finally(() => inFlight.delete(url));
+  inFlight.set(url, p);
+  return p;
+}
+
+/** Reads the first postings of a page into the cache, a few at a time. */
+export async function warmPostings(urls: string[]) {
+  for (let i = 0; i < urls.length; i += 5) {
+    await Promise.all(urls.slice(i, i + 5).map(u => postingText(u).catch(() => null)));
+  }
+}
+
+async function readPosting(url: string): Promise<CachedPosting | null> {
   if (redis) {
     const hit = await redis.get<CachedPosting>(key(url)).catch(() => null);
     if (hit) return hit;

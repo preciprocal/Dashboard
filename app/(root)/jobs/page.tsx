@@ -35,6 +35,21 @@ const FAMILIES: { id: JobFamily | ''; label: string }[] = [
 const MINE = '__mine' as const;
 interface Page { syncedAt: string; h1bYear: string | null; total: number; page: number; pageSize: number; jobs: FeedJob[] }
 
+// Results and preferences kept for this browser session, so returning to Jobs
+// (or changing a filter back) shows the list at once while it refreshes.
+const CACHE_MS = 10 * 60 * 1000;
+const readCache = <T,>(key: string): T | null => {
+  try {
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return null;
+    const { at, v } = JSON.parse(raw) as { at: number; v: T };
+    return Date.now() - at < CACHE_MS ? v : null;
+  } catch { return null; }
+};
+const writeCache = (key: string, v: unknown) => {
+  try { sessionStorage.setItem(key, JSON.stringify({ at: Date.now(), v })); } catch { /* full or blocked */ }
+};
+
 export default function JobsPage() {
   const router = useRouter();
   const [user, loading] = useSupabaseUser();
@@ -117,9 +132,15 @@ export default function JobsPage() {
       setReady(true);
       return;
     }
+    const cached = readCache<JobPreferences | false>('prc_jobs_prefs');
+    if (cached !== null) {
+      if (cached) { setPrefs(cached); applyPrefs(cached); }
+      setReady(true);
+    }
     fetch('/api/onboarding').then(r => (r.ok ? r.json() : null)).then(j => {
       const p = j?.completed ? readPreferences(j.preferences) : null;
-      if (p) { setPrefs(p); applyPrefs(p); }
+      writeCache('prc_jobs_prefs', p ?? false);
+      if (cached === null && p) { setPrefs(p); applyPrefs(p); }
     }).catch(() => {}).finally(() => setReady(true));
   }, [user]);
 
@@ -152,23 +173,33 @@ export default function JobsPage() {
     return sp.toString();
   }, [q, location, levels, family, days, everify, h1b, remote, orRemote, prefs]);
 
-  // New filters: first page, debounced so typing does not fire a request per key.
+  // New filters: first page. Cached results for the same filters show at once;
+  // typing is debounced, but the first load is not.
+  const loadedOnce = useRef(false);
   useEffect(() => {
     if (!user || !ready) return;
+    const qs = query(1);
+    const key = `prc_jobs:${qs}`;
+    const hit = readCache<Page>(key);
+    if (hit) { setData(hit); setJobs(hit.jobs); setError(''); }
+    let alive = true;
     const t = setTimeout(async () => {
-      setBusy(true); setError('');
+      setBusy(true);
       try {
-        const r = await fetch(`/api/jobs?${query(1)}`);
+        const r = await fetch(`/api/jobs?${qs}`);
         const j = await r.json();
         if (!r.ok) throw new Error(j.error || 'Could not load jobs');
-        setData(j); setJobs(j.jobs);
+        if (!alive) return;
+        setError(''); setData(j); setJobs(j.jobs);
+        writeCache(key, j);
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Could not load jobs');
+        if (alive && !hit) setError(e instanceof Error ? e.message : 'Could not load jobs');
       } finally {
-        setBusy(false);
+        if (alive) setBusy(false);
       }
-    }, 300);
-    return () => clearTimeout(t);
+    }, loadedOnce.current && !hit ? 300 : 0);
+    loadedOnce.current = true;
+    return () => { alive = false; clearTimeout(t); };
   }, [user, ready, query]);
 
   const more = async () => {
