@@ -18,6 +18,7 @@ import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import { AppSelect } from '@/components/ui/select';
 import type { FeedJob, JobFamily, JobLevel } from '@/lib/jobs/feed';
 import { CompanyLogo, useCompanyLogos } from '@/components/jobs/CompanyLogo';
+import { startApplication, trackedJobs } from '@/lib/jobs/start-application';
 
 const LEVELS: { id: JobLevel; label: string }[] = [
   { id: 'intern', label: 'Internship' }, { id: 'early', label: 'Entry level' }, { id: 'mid', label: 'Mid level' }, { id: 'senior', label: 'Senior' },
@@ -206,47 +207,24 @@ export default function JobsPage() {
   const logos = useCompanyLogos(jobs.map(j => ({ company: j.c, url: j.u })));
 
   const apply = async (job: FeedJob) => {
-    // Auto mode runs the whole Apply flow in a new tab, opened now inside the
-    // click so pop-up blockers allow it; this tab keeps the job list.
-    const tab = autoMode ? window.open('', '_blank') : null;
-    const go = (id: string) => {
-      if (tab) tab.location.href = `${window.location.origin}/apply/${id}?auto=1`;
-      else router.push(`/apply/${id}`);
-    };
+    // Auto mode runs the whole Apply flow in a new tab, opened inside the click
+    // so pop-up blockers allow it. The tab opens straight on our start page,
+    // which checks the posting there; this tab keeps the job list.
+    if (autoMode) {
+      window.open(`/apply/start?job=${encodeURIComponent(job.u)}`, '_blank', 'noopener');
+      return;
+    }
     setApplying(job.u);
     try {
-      // Already tracking it: go straight to its Apply flow.
-      if (!tracked.current) {
-        const r = await fetch('/api/job-tracker');
-        const j = r.ok ? await r.json() : { data: [] };
-        tracked.current = new Map((j.data as { id: string; jobUrl: string | null }[]).filter(a => a.jobUrl).map(a => [a.jobUrl!, a.id]));
-      }
-      const existing = tracked.current.get(job.u);
-      if (existing) { go(existing); return; }
-
-      const live = await fetch('/api/jobs/posting', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: job.u }) });
-      const p = await live.json();
-      if (!live.ok) throw new Error(p.error || 'Could not check this posting');
-      if (!p.open) {
+      tracked.current ??= await trackedJobs();
+      const r = await startApplication(job.u, tracked.current);
+      if ('closed' in r) {
         setClosed(prev => new Set(prev).add(job.u));
         toast.error(`${job.c} has closed this posting since our last check.`);
-        tab?.close();
         return;
       }
-      const res = await fetch('/api/job-tracker', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          company: p.company, jobTitle: p.title, jobUrl: p.jobUrl, location: p.location || null,
-          workType: /remote/i.test(p.location ?? '') ? 'remote' : 'onsite',
-          status: 'wishlist', source: 'Preciprocal jobs', jobDescription: p.description || null,
-        }),
-      });
-      const created = await res.json();
-      if (!res.ok) throw new Error(created.error || 'Could not add it to your tracker');
-      tracked.current.set(job.u, created.id);
-      go(created.id);
+      router.push(`/apply/${r.id}`);
     } catch (e) {
-      tab?.close();
       toast.error(e instanceof Error ? e.message : 'Something went wrong');
     } finally {
       setApplying(null);
