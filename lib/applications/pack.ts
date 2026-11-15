@@ -176,6 +176,21 @@ export async function savePack(userId: string, pack: ApplyPack): Promise<ApplyPa
   return next;
 }
 
+const pdfPathFor = (userId: string, applicationId: string) => `applications/${userId}/${applicationId}.resume.pdf`;
+
 export async function deletePack(userId: string, applicationId: string): Promise<void> {
-  await supabaseAdmin.storage.from(BUCKET).remove([pathFor(userId, applicationId)]);
+  await supabaseAdmin.storage.from(BUCKET).remove([pathFor(userId, applicationId), pdfPathFor(userId, applicationId)]);
+}
+
+/**
+ * Stores this application's tailored resume PDF and returns a link to it
+ * that expires in 10 minutes: long enough for the extension to fetch and
+ * attach it to the employer's form.
+ */
+export async function storeTailoredPdf(userId: string, applicationId: string, bytes: Uint8Array): Promise<string | null> {
+  const path = pdfPathFor(userId, applicationId);
+  const { error } = await supabaseAdmin.storage.from(BUCKET).upload(path, bytes, { contentType: 'application/pdf', upsert: true });
+  if (error) return null;
+  const { data } = await supabaseAdmin.storage.from(BUCKET).createSignedUrl(path, 600);
+  return data?.signedUrl ?? null;
 }

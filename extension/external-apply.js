@@ -523,7 +523,15 @@ async function clickApplyAndWaitForForm(statusEl) {
   const target = applyBtn.getAttribute('target');
   const href   = applyBtn.getAttribute('href');
   const opensNewTab = target === '_blank' || (href && !href.startsWith('#') && !href.startsWith('javascript'));
-  if (opensNewTab && href) { console.log('🔗 Apply button opens new tab - navigating...'); return false; }
+  if (opensNewTab && href) {
+    // A link to the form (Lever's /apply): follow it in this tab. This used to
+    // log "navigating" and return without going anywhere, so the fill never
+    // reached the form. The form page fills itself on load when the dashboard
+    // started this (startHandoffFill); otherwise the Autofill button is there.
+    console.log('🔗 Apply button links to the form - opening it here');
+    window.location.href = new URL(href, window.location.href).href;
+    return false;
+  }
   applyBtn.click();
   if (statusEl) statusEl.innerHTML = '⏳ Waiting for application form…';
   const formAppeared = await waitForApplicationForm(8000);
@@ -3744,6 +3752,42 @@ async function boot() {
   window._preciprocalBooting = true;
   _instance = new PreciprocalSidebar();
   await _instance.init();
+  await startHandoffFill();
+}
+
+// The dashboard's Apply flow (localhost-bridge.js, PRECIPROCAL_PREPARE_AUTOFILL)
+// leaves a target: the posting it just opened, with the profile and the resume
+// tailored for it. On that posting only, and once, run the same fill as the
+// Autofill button (_run also clicks the posting's Apply button first and
+// attaches the files). Matched on the posting's id, which survives redirects
+// such as boards.greenhouse.io -> job-boards.greenhouse.io.
+async function startHandoffFill() {
+  try {
+    const { preciprocal_auto_apply_target: t } = await chrome.storage.local.get('preciprocal_auto_apply_target');
+    if (!t?.url || Date.now() - (t.at || 0) > 5 * 60 * 1000) return;
+    const target = new URL(t.url);
+    const id = target.searchParams.get('gh_jid') || target.pathname.split('/').filter(Boolean).pop() || '';
+    const here = window.location.href;
+    const matches = id.length >= 6
+      ? here.includes(id)
+      : window.location.hostname === target.hostname && window.location.pathname.startsWith(target.pathname);
+    if (!matches || !_instance) return;
+    // On a description page _run clicks the posting's Apply button. Where that
+    // loads the form as a new page (Lever's /apply), keep the target, marked,
+    // so the form page finishes the fill; never click Apply twice.
+    const onDetail = isJobDetailPage();
+    if (onDetail && t.stage === 'apply-clicked') { await chrome.storage.local.remove('preciprocal_auto_apply_target'); return; }
+    if (onDetail) await chrome.storage.local.set({ preciprocal_auto_apply_target: { ...t, stage: 'apply-clicked' } });
+    else await chrome.storage.local.remove('preciprocal_auto_apply_target');
+    console.log('⚡ Preciprocal: filling the application opened from the dashboard');
+    await delay(1200);
+    await _instance._run();
+    // The form opened in place (no page load): done here. If this is still the
+    // description page, the form opened elsewhere and finishes the fill there.
+    if (!isJobDetailPage()) await chrome.storage.local.remove('preciprocal_auto_apply_target');
+  } catch (err) {
+    console.warn('⚠️ Handoff fill skipped:', err?.message);
+  }
 }
 
 // Runs the actual "auto-fill this page" logic - shared by real navigation

@@ -4,7 +4,10 @@
 // an application form. Applicant tracking systems read this layout reliably.
 // It does not reproduce the student's own design; the Apply flow says so and
 // offers the text for pasting into their own file.
-'use client';
+//
+// Shared by the browser (the PDF download in step 3) and the server
+// (app/api/extension/auto-apply, which hands the extension the same file to
+// attach to the employer's form).
 
 import { jsPDF } from 'jspdf';
 
@@ -44,7 +47,7 @@ export function reflow(text: string): string[] {
   return out;
 }
 
-export function tailoredResumePdf(text: string, fileName: string): void {
+export function buildResumePdf(text: string): jsPDF {
   const doc = new jsPDF({ unit: 'pt', format: 'letter' });
   let y = MARGIN;
   const ensure = (h: number) => {
@@ -81,5 +84,18 @@ export function tailoredResumePdf(text: string, fileName: string): void {
     }
   });
 
-  doc.save(fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`);
+  return doc;
+}
+
+/** The file name a student would expect: "<Name> - <Company>.pdf". */
+export const resumePdfName = (base: string) => (base.endsWith('.pdf') ? base : `${base}.pdf`);
+
+/** Browser only: download the PDF. */
+export function tailoredResumePdf(text: string, fileName: string): void {
+  buildResumePdf(text).save(resumePdfName(fileName));
+}
+
+/** Server: the PDF as bytes, to store and hand to the extension. */
+export function resumePdfBytes(text: string): Uint8Array {
+  return new Uint8Array(buildResumePdf(text).output('arraybuffer'));
 }

@@ -1,6 +1,8 @@
 // app/api/extension/auto-apply/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUser } from '@/lib/auth/verify-request';
+import { getApplication, loadPack, storeTailoredPdf } from '@/lib/applications/pack';
+import { resumePdfBytes, resumePdfName } from '@/lib/applications/resume-pdf';
 import { getUserAIContext } from '@/lib/ai/user-context';
 import { getSignedUrl } from '@/lib/storage/file-storage';
 import { resolveStoragePathUrl } from '@/lib/storage/resolve-signed-url';
@@ -211,10 +213,32 @@ export async function GET(request: NextRequest) {
                                  : { available: false, url: null,               fileName: null,                    id: null,              text: null           },
     };
 
+    // ?applicationId= (the Apply flow's "Open application"): attach the resume
+    // tailored for this job, as a PDF, in place of the saved one.
+    const applicationId = new URL(request.url).searchParams.get('applicationId');
+    let job: { applicationId: string; company: string; title: string; url: string | null } | null = null;
+    if (applicationId) {
+      const app = await getApplication(supabaseUserId, applicationId);
+      if (app) {
+        job = { applicationId: app.id, company: app.company, title: app.jobTitle, url: app.jobUrl };
+        const tailored = (await loadPack(supabaseUserId, app)).tailor?.tailoredText;
+        const url = tailored ? await storeTailoredPdf(supabaseUserId, app.id, resumePdfBytes(tailored)) : null;
+        if (tailored && url) {
+          files.resume = {
+            available: true,
+            url,
+            fileName: resumePdfName(`${applyProfile.fullName || 'Resume'} - ${app.company || app.jobTitle}`),
+            id: app.id,
+            text: tailored,
+          };
+        }
+      }
+    }
+
     console.log('📦 Final response:', { user: applyProfile.email, resumeAvail: files.resume.available, resumeTextLen: resumeText?.length || 0, transcriptAvail: files.transcript.available });
 
     return NextResponse.json(
-      { success: true, applyProfile, files,
+      { success: true, applyProfile, files, job,
         user: { uid, email: profile.email, name: profile.name, plan: sub?.plan || 'free' },
         profileUpdatedAt: profile.updated_at || null },
       { headers: CORS }

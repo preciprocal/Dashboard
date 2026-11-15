@@ -106,3 +106,36 @@ export function useExtensionStatus() {
 
   return { ...state, recheck };
 }
+
+/**
+ * Asks the extension (1.8.0+) to get ready to fill one application: its bridge
+ * fetches the profile and the tailored resume and remembers the posting, so
+ * the fill starts by itself when that posting opens. Resolves false when the
+ * extension is older or missing (no reply within 4 seconds), in which case
+ * the student clicks Autofill Application on the form instead.
+ */
+export function prepareAutofill(applicationId: string, url: string): Promise<boolean> {
+  return new Promise(resolve => {
+    const onMessage = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin) return;
+      const d = e.data as { type?: string; ok?: boolean; applicationId?: string } | null;
+      if (d?.type !== "PRECIPROCAL_AUTOFILL_READY" || d.applicationId !== applicationId) return;
+      clearTimeout(timer);
+      window.removeEventListener("message", onMessage);
+      resolve(!!d.ok);
+    };
+    const timer = setTimeout(() => { window.removeEventListener("message", onMessage); resolve(false); }, 4000);
+    window.addEventListener("message", onMessage);
+    window.postMessage({ type: "PRECIPROCAL_PREPARE_AUTOFILL", applicationId, url }, window.location.origin);
+  });
+}
+
+/** True when `version` is at least `min` ("1.8.0" style). */
+export function versionAtLeast(version: string | undefined, min: string): boolean {
+  if (!version) return false;
+  const a = version.split(".").map(Number), b = min.split(".").map(Number);
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    if ((a[i] ?? 0) !== (b[i] ?? 0)) return (a[i] ?? 0) > (b[i] ?? 0);
+  }
+  return true;
+}

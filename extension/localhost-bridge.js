@@ -61,6 +61,36 @@ window.addEventListener('message', async (event) => {
     return;
   }
 
+  // ── Apply flow handoff (1.8.0) ───────────────────────────────────────────
+  // "Open application" in the dashboard's Apply flow asks for this just before
+  // it opens the employer's form. The profile, the tailored resume PDF and the
+  // posting are fetched from this same origin (the user's own session) and
+  // stored, so external-apply.js on that posting starts the fill by itself,
+  // once. Anything older than 5 minutes is ignored there.
+  if (event.data?.type === 'PRECIPROCAL_PREPARE_AUTOFILL') {
+    const { applicationId, url } = event.data;
+    const reply = (ok) => window.postMessage({ type: 'PRECIPROCAL_AUTOFILL_READY', ok, applicationId }, window.location.origin);
+    try {
+      if (typeof applicationId !== 'string' || !/^https?:\/\//i.test(url || '')) throw new Error('bad request');
+      const res = await fetch(`/api/extension/auto-apply?applicationId=${encodeURIComponent(applicationId)}`, { credentials: 'include' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (!data.applyProfile) throw new Error('no profile');
+      const now = Date.now();
+      await chrome.storage.local.set({
+        preciprocal_auto_apply_profile: data.applyProfile,
+        preciprocal_auto_apply_files: data.files || null,
+        preciprocal_auto_apply_timestamp: now,
+        preciprocal_auto_apply_target: { url, applicationId, at: now },
+      });
+      reply(true);
+    } catch (e) {
+      console.debug('[Bridge] autofill handoff failed:', e?.message);
+      reply(false);
+    }
+    return;
+  }
+
   // ── LinkedIn job data bridge (existing) ──────────────────────────────────
   if (event.data?.type === 'GET_LINKEDIN_JOB_DATA') {
     try {

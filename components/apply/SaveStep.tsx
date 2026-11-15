@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { ApplyStepProps } from '@/components/apply/types';
-import { useExtensionStatus, extensionStoreUrl } from '@/lib/extension';
+import { useExtensionStatus, extensionStoreUrl, prepareAutofill, versionAtLeast } from '@/lib/extension';
 import { tailoredResumePdf } from '@/lib/applications/resume-pdf';
 
 interface ApplyProfile {
@@ -46,6 +46,9 @@ export default function SaveStep({ application, pack, update, goTo }: ApplyStepP
   const [profileError, setProfileError] = useState(false);
   const [jobUrl, setJobUrl] = useState(application.jobUrl ?? '');
   const [opened, setOpened] = useState(false);
+  const [opening, setOpening] = useState(false);
+  // True when the extension took the handoff and is filling the form itself.
+  const [autoStarted, setAutoStarted] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -75,14 +78,27 @@ export default function SaveStep({ application, pack, update, goTo }: ApplyStepP
     try { await navigator.clipboard.writeText(text); toast.success(`${what} copied`); } catch { toast.error('Could not copy'); }
   };
 
+  const handsOff = ext.status === 'installed' && versionAtLeast(ext.version, '1.8.0');
+
   const open = async () => {
     const url = jobUrl.trim();
     if (!/^https?:\/\//i.test(url)) { toast.error('Add the link to the job posting first.'); return; }
-    if (url !== (application.jobUrl ?? '')) {
-      await fetch('/api/job-tracker', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: application.id, jobUrl: url }) });
+    // Open the tab now, inside the click, so pop-up blockers allow it; it gets
+    // its address once the extension has what it needs.
+    const tab = window.open('', '_blank');
+    setOpening(true);
+    try {
+      if (url !== (application.jobUrl ?? '')) {
+        await fetch('/api/job-tracker', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: application.id, jobUrl: url }) });
+      }
+      const ready = ext.status === 'installed' ? await prepareAutofill(application.id, url) : false;
+      if (tab) { tab.opener = null; tab.location.href = url; }
+      else window.open(url, '_blank', 'noopener,noreferrer');
+      setAutoStarted(ready);
+      setOpened(true);
+    } finally {
+      setOpening(false);
     }
-    window.open(url, '_blank', 'noopener,noreferrer');
-    setOpened(true);
   };
 
   const submitted = async () => {
@@ -180,10 +196,16 @@ export default function SaveStep({ application, pack, update, goTo }: ApplyStepP
                 )}
               </div>
             </div>
-            {profile?.files.resume.available && tailored && (
+            {tailored && handsOff && (
+              <p className="text-[12px] text-slate-500 mt-2.5 flex items-start gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                The extension attaches this tailored PDF to the form for you.
+              </p>
+            )}
+            {tailored && !handsOff && profile?.files.resume.available && (
               <p className="text-[12px] text-slate-500 mt-2.5 flex items-start gap-1.5">
                 <AlertTriangle className="w-3.5 h-3.5 text-amber-400/80 flex-shrink-0 mt-0.5" />
-                The extension attaches your saved resume, {profile.files.resume.fileName}. On the form, replace it with the tailored PDF.
+                This version of the extension attaches your saved resume, {profile.files.resume.fileName}. On the form, replace it with the tailored PDF, or update the extension to 1.8.0 so it attaches the tailored one.
               </p>
             )}
           </Step>
@@ -195,16 +217,25 @@ export default function SaveStep({ application, pack, update, goTo }: ApplyStepP
                 <input className="field w-full pl-10" placeholder="Link to the job posting" value={jobUrl} onChange={e => setJobUrl(e.target.value)} />
               </label>
             )}
-            <button onClick={open} className="btn-primary w-full sm:w-auto justify-center">
-              <ExternalLink className="w-4 h-4" /> Open {company} application
+            <button onClick={open} disabled={opening} className="btn-primary w-full sm:w-auto justify-center disabled:opacity-60">
+              {opening ? <Loader2 className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
+              {opening ? 'Getting the extension ready' : `Open ${company} application`}
             </button>
             {opened && (
               <div className="mt-4 rounded-xl border border-[var(--accent-border)] bg-[var(--accent-subtle)] p-4">
-                <ol className="space-y-1.5 text-[13px] text-indigo-50 list-decimal pl-4">
-                  <li>On the form, click <span className="font-semibold">Autofill Application</span> in the Preciprocal panel.</li>
-                  <li>Upload the tailored PDF and paste your cover letter where asked.</li>
-                  <li>Check every answer, then submit on their site.</li>
-                </ol>
+                {autoStarted ? (
+                  <ol className="space-y-1.5 text-[13px] text-indigo-50 list-decimal pl-4">
+                    <li>The extension is filling the form now and attaching your tailored resume.</li>
+                    <li>Paste your cover letter where asked, and answer anything it left blank.</li>
+                    <li>Check every answer, then submit on their site.</li>
+                  </ol>
+                ) : (
+                  <ol className="space-y-1.5 text-[13px] text-indigo-50 list-decimal pl-4">
+                    <li>On the form, click <span className="font-semibold">Autofill Application</span> in the Preciprocal panel.</li>
+                    <li>Upload the tailored PDF and paste your cover letter where asked.</li>
+                    <li>Check every answer, then submit on their site.</li>
+                  </ol>
+                )}
                 <button onClick={submitted} disabled={saving} className="btn-primary mt-4 disabled:opacity-50">
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} I&apos;ve submitted it
                 </button>
