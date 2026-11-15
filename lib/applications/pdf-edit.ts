@@ -34,8 +34,16 @@ export interface Placement {
   ok: boolean;
   /** Why it could not be placed, in words for the student. */
   why?: string;
-  /** It could not be placed only because the new wording is too long for its lines. */
-  tooLong?: boolean;
+  /**
+   * Why, for a retry: too-long (the rewrite needs more room than its lines
+   * have), apart (it moves text set apart on the line, like a date), link
+   * (the line has a link), other.
+   */
+  reason?: FailReason;
+  /** too-long: the share of the rewrite's width that fits, 0 to 1. */
+  room?: number;
+  /** apart: the text set apart that the rewrite must keep, as it is. */
+  keep?: string;
   /** Where the old text was (page coordinates), for the red marks. */
   before: Box[];
   /** Where the new text is, for the green marks. */
@@ -523,8 +531,18 @@ interface Plan {
   th: number;
 }
 
-class PlanError extends Error {}
-class TooLong extends PlanError {}
+export type FailReason = 'too-long' | 'apart' | 'link' | 'other';
+class PlanError extends Error {
+  reason: FailReason;
+  room?: number;
+  keep?: string;
+  constructor(message: string, extra: { reason?: FailReason; room?: number; keep?: string } = {}) {
+    super(message);
+    this.reason = extra.reason ?? 'other';
+    this.room = extra.room;
+    this.keep = extra.keep;
+  }
+}
 
 /** Where a change's original text is, and the full text that replaces it. */
 function locate(c: PdfChange, pages: PageText[]): { page: number; items: number[]; text: string; removedChars: number } {
@@ -654,7 +672,7 @@ function planChange(c: PdfChange, pages: PageText[], shows: ShowOp[][], fontsFor
       if (g.ch.trim()) lastVisible = g;
     }
     if (clusters.length < 2) continue;
-    if (lines.length > 1) throw new PlanError('This line has text set apart on it, like a date, that the new wording moves.');
+    if (lines.length > 1) throw new PlanError('This line has text set apart on it, like a date, that the new wording moves.', { reason: 'apart', keep: clusters.slice(1).map(cl => cl.map(g => g.ch).join('').trim()).join(' ') });
     const keep = (cluster: typeof glyphs, end: 'head' | 'tail') => {
       const part = normText(cluster.map(g => g.ch).join(''));
       const r = normText(text);
@@ -683,7 +701,7 @@ function planChange(c: PdfChange, pages: PageText[], shows: ShowOp[][], fontsFor
       line.x0 = clusters[0][0].x0;
       if (line === lines[0]) startX = line.x0;
     }
-    if (clusters.length > 1) throw new PlanError('This line has text set apart on it, like a date, that the new wording moves.');
+    if (clusters.length > 1) throw new PlanError('This line has text set apart on it, like a date, that the new wording moves.', { reason: 'apart', keep: clusters.slice(1).map(cl => cl.map(g => g.ch).join('').trim()).join(' ') });
   }
   for (const [op, idx] of cuts) if (!idx.size) cuts.delete(op);
 
@@ -842,7 +860,7 @@ async function build(bytes: Uint8Array, changes: PdfChange[], pages: PageText[])
         const x0 = i === 0 ? plan.startX : l.x0, y0 = l.y - l.size * 0.3, y1 = l.y + l.size * 0.9;
         return links.some(([a, b, c2, d]) => a < l.x1 && c2 > x0 && b < y1 && d > y0);
       });
-      if (onLink) throw new PlanError('This line has a link in it, which would no longer sit on the right words.');
+      if (onLink) throw new PlanError('This line has a link in it, which would no longer sit on the right words.', { reason: 'link' });
       const used = usedItems.get(plan.page) ?? new Set<number>();
       if (plan.items.some(i => used.has(i))) throw new PlanError('This line overlaps another change.');
 
@@ -867,7 +885,11 @@ async function build(bytes: Uint8Array, changes: PdfChange[], pages: PageText[])
         laid = wrap(plan.text, writer, size, starts, plan.limits);
         if (laid) break;
       }
-      if (!laid) throw new TooLong('The new wording is longer than the space this line has in your resume.');
+      if (!laid) {
+        const need = writer.width(plan.text, plan.lines[0].size);
+        const have = plan.limits.reduce((sum, lim, i) => sum + Math.max(0, lim - starts[i]), 0);
+        throw new PlanError('The new wording is longer than the space this line has in your resume.', { reason: 'too-long', room: need ? Math.min(1, have / need) : undefined });
+      }
 
       const [r, g, b] = plan.fill.map(v => Math.min(1, Math.max(0, isNaN(v) ? 0 : v)));
       // Text state the page may have left set, which would change how the
@@ -903,7 +925,7 @@ async function build(bytes: Uint8Array, changes: PdfChange[], pages: PageText[])
       });
     } catch (e) {
       if (!(e instanceof PlanError)) throw e;
-      placements.push({ id: c.id, ok: false, why: e.message, tooLong: e instanceof TooLong, before: [], after: [] });
+      placements.push({ id: c.id, ok: false, why: e.message, reason: e.reason, room: e.room, keep: e.keep, before: [], after: [] });
     }
   }
 

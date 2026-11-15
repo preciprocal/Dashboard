@@ -30,35 +30,44 @@ NEVER:
 - Add a tool, language, framework, product, certification or skill the resume does not already mention somewhere.
 - Use a job keyword in a rewrite unless the resume already shows that skill.
 - Change employers, titles, dates, degrees or schools.
+- Change the name or contact line (email, phone, location, links).
 If a job requirement is not supported by the resume, leave it out. It belongs in interview prep, not on the resume.
 
 FORMAT RULES:
 - "original" is copied EXACTLY from the resume: one bullet, one line or one skills line, verbatim.
 - "rewrite" replaces exactly that text, and is about the same length as the original (at most a few words longer): it is set into the same lines of the student's own resume file.
+- When a line ends with a date or location set apart on the right, the rewrite keeps that ending exactly as written and rewords only the words before it.
 - "reason" says in one sentence which job requirement it serves.
 
 CRITICAL: Return ONLY JSON. No markdown. Start with { end with }. No em dashes or en dashes.${LANGUAGE_MATCH_INSTRUCTION}`;
 
-const SHORTEN = `You shorten resume lines without changing what they say.
+const FIT = `You adjust resume rewrites so they fit the student's own resume file. Each item has the original line and a rewrite that did not fit, and one rule:
+- "maxChars": the rewrite must be at most this many characters. Drop filler words first, then merge or trim phrases.
+- "keepEnding": the original line ends with this text set apart on the right (a date or location). The rewrite must end with exactly this text, unchanged. Reword only what comes before it.
 
-Each "rewrite" must be at most "maxChars" characters. Keep its facts, its numbers and the job keywords it uses. Drop filler words first, then merge or trim phrases. Never add a word, tool, number or claim the rewrite does not already have.
+Keep the rewrite's facts, numbers and job keywords. Never add a word, tool, number or claim that neither the rewrite nor the original has. If the rule cannot be met, return the original line unchanged.
 
 CRITICAL: Return ONLY JSON. No markdown. Start with { end with }. No em dashes or en dashes.${LANGUAGE_MATCH_INSTRUCTION}`;
 
-/** Asks for shorter versions of rewrites that did not fit their lines in the PDF. */
-async function shorten(long: CheckedChange[]): Promise<ProposedChange[]> {
-  const items = long.map((c, i) => ({ n: i + 1, original: c.original, rewrite: c.rewrite, maxChars: c.original.length }));
+type Misfit = { change: CheckedChange; placement: Placement };
+
+/** Asks for rewrites that fit: shorter where the line has no room, keeping a date where it moved one. */
+async function refit(misfits: Misfit[]): Promise<ProposedChange[]> {
+  const items = misfits.map(({ change: c, placement: p }, i) => p.reason === 'apart' && p.keep
+    ? { n: i + 1, original: c.original, rewrite: c.rewrite, keepEnding: p.keep }
+    // The share of the rewrite that fits, less a margin, as characters.
+    : { n: i + 1, original: c.original, rewrite: c.rewrite, maxChars: Math.max(20, Math.floor(c.rewrite.length * (p.room ?? c.original.length / c.rewrite.length) * 0.95)) });
   const out = stripDashesDeep(await askJson(async () => {
     const response = await createMessage({
-      max_tokens: 2000, system: cachedSystem(SHORTEN),
+      max_tokens: 2500, system: cachedSystem(FIT),
       messages: [{ role: 'user', content: `${JSON.stringify(items)}\n\nReturn JSON: { "changes": [{ "n": 1, "rewrite": "..." }] }` }],
     });
-    logUsage('apply-tailor-shorten', response);
+    logUsage('apply-tailor-fit', response);
     return response;
-  }, 'apply-tailor-shorten')) as { changes?: { n?: unknown; rewrite?: unknown }[] };
+  }, 'apply-tailor-fit')) as { changes?: { n?: unknown; rewrite?: unknown }[] };
   return (Array.isArray(out.changes) ? out.changes : []).flatMap(o => {
-    const c = long[Number(o.n) - 1];
-    return c && typeof o.rewrite === 'string' ? [{ section: c.section, original: c.original, rewrite: o.rewrite, reason: c.reason }] : [];
+    const m = misfits[Number(o.n) - 1];
+    return m && typeof o.rewrite === 'string' ? [{ section: m.change.section, original: m.change.original, rewrite: o.rewrite, reason: m.change.reason }] : [];
   });
 }
 
@@ -71,6 +80,7 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     if (!authedUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const { userId, supabaseUserId: uid } = authedUser;
 
+    const started = Date.now();
     const rateLimited = await applyRateLimit(request, userId, 'heavy');
     if (rateLimited) return rateLimited;
     const usage = await checkUsage(userId, 'resumes');
@@ -142,18 +152,25 @@ Propose 6 to 12 changes, the ones that matter most for this job. Skip any line y
       let candidates = accepted;
       let placements = await place(candidates);
 
-      // A rewrite too long for its lines gets one chance to be shortened to
-      // the original's length, then goes through the same fact checks.
-      const long = candidates.filter(c => placements.find(p => p.id === c.id)?.tooLong);
-      if (long.length) {
-        const shorter = await shorten(long).catch((e: unknown) => { console.error('apply-tailor: shorten failed:', e); return []; });
-        const { accepted: checked } = check(shorter, resumeText, keywords);
+      // No fix is dropped without trying: a rewrite too long for its lines,
+      // or one that moved a date, goes back with the exact room its lines
+      // have (or the ending it must keep), then through the same fact checks
+      // and placement. Up to two rounds, within the time this request has.
+      for (let round = 0; round < 2 && Date.now() - started < 38_000; round++) {
+        const misfits = candidates.flatMap(change => {
+          const placement = placements.find(p => p.id === change.id);
+          return placement && !placement.ok && (placement.reason === 'too-long' || placement.reason === 'apart') ? [{ change, placement }] : [];
+        });
+        if (!misfits.length) break;
+        const fitted = await refit(misfits).catch((e: unknown) => { console.error('apply-tailor: refit failed:', e); return []; });
+        const { accepted: checked } = check(fitted, resumeText, keywords);
+        if (!checked.length) break;
         const byOriginal = new Map(checked.map(c => [c.original, c]));
         candidates = candidates.map(c => {
           const s = byOriginal.get(c.original);
           return s ? { ...s, id: c.id, section: c.section, reason: c.reason } : c;
         });
-        if (checked.length) placements = await place(candidates);
+        placements = await place(candidates);
       }
 
       const placed = new Set(placements.filter(p => p.ok).map(p => p.id));

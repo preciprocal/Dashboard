@@ -13,7 +13,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { CheckCircle2, Loader2, Circle, AlertTriangle, Zap, X, Chrome } from 'lucide-react';
+import { CheckCircle2, Loader2, Circle, AlertTriangle, Zap, X, Chrome, ArrowRight } from 'lucide-react';
 import type { ApplyStepProps } from '@/components/apply/types';
 import type { ApplyPack } from '@/lib/applications/pack';
 import { detectExtension, extensionStoreUrl, prepareAutofill, versionAtLeast } from '@/lib/extension';
@@ -34,6 +34,12 @@ export default function AutoRun({ application, pack, onPack, update, goTo }: App
   const [error, setError] = useState<{ message: string; action?: React.ReactNode } | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [stopped, setStopped] = useState(false);
+  // The hand-off to the employer's site: a short, visible pause the student
+  // can skip or cancel, then a clear 'opening' state while the page changes.
+  const [launch, setLaunch] = useState<{ total: number } | null>(null);
+  const [armed, setArmed] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const skip = useRef(false);
   const started = useRef(false);
   const cancelled = useRef(false);
   // The latest saved pack, so Try again continues from what is already done.
@@ -123,13 +129,19 @@ export default function AutoRun({ application, pack, onPack, update, goTo }: App
     if (cancelled.current) return;
 
     // 5. Portal, after a countdown the student can stop.
-    set('portal', 'running', `Opening ${company}'s application`);
-    for (let s = p.tailor?.source && p.tailor.changes.length ? COUNTDOWN_WITH_FILE : COUNTDOWN; s > 0; s--) {
+    // The card below says what happens next; the row just shows progress.
+    set('portal', 'running', '');
+    const total = p.tailor?.source && p.tailor.changes.length ? COUNTDOWN_WITH_FILE : COUNTDOWN;
+    skip.current = false;
+    setLaunch({ total });
+    for (let s = total; s > 0 && !skip.current; s--) {
       if (cancelled.current) return;
       setCountdown(s);
-      await new Promise(r => setTimeout(r, 1000));
+      // Wakes early for Open now or Stay here.
+      for (let t = 0; t < 10 && !skip.current && !cancelled.current; t++) await new Promise(r => setTimeout(r, 100));
     }
     if (cancelled.current) return;
+    setLeaving(true);
     await update({ portalOpened: true });
     set('portal', 'done');
     window.location.href = url;
@@ -143,8 +155,17 @@ export default function AutoRun({ application, pack, onPack, update, goTo }: App
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Starts the progress bar on the frame after the card appears, so it
+  // drains smoothly over the whole countdown.
+  useEffect(() => {
+    if (!launch) { setArmed(false); return; }
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => setArmed(true)));
+    return () => cancelAnimationFrame(id);
+  }, [launch]);
+
   const retry = () => {
     cancelled.current = false;
+    setLeaving(false);
     setStopped(false);
     setError(null);
     run(false);
@@ -154,6 +175,7 @@ export default function AutoRun({ application, pack, onPack, update, goTo }: App
     cancelled.current = true;
     setStopped(true);
     setCountdown(null);
+    setLaunch(null);
   };
 
   const rows: { key: Key; label: string }[] = [
@@ -174,7 +196,7 @@ export default function AutoRun({ application, pack, onPack, update, goTo }: App
             {stopped ? 'Stopped. Carry on with the steps below, or start again.' : error ? 'Stopped at the step below.' : 'Running each step for you. You review and submit on the employer’s site.'}
           </p>
         </div>
-        {!finished && <button onClick={stop} className="btn-secondary h-9 flex-shrink-0"><X className="w-4 h-4" /> Stop</button>}
+        {!finished && !launch && <button onClick={stop} className="btn-secondary h-9 flex-shrink-0"><X className="w-4 h-4" /> Stop</button>}
         {stopped && <button onClick={retry} className="btn-secondary h-9 flex-shrink-0">Start again</button>}
       </div>
       <ol className="space-y-2.5">
@@ -191,7 +213,6 @@ export default function AutoRun({ application, pack, onPack, update, goTo }: App
               <div className="min-w-0">
                 <p className={`text-[13px] ${s === 'pending' ? 'text-slate-500' : 'text-white'}`}>
                   {r.label}
-                  {r.key === 'portal' && countdown !== null && !finished && <span className="text-indigo-200"> in {countdown}</span>}
                 </p>
                 {detail[r.key] && <p className="text-[12px] text-slate-400 mt-0.5">{detail[r.key]}</p>}
               </div>
@@ -199,6 +220,37 @@ export default function AutoRun({ application, pack, onPack, update, goTo }: App
           );
         })}
       </ol>
+      {launch && !finished && (
+        <div className="mt-4 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.06] p-4 animate-fade-in-up" role="status" aria-live="polite">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="w-9 h-9 rounded-full bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
+              {leaving ? <Loader2 className="w-4 h-4 text-emerald-300 animate-spin" /> : <CheckCircle2 className="w-4 h-4 text-emerald-300" />}
+            </span>
+            <div className="flex-1 min-w-[220px]">
+              <p className="text-[13.5px] font-semibold text-white">
+                {leaving ? `Opening ${company}'s application` : <>Everything is ready. Opening {company}&apos;s application in <span className="tabular-nums">{countdown}</span>s</>}
+              </p>
+              <p className="text-[12.5px] text-slate-300 mt-0.5">
+                {leaving
+                  ? 'The extension fills in the form there. Look it over, then submit.'
+                  : pack.tailor?.source
+                    ? `${pack.tailor.source.fileName} with your changes and your cover letter are with the extension. Look over the changes below while you wait.`
+                    : 'Your tailored resume and cover letter are with the extension.'}
+              </p>
+            </div>
+            {!leaving && (
+              <div className="flex gap-2">
+                <button onClick={stop} className="btn-secondary h-9">Stay here</button>
+                <button onClick={() => { skip.current = true; }} className="btn-primary h-9">Open now <ArrowRight className="w-4 h-4" /></button>
+              </div>
+            )}
+          </div>
+          <div className="mt-3 h-1 rounded-full bg-white/[0.06] overflow-hidden">
+            <div className="h-full rounded-full bg-emerald-400/80"
+              style={{ width: armed || leaving ? '0%' : '100%', transition: `width ${leaving ? 0.3 : launch.total}s linear` }} />
+          </div>
+        </div>
+      )}
       {pack.tailor?.source && status.approve === 'done' && (
         <div className="mt-5 pt-4 border-t border-white/[0.06]">
           <ResumeChanges applicationId={application.id} fileName={pack.tailor.source.fileName}
