@@ -22,7 +22,7 @@ import {
 import ExtensionBanner from "@/components/ExtensionBanner";
 import { useCompanyLogos } from "@/components/jobs/CompanyLogo";
 import { autoApplyFields, loadApplyProfile, AUTO_APPLY_SETTINGS_HREF } from "@/components/apply/AutoApplyDetailsNotice";
-import { KpiRow, Pipeline, UpNext, NewJobs, RecentApplications, Prep, type NextAction, type PrepData } from "@/components/overview/Sections";
+import { KpiRow, Joined, Pipeline, UpNext, NewJobs, RecentApplications, Prep, type NextAction, type PrepData } from "@/components/overview/Sections";
 import { jobKpis, recentApps, type Schedule, type TrackedApp } from "@/lib/overview/metrics";
 import { fetchDefaultResumeInfo } from "@/lib/resume/default-client";
 import { startApplication } from "@/lib/jobs/start-application";
@@ -136,11 +136,11 @@ export default function Overview() {
   return (
     <div className="space-y-4 pt-4">
       {/* 1. Greeting and the one thing to do */}
-      <section className="glass-card p-5 sm:p-6 animate-fade-in-up">
+      <section className="px-1 pb-2 animate-fade-in-up">
         <div className="flex flex-col md:flex-row md:items-center gap-4">
           <div className="flex-1 min-w-0">
             <p className="text-[12px] text-slate-500">{now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</p>
-            <h1 className="text-xl sm:text-2xl font-semibold text-white tracking-tight mt-1">{greeting(now)}{name ? `, ${name}` : ""}</h1>
+            <h1 className="text-[26px] sm:text-[28px] font-semibold text-white tracking-[-0.024em] mt-1">{greeting(now)}{name ? `, ${name}` : ""}</h1>
             <p className="text-[13px] text-slate-400 mt-1 min-h-[20px]">{summary ?? <span className="inline-block w-56 h-3.5 rounded bg-white/[0.05] animate-pulse align-middle" />}</p>
           </div>
           <div className="flex gap-2 flex-shrink-0">
@@ -167,16 +167,16 @@ export default function Overview() {
       <KpiRow k={k} followUps={followUps} icons={{ applied: Send, pipeline: Briefcase, interviews: CalendarClock, followUps: BellRing }} />
 
       {/* 3. Pipeline and what to do next */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <Joined className="grid grid-cols-1 lg:grid-cols-3">
         <div className="lg:col-span-2"><Pipeline k={k} /></div>
-        <UpNext actions={actions} />
-      </div>
+        <div className="border-t lg:border-t-0 lg:border-l border-[var(--border)]"><UpNext actions={actions} /></div>
+      </Joined>
 
       {/* 4. New jobs and recent applications */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <Joined className="grid grid-cols-1 lg:grid-cols-2">
         <NewJobs data={jobs} logos={logos} applying={applying} onApply={apply} personalized={!!prefs} />
-        <RecentApplications apps={recent} logos={logos} />
-      </div>
+        <div className="border-t lg:border-t-0 lg:border-l border-[var(--border)]"><RecentApplications apps={recent} logos={logos} /></div>
+      </Joined>
 
       {/* 5. Prep */}
       <Prep data={prep} icons={{ resume: FileText, interview: Video, plan: BookOpen }} />

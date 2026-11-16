@@ -52,6 +52,10 @@
   --accent-subtle: rgba(94, 106, 210, 0.12);
   --accent-border: rgba(110, 121, 214, 0.40);
 
+  /* The content area behind every page: one continuous sheet, a step
+     lighter than the sidebar. */
+  --sheet:         #0f1011;
+
   /* The primary call to action: the light button. */
   --primary:       #f7f8f8;
   --primary-hover: #ffffff;
@@ -703,4 +707,22 @@ select option { background-color: var(--bg-raised); color: var(--text-1); }
 @media (prefers-reduced-motion: reduce) {
   .prc-job, .prc-ring, .prc-panel, .prc-fade, .prc-skeleton { animation: none; }
   .prc-job:hover { transform: none; }
+}
+
+/* ── One sheet per page ────────────────────────────────────────────────────
+   Inside the content area (LayoutClient's .app-main on var(--sheet)), cards
+   are outlined sections of the same surface rather than filled boxes on
+   black, so a page reads as one piece. Pop-overs that need a solid fill set
+   their own background (for example !bg-[var(--bg-raised)]). */
+.app-main .glass-card,
+.app-main .glass-card-gradient,
+.app-main .prc-job,
+.app-main .prc-job-static {
+  background: transparent;
+  box-shadow: none;
+}
+.app-main .prc-job:hover {
+  transform: none;
+  background: rgba(255,255,255,0.015);
+  box-shadow: none;
 }

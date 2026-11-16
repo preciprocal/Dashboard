@@ -6,7 +6,7 @@
 // data loads and shows a skeleton, so the page fills in without a full-screen
 // loader. Numbers come from lib/overview/metrics.ts.
 import Link from 'next/link';
-import type { ElementType, ReactNode } from 'react';
+import { createContext, useContext, type ElementType, type ReactNode } from 'react';
 import { ArrowRight, ArrowUpRight, ArrowDownRight, Minus, ShieldCheck, Landmark, CheckCircle2, ChevronRight, Loader2, Send } from 'lucide-react';
 import InfoTip from '@/components/ui/info-tip';
 import { CompanyLogo } from '@/components/jobs/CompanyLogo';
@@ -16,11 +16,21 @@ import { MIN_FOR_RATE, toTime } from '@/lib/overview/metrics';
 
 export const Skeleton = ({ className = '' }: { className?: string }) => <div className={`rounded-lg bg-white/[0.04] animate-pulse ${className}`} />;
 
+// Inside <Joined>, cards drop their own frame and share the group's, so
+// related sections read as one piece of the page.
+const InGroup = createContext(false);
+
+/** One frame around several cards, split by hairlines (see the page for the dividers). */
+export function Joined({ className = '', children }: { className?: string; children: ReactNode }) {
+  return <div className={`glass-card overflow-hidden ${className}`}><InGroup.Provider value={true}>{children}</InGroup.Provider></div>;
+}
+
 export function Card({ title, info, action, children, className = '' }: {
   title?: string; info?: { title: string; body: string }; action?: ReactNode; children: ReactNode; className?: string;
 }) {
+  const grouped = useContext(InGroup);
   return (
-    <section className={`glass-card p-5 ${className}`}>
+    <section className={`${grouped ? 'h-full' : 'glass-card'} p-5 ${className}`}>
       {(title || action) && (
         <div className="flex items-center justify-between gap-3 mb-4">
           {title && <h2 className="text-[14px] font-semibold text-white flex items-center gap-1.5">{title}{info && <InfoTip title={info.title} body={info.body} />}</h2>}
@@ -38,11 +48,14 @@ const viewAll = (href: string, label = 'View all') => (
 
 // ─── KPIs ─────────────────────────────────────────────────────────────────────
 
-function Kpi({ icon: Icon, label, value, sub, info, href, tone = 'text-white', trend }: {
-  icon: ElementType; label: string; value: ReactNode; sub: ReactNode; info: { title: string; body: string }; href: string; tone?: string; trend?: number | null;
+// Dividers for the 2-up (phone) and 4-up (desktop) strip.
+const KPI_EDGE = ['', 'border-l', 'border-t lg:border-t-0 lg:border-l', 'border-l border-t lg:border-t-0'];
+
+function Kpi({ icon: Icon, label, value, sub, info, href, tone = 'text-white', trend, edge = '' }: {
+  icon: ElementType; label: string; value: ReactNode; sub: ReactNode; info: { title: string; body: string }; href: string; tone?: string; trend?: number | null; edge?: string;
 }) {
   return (
-    <Link href={href} className="glass-card p-4 group hover:border-white/[0.14] transition-colors block">
+    <Link href={href} className={`p-4 sm:p-5 group hover:bg-white/[0.02] transition-colors block border-[var(--border)] ${edge}`}>
       <div className="flex items-center justify-between gap-2">
         <p className="text-[12px] text-slate-400 flex items-center gap-1.5"><Icon className="w-3.5 h-3.5 text-slate-500" />{label}</p>
         <InfoTip title={info.title} body={info.body} />
@@ -65,21 +78,21 @@ export function KpiRow({ k, followUps, icons }: {
   k: JobKpis | undefined; followUps: number | null | undefined;
   icons: { applied: ElementType; pipeline: ElementType; interviews: ElementType; followUps: ElementType };
 }) {
-  if (!k) return <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">{[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-[112px]" />)}</div>;
+  if (!k) return <div className="glass-card grid grid-cols-2 lg:grid-cols-4 overflow-hidden">{[0, 1, 2, 3].map(i => <div key={i} className={`p-5 border-[var(--border)] ${KPI_EDGE[i]}`}><Skeleton className="h-[72px]" /></div>)}</div>;
   const next = k.upcoming[0];
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className="glass-card grid grid-cols-2 lg:grid-cols-4 overflow-hidden">
       <Kpi icon={icons.applied} label="Applied this week" value={k.appliedThisWeek} trend={k.appliedThisWeek - k.appliedLastWeek}
-        sub={`${k.appliedLastWeek} the week before`} href="/job-tracker"
+        sub={`${k.appliedLastWeek} the week before`} href="/job-tracker" edge={KPI_EDGE[0]}
         info={{ title: 'Applied this week', body: 'Applications in your tracker with an applied date in the last 7 days, compared with the 7 days before. Saved jobs you have not applied to are not counted.' }} />
       <Kpi icon={icons.pipeline} label="In progress" value={k.inProgress}
-        sub={k.interviewing ? `${k.interviewing} interviewing` : 'None interviewing yet'} href="/job-tracker"
+        sub={k.interviewing ? `${k.interviewing} interviewing` : 'None interviewing yet'} href="/job-tracker" edge={KPI_EDGE[1]}
         info={{ title: 'In progress', body: 'Applications still open: applied, phone screen, technical or final round. Offers, rejections and ones with no response are not counted.' }} />
       <Kpi icon={icons.interviews} label="Interviews, next 7 days" value={k.upcoming.length} tone={k.upcoming.length ? 'text-indigo-200' : 'text-white'}
-        sub={next ? `Next ${new Date(next.startsAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}` : 'None scheduled'} href="/job-tracker"
+        sub={next ? `Next ${new Date(next.startsAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}` : 'None scheduled'} href="/job-tracker" edge={KPI_EDGE[2]}
         info={{ title: 'Interviews in the next 7 days', body: 'Interviews you scheduled on a tracker card that start within the next week.' }} />
       <Kpi icon={icons.followUps} label="Follow-ups due" value={followUps ?? '-'} tone={followUps ? 'text-amber-200' : 'text-white'}
-        sub={followUps ? 'Contacts to reach out to today' : followUps === 0 ? 'All caught up' : 'Add contacts to get reminders'} href="/contacts"
+        sub={followUps ? 'Contacts to reach out to today' : followUps === 0 ? 'All caught up' : 'Add contacts to get reminders'} href="/contacts" edge={KPI_EDGE[3]}
         info={{ title: 'Follow-ups due', body: 'Contacts whose follow-up date is today or has passed. Set a follow-up date on a contact to be reminded.' }} />
     </div>
   );

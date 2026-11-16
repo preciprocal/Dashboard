@@ -986,11 +986,12 @@ function LayoutContent({ children, user }: LayoutClientProps) {
       </aside>
 
       {/* ── Main content ─────────────────────────── */}
-      <div className="lg:pl-64 min-h-screen flex flex-col">
+      {/* The content area is one sheet: cards inside it are outlined, not filled (globals.css .app-main), so a page reads as a single surface. */}
+      <div className="lg:pl-64 min-h-screen flex flex-col bg-[var(--sheet)]">
         <header
           className={`fixed top-0 right-0 left-0 lg:left-64 z-40
                       border-b border-white/[0.06] backdrop-blur-xl transition-colors duration-200
-                      ${scrolled ? 'bg-[var(--bg)]/95' : 'bg-[var(--bg)]/80'}`}
+                      ${scrolled ? 'bg-[var(--sheet)]/95' : 'bg-[var(--sheet)]/80'}`}
           role="banner"
         >
           <div className="flex items-center justify-between px-4 sm:px-6 py-3.5">

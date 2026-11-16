@@ -14,6 +14,9 @@ const initials = (name: string) =>
 const TINTS = ['#5b6cff', '#0ea5e9', '#14b8a6', '#a855f7', '#f59e0b', '#ec4899', '#22c55e', '#f97316'];
 const tint = (name: string) => TINTS[[...name].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % TINTS.length];
 
+/** Bumped when the logo source changes, so browsers and the edge drop copies they cached. */
+const LOGO_VERSION = 2;
+
 export function CompanyLogo({ company, domain, size = 44 }: { company: string; domain?: string | null; size?: number }) {
   const [failed, setFailed] = useState(false);
   // How much of the tile the image fills, from its resolution once loaded: a
@@ -27,7 +30,7 @@ export function CompanyLogo({ company, domain, size = 44 }: { company: string; d
     return (
       <span className="relative rounded-xl flex items-center justify-center flex-shrink-0 bg-white overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.3)]" style={box}>
         {/* eslint-disable-next-line @next/next/no-img-element -- a small remote logo; next/image adds nothing here */}
-        <img src={`/api/logos/icon?d=${encodeURIComponent(domain)}`} alt={`${company} logo`}
+        <img src={`/api/logos/icon?d=${encodeURIComponent(domain)}&v=${LOGO_VERSION}`} alt={`${company} logo`}
           loading="lazy" decoding="async" onError={() => setFailed(true)}
           onLoad={e => { const w = e.currentTarget.naturalWidth; setFill(w >= 150 ? 'brand' : w >= 96 ? 'large' : 'small'); }}
           className={`transition-opacity duration-200 ${fill ? 'opacity-100' : 'opacity-0'} ${fill === 'brand' ? 'object-cover' : 'object-contain'}`}

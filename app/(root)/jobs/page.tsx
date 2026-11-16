@@ -313,7 +313,7 @@ export default function JobsPage() {
       <PageHeader title="Jobs" icon={Briefcase} description="Open roles from employers' own job boards, checked before you apply." />
 
       {/* Search and filters */}
-      <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-surface)] p-2.5 sm:p-3 space-y-3 shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]">
+      <section className="space-y-3">
         <div className="flex flex-col md:flex-row md:items-center rounded-xl bg-[var(--bg-subtle)] ring-1 ring-inset ring-white/[0.06] focus-within:ring-[var(--accent-border)] transition-shadow">
           <label className="relative flex-1 flex items-center">
             <Search className="w-[18px] h-[18px] text-slate-500 absolute left-4" />

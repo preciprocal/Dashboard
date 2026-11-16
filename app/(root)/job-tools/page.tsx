@@ -597,7 +597,7 @@ function JobToolsContent() {
                               <Download className="w-4 h-4 text-slate-300" /><ChevronDown className="w-3 h-3 text-slate-300" />
                             </button>
                             {showDownloadMenu && (
-                              <div className="absolute right-0 top-full mt-2 w-48 glass-card rounded-lg shadow-xl z-20 overflow-hidden">
+                              <div className="absolute right-0 top-full mt-2 w-48 glass-card !bg-[var(--bg-raised)] rounded-lg shadow-xl z-20 overflow-hidden">
                                 <button onClick={() => handleDownload('pdf')} className="w-full px-4 py-3 text-left text-sm text-white hover:bg-white/5 flex items-center gap-3 transition-colors">
                                   <FileDown className="w-4 h-4 text-red-400" /><span>Download as PDF</span>
                                 </button>
