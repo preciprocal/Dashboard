@@ -6,11 +6,16 @@
 
 export type StartResult = { id: string } | { closed: true; company: string };
 
-/** jobUrl -> tracker id, for the jobs the student already tracks. */
-export async function trackedJobs(): Promise<Map<string, string>> {
+/** jobUrl -> { tracker id, status }, for the jobs the student already tracks. */
+export async function trackedJobInfo(): Promise<Map<string, { id: string; status: string }>> {
   const r = await fetch('/api/job-tracker');
   const j = r.ok ? await r.json() : { data: [] };
-  return new Map((j.data as { id: string; jobUrl: string | null }[]).filter(a => a.jobUrl).map(a => [a.jobUrl!, a.id]));
+  return new Map((j.data as { id: string; jobUrl: string | null; status: string }[]).filter(a => a.jobUrl).map(a => [a.jobUrl!, { id: a.id, status: a.status }]));
+}
+
+/** jobUrl -> tracker id, for the jobs the student already tracks. */
+export async function trackedJobs(): Promise<Map<string, string>> {
+  return new Map([...(await trackedJobInfo())].map(([u, v]) => [u, v.id]));
 }
 
 export async function startApplication(jobUrl: string, tracked?: Map<string, string>): Promise<StartResult> {

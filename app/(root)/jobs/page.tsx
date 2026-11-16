@@ -24,7 +24,7 @@ import { useCompanyLogos } from '@/components/jobs/CompanyLogo';
 import { useJobFits } from '@/components/jobs/JobFit';
 import { JobCard, JobCardSkeleton } from '@/components/jobs/JobCard';
 import JobDetail from '@/components/jobs/JobDetail';
-import { startApplication, trackedJobs } from '@/lib/jobs/start-application';
+import { startApplication, trackedJobs, trackedJobInfo } from '@/lib/jobs/start-application';
 
 const LEVELS: { id: JobLevel; label: string }[] = [
   { id: 'intern', label: 'Internship' }, { id: 'early', label: 'Entry level' }, { id: 'mid', label: 'Mid level' }, { id: 'senior', label: 'Senior' },
@@ -96,6 +96,8 @@ export default function JobsPage() {
   };
   // Jobs already in the tracker, hidden by default (remembered in this browser).
   const [trackedMap, setTrackedMap] = useState<Map<string, string>>(new Map());
+  // Tracked jobs still only saved (status wishlist): Save on them toggles off.
+  const [savedOnly, setSavedOnly] = useState<Set<string>>(new Set());
   const [hideTracked, setHideTracked] = useState(true);
   useEffect(() => {
     try { setHideTracked(localStorage.getItem('prc_hide_tracked') !== '0'); } catch { /* storage blocked */ }
@@ -117,7 +119,11 @@ export default function JobsPage() {
 
   useEffect(() => {
     if (!user) return;
-    trackedJobs().then(m => { setTrackedMap(m); tracked.current = m; }).catch(() => {});
+    trackedJobInfo().then(info => {
+      const m = new Map([...info].map(([u, v]) => [u, v.id]));
+      setTrackedMap(m); tracked.current = m;
+      setSavedOnly(new Set([...info].filter(([, v]) => v.status === 'wishlist').map(([u]) => u)));
+    }).catch(() => {});
   }, [user]);
 
   useEffect(() => { if (!loading && !user) router.push(`/sign-in?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`); }, [loading, user, router]);
@@ -259,8 +265,27 @@ export default function JobsPage() {
     }
   };
 
+  // Save toggles: a job only saved (not applied to) comes out of the tracker again.
+  const unsave = async (job: FeedJob) => {
+    const id = trackedMap.get(job.u);
+    if (!id || !savedOnly.has(job.u)) return;
+    setSaving(job.u);
+    try {
+      const res = await fetch(`/api/job-tracker?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Could not remove it');
+      const drop = <T,>(m: Map<string, T>) => { const n = new Map(m); n.delete(job.u); return n; };
+      setTrackedMap(prev => drop(prev)); tracked.current = tracked.current ? drop(tracked.current) : tracked.current;
+      setSavedOnly(prev => { const n = new Set(prev); n.delete(job.u); return n; });
+      toast('Removed from your tracker', { action: { label: 'Undo', onClick: () => { void save(job); } } });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not remove it');
+    } finally {
+      setSaving(null);
+    }
+  };
+
   const save = async (job: FeedJob) => {
-    if (trackedMap.has(job.u)) return;
+    if (trackedMap.has(job.u)) { await unsave(job); return; }
     setSaving(job.u);
     try {
       tracked.current ??= await trackedJobs();
@@ -272,6 +297,7 @@ export default function JobsPage() {
       }
       setJustSaved(prev => new Set(prev).add(job.u));
       setTrackedMap(prev => new Map(prev).set(job.u, r.id));
+      setSavedOnly(prev => new Set(prev).add(job.u));
       toast.success('Saved to your job tracker', { action: { label: 'Open tracker', onClick: () => router.push('/job-tracker') } });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not save this job');
@@ -410,7 +436,7 @@ export default function JobsPage() {
         <div className={`space-y-3 transition-opacity duration-200 ${busy && data && !jobs.length ? 'opacity-60' : ''}`}>
           {shownJobs.map((job, i) => (
             <JobCard key={job.u} job={job} index={i} domain={logos[job.c]} h1bYear={data?.h1bYear ?? null} closed={closed.has(job.u)}
-              fit={fits[job.u]} hasResume={hasResume} cardRef={watch(job.u)} trackedId={trackedMap.get(job.u)}
+              fit={fits[job.u]} hasResume={hasResume} cardRef={watch(job.u)} trackedId={trackedMap.get(job.u)} canUnsave={savedOnly.has(job.u)}
               applying={applying === job.u} saving={saving === job.u} disabled={!!applying} autoMode={autoMode}
               onApply={() => apply(job)} onSave={() => save(job)} onHide={() => hide(job)} onOpen={() => openJob(job.u, job.c)} />
           ))}
@@ -431,7 +457,7 @@ export default function JobsPage() {
 
       {open && (
         <JobDetail url={open.url} domain={open.company ? logos[open.company] : undefined}
-          trackedId={trackedMap.get(open.url)} saving={saving === open.url} applying={applying === open.url} closed={closed.has(open.url)} autoMode={autoMode}
+          trackedId={trackedMap.get(open.url)} canUnsave={savedOnly.has(open.url)} saving={saving === open.url} applying={applying === open.url} closed={closed.has(open.url)} autoMode={autoMode}
           onClose={closeJob} onApply={apply} onSave={save} onHide={hide} onOpenJob={u => openJob(u, open.company)}
           onSeeAll={company => { closeJob(); setQ(company); setLevels([]); setFamily(''); setLocation(''); setOrRemote(false); setEverify(false); setH1b(false); setRemote(false); setUsingPrefs(false); window.scrollTo(0, 0); }} />
       )}

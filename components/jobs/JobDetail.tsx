@@ -17,7 +17,7 @@ import { Overlay } from '@/components/contacts/ui';
 import InfoTip from '@/components/ui/info-tip';
 import { CompanyLogo } from '@/components/jobs/CompanyLogo';
 import { FitPanel, type Fit } from '@/components/jobs/JobFit';
-import { Fact, FAMILY_LABEL, FLAG_LABEL, IconButton, LEVEL_LABEL, payText, places, postedAgo, Tag, daysSince, SkillMeter } from '@/components/jobs/JobCard';
+import { Fact, FAMILY_LABEL, FLAG_LABEL, IconButton, LEVEL_LABEL, payText, places, postedAgo, Tag, daysSince, SkillMeter, saveState } from '@/components/jobs/JobCard';
 import type { FeedJob } from '@/lib/jobs/feed';
 import type { JobFit } from '@/lib/jobs/fit';
 import type { PostingFacts, PostingSection } from '@/lib/jobs/posting-facts';
@@ -47,8 +47,8 @@ interface Detail {
 const fmtDate = (d: string | null) => (d ? new Date(`${d.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null);
 const shortPlace = (p: string | undefined) => p?.replace(/,\s*United States$/i, '');
 
-export default function JobDetail({ url, domain, trackedId, saving, applying, closed, autoMode, onClose, onApply, onSave, onHide, onOpenJob, onSeeAll }: {
-  url: string; domain: string | null | undefined; trackedId: string | undefined; saving: boolean; applying: boolean; closed: boolean; autoMode: boolean;
+export default function JobDetail({ url, domain, trackedId, canUnsave, saving, applying, closed, autoMode, onClose, onApply, onSave, onHide, onOpenJob, onSeeAll }: {
+  url: string; domain: string | null | undefined; trackedId: string | undefined; canUnsave?: boolean; saving: boolean; applying: boolean; closed: boolean; autoMode: boolean;
   onClose: () => void; onApply: (job: FeedJob) => void; onSave: (job: FeedJob) => void; onHide: (job: FeedJob) => void; onOpenJob: (url: string) => void;
   /** Show every role from this company in the list. */
   onSeeAll: (company: string) => void;
@@ -96,7 +96,7 @@ export default function JobDetail({ url, domain, trackedId, saving, applying, cl
             {job && (
               <div className="ml-auto flex items-center gap-2">
                 <IconButton label="Not interested" onClick={() => { onHide(job); onClose(); }}><Ban className="w-4 h-4" /></IconButton>
-                <IconButton label={trackedId ? 'Saved to your tracker' : 'Save to your tracker'} onClick={() => onSave(job)} active={!!trackedId} disabled={!!trackedId || saving}>
+                <IconButton label={saveState(trackedId, canUnsave).label} onClick={() => onSave(job)} active={!!trackedId} disabled={saving || saveState(trackedId, canUnsave).locked}>
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : trackedId ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
                 </IconButton>
                 {trackedId ? (

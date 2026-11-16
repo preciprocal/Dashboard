@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import { CalendarClock, Pencil, Loader2, ShieldCheck, AlertTriangle } from 'lucide-react';
 import InfoTip from '@/components/ui/info-tip';
 import DateInput from '@/components/ui/date-input';
-import { EMPTY_TIMELINE, PERIOD_LABEL, periods, summarize, type PeriodKind, type VisaTimeline } from '@/lib/visa/timeline';
+import { EMPTY_TIMELINE, PERIOD_LABEL, monthsAndDays, periods, summarize, type PeriodKind, type VisaTimeline } from '@/lib/visa/timeline';
 
 const COLOR: Record<PeriodKind, string> = { opt: 'bg-indigo-400', stem: 'bg-sky-400', h1b: 'bg-emerald-400' };
 const fmt = (iso: string | null) => (iso ? new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '');
@@ -91,13 +91,13 @@ function View({ t, sum }: { t: VisaTimeline; sum: ReturnType<typeof summarize> }
         {c ? (
           c.daysUntilStart !== null ? (
             <>
-              <p className="font-display text-[34px] font-semibold tracking-[-0.03em] text-white tabular-nums leading-none">{c.daysUntilStart}</p>
-              <p className="text-[12.5px] text-[var(--text-3)] mt-1.5">days until {PERIOD_LABEL[c.kind]} starts, {fmt(c.start)}</p>
+              <Span parts={monthsAndDays(c.start!)} />
+              <p className="text-[12.5px] text-[var(--text-3)] mt-1.5"><span className="text-[var(--text-2)] tabular-nums">{c.daysUntilStart}</span> days until {PERIOD_LABEL[c.kind]} starts, {fmt(c.start)}</p>
             </>
           ) : c.daysLeft !== null ? (
             <>
-              <p className={`font-display text-[34px] font-semibold tracking-[-0.03em] tabular-nums leading-none ${warn ? 'text-amber-300' : 'text-white'}`}>{c.daysLeft}</p>
-              <p className="text-[12.5px] text-[var(--text-3)] mt-1.5">days left on {PERIOD_LABEL[c.kind]}, ends {fmt(c.end)}</p>
+              <Span parts={monthsAndDays(c.end!)} warn={!!warn} />
+              <p className="text-[12.5px] text-[var(--text-3)] mt-1.5"><span className="text-[var(--text-2)] tabular-nums">{c.daysLeft}</span> days left on {PERIOD_LABEL[c.kind]}, ends {fmt(c.end)}</p>
             </>
           ) : (
             <p className="text-[13px] text-[var(--text-2)]">On {PERIOD_LABEL[c.kind]}. Add its end date to count the days left.</p>
@@ -122,7 +122,11 @@ function View({ t, sum }: { t: VisaTimeline; sum: ReturnType<typeof summarize> }
               })}
               {now >= lo && now <= hi && <div className="absolute top-0 bottom-0 w-[2px] bg-white shadow-[0_0_0_3px_rgba(255,255,255,0.15)]" style={{ left: `${todayPct}%` }} aria-label="Today" />}
             </div>
-            <div className="flex justify-between text-[11px] text-[var(--text-4)] mt-1.5 tabular-nums"><span>{fmt(new Date(lo).toISOString().slice(0, 10))}</span><span>Today</span><span>{fmt(new Date(hi).toISOString().slice(0, 10))}</span></div>
+            <div className="relative h-4 text-[11px] text-[var(--text-4)] mt-1.5 tabular-nums">
+              <span className="absolute left-0">{fmt(new Date(lo).toISOString().slice(0, 10))}</span>
+              {now >= lo && now <= hi && todayPct > 14 && todayPct < 86 && <span className="absolute -translate-x-1/2 text-white font-medium" style={{ left: `${todayPct}%` }}>Today</span>}
+              <span className="absolute right-0">{fmt(new Date(hi).toISOString().slice(0, 10))}</span>
+            </div>
           </div>
         )}
 
@@ -156,6 +160,17 @@ function View({ t, sum }: { t: VisaTimeline; sum: ReturnType<typeof summarize> }
         </div>
       </div>
     </div>
+  );
+}
+
+// Months and days as the headline figure: "7 mo 22 d".
+function Span({ parts, warn }: { parts: { months: number; days: number }; warn?: boolean }) {
+  const tone = warn ? 'text-amber-300' : 'text-white';
+  return (
+    <p className={`font-display font-semibold tracking-[-0.03em] tabular-nums leading-none ${tone}`}>
+      {parts.months > 0 && <><span className="text-[34px]">{parts.months}</span><span className="text-[15px] text-[var(--text-3)] font-medium ml-1 mr-2.5">{parts.months === 1 ? 'month' : 'months'}</span></>}
+      <span className="text-[34px]">{parts.days}</span><span className="text-[15px] text-[var(--text-3)] font-medium ml-1">{parts.days === 1 ? 'day' : 'days'}</span>
+    </p>
   );
 }
 

@@ -98,7 +98,7 @@ export function SponsorSignals({ job, fit, h1bYear }: { job: FeedJob; fit: Fit |
     <div className="inline-flex items-stretch rounded-lg ring-1 ring-inset ring-white/[0.07] divide-x divide-white/[0.07] overflow-hidden max-w-full">
       <InfoTip term={everified ? 'everified' : job.e === 'ended' ? 'everifyEnded' : 'everifyUnknown'} className={cell}>
         <ShieldCheck className={`w-3.5 h-3.5 ${everified ? 'text-emerald-400' : job.e === 'ended' ? 'text-rose-400' : 'text-[var(--text-5)]'}`} />
-        <span className={everified ? 'text-[var(--text-1)]' : 'text-[var(--text-4)]'}>{everified ? 'E-Verify' : job.e === 'ended' ? 'E-Verify ended' : 'E-Verify unknown'}</span>
+        <span className={everified ? 'text-[var(--text-1)]' : 'text-[var(--text-4)]'}>{everified ? 'E-Verified' : job.e === 'ended' ? 'E-Verify ended' : 'E-Verify unknown'}</span>
       </InfoTip>
       <InfoTip term={approvals > 0 ? 'h1b' : 'h1bNone'} className={cell}>
         <Landmark className={`w-3.5 h-3.5 ${approvals > 0 ? 'text-sky-400' : 'text-[var(--text-5)]'}`} />
@@ -155,19 +155,97 @@ export interface JobCardProps {
   fit: Fit | undefined; hasResume: boolean | null; cardRef: (el: Element | null) => void;
   /** The tracker entry when this job is already in the student's tracker. */
   trackedId: string | undefined;
+  /** It is only saved (not applied to), so Save can take it out again. */
+  canUnsave?: boolean;
   applying: boolean; saving: boolean; disabled: boolean; autoMode: boolean;
   /** Position in the list, for the entrance stagger. */
   index: number;
   onApply: () => void; onSave: () => void; onHide: () => void; onOpen: () => void;
 }
 
-export function JobCard({ job, domain, h1bYear, closed, fit, hasResume, cardRef, trackedId, applying, saving, disabled, autoMode, index, onApply, onSave, onHide, onOpen }: JobCardProps) {
+/** The label and state of the Save toggle. */
+export function saveState(trackedId: string | undefined, canUnsave: boolean | undefined) {
+  if (!trackedId) return { label: 'Save to your tracker', active: false, locked: false };
+  return canUnsave
+    ? { label: 'Saved. Click again to remove it from your tracker', active: true, locked: false }
+    : { label: 'In your tracker as an application, so it stays saved', active: true, locked: true };
+}
+
+// ─── The fit panel on the right ──────────────────────────────────────────────
+
+function FitSide({ job, fit, hasResume, h1bYear }: { job: FeedJob; fit: Fit | undefined; hasResume: boolean | null; h1bYear: string | null }) {
+  const approvals = job.h?.[0] ?? 0;
+  const everified = job.e === 'enrolled' || job.e === 'ending';
+  const flag = fit?.flags.find(f => f.kind !== 'clearance') ?? fit?.flags[0];
+  const scored = fit && fit.skills.length > 0 && hasResume !== false;
+  const n = scored ? Math.min(10, fit!.skills.length) : 5;
+  const on = scored ? Math.round((fit!.matched.length / fit!.skills.length) * n) : 0;
+  const barColor = fit?.score != null && fit.score >= 70 ? 'bg-emerald-400' : fit?.score != null && fit.score >= 40 ? 'bg-sky-400' : 'bg-slate-400';
+  const row = 'flex items-center gap-2 text-[12px] min-w-0';
+
+  return (
+    <div className="prc-rail sm:w-[214px] flex-shrink-0 flex flex-col gap-3 p-4 sm:p-5 border-t sm:border-t-0 sm:border-l border-white/[0.06]">
+      <p className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-[var(--text-4)]">Your fit</p>
+
+      {/* Skills: a fraction and one segment per skill the posting names */}
+      {fit === undefined ? (
+        <div className="space-y-2"><span className="block h-8 w-20 rounded prc-skeleton" /><span className="block h-2 w-full rounded prc-skeleton" /></div>
+      ) : scored ? (
+        <InfoTip wrap title={`Skills: ${fit!.matched.length} of ${fit!.skills.length}`}
+          body={<>Skills this posting names that are on your default resume.
+            {fit!.matched.length > 0 && <span className="block mt-1.5"><span className="text-emerald-300">On your resume:</span> {fit!.matched.join(', ')}</span>}
+            {fit!.missing.length > 0 && <span className="block mt-1"><span className="text-amber-300">Not on it:</span> {fit!.missing.join(', ')}</span>}</>}
+          source="A count of named skills, not a prediction of how the employer will rank you.">
+          <span tabIndex={0} className="block rounded-md outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-border)]">
+            <span className="flex items-baseline gap-1.5">
+              <span className="font-display text-[32px] font-semibold tracking-[-0.03em] text-white tabular-nums leading-none">{fit!.matched.length}</span>
+              <span className="text-[16px] text-[var(--text-4)] font-medium tabular-nums">/ {fit!.skills.length}</span>
+              <span className="text-[12px] text-[var(--text-3)] ml-1">skills</span>
+            </span>
+            <span className="mt-2.5 flex gap-[3px]" aria-hidden="true">
+              {Array.from({ length: n }, (_, i) => <span key={i} className={`h-2 flex-1 rounded-full ${i < on ? barColor : 'bg-white/[0.08]'}`} />)}
+            </span>
+          </span>
+        </InfoTip>
+      ) : (
+        <p className="text-[12px] text-[var(--text-3)] leading-snug">
+          {hasResume === false ? <Link href="/profile" onClick={e => e.stopPropagation()} className="text-indigo-300 hover:underline">Add your resume to match skills</Link>
+            : fit === null ? 'Posting unavailable right now' : 'The posting names no specific skills'}
+        </p>
+      )}
+
+      {/* Sponsorship checks */}
+      <ul className="mt-auto pt-3 border-t border-white/[0.07] space-y-2">
+        <li><InfoTip term={everified ? 'everified' : job.e === 'ended' ? 'everifyEnded' : 'everifyUnknown'} className={row}>
+          <ShieldCheck className={`w-3.5 h-3.5 flex-shrink-0 ${everified ? 'text-emerald-400' : job.e === 'ended' ? 'text-rose-400' : 'text-[var(--text-5)]'}`} />
+          <span className={everified ? 'text-[var(--text-1)]' : 'text-[var(--text-4)]'}>{everified ? 'E-Verified' : job.e === 'ended' ? 'E-Verify ended' : 'E-Verify unknown'}</span>
+        </InfoTip></li>
+        <li><InfoTip term={approvals > 0 ? 'h1b' : 'h1bNone'} className={row}>
+          <Landmark className={`w-3.5 h-3.5 flex-shrink-0 ${approvals > 0 ? 'text-sky-400' : 'text-[var(--text-5)]'}`} />
+          <span className={`truncate ${approvals > 0 ? 'text-[var(--text-1)]' : 'text-[var(--text-4)]'}`}>{approvals > 0 ? <><span className="tabular-nums">{approvals.toLocaleString('en-US')}</span> H-1B{h1bYear ? ` in FY${h1bYear.slice(2)}` : ''}</> : 'No H-1B record'}</span>
+        </InfoTip></li>
+        <li>{fit === undefined ? <span className="block h-3.5 w-28 rounded prc-skeleton" /> : flag ? (
+          <InfoTip title={FLAG_LABEL[flag.kind]} body={<span className="italic">&ldquo;{flag.quote}&rdquo;</span>} source="Quoted from the posting." className={row}>
+            <AlertTriangle className="w-3.5 h-3.5 text-rose-300 flex-shrink-0" /><span className="text-rose-200 truncate">{FLAG_LABEL[flag.kind]}</span>
+          </InfoTip>
+        ) : (
+          <InfoTip title="Posting language" body="The posting does not say it will not sponsor, and does not limit the role to US citizens or ask for a clearance." source="Read from the posting's own text." className={row}>
+            <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" strokeWidth={2.5} /><span className="text-[var(--text-1)] truncate">No sponsorship limits</span>
+          </InfoTip>
+        )}</li>
+      </ul>
+    </div>
+  );
+}
+
+export function JobCard({ job, domain, h1bYear, closed, fit, hasResume, cardRef, trackedId, canUnsave, applying, saving, disabled, autoMode, index, onApply, onSave, onHide, onOpen }: JobCardProps) {
   const fresh = daysSince(job.p) < 3;
   const where = places(job.l);
   const facts = fit?.facts;
   const workplace = facts?.workplace ?? (/remote/i.test(job.l) ? 'Remote' : null);
   const stop = (e: React.SyntheticEvent) => e.stopPropagation();
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sv = saveState(trackedId, canUnsave);
   // The facts the posting states, as one line.
   const line = [
     where[0]?.replace(/,\s*United States$/i, '') + (where.length > 1 ? ` +${where.length - 1}` : ''),
@@ -185,10 +263,10 @@ export function JobCard({ job, domain, h1bYear, closed, fit, hasResume, cardRef,
       onKeyDown={e => { if (e.key === 'Enter' && e.target === e.currentTarget) onOpen(); }}
       aria-label={`${job.t} at ${job.c}. Open details`}
       style={{ animationDelay: `${Math.min(index % 25, 8) * 35}ms` }}
-      className={`prc-job group relative rounded-2xl cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-border)] ${closed ? 'opacity-50' : ''}`}>
+      className={`prc-job group relative flex flex-col sm:flex-row overflow-hidden rounded-2xl cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-border)] ${closed ? 'opacity-50' : ''}`}>
       {/* A thin accent edge for postings from the last three days */}
       {fresh && !closed && <span className="absolute left-0 top-5 bottom-5 w-[3px] rounded-r-full bg-emerald-400/80" aria-hidden="true" />}
-      <div className="p-5">
+      <div className="min-w-0 flex-1 p-5 flex flex-col">
         <div className="flex items-start gap-4">
           <CompanyLogo company={job.c} domain={domain} size={48} />
           <div className="min-w-0 flex-1">
@@ -197,31 +275,25 @@ export function JobCard({ job, domain, h1bYear, closed, fit, hasResume, cardRef,
                 <h3 className="text-[16px] font-semibold tracking-[-0.01em] text-white leading-snug line-clamp-2">{job.t}</h3>
                 <p className="mt-0.5 text-[13px] text-[var(--text-3)] truncate"><span className="text-[var(--text-1)] font-medium">{job.c}</span> · {FAMILY_LABEL[job.f]}</p>
               </div>
-              <div className="flex-shrink-0 text-right" onClick={stop}>
-                <p className={`text-[12px] ${fresh ? 'text-emerald-300' : 'text-[var(--text-4)]'}`}>{postedAgo(job.p).replace('Posted ', '')}</p>
-                {facts?.pay && <p className="text-[13px] font-semibold text-white tabular-nums mt-0.5">{payText(facts.pay)}</p>}
-              </div>
+              <p className={`flex-shrink-0 text-[12px] ${fresh ? 'text-emerald-300' : 'text-[var(--text-4)]'}`}>{postedAgo(job.p).replace('Posted ', '')}</p>
             </div>
             <p className="mt-2 text-[12.5px] text-[var(--text-3)] truncate">
               <MapPin className="w-3.5 h-3.5 inline -mt-0.5 mr-1 text-[var(--text-5)]" />{line.join('  ·  ')}
               {fit === undefined && <span className="inline-block align-middle ml-2 h-3 w-16 rounded prc-skeleton" />}
             </p>
-            <div className="mt-3.5 flex flex-wrap items-center gap-x-4 gap-y-2.5" onClick={stop}>
-              <SponsorSignals job={job} fit={fit} h1bYear={h1bYear} />
-              <SkillMeter fit={fit} hasResume={hasResume} />
-            </div>
+            {facts?.pay && <p className="mt-2 text-[14px] font-semibold text-white tabular-nums">{payText(facts.pay)}</p>}
           </div>
         </div>
 
-        <div className="flex items-center gap-2 mt-4 pt-3.5 border-t border-white/[0.05]" onClick={stop}>
+        <div className="flex items-center gap-2 mt-auto pt-4" onClick={stop}>
           <div className="flex items-center gap-1.5 mr-auto min-w-0">
             {closed && <InfoTip term="closedPosting"><Tag>Closed</Tag></InfoTip>}
             {trackedId && <Tag tone="indigo"><FolderCheck className="w-3 h-3" />In your tracker</Tag>}
             {!closed && !trackedId && <button onClick={onOpen} className="inline-flex items-center gap-1 text-[12.5px] text-[var(--text-4)] hover:text-white transition-colors">Details<ArrowUpRight className="w-3.5 h-3.5" /></button>}
           </div>
           <IconButton label="Not interested" onClick={onHide}><Ban className="w-4 h-4" /></IconButton>
-          <IconButton label={trackedId ? 'Saved to your tracker' : 'Save to your tracker'} onClick={onSave} active={!!trackedId} disabled={!!trackedId || saving}>
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : trackedId ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
+          <IconButton label={sv.label} onClick={onSave} active={sv.active} disabled={saving || sv.locked}>
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : sv.active ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
           </IconButton>
           {trackedId ? (
             <Link href={`/apply/${trackedId}`} className="btn-secondary !h-9 !text-[13px]">Open application</Link>
@@ -232,6 +304,9 @@ export function JobCard({ job, domain, h1bYear, closed, fit, hasResume, cardRef,
             </button>
           )}
         </div>
+      </div>
+      <div onClick={stop} className="contents sm:flex">
+        <FitSide job={job} fit={fit} hasResume={hasResume} h1bYear={h1bYear} />
       </div>
     </article>
   );

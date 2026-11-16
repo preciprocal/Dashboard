@@ -87,3 +87,19 @@ export function summarize(t: VisaTimeline, today = new Date()): TimelineSummary 
   const ends = ps.map(p => p.end).filter((x): x is string => !!x).sort();
   return { current, unemploymentLimit, unemploymentLeft, lastEnd: ends[ends.length - 1] ?? null };
 }
+
+/** Whole calendar months and leftover days from today to `iso` (e.g. 7 months, 22 days). */
+export function monthsAndDays(iso: string, today = new Date()): { months: number; days: number } {
+  const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+  const end = new Date(`${iso}T00:00:00Z`);
+  if (end <= start) return { months: 0, days: 0 };
+  let months = (end.getUTCFullYear() - start.getUTCFullYear()) * 12 + (end.getUTCMonth() - start.getUTCMonth());
+  // Step back a month when the day of the month has not been reached yet.
+  const at = (m: number) => { const d = new Date(start); d.setUTCMonth(d.getUTCMonth() + m); return d; };
+  if (at(months) > end) months--;
+  const days = Math.round((end.getTime() - at(months).getTime()) / MS);
+  return { months, days };
+}
+
+export const monthsDaysText = ({ months, days }: { months: number; days: number }) =>
+  [months ? `${months} month${months === 1 ? '' : 's'}` : '', days || !months ? `${days} day${days === 1 ? '' : 's'}` : ''].filter(Boolean).join(', ');

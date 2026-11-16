@@ -1109,24 +1109,25 @@ export default function LayoutClient({ children, user }: LayoutClientProps) {
         gap={8}
         toastOptions={{
           duration: 3000,
+          // The Sectira panel, as on tooltips, menus and the calendar: raised,
+          // a hairline edge drawn as a shadow, no coloured border. The icon
+          // carries the tone.
           style: {
-            background: '#0f172a', border: '1px solid rgba(148,163,184,0.12)',
-            borderRadius: '12px', color: '#f1f5f9', fontSize: '13px',
-            fontWeight: '500', padding: '12px 16px',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-            backdropFilter: 'blur(12px)', gap: '10px',
+            background: '#151618', border: 'none', borderRadius: '10px',
+            color: '#f7f8f8', fontSize: '13px', fontWeight: '500', padding: '11px 14px', gap: '10px',
+            boxShadow: '0 0 0 1px rgba(255,255,255,0.08), 0 16px 40px -12px rgba(0,0,0,0.75), 0 4px 12px -4px rgba(0,0,0,0.4)',
           },
           classNames: {
             toast:        'font-sans',
-            title:        'text-slate-100 font-semibold text-sm',
-            description:  'text-slate-400 text-xs mt-0.5',
-            success:      'border-emerald-500/25 [&>[data-icon]]:text-emerald-400',
-            error:        'border-red-500/25    [&>[data-icon]]:text-red-400',
-            warning:      'border-amber-500/25  [&>[data-icon]]:text-amber-400',
-            info:         'border-blue-500/25   [&>[data-icon]]:text-blue-400',
-            actionButton: 'bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold rounded-lg px-3 py-1.5',
-            cancelButton: 'bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-medium rounded-lg px-3 py-1.5',
-            closeButton:  'bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700',
+            title:        'text-[13px] font-medium text-[var(--text-1)]',
+            description:  'text-[12px] text-[var(--text-3)] mt-0.5',
+            success:      '[&>[data-icon]]:text-emerald-400',
+            error:        '[&>[data-icon]]:text-rose-400',
+            warning:      '[&>[data-icon]]:text-amber-300',
+            info:         '[&>[data-icon]]:text-[var(--accent)]',
+            actionButton: '!bg-[var(--primary)] hover:!bg-[var(--primary-hover)] !text-[var(--on-primary)] !text-[12px] !font-semibold !rounded-md !px-2.5 !h-7',
+            cancelButton: '!bg-white/[0.06] hover:!bg-white/[0.1] !text-[var(--text-2)] !text-[12px] !font-medium !rounded-md !px-2.5 !h-7',
+            closeButton:  '!bg-[#151618] !border-white/[0.1] !text-[var(--text-4)] hover:!text-white',
           },
         }}
       />
