@@ -22,7 +22,7 @@ import { supabaseAdmin } from '@/supabase/admin';
 
 const BUCKET = 'jobs';
 const TTL_MS = 30 * 60 * 1000;
-const UA = 'PreciprocalJobs/1.0 (+https://preciprocal.com/jobs)';
+const UA = 'PreciprocalJobs/1.0 (+https://preciprocal.com)';
 
 export type JobLevel = 'intern' | 'early' | 'mid' | 'senior';
 export type JobFamily = 'software' | 'data' | 'hardware' | 'product' | 'business' | 'other';

@@ -17,7 +17,7 @@ import { Overlay } from '@/components/contacts/ui';
 import InfoTip from '@/components/ui/info-tip';
 import { CompanyLogo } from '@/components/jobs/CompanyLogo';
 import { FitPanel, type Fit } from '@/components/jobs/JobFit';
-import { Fact, FAMILY_LABEL, FLAG_LABEL, IconButton, LEVEL_LABEL, MatchRing, matchWord, payText, places, postedAgo, Tag, daysSince } from '@/components/jobs/JobCard';
+import { Fact, FAMILY_LABEL, FLAG_LABEL, IconButton, LEVEL_LABEL, payText, places, postedAgo, Tag, daysSince, SkillMeter } from '@/components/jobs/JobCard';
 import type { FeedJob } from '@/lib/jobs/feed';
 import type { JobFit } from '@/lib/jobs/fit';
 import type { PostingFacts, PostingSection } from '@/lib/jobs/posting-facts';
@@ -119,7 +119,7 @@ export default function JobDetail({ url, domain, trackedId, saving, applying, cl
                   {(['overview', 'company'] as const).map(t => (
                     <button key={t} onClick={() => setTab(t)} aria-current={tab === t ? 'page' : undefined}
                       className={`relative h-14 text-[15px] font-semibold transition-colors ${tab === t ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}>
-                      {t === 'overview' ? 'Overview' : 'Company'}
+                      {t === 'overview' ? 'Role' : 'Employer'}
                       <span className={`absolute left-0 right-0 -bottom-px h-[2px] rounded-full bg-white transition-transform duration-300 origin-left ${tab === t ? 'scale-x-100' : 'scale-x-0'}`} />
                     </button>
                   ))}
@@ -198,32 +198,23 @@ function Overview({ d, domain, trackedId, onApply, isClosed }: { d: Detail; doma
           </div>
           <div className="flex flex-wrap gap-1.5 mt-6">
             <Tag tone="violet">{FAMILY_LABEL[job.f]}</Tag>
-            {everified && <InfoTip term="everified"><Tag tone="green"><ShieldCheck className="w-3 h-3" />E-Verified</Tag></InfoTip>}
-            {approvals > 0 && <InfoTip term="h1b"><Tag tone="green"><Landmark className="w-3 h-3" />Has sponsored H-1B</Tag></InfoTip>}
             {fit?.flags.map(f => <InfoTip key={f.kind} title={FLAG_LABEL[f.kind]} body={<span className="italic">&ldquo;{f.quote}&rdquo;</span>} source="Quoted from the posting."><span className="inline-flex items-center gap-1 h-[22px] px-2 rounded-md text-[11.5px] font-medium text-rose-200 bg-rose-500/[0.12]"><AlertTriangle className="w-3 h-3" />{FLAG_LABEL[f.kind]}</span></InfoTip>)}
           </div>
         </div>
 
-        {/* Match card */}
-        <div className="prc-rail rounded-2xl ring-1 ring-inset ring-white/[0.07] p-5 self-start">
-          {fit && fit.score !== null ? (
-            <div className="flex items-center gap-4">
-              <MatchRing score={fit.score} size={92} />
-              <div>
-                <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-white">{matchWord(fit.score)}</p>
-                <p className="text-[12.5px] text-slate-400 mt-1 leading-snug">{fit.matched.length} of {fit.skills.length} skills in the posting are on your resume</p>
-              </div>
-            </div>
-          ) : (
-            <p className="text-[13px] text-slate-300 leading-relaxed">{!d.hasResume ? <><Link href="/profile" className="text-indigo-300 hover:underline">Add your default resume</Link> to see how your skills match.</> : 'This posting names too few specific skills to score.'}</p>
-          )}
-          <dl className="mt-5 rounded-xl bg-black/25 ring-1 ring-inset ring-white/[0.05] divide-y divide-white/[0.05] text-[13px]">
-            <Row k="Experience asked" v={fit?.years ? `${fit.years.min}+ years` : muted('Not stated')} />
-            <Row k="Sponsorship" v={sponsorFlag ? <span className="text-rose-300">{FLAG_LABEL[sponsorFlag.kind]}</span> : muted('Not mentioned')} />
-            <Row k="E-Verify" v={everified ? <span className="text-emerald-300 inline-flex items-center gap-1"><Check className="w-3.5 h-3.5" strokeWidth={2.5} />Enrolled</span> : job.e === 'ended' ? <span className="text-rose-300">Ended</span> : muted('No match')} />
-            <Row k={`H-1B${d.h1bYear ? ` FY${d.h1bYear}` : ''}`} v={approvals > 0 ? <span className="tabular-nums">{approvals.toLocaleString('en-US')} approved</span> : muted('None on record')} />
-          </dl>
-          <p className="text-[11px] text-slate-500 mt-3 leading-snug">Skill match counts named skills. It does not predict how the employer will rank you.</p>
+        {/* Fit checklist */}
+        <div className="rounded-2xl ring-1 ring-inset ring-white/[0.07] bg-white/[0.02] self-start overflow-hidden">
+          <p className="px-4 pt-4 pb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--text-4)]">Your checklist</p>
+          <ul className="divide-y divide-white/[0.05] text-[13px]">
+            <Check2 ok={fit && fit.score !== null ? fit.score >= 40 : null} label="Skills"
+              value={fitForPanel ? <SkillMeter fit={fitForPanel} hasResume={d.hasResume} compact /> : muted('Posting unavailable')} />
+            <Check2 ok={null} label="Experience asked" value={fit?.years ? `${fit.years.min}+ years` : muted('Not stated')} />
+            <Check2 ok={sponsorFlag ? false : fit ? true : null} label="Sponsorship" value={sponsorFlag ? <span className="text-rose-300">{FLAG_LABEL[sponsorFlag.kind]}</span> : fit ? 'No limits stated' : muted('Unknown')} />
+            <Check2 ok={everified ? true : job.e === 'ended' ? false : null} label="E-Verify" value={everified ? 'Enrolled' : job.e === 'ended' ? <span className="text-rose-300">Ended</span> : muted('No match found')} />
+            <Check2 ok={approvals > 0 ? true : null} label={`H-1B${d.h1bYear ? ` FY${d.h1bYear}` : ''}`} value={approvals > 0 ? <span className="tabular-nums">{approvals.toLocaleString('en-US')} approved</span> : muted('None on record')} />
+            <Check2 ok={facts?.pay ? true : null} label="Pay listed" value={facts?.pay ? payText(facts.pay) : muted('Not stated')} />
+          </ul>
+          <p className="px-4 py-3 text-[11px] text-[var(--text-4)] leading-snug border-t border-white/[0.05]">Read from the posting, your resume and public E-Verify and USCIS records.</p>
         </div>
       </div>
 
@@ -378,6 +369,19 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <h3 className="text-[18px] font-semibold tracking-[-0.01em] text-white mb-4">{title}</h3>
       {children}
     </section>
+  );
+}
+
+// A checklist line: a status mark, the label and what was found.
+function Check2({ ok, label, value }: { ok: boolean | null; label: string; value: React.ReactNode }) {
+  return (
+    <li className="flex items-center gap-3 px-4 py-2.5">
+      <span className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${ok === true ? 'bg-emerald-400/15 text-emerald-300' : ok === false ? 'bg-rose-400/15 text-rose-300' : 'bg-white/[0.06] text-[var(--text-4)]'}`}>
+        {ok === true ? <Check className="w-3 h-3" strokeWidth={3} /> : ok === false ? <X className="w-3 h-3" strokeWidth={3} /> : <span className="w-1 h-1 rounded-full bg-current" />}
+      </span>
+      <span className="text-[var(--text-3)] flex-1">{label}</span>
+      <span className="text-[var(--text-1)] text-right font-medium">{value}</span>
+    </li>
   );
 }
 
