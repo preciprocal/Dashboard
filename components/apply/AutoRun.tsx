@@ -13,7 +13,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { CheckCircle2, Loader2, Circle, AlertTriangle, X, Chrome, ArrowRight } from 'lucide-react';
+import { CheckCircle2, Check, Loader2, AlertTriangle, X, Chrome, ArrowRight } from 'lucide-react';
 import type { ApplyStepProps } from '@/components/apply/types';
 import type { ApplyPack } from '@/lib/applications/pack';
 import { detectExtension, extensionStoreUrl, prepareAutofill, versionAtLeast } from '@/lib/extension';
@@ -25,6 +25,7 @@ type Status = 'pending' | 'running' | 'done' | 'error';
 type Key = 'resume' | 'approve' | 'letter' | 'extension' | 'portal';
 
 const COUNTDOWN = 5;
+const MIN_STEP_MS = 900;
 // Longer when the resume file was edited, so the changes can be looked over.
 const COUNTDOWN_WITH_FILE = 10;
 
@@ -48,8 +49,18 @@ export default function AutoRun({ application, pack, onPack, update, goTo }: App
   packRef.current = pack;
 
   const set = (k: Key, s: Status, d?: string) => {
+    if (s === 'running' && !startedAt.current[k]) startedAt.current[k] = Date.now();
     setStatus(prev => ({ ...prev, [k]: s }));
     if (d !== undefined) setDetail(prev => ({ ...prev, [k]: d }));
+  };
+  // Each step stays on screen long enough to be seen, even when its result
+  // was already saved, so the run reads as a flow rather than a jump.
+  const startedAt = useRef<Partial<Record<Key, number>>>({});
+  const finish = async (k: Key, d?: string) => {
+    if (!startedAt.current[k]) set(k, 'running');
+    const left = MIN_STEP_MS - (Date.now() - (startedAt.current[k] ?? Date.now()));
+    if (left > 0) await new Promise(r => setTimeout(r, left));
+    set(k, 'done', d);
   };
 
   const fail = (k: Key, message: string, action?: React.ReactNode) => { set(k, 'error'); setError({ message, action }); };
@@ -74,7 +85,7 @@ export default function AutoRun({ application, pack, onPack, update, goTo }: App
       } catch (e) { return fail('resume', e instanceof Error ? e.message : 'Could not tailor the resume.'); }
     }
     const changes = p.tailor?.changes.length ?? 0;
-    set('resume', 'done', p.tailor?.source
+    await finish('resume', p.tailor?.source
       ? `${changes} change${changes === 1 ? '' : 's'} passed the fact checks and fit in ${p.tailor.source.fileName}`
       : `${changes} change${changes === 1 ? '' : 's'} passed the fact checks`);
     if (cancelled.current) return;
@@ -87,7 +98,7 @@ export default function AutoRun({ application, pack, onPack, update, goTo }: App
       if (!next) return fail('approve', 'Could not save the changes. Try again.');
       p = next;
     }
-    set('approve', 'done', p.tailor ? `${p.tailor.before.matched.length} to ${p.tailor.after.matched.length} of ${p.keywords.length} job keywords` : 'No changes needed');
+    await finish('approve', p.tailor ? `${p.tailor.before.matched.length} to ${p.tailor.after.matched.length} of ${p.keywords.length} job keywords` : 'No changes needed');
     if (cancelled.current) return;
 
     // 3. Cover letter
@@ -108,7 +119,7 @@ export default function AutoRun({ application, pack, onPack, update, goTo }: App
         p = next;
       } catch (e) { return fail('letter', e instanceof Error ? e.message : 'Could not write the cover letter.'); }
     }
-    set('letter', 'done', `${p.coverLetter?.content.split(/\s+/).length ?? 0} words`);
+    await finish('letter', `${p.coverLetter?.content.split(/\s+/).length ?? 0} words`);
     if (cancelled.current) return;
 
     // 4. Extension
@@ -126,7 +137,7 @@ export default function AutoRun({ application, pack, onPack, update, goTo }: App
     }
     const ready = await prepareAutofill(application.id, url);
     if (!ready) return fail('extension', 'The extension did not respond. Check that you are signed in to it and press Try again, or open the application below and click Autofill.');
-    set('extension', 'done', 'Ready to fill the form');
+    await finish('extension', 'Ready to fill the form');
     if (cancelled.current) return;
 
     // 5. Portal, after a countdown the student can stop.
@@ -187,6 +198,7 @@ export default function AutoRun({ application, pack, onPack, update, goTo }: App
     { key: 'portal', label: `Open ${company}'s application` },
   ];
   const finished = stopped || !!error;
+  const doneCount = rows.filter(r => status[r.key] === 'done').length;
 
   return (
     <section className="glass-card p-5 border border-[var(--accent-border)]">
@@ -201,22 +213,39 @@ export default function AutoRun({ application, pack, onPack, update, goTo }: App
         {stopped && <button onClick={retry} className="btn-secondary h-9 flex-shrink-0">Start again</button>}
       </div>
       <AutoApplyDetailsNotice context="auto-apply" className="mb-4" />
-      <ol className="space-y-2.5">
-        {rows.map(r => {
+      {/* Progress across the five steps */}
+      <div className="mb-4 flex items-center gap-3">
+        <div className="flex-1 h-1 rounded-full bg-white/[0.06] overflow-hidden">
+          <div className="h-full rounded-full bg-emerald-400/80 transition-[width] duration-700 ease-out" style={{ width: `${(doneCount / rows.length) * 100}%` }} />
+        </div>
+        <span className="text-[11.5px] tabular-nums text-[var(--text-4)]">{doneCount} of {rows.length}</span>
+      </div>
+      <ol className="relative">
+        {rows.map((r, idx) => {
           const s = status[r.key];
+          const active = s === 'running' && !finished;
+          const last = idx === rows.length - 1;
           return (
-            <li key={r.key} className="flex items-start gap-3">
-              <span className="mt-0.5 flex-shrink-0">
-                {s === 'done' ? <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  : s === 'running' && !finished ? <Loader2 className="w-4 h-4 text-indigo-300 animate-spin" />
-                  : s === 'error' ? <AlertTriangle className="w-4 h-4 text-amber-400" />
-                  : <Circle className="w-4 h-4 text-slate-600" />}
+            <li key={r.key} className="relative flex gap-3.5 pb-4 last:pb-0">
+              {/* The line to the next step fills once this one is done */}
+              {!last && (
+                <span className="absolute left-[11px] top-7 bottom-1 w-px bg-white/[0.08] overflow-hidden" aria-hidden="true">
+                  <span className={`block w-full bg-emerald-400/70 origin-top transition-transform duration-500 ease-out ${s === 'done' ? 'scale-y-100' : 'scale-y-0'}`} style={{ height: '100%' }} />
+                </span>
+              )}
+              <span className={`relative z-[1] mt-0.5 w-[23px] h-[23px] rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-300 ${
+                s === 'done' ? 'bg-emerald-400/15 text-emerald-300'
+                : active ? 'bg-sky-400/15 text-sky-300 ring-4 ring-sky-400/10'
+                : s === 'error' ? 'bg-amber-400/15 text-amber-300'
+                : 'bg-white/[0.04] text-[var(--text-5)] ring-1 ring-inset ring-white/[0.08]'}`}>
+                {s === 'done' ? <Check className="w-3 h-3" strokeWidth={3} />
+                  : active ? <Loader2 className="w-3 h-3 animate-spin" />
+                  : s === 'error' ? <AlertTriangle className="w-3 h-3" />
+                  : <span className="text-[10.5px] font-medium tabular-nums">{idx + 1}</span>}
               </span>
-              <div className="min-w-0">
-                <p className={`text-[13px] ${s === 'pending' ? 'text-slate-500' : 'text-white'}`}>
-                  {r.label}
-                </p>
-                {detail[r.key] && <p className="text-[12px] text-slate-400 mt-0.5">{detail[r.key]}</p>}
+              <div className={`min-w-0 flex-1 rounded-lg px-3 py-1.5 -my-1.5 transition-colors duration-300 ${active ? 'bg-white/[0.03]' : ''}`}>
+                <p className={`text-[13.5px] transition-colors duration-300 ${s === 'pending' ? 'text-[var(--text-4)]' : 'text-white'} ${active ? 'font-medium' : ''}`}>{r.label}</p>
+                {detail[r.key] && <p key={detail[r.key]} className="text-[12px] text-[var(--text-3)] mt-0.5 prc-fade">{detail[r.key]}</p>}
               </div>
             </li>
           );
@@ -257,6 +286,7 @@ export default function AutoRun({ application, pack, onPack, update, goTo }: App
         <div className="mt-5 pt-4 border-t border-white/[0.06]">
           <ResumeChanges applicationId={application.id} fileName={pack.tailor.source.fileName}
             count={pack.tailor.changes.filter(c => pack.tailor!.decisions[c.id] === 'approved').length}
+            changes={pack.tailor.changes.filter(c => pack.tailor!.decisions[c.id] === 'approved')}
             version={`${pack.tailor.generatedAt}:${pack.tailor.changes.filter(c => pack.tailor!.decisions[c.id] === 'approved').map(c => c.id).join(',')}`} />
         </div>
       )}

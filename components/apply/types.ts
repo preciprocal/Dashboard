@@ -1,7 +1,7 @@
 // components/apply/types.ts
 import type { ApplyPack, TrackedApplication } from '@/lib/applications/pack';
 
-export type ApplyStep = 'resume' | 'letter' | 'save' | 'prep';
+export type ApplyStep = 'resume' | 'letter' | 'save' | 'tracker' | 'prep';
 
 export interface ApplyStepProps {
   application: TrackedApplication;

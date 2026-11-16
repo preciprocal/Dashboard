@@ -8,6 +8,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Download, FileText, Loader2, AlertTriangle } from 'lucide-react';
+import { InlineDiff } from '@/components/apply/WordDiff';
 
 interface PdfPage {
   getViewport: (p: { scale: number }) => { width: number; height: number };
@@ -89,13 +90,15 @@ function Pane({ url, label, tone }: { url: string; label: string; tone: 'removed
   );
 }
 
-export default function ResumeChanges({ applicationId, fileName, version, count }: {
+export default function ResumeChanges({ applicationId, fileName, version, count, changes = [] }: {
   applicationId: string;
   fileName: string;
   /** Changes when the approved set changes, so both views reload. */
   version: string;
   /** Approved changes in the file. */
   count: number;
+  /** The approved lines, for the word-by-word list. */
+  changes?: { id: string; section?: string; original: string; rewrite: string }[];
 }) {
   const base = `/api/apply/${applicationId}/resume`;
   const v = encodeURIComponent(version);
@@ -111,10 +114,28 @@ export default function ResumeChanges({ applicationId, fileName, version, count 
       {count === 0 ? (
         <p className="text-[13px] text-slate-400 rounded-lg border border-white/[0.06] bg-white/[0.02] p-4">Approve a change above to see it in your resume.</p>
       ) : (
+        <>
+        {changes.length > 0 && (
+          <div className="mb-5">
+            <p className="text-[12px] text-[var(--text-4)] mb-2">What changed, word by word: <span className="text-rose-300">removed</span> and <span className="text-emerald-300">added</span>.</p>
+            <ol className="rounded-xl ring-1 ring-inset ring-white/[0.07] divide-y divide-white/[0.06]">
+              {changes.map((c, i) => (
+                <li key={c.id} className="flex gap-3 px-4 py-3">
+                  <span className="text-[11.5px] tabular-nums text-[var(--text-5)] pt-[3px] w-4 flex-shrink-0">{i + 1}</span>
+                  <div className="min-w-0">
+                    {c.section && <p className="text-[11px] uppercase tracking-[0.08em] text-[var(--text-5)] mb-0.5">{c.section}</p>}
+                    <InlineDiff before={c.original} after={c.rewrite} />
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Pane url={`${base}?view=before&v=${v}`} label="Your resume: what changes, in red" tone="removed" />
           <Pane url={`${base}?view=after&v=${v}`} label="Updated resume: the new wording, in green" tone="added" />
         </div>
+        </>
       )}
     </div>
   );

@@ -111,7 +111,7 @@ export default function SaveStep({ application, pack, update, goTo }: ApplyStepP
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Could not update the tracker');
       await update({ savedToTracker: true });
       toast.success('Marked as applied in your tracker');
-      goTo('prep');
+      goTo('tracker');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not update the tracker');
     } finally {
@@ -261,7 +261,7 @@ export default function SaveStep({ application, pack, update, goTo }: ApplyStepP
           <h3 className="text-sm font-semibold text-white">Why you submit it yourself</h3>
           <p className="text-[12.5px] text-slate-400 mt-1 leading-relaxed">Every employer asks its own questions, including work authorization and sponsorship. Your answers there are yours to give, so the extension fills what it knows and leaves the rest for you.</p>
         </div>
-        <button onClick={() => goTo('prep')} className="btn-secondary w-full justify-center">Skip to interview prep <ChevronRight className="w-4 h-4" /></button>
+        <button onClick={() => goTo('tracker')} className="btn-secondary w-full justify-center">Skip to job tracker <ChevronRight className="w-4 h-4" /></button>
       </aside>
     </div>
   );

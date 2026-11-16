@@ -10,6 +10,7 @@ import { Loader2, Check, X, Sparkles, Copy, Download, ShieldCheck, ChevronRight,
 import { toast } from 'sonner';
 import ResumePicker, { type ResumeOption } from '@/components/apply/ResumePicker';
 import ResumeChanges from '@/components/apply/ResumeChanges';
+import { SideDiff } from '@/components/apply/WordDiff';
 import type { ApplyStepProps } from '@/components/apply/types';
 import { loadResumeOptions } from '@/lib/resume/default-client';
 import InfoTip from '@/components/ui/info-tip';
@@ -165,11 +166,11 @@ export default function TailorStep({ application, pack, onPack, update, goTo }: 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                         <div className="rounded-lg bg-white/[0.02] border border-white/[0.05] p-3">
                           <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Original</p>
-                          <p className="text-[13px] text-slate-400 leading-relaxed">{c.original}</p>
+                          <SideDiff before={c.original} after={c.rewrite} side="before" />
                         </div>
                         <div className="rounded-lg bg-white/[0.03] border border-white/[0.08] p-3">
                           <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Rewrite</p>
-                          <p className="text-[13px] text-white leading-relaxed">{c.rewrite}</p>
+                          <SideDiff before={c.original} after={c.rewrite} side="after" />
                         </div>
                       </div>
                       {c.reason && <p className="text-[12px] text-slate-500 mt-2">{c.reason}</p>}
@@ -204,6 +205,7 @@ export default function TailorStep({ application, pack, onPack, update, goTo }: 
             </div>
             {t.source ? (
               <ResumeChanges applicationId={application.id} fileName={t.source.fileName} count={approved}
+                changes={t.changes.filter(c => t.decisions[c.id] === 'approved')}
                 version={`${t.generatedAt}:${t.changes.filter(c => t.decisions[c.id] === 'approved').map(c => c.id).join(',')}`} />
             ) : (
               <>
