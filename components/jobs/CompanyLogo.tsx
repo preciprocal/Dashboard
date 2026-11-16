@@ -17,24 +17,76 @@ const tint = (name: string) => TINTS[[...name].reduce((h, c) => (h * 31 + c.char
 /** Bumped when the logo source changes, so browsers and the edge drop copies they cached. */
 const LOGO_VERSION = 2;
 
+// How a loaded logo is shown, worked out once per image from its pixels:
+//   tile  the logo is its own filled square (an app-icon style mark): its
+//         empty margin is trimmed and it fills the tile, on its own edge
+//         colour, so no white rim or corners show around it;
+//   mark  a mark on a transparent background: trimmed and centred on white
+//         with even padding, so every logo has the same breathing room.
+type Look = { src: string; kind: 'tile' | 'mark'; bg: string; small: boolean };
+const looks = new Map<string, Look>();
+
+function analyse(img: HTMLImageElement, url: string): Look {
+  const fallback: Look = { src: url, kind: 'mark', bg: '#ffffff', small: img.naturalWidth < 64 };
+  try {
+    const n = Math.min(img.naturalWidth, img.naturalHeight, 160) || 64;
+    const c = document.createElement('canvas');
+    c.width = n; c.height = n;
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return fallback;
+    ctx.drawImage(img, 0, 0, n, n);
+    const px = ctx.getImageData(0, 0, n, n).data;
+    const a = (x: number, y: number) => px[(y * n + x) * 4 + 3];
+    // The opaque part's bounds.
+    let x0 = n, y0 = n, x1 = -1, y1 = -1;
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+      if (a(x, y) > 24) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    }
+    if (x1 < 0) return fallback;
+    const w = x1 - x0 + 1, h = y1 - y0 + 1;
+    // A filled square: the middle of each edge of the bounds is solid.
+    const mx = x0 + (w >> 1), my = y0 + (h >> 1);
+    const solid = [a(mx, y0), a(mx, y1), a(x0, my), a(x1, my)].every(v => v > 200);
+    const tile = solid && Math.abs(w - h) <= n * 0.06;
+    // Trim to the bounds (square, centred), so margins are the same for every logo.
+    const side = Math.max(w, h);
+    const out = document.createElement('canvas');
+    out.width = side; out.height = side;
+    out.getContext('2d')!.drawImage(c, x0, y0, w, h, (side - w) / 2, (side - h) / 2, w, h);
+    let bg = '#ffffff';
+    if (tile) {
+      const i = ((y0 + 1) * n + mx) * 4;
+      bg = `rgb(${px[i]}, ${px[i + 1]}, ${px[i + 2]})`;
+    }
+    return { src: out.toDataURL('image/png'), kind: tile ? 'tile' : 'mark', bg, small: img.naturalWidth < 64 };
+  } catch {
+    return fallback;
+  }
+}
+
 export function CompanyLogo({ company, domain, size = 44 }: { company: string; domain?: string | null; size?: number }) {
+  const url = domain ? `/api/logos/icon?d=${encodeURIComponent(domain)}&v=${LOGO_VERSION}` : '';
   const [failed, setFailed] = useState(false);
-  // How much of the tile the image fills, from its resolution once loaded: a
-  // brand logo (logo.dev, 150px and up) fills it edge to edge, a sharp site
-  // icon nearly so, and a small favicon stays centred so it is not blurred.
-  const [fill, setFill] = useState<'brand' | 'large' | 'small' | null>(null);
+  const [look, setLook] = useState<Look | null>(() => (url ? looks.get(url) ?? null : null));
+  // A different company in the same slot (lists reuse components).
+  useEffect(() => { setLook(url ? looks.get(url) ?? null : null); setFailed(false); }, [url]);
   const color = tint(company);
   const box = { width: size, height: size };
   if (domain && !failed) {
-    const inset = fill === 'brand' ? 1 : fill === 'large' ? 0.72 : 0.56;
+    const inner = look?.kind === 'tile' ? size : Math.round(size * (look?.small ? 0.56 : 0.7));
     return (
-      <span className="relative rounded-xl flex items-center justify-center flex-shrink-0 bg-white overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.3)]" style={box}>
-        {/* eslint-disable-next-line @next/next/no-img-element -- a small remote logo; next/image adds nothing here */}
-        <img src={`/api/logos/icon?d=${encodeURIComponent(domain)}&v=${LOGO_VERSION}`} alt={`${company} logo`}
-          loading="lazy" decoding="async" onError={() => setFailed(true)}
-          onLoad={e => { const w = e.currentTarget.naturalWidth; setFill(w >= 150 ? 'brand' : w >= 96 ? 'large' : 'small'); }}
-          className={`transition-opacity duration-200 ${fill ? 'opacity-100' : 'opacity-0'} ${fill === 'brand' ? 'object-cover' : 'object-contain'}`}
-          style={{ width: Math.round(size * inset), height: Math.round(size * inset) }} />
+      <span className="relative rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden ring-1 ring-inset ring-white/[0.08] shadow-[0_1px_2px_rgba(0,0,0,0.35)]"
+        style={{ ...box, background: look?.bg ?? 'rgba(255,255,255,0.05)' }}>
+        {look ? (
+          // eslint-disable-next-line @next/next/no-img-element -- a trimmed copy of the logo, as a data URL
+          <img src={look.src} alt={`${company} logo`} width={inner} height={inner} className="object-contain" style={{ width: inner, height: inner }} />
+        ) : (
+          // Loaded once, measured, then replaced by the trimmed copy above.
+          // eslint-disable-next-line @next/next/no-img-element -- a small remote logo; next/image adds nothing here
+          <img src={url} alt="" aria-hidden width={size} height={size} loading="lazy" decoding="async" className="opacity-0 absolute"
+            onError={() => setFailed(true)}
+            onLoad={e => { const l = analyse(e.currentTarget, url); looks.set(url, l); setLook(l); }} />
+        )}
       </span>
     );
   }

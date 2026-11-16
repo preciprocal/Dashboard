@@ -726,3 +726,16 @@ select option { background-color: var(--bg-raised); color: var(--text-1); }
   background: rgba(255,255,255,0.015);
   box-shadow: none;
 }
+
+/* ── Tooltips (components/ui/info-tip.tsx) ───────────────────────────────── */
+.prc-tip { transform-origin: var(--radix-tooltip-content-transform-origin); }
+.prc-tip[data-state="delayed-open"], .prc-tip[data-state="instant-open"] { animation: prcTipIn 160ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.prc-tip[data-state="delayed-open"][data-side="top"], .prc-tip[data-state="instant-open"][data-side="top"] { --tip-y: 4px; --tip-x: 0px; }
+.prc-tip[data-side="bottom"] { --tip-y: -4px; --tip-x: 0px; }
+.prc-tip[data-side="left"] { --tip-x: 4px; --tip-y: 0px; }
+.prc-tip[data-side="right"] { --tip-x: -4px; --tip-y: 0px; }
+@keyframes prcTipIn {
+  from { opacity: 0; transform: translate(var(--tip-x, 0px), var(--tip-y, 4px)) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) { .prc-tip { animation: none !important; } }

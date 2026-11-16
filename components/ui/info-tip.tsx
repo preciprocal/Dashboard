@@ -7,7 +7,7 @@
 // lib/glossary.ts so they read the same everywhere.
 import { useState, type ReactNode } from 'react';
 import * as Tooltip from '@radix-ui/react-tooltip';
-import { Info } from 'lucide-react';
+import { BookOpen, Info } from 'lucide-react';
 import { GLOSSARY, type GlossaryTerm } from '@/lib/glossary';
 
 type Content = { title: string; body: ReactNode; source?: ReactNode };
@@ -44,21 +44,30 @@ export default function InfoTip({ term, title, body, source, children, side = 't
             className={`inline-flex items-center gap-1 ${wrap ? "" : "cursor-help"} rounded-md outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/60 ${className}`}
           >
             {children}
-            {(icon || !children) && <Info className="w-3.5 h-3.5 text-slate-500 hover:text-slate-300 transition-colors flex-shrink-0" aria-hidden="true" />}
+            {(icon || !children) && <Info className="w-3.5 h-3.5 text-[var(--text-5)] hover:text-[var(--text-2)] transition-colors flex-shrink-0" aria-hidden="true" />}
           </span>
         </Tooltip.Trigger>
         <Tooltip.Portal>
+          {/* The Sectira panel: raised, hairline edge, soft shadow, no arrow;
+              it slides in a few pixels from the side it opens on (globals.css
+              .prc-tip). */}
           <Tooltip.Content
             side={side}
-            sideOffset={6}
+            sideOffset={8}
             collisionPadding={12}
-            className="z-[100] max-w-[290px] rounded-xl border border-white/[0.1] bg-[var(--bg-surface)] px-3.5 py-3 shadow-[0_12px_32px_-8px_rgba(0,0,0,0.6)]
-                       data-[state=delayed-open]:animate-fade-in-up data-[state=instant-open]:animate-fade-in-up"
+            className="prc-tip z-[100] w-max max-w-[300px] overflow-hidden rounded-[10px] bg-[#151618] text-left
+                       shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_16px_40px_-12px_rgba(0,0,0,0.75),0_4px_12px_-4px_rgba(0,0,0,0.4)]"
           >
-            <p className="text-[12.5px] font-semibold text-white leading-snug">{c.title}</p>
-            <div className="text-[12px] text-slate-300 leading-relaxed mt-1">{c.body}</div>
-            {c.source && <p className="text-[11px] text-slate-500 leading-snug mt-2 pt-2 border-t border-white/[0.06]">{c.source}</p>}
-            <Tooltip.Arrow className="fill-[var(--bg-surface)]" width={12} height={6} />
+            <div className="px-3.5 pt-3 pb-3">
+              {c.title && <p className="text-[12.5px] font-semibold tracking-[-0.005em] text-[var(--text-1)] leading-snug">{c.title}</p>}
+              {c.body && <div className={`text-[12px] text-[var(--text-3)] leading-[1.55] ${c.title ? 'mt-1' : ''}`}>{c.body}</div>}
+            </div>
+            {c.source && (
+              <div className="flex items-start gap-1.5 px-3.5 py-2 border-t border-white/[0.06] bg-white/[0.02]">
+                <BookOpen className="w-3 h-3 mt-[2px] flex-shrink-0 text-[var(--text-5)]" aria-hidden="true" />
+                <p className="text-[11px] text-[var(--text-4)] leading-snug">{c.source}</p>
+              </div>
+            )}
           </Tooltip.Content>
         </Tooltip.Portal>
       </Tooltip.Root>
