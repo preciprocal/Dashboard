@@ -18,20 +18,11 @@ import { listContacts, tzOffset, type ContactFilters } from '@/lib/contacts/clie
 import { Avatar, FollowUpText, RelationshipText, StatusDot, StatusPill } from './ui';
 import ContactDrawer from './ContactDrawer';
 import ContactFormModal from './ContactFormModal';
+import ContactKpis from './ContactKpis';
 
 type View = 'list' | 'pipeline';
 
 const VIEW_KEY = 'contacts:view';
-
-function StatCard({ label, value, sub, tone = 'default' }: { label: string; value: string | number; sub?: string; tone?: 'default' | 'warn' }) {
-  return (
-    <div className="glass-card px-4 py-3.5">
-      <p className="text-xs font-medium text-slate-400">{label}</p>
-      <p className={`text-[22px] font-semibold leading-tight tabular-nums mt-1 ${tone === 'warn' ? 'text-amber-300' : 'text-white'}`}>{value}</p>
-      {sub && <p className="text-xs text-slate-400 mt-0.5">{sub}</p>}
-    </div>
-  );
-}
 
 function matches(c: Contact, q: string) {
   if (!q) return true;
@@ -41,6 +32,8 @@ function matches(c: Contact, q: string) {
 export default function ContactsView() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [stats, setStats] = useState<ContactStats | null>(null);
+  // Every contact, kept from unfiltered loads, for the figures in the strip.
+  const [all, setAll] = useState<Contact[]>([]);
   const [companies, setCompanies] = useState<string[]>([]);
   const [setupRequired, setSetupRequired] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -80,6 +73,7 @@ export default function ContactsView() {
       const res = await listContacts(f);
       setSetupRequired(!!res.setupRequired);
       setContacts(res.contacts);
+      if (!f.status && !f.relationship && !f.company && !f.due) setAll(res.contacts);
       setStats(res.stats);
       setCompanies(res.companies);
       setError('');
@@ -178,7 +172,7 @@ export default function ContactsView() {
 
       {isEmpty && (
         <div className="glass-card px-6 py-14 text-center">
-          <div className="w-11 h-11 rounded-xl bg-[var(--accent-subtle)] border border-[var(--accent-border)] flex items-center justify-center mx-auto mb-4"><ContactIcon className="w-5 h-5 text-indigo-200" /></div>
+          <div className="w-11 h-11 rounded-xl bg-white/[0.04] ring-1 ring-inset ring-white/[0.08] flex items-center justify-center mx-auto mb-4"><ContactIcon className="w-5 h-5 text-[var(--accent)]" /></div>
           <p className="text-[15px] font-semibold text-white">No contacts yet</p>
           <p className="text-[13px] text-slate-400 mt-1.5 max-w-md mx-auto">Most offers come through people. Keep everyone you reach out to in one place, and get reminded when to follow up.</p>
           <button onClick={() => setForm({ contact: null })} className="btn-primary mt-5"><Plus /> Add contact</button>
@@ -187,14 +181,12 @@ export default function ContactsView() {
 
       {!loading && !setupRequired && !isEmpty && stats && (
         <>
-          <div className="grid grid-cols-3 gap-3">
-            <StatCard label="Total" value={stats.total} sub={`${stats.byStatus.to_contact} to contact`} />
-            <StatCard label="Due for follow-up" value={stats.due} sub={stats.overdue > 0 ? `${stats.overdue} overdue` : 'Today or earlier'} tone={stats.due > 0 ? 'warn' : 'default'} />
-            <StatCard label="Reply rate" value={stats.replyRate === null ? '-' : `${stats.replyRate}%`} sub="Of people contacted" />
-          </div>
+          <ContactKpis stats={stats} all={all}
+            dueActive={dueOnly} onDue={() => { setDueOnly(d => !d); setStatus(''); }}
+            waitingActive={status === 'contacted' && !dueOnly} onWaiting={() => { setDueOnly(false); setStatus(s => (s === 'contacted' ? '' : 'contacted')); }} />
 
           {/* Search and filters */}
-          <div className="glass-card p-3 flex flex-col lg:flex-row gap-2">
+          <div className="flex flex-col lg:flex-row gap-2">
             <div className="relative flex-1 min-w-0">
               <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <input className="field !pl-10" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name, company, role or email" aria-label="Search contacts" />
@@ -218,9 +210,9 @@ export default function ContactsView() {
               {refreshing && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               {hasFilters && <button onClick={clearFilters} className="text-indigo-300 hover:text-indigo-200">Clear filters</button>}
             </p>
-            <div className="flex items-center gap-1 p-0.5 rounded-[var(--r-md)] bg-[var(--bg-subtle)] border border-[var(--border)]" role="group" aria-label="View">
-              <button onClick={() => changeView('list')} aria-pressed={view === 'list'} className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-[8px] text-[13px] font-medium transition-colors ${view === 'list' ? 'bg-[var(--bg-raised)] text-white' : 'text-slate-400 hover:text-white'}`}><List className="w-4 h-4" />List</button>
-              <button onClick={() => changeView('pipeline')} aria-pressed={view === 'pipeline'} className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-[8px] text-[13px] font-medium transition-colors ${view === 'pipeline' ? 'bg-[var(--bg-raised)] text-white' : 'text-slate-400 hover:text-white'}`}><Columns3 className="w-4 h-4" />Pipeline</button>
+            <div className="flex items-center gap-0.5 p-0.5 rounded-full bg-white/[0.035] ring-1 ring-inset ring-white/[0.06]" role="group" aria-label="View">
+              <button onClick={() => changeView('list')} aria-pressed={view === 'list'} className={`inline-flex items-center gap-1.5 h-7 px-3 rounded-full text-[12.5px] font-medium transition-colors ${view === 'list' ? 'bg-white/[0.1] text-white' : 'text-[var(--text-3)] hover:text-white'}`}><List className="w-4 h-4" />List</button>
+              <button onClick={() => changeView('pipeline')} aria-pressed={view === 'pipeline'} className={`inline-flex items-center gap-1.5 h-7 px-3 rounded-full text-[12.5px] font-medium transition-colors ${view === 'pipeline' ? 'bg-white/[0.1] text-white' : 'text-[var(--text-3)] hover:text-white'}`}><Columns3 className="w-4 h-4" />Pipeline</button>
             </div>
           </div>
 
@@ -309,7 +301,7 @@ export default function ContactsView() {
                 {CONTACT_STATUSES.map(s => {
                   const col = visible.filter(c => c.status === s);
                   return (
-                    <div key={s} className="w-[260px] flex-shrink-0 glass-card p-2.5">
+                    <div key={s} className="w-[260px] flex-shrink-0 rounded-2xl ring-1 ring-inset ring-white/[0.06] bg-white/[0.015] p-2.5">
                       <div className="flex items-center justify-between px-1.5 pb-2.5">
                         <span className="flex items-center gap-2 text-[13px] font-medium text-slate-200"><StatusDot status={s} />{STATUS_LABELS[s]}</span>
                         <span className="text-xs text-slate-400 tabular-nums">{col.length}</span>
@@ -317,7 +309,7 @@ export default function ContactsView() {
                       <div className="space-y-2">
                         {col.length === 0 && <p className="text-xs text-slate-400 px-1.5 py-3">None</p>}
                         {col.map(c => (
-                          <button key={c.id} onClick={() => setOpenContact(c)} className="w-full text-left p-3 rounded-[var(--r-md)] bg-[var(--bg-subtle)] border border-[var(--border)] hover:border-[var(--border-hover)] transition-colors">
+                          <button key={c.id} onClick={() => setOpenContact(c)} className="w-full text-left p-3 rounded-xl bg-[var(--bg-surface)] ring-1 ring-inset ring-white/[0.07] hover:ring-white/[0.14] transition-colors">
                             <p className="text-[13px] font-medium text-white truncate">{c.name}</p>
                             <p className="text-xs text-slate-400 truncate mt-0.5">{[c.role, c.company].filter(Boolean).join(' at ') || RELATIONSHIP_LABELS[c.relationship]}</p>
                             {c.status !== 'closed' && c.nextFollowUpAt && <div className="mt-2"><FollowUpText contact={c} now={now} tz={tz} /></div>}

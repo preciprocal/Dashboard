@@ -11,20 +11,21 @@ import {
 } from '@/lib/contacts/model';
 
 // Full literal class names per status (Tailwind cannot see built strings).
+// Neutral chips; the dot carries the status colour.
 const STATUS_PILL: Record<ContactStatus, string> = {
-  to_contact: 'bg-slate-500/10 text-slate-300 border-slate-500/25',
-  contacted: 'bg-indigo-500/10 text-indigo-300 border-indigo-500/25',
-  replied: 'bg-sky-500/10 text-sky-300 border-sky-500/25',
-  meeting_set: 'bg-violet-500/10 text-violet-300 border-violet-500/25',
-  referred: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/25',
-  closed: 'bg-white/[0.03] text-slate-400 border-white/[0.08]',
+  to_contact: 'text-[var(--text-2)]',
+  contacted: 'text-[var(--text-2)]',
+  replied: 'text-[var(--text-1)]',
+  meeting_set: 'text-[var(--text-1)]',
+  referred: 'text-emerald-200',
+  closed: 'text-[var(--text-4)]',
 };
 
 const STATUS_DOT: Record<ContactStatus, string> = {
   to_contact: 'bg-slate-400',
   contacted: 'bg-indigo-400',
   replied: 'bg-sky-400',
-  meeting_set: 'bg-violet-400',
+  meeting_set: 'bg-amber-300',
   referred: 'bg-emerald-400',
   closed: 'bg-slate-500',
 };
@@ -35,7 +36,7 @@ export function StatusDot({ status }: { status: ContactStatus }) {
 
 export function StatusPill({ status }: { status: ContactStatus }) {
   return (
-    <span className={`inline-flex items-center gap-1.5 h-6 px-2 rounded-md border text-xs font-medium whitespace-nowrap ${STATUS_PILL[status]}`}>
+    <span className={`inline-flex items-center gap-1.5 h-6 px-2 rounded-md bg-white/[0.04] ring-1 ring-inset ring-white/[0.07] text-xs font-medium whitespace-nowrap ${STATUS_PILL[status]}`}>
       <StatusDot status={status} />
       {STATUS_LABELS[status]}
     </span>
@@ -49,7 +50,7 @@ export function RelationshipText({ relationship }: { relationship: Relationship 
 export function Avatar({ name, size = 'md' }: { name: string; size?: 'md' | 'lg' }) {
   const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]?.toUpperCase()).join('') || '?';
   return (
-    <div className={`${size === 'lg' ? 'w-11 h-11 text-sm' : 'w-8 h-8 text-xs'} rounded-full bg-[var(--accent-subtle)] border border-[var(--accent-border)] text-indigo-200 font-semibold flex items-center justify-center flex-shrink-0`}>
+    <div className={`${size === 'lg' ? 'w-11 h-11 text-sm' : 'w-8 h-8 text-xs'} rounded-full bg-white/[0.06] ring-1 ring-inset ring-white/[0.08] text-[var(--text-1)] font-semibold flex items-center justify-center flex-shrink-0`}>
       {initials}
     </div>
   );

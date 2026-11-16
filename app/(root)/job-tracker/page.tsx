@@ -31,6 +31,8 @@ import InterviewScheduleModal from '@/components/calendar/InterviewScheduleModal
 import InterviewScheduleRow from '@/components/calendar/InterviewScheduleRow';
 import UpcomingInterviews from '@/components/calendar/UpcomingInterviews';
 import { useInterviewSchedules } from '@/components/calendar/useInterviewSchedules';
+import TrackerKpis from '@/components/job-tracker/TrackerKpis';
+import type { TrackedApp } from '@/lib/overview/metrics';
 import type { InterviewSchedule } from '@/lib/calendar/status';
 import InfoTip from '@/components/ui/info-tip';
 import { GLOSSARY } from '@/lib/glossary';
@@ -49,6 +51,9 @@ interface Application {
   resumeId?: string | null;
   /** The posting, so "Practise this interview" can build from it. */
   jobDescription?: string | null;
+  /** Written once, when the employer first replied or the first interview came. */
+  firstResponseAt?: string | null;
+  reachedInterviewAt?: string | null;
 }
 
 type AppForm = Omit<Application, 'id' | 'userId' | 'createdAt' | 'updatedAt'>;
@@ -186,32 +191,6 @@ function UpgradeGate({ feature }: { feature: 'jobs' | 'contacts' }) {
 function StatusBadge({ status }: { status: AppStatus }) {
   const cfg = STATUS_CONFIG[status];
   return <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${cfg.color} ${cfg.bg} ${cfg.border}`}><span className={`w-1.5 h-1.5 rounded-full ${cfg.dot} flex-shrink-0`} />{cfg.label}</span>;
-}
-
-function StatCard({ label, value, sub, accentClass }: { label: string; value: string | number; sub?: string; accentClass: string }) {
-  return (
-    <div className="glass-card p-4">
-      <div className="flex items-center justify-between mb-2"><span className="text-xs text-slate-400 uppercase tracking-wide font-semibold">{label}</span></div>
-      <p className={`text-2xl font-bold leading-none tabular-nums ${accentClass}`}>{value}</p>
-      {sub && <p className="text-xs text-slate-500 mt-1">{sub}</p>}
-    </div>
-  );
-}
-
-function PipelineFunnel({ apps }: { apps: Application[] }) {
-  const counts = PIPELINE_STAGES.reduce((acc, s) => { acc[s] = apps.filter(a => a.status === s).length; return acc; }, {} as Record<AppStatus, number>);
-  const hasAny = PIPELINE_STAGES.some(s => counts[s] > 0);
-  return (
-    <div className="glass-card px-4 py-3">
-      <div className="flex items-center gap-2 flex-wrap">
-        {hasAny ? PIPELINE_STAGES.map(stage => {
-          const cfg = STATUS_CONFIG[stage]; const count = counts[stage];
-          if (!count) return null;
-          return <div key={stage} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold ${cfg.bg} ${cfg.border} ${cfg.color}`}><span className={`w-1.5 h-1.5 rounded-full ${cfg.dot} flex-shrink-0`} />{cfg.label} <span className="font-bold ml-0.5">{count}</span></div>;
-        }) : <span className="text-xs text-slate-500">No active applications in pipeline</span>}
-      </div>
-    </div>
-  );
 }
 
 // ─── Form modal ───────────────────────────────────────────────────────────────
@@ -718,6 +697,8 @@ export default function JobTrackerPage() {
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<AppStatus | 'all'>('all');
+  // Only applications waiting over a week (from the KPI strip).
+  const [waitingOnly, setWaitingOnly] = useState(false);
   const [filterWork, setFilterWork] = useState<WorkType | 'all'>('all');
   const [sortBy, setSortBy] = useState<'date' | 'company' | 'status'>('date');
   const [planModal, setPlanModal] = useState<Application | null>(null);
@@ -843,16 +824,15 @@ export default function JobTrackerPage() {
     return [...n.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
   })();
 
-  const total = apps.length;
-  const activeCount = apps.filter(a => !['rejected', 'ghosted', 'withdrew', 'offer'].includes(a.status)).length;
-  const offerCount = apps.filter(a => a.status === 'offer').length;
-  const responseRate = total > 0 ? Math.round((apps.filter(a => !['applied', 'wishlist'].includes(a.status)).length / total) * 100) : 0;
+  const weekAgo = Date.now() - 7 * 86_400_000;
+  const isWaiting = (a: Application) => a.status === 'applied' && new Date(`${a.appliedDate.slice(0, 10)}T00:00:00`).getTime() <= weekAgo;
 
   const filtered = apps
     .filter(a => {
       const q = search.toLowerCase();
       return (!q || a.company.toLowerCase().includes(q) || a.jobTitle.toLowerCase().includes(q) || (a.location || '').toLowerCase().includes(q))
-        && (filterStatus === 'all' || a.status === filterStatus) && (filterWork === 'all' || a.workType === filterWork);
+        && (filterStatus === 'all' || a.status === filterStatus) && (filterWork === 'all' || a.workType === filterWork)
+        && (!waitingOnly || isWaiting(a));
     })
     .sort((a, b) => { if (sortBy === 'company') return a.company.localeCompare(b.company); if (sortBy === 'status') return a.status.localeCompare(b.status); return new Date(b.appliedDate).getTime() - new Date(a.appliedDate).getTime(); });
 
@@ -897,15 +877,18 @@ export default function JobTrackerPage() {
           <UpgradeGate feature="jobs" />
         ) : (
           <>
-            {/* Stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 animate-fade-in-up" style={{ animationDelay: '60ms' }}>
-              <StatCard label="Total" value={total} accentClass="text-white" />
-              <StatCard label="Active" value={activeCount} accentClass="text-blue-400" sub="in progress" />
-              <StatCard label="Response Rate" value={`${responseRate}%`} accentClass="text-amber-400" />
-              <StatCard label="Offers" value={offerCount} accentClass="text-emerald-400" />
+            {/* The figures that matter this week, then the pipeline */}
+            <div className="animate-fade-in-up" style={{ animationDelay: '60ms' }}>
+              <TrackerKpis
+                apps={apps as unknown as TrackedApp[]}
+                schedules={Object.values(interviews.schedules)}
+                stages={PIPELINE_STAGES.map(id => ({ id, label: STATUS_CONFIG[id].label.replace(/^[^A-Za-z]+/, ''), dot: STATUS_CONFIG[id].dot }))}
+                waitingActive={waitingOnly}
+                onWaiting={() => { setWaitingOnly(w => !w); setFilterStatus('all'); }}
+                activeStage={filterStatus}
+                onStage={id => { setWaitingOnly(false); setFilterStatus(f => (f === id ? 'all' : id as AppStatus)); }}
+              />
             </div>
-
-            <div className="animate-fade-in-up" style={{ animationDelay: '120ms' }}><PipelineFunnel apps={apps} /></div>
 
             {apps.length > 0 && (
               <div className="animate-fade-in-up" style={{ animationDelay: '150ms' }}>
@@ -951,7 +934,7 @@ export default function JobTrackerPage() {
               </div>
             ) : (
               <>
-                <p className="text-xs text-slate-500">{filtered.length} application{filtered.length !== 1 ? 's' : ''}{(search || filterStatus !== 'all' || filterWork !== 'all') ? ' matching filters' : ''}</p>
+                <p className="text-xs text-slate-500">{filtered.length} application{filtered.length !== 1 ? 's' : ''}{(search || filterStatus !== 'all' || filterWork !== 'all' || waitingOnly) ? ' matching filters' : ''}{waitingOnly && <> · waiting over a week <button onClick={() => setWaitingOnly(false)} className="text-indigo-300 hover:text-indigo-200 ml-1">Clear</button></>}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {filtered.map(app => (
                     <AppCard key={app.id} app={app} logoDomain={logos[app.company]} everify={everify.statuses[app.company.trim()]} everifySyncedAt={everify.syncedAt} h1b={h1b?.histories[app.company.trim()]} h1bYears={h1b?.years ?? null}

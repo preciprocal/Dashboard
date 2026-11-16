@@ -127,7 +127,8 @@ export default function FunnelDoctor({ refreshKey, topRole }: { refreshKey: stri
 
   if (error) return null;
   if (!data) {
-    return <div className="glass-card px-5 py-4 text-[13px] text-slate-400">Reading your results…</div>;
+    // Nothing until the report loads, rather than a placeholder strip.
+    return null;
   }
 
   const { funnel, resumes, followUps, minApplicationsForRate } = data;
