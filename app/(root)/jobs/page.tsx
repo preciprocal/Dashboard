@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, MapPin, Loader2, ShieldCheck, Landmark, Briefcase, Zap, FolderCheck } from 'lucide-react';
+import { Search, MapPin, Loader2, ShieldCheck, Landmark, Briefcase, FolderCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import PageHeader from '@/components/PageHeader';
 import { SeeExampleButton } from '@/components/ServiceModal';
@@ -405,7 +405,7 @@ export default function JobsPage() {
             {[{ v: false, label: 'Review each step' }, { v: true, label: 'Auto-apply' }].map(o => (
               <button key={o.label} role="radio" aria-checked={autoMode === o.v} onClick={() => chooseMode(o.v)}
                 className={`h-8 px-3.5 rounded-full text-[12.5px] font-medium inline-flex items-center gap-1.5 transition-all duration-200 ${autoMode === o.v ? 'bg-white/[0.08] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] shadow-[0_4px_12px_-4px_rgba(91,108,255,0.8)]' : 'text-slate-400 hover:text-white'}`}>
-                {o.v && <Zap className="w-3.5 h-3.5" />}{o.label}
+                {o.label}
               </button>
             ))}
           </div>

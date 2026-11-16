@@ -13,7 +13,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { CheckCircle2, Loader2, Circle, AlertTriangle, Zap, X, Chrome, ArrowRight } from 'lucide-react';
+import { CheckCircle2, Loader2, Circle, AlertTriangle, X, Chrome, ArrowRight } from 'lucide-react';
 import type { ApplyStepProps } from '@/components/apply/types';
 import type { ApplyPack } from '@/lib/applications/pack';
 import { detectExtension, extensionStoreUrl, prepareAutofill, versionAtLeast } from '@/lib/extension';
@@ -192,7 +192,7 @@ export default function AutoRun({ application, pack, onPack, update, goTo }: App
     <section className="glass-card p-5 border border-[var(--accent-border)]">
       <div className="flex items-start justify-between gap-3 mb-4">
         <div>
-          <h2 className="text-sm font-semibold text-white flex items-center gap-2"><Zap className="w-4 h-4 text-indigo-300" /> Auto-apply</h2>
+          <h2 className="text-sm font-semibold text-white flex items-center gap-2">Auto-apply</h2>
           <p className="text-[12.5px] text-slate-400 mt-0.5">
             {stopped ? 'Stopped. Carry on with the steps below, or start again.' : error ? 'Stopped at the step below.' : 'Running each step for you. You review and submit on the employer’s site.'}
           </p>

@@ -10,7 +10,7 @@ import { useId, useRef } from 'react';
 import Link from 'next/link';
 import {
   MapPin, Loader2, Ban, Bookmark, BookmarkCheck,
-  AlertTriangle, Check, FolderCheck, ArrowUpRight, Zap, ShieldCheck, Landmark,
+  AlertTriangle, Check, FolderCheck, ArrowUpRight, ShieldCheck, Landmark,
 } from 'lucide-react';
 import InfoTip from '@/components/ui/info-tip';
 import { CompanyLogo } from '@/components/jobs/CompanyLogo';
@@ -300,7 +300,7 @@ export function JobCard({ job, domain, h1bYear, closed, fit, hasResume, cardRef,
             <Link href={`/apply/${trackedId}`} className="btn-secondary !h-9 !text-[13px]">Open application</Link>
           ) : (
             <button onClick={onApply} disabled={disabled || closed} className="btn-primary !h-9 !text-[13px] !px-4 disabled:opacity-50">
-              {applying ? <Loader2 className="w-4 h-4 animate-spin" /> : autoMode ? <Zap className="w-4 h-4" /> : null}
+              {applying ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
               {autoMode ? 'Auto-apply' : 'Apply'}
             </button>
           )}

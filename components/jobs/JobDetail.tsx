@@ -11,7 +11,7 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import {
   X, Loader2, Ban, Bookmark, BookmarkCheck, Share2, ExternalLink, MapPin, Building2, Briefcase, CircleDollarSign,
-  CalendarRange, Clock, ShieldCheck, Landmark, AlertTriangle, Users, FileText, BarChart3, ChevronRight, FolderCheck, Layers, Zap, Check,
+  CalendarRange, Clock, ShieldCheck, Landmark, AlertTriangle, Users, FileText, BarChart3, ChevronRight, FolderCheck, Layers, Check,
 } from 'lucide-react';
 import { Overlay } from '@/components/contacts/ui';
 import InfoTip from '@/components/ui/info-tip';
@@ -103,7 +103,7 @@ export default function JobDetail({ url, domain, trackedId, canUnsave, saving, a
                   <Link href={`/apply/${trackedId}`} className="prc-cta !h-10 !px-5">Open application</Link>
                 ) : (
                   <button onClick={() => onApply(job)} disabled={applying || isClosed} className="prc-cta !h-10 !px-5">
-                    {applying ? <Loader2 className="w-4 h-4 animate-spin" /> : autoMode ? <Zap className="w-4 h-4" /> : null}
+                    {applying ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                     {autoMode ? 'Auto-apply' : 'Apply now'}
                   </button>
                 )}

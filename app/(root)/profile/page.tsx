@@ -11,7 +11,7 @@ import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader'
 import ErrorPage from '@/components/Error';
 import {
   MapPin, User, Bookmark, Phone, Edit,
-  Globe, FileText, Zap, AlertCircle,
+  Globe, FileText, AlertCircle,
   RefreshCw, Upload, FileBadge,
 } from "lucide-react";
 import JobApplicationProfile from "@/components/profile/JobApplication";
@@ -456,9 +456,9 @@ const ProfilePage = () => {
         <div className="flex gap-1">
           {([
             { id: 'profile',    label: 'Profile',    icon: User     },
-            { id: 'auto-apply', label: 'Auto-Apply', icon: Zap      },
+            { id: 'auto-apply', label: 'Auto-Apply' },
             { id: 'saved',      label: 'Saved',      icon: Bookmark },
-          ] as { id: typeof activeTab; label: string; icon: React.ElementType }[]).map(tab => (
+          ] as { id: typeof activeTab; label: string; icon?: React.ElementType }[]).map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
@@ -468,7 +468,7 @@ const ProfilePage = () => {
                             ? 'bg-white/[0.08] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]'
                             : 'text-slate-400 hover:text-slate-300 hover:bg-white/[0.04]'}`}
             >
-              <tab.icon className="w-3.5 h-3.5" /> {tab.label}
+              {tab.icon && <tab.icon className="w-3.5 h-3.5" />} {tab.label}
             </button>
           ))}
         </div>
