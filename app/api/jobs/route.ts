@@ -38,6 +38,7 @@ export async function GET(request: NextRequest) {
       h1b: sp.get('h1b') === '1',
       remote: sp.get('remote') === '1',
       orRemote: sp.get('orRemote') === '1',
+      roles: (sp.get('roles') ?? '').split('|').map(r => r.trim().slice(0, 60)).filter(Boolean).slice(0, 8),
     });
     const page = Math.max(1, Math.min(200, Number(sp.get('page')) || 1));
     const shown = matches.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);

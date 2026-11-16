@@ -7,6 +7,7 @@
 // the extension use, so they never type the same thing twice. Every step can
 // be skipped; ?edit=1 reopens it later to change preferences.
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import AutoTextarea from '@/components/ui/auto-textarea';
 import Link from 'next/link';
 import NextImage from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -389,7 +390,7 @@ function Input({ label, value, onChange, textarea, readOnly }: { label: string; 
     <label className="block">
       <span className="block text-[12px] text-slate-400 mb-1.5">{label}</span>
       {textarea
-        ? <textarea className="field w-full min-h-[84px] py-2.5" value={value} onChange={e => onChange?.(e.target.value)} />
+        ? <AutoTextarea className="field w-full min-h-[84px] py-2.5" value={value} onChange={e => onChange?.(e.target.value)} />
         : <input className="field w-full" value={value} readOnly={readOnly} onChange={e => onChange?.(e.target.value)} />}
     </label>
   );

@@ -121,15 +121,15 @@ export function SaveBar({ dirty, saving, saved, onSave, onDiscard, label = 'Save
 }) {
   const show = dirty || saving || saved || alwaysShow;
   return (
-    <div aria-live="polite" className={`sticky bottom-4 z-20 flex justify-center pointer-events-none transition-all duration-300 ${show ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'}`}>
-      <div className={`flex items-center gap-3 pl-4 pr-1.5 h-12 rounded-xl bg-[#151618] shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_16px_40px_-12px_rgba(0,0,0,0.75),0_4px_12px_-4px_rgba(0,0,0,0.4)] ${show ? 'pointer-events-auto' : ''}`}>
-        <span className="flex items-center gap-2 text-[13px] text-[var(--text-2)] whitespace-nowrap">
+    <div aria-live="polite" className={`sticky bottom-4 z-20 flex justify-end pointer-events-none transition-all duration-300 ${show ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'}`}>
+      <div className={`flex items-center gap-2 pl-4 pr-1.5 h-12 rounded-xl bg-[#151618] shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_16px_40px_-12px_rgba(0,0,0,0.75),0_4px_12px_-4px_rgba(0,0,0,0.4)] ${show ? 'pointer-events-auto' : ''}`}>
+        <span className="flex items-center gap-2 text-[13px] text-[var(--text-2)] whitespace-nowrap mr-2">
           {saved && !dirty ? <><Check className="w-3.5 h-3.5 text-emerald-400" strokeWidth={2.5} />All changes saved</>
             : dirty ? <><span className="w-1.5 h-1.5 rounded-full bg-amber-400" aria-hidden="true" />Unsaved changes</>
             : 'No changes yet'}
         </span>
         {onDiscard && (
-          <button type="button" onClick={onDiscard} disabled={saving} className="h-9 px-3 rounded-lg text-[13px] text-[var(--text-3)] hover:text-white hover:bg-white/[0.05] transition-colors disabled:opacity-50">
+          <button type="button" onClick={onDiscard} disabled={saving} className="btn-secondary !h-9 !text-[13px] disabled:opacity-50">
             {dirty ? 'Discard' : 'Cancel'}
           </button>
         )}

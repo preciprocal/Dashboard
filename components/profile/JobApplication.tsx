@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import { sensitiveValue, SENSITIVE_ANSWERS_VERSION } from '@/lib/config/sensitive-answers';
 import { AppSelect } from '@/components/ui/select';
+import AutoTextarea from '@/components/ui/auto-textarea';
 import { fetchDefaultResumeInfo } from '@/lib/resume/default-client';
 import type { DefaultResumeInfo } from '@/lib/resume/default-resume';
 import { AlertCircle, Plus, FileBadge, Loader2 } from 'lucide-react';
@@ -152,8 +153,8 @@ function FTextarea({ label, hint, span, value, onChange, placeholder, rows = 3 }
 }) {
   return (
     <F label={label} hint={hint} span={span}>
-      <textarea value={value} onChange={e => onChange(e.target.value)}
-        placeholder={placeholder} rows={rows} className={fieldCls + ' resize-none'} />
+      <AutoTextarea value={value} onChange={e => onChange(e.target.value)}
+        placeholder={placeholder} rows={rows} className={fieldCls} />
     </F>
   );
 }
@@ -616,6 +617,9 @@ export default function JobApplicationProfile({ onOpenProfile }: { onOpenProfile
               placeholder="I am writing to apply for the [Role] position at [Company]..." />
             <FTextarea label="Why you are a good fit" rows={4} value={p.coverLetterBody} onChange={set('coverLetterBody')}
               placeholder="In my internship at [Company], I built..." />
+            <p className="text-[12px] text-[var(--text-4)]">
+              When auto-apply is off, the Apply flow writes your cover letter from this template, in a professional tone.
+            </p>
             <p className="text-[12px] text-[var(--text-4)]">
               Write <code className="px-1 rounded bg-white/[0.06] text-[var(--text-2)]">[Company]</code> and <code className="px-1 rounded bg-white/[0.06] text-[var(--text-2)]">[Role]</code>. The extension fills them in for each job.
             </p>

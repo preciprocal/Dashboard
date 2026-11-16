@@ -93,10 +93,10 @@ export function SkillMeter({ fit, hasResume, compact }: { fit: Fit | undefined; 
 export function SponsorSignals({ job, fit, h1bYear }: { job: FeedJob; fit: Fit | undefined; h1bYear: string | null }) {
   const approvals = job.h?.[0] ?? 0;
   const flag = fit?.flags.find(f => f.kind !== 'clearance') ?? fit?.flags[0];
-  const cell = 'inline-flex items-center gap-1.5 h-7 px-2.5 text-[12px] whitespace-nowrap';
+  const cell = 'inline-flex items-center gap-1.5 h-7 px-2.5 text-[12px] whitespace-nowrap rounded-lg ring-1 ring-inset ring-white/[0.07] sm:rounded-none sm:ring-0';
   const everified = job.e === 'enrolled' || job.e === 'ending';
   return (
-    <div className="inline-flex items-stretch rounded-lg ring-1 ring-inset ring-white/[0.07] divide-x divide-white/[0.07] overflow-hidden max-w-full">
+    <div className="flex flex-wrap gap-1.5 sm:gap-0 sm:inline-flex sm:flex-nowrap items-stretch sm:rounded-lg sm:ring-1 sm:ring-inset sm:ring-white/[0.07] sm:divide-x sm:divide-white/[0.07] sm:overflow-hidden max-w-full">
       <InfoTip term={everified ? 'everified' : job.e === 'ended' ? 'everifyEnded' : 'everifyUnknown'} className={cell}>
         <ShieldCheck className={`w-3.5 h-3.5 ${everified ? 'text-emerald-400' : job.e === 'ended' ? 'text-rose-400' : 'text-[var(--text-5)]'}`} />
         <span className={everified ? 'text-[var(--text-1)]' : 'text-[var(--text-4)]'}>{everified ? 'E-Verified' : job.e === 'ended' ? 'E-Verify ended' : 'E-Verify unknown'}</span>
@@ -301,7 +301,7 @@ export function JobCardSkeleton() {
     <div className="prc-job-static rounded-2xl p-5">
       <div className="flex gap-4">
         <span className="w-12 h-12 rounded-xl prc-skeleton" />
-        <div className="flex-1 space-y-2.5 pt-1"><span className="block h-5 w-3/4 rounded prc-skeleton" /><span className="block h-3.5 w-40 rounded prc-skeleton" /><span className="block h-3.5 w-64 rounded prc-skeleton" /><span className="block h-7 w-80 rounded prc-skeleton" /></div>
+        <div className="flex-1 min-w-0 space-y-2.5 pt-1"><span className="block h-5 w-3/4 rounded prc-skeleton" /><span className="block h-3.5 w-40 rounded prc-skeleton" /><span className="block h-3.5 w-64 max-w-full rounded prc-skeleton" /><span className="block h-7 w-80 max-w-full rounded prc-skeleton" /></div>
       </div>
       <div className="flex justify-end gap-2 mt-4 pt-3.5 border-t border-white/[0.05]"><span className="w-9 h-9 rounded-lg prc-skeleton" /><span className="w-9 h-9 rounded-lg prc-skeleton" /><span className="w-20 h-9 rounded-lg prc-skeleton" /></div>
     </div>

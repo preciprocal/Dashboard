@@ -43,6 +43,9 @@ interface CoverLetterRequest {
   /** The user's own resume text to write from, in place of their saved one:
    *  the Apply flow sends the tailored version they approved. */
   resumeText?: string;
+  /** Write from the cover letter template in the user's Auto-apply details
+   *  (Profile > Auto-apply > Cover letter), when they have one. */
+  useTemplate?: boolean;
 }
 interface CoverLetterCache { content: string; wordCount: number; tokensUsed: number; createdAt: string; }
 
@@ -164,11 +167,16 @@ export async function POST(request: NextRequest) {
     // profile's extended_data). The letter copies its voice, never its content.
     const rawSample = (userDoc.extended_data as Record<string, unknown> | null)?.writingSample;
     const writingSample = typeof rawSample === 'string' ? rawSample.trim().slice(0, 2500) : '';
+    // The student's own cover letter template, used by the manual Apply flow.
+    const ext = (userDoc.extended_data as Record<string, unknown> | null) ?? {};
+    const fill = (v: unknown) => (typeof v === 'string' ? v.trim().slice(0, 2000)
+      .replace(/\[Company\]/gi, companyName ?? 'the company').replace(/\[Role\]/gi, jobRole) : '');
+    const template = body.useTemplate ? [fill(ext.coverLetterIntro), fill(ext.coverLetterBody)].filter(Boolean).join('\n\n') : '';
 
     // The user's own material: what a letter may claim. Checked against the
     // output by lib/ai/writing-check.ts, on fresh and cached letters alike.
     const groundingSources = [
-      ctx.resumeText ?? '', ctx.transcriptText ?? '', ctx.profile.bio ?? '',
+      ctx.resumeText ?? '', ctx.transcriptText ?? '', ctx.profile.bio ?? '', template,
       (ctx.profile.preferredTech ?? []).join(', '), resumeProjects, transcriptCourses,
     ];
     const authenticityOf = (content: string) => checkWriting(content, { sources: groundingSources, companyName: companyName ?? null });
@@ -181,7 +189,7 @@ export async function POST(request: NextRequest) {
       `${resumeProjects.substring(0, 200)}` +
       // v2: the truthfulness and anti-AI-phrasing prompt. Older cached letters
       // were written without it and must not be served again.
-      `v2${writingSample}`,
+      `v2${writingSample}${template}`,
     );
     const cached = await getCachedCoverLetter(cacheKey);
     if (cached) {
@@ -240,6 +248,7 @@ ${ctx.profile.bio ? `Bio: ${ctx.profile.bio}` : ''}
 ${hasResume ? `FULL RESUME EXPERIENCE:\n${ctx.resumeText!.substring(0, 3000)}` : ''}
 ${resumeProjects ? `KEY RELEVANT PROJECTS (extracted from resume):\n${resumeProjects}\nMUST reference at least one of these projects by name in the letter body.` : ''}
 ${hasTranscript && transcriptCourses ? `RELEVANT COURSEWORK (extracted from transcript):\n${transcriptCourses}\nMUST mention 3-4 specific course codes from this list in body paragraph 2.` : ''}
+${template ? `CANDIDATE'S OWN COVER LETTER TEMPLATE. Build the opening and the "why I fit" paragraphs on it: keep its points and wording where they fit this job, and add only facts from the resume:\n<<<\n${template}\n>>>` : ''}
 ${writingSample ? `CANDIDATE'S OWN WRITING. Match this voice (sentence length, vocabulary, formality, warmth). Do not reuse its content or facts:\n<<<\n${writingSample}\n>>>` : ''}
 
 LETTER STRUCTURE:

@@ -21,6 +21,7 @@ import ResumePicker, { type ResumeOption } from '@/components/apply/ResumePicker
 import { DEFAULT_RESUME_EVENT } from '@/components/DefaultResumeBanner';
 import ReadinessStrip from '@/components/profile/ReadinessStrip';
 import { FormSection, Field, AdornedInput, SaveBar } from '@/components/profile/FormKit';
+import AutoTextarea from '@/components/ui/auto-textarea';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -575,8 +576,8 @@ const ProfilePage = () => {
                   <FormSection id="pf-about" title="About you" desc="A few lines in your own words. Cover letters and application answers start from this."
                     done={bio.trim() ? 1 : 0} total={1}>
                     <Field label="Bio" hint={`${bio.length} characters`} htmlFor="pf-bio">
-                      <textarea id="pf-bio" value={bio} onChange={setF('bio')} rows={4}
-                        placeholder="Data analyst finishing an MS at Northeastern. I like turning messy data into decisions..." className={`${inp} resize-none`} />
+                      <AutoTextarea id="pf-bio" value={bio} onChange={setF('bio')} rows={4}
+                        placeholder="Data analyst finishing an MS at Northeastern. I like turning messy data into decisions..." className={inp} />
                     </Field>
                   </FormSection>
 

@@ -9,7 +9,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, MapPin, Loader2, ShieldCheck, Landmark, Briefcase, FolderCheck } from 'lucide-react';
+import { Search, MapPin, Loader2, ShieldCheck, Landmark, Briefcase, FolderCheck, Check } from 'lucide-react';
+import { relatedRoles } from '@/lib/jobs/roles';
 import { toast } from 'sonner';
 import PageHeader from '@/components/PageHeader';
 import { SeeExampleButton } from '@/components/ServiceModal';
@@ -67,6 +68,9 @@ export default function JobsPage() {
   const [orRemote, setOrRemote] = useState(false);
   const [prefs, setPrefs] = useState<JobPreferences | null>(null);
   const [usingPrefs, setUsingPrefs] = useState(false);
+  // Roles to match in titles: the one from setup, plus any related ones picked.
+  const [roles, setRoles] = useState<string[]>([]);
+  const toggleRole = (r: string) => setRoles(v => (v.includes(r) ? v.filter(x => x !== r) : [...v, r]));
   // The first search waits for saved preferences, so the list does not flash
   // unfiltered results and then change.
   const [ready, setReady] = useState(false);
@@ -159,11 +163,12 @@ export default function JobsPage() {
     setEverify(p.everifyOnly);
     setH1b(p.h1bOnly);
     setRemote(false);
+    setRoles(p.role.trim() ? [p.role.trim()] : []);
     setUsingPrefs(true);
   };
   const clearFilters = () => {
     setLevels(['intern', 'early']); setFamily(''); setLocation(''); setOrRemote(false);
-    setEverify(false); setH1b(false); setRemote(false); setQ(''); setUsingPrefs(false);
+    setEverify(false); setH1b(false); setRemote(false); setQ(''); setRoles([]); setUsingPrefs(false);
   };
 
   const query = useCallback((page: number) => {
@@ -177,8 +182,9 @@ export default function JobsPage() {
     if (everify) sp.set('everify', '1');
     if (h1b) sp.set('h1b', '1');
     if (remote) sp.set('remote', '1');
+    if (roles.length) sp.set('roles', roles.join('|'));
     return sp.toString();
-  }, [q, location, levels, family, days, everify, h1b, remote, orRemote, prefs]);
+  }, [q, location, levels, family, days, everify, h1b, remote, orRemote, prefs, roles]);
 
   // New filters: first page. Cached results for the same filters show at once;
   // typing is debounced, but the first load is not.
@@ -375,6 +381,27 @@ export default function JobsPage() {
           <button onClick={() => setRemote(v => !v)} aria-pressed={remote} className={toggle(remote)}>Remote</button>
           <button onClick={toggleHideTracked} aria-pressed={hideTracked} className={toggle(hideTracked)}><FolderCheck className="w-3.5 h-3.5" />Hide tracked</button>
         </div>
+        {/* The role from setup and the roles close to it */}
+        {prefs?.role.trim() && (() => {
+          const mine = prefs.role.trim();
+          const options = [mine, ...relatedRoles(mine)];
+          const chip = (on: boolean) => `inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12.5px] font-medium transition-colors ${on ? 'bg-white/[0.1] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)]' : 'text-[var(--text-3)] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.07)] hover:text-white hover:bg-white/[0.04]'}`;
+          return (
+            <div className="flex flex-wrap items-center gap-2 pt-3 mt-3 border-t border-white/[0.06]">
+              <span className="text-[12px] text-[var(--text-4)] mr-1">Roles</span>
+              <button onClick={() => setRoles([])} aria-pressed={roles.length === 0} className={chip(roles.length === 0)}>All roles</button>
+              {options.map((r, i) => {
+                const on = roles.includes(r);
+                return (
+                  <button key={r} onClick={() => toggleRole(r)} aria-pressed={on} className={chip(on)}>
+                    {on && <Check className="w-3.5 h-3.5" strokeWidth={2.5} />}{r}
+                    {i === 0 && <span className="text-[10.5px] text-[var(--text-5)] font-normal">your role</span>}
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })()}
       </section>
 
       {/* Results bar */}

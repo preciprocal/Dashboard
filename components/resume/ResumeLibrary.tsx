@@ -217,9 +217,9 @@ function Row({ r, usage, apps, isDefault, removing, onDelete, onMadeDefault }: {
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <MoreHorizontal className="w-4 h-4" />}
         </button>
         {menu && (
-          <div className="absolute right-0 top-full mt-1.5 w-52 z-20 rounded-xl bg-[var(--bg-raised)] p-1 shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_16px_40px_-12px_rgba(0,0,0,0.75)]">
+          <div className="absolute right-0 top-full mt-1.5 w-max min-w-[13rem] z-20 rounded-xl bg-[var(--bg-raised)] p-1 shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_16px_40px_-12px_rgba(0,0,0,0.75)]">
             <Link href={`/resume/${r.id}`} className="flex items-center gap-2.5 px-3 h-9 rounded-lg text-[12.5px] text-[var(--text-2)] hover:text-white hover:bg-white/[0.05]"><FileText className="w-4 h-4" /> Open analysis</Link>
-            {!isDefault && <button onClick={makeDefault} className="w-full flex items-center gap-2.5 px-3 h-9 rounded-lg text-[12.5px] text-[var(--text-2)] hover:text-white hover:bg-white/[0.05]"><Star className="w-4 h-4" /> Make default for auto-apply</button>}
+            {!isDefault && <button onClick={makeDefault} className="w-full flex items-center gap-2.5 px-3 h-9 rounded-lg text-[12.5px] text-[var(--text-2)] hover:text-white hover:bg-white/[0.05] whitespace-nowrap"><Star className="w-4 h-4 flex-shrink-0" /> Make default for auto-apply</button>}
             <div className="my-1 h-px bg-white/[0.06]" />
             <button onClick={remove} className="w-full flex items-center gap-2.5 px-3 h-9 rounded-lg text-[12.5px] text-rose-300 hover:bg-rose-500/[0.08]"><Trash2 className="w-4 h-4" /> Delete</button>
           </div>

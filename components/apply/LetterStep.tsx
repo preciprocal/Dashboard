@@ -29,7 +29,7 @@ export default function LetterStep({ application, pack, update, goTo }: ApplySte
     try {
       const r = await fetch('/api/cover-letter', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobRole: application.jobTitle, companyName: application.company || undefined, jobDescription: jd || undefined, tone, resumeText: resumeText || undefined }),
+        body: JSON.stringify({ jobRole: application.jobTitle, companyName: application.company || undefined, jobDescription: jd || undefined, tone, resumeText: resumeText || undefined, useTemplate: true }),
       });
       const j = await r.json();
       if (!r.ok || !j.success) throw new Error(j.error || 'Could not write the letter');

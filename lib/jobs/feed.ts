@@ -18,6 +18,7 @@
 // instead of promising "no ghost jobs".
 
 import { gunzipSync } from 'node:zlib';
+import { titleMatchesAny } from '@/lib/jobs/roles';
 import { supabaseAdmin } from '@/supabase/admin';
 
 const BUCKET = 'jobs';
@@ -105,6 +106,8 @@ export interface FeedQuery {
   remote?: boolean;
   /** With a location: also keep remote roles anywhere. */
   orRemote?: boolean;
+  /** Keep titles that match any of these roles (lib/jobs/roles.ts). */
+  roles?: string[];
 }
 
 const daysAgo = (date: string) => Math.floor((Date.now() - Date.parse(`${date}T00:00:00Z`)) / 86_400_000);
@@ -122,6 +125,7 @@ export function filterJobs(jobs: FeedJob[], q: FeedQuery): FeedJob[] {
     if (q.h1b && !(j.h && j.h[0] > 0)) return false;
     if (q.remote && !/remote/i.test(j.l)) return false;
     if (loc && !j.l.toLowerCase().includes(loc) && !(q.orRemote && /remote/i.test(j.l))) return false;
+    if (q.roles?.length && !titleMatchesAny(j.t, q.roles)) return false;
     if (words.length) {
       const hay = `${j.t} ${j.c}`.toLowerCase();
       if (!words.every(w => hay.includes(w))) return false;
