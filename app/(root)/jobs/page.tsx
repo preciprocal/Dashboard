@@ -70,6 +70,9 @@ export default function JobsPage() {
   const [usingPrefs, setUsingPrefs] = useState(false);
   // Roles to match in titles: the one from setup, plus any related ones picked.
   const [roles, setRoles] = useState<string[]>([]);
+  // The student's role: from setup, or else the target role on their profile.
+  const [myRole, setMyRole] = useState('');
+  const adoptRole = (r: string) => { setMyRole(r); setRoles(r ? [r] : []); };
   const toggleRole = (r: string) => setRoles(v => (v.includes(r) ? v.filter(x => x !== r) : [...v, r]));
   // The first search waits for saved preferences, so the list does not flash
   // unfiltered results and then change.
@@ -143,6 +146,8 @@ export default function JobsPage() {
       setReady(true);
       return;
     }
+    const cachedRole = readCache<string>('prc_jobs_role');
+    if (cachedRole !== null) adoptRole(cachedRole);
     const cached = readCache<JobPreferences | false>('prc_jobs_prefs');
     if (cached !== null) {
       if (cached) { setPrefs(cached); applyPrefs(cached); }
@@ -151,6 +156,9 @@ export default function JobsPage() {
     fetch('/api/onboarding').then(r => (r.ok ? r.json() : null)).then(j => {
       const p = j?.completed ? readPreferences(j.preferences) : null;
       writeCache('prc_jobs_prefs', p ?? false);
+      const role = ((j?.preferences?.role as string) || (j?.profile?.headline as string) || '').trim().slice(0, 60);
+      writeCache('prc_jobs_role', role);
+      if (cachedRole === null) adoptRole(role);
       if (cached === null && p) { setPrefs(p); applyPrefs(p); }
     }).catch(() => {}).finally(() => setReady(true));
   }, [user]);
@@ -163,7 +171,6 @@ export default function JobsPage() {
     setEverify(p.everifyOnly);
     setH1b(p.h1bOnly);
     setRemote(false);
-    setRoles(p.role.trim() ? [p.role.trim()] : []);
     setUsingPrefs(true);
   };
   const clearFilters = () => {
@@ -382,8 +389,8 @@ export default function JobsPage() {
           <button onClick={toggleHideTracked} aria-pressed={hideTracked} className={toggle(hideTracked)}><FolderCheck className="w-3.5 h-3.5" />Hide tracked</button>
         </div>
         {/* The role from setup and the roles close to it */}
-        {prefs?.role.trim() && (() => {
-          const mine = prefs.role.trim();
+        {myRole && (() => {
+          const mine = myRole;
           const options = [mine, ...relatedRoles(mine)];
           const chip = (on: boolean) => `inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12.5px] font-medium transition-colors ${on ? 'bg-white/[0.1] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)]' : 'text-[var(--text-3)] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.07)] hover:text-white hover:bg-white/[0.04]'}`;
           return (
