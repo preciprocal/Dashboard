@@ -210,16 +210,16 @@ function FormModal({ form, setForm, onSave, onCancel, saving, isEdit, resumes }:
           <div className="flex items-center gap-2.5"><div className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/[0.05] ring-1 ring-inset ring-white/[0.08]"><Briefcase className="w-4 h-4 text-[var(--text-2)]" /></div><h2 className="text-sm font-bold text-white">{isEdit ? 'Edit Application' : 'Add Application'}</h2></div>
           <button onClick={onCancel} className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.05] transition-all"><X className="w-4 h-4" /></button>
         </div>
-        <div className="overflow-y-auto flex-1 px-6 py-5 space-y-4 glass-scrollbar">
-          <div className="grid grid-cols-2 gap-3">
+        <div className="overflow-y-auto flex-1 px-4 sm:px-6 py-5 space-y-4 glass-scrollbar">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Company *</label><input type="text" value={form.company} onChange={e => setForm(p => ({ ...p, company: e.target.value }))} placeholder="e.g. Stripe" className={inp} /></div>
             <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Job Title *</label><input type="text" value={form.jobTitle} onChange={e => setForm(p => ({ ...p, jobTitle: e.target.value }))} placeholder="e.g. Senior SWE" className={inp} /></div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Status</label><AppSelect value={form.status} onValueChange={v => setForm(p => ({ ...p, status: v as AppStatus }))} aria-label="Status" options={(Object.keys(STATUS_CONFIG) as AppStatus[]).map(s => ({ value: s, label: STATUS_CONFIG[s].label }))} /></div>
             <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Applied Date</label><DateInput value={form.appliedDate} onChange={v => setForm(p => ({ ...p, appliedDate: v }))} /></div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Location</label><input type="text" value={form.location || ''} onChange={e => f('location', e.target.value)} placeholder="e.g. San Francisco, CA" className={inp} /></div>
             <div>
               <label className="block text-xs font-medium text-slate-400 mb-1.5">Work Type</label>
@@ -232,7 +232,7 @@ function FormModal({ form, setForm, onSave, onCancel, saving, isEdit, resumes }:
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Salary / Range</label><input type="text" value={form.salary || ''} onChange={e => f('salary', e.target.value)} placeholder="e.g. $140k-$170k" className={inp} /></div>
             <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Source</label><input type="text" value={form.source || ''} onChange={e => f('source', e.target.value)} placeholder="e.g. LinkedIn, referral" className={inp} /></div>
           </div>

@@ -199,7 +199,7 @@ export default function Onboarding() {
           {/* Progress bar on small screens */}
           {!done && (
             <div className="lg:hidden h-1 rounded-full bg-white/[0.06] mb-6 overflow-hidden">
-              <div className="h-full bg-[var(--accent)] transition-[width] duration-500" style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
+              <div className="h-full bg-white/80 transition-[width] duration-500" style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
             </div>
           )}
 
