@@ -312,7 +312,7 @@ function Company({ d, domain, onOpenJob, onSeeAll }: { d: Detail; domain: string
           ) : (
             <p className="text-[13px] text-slate-400 mt-4 leading-relaxed">No enrolment found under this name. Employers often enrol under a different legal name.</p>
           )}
-          <p className="text-[11px] text-slate-500 mt-auto pt-4">Public E-Verify employer list{c.everifySyncedAt ? `, checked ${fmtDate(c.everifySyncedAt)}` : ''}</p>
+          <p className="text-[11px] text-slate-500 mt-auto pt-4">E-Verify Employers Search, USCIS{c.everifySyncedAt ? `, updated ${fmtDate(c.everifySyncedAt)}` : ''}</p>
         </div>
 
         {/* H-1B */}
@@ -329,7 +329,7 @@ function Company({ d, domain, onOpenJob, onSeeAll }: { d: Detail; domain: string
                   </div>
                 ))}
               </div>
-              <p className="text-[12px] text-slate-400 mt-4 leading-relaxed">Workers approved on USCIS&apos;s first decision, new hires and extensions together{c.h1b?.employer ? `, filed as ${c.h1b.employer}` : ''}. A record of past sponsorship, not a promise for this role.</p>
+              <p className="text-[12px] text-slate-400 mt-4 leading-relaxed">Workers USCIS approved, new hires and extensions together{c.h1b?.employer ? `, filed as ${c.h1b.employer}` : ''}. A record of past sponsorship, not a promise for this role.</p>
             </>
           ) : (
             <p className="text-[13px] text-slate-400 mt-4 leading-relaxed">No approvals on record under this name. Petitions are filed under the legal entity, which can have a different name.</p>
@@ -355,7 +355,7 @@ function Company({ d, domain, onOpenJob, onSeeAll }: { d: Detail; domain: string
             )}
           </div>
         ) : <p className="text-[13.5px] text-slate-400">This is the only open role from {c.name} in our feed right now.</p>}
-        {site && <p className="text-[12px] text-slate-500 mt-3">Roles come from {c.name}&apos;s own job board ({site}), checked on a schedule.</p>}
+        {site && <p className="text-[12px] text-slate-500 mt-3">Roles come from {c.name}&apos;s own job board ({site}), updated on a schedule.</p>}
       </Section>
     </div>
   );

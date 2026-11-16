@@ -172,69 +172,63 @@ export function saveState(trackedId: string | undefined, canUnsave: boolean | un
     : { label: 'In your tracker as an application, so it stays saved', active: true, locked: true };
 }
 
+const sideBtn = 'inline-flex items-center justify-center gap-1.5 h-8 rounded-lg text-[12.5px] font-medium ring-1 ring-inset ring-white/[0.07] transition-colors';
+
 // ─── The fit panel on the right ──────────────────────────────────────────────
 
-function FitSide({ job, fit, hasResume, h1bYear }: { job: FeedJob; fit: Fit | undefined; hasResume: boolean | null; h1bYear: string | null }) {
-  const approvals = job.h?.[0] ?? 0;
-  const everified = job.e === 'enrolled' || job.e === 'ending';
-  const flag = fit?.flags.find(f => f.kind !== 'clearance') ?? fit?.flags[0];
-  const scored = fit && fit.skills.length > 0 && hasResume !== false;
-  const n = scored ? Math.min(10, fit!.skills.length) : 5;
-  const on = scored ? Math.round((fit!.matched.length / fit!.skills.length) * n) : 0;
-  const barColor = fit?.score != null && fit.score >= 70 ? 'bg-emerald-400' : fit?.score != null && fit.score >= 40 ? 'bg-sky-400' : 'bg-slate-400';
-  const row = 'flex items-center gap-2 text-[12px] min-w-0';
+interface Actions { trackedId: string | undefined; closed: boolean; applying: boolean; saving: boolean; disabled: boolean; autoMode: boolean; sv: ReturnType<typeof saveState>; onApply: () => void; onSave: () => void; onHide: () => void }
 
+function FitSide({ fit, hasResume, a }: { fit: Fit | undefined; hasResume: boolean | null; a: Actions }) {
+  const score = hasResume !== false ? fit?.score ?? null : null;
   return (
     <div className="prc-rail sm:w-[214px] flex-shrink-0 flex flex-col gap-3 p-4 sm:p-5 border-t sm:border-t-0 sm:border-l border-white/[0.06]">
-      <p className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-[var(--text-4)]">Your fit</p>
-
-      {/* Skills: a fraction and one segment per skill the posting names */}
+      {/* Compatibility: the share of the posting's named skills on your resume */}
       {fit === undefined ? (
-        <div className="space-y-2"><span className="block h-8 w-20 rounded prc-skeleton" /><span className="block h-2 w-full rounded prc-skeleton" /></div>
-      ) : scored ? (
-        <InfoTip wrap title={`Skills: ${fit!.matched.length} of ${fit!.skills.length}`}
-          body={<>Skills this posting names that are on your default resume.
-            {fit!.matched.length > 0 && <span className="block mt-1.5"><span className="text-emerald-300">On your resume:</span> {fit!.matched.join(', ')}</span>}
-            {fit!.missing.length > 0 && <span className="block mt-1"><span className="text-amber-300">Not on it:</span> {fit!.missing.join(', ')}</span>}</>}
+        <div className="flex items-center gap-3"><span className="w-[64px] h-[64px] rounded-full prc-skeleton" /><span className="space-y-1.5"><span className="block h-3.5 w-20 rounded prc-skeleton" /><span className="block h-3 w-16 rounded prc-skeleton" /></span></div>
+      ) : score !== null ? (
+        <InfoTip wrap title={`Compatibility: ${score}%`}
+          body={<>The share of skills this posting names that are on your default resume: {fit!.matched.length} of {fit!.skills.length}.</>}
           source="A count of named skills, not a prediction of how the employer will rank you.">
-          <span tabIndex={0} className="block rounded-md outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-border)]">
-            <span className="flex items-baseline gap-1.5">
-              <span className="font-display text-[32px] font-semibold tracking-[-0.03em] text-white tabular-nums leading-none">{fit!.matched.length}</span>
-              <span className="text-[16px] text-[var(--text-4)] font-medium tabular-nums">/ {fit!.skills.length}</span>
-              <span className="text-[12px] text-[var(--text-3)] ml-1">skills</span>
-            </span>
-            <span className="mt-2.5 flex gap-[3px]" aria-hidden="true">
-              {Array.from({ length: n }, (_, i) => <span key={i} className={`h-2 flex-1 rounded-full ${i < on ? barColor : 'bg-white/[0.08]'}`} />)}
+          <span tabIndex={0} className="flex items-center gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-border)]">
+            <MatchRing score={score} size={64} stroke={5} />
+            <span className="min-w-0">
+              <span className="block text-[14px] font-semibold text-white leading-tight">{matchWord(score)}</span>
+              <span className="block text-[11.5px] text-[var(--text-4)] mt-0.5">Compatibility</span>
             </span>
           </span>
         </InfoTip>
       ) : (
-        <p className="text-[12px] text-[var(--text-3)] leading-snug">
-          {hasResume === false ? <Link href="/profile" onClick={e => e.stopPropagation()} className="text-indigo-300 hover:underline">Add your resume to match skills</Link>
-            : fit === null ? 'Posting unavailable right now' : 'The posting names no specific skills'}
-        </p>
+        <div className="flex items-center gap-3">
+          <span className="w-[64px] h-[64px] rounded-full flex items-center justify-center flex-shrink-0 ring-[5px] ring-inset ring-white/[0.07] text-[var(--text-5)] text-[13px] font-medium">N/A</span>
+          <p className="text-[12px] text-[var(--text-3)] leading-snug">
+            {hasResume === false ? <Link href="/profile" onClick={e => e.stopPropagation()} className="text-indigo-300 hover:underline">Add your resume to see your match</Link>
+              : fit === null ? 'Posting unavailable right now' : 'Too few named skills to score'}
+          </p>
+        </div>
       )}
 
-      {/* Sponsorship checks */}
-      <ul className="mt-auto pt-3 border-t border-white/[0.07] space-y-2">
-        <li><InfoTip term={everified ? 'everified' : job.e === 'ended' ? 'everifyEnded' : 'everifyUnknown'} className={row}>
-          <ShieldCheck className={`w-3.5 h-3.5 flex-shrink-0 ${everified ? 'text-emerald-400' : job.e === 'ended' ? 'text-rose-400' : 'text-[var(--text-5)]'}`} />
-          <span className={everified ? 'text-[var(--text-1)]' : 'text-[var(--text-4)]'}>{everified ? 'E-Verified' : job.e === 'ended' ? 'E-Verify ended' : 'E-Verify unknown'}</span>
-        </InfoTip></li>
-        <li><H1bTip h={job.h} year={h1bYear} className={row}>
-          <Landmark className={`w-3.5 h-3.5 flex-shrink-0 ${approvals > 0 ? 'text-sky-400' : 'text-[var(--text-5)]'}`} />
-          <span className={`truncate ${approvals > 0 ? 'text-[var(--text-1)]' : 'text-[var(--text-4)]'}`}>{approvals > 0 ? <><span className="tabular-nums">{approvals.toLocaleString('en-US')}</span> H-1B{h1bYear ? ` in FY${h1bYear.slice(2)}` : ''}</> : 'No H-1B record'}</span>
-        </H1bTip></li>
-        <li>{fit === undefined ? <span className="block h-3.5 w-28 rounded prc-skeleton" /> : flag ? (
-          <InfoTip title={FLAG_LABEL[flag.kind]} body={<span className="italic">&ldquo;{flag.quote}&rdquo;</span>} source="Quoted from the posting." className={row}>
-            <AlertTriangle className="w-3.5 h-3.5 text-rose-300 flex-shrink-0" /><span className="text-rose-200 truncate">{FLAG_LABEL[flag.kind]}</span>
-          </InfoTip>
+      {/* Actions */}
+      <div className="mt-auto pt-3 border-t border-white/[0.07] space-y-2">
+        {a.trackedId ? (
+          <Link href={`/apply/${a.trackedId}`} className="btn-secondary !h-9 !text-[13px] w-full justify-center">Open application</Link>
         ) : (
-          <InfoTip title="Posting language" body="The posting does not say it will not sponsor, and does not limit the role to US citizens or ask for a clearance." source="Read from the posting's own text." className={row}>
-            <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" strokeWidth={2.5} /><span className="text-[var(--text-1)] truncate">No sponsorship limits</span>
-          </InfoTip>
-        )}</li>
-      </ul>
+          <button onClick={a.onApply} disabled={a.disabled || a.closed} className="btn-primary !h-9 !text-[13px] w-full justify-center disabled:opacity-50">
+            {a.applying && <Loader2 className="w-4 h-4 animate-spin" />}
+            {a.autoMode ? 'Auto-apply' : 'Apply'}
+          </button>
+        )}
+        <div className="grid grid-cols-2 gap-2">
+          <button onClick={a.onSave} disabled={a.saving || a.sv.locked} title={a.sv.label} aria-label={a.sv.label} aria-pressed={a.sv.active}
+            className={`${sideBtn} ${a.sv.active ? 'text-white bg-white/[0.08] ring-white/[0.12]' : 'text-[var(--text-2)] hover:text-white hover:bg-white/[0.05]'} disabled:cursor-default`}>
+            {a.saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : a.sv.active ? <BookmarkCheck className="w-3.5 h-3.5" /> : <Bookmark className="w-3.5 h-3.5" />}
+            {a.sv.active ? 'Saved' : 'Save'}
+          </button>
+          <button onClick={a.onHide} title="Not interested" aria-label="Not interested"
+            className={`${sideBtn} text-[var(--text-3)] hover:text-white hover:bg-white/[0.05]`}>
+            <Ban className="w-3.5 h-3.5" />Hide
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -283,31 +277,19 @@ export function JobCard({ job, domain, h1bYear, closed, fit, hasResume, cardRef,
               {fit === undefined && <span className="inline-block align-middle ml-2 h-3 w-16 rounded prc-skeleton" />}
             </p>
             {facts?.pay && <p className="mt-2 text-[14px] font-semibold text-white tabular-nums">{payText(facts.pay)}</p>}
+            <div className="mt-3" onClick={stop}><SkillMeter fit={fit} hasResume={hasResume} /></div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 mt-auto pt-4" onClick={stop}>
-          <div className="flex items-center gap-1.5 mr-auto min-w-0">
-            {closed && <InfoTip term="closedPosting"><Tag>Closed</Tag></InfoTip>}
-            {trackedId && <Tag tone="indigo"><FolderCheck className="w-3 h-3" />In your tracker</Tag>}
-            {!closed && !trackedId && <button onClick={onOpen} className="inline-flex items-center gap-1 text-[12.5px] text-[var(--text-4)] hover:text-white transition-colors">Details<ArrowUpRight className="w-3.5 h-3.5" /></button>}
-          </div>
-          <IconButton label="Not interested" onClick={onHide}><Ban className="w-4 h-4" /></IconButton>
-          <IconButton label={sv.label} onClick={onSave} active={sv.active} disabled={saving || sv.locked}>
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : sv.active ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
-          </IconButton>
-          {trackedId ? (
-            <Link href={`/apply/${trackedId}`} className="btn-secondary !h-9 !text-[13px]">Open application</Link>
-          ) : (
-            <button onClick={onApply} disabled={disabled || closed} className="btn-primary !h-9 !text-[13px] !px-4 disabled:opacity-50">
-              {applying ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-              {autoMode ? 'Auto-apply' : 'Apply'}
-            </button>
-          )}
+        <div className="flex flex-wrap items-center gap-2 mt-auto pt-4" onClick={stop}>
+          <SponsorSignals job={job} fit={fit} h1bYear={h1bYear} />
+          {closed && <InfoTip term="closedPosting"><Tag>Closed</Tag></InfoTip>}
+          {trackedId && <Tag tone="indigo"><FolderCheck className="w-3 h-3" />In your tracker</Tag>}
+          {!closed && !trackedId && <button onClick={onOpen} className="ml-auto inline-flex items-center gap-1 text-[12.5px] text-[var(--text-4)] hover:text-white transition-colors flex-shrink-0">Details<ArrowUpRight className="w-3.5 h-3.5" /></button>}
         </div>
       </div>
       <div onClick={stop} className="contents sm:flex">
-        <FitSide job={job} fit={fit} hasResume={hasResume} h1bYear={h1bYear} />
+        <FitSide fit={fit} hasResume={hasResume} a={{ trackedId, closed, applying, saving, disabled, autoMode, sv, onApply, onSave, onHide }} />
       </div>
     </article>
   );

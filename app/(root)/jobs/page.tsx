@@ -396,7 +396,7 @@ export default function JobsPage() {
                 <button onClick={clearFilters} className="hover:text-white transition-colors">Clear</button>
               </>
             ) : <span>From employers&apos; own job boards</span>}
-            {data && <><span aria-hidden="true">·</span><InfoTip term="jobsChecked" side="bottom">Checked {new Date(data.syncedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</InfoTip></>}
+            {data && <><span aria-hidden="true">·</span><InfoTip term="jobsChecked" side="bottom">Updated {new Date(data.syncedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</InfoTip></>}
           </p>
         </div>
         <div className="flex items-center gap-2.5">

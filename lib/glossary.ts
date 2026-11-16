@@ -9,12 +9,12 @@ export const GLOSSARY = {
   everified: {
     title: 'E-Verified employer',
     body: 'The employer is enrolled in E-Verify, the federal system that confirms a new hire can work in the US. A STEM OPT extension is only possible with an employer enrolled in E-Verify.',
-    source: 'From the public E-Verify employer list, which employers report themselves.',
+    source: 'E-Verify Employers Search, USCIS.',
   },
   everifyEnded: {
     title: 'E-Verify enrolment ended',
     body: 'This employer was enrolled in E-Verify, but its enrolment has ended. It would need to enrol again before it could employ you on a STEM OPT extension. Ask the employer to confirm.',
-    source: 'From the public E-Verify employer list.',
+    source: 'E-Verify Employers Search, USCIS.',
   },
   everifyUnknown: {
     title: 'No E-Verify match',
@@ -24,7 +24,7 @@ export const GLOSSARY = {
   h1b: {
     title: 'H-1B approvals',
     body: 'Workers USCIS approved for an employer in a fiscal year, new hires and renewals together. Past sponsorship, not a promise for a role.',
-    source: 'From the USCIS H-1B Employer Data Hub.',
+    source: 'USCIS H-1B Employer Data Hub.',
   },
   h1bNone: {
     title: 'No H-1B approvals on record',
@@ -40,7 +40,7 @@ export const GLOSSARY = {
     body: 'The employer took this posting down after our last check, so it can no longer be applied to.',
   },
   jobsChecked: {
-    title: 'When postings were checked',
+    title: 'When postings were updated',
     body: 'We read every employer\'s own job board on a schedule. A posting is checked again when you press Apply, so a closed one is caught before you spend time on it.',
   },
   autoApply: {

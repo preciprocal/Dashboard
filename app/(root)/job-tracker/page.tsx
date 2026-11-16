@@ -280,7 +280,7 @@ function fmtDate(iso: string | null): string {
 }
 
 function EverifyBadge({ status, syncedAt }: { status: EverifyStatus; syncedAt: string | null }) {
-  const checked = syncedAt ? `List checked ${fmtDate(syncedAt)}. Click to open the official E-Verify search.` : 'Click to open the official E-Verify search.';
+  const checked = syncedAt ? `Updated ${fmtDate(syncedAt)}. Click to open the official E-Verify search.` : 'Click to open the official E-Verify search.';
   const conf = {
     enrolled: {
       label: 'E-Verified',
@@ -343,7 +343,7 @@ function H1bBadge({ history, years }: { history: H1bHistory | null; years: strin
   const latest = history.years.find((y) => y.approvals > 0) ?? history.years[0];
   const n = (v: number) => v.toLocaleString('en-US');
   return (
-    <InfoTip wrap title={`H-1B approvals: ${history.employer}`} source="From the USCIS H-1B Employer Data Hub. Click to open it."
+    <InfoTip wrap title={`H-1B approvals: ${history.employer}`} source="USCIS H-1B Employer Data Hub. Click to open it."
       body={<>
         <table className="w-full text-[11.5px] tabular-nums my-1.5">
           <thead><tr className="text-slate-500"><th className="text-left font-medium">Year</th><th className="text-right font-medium">Approved</th><th className="text-right font-medium">New hires</th><th className="text-right font-medium">Denied</th></tr></thead>

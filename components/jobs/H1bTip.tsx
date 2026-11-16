@@ -34,7 +34,7 @@ export default function H1bTip({ h, year, className, children }: {
         </span>
         <span className="block mt-2 text-[11.5px] text-[var(--text-4)]">Past sponsorship, not a promise for this role.</span>
       </>}
-      source="USCIS H-1B Employer Data Hub, first decisions.">
+      source="USCIS H-1B Employer Data Hub.">
       {children}
     </InfoTip>
   );
